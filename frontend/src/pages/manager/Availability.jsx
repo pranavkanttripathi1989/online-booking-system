@@ -1,0 +1,507 @@
+import { useState, useEffect, useCallback } from 'react'
+import { useQuery, useLazyQuery, useMutation, gql } from '@apollo/client'
+import {
+  Box, Button, Card, CardContent, Chip, CircularProgress,
+  FormControl, FormControlLabel, Checkbox, Grid, IconButton,
+  InputLabel, MenuItem, Select, Stack, TextField, Typography,
+  Alert, Divider, Tooltip,
+} from '@mui/material'
+import AddIcon from '@mui/icons-material/Add'
+import EditIcon from '@mui/icons-material/Edit'
+import DeleteIcon from '@mui/icons-material/Delete'
+import AccessTimeIcon from '@mui/icons-material/AccessTime'
+import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
+
+// ─── GraphQL ─────────────────────────────────────────────────────────────────
+
+const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
+const RECURRENCE_TYPES = ['daily', 'weekly', 'monthly', 'custom']
+
+const GET_AVAILABILITY_DATA = gql`
+  query GetManagerAvailabilityData {
+    availabilities(search: { limit: 200 }) {
+      id
+      clinicianId
+      clinicId
+      roomId
+      dayOfWeek
+      startTime
+      endTime
+      recurrenceType
+      excludeWeekends
+      excludeSaturday
+      excludeSunday
+      validFrom
+      validUntil
+      isActive
+      clinician { id firstName lastName }
+      clinic    { id name }
+      room      { id roomNumber }
+    }
+    clinicians(search: { limit: 500 }) { id firstName lastName isActive }
+    clinics(search: { limit: 100 })   { id name }
+  }
+`
+
+const GET_ROOMS_FOR_CLINIC = gql`
+  query GetRoomsForClinic($clinicId: ID!) {
+    rooms(search: { limit: 200 }, clinicId: $clinicId) {
+      id roomNumber isActive
+    }
+  }
+`
+
+const CREATE_AVAILABILITY = gql`
+  mutation CreateAvailability($input: CreateAvailabilityInput!) {
+    createAvailability(input: $input) {
+      success
+      userErrors { message }
+      availability { id }
+    }
+  }
+`
+
+const UPDATE_AVAILABILITY = gql`
+  mutation UpdateAvailability($id: ID!, $input: UpdateAvailabilityInput!) {
+    updateAvailability(id: $id, input: $input) {
+      success
+      userErrors { message }
+      availability { id }
+    }
+  }
+`
+
+const DELETE_AVAILABILITY = gql`
+  mutation DeleteAvailability($id: ID!) {
+    deleteAvailability(id: $id) {
+      success
+      userErrors { message }
+    }
+  }
+`
+
+// ─── Default form state ───────────────────────────────────────────────────────
+
+const defaultForm = {
+  clinician_id: '',
+  clinic_id: '',
+  room_id: '',
+  recurrence_type: 'weekly',
+  day_of_week: 1,
+  start_time: '09:00',
+  end_time: '17:00',
+  exclude_weekends: false,
+  exclude_saturday: false,
+  exclude_sunday: false,
+  custom_dates: '',
+  valid_from: new Date().toISOString().split('T')[0],
+  valid_until: '',
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
+
+export default function ManagerAvailability() {
+  const [showForm, setShowForm]               = useState(false)
+  const [editingId, setEditingId]             = useState(null)
+  const [form, setForm]                       = useState(defaultForm)
+  const [rooms, setRooms]                     = useState([])
+  const [roomsLoading, setRoomsLoading]       = useState(false)
+  const [confirmOpen, setConfirmOpen]         = useState(false)
+  const [deletingId, setDeletingId]           = useState(null)
+  const [formError, setFormError]             = useState(null)
+  const [successMsg, setSuccessMsg]           = useState(null)
+
+  const { data, loading, refetch } = useQuery(GET_AVAILABILITY_DATA, {
+    fetchPolicy: 'cache-and-network',
+  })
+
+  const [getRooms]           = useLazyQuery(GET_ROOMS_FOR_CLINIC)
+  const [createAvailability] = useMutation(CREATE_AVAILABILITY)
+  const [updateAvailability] = useMutation(UPDATE_AVAILABILITY)
+  const [deleteAvailability] = useMutation(DELETE_AVAILABILITY)
+
+  // Load rooms when clinic changes
+  const loadRoomsForClinic = useCallback(async (clinicId) => {
+    if (!clinicId) { setRooms([]); return }
+    setRoomsLoading(true)
+    try {
+      const { data: roomData } = await getRooms({ variables: { clinicId } })
+      setRooms((roomData?.rooms || []).filter(r => r.isActive))
+    } catch { setRooms([]) } finally { setRoomsLoading(false) }
+  }, [getRooms])
+
+  useEffect(() => {
+    if (form.clinic_id) loadRoomsForClinic(form.clinic_id)
+    else setRooms([])
+  }, [form.clinic_id]) // eslint-disable-line
+
+  const setField = (key, value) => setForm(prev => ({ ...prev, [key]: value }))
+
+  const handleEdit = (avail) => {
+    setEditingId(avail.id)
+    setForm({
+      clinician_id:     avail.clinicianId  || '',
+      clinic_id:        avail.clinicId     || '',
+      room_id:          avail.roomId       || '',
+      recurrence_type:  avail.recurrenceType || 'weekly',
+      day_of_week:      avail.dayOfWeek    ?? 1,
+      start_time:       avail.startTime    || '09:00',
+      end_time:         avail.endTime      || '17:00',
+      exclude_weekends: avail.excludeWeekends  || false,
+      exclude_saturday: avail.excludeSaturday  || false,
+      exclude_sunday:   avail.excludeSunday    || false,
+      custom_dates:     '',
+      valid_from:       avail.validFrom ? avail.validFrom.split('T')[0] : '',
+      valid_until:      avail.validUntil ? avail.validUntil.split('T')[0] : '',
+    })
+    setShowForm(true)
+    setFormError(null)
+  }
+
+  const handleDelete = (id) => { setDeletingId(id); setConfirmOpen(true) }
+
+  const confirmDelete = async () => {
+    setConfirmOpen(false)
+    try {
+      const { data: res } = await deleteAvailability({ variables: { id: deletingId } })
+      if (res?.deleteAvailability?.userErrors?.length) {
+        setFormError(res.deleteAvailability.userErrors[0].message)
+      } else {
+        setSuccessMsg('Availability deleted.')
+        refetch()
+      }
+    } catch (e) { setFormError(e.message) }
+    setDeletingId(null)
+  }
+
+  const resetForm = () => {
+    setForm(defaultForm)
+    setEditingId(null)
+    setShowForm(false)
+    setFormError(null)
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setFormError(null)
+    if (!form.clinician_id) { setFormError('Please select a clinician.'); return }
+    if (!form.clinic_id)    { setFormError('Please select a clinic.'); return }
+    if (form.start_time >= form.end_time) { setFormError('End time must be after start time.'); return }
+    if (form.valid_from && form.valid_until && form.valid_until < form.valid_from) {
+      setFormError('"Valid Until" cannot be before "Valid From".'); return
+    }
+    const input = {
+      clinician_id:     form.clinician_id,
+      clinic_id:        form.clinic_id,
+      room_id:          form.room_id || null,
+      recurrence_type:  form.recurrence_type,
+      day_of_week:      form.recurrence_type === 'weekly' ? parseInt(form.day_of_week) : null,
+      start_time:       form.start_time,
+      end_time:         form.end_time,
+      exclude_weekends: form.exclude_weekends,
+      exclude_saturday: form.exclude_saturday,
+      exclude_sunday:   form.exclude_sunday,
+      custom_dates:     form.recurrence_type === 'custom' ? form.custom_dates || null : null,
+      valid_from:       form.valid_from || null,
+      valid_until:      form.valid_until || null,
+    }
+    try {
+      if (editingId) {
+        const { data: res } = await updateAvailability({ variables: { id: editingId, input } })
+        if (res?.updateAvailability?.userErrors?.length) {
+          setFormError(res.updateAvailability.userErrors[0].message); return
+        }
+        setSuccessMsg('Availability updated.')
+      } else {
+        const { data: res } = await createAvailability({ variables: { input } })
+        if (res?.createAvailability?.userErrors?.length) {
+          setFormError(res.createAvailability.userErrors[0].message); return
+        }
+        setSuccessMsg('Availability created.')
+      }
+      resetForm()
+      refetch()
+      setTimeout(() => setSuccessMsg(null), 3000)
+    } catch (e) { setFormError(e.message) }
+  }
+
+  const availabilities = data?.availabilities || []
+  const clinicians     = (data?.clinicians || []).filter(c => c.isActive)
+  const clinics        = data?.clinics || []
+
+  if (loading && !data) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  return (
+    <Box>
+      {/* Header */}
+      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+        <Box>
+          <Typography variant="h5" fontWeight={700}>Clinician Availability</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Manage availability schedules for all clinicians
+          </Typography>
+        </Box>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => { resetForm(); setShowForm(prev => !prev) }}
+        >
+          Add Availability
+        </Button>
+      </Stack>
+
+      {successMsg && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMsg(null)}>{successMsg}</Alert>}
+
+      {/* ── Inline Form ── */}
+      {showForm && (
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Typography variant="h6" fontWeight={600} mb={2}>
+              {editingId ? 'Edit Availability' : 'New Availability'}
+            </Typography>
+            {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
+
+            <Box component="form" onSubmit={handleSubmit}>
+              <Grid container spacing={2}>
+
+                {/* Clinician */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>Clinician</InputLabel>
+                    <Select label="Clinician" value={form.clinician_id}
+                      onChange={e => setField('clinician_id', e.target.value)}>
+                      {clinicians.map(c => (
+                        <MenuItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                {/* Clinic */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>Clinic</InputLabel>
+                    <Select label="Clinic" value={form.clinic_id}
+                      onChange={e => setForm(prev => ({ ...prev, clinic_id: e.target.value, room_id: '' }))}>
+                      {clinics.map(c => (
+                        <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                {/* Recurrence type */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>Recurrence</InputLabel>
+                    <Select label="Recurrence" value={form.recurrence_type}
+                      onChange={e => setField('recurrence_type', e.target.value)}>
+                      {RECURRENCE_TYPES.map(t => (
+                        <MenuItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                {/* Day of week (weekly only) */}
+                {form.recurrence_type === 'weekly' && (
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Day of Week</InputLabel>
+                      <Select label="Day of Week" value={form.day_of_week}
+                        onChange={e => setField('day_of_week', e.target.value)}>
+                        {DAYS_OF_WEEK.map((d, i) => (
+                          <MenuItem key={i} value={i}>{d}</MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                )}
+
+                {/* Custom dates */}
+                {form.recurrence_type === 'custom' && (
+                  <Grid item xs={12}>
+                    <TextField fullWidth size="small" label="Custom Dates (comma-separated)"
+                      placeholder="2025-01-01, 2025-01-15"
+                      value={form.custom_dates}
+                      onChange={e => setField('custom_dates', e.target.value)} />
+                  </Grid>
+                )}
+
+                {/* Start / End time */}
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth required size="small" type="time" label="Start Time"
+                    InputLabelProps={{ shrink: true }} value={form.start_time}
+                    onChange={e => setField('start_time', e.target.value)} />
+                </Grid>
+                <Grid item xs={6} sm={3}>
+                  <TextField fullWidth required size="small" type="time" label="End Time"
+                    InputLabelProps={{ shrink: true }} value={form.end_time}
+                    onChange={e => setField('end_time', e.target.value)} />
+                </Grid>
+
+                {/* Room (optional, filtered by clinic) */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth size="small" disabled={!form.clinic_id || roomsLoading}>
+                    <InputLabel>Room (optional)</InputLabel>
+                    <Select label="Room (optional)" value={form.room_id}
+                      onChange={e => setField('room_id', e.target.value)}>
+                      <MenuItem value="">Any room</MenuItem>
+                      {rooms.map(r => (
+                        <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                {/* Valid from/until */}
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small" type="date" label="Valid From"
+                    InputLabelProps={{ shrink: true }} value={form.valid_from}
+                    onChange={e => setField('valid_from', e.target.value)} />
+                </Grid>
+                <Grid item xs={12} sm={6}>
+                  <TextField fullWidth size="small" type="date" label="Valid Until"
+                    InputLabelProps={{ shrink: true }} value={form.valid_until}
+                    onChange={e => setField('valid_until', e.target.value)} />
+                </Grid>
+
+                {/* Exclude weekends */}
+                <Grid item xs={12}>
+                  <FormControlLabel
+                    control={
+                      <Checkbox checked={form.exclude_weekends}
+                        onChange={e => {
+                          const v = e.target.checked
+                          setForm(prev => ({ ...prev, exclude_weekends: v, exclude_saturday: v, exclude_sunday: v }))
+                        }} />
+                    }
+                    label="Exclude Weekends (Sat & Sun)"
+                  />
+                  {form.exclude_weekends && (
+                    <Stack direction="row" spacing={2} ml={4}>
+                      <FormControlLabel control={
+                        <Checkbox checked={form.exclude_saturday}
+                          onChange={e => {
+                            const v = e.target.checked
+                            setForm(prev => ({ ...prev, exclude_saturday: v, exclude_weekends: v && prev.exclude_sunday }))
+                          }} />} label="Saturday" />
+                      <FormControlLabel control={
+                        <Checkbox checked={form.exclude_sunday}
+                          onChange={e => {
+                            const v = e.target.checked
+                            setForm(prev => ({ ...prev, exclude_sunday: v, exclude_weekends: prev.exclude_saturday && v }))
+                          }} />} label="Sunday" />
+                    </Stack>
+                  )}
+                </Grid>
+
+                {/* Actions */}
+                <Grid item xs={12}>
+                  <Stack direction="row" spacing={1}>
+                    <Button type="submit" variant="contained">
+                      {editingId ? 'Update' : 'Create'}
+                    </Button>
+                    <Button variant="outlined" onClick={resetForm}>Cancel</Button>
+                  </Stack>
+                </Grid>
+              </Grid>
+            </Box>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Table ── */}
+      <Card>
+        <Box sx={{ overflowX: 'auto' }}>
+          <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
+            <Box component="thead">
+              <Box component="tr" sx={{ bgcolor: 'grey.50' }}>
+                {['Clinician', 'Clinic', 'Time', 'Recurrence', 'Valid Period', ''].map(h => (
+                  <Box key={h} component="th" sx={{ px: 2, py: 1.5, textAlign: 'left', typography: 'caption', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid', borderColor: 'divider' }}>
+                    {h}
+                  </Box>
+                ))}
+              </Box>
+            </Box>
+            <Box component="tbody">
+              {availabilities.length === 0 && (
+                <Box component="tr">
+                  <Box component="td" colSpan={6} sx={{ textAlign: 'center', py: 6 }}>
+                    <AccessTimeIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1, display: 'block', mx: 'auto' }} />
+                    <Typography color="text.secondary">No availability records yet</Typography>
+                  </Box>
+                </Box>
+              )}
+              {availabilities.map(avail => (
+                <Box component="tr" key={avail.id}
+                  sx={{ '&:hover': { bgcolor: 'grey.50' }, borderBottom: '1px solid', borderColor: 'divider' }}>
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Typography variant="body2" fontWeight={600}>
+                      {avail.clinician?.firstName} {avail.clinician?.lastName}
+                    </Typography>
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Typography variant="body2">{avail.clinic?.name}</Typography>
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Typography variant="body2">{avail.startTime} – {avail.endTime}</Typography>
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Chip label={avail.recurrenceType || 'weekly'} size="small" sx={{ textTransform: 'capitalize', mr: 0.5 }} />
+                    {avail.recurrenceType === 'weekly' && avail.dayOfWeek != null && (
+                      <Typography variant="caption" color="text.secondary">
+                        {DAYS_OF_WEEK[avail.dayOfWeek]}
+                      </Typography>
+                    )}
+                    {avail.excludeWeekends && (
+                      <Chip label="No weekends" size="small" color="warning" sx={{ ml: 0.5 }} />
+                    )}
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {avail.validFrom
+                        ? avail.validUntil
+                          ? `${new Date(avail.validFrom).toLocaleDateString()} → ${new Date(avail.validUntil).toLocaleDateString()}`
+                          : `From ${new Date(avail.validFrom).toLocaleDateString()}`
+                        : 'Always active'}
+                    </Typography>
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Stack direction="row" spacing={0.5}>
+                      <Tooltip title="Edit">
+                        <IconButton size="small" onClick={() => handleEdit(avail)}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Delete">
+                        <IconButton size="small" color="error" onClick={() => handleDelete(avail.id)}>
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    </Stack>
+                  </Box>
+                </Box>
+              ))}
+            </Box>
+          </Box>
+        </Box>
+      </Card>
+
+      {/* Confirm delete */}
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        title="Delete Availability"
+        message="Are you sure you want to delete this availability record? This cannot be undone."
+        onConfirm={confirmDelete}
+        onCancel={() => { setConfirmOpen(false); setDeletingId(null) }}
+      />
+    </Box>
+  )
+}

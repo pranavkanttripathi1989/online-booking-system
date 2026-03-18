@@ -1,0 +1,518 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   CalendarView.css — MediBook FullCalendar Professional Overrides
+   Design: Google Material 3 · Font: Plus Jakarta Sans · v2.0
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+/* ── Base font ────────────────────────────────────────────────────────────── */
+.fc {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TOOLBAR — Navigation (prev/next/today) and view buttons
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc .fc-toolbar {
+  padding: 14px 20px 12px !important;
+  align-items: center !important;
+  gap: 8px !important;
+  flex-wrap: wrap;
+}
+
+.fc .fc-toolbar-title {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 800 !important;
+  font-size: 1.05rem !important;
+  color: #202124 !important;
+  letter-spacing: -0.01em;
+}
+
+/* All toolbar buttons baseline */
+.fc .fc-button {
+  background: #F8F9FA !important;
+  border: 1px solid #E8EAED !important;
+  color: #3C4043 !important;
+  border-radius: 8px !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.80rem !important;
+  padding: 5px 14px !important;
+  text-transform: none !important;
+  box-shadow: none !important;
+  line-height: 1.5 !important;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease !important;
+}
+
+.fc .fc-button:hover {
+  background: #E8F0FE !important;
+  border-color: #AECBFA !important;
+  color: #006D77 !important;
+}
+
+.fc .fc-button:focus {
+  box-shadow: 0 0 0 3px rgba(0,109,119,0.25) !important;
+  outline: none !important;
+}
+
+/* today button — always Google Blue */
+.fc .fc-today-button {
+  background: linear-gradient(135deg, #00858F 0%, #006D77 100%) !important;
+  border-color: #006D77 !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+.fc .fc-today-button:disabled {
+  opacity: 0.6 !important;
+}
+
+/* prev / next chevron buttons */
+.fc .fc-prev-button,
+.fc .fc-next-button {
+  padding: 5px 10px !important;
+  background: #FFFFFF !important;
+  border: 1px solid #E8EAED !important;
+}
+.fc .fc-prev-button:hover,
+.fc .fc-next-button:hover {
+  background: #F1F3F4 !important;
+  border-color: #DADCE0 !important;
+  color: #006D77 !important;
+}
+
+/* Active view button (Month/Week etc.) */
+.fc .fc-button-active {
+  background: #E8F0FE !important;
+  border-color: #AECBFA !important;
+  color: #006D77 !important;
+  font-weight: 700 !important;
+}
+.fc .fc-button-active:hover {
+  background: #D2E3FC !important;
+}
+
+/* Button groups — remove extra border radius on joined buttons */
+.fc .fc-button-group .fc-button:not(:first-child) {
+  border-top-left-radius: 0 !important;
+  border-bottom-left-radius: 0 !important;
+  border-left: none !important;
+}
+.fc .fc-button-group .fc-button:not(:last-child) {
+  border-top-right-radius: 0 !important;
+  border-bottom-right-radius: 0 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   COLUMN HEADERS — Day names (SUN, MON, TUE …)
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc .fc-col-header {
+  background: #F8F9FA;
+}
+
+.fc .fc-col-header-cell {
+  border-bottom: 1px solid #E8EAED !important;
+  background: #F8F9FA !important;
+}
+
+.fc .fc-col-header-cell-cushion {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 0.68rem !important;
+  color: #80868B !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.10em !important;
+  padding: 10px 8px !important;
+  text-decoration: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   DAYGRID — Month view day cells
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc .fc-daygrid-day-number {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 600 !important;
+  font-size: 0.82rem !important;
+  color: #5F6368 !important;
+  padding: 6px 10px !important;
+  text-decoration: none !important;
+  transition: color 0.12s ease;
+}
+
+.fc .fc-daygrid-day-number:hover {
+  color: #006D77 !important;
+}
+
+/* Today's date — Google Blue circle */
+.fc .fc-day-today .fc-daygrid-day-number {
+  background: #006D77 !important;
+  color: #FFFFFF !important;
+  border-radius: 50% !important;
+  width: 28px !important;
+  height: 28px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 4px !important;
+  font-weight: 800 !important;
+}
+
+/* Today background tint */
+.fc .fc-day-today {
+  background: rgba(0,109,119,0.04) !important;
+}
+
+/* Weekend columns — very subtle warm gray */
+.fc .fc-day-sat,
+.fc .fc-day-sun {
+  background: rgba(241,243,244,0.70) !important;
+}
+
+/* Empty day cell hover */
+.fc .fc-daygrid-day:hover {
+  background: rgba(0,109,119,0.03) !important;
+  cursor: pointer;
+}
+
+/* Out-of-range days (prev/next month) */
+.fc .fc-day-other .fc-daygrid-day-number {
+  color: #DADCE0 !important;
+}
+
+/* "more" link */
+.fc .fc-daygrid-more-link {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 0.72rem !important;
+  font-weight: 700 !important;
+  color: #006D77 !important;
+  background: #E8F0FE !important;
+  border-radius: 4px !important;
+  padding: 1px 5px !important;
+}
+.fc .fc-daygrid-more-link:hover {
+  background: #D2E3FC !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   TIMEGRID — Week & Day views
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc .fc-timegrid-slot-label-cushion {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-size: 0.68rem !important;
+  color: #9AA0A6 !important;
+  font-weight: 600 !important;
+  letter-spacing: 0.02em;
+}
+
+.fc .fc-timegrid-slot {
+  height: 28px !important;
+  border-color: #F1F3F4 !important;
+}
+
+.fc .fc-timegrid-slot-minor {
+  border-color: #F8F9FA !important;
+}
+
+/* Hover on time slot */
+.fc .fc-timegrid-slot:hover {
+  background: rgba(0,109,119,0.04) !important;
+  cursor: pointer;
+}
+
+/* Now indicator */
+.fc .fc-timegrid-now-indicator-line {
+  border-color: #D93025 !important;
+  border-width: 2px !important;
+}
+
+.fc .fc-timegrid-now-indicator-arrow {
+  border-top-color: #D93025 !important;
+  border-bottom-color: #D93025 !important;
+  border-width: 6px !important;
+  left: -1px !important;
+}
+
+/* Business hours */
+.fc .fc-non-business {
+  background: transparent !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   EVENTS
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc .fc-event {
+  border-radius: 6px !important;
+  border: none !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  cursor: pointer;
+  transition: transform 0.12s ease, box-shadow 0.12s ease, filter 0.12s ease !important;
+}
+
+.fc .fc-event:hover {
+  transform: translateY(-1px) scale(1.015) !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.22) !important;
+  filter: brightness(1.05) !important;
+  z-index: 10 !important;
+}
+
+/* Daygrid event pills */
+.fc .fc-daygrid-event {
+  border-radius: 5px !important;
+  padding: 1px 4px !important;
+  margin-bottom: 1px !important;
+}
+
+/* Time grid events */
+.fc .fc-timegrid-event {
+  border-radius: 6px !important;
+  box-shadow: 0 1px 4px rgba(0,0,0,0.15) !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   LIST VIEW
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc .fc-list {
+  border: none !important;
+}
+
+.fc .fc-list-table td {
+  border-color: #F1F3F4 !important;
+}
+
+.fc .fc-list-event:hover td {
+  background: #F8F9FA !important;
+}
+
+.fc .fc-list-event-title a {
+  color: #202124 !important;
+  font-weight: 600 !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  text-decoration: none !important;
+}
+
+.fc .fc-list-day-cushion {
+  background: #F8F9FA !important;
+  padding: 8px 16px !important;
+}
+
+.fc .fc-list-day-text,
+.fc .fc-list-day-side-text {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 800 !important;
+  font-size: 0.80rem !important;
+  color: #006D77 !important;
+  text-decoration: none !important;
+}
+
+.fc .fc-list-empty-cushion {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  color: #9AA0A6 !important;
+  font-weight: 600 !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   POPOVER (+more events)
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc .fc-popover {
+  border-radius: 12px !important;
+  box-shadow: 0 8px 28px rgba(32,33,36,0.20) !important;
+  border: 1px solid #E8EAED !important;
+  overflow: hidden !important;
+}
+
+.fc .fc-popover-header {
+  background: #F8F9FA !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 0.82rem !important;
+  color: #202124 !important;
+  padding: 8px 12px !important;
+  border-bottom: 1px solid #E8EAED !important;
+}
+
+.fc .fc-popover-body {
+  padding: 8px !important;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   SCROLLBAR
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc-scroller::-webkit-scrollbar {
+  width: 5px;
+  height: 5px;
+}
+.fc-scroller::-webkit-scrollbar-thumb {
+  background: #DADCE0;
+  border-radius: 3px;
+}
+.fc-scroller::-webkit-scrollbar-thumb:hover {
+  background: #BDC1C6;
+}
+.fc-scroller::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   BORDERS & DIVIDERS
+   ─────────────────────────────────────────────────────────────────────────── */
+.fc-theme-standard .fc-scrollgrid {
+  border: none !important;
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: #E8EAED !important;
+}
+
+/* Remove outer border double lines */
+.fc .fc-scrollgrid-section-header th,
+.fc .fc-scrollgrid-section-body td {
+  border-right: none !important;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   ENHANCED INTERACTIVITY — v3.0
+   ─────────────────────────────────────────────────────────────────────────── */
+
+/* Smoother event hover: lift + glow */
+.fc .fc-event {
+  border-radius: 7px !important;
+  border: none !important;
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  cursor: pointer;
+  transition: transform 0.18s cubic-bezier(0.34,1.56,0.64,1), box-shadow 0.18s ease, filter 0.15s ease, opacity 0.15s ease !important;
+  will-change: transform;
+}
+
+.fc .fc-event:hover {
+  transform: translateY(-2px) scale(1.02) !important;
+  box-shadow: 0 6px 16px rgba(0,0,0,0.25) !important;
+  filter: brightness(1.07) !important;
+  z-index: 20 !important;
+}
+
+.fc .fc-event:active {
+  transform: translateY(0) scale(0.99) !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.15) !important;
+}
+
+/* Daygrid pills — tighter, rounder, with subtle left accent border */
+.fc .fc-daygrid-event {
+  border-radius: 6px !important;
+  padding: 2px 5px !important;
+  margin-bottom: 2px !important;
+  border-left: 3px solid rgba(255,255,255,0.35) !important;
+  backdrop-filter: blur(2px);
+}
+
+/* Time grid events — deeper shadow + left accent */
+.fc .fc-timegrid-event {
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.18) !important;
+  border-left: 3px solid rgba(255,255,255,0.3) !important;
+}
+
+/* Day cell hover — animated ripple feel */
+.fc .fc-daygrid-day {
+  transition: background 0.15s ease !important;
+}
+.fc .fc-daygrid-day:hover {
+  background: rgba(0,109,119,0.05) !important;
+  cursor: pointer;
+}
+.fc .fc-daygrid-day:hover .fc-daygrid-day-number {
+  color: #006D77 !important;
+}
+
+/* Today — vivid date bubble */
+.fc .fc-day-today .fc-daygrid-day-number {
+  background: linear-gradient(135deg, #00858F, #006D77) !important;
+  color: #fff !important;
+  border-radius: 50% !important;
+  width: 30px !important;
+  height: 30px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin: 4px !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 8px rgba(0,109,119,0.40) !important;
+}
+
+/* Today cell — very gentle teal tint */
+.fc .fc-day-today {
+  background: rgba(0,109,119,0.03) !important;
+}
+
+/* Toolbar title — animated on view change */
+.fc .fc-toolbar-title {
+  font-size: 1.1rem !important;
+  font-weight: 800 !important;
+  letter-spacing: -0.02em !important;
+  transition: opacity 0.2s ease !important;
+}
+
+/* Prev/Next buttons — subtle shadow on hover */
+.fc .fc-prev-button:hover,
+.fc .fc-next-button:hover {
+  box-shadow: 0 2px 6px rgba(0,0,0,0.10) !important;
+  transform: translateX(-1px);
+  transition: all 0.15s ease !important;
+}
+.fc .fc-next-button:hover {
+  transform: translateX(1px) !important;
+}
+
+/* List view — row hover with gradient accent */
+.fc .fc-list-event {
+  transition: background 0.12s ease !important;
+}
+.fc .fc-list-event:hover td {
+  background: linear-gradient(90deg, rgba(0,109,119,0.06) 0%, rgba(0,109,119,0.02) 100%) !important;
+  cursor: pointer;
+}
+.fc .fc-list-event-dot {
+  border-radius: 50% !important;
+  width: 10px !important;
+  height: 10px !important;
+}
+.fc .fc-list-event-title a:hover {
+  color: #006D77 !important;
+  text-decoration: none !important;
+}
+
+/* "more events" popover — smooth fade-in */
+.fc .fc-popover {
+  border-radius: 14px !important;
+  box-shadow: 0 12px 36px rgba(32,33,36,0.22), 0 2px 8px rgba(32,33,36,0.10) !important;
+  border: 1px solid #E8EAED !important;
+  overflow: hidden !important;
+  animation: fcPopoverIn 0.18s ease !important;
+}
+@keyframes fcPopoverIn {
+  from { opacity: 0; transform: translateY(6px) scale(0.97); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+/* Week view column header on today */
+.fc .fc-day-today.fc-col-header-cell {
+  background: rgba(0,109,119,0.06) !important;
+}
+.fc .fc-day-today .fc-col-header-cell-cushion {
+  color: #006D77 !important;
+}
+
+/* Slot hover animation in time-grid */
+.fc .fc-timegrid-slot {
+  transition: background 0.1s ease !important;
+}
+.fc .fc-timegrid-slot:hover {
+  background: rgba(66,133,244,0.06) !important;
+  cursor: pointer;
+}
+
+/* Select-mirror (drag selection) */
+.fc .fc-highlight {
+  background: rgba(0,109,119,0.12) !important;
+  border-radius: 6px !important;
+}
+

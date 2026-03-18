@@ -1,0 +1,515 @@
+"scalar DateTime"
+"scalar Date"
+"scalar Upload"
+"scalar JSON"
+
+# ─── Auth ──────────────────────────────────────────────────────────────────────
+
+type AuthPayload {
+    access_token: String!
+    token_type: String!
+    expires_in: Int!
+    user: User!
+}
+
+input LoginInput {
+    email: String! @rules(apply: ["required", "email"])
+    password: String! @rules(apply: ["required", "min:8"])
+}
+
+input RegisterInput {
+    name: String! @rules(apply: ["required", "min:2", "max:100"])
+    email: String! @rules(apply: ["required", "email", "unique:users,email"])
+    password: String! @rules(apply: ["required", "min:12", "confirmed"])
+    password_confirmation: String!
+    tenant_id: ID!
+}
+
+# ─── Tenant ────────────────────────────────────────────────────────────────────
+
+type Tenant {
+    id: ID!
+    name: String!
+    slug: String!
+    domain: String
+    logo_url: String
+    is_active: Boolean!
+    clinics: [Clinic!]! @hasMany
+    created_at: DateTime!
+    updated_at: DateTime!
+}
+
+# ─── User ──────────────────────────────────────────────────────────────────────
+
+type User {
+    id: ID!
+    tenant_id: ID!
+    name: String!
+    email: String!
+    roles: [Role!]! @morphToMany
+    permissions: [Permission!]! @morphToMany
+    clinician: Clinician @hasOne
+    created_at: DateTime!
+    updated_at: DateTime!
+}
+
+type Role {
+    id: ID!
+    name: String!
+    guard_name: String!
+    permissions: [Permission!]! @belongsToMany
+}
+
+type Permission {
+    id: ID!
+    name: String!
+    guard_name: String!
+}
+
+# ─── Clinic ────────────────────────────────────────────────────────────────────
+
+type Clinic {
+    id: ID!
+    tenant_id: ID!
+    name: String!
+    address: String
+    city: String
+    postcode: String
+    phone: String
+    email: String
+    timezone: String!
+    is_active: Boolean!
+    clinicians: [Clinician!]! @belongsToMany
+    rooms: [Room!]! @hasMany
+    created_at: DateTime!
+}
+
+# ─── Clinician ─────────────────────────────────────────────────────────────────
+
+type ClinicianType {
+    id: ID!
+    name: String!
+    description: String
+}
+
+type Clinician {
+    id: ID!
+    tenant_id: ID!
+    user: User! @belongsTo
+    clinician_type: ClinicianType! @belongsTo
+    first_name: String!
+    last_name: String!
+    full_name: String!
+    bio: String
+    avatar_url: String
+    consultation_fee: Float!
+    is_active: Boolean!
+    gender: String
+    languages: JSON
+    clinics: [Clinic!]! @belongsToMany
+    services: [Service!]! @belongsToMany
+    availability_templates: [AvailabilityTemplate!]! @hasMany
+    appointments: [Appointment!]! @hasMany @paginate
+    created_at: DateTime!
+}
+
+input ClinicianInput {
+    user_id: ID!
+    clinician_type_id: ID!
+    first_name: String! @rules(apply: ["required", "max:100"])
+    last_name: String! @rules(apply: ["required", "max:100"])
+    bio: String
+    consultation_fee: Float! @rules(apply: ["required", "min:0"])
+    is_active: Boolean
+    gender: String @rules(apply: ["in:male,female,other"])
+    languages: JSON
+    clinic_ids: [ID!]!
+    service_ids: [ID!]
+}
+
+# ─── Room ──────────────────────────────────────────────────────────────────────
+
+type Room {
+    id: ID!
+    clinic_id: ID!
+    name: String!
+    capacity: Int
+    is_active: Boolean!
+    clinic: Clinic! @belongsTo
+}
+
+# ─── Service ───────────────────────────────────────────────────────────────────
+
+type ServiceCategory {
+    id: ID!
+    name: String!
+    description: String
+    services: [Service!]! @hasMany
+}
+
+type Service {
+    id: ID!
+    tenant_id: ID!
+    category: ServiceCategory @belongsTo
+    name: String!
+    description: String
+    duration_minutes: Int!
+    price: Float!
+    is_active: Boolean!
+    clinicians: [Clinician!]! @belongsToMany
+}
+
+# ─── Availability ──────────────────────────────────────────────────────────────
+
+type AvailabilityTemplate {
+    id: ID!
+    tenant_id: ID!
+    clinician_id: ID!
+    clinic_id: ID!
+    room_id: ID
+    day_of_week: Int!
+    start_time: String!
+    end_time: String!
+    slot_duration_minutes: Int!
+    buffer_minutes: Int!
+    is_active: Boolean!
+    effective_from: Date!
+    effective_to: Date
+    clinician: Clinician! @belongsTo
+    clinic: Clinic! @belongsTo
+}
+
+type TimeSlot {
+    id: ID!
+    clinician_id: ID!
+    clinic_id: ID!
+    room_id: ID
+    start_datetime: DateTime!
+    end_datetime: DateTime!
+    duration_minutes: Int!
+    is_available: Boolean!
+    clinician: Clinician! @belongsTo
+}
+
+input AvailabilityTemplateInput {
+    clinician_id: ID!
+    clinic_id: ID!
+    room_id: ID
+    day_of_week: Int! @rules(apply: ["between:0,6"])
+    start_time: String! @rules(apply: ["date_format:H:i"])
+    end_time: String! @rules(apply: ["date_format:H:i", "after:start_time"])
+    slot_duration_minutes: Int! @rules(apply: ["in:10,15,20,30,45,60"])
+    buffer_minutes: Int
+    effective_from: Date!
+    effective_to: Date
+}
+
+# ─── Patient ───────────────────────────────────────────────────────────────────
+
+type Patient {
+    id: ID!
+    tenant_id: ID!
+    first_name: String!
+    last_name: String!
+    full_name: String!
+    email: String
+    phone: String
+    date_of_birth: Date
+    gender: String
+    address: String
+    notes: String
+    appointments: [Appointment!]! @hasMany @paginate
+    created_at: DateTime!
+}
+
+input PatientInput {
+    first_name: String! @rules(apply: ["required", "max:100"])
+    last_name: String! @rules(apply: ["required", "max:100"])
+    email: String @rules(apply: ["email"])
+    phone: String
+    date_of_birth: Date
+    gender: String @rules(apply: ["in:male,female,other"])
+    address: String
+    notes: String
+}
+
+# ─── Appointment ───────────────────────────────────────────────────────────────
+
+type Appointment {
+    id: ID!
+    tenant_id: ID!
+    patient: Patient! @belongsTo
+    clinician: Clinician! @belongsTo
+    clinic: Clinic! @belongsTo
+    room: Room @belongsTo
+    service: Service! @belongsTo
+    booked_by_user: User @belongsTo
+    booked_by_type: String!
+    start_datetime: DateTime!
+    end_datetime: DateTime!
+    duration_minutes: Int!
+    status: AppointmentStatus!
+    notes: String
+    cancellation_reason: String
+    reminder_sent_at: DateTime
+    status_logs: [AppointmentStatusLog!]! @hasMany
+    created_at: DateTime!
+    updated_at: DateTime!
+}
+
+enum AppointmentStatus {
+    PENDING
+    CONFIRMED
+    CANCELLED
+    COMPLETED
+    NO_SHOW
+}
+
+type AppointmentStatusLog {
+    id: ID!
+    appointment_id: ID!
+    status: AppointmentStatus!
+    changed_by_user: User @belongsTo
+    reason: String
+    created_at: DateTime!
+}
+
+input AppointmentFilters {
+    date_from: Date
+    date_to: Date
+    status: AppointmentStatus
+    clinician_id: ID
+    clinic_id: ID
+    patient_id: ID
+}
+
+input AppointmentInput {
+    patient_id: ID!
+    clinician_id: ID!
+    clinic_id: ID!
+    room_id: ID
+    service_id: ID!
+    start_datetime: DateTime! @rules(apply: ["required", "after:now"])
+    notes: String
+}
+
+# ─── Dashboard ─────────────────────────────────────────────────────────────────
+
+type DashboardStats {
+    total_appointments_today: Int!
+    total_appointments_week: Int!
+    total_appointments_month: Int!
+    total_clinicians: Int!
+    total_patients: Int!
+    total_revenue_month: Float!
+    no_show_rate: Float!
+    upcoming_appointments: [Appointment!]!
+    utilisation_by_clinician: [ClinicianUtilisation!]!
+}
+
+type ClinicianUtilisation {
+    clinician: Clinician!
+    slots_available: Int!
+    slots_booked: Int!
+    utilisation_percent: Float!
+}
+
+# ─── Queries ───────────────────────────────────────────────────────────────────
+
+type Query {
+    # Auth
+    me: User @auth
+
+    # Dashboard
+    dashboard: DashboardStats!
+        @auth
+        @can(ability: "viewDashboard")
+
+    # Appointments
+    appointments(
+        filters: AppointmentFilters
+        first: Int = 20
+        page: Int
+    ): AppointmentPaginator!
+        @auth
+        @paginate(defaultCount: 20)
+
+    appointment(id: ID! @eq): Appointment
+        @auth
+        @find
+
+    # Available Slots
+    availableSlots(
+        clinician_id: ID!
+        date: Date!
+        service_id: ID
+    ): [TimeSlot!]!
+        @auth
+
+    # Clinicians
+    clinicians(
+        clinic_id: ID
+        is_active: Boolean
+        first: Int = 20
+        page: Int
+    ): ClinicianPaginator!
+        @auth
+        @paginate(defaultCount: 20)
+
+    clinician(id: ID! @eq): Clinician
+        @auth
+        @find
+
+    # Patients
+    patients(
+        search: String
+        first: Int = 20
+        page: Int
+    ): PatientPaginator!
+        @auth
+        @can(ability: "viewPatients")
+        @paginate(defaultCount: 20)
+
+    patient(id: ID! @eq): Patient
+        @auth
+        @find
+
+    # Clinics
+    clinics: [Clinic!]!
+        @auth
+        @all
+
+    # Services
+    services(
+        clinic_id: ID
+        is_active: Boolean
+    ): [Service!]!
+        @auth
+        @all
+
+    # Availability
+    availabilityTemplates(
+        clinician_id: ID!
+    ): [AvailabilityTemplate!]!
+        @auth
+
+    # Rooms
+    rooms(clinic_id: ID): [Room!]!
+        @auth
+        @all
+}
+
+# ─── Mutations ─────────────────────────────────────────────────────────────────
+
+type Mutation {
+    # Auth
+    login(input: LoginInput! @spread): AuthPayload!
+    register(input: RegisterInput! @spread): AuthPayload!
+    logout: Boolean! @auth
+
+    # Appointments
+    createAppointment(input: AppointmentInput! @spread): Appointment!
+        @auth
+
+    cancelAppointment(
+        id: ID!
+        reason: String
+    ): Appointment!
+        @auth
+
+    rescheduleAppointment(
+        id: ID!
+        start_datetime: DateTime!
+    ): Appointment!
+        @auth
+
+    completeAppointment(id: ID!): Appointment!
+        @auth
+        @can(ability: "manageAppointments")
+
+    markNoShow(id: ID!): Appointment!
+        @auth
+        @can(ability: "manageAppointments")
+
+    # Clinicians
+    createClinician(input: ClinicianInput! @spread): Clinician!
+        @auth
+        @can(ability: "manageClinicians")
+
+    updateClinician(
+        id: ID!
+        input: ClinicianInput! @spread
+    ): Clinician!
+        @auth
+        @can(ability: "manageClinicians")
+
+    toggleClinicianActive(id: ID!): Clinician!
+        @auth
+        @can(ability: "manageClinicians")
+
+    # Availability
+    createAvailabilityTemplate(
+        input: AvailabilityTemplateInput! @spread
+    ): AvailabilityTemplate!
+        @auth
+        @can(ability: "manageAvailability")
+
+    updateAvailabilityTemplate(
+        id: ID!
+        input: AvailabilityTemplateInput! @spread
+    ): AvailabilityTemplate!
+        @auth
+        @can(ability: "manageAvailability")
+
+    deleteAvailabilityTemplate(id: ID!): Boolean!
+        @auth
+        @can(ability: "manageAvailability")
+
+    # Patients
+    createPatient(input: PatientInput! @spread): Patient!
+        @auth
+
+    updatePatient(
+        id: ID!
+        input: PatientInput! @spread
+    ): Patient!
+        @auth
+}
+
+# ─── Subscriptions ─────────────────────────────────────────────────────────────
+
+type Subscription {
+    appointmentUpdated(clinician_id: ID): Appointment!
+        @auth
+
+    calendarRefresh(clinic_id: ID!): Boolean!
+        @auth
+}
+
+# ─── Pagination Types ──────────────────────────────────────────────────────────
+
+type AppointmentPaginator {
+    data: [Appointment!]!
+    paginatorInfo: PaginatorInfo!
+}
+
+type ClinicianPaginator {
+    data: [Clinician!]!
+    paginatorInfo: PaginatorInfo!
+}
+
+type PatientPaginator {
+    data: [Patient!]!
+    paginatorInfo: PaginatorInfo!
+}
+
+type PaginatorInfo {
+    count: Int!
+    currentPage: Int!
+    firstItem: Int
+    hasMorePages: Boolean!
+    lastItem: Int
+    lastPage: Int!
+    perPage: Int!
+    total: Int!
+}

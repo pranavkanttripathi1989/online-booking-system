@@ -1,0 +1,677 @@
+import { useState, useCallback, useMemo } from 'react'
+import { useQuery, useMutation } from '@apollo/client'
+import { Helmet } from 'react-helmet-async'
+import { useNavigate } from 'react-router-dom'
+import { useSnackbar } from 'notistack'
+import dayjs from 'dayjs'
+import * as MockStore from '../../mocks/store'
+import {
+  Box,
+  Button,
+  Chip,
+  Fab,
+  Grid,
+  IconButton,
+  MenuItem,
+  Tab,
+  Tabs,
+  TextField,
+  Tooltip,
+  Typography,
+  Paper,
+  CircularProgress,
+  InputAdornment,
+  useMediaQuery,
+} from '@mui/material'
+import { useTheme } from '@mui/material/styles'
+import { DataGrid } from '@mui/x-data-grid'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import AddIcon from '@mui/icons-material/Add'
+import SearchIcon from '@mui/icons-material/Search'
+import FilterAltOffIcon from '@mui/icons-material/FilterAltOff'
+import FileDownloadRoundedIcon from '@mui/icons-material/FileDownloadRounded'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import CancelIcon from '@mui/icons-material/Cancel'
+import EventRepeatIcon from '@mui/icons-material/EventRepeat'
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
+import UpcomingRoundedIcon from '@mui/icons-material/UpcomingRounded'
+import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
+
+import { APPOINTMENTS_QUERY, CLINICIANS_QUERY } from '../../graphql/queries'
+import { CANCEL_APPOINTMENT_MUTATION } from '../../graphql/mutations'
+import CancelDialog from '../../components/Appointments/CancelDialog'
+
+// ─── Mock Appointments — now from centralized store (35 records, plan-compliant)
+// BACKEND SWAP: remove these lines and use only apiRows from useQuery
+
+// ─── Status config ───────────────────────────────────────────────────────────
+const STATUS_OPTIONS = ['all', 'pending', 'confirmed', 'cancelled', 'completed', 'no_show']
+
+const STATUS_CFG = {
+  pending:     { label: 'Pending',     bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
+  confirmed:   { label: 'Confirmed',   bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
+  cancelled:   { label: 'Cancelled',   bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
+  completed:   { label: 'Completed',   bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
+  no_show:     { label: 'No Show',     bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED', dot: '#80868B' },
+  rescheduled: { label: 'Rescheduled', bg: '#F3E8FD', color: '#6E2DB8', border: '#D7AEFA', dot: '#9334E6' },
+}
+
+// ─── Status Chip ─────────────────────────────────────────────────────────────
+function StatusChip({ status }) {
+  const cfg = STATUS_CFG[status] ?? { label: status, bg: '#F8F9FA', color: '#5F6368', border: '#E8EAED', dot: '#9AA0A6' }
+  return (
+    <Chip
+      label={cfg.label}
+      size="small"
+      sx={{
+        bgcolor: cfg.bg, color: cfg.color,
+        border: `1px solid ${cfg.border}`,
+        borderLeft: `3px solid ${cfg.dot}`,
+        fontWeight: 700, borderRadius: '8px',
+        fontSize: '0.68rem', height: 24,
+      }}
+    />
+  )
+}
+
+// ─── Empty State (SUG-APPT-003: contextual when filters applied) ──────────────
+function EmptyState({ hasFilters, onClearFilters }) {
+  return (
+    <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={8} gap={2}>
+      <CalendarMonthIcon sx={{ fontSize: 72, color: 'text.disabled' }} />
+      {hasFilters ? (
+        <>
+          <Typography variant="h6" color="text.secondary" fontWeight={600}>
+            No appointments match your filters
+          </Typography>
+          <Typography variant="body2" color="text.disabled" textAlign="center" sx={{ maxWidth: 320 }}>
+            Try widening your date range, clearing the status filter, or searching a different name.
+          </Typography>
+          <Button size="small" variant="outlined" startIcon={<FilterAltOffIcon />} onClick={onClearFilters}
+            sx={{ borderRadius: 2, fontWeight: 700, borderColor: '#D93025', color: '#D93025', '&:hover': { bgcolor: 'rgba(217,48,37,0.06)' } }}>
+            Clear all filters
+          </Button>
+        </>
+      ) : (
+        <>
+          <Typography variant="h6" color="text.secondary" fontWeight={600}>
+            No appointments yet
+          </Typography>
+          <Typography variant="body2" color="text.disabled" textAlign="center">
+            Create a new booking to get started.
+          </Typography>
+        </>
+      )}
+    </Box>
+  )
+}
+
+// ─── AppointmentsPage ─────────────────────────────────────────────────────────
+export default function AppointmentsPage() {
+  const navigate = useNavigate()
+  const { enqueueSnackbar } = useSnackbar()
+
+  // SUG-APPT-008: Upcoming / Past / All tab view
+  const [viewTab, setViewTab] = useState('upcoming') // 'upcoming' | 'past' | 'all'
+
+  // ── Filters ──────────────────────────────────────────────────────────────
+  const [dateFrom, setDateFrom] = useState(null)
+  const [dateTo, setDateTo] = useState(null)
+  const [status, setStatus] = useState('all')
+  const [clinicianId, setClinicianId] = useState('')
+  const [search, setSearch] = useState('')
+  const [searchDraft, setSearchDraft] = useState('')
+
+  // ── Pagination ─────────────────────────────────────────────────────────────
+  const [paginationModel, setPaginationModel] = useState({ page: 0, pageSize: 20 })
+
+  // ── Drawer / Dialog ───────────────────────────────────────────────────────
+  const [cancelOpen, setCancelOpen] = useState(false)
+  const [cancelId, setCancelId] = useState(null)
+
+  // SUG-APPT-002: Optimistic cancel — track locally-cancelled IDs
+  const [optimisticCancelled, setOptimisticCancelled] = useState(new Set())
+
+  // ── Build variables ───────────────────────────────────────────────────────
+  const buildFilters = useCallback(() => {
+    const f = {}
+    if (dateFrom) f.date_from = dayjs(dateFrom).format('YYYY-MM-DD')
+    if (dateTo) f.date_to = dayjs(dateTo).format('YYYY-MM-DD')
+    if (status !== 'all') f.status = status
+    if (clinicianId) f.clinician_id = clinicianId
+    if (search) f.patient_name = search
+    return Object.keys(f).length ? f : undefined
+  }, [dateFrom, dateTo, status, clinicianId, search])
+
+  // ── Queries ───────────────────────────────────────────────────────────────
+  const { data, loading, refetch } = useQuery(APPOINTMENTS_QUERY, {
+    variables: {
+      filters: buildFilters(),
+      first: paginationModel.pageSize,
+      page: paginationModel.page + 1,
+    },
+    fetchPolicy: 'cache-and-network',
+  })
+
+  const { data: cliniciansData } = useQuery(CLINICIANS_QUERY, {
+    variables: { first: 100, is_active: true },
+  })
+
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const [cancelAppointment] = useMutation(CANCEL_APPOINTMENT_MUTATION, {
+    onCompleted: () => { refetch(); setCancelOpen(false); setCancelId(null) },
+  })
+
+  // ── Handlers ──────────────────────────────────────────────────────────────
+  const handleClearFilters = () => {
+    setDateFrom(null)
+    setDateTo(null)
+    setStatus('all')
+    setClinicianId('')
+    setSearch('')
+    setSearchDraft('')
+    setPaginationModel({ page: 0, pageSize: 20 })
+    if (viewTab !== 'all') setViewTab('upcoming')
+  }
+
+  const handleTabChange = (_, newTab) => {
+    setViewTab(newTab)
+    // When switching tabs, reset date filters so tab pre-filtering controls the view
+    setDateFrom(null)
+    setDateTo(null)
+    setPaginationModel({ page: 0, pageSize: 20 })
+  }
+
+  const handleSearchKeyDown = (e) => {
+    if (e.key === 'Enter') setSearch(searchDraft)
+  }
+
+  const handleViewRow = (id) => navigate(`/appointments/${id}`)
+  const handleCancelRow = (id) => { setCancelId(id); setCancelOpen(true) }
+
+  // SUG-APPT-002: Optimistic cancel handler
+  const handleOptimisticCancel = (id, reason) => {
+    // 1. Immediately mark row as cancelled in local state
+    setOptimisticCancelled(prev => new Set([...prev, id]))
+    // 2. Fire mutation
+    cancelAppointment({ variables: { id, reason } })
+    // 3. Show undo-style snackbar
+    enqueueSnackbar('Appointment cancelled.', {
+      variant: 'warning',
+      autoHideDuration: 4000,
+    })
+    setCancelOpen(false)
+    setCancelId(null)
+  }
+
+  // SUG-APPT-009: Export CSV
+  const handleExport = () => {
+    try {
+      const displayRows = rows.map(r => ({
+        ...r,
+        status: optimisticCancelled.has(r.id) ? 'cancelled' : r.status,
+      }))
+      const exportRows = [
+        ['ID', 'Patient', 'Email', 'Clinician', 'Service', 'Date & Time', 'Duration (min)', 'Status'],
+        ...displayRows.map(r => [
+          r.id,
+          r.patient?.full_name ?? '',
+          r.patient?.email ?? '',
+          r.clinician?.full_name ?? '',
+          r.service?.name ?? '',
+          r.start_datetime ? dayjs(r.start_datetime).format('DD MMM YYYY HH:mm') : '',
+          r.duration_minutes ?? '',
+          r.status ?? '',
+        ]),
+      ]
+      const csv = exportRows.map(row =>
+        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+      ).join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url
+      a.download = `appointments_${viewTab}_${dayjs().format('YYYY-MM-DD')}.csv`
+      document.body.appendChild(a); a.click()
+      document.body.removeChild(a); URL.revokeObjectURL(url)
+      enqueueSnackbar(`Exported ${displayRows.length} appointments as CSV`, { variant: 'success' })
+    } catch {
+      enqueueSnackbar('Export failed — please try again.', { variant: 'error' })
+    }
+  }
+
+  const apiRows  = data?.appointments?.data ?? []
+
+  // SUG-APPT-008: Compute tab-based date bounds
+  const today = dayjs().startOf('day')
+  const tabDateFrom = viewTab === 'upcoming' ? today.format('YYYY-MM-DD') : undefined
+  const tabDateTo   = viewTab === 'past'     ? today.subtract(1, 'day').format('YYYY-MM-DD') : undefined
+
+  // Fall back to 35 plan-compliant mock rows when backend is offline
+  const mockRows = useMemo(() => {
+    let baseRows = MockStore.getAppointments({
+      status: status !== 'all' ? status : undefined,
+      clinicianId: clinicianId || undefined,
+      search: search || undefined,
+      dateFrom: dateFrom ? dayjs(dateFrom).format('YYYY-MM-DD') : tabDateFrom,
+      dateTo:   dateTo   ? dayjs(dateTo).format('YYYY-MM-DD')   : tabDateTo,
+    })
+    return baseRows
+  }, [status, clinicianId, search, dateFrom, dateTo, tabDateFrom, tabDateTo])
+
+  const rows  = apiRows.length > 0 ? apiRows : mockRows
+  const total = apiRows.length > 0 ? (data?.appointments?.paginatorInfo?.total ?? 0) : mockRows.length
+
+  // SUG-APPT-002: Apply optimistic cancellations to displayed rows
+  const displayRows = useMemo(() =>
+    rows.map(r => optimisticCancelled.has(r.id) ? { ...r, status: 'cancelled' } : r),
+    [rows, optimisticCancelled]
+  )
+
+  // Detect if any filter is active (for contextual empty state)
+  const hasActiveFilters = !!(search || status !== 'all' || clinicianId || dateFrom || dateTo || viewTab !== 'all')
+  const clinicians = cliniciansData?.clinicians?.data?.length > 0
+    ? cliniciansData.clinicians.data
+    : MockStore.getClinicians({ isActive: true })
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+  // ── Column definitions ────────────────────────────────────────────────────
+  const columns = [
+    {
+      field: 'index',
+      headerName: '#',
+      width: 60,
+      sortable: false,
+      renderCell: (params) => {
+        try {
+          return paginationModel.page * paginationModel.pageSize + params.api.getRowIndexRelativeToVisibleRows(params.id) + 1
+        } catch {
+          return params.row?.index ?? ''
+        }
+      },
+    },
+    {
+      field: 'patient',
+      headerName: 'Patient',
+      flex: 1.4,
+      minWidth: 160,
+      sortable: false,
+      renderCell: ({ row }) => (
+        <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 0.5, width: '100%', overflow: 'hidden' }}>
+          <Typography
+            variant="body2"
+            fontWeight={600}
+            noWrap
+            sx={{ color: '#202124', lineHeight: 1.4, maxWidth: '100%' }}
+          >
+            {row.patient?.full_name ?? '—'}
+          </Typography>
+          <Typography
+            variant="caption"
+            noWrap
+            sx={{ color: '#9AA0A6', lineHeight: 1.3, maxWidth: '100%' }}
+          >
+            {row.patient?.email ?? ''}
+          </Typography>
+        </Box>
+      ),
+    },
+    {
+      field: 'clinician',
+      headerName: 'Clinician',
+      flex: 1,
+      minWidth: 140,
+      sortable: false,
+      renderCell: ({ row }) => row.clinician?.full_name ?? '—',
+    },
+    {
+      field: 'service',
+      headerName: 'Service',
+      flex: 1.1,
+      minWidth: 150,
+      sortable: false,
+      renderCell: ({ row }) => (
+        <Tooltip title={row.service?.name ?? ''} placement="top">
+          <Typography variant="body2" noWrap sx={{ maxWidth: '100%' }}>
+            {row.service?.name ?? '—'}
+          </Typography>
+        </Tooltip>
+      ),
+    },
+    {
+      field: 'start_datetime',
+      headerName: 'Date & Time',
+      flex: 1.1,
+      minWidth: 160,
+      sortable: false,
+      renderCell: ({ row }) =>
+        row.start_datetime
+          ? dayjs(row.start_datetime).format('DD MMM YYYY, HH:mm')
+          : '—',
+    },
+    {
+      field: 'duration_minutes',
+      headerName: 'Duration',
+      width: 100,
+      sortable: false,
+      renderCell: ({ row }) =>
+        row.duration_minutes ? `${row.duration_minutes} min` : '—',
+    },
+    {
+      field: 'status',
+      headerName: 'Status',
+      width: 130,
+      sortable: false,
+      renderCell: ({ row }) => <StatusChip status={row.status} />,
+    },
+    {
+      field: 'actions',
+      headerName: 'Actions',
+      width: 150,
+      sortable: false,
+      align: 'center',
+      headerAlign: 'center',
+      renderCell: ({ row }) => (
+        <Box display="flex" gap={0.5} alignItems="center">
+          <Tooltip title="View">
+            <IconButton size="small" onClick={() => handleViewRow(row.id)} color="primary">
+              <VisibilityIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Edit">
+            <IconButton size="small" color="warning" onClick={() => navigate(`/appointments/${row.id}/edit`)}>
+              <EventRepeatIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Cancel">
+            <span>
+              <IconButton
+                size="small"
+                color="error"
+                disabled={['cancelled', 'completed', 'no_show'].includes(row.status)}
+                onClick={() => handleCancelRow(row.id)}
+              >
+                <CancelIcon fontSize="small" />
+              </IconButton>
+            </span>
+          </Tooltip>
+        </Box>
+      ),
+    },
+  ]
+
+  // ─── Render ──────────────────────────────────────────────────────────────
+  return (
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Box className="page-enter">
+        <Helmet>
+          <title>Appointments — MediBook</title>
+        </Helmet>
+
+        {/* Page header */}
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: { xs: 'flex-start', sm: 'center' },
+            justifyContent: 'space-between',
+            flexDirection: { xs: 'column', sm: 'row' },
+            gap: { xs: 1.5, sm: 0 },
+            mb: 2.5,
+          }}
+        >
+          <Box>
+            <Typography variant="h4" fontWeight={800} sx={{ color: '#202124', fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>
+              Appointments
+            </Typography>
+            <Typography variant="body2" sx={{ color: '#5F6368' }}>
+              {loading ? 'Loading…' : `${total.toLocaleString()} ${viewTab !== 'all' ? viewTab : 'total'} appointments`}
+            </Typography>
+          </Box>
+          {/* SUG-APPT-009: Export CSV + New Booking buttons */}
+          <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', sm: 'auto' }, flexDirection: { xs: 'column', sm: 'row' } }}>
+            <Tooltip title={`Export ${displayRows.length} ${viewTab} appointments as CSV`}>
+              <Button
+                variant="outlined"
+                startIcon={<FileDownloadRoundedIcon />}
+                onClick={handleExport}
+                sx={{
+                  borderRadius: 2, fontWeight: 700,
+                  borderColor: '#DADCE0', color: '#5F6368',
+                  '&:hover': { bgcolor: '#F1F3F4', borderColor: '#9AA0A6' },
+                }}
+              >
+                Export CSV
+              </Button>
+            </Tooltip>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/appointments/new')}
+              sx={{
+                borderRadius: 2, px: 2.5,
+                background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
+                boxShadow: '0 2px 8px rgba(26,115,232,0.30)',
+                '&:hover': {
+                  background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)',
+                  boxShadow: '0 4px 14px rgba(26,115,232,0.40)',
+                },
+              }}
+            >
+              New Booking
+            </Button>
+          </Box>
+        </Box>
+
+        {/* SUG-APPT-008: Upcoming / Past / All tab strip */}
+        <Paper elevation={0} sx={{ border: '1px solid #E8EAED', borderRadius: 3, mb: 2, overflow: 'hidden' }}>
+          <Tabs
+            value={viewTab}
+            onChange={handleTabChange}
+            sx={{
+              px: 1,
+              '& .MuiTab-root': { fontWeight: 700, textTransform: 'none', minHeight: 48, fontSize: '0.875rem', color: '#5F6368' },
+              '& .MuiTab-root.Mui-selected': { color: '#1A73E8' },
+              '& .MuiTabs-indicator': { bgcolor: '#1A73E8', height: 3, borderRadius: '3px 3px 0 0' },
+            }}
+          >
+            <Tab value="upcoming" icon={<UpcomingRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Upcoming" />
+            <Tab value="past"     icon={<HistoryRoundedIcon  sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Past" />
+            <Tab value="all"      icon={<CalendarMonthIcon   sx={{ fontSize: '1rem' }} />} iconPosition="start" label="All" />
+          </Tabs>
+        </Paper>
+
+        {/* Filter toolbar */}
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2,
+            mb: 2,
+            border: '1px solid #E8EAED',
+            borderRadius: 3,
+            bgcolor: '#FFFFFF',
+          }}
+        >
+          <Grid container spacing={2} alignItems="center">
+            {/* Search — always visible */}
+            <Grid item xs={12} sm={6} md={3}>
+              <TextField
+                size="small"
+                fullWidth
+                label="Patient name"
+                value={searchDraft}
+                onChange={(e) => setSearchDraft(e.target.value)}
+                onKeyDown={handleSearchKeyDown}
+                onBlur={() => setSearch(searchDraft)}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#1A73E8' } }}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon fontSize="small" sx={{ color: '#9AA0A6' }} />
+                    </InputAdornment>
+                  ),
+                }}
+              />
+            </Grid>
+
+            {/* Status */}
+            <Grid item xs={12} sm={6} md={2}>
+              <TextField
+                select
+                size="small"
+                fullWidth
+                label="Status"
+                value={status}
+                onChange={(e) => { setStatus(e.target.value); setPaginationModel((p) => ({ ...p, page: 0 })) }}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#1A73E8' } }}
+              >
+                {STATUS_OPTIONS.map((s) => (
+                  <MenuItem key={s} value={s} sx={{ textTransform: 'capitalize' }}>
+                    {s === 'all' ? 'All Statuses' : (STATUS_CFG[s]?.label ?? s)}
+                  </MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+
+            {/* Clinician — hidden on xs */}
+            <Grid item xs={12} sm={6} md={3} sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <TextField
+                select
+                size="small"
+                fullWidth
+                label="Clinician"
+                value={clinicianId}
+                onChange={(e) => { setClinicianId(e.target.value); setPaginationModel((p) => ({ ...p, page: 0 })) }}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#1A73E8' } }}
+              >
+                <MenuItem value="">All Clinicians</MenuItem>
+                {clinicians.map((c) => (
+                  <MenuItem key={c.id} value={c.id}>{c.full_name}</MenuItem>
+                ))}
+              </TextField>
+            </Grid>
+
+            {/* Date From */}
+            <Grid item xs={12} sm={6} md={1.75} sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <DatePicker
+                label="From"
+                value={dateFrom}
+                onChange={(v) => { setDateFrom(v); setPaginationModel((p) => ({ ...p, page: 0 })) }}
+                slotProps={{ textField: { size: 'small', fullWidth: true } }}
+              />
+            </Grid>
+
+            {/* Date To */}
+            <Grid item xs={12} sm={6} md={1.75} sx={{ display: { xs: 'none', sm: 'block' } }}>
+              <DatePicker
+                label="To"
+                value={dateTo}
+                onChange={(v) => { setDateTo(v); setPaginationModel((p) => ({ ...p, page: 0 })) }}
+                slotProps={{ textField: { size: 'small', fullWidth: true } }}
+              />
+            </Grid>
+
+            {/* Clear */}
+            <Grid item xs="auto">
+              <Tooltip title="Clear filters">
+                <IconButton onClick={handleClearFilters} sx={{ color: '#D93025', '&:hover': { bgcolor: 'rgba(217,48,37,0.06)' } }}>
+                  <FilterAltOffIcon />
+                </IconButton>
+              </Tooltip>
+            </Grid>
+          </Grid>
+        </Paper>
+
+        {/* Data Grid */}
+        <Paper
+          elevation={0}
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 3,
+            overflow: 'hidden',
+            overflowX: 'auto',
+          }}
+        >
+          <DataGrid
+            rows={displayRows}
+            columns={columns}
+            rowCount={total}
+            loading={loading}
+            paginationMode="server"
+            paginationModel={paginationModel}
+            onPaginationModelChange={setPaginationModel}
+            pageSizeOptions={[10, 20, 50]}
+            getRowId={(r) => r.id}
+            disableRowSelectionOnClick
+            autoHeight
+            rowHeight={72}
+            columnVisibilityModel={{
+              index: !isMobile,
+              clinician: !isMobile,
+              duration_minutes: !isMobile,
+            }}
+            slots={{
+              // SUG-APPT-003: Contextual empty state
+              noRowsOverlay: () => <EmptyState hasFilters={hasActiveFilters} onClearFilters={handleClearFilters} />,
+              loadingOverlay: () => (
+                <Box display="flex" alignItems="center" justifyContent="center" height="100%">
+                  <CircularProgress size={36} />
+                </Box>
+              ),
+            }}
+            sx={{
+              border: 'none',
+              '& .MuiDataGrid-cell': {
+                display: 'flex',
+                alignItems: 'center',
+                py: 1,
+                overflow: 'hidden',
+              },
+              '& .MuiDataGrid-columnHeaders': {
+                backgroundColor: '#F8F9FA',
+                color: '#9AA0A6',
+                fontWeight: 700,
+                fontSize: '0.70rem',
+                textTransform: 'uppercase',
+                letterSpacing: '0.10em',
+              },
+              '& .MuiDataGrid-columnSeparator': { display: 'none' },
+              '& .MuiDataGrid-row:hover': { backgroundColor: '#F1F3F4' },
+            }}
+          />
+        </Paper>
+
+        {/* FAB */}
+        <Fab
+          color="primary"
+          aria-label="new appointment"
+          onClick={() => navigate('/appointments/new')}
+          sx={{
+            position: 'fixed',
+            bottom: { xs: 80, md: 32 },
+            right: { xs: 20, md: 32 },
+            background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
+            boxShadow: '0 4px 14px rgba(26,115,232,0.40)',
+            '&:hover': {
+              background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)',
+              boxShadow: '0 6px 20px rgba(26,115,232,0.48)',
+            },
+          }}
+        >
+          <AddIcon />
+        </Fab>
+
+        {/* Cancel Dialog — SUG-APPT-002: uses optimistic handler */}
+        <CancelDialog
+          open={cancelOpen}
+          appointmentId={cancelId}
+          onClose={() => { setCancelOpen(false); setCancelId(null) }}
+          onConfirm={handleOptimisticCancel}
+        />
+      </Box>
+    </LocalizationProvider>
+  )
+}

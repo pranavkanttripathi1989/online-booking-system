@@ -1,0 +1,1175 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>HealthSync — Google Stitch + MUI JSX Complete Design Plan</title>
+<style>
+:root{
+  --t9:#003B42;--t8:#004D55;--t7:#006D77;--t6:#0A9396;--t4:#83C5BE;--t1:#C8EFF0;--t0:#E8F8F9;
+  --coral:#E29578;--coral-l:#FFDDD2;
+  --bg:#F0F7F8;--white:#fff;--text:#1A2B3C;--muted:#5A7184;--border:#D0E8EA;
+  --ok:#2DC653;--warn:#FFB703;--err:#E63946;--info:#3A86FF;--purple:#7C3AED;
+  --r:10px;--sh:0 2px 16px rgba(0,109,119,.10);
+}
+*{box-sizing:border-box;margin:0;padding:0;}
+body{font-family:'Segoe UI',system-ui,sans-serif;background:var(--bg);color:var(--text);font-size:14px;line-height:1.65;}
+
+/* COVER */
+.cover{background:linear-gradient(140deg,var(--t9) 0%,var(--t7) 52%,var(--t6) 100%);color:#fff;padding:56px 48px 48px;position:relative;overflow:hidden;}
+.cover::before{content:'';position:absolute;top:-90px;right:-90px;width:400px;height:400px;border-radius:50%;background:rgba(255,255,255,0.05);}
+.cover::after{content:'';position:absolute;bottom:-50px;left:25%;width:280px;height:280px;border-radius:50%;background:rgba(255,255,255,0.04);}
+.kicker{display:inline-flex;align-items:center;gap:8px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.28);border-radius:20px;padding:5px 16px;font-size:11px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;margin-bottom:22px;}
+.kicker .g{width:8px;height:8px;border-radius:50%;background:#94E3B0;}
+.cover h1{font-size:40px;font-weight:800;letter-spacing:-1.2px;margin-bottom:10px;line-height:1.12;}
+.cover h1 em{color:var(--t4);font-style:normal;}
+.cover>p{font-size:15px;opacity:.88;max-width:660px;margin-bottom:32px;line-height:1.7;}
+.pills{display:flex;flex-wrap:wrap;gap:10px;}
+.pill{background:rgba(255,255,255,0.13);border:1px solid rgba(255,255,255,0.2);border-radius:8px;padding:7px 14px;font-size:12px;font-weight:600;display:flex;align-items:center;gap:6px;}
+
+/* WRAP */
+.wrap{max-width:1140px;margin:0 auto;padding:0 28px 80px;}
+
+/* TOC */
+.toc{background:var(--white);border:1px solid var(--border);border-radius:14px;padding:24px 28px;margin-top:32px;box-shadow:var(--sh);}
+.toc-lbl{font-size:10px;font-weight:800;color:var(--muted);letter-spacing:1.2px;text-transform:uppercase;margin-bottom:14px;}
+.toc-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:5px;}
+.toc-a{display:flex;align-items:center;gap:9px;padding:7px 10px;border-radius:7px;font-size:12.5px;color:var(--text);text-decoration:none;transition:background .12s;}
+.toc-a:hover{background:var(--t0);}
+.toc-n{width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:800;color:#fff;flex-shrink:0;}
+
+/* SECTIONS */
+.sec{margin-top:56px;}
+.sec-hd{display:flex;align-items:center;gap:13px;margin-bottom:26px;}
+.sec-num{width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:800;color:#fff;flex-shrink:0;}
+.sec-title{font-size:21px;font-weight:800;letter-spacing:-.3px;}
+.sec-sub{font-size:12px;color:var(--muted);margin-left:3px;font-weight:400;}
+
+/* CARDS */
+.card{background:var(--white);border:1px solid var(--border);border-radius:12px;padding:22px 26px;margin-bottom:18px;box-shadow:var(--sh);}
+.ctitle{font-size:13.5px;font-weight:700;margin-bottom:13px;display:flex;align-items:center;gap:7px;}
+
+/* STITCH PROMPT BLOCK */
+.stitch{background:var(--white);border:1px solid var(--border);border-radius:14px;overflow:hidden;margin-bottom:24px;box-shadow:var(--sh);}
+.stitch-hd{padding:17px 22px;display:flex;align-items:center;gap:14px;border-bottom:1px solid var(--border);}
+.stitch-ico{width:48px;height:48px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:22px;flex-shrink:0;}
+.stitch-meta h3{font-size:15px;font-weight:800;margin-bottom:2px;}
+.stitch-meta p{font-size:11.5px;color:var(--muted);}
+.stitch-tag{margin-left:auto;display:flex;flex-direction:column;align-items:flex-end;gap:4px;}
+.tag{display:inline-block;padding:3px 10px;border-radius:10px;font-size:10px;font-weight:700;letter-spacing:.4px;}
+.tag-stitch{background:#E8F0FE;color:#174EA6;}
+.tag-mui{background:var(--t0);color:var(--t8);}
+.tag-phase{background:#F3E8FF;color:#5B21B6;}
+.tag-db{background:#FEF3C7;color:#92400E;}
+.stitch-body{padding:22px 26px;}
+
+/* PROMPT BOX */
+.pbox{background:#F7FBFC;border:1px solid #E2EEF0;border-left:4px solid var(--t7);border-radius:0 9px 9px 0;padding:15px 18px;margin-bottom:14px;}
+.pbox.alt{border-left-color:var(--coral);background:#FFFAF8;border-color:#F0E0D4;}
+.pbox.mui{border-left-color:var(--purple);background:#FAFAFF;border-color:#E5E0F5;}
+.plabel{font-size:9.5px;font-weight:800;letter-spacing:.8px;text-transform:uppercase;margin-bottom:7px;display:inline-block;padding:2px 8px;border-radius:4px;}
+.plabel.s{background:var(--t7);color:#fff;}
+.plabel.m{background:var(--purple);color:#fff;}
+.plabel.d{background:var(--warn);color:#3D2600;}
+.plabel.g{background:#34A853;color:#fff;}
+.ptitle{font-size:13px;font-weight:700;margin-bottom:7px;}
+.ptext{font-size:12.5px;color:#344A5C;line-height:1.75;}
+.ptext strong{color:var(--t8);font-weight:700;}
+.ptext code{background:#E8F0F5;padding:1px 5px;border-radius:3px;font-family:monospace;font-size:11.5px;color:#1A4A5C;}
+.ptext br{display:block;content:'';margin-top:6px;}
+
+/* DB TABLES */
+.dbtable{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px;}
+.dbtable th{background:var(--t7);color:#fff;padding:9px 13px;text-align:left;font-size:10.5px;font-weight:700;}
+.dbtable th:first-child{border-radius:7px 0 0 0;}
+.dbtable th:last-child{border-radius:0 7px 0 0;}
+.dbtable td{padding:8px 13px;border-bottom:1px solid var(--border);vertical-align:top;}
+.dbtable tr:hover td{background:var(--t0);}
+.dbtable tr:last-child td{border:none;}
+.dbtable code{font-family:monospace;font-size:11px;background:#EEF5F6;padding:1px 5px;border-radius:3px;color:var(--t8);}
+
+/* SCHEMA CARDS */
+.schema-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(168px,1fr));gap:10px;margin-top:10px;}
+.smodel{background:var(--white);border:1px solid var(--border);border-radius:8px;padding:10px 12px;}
+.smodel-name{font-size:11px;font-weight:800;color:var(--t8);font-family:monospace;margin-bottom:5px;}
+.smodel-fields{font-size:10.5px;color:var(--muted);line-height:1.6;}
+
+/* PALETTE */
+.pal{display:flex;gap:10px;flex-wrap:wrap;}
+.sw{display:flex;flex-direction:column;align-items:center;gap:5px;}
+.sw-c{width:46px;height:46px;border-radius:50%;border:2px solid rgba(0,0,0,.08);}
+.sw-l{font-size:9.5px;font-weight:700;color:var(--muted);text-align:center;line-height:1.35;}
+.sw-h{font-size:9px;color:#8FA3AF;font-family:monospace;}
+
+/* COMPONENT GRID */
+.comp-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(195px,1fr));gap:10px;margin-top:10px;}
+.comp{background:var(--t0);border:1px solid var(--t1);border-radius:8px;padding:12px 14px;}
+.comp-name{font-size:12px;font-weight:800;color:var(--t8);margin-bottom:3px;}
+.comp-desc{font-size:11px;color:var(--muted);line-height:1.5;}
+
+/* BREAKPOINTS */
+.bp-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:12px;}
+.bp{border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--white);}
+.bp-hd{padding:11px 15px;font-size:11.5px;font-weight:800;color:#fff;}
+.bp-bd{padding:13px 15px;font-size:11.5px;color:var(--muted);line-height:1.7;}
+.bp-bd strong{color:var(--text);font-weight:700;}
+
+/* PHASE TIMELINE */
+.timeline{padding-left:34px;position:relative;margin-top:12px;}
+.timeline::before{content:'';position:absolute;left:10px;top:8px;bottom:8px;width:2px;background:var(--border);}
+.tli{position:relative;margin-bottom:20px;}
+.tli-dot{position:absolute;left:-28px;top:5px;width:14px;height:14px;border-radius:50%;border:2px solid #fff;box-shadow:0 0 0 2px var(--border);}
+.tli-title{font-size:13px;font-weight:700;margin-bottom:3px;}
+.tli-desc{font-size:11.5px;color:var(--muted);}
+
+/* CHECKLIST */
+.checklist{list-style:none;}
+.checklist li{display:flex;align-items:flex-start;gap:9px;padding:5px 0;font-size:12.5px;color:#344A5C;border-bottom:1px dashed #E8EFF2;}
+.checklist li:last-child{border:none;}
+.checklist li::before{content:'○';color:var(--t7);font-size:12px;margin-top:1px;flex-shrink:0;}
+
+/* TWOCOL */
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px;}
+
+/* CODE */
+.code{background:#1A2B3C;border-radius:10px;padding:18px 22px;font-family:'Courier New',monospace;font-size:12px;line-height:1.7;color:#CBD8E0;overflow-x:auto;margin-top:12px;}
+.code .kw{color:#7ECCE4;}.code .str{color:#94E3B0;}.code .cm{color:#3E6070;font-style:italic;}.code .fn{color:#E29578;}.code .num{color:#FFB703;}
+
+/* ROLE CHIPS */
+.role-patient{background:#FEF3C7;color:#92400E;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;}
+.role-clinician{background:#D1FAE5;color:#065F46;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;}
+.role-staff{background:#DBEAFE;color:#1E40AF;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;}
+.role-mgr{background:#EDE9FE;color:#4C1D95;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;}
+.role-admin{background:#FFE4E6;color:#9F1239;padding:2px 9px;border-radius:10px;font-size:10px;font-weight:700;}
+
+/* SCREEN TABLE */
+.stbl{width:100%;border-collapse:collapse;font-size:12px;}
+.stbl th{background:var(--t7);color:#fff;padding:10px 13px;text-align:left;font-size:10.5px;font-weight:700;}
+.stbl th:first-child{border-radius:7px 0 0 0;}.stbl th:last-child{border-radius:0 7px 0 0;}
+.stbl td{padding:9px 13px;border-bottom:1px solid var(--border);vertical-align:top;}
+.stbl tr:hover td{background:var(--t0);}
+.stbl tr:last-child td{border:none;}
+
+@media(max-width:700px){
+  .two,.bp-grid{grid-template-columns:1fr;}
+  .cover{padding:36px 20px 32px;}
+  .wrap{padding:0 16px 60px;}
+}
+</style>
+</head>
+<body>
+
+<!-- ═══════════════════════════════════════ COVER -->
+<div class="cover">
+  <div class="kicker"><span class="g"></span>Complete Design Plan · Google Stitch + MUI JSX</div>
+  <h1>🏥 <em>HealthSync</em><br>Medical Booking Platform</h1>
+  <p>Full phase-wise Google Stitch prompt plan + MUI v5 JSX implementation guide for a professional, fully-responsive medical booking system — built on the same PostgreSQL + GraphQL + Supabase architecture, using the same medical teal design system.</p>
+  <div class="pills">
+    <div class="pill">📐 8 Phases</div>
+    <div class="pill">🖥 24 Screens</div>
+    <div class="pill">🗄 31 DB Models</div>
+    <div class="pill">👥 5 User Roles</div>
+    <div class="pill">🎨 Google Stitch · 24 Prompts</div>
+    <div class="pill">⚛️ React JSX · MUI v5</div>
+    <div class="pill">🔗 GraphQL · Apollo · Supabase</div>
+    <div class="pill">💳 Stripe Payments</div>
+    <div class="pill">📹 Telemedicine</div>
+  </div>
+</div>
+
+<div class="wrap">
+
+<!-- TOC -->
+<div class="toc">
+  <div class="toc-lbl">Plan Contents</div>
+  <div class="toc-grid">
+    <a class="toc-a" href="#s1"><span class="toc-n" style="background:#006D77">1</span>DB Architecture</a>
+    <a class="toc-a" href="#s2"><span class="toc-n" style="background:#2563EB">2</span>Design System & Theme</a>
+    <a class="toc-a" href="#s3"><span class="toc-n" style="background:#7C3AED">3</span>App Shell — Stitch + MUI</a>
+    <a class="toc-a" href="#s4"><span class="toc-n" style="background:#DB2777">4</span>Patient Portal Screens</a>
+    <a class="toc-a" href="#s5"><span class="toc-n" style="background:#EA580C">5</span>Clinician Portal Screens</a>
+    <a class="toc-a" href="#s6"><span class="toc-n" style="background:#16A34A">6</span>Admin & Staff Screens</a>
+    <a class="toc-a" href="#s7"><span class="toc-n" style="background:#0891B2">7</span>Shared Components</a>
+    <a class="toc-a" href="#s8"><span class="toc-n" style="background:#0F766E">8</span>Responsive & Implementation</a>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ S1: DB ARCHITECTURE -->
+<div class="sec" id="s1">
+  <div class="sec-hd">
+    <div class="sec-num" style="background:#006D77">1</div>
+    <div class="sec-title">Database Architecture <span class="sec-sub">/ All 31 Prisma models mapped to screens</span></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">🗄 Full Schema — Model → Screen Mapping</div>
+    <div class="schema-grid">
+      <div class="smodel"><div class="smodel-name">ClientOrganizations</div><div class="smodel-fields">name, code, contact_email, settings, stripe_config, subscriptions → Admin / Org Settings</div></div>
+      <div class="smodel"><div class="smodel-name">Clinics</div><div class="smodel-fields">name, address, phone, email, is_primary, client_org_id → Clinic Management</div></div>
+      <div class="smodel"><div class="smodel-name">Clinicians</div><div class="smodel-fields">first_name, last_name, clinician_type, gender, email, phone, availability, languages → Doctor Profiles</div></div>
+      <div class="smodel"><div class="smodel-name">ClinicianAvailability</div><div class="smodel-fields">day_of_week, start/end time, recurrence_type, room_id, valid_from/until → Schedule Builder</div></div>
+      <div class="smodel"><div class="smodel-name">Patients</div><div class="smodel-fields">full profile, DOB, gender, SSN, occupation, place_of_birth, phones (JSON), address (JSON) → Patient Portal</div></div>
+      <div class="smodel"><div class="smodel-name">Appointments</div><div class="smodel-fields">clinic, room, clinician, patient, date/time, status, duration, product → Core Booking</div></div>
+      <div class="smodel"><div class="smodel-name">Rooms</div><div class="smodel-fields">room_number, room_type, clinician_type, clinic → Room Management</div></div>
+      <div class="smodel"><div class="smodel-name">RoomBlocks</div><div class="smodel-fields">block_date, start/end time, reason, is_recurring → Block Calendar</div></div>
+      <div class="smodel"><div class="smodel-name">SpacerBlocks</div><div class="smodel-fields">clinician, clinic, room, recurrence_type, days → Clinician Blocks</div></div>
+      <div class="smodel"><div class="smodel-name">LunchBreaks</div><div class="smodel-fields">clinician, day_of_week, start/end time, recurrence → Schedule Gaps</div></div>
+      <div class="smodel"><div class="smodel-name">Products</div><div class="smodel-fields">name, type (simple/variable), sku, price, category → Service Catalog</div></div>
+      <div class="smodel"><div class="smodel-name">ProductVariations</div><div class="smodel-fields">variation_name, sku, price, stock_quantity → Service Options</div></div>
+      <div class="smodel"><div class="smodel-name">ProductCategories</div><div class="smodel-fields">name, description, clinic_id → Service Catalog Tabs</div></div>
+      <div class="smodel"><div class="smodel-name">ProductSubcategories</div><div class="smodel-fields">category_id, name → Sub-filters</div></div>
+      <div class="smodel"><div class="smodel-name">ProductCancellationRules</div><div class="smodel-fields">rule_type, hours_before, fee_type, fee_amount → Policies Page</div></div>
+      <div class="smodel"><div class="smodel-name">Notifications</div><div class="smodel-fields">type (appointment/system/payment/alert), priority (low/med/high), action_url → Notification Feed</div></div>
+      <div class="smodel"><div class="smodel-name">EmailTemplates</div><div class="smodel-fields">confirmation, reschedule, cancellation → Comms Settings</div></div>
+      <div class="smodel"><div class="smodel-name">Users + UserProfiles</div><div class="smodel-fields">role_id, image, clinic_id, clinician_id, patient_id, email_verified → Auth System</div></div>
+      <div class="smodel"><div class="smodel-name">UserRoles + Permissions</div><div class="smodel-fields">name, resource, action, rolePermissions → RBAC Panel</div></div>
+      <div class="smodel"><div class="smodel-name">SubscriptionPlans</div><div class="smodel-fields">price_monthly/yearly, max_clinics, max_users, features (JSON) → Pricing Page</div></div>
+      <div class="smodel"><div class="smodel-name">OrganizationSubscriptions</div><div class="smodel-fields">status, billing_cycle, stripe IDs → Billing Dashboard</div></div>
+      <div class="smodel"><div class="smodel-name">PaymentTransactions</div><div class="smodel-fields">amount, currency, status, stripe_payment_intent → Payment History</div></div>
+      <div class="smodel"><div class="smodel-name">StripeConfigurations</div><div class="smodel-fields">stripe_account_id, publishable_key, webhook → Payment Settings</div></div>
+      <div class="smodel"><div class="smodel-name">Languages + ClinicianLanguages</div><div class="smodel-fields">name, code → Doctor profile filter, booking search</div></div>
+      <div class="smodel"><div class="smodel-name">ClinicianTypeModel</div><div class="smodel-fields">Cardiologist, GP, Dentist, etc. → Search filters</div></div>
+      <div class="smodel"><div class="smodel-name">RoomTypeModel</div><div class="smodel-fields">Consultation, Operating, Telemedicine → Room labels</div></div>
+      <div class="smodel"><div class="smodel-name">AuditLogs</div><div class="smodel-fields">user_id, action, resource, ip_address → Admin Audit Trail</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">📋 24 Screens — Roles & DB Models</div>
+    <table class="stbl">
+      <thead><tr><th>Screen</th><th>Route</th><th>Primary DB Models</th><th>Roles</th></tr></thead>
+      <tbody>
+        <tr><td><strong>Landing / Search</strong></td><td><code>/</code></td><td>Clinicians, Clinics, ClinicianAvailability, Languages, ClinicianTypeModel</td><td><span class="role-patient">Public</span></td></tr>
+        <tr><td><strong>Doctor Profile</strong></td><td><code>/doctor/:id</code></td><td>Clinicians, ClinicianAvailability, ClinicianLanguages, Reviews</td><td><span class="role-patient">Public</span></td></tr>
+        <tr><td><strong>Booking Flow</strong></td><td><code>/book/:doctorId</code></td><td>Appointments, ClinicianAvailability, Rooms, Products, ProductVariations</td><td><span class="role-patient">Patient</span></td></tr>
+        <tr><td><strong>Payment Checkout</strong></td><td><code>/book/:id/pay</code></td><td>PaymentTransactions, StripeConfigurations, Products</td><td><span class="role-patient">Patient</span></td></tr>
+        <tr><td><strong>Patient Dashboard</strong></td><td><code>/patient/dashboard</code></td><td>Appointments, Notifications, Patients</td><td><span class="role-patient">Patient</span></td></tr>
+        <tr><td><strong>Patient Appointments</strong></td><td><code>/patient/appointments</code></td><td>Appointments, Clinicians, Clinics, Products</td><td><span class="role-patient">Patient</span></td></tr>
+        <tr><td><strong>Video Consultation</strong></td><td><code>/consultation/:id</code></td><td>Appointments, Clinicians, Patients</td><td><span class="role-patient">Patient</span> <span class="role-clinician">Clinician</span></td></tr>
+        <tr><td><strong>Patient Profile</strong></td><td><code>/patient/profile</code></td><td>Patients, UserProfiles, Notifications</td><td><span class="role-patient">Patient</span></td></tr>
+        <tr><td><strong>Clinician Dashboard</strong></td><td><code>/clinician/dashboard</code></td><td>Appointments, Patients, ClinicianAvailability, Notifications</td><td><span class="role-clinician">Clinician</span></td></tr>
+        <tr><td><strong>Clinician Calendar</strong></td><td><code>/clinician/calendar</code></td><td>Appointments, SpacerBlocks, LunchBreaks, RoomBlocks</td><td><span class="role-clinician">Clinician</span></td></tr>
+        <tr><td><strong>Clinician Availability</strong></td><td><code>/clinician/availability</code></td><td>ClinicianAvailability, LunchBreaks, SpacerBlocks, Rooms</td><td><span class="role-clinician">Clinician</span></td></tr>
+        <tr><td><strong>Clinician Patients</strong></td><td><code>/clinician/patients</code></td><td>Patients, Appointments, Clinicians</td><td><span class="role-clinician">Clinician</span></td></tr>
+        <tr><td><strong>Staff Dashboard</strong></td><td><code>/staff/dashboard</code></td><td>Appointments, Patients, Clinicians, Notifications</td><td><span class="role-staff">Receptionist</span></td></tr>
+        <tr><td><strong>Staff Appointments</strong></td><td><code>/staff/appointments</code></td><td>Appointments, Patients, Clinicians, Rooms, Products</td><td><span class="role-staff">Receptionist</span></td></tr>
+        <tr><td><strong>Staff Calendar</strong></td><td><code>/staff/calendar</code></td><td>Appointments, Rooms, RoomBlocks, SpacerBlocks</td><td><span class="role-staff">Receptionist</span></td></tr>
+        <tr><td><strong>Manager Dashboard</strong></td><td><code>/manager/dashboard</code></td><td>Appointments, Clinics, Clinicians, Patients, PaymentTransactions</td><td><span class="role-mgr">Manager</span></td></tr>
+        <tr><td><strong>Clinics Management</strong></td><td><code>/manager/clinics</code></td><td>Clinics, Rooms, RoomTypeModel, ClientOrganizations</td><td><span class="role-mgr">Manager</span></td></tr>
+        <tr><td><strong>Service Catalog</strong></td><td><code>/manager/products</code></td><td>Products, ProductCategories, ProductSubcategories, ProductVariations, ProductCancellationRules</td><td><span class="role-mgr">Manager</span></td></tr>
+        <tr><td><strong>Billing & Payments</strong></td><td><code>/manager/billing</code></td><td>PaymentTransactions, OrganizationSubscriptions, SubscriptionPlans, StripeConfigurations</td><td><span class="role-mgr">Manager</span></td></tr>
+        <tr><td><strong>Admin Users</strong></td><td><code>/admin/users</code></td><td>UserProfiles, UserRoles, Permissions, RolePermissions</td><td><span class="role-admin">Admin</span></td></tr>
+        <tr><td><strong>Admin Organizations</strong></td><td><code>/admin/organizations</code></td><td>ClientOrganizations, OrganizationSubscriptions, SubscriptionPlans</td><td><span class="role-admin">Admin</span></td></tr>
+        <tr><td><strong>Admin Communications</strong></td><td><code>/admin/communications</code></td><td>EmailTemplates, Notifications</td><td><span class="role-admin">Admin</span></td></tr>
+        <tr><td><strong>Admin Policies</strong></td><td><code>/admin/policies</code></td><td>ProductCancellationRules, UserRoles, Permissions</td><td><span class="role-admin">Admin</span></td></tr>
+        <tr><td><strong>Login / Register / ForgotPW</strong></td><td><code>/login</code> etc.</td><td>Users, UserProfiles, UserRoles</td><td><span class="role-patient">Public</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ S2: DESIGN SYSTEM -->
+<div class="sec" id="s2">
+  <div class="sec-hd">
+    <div class="sec-num" style="background:#2563EB">2</div>
+    <div class="sec-title">Design System & MUI Theme <span class="sec-sub">/ Build this first — everything extends it</span></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">🎨 Medical Color Palette</div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.8px;margin-bottom:9px;">PRIMARY — MEDICAL TEAL</div>
+      <div class="pal">
+        <div class="sw"><div class="sw-c" style="background:#003B42"></div><div class="sw-l">900<br>Darkest</div><div class="sw-h">#003B42</div></div>
+        <div class="sw"><div class="sw-c" style="background:#004D55"></div><div class="sw-l">800<br>primary.dark</div><div class="sw-h">#004D55</div></div>
+        <div class="sw"><div class="sw-c" style="background:#006D77"></div><div class="sw-l">700<br>primary.main</div><div class="sw-h">#006D77</div></div>
+        <div class="sw"><div class="sw-c" style="background:#0A9396"></div><div class="sw-l">600<br>mid</div><div class="sw-h">#0A9396</div></div>
+        <div class="sw"><div class="sw-c" style="background:#83C5BE"></div><div class="sw-l">400<br>primary.light</div><div class="sw-h">#83C5BE</div></div>
+        <div class="sw"><div class="sw-c" style="background:#C8EFF0"></div><div class="sw-l">100<br>tint</div><div class="sw-h">#C8EFF0</div></div>
+        <div class="sw"><div class="sw-c" style="background:#E8F8F9"></div><div class="sw-l">50<br>bg tint</div><div class="sw-h">#E8F8F9</div></div>
+      </div>
+    </div>
+    <div style="margin-bottom:16px;">
+      <div style="font-size:10px;font-weight:800;color:var(--muted);letter-spacing:.8px;margin-bottom:9px;">SECONDARY — WARM CORAL + STATUS</div>
+      <div class="pal">
+        <div class="sw"><div class="sw-c" style="background:#E29578"></div><div class="sw-l">Coral<br>secondary</div><div class="sw-h">#E29578</div></div>
+        <div class="sw"><div class="sw-c" style="background:#FFDDD2"></div><div class="sw-l">Coral Light</div><div class="sw-h">#FFDDD2</div></div>
+        <div class="sw"><div class="sw-c" style="background:#2DC653"></div><div class="sw-l">Success<br>completed</div><div class="sw-h">#2DC653</div></div>
+        <div class="sw"><div class="sw-c" style="background:#FFB703"></div><div class="sw-l">Warning<br>pending</div><div class="sw-h">#FFB703</div></div>
+        <div class="sw"><div class="sw-c" style="background:#E63946"></div><div class="sw-l">Error<br>cancelled</div><div class="sw-h">#E63946</div></div>
+        <div class="sw"><div class="sw-c" style="background:#3A86FF"></div><div class="sw-l">Info<br>scheduled</div><div class="sw-h">#3A86FF</div></div>
+        <div class="sw"><div class="sw-c" style="background:#7C3AED"></div><div class="sw-l">Purple<br>blocked</div><div class="sw-h">#7C3AED</div></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">⚡ MUI Theme — <code>src/theme/index.js</code></div>
+    <div class="pbox mui">
+      <span class="plabel m">MUI PROMPT</span>
+      <div class="ptitle">Create the full MUI v5 theme for HealthSync</div>
+      <div class="ptext">
+        "Create <code>src/theme/index.js</code> for a React JSX + MUI v5 medical booking platform called HealthSync.<br>
+        Install: <code>@mui/material @emotion/react @emotion/styled @mui/x-date-pickers @mui/lab @fontsource/plus-jakarta-sans</code><br><br>
+        <strong>Palette:</strong> primary main <code>#006D77</code> light <code>#83C5BE</code> dark <code>#004D55</code>, secondary main <code>#E29578</code> light <code>#FFDDD2</code>, success <code>#2DC653</code>, warning <code>#FFB703</code>, error <code>#E63946</code>, info <code>#3A86FF</code>, background default <code>#F0F7F8</code> paper <code>#FFFFFF</code>, text primary <code>#1A2B3C</code> secondary <code>#5A7184</code>.<br><br>
+        <strong>Typography:</strong> fontFamily <code>'Plus Jakarta Sans', 'Segoe UI', sans-serif</code>. h1 32px/700, h2 24px/700, h3 20px/600, h4 16px/600, body1 15px, body2 13px, caption 11px.<br><br>
+        <strong>Shape:</strong> borderRadius 10. Custom shadows with teal tint at all 25 levels.<br><br>
+        <strong>Component overrides:</strong> Button — textTransform none, fontWeight 600, borderRadius 8; Card — border 1px solid #D0E8EA, borderRadius 12, shadow; TextField — outlined small default; Table head — background #E8F8F9, color #004D55, fontWeight 700; Chip — fontWeight 600; AppBar — backgroundColor white, borderBottom 1px #D0E8EA, boxShadow none, color text.primary; Drawer — border right 1px #D0E8EA.<br><br>
+        Export <code>medicalTheme</code>. Wrap <code>App.jsx</code> in <code>ThemeProvider</code> + <code>CssBaseline</code>."
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ S3: APP SHELL -->
+<div class="sec" id="s3">
+  <div class="sec-hd">
+    <div class="sec-num" style="background:#7C3AED">3</div>
+    <div class="sec-title">App Shell — Layout, Auth & Navigation <span class="sec-sub">/ Google Stitch first, then MUI JSX</span></div>
+  </div>
+
+  <!-- LOGIN -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#E8F8F9;">🔐</div>
+      <div class="stitch-meta">
+        <h3>Screen 1 — Login / Register / Forgot Password</h3>
+        <p>Auth screens · <code>/login</code> · <code>/register</code> · <code>/forgot-password</code></p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-mui">MUI JSX</span>
+        <span class="tag tag-db">Users · UserProfiles · UserRoles</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a professional medical booking platform login page</div>
+        <div class="ptext">
+          "Design a premium medical booking platform login screen for a web app called <strong>HealthSync</strong>. Full-screen two-column layout on desktop, single column on mobile.<br><br>
+          <strong>Left panel (60% width, desktop only):</strong> Deep teal gradient background from <code>#004D55</code> to <code>#0A9396</code>. Large centered illustration: a clean medical cross icon with soft glow, surrounded by floating UI cards showing 'Your next appointment: Dr. Sarah Johnson — Cardiology — Tomorrow 10:00 AM' and 'Video consultation ready'. Below the illustration: headline 'Your health, perfectly scheduled' in 32px white bold. Three feature pills: a calendar icon + 'Book any specialist instantly', a shield icon + 'Secure & private', a video icon + 'In-person or video'. Bottom: five clinic logo placeholders labeled 'Trusted by 500+ clinics'.<br><br>
+          <strong>Right panel (40% width):</strong> White background with 48px padding. HealthSync logo top-left (stethoscope icon + wordmark in teal #006D77). Tab row: 'Sign in' | 'Create account' with teal active underline. Email field with envelope icon, Password field with eye toggle. 'Forgot password?' link right-aligned in teal. 'Sign in' button: full width, teal #006D77 background, white text, 10px radius. Divider: '— or continue with —'. Google OAuth button outlined. Footer: 'By signing in, you agree to our Terms and Privacy Policy'.<br><br>
+          <strong>Style:</strong> Clean, premium medical aesthetic. Font: Plus Jakarta Sans. Spacing generous. No decorative noise."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement Login.jsx with MUI</div>
+        <div class="ptext">
+          "Create <code>src/pages/Login.jsx</code> using MUI v5 JSX (no TypeScript). Two-column Grid on desktop (md+), single column on mobile (xs).<br><br>
+          <strong>Left panel:</strong> <code>Box sx=&#123;&#123; display:&#123;xs:'none',md:'flex'&#125;, bgcolor:'#004D55', flexDirection:'column', alignItems:'center', justifyContent:'center', p:6 &#125;&#125;</code>. MedicalServices icon (80px, white). Typography h4 white. Three feature Stack rows each with CheckCircle icon + body2 text.<br><br>
+          <strong>Right panel:</strong> Centered Card (maxWidth 440). MUI <code>Tabs</code> value=activeTab: Sign In / Register. Sign In tab: email TextField (EmailIcon adornment), password TextField (Visibility toggle), forgot password Link. Submit Button contained fullWidth size='large' with CircularProgress when loading. MUI Alert for errors.<br><br>
+          Register tab: first_name + last_name Grid row, email, password, confirm_password, role Select (patient/clinician). Submit creates user via GraphQL <code>signup</code> mutation. Keep all existing Supabase auth logic. Show email verification Alert after register."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- NAVIGATION SHELL -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#E8F8F9;">🧭</div>
+      <div class="stitch-meta">
+        <h3>Screen 2 — App Shell (Sidebar + Top Bar + Layout)</h3>
+        <p>Role-aware navigation · All authenticated routes · React Router v6</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-mui">MUI JSX</span>
+        <span class="tag tag-db">UserProfiles · UserRoles · Notifications</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design the main navigation shell for HealthSync</div>
+        <div class="ptext">
+          "Design the main app navigation shell for <strong>HealthSync</strong> medical booking platform. Show the layout with sidebar open on desktop (1440px wide viewport).<br><br>
+          <strong>Left sidebar (260px, white, full height):</strong> Top section: teal gradient header (#004D55 to #006D77) with HealthSync logo (stethoscope + wordmark in white, 22px). Below header: user card — Gravatar avatar (40px circle), full name, role badge chip (e.g. 'Clinician' in green pill). Navigation list below:<br>
+          Active item: teal #006D77 background, white text, white icon, 4px left accent border. Inactive: gray text + icon, hover: light teal #E8F8F9 bg.<br>
+          Nav items with icons: Dashboard (grid icon), Calendar (calendar icon), Appointments (clipboard icon), Patients (group icon), Availability (clock icon), Notifications (bell + red badge '3').<br>
+          Collapse button at bottom: left-arrow icon, body2 'Collapse sidebar'.<br><br>
+          <strong>Top AppBar (64px, white, 1px bottom border #D0E8EA):</strong> Left: page breadcrumb (Home > Calendar). Right: notification bell badge, search icon, divider, Gravatar avatar + name + chevron (opens dropdown menu with Profile, Settings, Sign Out).<br><br>
+          <strong>Main content area:</strong> Light teal-gray background #F0F7F8, 24px padding. Show a sample dashboard page content behind. Show the responsive mobile version (375px) below: collapsed sidebar, hamburger icon in AppBar, bottom tab bar with 5 icons (Home, Calendar, Patients, Notifications, Menu).<br><br>
+          <strong>Style:</strong> Professional medical SaaS. Clean, uncluttered. Plus Jakarta Sans font."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement AppShell.jsx with responsive Drawer</div>
+        <div class="ptext">
+          "Create <code>src/layouts/AppShell.jsx</code> using MUI v5 JSX. <code>const isMobile = useMediaQuery(theme.breakpoints.down('md'))</code>.<br><br>
+          <strong>Desktop:</strong> permanent Drawer width 260px. Header Box: teal gradient, HealthSync logo, user Avatar+name+role Chip. Nav: List with ListItemButton (selected: bgcolor primary.main, color white; hover: bgcolor #E8F8F9). Admin submenu uses Collapse + ExpandMore icon. Divider between sections.<br><br>
+          <strong>Mobile:</strong> temporary Drawer, triggered by AppBar IconButton (MenuIcon). Also render BottomNavigation with 5 items (Dashboard, Calendar, Appointments, Notifications, More).<br><br>
+          <strong>AppBar:</strong> white bg, 64px minHeight, 1px border-bottom. Right: IconButton (Notifications with Badge count from GraphQL), Avatar button → Menu (Profile/Sign out).<br><br>
+          <strong>Role-based nav:</strong> Filter navConfig array using <code>profile.role.name</code>. Roles: patient, clinician, receptionist, clinic_manager, system_admin. Each role sees different nav items.<br><br>
+          Export layout, use in App.jsx for all protected routes."
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ S4: PATIENT PORTAL -->
+<div class="sec" id="s4">
+  <div class="sec-hd">
+    <div class="sec-num" style="background:#DB2777">4</div>
+    <div class="sec-title">Patient Portal Screens <span class="sec-sub">/ Public landing, search, booking flow, dashboard</span></div>
+  </div>
+
+  <!-- LANDING / SEARCH -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#FFDDD2;">🔍</div>
+      <div class="stitch-meta">
+        <h3>Screen 3 — Landing Page & Doctor Search</h3>
+        <p>Public · <code>/</code> · Search by specialty, location, language, availability</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Clinicians · ClinicianTypeModel · Languages · Clinics</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design the public homepage with doctor search for HealthSync</div>
+        <div class="ptext">
+          "Design a premium public homepage for <strong>HealthSync</strong>, a medical appointment booking platform. Desktop 1440px viewport.<br><br>
+          <strong>Hero section (full width, teal gradient #004D55 → #0A9396):</strong> White nav bar at top: HealthSync logo left, links center (Find Doctors, Specialties, For Clinics), Login + Sign up buttons right. Below nav: centered headline — 'Find the right doctor. Book instantly.' in 52px white bold. Subtitle: 'Search 2,000+ verified specialists across 120+ clinics'. White search card (large, rounded 16px, soft shadow): Three-column search bar inside — Specialty dropdown (stethoscope icon, 'All Specialties'), Location field (pin icon, 'City or Clinic'), Date picker (calendar icon, 'Any date') — plus large teal 'Find Doctors' button. Below search: 8 specialty quick-pick pills in teal outline: Cardiology, Dermatology, Orthopedics, Dentistry, Pediatrics, Psychology, General Practice, Ophthalmology.<br><br>
+          <strong>Stats row (white bg):</strong> 4 centered numbers: '2,400+ Doctors', '120 Clinics', '50,000 Appointments', '4.9★ Average Rating' — each with a colored icon above.<br><br>
+          <strong>Featured doctors grid (3 columns):</strong> Doctor cards — Gravatar photo (64px circle), name, specialty chip, clinic name, languages row (small flag icons), rating stars + count, next available slot button in teal outline, 'Book now' teal button. Card has 1px border, 12px radius, soft shadow on hover.<br><br>
+          <strong>How it works (3-step):</strong> Search → Select slot → Confirm. Colored numbered icons, short descriptions.<br><br>
+          <strong>Bottom CTA:</strong> Teal gradient strip — 'Are you a healthcare provider?' + 'Join HealthSync' white button.<br><br>
+          <strong>Style:</strong> Clean, modern medical brand. Plus Jakarta Sans. Teal #006D77 primary."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement Landing.jsx with SearchBar and DoctorCard grid</div>
+        <div class="ptext">
+          "Create <code>src/pages/Landing.jsx</code> in React JSX + MUI v5. No auth required.<br><br>
+          <strong>Hero:</strong> Box sx bgcolor gradient #004D55→#0A9396, py:12. Paper elevation=4 sx borderRadius:4, p:3, mx:'auto', maxWidth:780 as search card. Inside: Grid container spacing=2 — Grid item xs=12 sm=4: Autocomplete (options from GraphQL <code>getClinicianTypes</code>). Grid item xs=12 sm=4: TextField location. Grid item xs=12 sm=4: DatePicker. Grid item xs=12: Button fullWidth variant='contained' size='large' 'Find Doctors'.<br><br>
+          <strong>Results:</strong> Grid container spacing=3 xs=12 sm=6 md=4. Each DoctorCard: Card with CardContent — Avatar (Gravatar, 64px), Typography h6 name, Chip clinician_type, body2 clinic name, Stack of language Chips (from ClinicianLanguages → Languages), Rating display, 'Next available' body2, CardActions: Button 'View Profile' outlined + Button 'Book Now' contained.<br><br>
+          <strong>Filters sidebar (md+):</strong> Paper sticky — checkboxes for ClinicianTypeModel list, language filter, availability filter (today/this week/custom), price range Slider.<br><br>
+          Fetch doctors via GraphQL query <code>getClinicians</code>. Implement URL search params for filter state."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- DOCTOR PROFILE -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#D1FAE5;">🩺</div>
+      <div class="stitch-meta">
+        <h3>Screen 4 — Doctor Public Profile</h3>
+        <p><code>/doctor/:id</code> · Full clinician profile with available slots</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Clinicians · ClinicianAvailability · Languages · Appointments</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a doctor public profile page for HealthSync</div>
+        <div class="ptext">
+          "Design a doctor profile page for <strong>HealthSync</strong>. Desktop layout 1440px.<br><br>
+          <strong>Profile header card (full width, white, shadow):</strong> Left: large Gravatar avatar (120px, teal border ring), 'Verified' badge (green checkmark). Center column: doctor name in 28px bold, specialty chip (teal outline), clinic name + location (body2 with icons), 5-star rating '4.8 (124 reviews)', languages spoken row (small flag+language chips), gender + years experience badges. Right column: teal 'Book Appointment' button (large, contained), 'Video consultation available' button (purple outlined, webcam icon), 'Save doctor' outlined bookmark button, share icon button.<br><br>
+          <strong>Left column (65%):</strong> About card (bio paragraph), Education & Experience timeline (vertical timeline cards — degree, hospital, years), Services offered (grid of service chips from Products table), Languages card (flag icons + names).<br><br>
+          <strong>Right column (35%, sticky):</strong> Availability picker card — 'Select appointment type' toggle (In-Person / Video), date navigation (prev/next week arrows + 7-day mini calendar), time slot grid for selected day — slots colored: teal = available (click to select), gray = unavailable, green = selected. 'Duration: 30 min'. Selected slot summary: date + time + doctor + type. 'Continue to Book' teal button full width.<br><br>
+          <strong>Below:</strong> Patient reviews section (star ratings + text comments + date). Similar doctors row (3 horizontal cards).<br><br>
+          <strong>Style:</strong> Medical professional. Clean layout. Trust indicators prominent."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement DoctorProfile.jsx with availability slot picker</div>
+        <div class="ptext">
+          "Create <code>src/pages/DoctorProfile.jsx</code>. Fetch <code>getClinician(id)</code> + <code>getClinicianAvailability(clinicianId)</code> from GraphQL.<br><br>
+          <strong>Header:</strong> Paper p=4 — Grid: Avatar 120px (Gravatar), Typography h4 name, Chip clinicianType, Stack language Chips (map ClinicianLanguages → Languages name), Chip gender, Stack buttons: 'Book' Button contained + 'Video' Button variant='outlined' color='secondary' + Bookmark IconButton.<br><br>
+          <strong>Slot picker (sticky Paper right column):</strong> ToggleButtonGroup: 'In-Person' | 'Video'. MUI DateCalendar from @mui/x-date-pickers for week navigation. Below calendar: compute available slots from <code>ClinicianAvailability</code> (filter by selected day_of_week, check start_time/end_time, subtract existing Appointments). Render slots as Grid of Button chips — available: variant='outlined' color='primary', taken: disabled gray, selected: variant='contained'.<br><br>
+          On slot select: update state <code>selectedSlot</code>. Show summary Box with date+time+type. Navigate to <code>/book/:clinicianId</code> with state &#123;slot, appointmentType&#125;."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BOOKING FLOW -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#EDE9FE;">📋</div>
+      <div class="stitch-meta">
+        <h3>Screen 5 — Multi-Step Booking Flow</h3>
+        <p><code>/book/:doctorId</code> · 4-step wizard: Slot → Details → Service → Confirm</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Appointments · Products · ProductVariations · Rooms · Patients</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a 4-step appointment booking wizard</div>
+        <div class="ptext">
+          "Design a 4-step booking wizard for <strong>HealthSync</strong>. Clean, step-by-step form layout. 800px centered container on white background card.<br><br>
+          <strong>Progress bar at top:</strong> 4 steps with teal connecting line. Active step: teal filled circle + bold label. Completed: teal filled checkmark circle. Future: gray circle + gray label. Steps: 1 'Select Time' → 2 'Your Details' → 3 'Choose Service' → 4 'Review & Pay'.<br><br>
+          <strong>Step 1 (Select Time):</strong> Show doctor mini card (avatar+name+specialty) at top. Below: week calendar navigation (Mon–Sun), available time slots grid (morning/afternoon/evening sections). Selected slot: teal bg white text. Appointment type toggle: In-Person (hospital icon) / Video (camera icon).<br><br>
+          <strong>Step 2 (Your Details):</strong> Pre-filled if logged in (first_name, last_name, date_of_birth DatePicker, phone, email). Reason for visit multiline (required). Notes field optional. Medical notes upload button (optional file attach).<br><br>
+          <strong>Step 3 (Choose Service):</strong> Grid of service cards from Products table. Each card: service name, description, duration, price (£/€/$), Chip for type. Variable products show variation Select below. Cancellation policy shown per product rules (ProductCancellationRules).<br><br>
+          <strong>Step 4 (Review & Confirm):</strong> Summary card: doctor photo+name, date+time, clinic+room, service+price, patient name. Stripe payment card input. Cancellation policy accept checkbox. 'Confirm & Pay £85' teal button. Back + Cancel links.<br><br>
+          <strong>Right sidebar (sticky, desktop):</strong> Booking summary card throughout all steps — shows selected data as user progresses. Teal border card."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement BookingWizard.jsx with Stepper + GraphQL mutation</div>
+        <div class="ptext">
+          "Create <code>src/pages/BookingWizard.jsx</code> using MUI Stepper.<br><br>
+          <strong>State:</strong> <code>const [activeStep, setActiveStep] = useState(0)</code>. Steps array: ['Select Time', 'Your Details', 'Choose Service', 'Review & Pay'].<br><br>
+          <strong>MUI Stepper:</strong> <code>&lt;Stepper activeStep=&#123;activeStep&#125; alternativeLabel&gt;</code>. Custom StepIcon: completed = CheckCircle teal, active = teal filled, inactive = gray outline.<br><br>
+          <strong>Step 1:</strong> Slot picker from DoctorProfile (reuse AvailabilitySlotPicker component). ToggleButtonGroup appointment type.<br><br>
+          <strong>Step 2:</strong> React Hook Form + MUI fields. If authenticated, pre-fill from <code>useAuth()</code> profile. Patients fields map to <code>PatientInput</code> GraphQL type. <code>reason</code> TextField multiline required. <code>notes</code> optional.<br><br>
+          <strong>Step 3:</strong> Fetch <code>getProducts(clinicId)</code>. Grid xs=12 sm=6 of ProductCard components. On select: if product_type='variable', show Select with <code>ProductVariations</code>. Show <code>ProductCancellationRules</code> in Alert warning.<br><br>
+          <strong>Step 4:</strong> Summary Paper. Stripe <code>CardElement</code> (via @stripe/react-stripe-js). Checkbox accept. On submit: call <code>createAppointment</code> mutation then <code>createPaymentTransaction</code> mutation. On success: navigate to <code>/patient/appointments</code> + show success Snackbar."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- PATIENT DASHBOARD -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#FEF3C7;">📊</div>
+      <div class="stitch-meta">
+        <h3>Screen 6 — Patient Dashboard</h3>
+        <p><code>/patient/dashboard</code> · Upcoming appointments, history, quick actions</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Appointments · Notifications · Patients · Clinicians</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a patient personal health dashboard for HealthSync</div>
+        <div class="ptext">
+          "Design a patient-facing dashboard for <strong>HealthSync</strong>. Warm, personal, trustworthy medical UI. Desktop 1440px.<br><br>
+          <strong>Welcome banner (teal gradient card, full width):</strong> 'Good morning, Emma 👋' in 24px white bold. Subtitle: 'You have 2 upcoming appointments this week'. Two white action buttons: 'Book new appointment' + 'View all appointments'. Small Gravatar avatar right-aligned.<br><br>
+          <strong>Stats row (4 cards):</strong> Total appointments (calendar icon, teal left border), Completed (checkmark, green), Upcoming (clock icon, blue), Cancelled (x icon, red). Each card: large number + label + small trend vs last month.<br><br>
+          <strong>Main content (two columns):</strong><br>
+          Left (65%): 'Upcoming appointments' section. Each appointment card: date pill (Mon 15 Jan) left accent, doctor Gravatar + name + specialty, clinic name + room number, time + duration chips, appointment type (in-person/video badge), status chip, action row: 'Join Video' button (purple, if video type), 'Reschedule' outlined, 'Cancel' text button.<br><br>
+          Right (35%): 'Your doctors' — list of 3 most recent clinicians with quick 'Book again' button each. 'Recent activity' timeline — last 5 notification events with type icons. Quick links card: 'Update profile', 'Payment history', 'Download records'.<br><br>
+          <strong>Style:</strong> Patient-friendly, warm but professional. Soft card shadows."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement PatientDashboard.jsx</div>
+        <div class="ptext">
+          "Create <code>src/pages/patient/Dashboard.jsx</code> in MUI JSX.<br><br>
+          <strong>Data:</strong> GraphQL queries — <code>getPatientAppointments(patientId, status: 'scheduled')</code> for upcoming, <code>getNotifications(userId, limit: 5)</code> for activity feed.<br><br>
+          <strong>Welcome Box:</strong> sx bgcolor gradient, p:4, borderRadius:3 — Typography h5 white 'Good morning, &#123;firstName&#125;', body1 subtitle, Stack direction='row' gap=2: two white outlined Button components.<br><br>
+          <strong>KPI Grid:</strong> Grid container spacing=2 — xs=6 sm=3 per card. Paper elevation=0 border p=2.5: Stack direction='row' — Avatar sx bgcolor (status color tint) + icon, Box: Typography h4 + body2 label.<br><br>
+          <strong>Appointment cards:</strong> Each Card with left border (4px, status color). Inside: Grid — date Box (teal bg, white, borderRadius:1, p:1, mr:2), Stack (doctor Avatar+name, clinic body2, chips row: duration Chip + type Chip + status StatusChip). CardActions: conditional 'Join Video' Button (color='secondary') if appointmentType=video AND status=scheduled.<br><br>
+          <strong>Notifications feed:</strong> List with ListItemAvatar (icon by NotificationType) + ListItemText (title/message) + Typography caption (relative time from created_at). Mark all read Button."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VIDEO CONSULTATION -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#F3E8FF;">📹</div>
+      <div class="stitch-meta">
+        <h3>Screen 7 — Video Consultation Room</h3>
+        <p><code>/consultation/:appointmentId</code> · Telemedicine video call UI</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Appointments · Clinicians · Patients</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a telemedicine video consultation screen</div>
+        <div class="ptext">
+          "Design a professional telemedicine video consultation interface for <strong>HealthSync</strong>. Dark UI theme for this screen only. 1440px desktop layout.<br><br>
+          <strong>Background:</strong> Very dark teal #0A1F22, full screen.<br><br>
+          <strong>Main video area (center, 70% width):</strong> Doctor's video feed in large rounded rectangle (dark border, subtle glow on active speaker). Patient's self-view: small picture-in-picture card (bottom-right of main video, 200x150px, white border, drag handle). 'Dr. Sarah Johnson' name overlay (bottom-left of video, white text on dark translucent bg). Call timer '00:15:32' top-center in small white pill.<br><br>
+          <strong>Control bar (bottom center, dark frosted bg):</strong> Icon buttons evenly spaced — Microphone (active=white, muted=red with slash), Camera (active=white, off=red), Screen share (teal when active), Chat bubble, Participants (shows count badge), Settings gear. Center: large red 'End call' button (circle, 56px). All buttons: dark bg, rounded, hover lighten.<br><br>
+          <strong>Right panel (30%, collapsible):</strong> Tabs: 'Appointment Info' | 'Chat' | 'Notes'. Info tab: appointment details card (date, time, reason). Chat tab: messages thread (doctor/patient bubbles), input field. Notes tab: doctor private notes textarea with 'Save notes' button.<br><br>
+          <strong>Top bar:</strong> HealthSync logo (white), appointment info 'Dr. Johnson — General Consultation', 'Secure & Encrypted' shield badge in teal, network quality indicator.<br><br>
+          <strong>Style:</strong> Dark mode, professional medical telehealth UI."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement VideoConsultation.jsx with WebRTC scaffold</div>
+        <div class="ptext">
+          "Create <code>src/pages/VideoConsultation.jsx</code>. Dark theme: wrap in <code>ThemeProvider</code> with <code>createTheme(&#123; palette:&#123; mode:'dark', primary:&#123;main:'#006D77'&#125; &#125;&#125;)</code>.<br><br>
+          <strong>Layout:</strong> Box fullscreen dark bgcolor #0A1F22. Grid: main video area (xs=12 md=9) + right panel (md=3).<br><br>
+          <strong>Video area:</strong> Box position='relative' — video tag (ref=remoteVideoRef, autoPlay, style fill container). Box position='absolute' bottom=16 right=16: video tag (ref=localVideoRef, width=200, rounded border). Box position='absolute' bottom=16 left=16: Typography white (doctorName).<br><br>
+          <strong>Control bar:</strong> Paper sx bottom control — Stack direction='row' justifyContent='center' gap=2 p=2. IconButton for: mic (MicIcon/MicOffIcon toggle), camera (VideocamIcon/VideocamOffIcon), screen share (ScreenShareIcon), chat (ChatIcon with Badge count), Fab color='error' (CallEndIcon) for hang up.<br><br>
+          <strong>Right panel:</strong> Tabs value=activeTab. Panel 0: appointment info Cards. Panel 1: chat Box (messages List + TextField + SendIcon IconButton). Panel 2: notes TextField multiline + Save Button.<br><br>
+          <strong>WebRTC:</strong> Scaffold with useRef for localStream/peerConnection. Note: 'Replace with your WebRTC/Twilio/Daily.co integration'. Fetch appointment via GraphQL on mount."
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ S5: CLINICIAN PORTAL -->
+<div class="sec" id="s5">
+  <div class="sec-hd">
+    <div class="sec-num" style="background:#EA580C">5</div>
+    <div class="sec-title">Clinician Portal Screens <span class="sec-sub">/ Dashboard, Calendar, Availability, Patients</span></div>
+  </div>
+
+  <!-- CLINICIAN DASHBOARD -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#E8F8F9;">📅</div>
+      <div class="stitch-meta">
+        <h3>Screen 8 — Clinician Dashboard</h3>
+        <p><code>/clinician/dashboard</code> · Today's schedule, patient queue, quick stats</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Appointments · Patients · ClinicianAvailability · Notifications</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a clinician daily work dashboard for HealthSync</div>
+        <div class="ptext">
+          "Design a clinician-facing daily work dashboard for <strong>HealthSync</strong>. Professional medical workspace UI. Desktop 1440px.<br><br>
+          <strong>Header strip (teal #006D77, white text):</strong> 'Tuesday, 14 January 2025' + 'Dr. James Wilson · Cardiologist · City Heart Clinic'. Right: 'Your availability today: 08:00–17:00' + 'Add block' button outlined white.<br><br>
+          <strong>Today's schedule (left column, 55%):</strong> Vertical timeline for today 08:00–18:00. Time slots on Y-axis (every 30 min). Appointment blocks: colored rectangle per appointment — patient name (bold), appointment type icon (in-person/video), service name, duration. Colors: scheduled=teal, confirmed=green, cancelled=red strikethrough, video=purple. Lunch break block: amber striped pattern labeled 'Lunch 13:00–14:00'. Empty slots: light gray with 'Available' text + '+' button on hover.<br><br>
+          <strong>Right column (45%):</strong> Today stats row: Total today (calendar), Completed (check), Remaining (clock), Video calls (camera). Next patient card (large, teal border): patient Gravatar, name, age, appointment time, reason, 'View notes' + 'Start session' buttons. Queue list: next 4 patients in compact rows. Upcoming notifications: 3 recent alert items."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement ClinicianDashboard.jsx with timeline view</div>
+        <div class="ptext">
+          "Create <code>src/pages/clinician/Dashboard.jsx</code> in MUI JSX.<br><br>
+          <strong>Data:</strong> Fetch <code>getTodayAppointments(clinicianId, date: today)</code> + <code>getClinicianAvailability(clinicianId)</code> + <code>getSpacerBlocks(clinicianId, date: today)</code>.<br><br>
+          <strong>Timeline:</strong> Box position='relative' — render time labels (08:00–18:00, every 30min) as Typography absolute positioned. For each appointment: Card sx position='absolute' top=&#123;calculateTop(time)&#125; height=&#123;calculateHeight(duration)&#125; width='calc(100% - 80px)' left=70 — show patient name, type icon, StatusChip. LunchBreaks render as amber hatched Box. SpacerBlocks render as gray striped Box with reason tooltip.<br><br>
+          <strong>Next patient card:</strong> Paper elevation=2 border='2px solid' borderColor='primary.main' p=3 — Avatar large (64px), Typography h6 patient name, body2 age + reason, Stack: 'View Notes' Button outlined + 'Start Session' Button contained (if video: navigate to /consultation/:id).<br><br>
+          Use dayjs for time calculations. Refresh every 60s with setInterval."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- AVAILABILITY BUILDER -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#D1FAE5;">⏰</div>
+      <div class="stitch-meta">
+        <h3>Screen 9 — Clinician Availability Builder</h3>
+        <p><code>/clinician/availability</code> · Recurrence rules, lunch breaks, spacer blocks</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">ClinicianAvailability · LunchBreaks · SpacerBlocks · Rooms</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a clinician weekly availability schedule builder</div>
+        <div class="ptext">
+          "Design a clinician availability management screen for <strong>HealthSync</strong>. Drag-to-set schedule builder. Desktop 1440px.<br><br>
+          <strong>Page header:</strong> 'Manage Availability' h5, clinic selector dropdown (if multi-clinic clinician). 'Add Availability' teal button + 'Add Block' outlined button right-aligned.<br><br>
+          <strong>Weekly overview grid (7 columns Mon–Sun):</strong> Each column = day card. Day name header (Mon, Tue...) with date. Inside each column: colored time bars representing availability windows (teal solid), lunch breaks (amber dashed), spacer blocks (gray hatched). Hover a bar: tooltip shows start/end time + room. Click a bar: opens edit popover. Empty day: 'No availability' gray text + '+' icon button to add.<br><br>
+          <strong>Add Availability Drawer (right side, 400px):</strong> 'New Availability Slot' title. Recurrence type Radio group: Single Date | Daily | Weekly | Monthly | Custom. If weekly: day-of-week ToggleButtonGroup (M T W T F S S). Start time + End time TimePickers. Room Select dropdown. Valid from DatePicker + Valid until DatePicker (optional). Exclude weekends Switch. Save teal button + Cancel.<br><br>
+          <strong>Lunch breaks section (below grid):</strong> Simple list — day chip + start–end time + recurring badge. 'Add lunch break' button.<br><br>
+          <strong>Visual timeline (full width below):</strong> Horizontal bar chart 08:00–20:00 showing weekly availability in a compact heatmap grid — each cell = 30min slot per day, colored if available."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement AvailabilityBuilder.jsx with recurrence logic</div>
+        <div class="ptext">
+          "Create <code>src/pages/clinician/Availability.jsx</code> in MUI JSX.<br><br>
+          <strong>Data:</strong> GraphQL queries — <code>getAvailability(clinicianId)</code> returns ClinicianAvailability[], <code>getLunchBreaks(clinicianId)</code>, <code>getSpacerBlocks(clinicianId)</code>.<br><br>
+          <strong>7-day grid:</strong> Grid container columns=7. Each day (Grid item xs): Paper p=1 minHeight=200. Map availability slots for that day_of_week: Box sx bgcolor='primary.main' opacity=0.8 borderRadius=1 p=1 mb=0.5 — Typography caption white start–end time. LunchBreaks: Box sx bgcolor='warning.light' borderColor='warning.main' border=1 dashed. SpacerBlocks: Box sx bgcolor='action.disabledBackground'. Each Box onClick → setEditSlot(slot) → open Drawer.<br><br>
+          <strong>Availability Drawer:</strong> MUI Drawer anchor='right' open=&#123;drawerOpen&#125; PaperProps sx=&#123;width:400&#125;. FormControl RadioGroup: recurrence_type. Conditional: if weekly → ToggleButtonGroup days. TimePicker start + end. Select rooms (from getRooms(clinicId)). DatePicker valid_from + valid_until. Switch exclude_weekends.<br><br>
+          <strong>Submit:</strong> <code>createAvailability</code> or <code>updateAvailability</code> GraphQL mutations with CreateAvailabilityInput / UpdateAvailabilityInput. Validate end_time > start_time. Refetch after save."
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ S6: ADMIN & STAFF -->
+<div class="sec" id="s6">
+  <div class="sec-hd">
+    <div class="sec-num" style="background:#16A34A">6</div>
+    <div class="sec-title">Admin & Staff Screens <span class="sec-sub">/ Manager dashboard, billing, services, admin panel</span></div>
+  </div>
+
+  <!-- MANAGER DASHBOARD -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#E8F8F9;">📈</div>
+      <div class="stitch-meta">
+        <h3>Screen 10 — Manager Analytics Dashboard</h3>
+        <p><code>/manager/dashboard</code> · KPIs, revenue, utilization, charts</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Appointments · Clinics · Clinicians · PaymentTransactions · Patients</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a clinic manager analytics dashboard</div>
+        <div class="ptext">
+          "Design a clinic manager analytics dashboard for <strong>HealthSync</strong>. Professional healthcare SaaS analytics. Desktop 1440px.<br><br>
+          <strong>Header:</strong> 'HealthSync Analytics' + date range picker (Last 7 days / 30 days / 90 days / custom). Clinic filter dropdown (All clinics / individual clinic names).<br><br>
+          <strong>Top KPI row (5 cards, equal width):</strong> Total Appointments (calendar, teal border), Revenue (£ sign, green border), Active Patients (person, blue border), Clinician Utilization % (gauge icon, purple border), Cancellation Rate % (x icon, red border). Each card: large number, label, trend vs previous period (green arrow up or red arrow down + percentage).<br><br>
+          <strong>Charts row (two columns):</strong> Left: Line chart 'Appointments over time' — 3 lines: Scheduled (teal), Completed (green), Cancelled (red). X-axis: dates. Legend at top. Right: Bar chart 'Revenue by clinic' — grouped bars per clinic, colored by clinic name. Both charts in white cards with teal title.<br><br>
+          <strong>Second row:</strong> Left: Pie chart 'Appointment type distribution' — in-person vs video vs cancelled. Center: 'Top performing clinicians' table (rank, name, specialty, total appointments, revenue, avg rating). Right: 'Room utilization heatmap' — 7×24 grid, darker teal = more booked.<br><br>
+          <strong>Bottom:</strong> Recent transactions table — date, patient, clinician, service, amount, status chip (paid/pending/refunded).<br><br>
+          <strong>Style:</strong> Data-rich but clean. Recharts library. Teal #006D77 primary color throughout."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement ManagerDashboard.jsx with Recharts analytics</div>
+        <div class="ptext">
+          "Create <code>src/pages/manager/Dashboard.jsx</code> in MUI JSX + Recharts.<br><br>
+          <strong>Date filter state:</strong> <code>const [dateFilter, setDateFilter] = useState('monthly')</code>. ToggleButtonGroup for weekly/monthly/yearly + DatePicker for custom range. Pass filter params to all GraphQL queries.<br><br>
+          <strong>KPI cards:</strong> Same DataCard component (from shared components) — 5 cards in Grid xs=12 sm=6 md. Compute from: <code>getAppointmentStats</code>, <code>getPaymentTransactions(orgId, dateRange)</code>.<br><br>
+          <strong>Recharts line chart:</strong> ResponsiveContainer + LineChart. Three Line components: scheduled (stroke #006D77), completed (stroke #2DC653), cancelled (stroke #E63946). XAxis dataKey='date', YAxis, CartesianGrid, Tooltip, Legend.<br><br>
+          <strong>Revenue bar chart:</strong> BarChart with Bar per clinic. Use COLORS array from theme palette. GroupBy clinic_id in data transformation.<br><br>
+          <strong>Transactions table:</strong> MUI Table — columns: date, patient (Avatar+name), clinician, service, amount (formatted currency), StatusChip. Use Skeleton for loading states."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- BILLING & SUBSCRIPTIONS -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#D1FAE5;">💳</div>
+      <div class="stitch-meta">
+        <h3>Screen 11 — Billing & Subscription Management</h3>
+        <p><code>/manager/billing</code> · Stripe integration, plans, invoices, payment history</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">OrganizationSubscriptions · SubscriptionPlans · PaymentTransactions · StripeConfigurations</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a billing and subscription management screen</div>
+        <div class="ptext">
+          "Design a billing and subscription management screen for <strong>HealthSync</strong>. Desktop 1440px.<br><br>
+          <strong>Current plan card (full width, teal gradient):</strong> Plan name 'Professional' in 28px white. '£249/month' price. Billing cycle toggle: Monthly / Yearly (yearly: shows 'Save 20%' badge). Plan features list: ✓ 5 clinics, ✓ Unlimited appointments, ✓ Video consultations, ✓ Payment processing. Status badge: 'Active' green pill. 'Upgrade Plan' white button + 'Manage billing' outlined white.<br><br>
+          <strong>Usage metrics row (3 cards):</strong> Clinics used (3/5 progress bar teal), Users (12/50), Monthly appointments (342 with sparkline).<br><br>
+          <strong>Subscription plans comparison (3 cards — Starter/Professional/Enterprise):</strong> Selected plan: teal border, 'Current Plan' badge. Price: monthly/yearly toggle. Features list with checkmarks. 'Select Plan' button (gray for lower tiers, teal for upgrades, custom for enterprise).<br><br>
+          <strong>Payment history table:</strong> columns: Date, Invoice ID (link), Description, Amount, Status chip (paid=green, pending=amber, failed=red), Download PDF icon button. Pagination at bottom.<br><br>
+          <strong>Stripe settings card:</strong> Stripe logo, publishable key (masked), webhook URL, 'Configure Stripe' button teal.<br><br>
+          <strong>Style:</strong> SaaS billing UI, trust-focused, clear pricing."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement Billing.jsx with Stripe + subscription UI</div>
+        <div class="ptext">
+          "Create <code>src/pages/manager/Billing.jsx</code> in MUI JSX.<br><br>
+          <strong>Data:</strong> GraphQL — <code>getOrganizationSubscription(orgId)</code> → OrganizationSubscription with nested plan + <code>getSubscriptionPlans</code> + <code>getPaymentTransactions(orgId)</code> + <code>getStripeConfiguration(orgId)</code>.<br><br>
+          <strong>Current plan card:</strong> Paper sx bgcolor gradient, p:4, borderRadius:3. ToggleButtonGroup billingCycle monthly/yearly. Typography h4 white price. Feature list: Stack of Typography body2 white with CheckCircle icons. Chip sx bgcolor='success.main' 'Active'. Buttons: Button variant='contained' sx bgcolor='white' color='primary' + Button variant='outlined' sx borderColor='white' color='white'.<br><br>
+          <strong>Plan cards:</strong> Grid xs=12 md=4. Each Card — highlighted card: border 2px primary.main. Typography h5 plan name, Typography h3 price (computed from billingCycle state), List of features with ListItemIcon CheckCircle green. Button fullWidth: 'Current Plan' (disabled) / 'Upgrade' (contained) / 'Contact Sales'.<br><br>
+          <strong>Transactions table:</strong> MUI Table with TablePagination. StatusChip for paid/pending/failed. IconButton DownloadIcon per row.<br><br>
+          <strong>Stripe config:</strong> Card with TextField masked (type='password') for keys. Button 'Save Stripe Config' → <code>updateStripeConfiguration</code> mutation."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STAFF APPOINTMENTS -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#DBEAFE;">📋</div>
+      <div class="stitch-meta">
+        <h3>Screen 12 — Staff Appointment Management</h3>
+        <p><code>/staff/appointments</code> · Full CRUD, filters, book on behalf of patient</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Appointments · Patients · Clinicians · Rooms · Products · ProductVariations</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a staff appointment management screen with booking form</div>
+        <div class="ptext">
+          "Design a staff/receptionist appointment management screen for <strong>HealthSync</strong>. Power-user interface for booking on behalf of patients. Desktop 1440px.<br><br>
+          <strong>Header:</strong> 'Appointments' h5 + total count badge. Right: 'Book Appointment' teal button + 'Export CSV' outlined button + view toggle (table/card/calendar icons).<br><br>
+          <strong>Filter bar (white card below header):</strong> Row of filters: Clinic select, Clinician Autocomplete (avatar+name in options), Status multi-select chips (All/Scheduled/Completed/Cancelled/No-Show), Date range (from/to DatePickers), Patient search TextField. Active filters shown as dismissible Chips below. 'Clear all' link.<br><br>
+          <strong>Appointment table:</strong> Sticky header. Columns: checkbox, Date & Time (date bold + time body2), Patient (avatar + name + email), Clinician (avatar + specialty chip), Clinic & Room (building icon + room number), Duration chip, Service (product name + price), Status chip (colored), Actions (edit pencil, cancel X, more ⋮ menu). Row hover: teal light bg. Sorted by date desc by default.<br><br>
+          <strong>Book Appointment modal (Dialog 900px wide):</strong> Two-column layout. Left: Patient search Autocomplete (search by name/email/phone → Patients table), clinician Autocomplete, clinic select, room select, date DatePicker, time TimePicker, duration Select (15/30/45/60min), service Autocomplete + variation select (conditional). Right: availability preview calendar showing selected clinician's free slots for selected date. Reason multiline, notes multiline. Bottom: Cancel + 'Book Appointment' teal button."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement StaffAppointments.jsx with full CRUD + form modal</div>
+        <div class="ptext">
+          "Create <code>src/pages/staff/Appointments.jsx</code> in MUI JSX.<br><br>
+          <strong>Filters:</strong> Controlled state for each filter. useEffect → re-fetch when filters change. Debounce patient search 300ms. Active filters as Chip array (onDelete clears that filter).<br><br>
+          <strong>Table:</strong> MUI Table with TableSortLabel on Date/Patient/Status columns. Checkbox column for bulk actions (bulk cancel, bulk export). Each row: Avatar patient, Avatar clinician, StatusChip, duration Chip, IconButton edit (→ open BookingModal with prefilled data), IconButton cancel (→ ConfirmDialog with appointment details).<br><br>
+          <strong>BookingModal:</strong> Dialog maxWidth='lg' fullWidth. Grid container spacing=3. Left xs=7: Patient Autocomplete (filterOptions → GraphQL <code>searchPatients(query)</code>). Clinician Autocomplete. Clinic Select → filter Rooms Select. DatePicker + TimePicker. Select duration. Product Autocomplete (getProducts(clinicId)) + conditional ProductVariation Select. Reason TextField multiline.<br><br>
+          Right xs=5: Paper — small calendar showing clinician availability for selected date (reuse AvailabilitySlotPicker). Highlight selected time slot.<br><br>
+          Submit: <code>createAppointment</code> GraphQL mutation with AppointmentInput. Toast success + refetch list."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ADMIN USERS -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#FFE4E6;">⚙️</div>
+      <div class="stitch-meta">
+        <h3>Screen 13 — Admin User & RBAC Management</h3>
+        <p><code>/admin/users</code> + <code>/admin/roles</code> · Users, roles, permissions matrix</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Users · UserProfiles · UserRoles · Permissions · RolePermissions · AuditLogs</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design an admin user management and RBAC permissions screen</div>
+        <div class="ptext">
+          "Design an admin user management screen for <strong>HealthSync</strong>. Enterprise SaaS admin panel aesthetic. Desktop 1440px.<br><br>
+          <strong>Tabs at top:</strong> Users | Roles & Permissions | Audit Log. Active tab: teal underline.<br><br>
+          <strong>Users tab:</strong> Search + role filter + status filter row. Users table: Avatar (Gravatar, 40px) + name + email, Role badge chip (color per role: patient=orange, clinician=green, receptionist=blue, manager=purple, admin=red), Clinic assigned, Status toggle (active=teal switch, inactive=gray), Last login (relative time), Actions (edit pencil, deactivate user icon, reset password icon). Add User button top right → Dialog: email, password, first_name, last_name, role Select, clinic_id Select, is_active Switch.<br><br>
+          <strong>Roles & Permissions tab:</strong> Two-panel layout. Left panel (280px): list of roles (patient, clinician, receptionist, clinic_manager, system_admin) — each as a clickable row with role name + user count badge. Active role: teal bg. Right panel: Permissions matrix table — rows: resource names (appointments, patients, clinicians, rooms, products, etc.), columns: create/read/update/delete actions. Each cell: teal filled checkbox if allowed, gray empty if not. Save changes button bottom right of matrix.<br><br>
+          <strong>Audit Log tab:</strong> Table — timestamp, user (avatar+name), action (badge chip: CREATE=green, UPDATE=blue, DELETE=red), resource + resource_id, IP address, details (expandable JSON viewer). Filter by user/action/resource/date range."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement AdminUsers.jsx + RBACMatrix.jsx</div>
+        <div class="ptext">
+          "Create <code>src/pages/admin/Users.jsx</code> and <code>src/pages/admin/RBACMatrix.jsx</code> in MUI JSX.<br><br>
+          <strong>Users tab:</strong> MUI Tabs. Table with Avatar, role Chip (color map: system_admin=#DC2626, clinic_manager=#7C3AED, receptionist=#2563EB, clinician=#16A34A, patient=#EA580C), Switch is_active (→ <code>updateUser(&#123;is_active&#125;)</code>), IconButton edit + delete (ConfirmDialog). Add User Dialog: CreateUserInput form fields. Submit: <code>createUser</code> mutation.<br><br>
+          <strong>RBAC Matrix:</strong> Fetch <code>getUserRoles</code> + <code>getPermissions</code> + <code>getRolePermissions(roleId)</code>. Left List: roles, onClick setSelectedRole. Right: Table — rows = unique resources (group permissions by resource), 4 columns (create/read/update/delete). Cells: Checkbox checked if permission exists in rolePermissions for selected role. onChange: optimistic update local state + call <code>createRolePermission</code> or <code>deleteRolePermission</code> mutation. Save button: batch all changes.<br><br>
+          <strong>Audit log:</strong> Table with columns from AuditLogs model. Collapse row to show details JSON in <code>&lt;pre&gt;</code> tag styled with Paper bg dark. Pagination + date filter DatePicker range."
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- SERVICE CATALOG -->
+  <div class="stitch">
+    <div class="stitch-hd">
+      <div class="stitch-ico" style="background:#FDF2F8;">📦</div>
+      <div class="stitch-meta">
+        <h3>Screen 14 — Service Catalog Management</h3>
+        <p><code>/manager/products</code> · Services, categories, variations, cancellation rules</p>
+      </div>
+      <div class="stitch-tag">
+        <span class="tag tag-stitch">Google Stitch</span>
+        <span class="tag tag-db">Products · ProductCategories · ProductSubcategories · ProductVariations · ProductCancellationRules</span>
+      </div>
+    </div>
+    <div class="stitch-body">
+      <div class="pbox">
+        <span class="plabel s">STITCH PROMPT</span>
+        <div class="ptitle">Design a medical service catalog management screen</div>
+        <div class="ptext">
+          "Design a service catalog management screen for <strong>HealthSync</strong>. Medical services catalog (like Cardiology Consultation, MRI Scan, General Check-up). Desktop 1440px.<br><br>
+          <strong>Page layout:</strong> Left sidebar (220px): categories tree — each ProductCategory as collapsible item with ProductSubcategories as children. Selected: teal bg. Count badge per category. 'Add Category' button at bottom.<br><br>
+          <strong>Main area:</strong> Category name as h5 breadcrumb. 'Add Service' teal button top right. Search TextField. Service cards grid (3 columns): each card — service name (h6), type badge (Simple=blue / Variable=purple), SKU monospace code, price (h5 teal), description (2-line truncated), category breadcrumb, active switch, action icons (edit/delete). Hover: soft shadow lift.<br><br>
+          <strong>Add/Edit Service Dialog (tabbed, 700px):</strong> Tab 1 'Basic Info': name, description multiline, productType Radio (Simple/Variable), category+subcategory selects, SKU, price number field, isActive switch. Tab 2 'Variations' (only if Variable): table of variations (name, SKU, price, stock) + 'Add Variation' row. Tab 3 'Cancellation Rules': current rules list, 'Add Rule' button → rule form: ruleType Radio (cancellation/reschedule), feeType Radio (fixed/percentage), fee amount, hours before threshold.<br><br>
+          <strong>Style:</strong> E-commerce catalog meets medical professional."
+        </div>
+      </div>
+      <div class="pbox mui">
+        <span class="plabel m">MUI JSX PROMPT</span>
+        <div class="ptitle">Implement ServiceCatalog.jsx with full product management</div>
+        <div class="ptext">
+          "Create <code>src/pages/manager/ServiceCatalog.jsx</code> in MUI JSX.<br><br>
+          <strong>Layout:</strong> Box display='flex'. Left: Drawer variant='permanent' anchor='left' sx width=220. TreeView (MUI TreeItem) from <code>getProductCategories(clinicId)</code> with nested subcategories. onClick: setSelectedCategory(id). Right: Box flexGrow=1 p=3.<br><br>
+          <strong>Services grid:</strong> GraphQL <code>getProducts(clinicId, categoryId)</code>. Grid container spacing=2 xs=12 sm=6 md=4. Each Card: Stack direction='row' justifyContent='space-between' — Chip productType (Simple: info / Variable: secondary), Switch isActive (→ <code>updateProduct(&#123;is_active&#125;)</code>). Typography h6 name, body2 description (WebkitLineClamp:2), Typography h5 price color='primary'. CardActions: IconButton edit + delete.<br><br>
+          <strong>Product Dialog:</strong> Dialog maxWidth='md' fullWidth. Tabs value=activeProductTab. Tab 0: React Hook Form fields. Tab 1 (if variable): Table of variations — editable rows with TextField name/sku/price. Add row button. Tab 2: cancellation rules List + Dialog for new rule. CancellationRuleForm: RadioGroup ruleType, RadioGroup feeType, TextField feeAmount, TextField hoursBeforeAppointment. Submit: <code>createProductCancellationRule</code> mutation."
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ S7: SHARED COMPONENTS -->
+<div class="sec" id="s7">
+  <div class="sec-hd">
+    <div class="sec-num" style="background:#0891B2">7</div>
+    <div class="sec-title">Shared Component Library <span class="sec-sub">/ Build once, use across all 24 screens</span></div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">🧩 Components mapped to DB Models</div>
+    <div class="comp-grid">
+      <div class="comp"><div class="comp-name">StatusChip</div><div class="comp-desc">Appointments.status → colored MUI Chip. Props: status string</div></div>
+      <div class="comp"><div class="comp-name">NotificationBell</div><div class="comp-desc">Notifications unread count → Badge on IconButton. Poll every 30s</div></div>
+      <div class="comp"><div class="comp-name">DoctorCard</div><div class="comp-desc">Clinicians + ClinicianLanguages → profile card for search results</div></div>
+      <div class="comp"><div class="comp-name">AppointmentCard</div><div class="comp-desc">Appointments + Clinicians + Patients → timeline & list card</div></div>
+      <div class="comp"><div class="comp-name">SlotPicker</div><div class="comp-desc">ClinicianAvailability → available time slots grid with booking</div></div>
+      <div class="comp"><div class="comp-name">PatientAvatar</div><div class="comp-desc">Patients.email + name → Gravatar with fallback initials</div></div>
+      <div class="comp"><div class="comp-name">RoleBadge</div><div class="comp-desc">UserRoles.name → colored Chip per role</div></div>
+      <div class="comp"><div class="comp-name">DataCard</div><div class="comp-desc">KPI stat card — icon, value, label, trend, border color</div></div>
+      <div class="comp"><div class="comp-name">ConfirmDialog</div><div class="comp-desc">Generic delete/cancel confirm — title, message, confirm/cancel</div></div>
+      <div class="comp"><div class="comp-name">EmptyState</div><div class="comp-desc">No data placeholder — icon, title, subtitle, CTA button</div></div>
+      <div class="comp"><div class="comp-name">SearchField</div><div class="comp-desc">Debounced TextField — SearchIcon, clear X, loading indicator</div></div>
+      <div class="comp"><div class="comp-name">SkeletonLoader</div><div class="comp-desc">Table rows / Card grid / Timeline loading skeletons</div></div>
+      <div class="comp"><div class="comp-name">ProductCard</div><div class="comp-desc">Products + Variations → selectable service card for booking</div></div>
+      <div class="comp"><div class="comp-name">ClinicSelector</div><div class="comp-desc">Clinics list → Select/Autocomplete with address subtitle</div></div>
+      <div class="comp"><div class="comp-name">RecurrenceForm</div><div class="comp-desc">RecurrenceType enum → ClinicianAvailability / SpacerBlocks builder</div></div>
+      <div class="comp"><div class="comp-name">NotificationItem</div><div class="comp-desc">Notifications model → list row with priority dot, type icon</div></div>
+      <div class="comp"><div class="comp-name">TimelineView</div><div class="comp-desc">Appointments + Blocks → daily schedule vertical timeline</div></div>
+      <div class="comp"><div class="comp-name">WeeklyGrid</div><div class="comp-desc">ClinicianAvailability by day_of_week → 7-column availability grid</div></div>
+    </div>
+  </div>
+
+  <div class="pbox mui">
+    <span class="plabel m">MUI JSX PROMPT — COMPONENT LIBRARY</span>
+    <div class="ptitle">Build the complete shared component library</div>
+    <div class="ptext">
+      "Create <code>src/components/shared/</code> folder with these MUI JSX components for HealthSync:<br><br>
+      <strong>1. StatusChip.jsx</strong> — props: <code>status</code>. Map: scheduled→info, confirmed→primary, completed→success, cancelled→error, no-show→warning, blocked→default (sx bgcolor:#EDE9FE color:#4C1D95). Return <code>&lt;Chip size='small' label=&#123;status&#125; color=&#123;colorMap[status]&#125; variant='outlined'/&gt;</code>.<br><br>
+      <strong>2. DataCard.jsx</strong> — props: icon, value, label, trend, borderColor. Paper elevation=0 sx border=1 borderColor, borderLeft='4px solid' borderLeftColor=borderColor, p:2.5 — Stack direction='row': Avatar sx bgcolor=borderColor+'22' — icon (color=borderColor), Box: Typography h4 value, body2 label. If trend: Chip size='small' color=trend>0?'success':'error' label=trend%.<br><br>
+      <strong>3. SlotPicker.jsx</strong> — props: clinicianId, clinicId, onSlotSelect. Fetch ClinicianAvailability. Compute available 30-min slots for selected date. Render Grid of Button chips. Disabled if slot conflicts with existing Appointment. Selected: variant='contained'. Returns &#123;date, startTime, endTime, roomId&#125;.<br><br>
+      <strong>4. RecurrenceForm.jsx</strong> — props: value, onChange. FormControl RadioGroup for RecurrenceType enum (single/daily/weekly/monthly/custom). Conditional: weekly → ToggleButtonGroup Mon-Sun (day_of_week 0-6). custom → multiple DatePicker. Both → end_date DatePicker + Switch exclude_weekends.<br><br>
+      <strong>5. PatientAvatar.jsx</strong> — props: email, firstName, lastName, size (sm=32/md=40/lg=64/xl=96). Gravatar URL with md5(email). MUI Avatar src=gravatarUrl sx=&#123;width:size,height:size&#125;. On error: fallback to initials with teal bgcolor.<br><br>
+      <strong>6. NotificationBell.jsx</strong> — Badge badgeContent=unreadCount color='error'. Poll <code>getNotifications(userId, isRead:false)</code> every 30s via useEffect. IconButton → Menu with last 5 notifications. 'View all' MenuItem → navigate /notifications.<br><br>
+      Export all from <code>src/components/shared/index.js</code>."
+    </div>
+  </div>
+
+  <div class="card">
+    <div class="ctitle">📁 Recommended Project Structure (React JSX)</div>
+    <div class="code">
+<span class="cm">// src/ folder structure for HealthSync</span>
+src/
+├── theme/
+│   └── index.js          <span class="cm">// MUI medicalTheme</span>
+├── lib/
+│   ├── graphql.js         <span class="cm">// Apollo client setup</span>
+│   ├── auth.jsx           <span class="cm">// AuthContext + useAuth hook</span>
+│   ├── supabase.js        <span class="cm">// Supabase client</span>
+│   └── utils.js           <span class="cm">// date helpers, formatters</span>
+├── components/
+│   ├── shared/
+│   │   ├── StatusChip.jsx
+│   │   ├── DataCard.jsx
+│   │   ├── SlotPicker.jsx
+│   │   ├── RecurrenceForm.jsx
+│   │   ├── PatientAvatar.jsx
+│   │   ├── NotificationBell.jsx
+│   │   ├── DoctorCard.jsx
+│   │   ├── ConfirmDialog.jsx
+│   │   ├── EmptyState.jsx
+│   │   ├── SearchField.jsx
+│   │   └── index.js
+│   └── forms/
+│       ├── AppointmentForm.jsx
+│       ├── PatientForm.jsx
+│       └── AvailabilityForm.jsx
+├── layouts/
+│   ├── AppShell.jsx       <span class="cm">// Drawer + AppBar + main</span>
+│   ├── PublicLayout.jsx   <span class="cm">// Landing, doctor profiles</span>
+│   └── AuthLayout.jsx     <span class="cm">// Login, register</span>
+├── pages/
+│   ├── Landing.jsx        <span class="cm">// Public search</span>
+│   ├── DoctorProfile.jsx
+│   ├── BookingWizard.jsx
+│   ├── VideoConsultation.jsx
+│   ├── Login.jsx
+│   ├── patient/
+│   │   ├── Dashboard.jsx
+│   │   ├── Appointments.jsx
+│   │   └── Profile.jsx
+│   ├── clinician/
+│   │   ├── Dashboard.jsx
+│   │   ├── Calendar.jsx
+│   │   ├── Availability.jsx
+│   │   └── Patients.jsx
+│   ├── staff/
+│   │   ├── Dashboard.jsx
+│   │   ├── Appointments.jsx
+│   │   └── Calendar.jsx
+│   ├── manager/
+│   │   ├── Dashboard.jsx
+│   │   ├── Clinics.jsx
+│   │   ├── ServiceCatalog.jsx
+│   │   └── Billing.jsx
+│   └── admin/
+│       ├── Users.jsx
+│       ├── Organizations.jsx
+│       ├── Communications.jsx
+│       └── Policies.jsx
+└── App.jsx                <span class="cm">// Routes + ThemeProvider + AuthProvider</span>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════ S8: RESPONSIVE + IMPLEMENTATION -->
+<div class="sec" id="s8">
+  <div class="sec-hd">
+    <div class="sec-num" style="background:#0F766E">8</div>
+    <div class="sec-title">Responsive Strategy & Implementation Roadmap <span class="sec-sub">/ Phase plan with prompt sequence</span></div>
+  </div>
+
+  <div class="bp-grid">
+    <div class="bp">
+      <div class="bp-hd" style="background:#006D77">📱 Mobile xs (0–599px)</div>
+      <div class="bp-bd">
+        <strong>Navigation:</strong> Hamburger AppBar + swipeable Drawer + BottomNavigation (5 icons)<br><br>
+        <strong>Landing:</strong> Hero stacked single col, search vertical stack, doctor cards 1-col<br><br>
+        <strong>Booking:</strong> Stepper vertical orientation, fullScreen Dialog<br><br>
+        <strong>Tables:</strong> Card list replacing all tables<br><br>
+        <strong>Availability:</strong> Day-by-day accordion replacing 7-col grid<br><br>
+        <strong>Video:</strong> Full screen, controls overlay bottom
+      </div>
+    </div>
+    <div class="bp">
+      <div class="bp-hd" style="background:#0A9396">💻 Tablet sm/md (600–1199px)</div>
+      <div class="bp-bd">
+        <strong>Navigation:</strong> Mini Drawer (icons only, 64px) + expandable on hover<br><br>
+        <strong>Landing:</strong> 2-col doctor grid, search 2-row<br><br>
+        <strong>Booking:</strong> Sidebar summary visible, horizontal Stepper<br><br>
+        <strong>Tables:</strong> Visible but some columns hidden (display:&#123;xs:'none',sm:'table-cell'&#125;)<br><br>
+        <strong>Availability:</strong> 3-col grid (Mon-Wed, Thu-Fri, Sat-Sun)<br><br>
+        <strong>Dashboard:</strong> 2x2 KPI grid, stacked charts
+      </div>
+    </div>
+    <div class="bp">
+      <div class="bp-hd" style="background:#004D55">🖥 Desktop lg/xl (1200px+)</div>
+      <div class="bp-bd">
+        <strong>Navigation:</strong> Permanent 260px Drawer, full labels<br><br>
+        <strong>Landing:</strong> 3-col doctor grid, inline search bar, sticky filters sidebar<br><br>
+        <strong>Booking:</strong> Sticky right summary panel, maxWidth='lg' Dialog<br><br>
+        <strong>Tables:</strong> All columns, inline actions, row hover effects<br><br>
+        <strong>Availability:</strong> Full 7-col weekly grid with visual timeline<br><br>
+        <strong>Dashboard:</strong> 5-col KPI row, side-by-side charts, data tables
+      </div>
+    </div>
+  </div>
+
+  <div class="card" style="margin-top:18px;">
+    <div class="ctitle">🗓 Phased Implementation Roadmap</div>
+    <div class="timeline">
+      <div class="tli"><div class="tli-dot" style="background:#006D77"></div><div class="tli-title">Phase 1 — Foundation (Week 1)</div><div class="tli-desc">MUI theme, Auth screens (Login/Register/ForgotPW), AppShell layout, routing, shared components library. Prompt 1→3 + Component Library prompt.</div></div>
+      <div class="tli"><div class="tli-dot" style="background:#2563EB"></div><div class="tli-title">Phase 2 — Public Patient Portal (Week 2)</div><div class="tli-desc">Landing page with doctor search, DoctorProfile page, SlotPicker component tied to real ClinicianAvailability data. Prompts 4–5 (Stitch + MUI).</div></div>
+      <div class="tli"><div class="tli-dot" style="background:#7C3AED"></div><div class="tli-title">Phase 3 — Booking Flow + Payments (Week 3)</div><div class="tli-desc">4-step BookingWizard with MUI Stepper, Stripe integration, ProductVariations selection, ProductCancellationRules display. Prompts 6–7.</div></div>
+      <div class="tli"><div class="tli-dot" style="background:#DB2777"></div><div class="tli-title">Phase 4 — Patient Dashboard + Video (Week 4)</div><div class="tli-desc">Patient dashboard with appointment cards, video consultation room UI (WebRTC scaffold), patient profile with Patients model all fields. Prompts 8–9.</div></div>
+      <div class="tli"><div class="tli-dot" style="background:#EA580C"></div><div class="tli-title">Phase 5 — Clinician Portal (Week 5)</div><div class="tli-desc">Clinician dashboard with daily timeline, availability builder with full RecurrenceType support (all 5 types), lunch breaks, spacer blocks. Prompts 10–11.</div></div>
+      <div class="tli"><div class="tli-dot" style="background:#16A34A"></div><div class="tli-title">Phase 6 — Staff & Manager (Week 6)</div><div class="tli-desc">Staff appointment management, manager analytics dashboard with Recharts, service catalog with variations, billing/Stripe subscription UI. Prompts 12–15.</div></div>
+      <div class="tli"><div class="tli-dot" style="background:#0891B2"></div><div class="tli-title">Phase 7 — Admin Panel (Week 7)</div><div class="tli-desc">User management, RBAC permissions matrix (resource × action × role), audit logs, organizations + subscriptions, email templates, policies. Prompts 16–19.</div></div>
+      <div class="tli"><div class="tli-dot" style="background:#0F766E"></div><div class="tli-title">Phase 8 — Polish & QA (Week 8)</div><div class="tli-desc">Mobile responsive pass on all 24 screens, skeleton loading states, empty states, Snackbar notifications, dark mode toggle, accessibility audit, performance optimization.</div></div>
+    </div>
+  </div>
+
+  <!-- COMPLETE PROMPT ORDER -->
+  <div class="card">
+    <div class="ctitle">📋 Complete Google Stitch Prompt Sequence (24 screens)</div>
+    <table class="dbtable">
+      <thead><tr><th>#</th><th>Screen</th><th>Key DB Models in Prompt</th><th>Phase</th></tr></thead>
+      <tbody>
+        <tr><td>1</td><td>Login / Register / ForgotPW</td><td>Users, UserProfiles, UserRoles</td><td>1</td></tr>
+        <tr><td>2</td><td>App Shell Navigation</td><td>UserProfiles, UserRoles, Notifications</td><td>1</td></tr>
+        <tr><td>3</td><td>Landing / Doctor Search</td><td>Clinicians, ClinicianTypeModel, Languages, Clinics</td><td>2</td></tr>
+        <tr><td>4</td><td>Doctor Public Profile</td><td>Clinicians, ClinicianAvailability, ClinicianLanguages</td><td>2</td></tr>
+        <tr><td>5</td><td>Booking Wizard (4 steps)</td><td>Appointments, Products, ProductVariations, Rooms, Patients</td><td>3</td></tr>
+        <tr><td>6</td><td>Payment Checkout</td><td>PaymentTransactions, StripeConfigurations, Products</td><td>3</td></tr>
+        <tr><td>7</td><td>Patient Dashboard</td><td>Appointments, Notifications, Patients</td><td>4</td></tr>
+        <tr><td>8</td><td>Patient Appointments list</td><td>Appointments, Clinicians, Clinics, Products</td><td>4</td></tr>
+        <tr><td>9</td><td>Video Consultation Room</td><td>Appointments, Clinicians, Patients</td><td>4</td></tr>
+        <tr><td>10</td><td>Patient Profile</td><td>Patients (all fields), UserProfiles</td><td>4</td></tr>
+        <tr><td>11</td><td>Clinician Dashboard</td><td>Appointments, ClinicianAvailability, SpacerBlocks, LunchBreaks</td><td>5</td></tr>
+        <tr><td>12</td><td>Clinician Calendar</td><td>Appointments, SpacerBlocks, RoomBlocks, LunchBreaks</td><td>5</td></tr>
+        <tr><td>13</td><td>Clinician Availability Builder</td><td>ClinicianAvailability, LunchBreaks, SpacerBlocks, Rooms</td><td>5</td></tr>
+        <tr><td>14</td><td>Clinician Patients</td><td>Patients, Appointments, Clinicians</td><td>5</td></tr>
+        <tr><td>15</td><td>Staff Dashboard</td><td>Appointments, Patients, Clinicians, Notifications</td><td>6</td></tr>
+        <tr><td>16</td><td>Staff Appointment Management</td><td>Appointments, Patients, Clinicians, Rooms, Products</td><td>6</td></tr>
+        <tr><td>17</td><td>Manager Analytics Dashboard</td><td>Appointments, Clinics, Clinicians, PaymentTransactions</td><td>6</td></tr>
+        <tr><td>18</td><td>Clinics & Rooms Management</td><td>Clinics, Rooms, RoomTypeModel, ClinicianTypeModel</td><td>6</td></tr>
+        <tr><td>19</td><td>Service Catalog</td><td>Products, ProductCategories, ProductSubcategories, ProductVariations, ProductCancellationRules</td><td>6</td></tr>
+        <tr><td>20</td><td>Billing & Subscriptions</td><td>OrganizationSubscriptions, SubscriptionPlans, PaymentTransactions, StripeConfigurations</td><td>6</td></tr>
+        <tr><td>21</td><td>Admin Users + RBAC</td><td>Users, UserProfiles, UserRoles, Permissions, RolePermissions, AuditLogs</td><td>7</td></tr>
+        <tr><td>22</td><td>Admin Organizations</td><td>ClientOrganizations, OrganizationSubscriptions, SubscriptionPlans</td><td>7</td></tr>
+        <tr><td>23</td><td>Admin Communications</td><td>EmailTemplates (confirmation/reschedule/cancellation), Notifications</td><td>7</td></tr>
+        <tr><td>24</td><td>Admin Policies</td><td>ProductCancellationRules, RuleType, FeeType enums</td><td>7</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- FINAL CHECKLIST -->
+  <div class="two">
+    <div class="card">
+      <div class="ctitle">✅ Google Stitch Prompt Tips</div>
+      <ul class="checklist">
+        <li>Always start with <strong>"Design a [screen] for HealthSync, a medical booking platform"</strong></li>
+        <li>Always specify <strong>viewport size</strong> (desktop 1440px, mobile 375px)</li>
+        <li>Always mention <strong>color: teal #006D77 primary, coral #E29578 secondary</strong></li>
+        <li>Always specify <strong>font: Plus Jakarta Sans</strong></li>
+        <li>Name real DB fields in prompts (e.g. "clinician_type, day_of_week, recurrence_type")</li>
+        <li>Request both <strong>desktop + mobile variants</strong> in one prompt</li>
+        <li>Mention specific MUI components by name for Stitch to mirror the style</li>
+        <li>Include <strong>empty states, loading states, error states</strong> in the prompt</li>
+        <li>Request <strong>hover states</strong> and <strong>active states</strong> explicitly</li>
+        <li>For complex screens: do <strong>one Stitch prompt per section</strong> of the page</li>
+      </ul>
+    </div>
+    <div class="card">
+      <div class="ctitle">✅ MUI JSX Implementation Checklist</div>
+      <ul class="checklist">
+        <li>No TypeScript — all files use <code>.jsx</code> extension</li>
+        <li>All data via GraphQL queries matching <code>schema.ts</code> type definitions</li>
+        <li>useAuth hook provides <code>user</code>, <code>profile</code>, <code>signOut</code></li>
+        <li>All mutations use exact input types from GraphQL schema (e.g. <code>AppointmentInput</code>, <code>PatientInput</code>)</li>
+        <li>All forms handle <code>userErrors</code> from GraphQL payload types</li>
+        <li>All tables use MUI Skeleton for loading states</li>
+        <li>All delete actions use ConfirmDialog component</li>
+        <li>All async actions show loading spinner in Button</li>
+        <li>MUI Snackbar + Alert replaces react-hot-toast</li>
+        <li>React Router v6 with role-based protected routes</li>
+        <li>All date/time uses dayjs (already in project)</li>
+        <li><code>is_deleted: false</code> filter on all GraphQL queries</li>
+      </ul>
+    </div>
+  </div>
+
+</div>
+
+<!-- FOOTER -->
+<div style="margin-top:48px;padding:22px 28px;background:var(--white);border:1px solid var(--border);border-radius:12px;text-align:center;color:var(--muted);font-size:12px;line-height:2;">
+  <strong style="color:var(--t8)">HealthSync — Google Stitch + MUI JSX Complete Design Plan</strong><br>
+  8 Phases · 24 Google Stitch Prompts · 24 MUI JSX Prompts · 24 Screens · 31 DB Models (Prisma) · 31 GraphQL Types<br>
+  Stack: React JSX · MUI v5 · Apollo GraphQL · Supabase · Stripe · WebRTC<br>
+  Theme: Medical Teal <strong style="color:var(--t7)">#006D77</strong> · Coral <strong style="color:var(--coral)">#E29578</strong> · Plus Jakarta Sans
+</div>
+
+</div><!-- /wrap -->
+</body>
+</html>

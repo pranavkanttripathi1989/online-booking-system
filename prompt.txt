@@ -1,0 +1,14 @@
+Review the mstaff-dashboard-test-plan-not-done.md file in detail and do the following:
+
+Execute all tests described in the test plan thoroughly, ensuring nothing is missed.
+Write detailed test results in the test-result folder, including:
+Each test case with its input prompts
+Expected vs actual outputs
+Pass/Fail status
+Any observations or anomalies
+Write test suggestions in the test-suggestion folder, including:
+Gaps or edge cases not covered in the current test plan
+Improvements to existing test cases
+Additional scenarios worth testing
+Recommendations for better test coverage
+Make sure every test case from the plan is accounted for and fully documented.

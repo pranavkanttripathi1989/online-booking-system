@@ -1,0 +1,194 @@
+/* ─── Google Font ───────────────────────────────────────────────────────────── */
+/* Plus Jakarta Sans is loaded via link tag in index.html */
+
+/* ─── Google Color System CSS Variables ─────────────────────────────────────── */
+:root {
+  --g-blue:      #1A73E8;
+  --g-blue-lt:   #4285F4;
+  --g-blue-dk:   #1557B0;
+  --g-blue-surf: #E8F0FE;
+  --g-blue-bdr:  #AECBFA;
+  --g-green:     #0F9D58;
+  --g-green-surf:#E6F4EA;
+  --g-yellow:    #F9AB00;
+  --g-yellow-sf: #FEF7E0;
+  --g-red:       #D93025;
+  --g-red-surf:  #FCE8E6;
+  --g-purple:    #9334E6;
+  --g-purple-sf: #F3E8FD;
+  --g-orange:    #FA7B17;
+  --g-surface:   #F8F9FA;
+  --g-border:    #E8EAED;
+  --g-hover:     #F1F3F4;
+  --g-dark:      #202124;
+  --g-text:      #202124;
+  --g-text-2:    #5F6368;
+  --g-text-3:    #9AA0A6;
+}
+
+/* ─── Global Reset & Base Styles ───────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { font-size: 16px; scroll-behavior: smooth; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; }
+
+body {
+  font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background-color: #F8F9FA;
+  color: #202124;
+  line-height: 1.65;
+  min-height: 100vh;
+}
+
+#root { min-height: 100vh; display: flex; flex-direction: column; }
+
+/* ─── Scrollbar ─────────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #E8EAED; border-radius: 10px; }
+::-webkit-scrollbar-thumb:hover { background: #BDC1C6; }
+
+/* ─── Page Transition ───────────────────────────────────────────────────────── */
+@keyframes pageFadeIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+@keyframes pageIn {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+.page-enter { animation: pageFadeIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) both; }
+
+/* ─── Shimmer skeleton ──────────────────────────────────────────────────────── */
+@keyframes shimmer {
+  0%   { background-position: -600px 0; }
+  100% { background-position: 600px 0; }
+}
+.skeleton-shimmer {
+  background: linear-gradient(90deg, #E8EAED 25%, #F8F9FA 50%, #E8EAED 75%);
+  background-size: 1200px 100%;
+  animation: shimmer 1.6s infinite;
+}
+
+/* ─── Emergency pulse ───────────────────────────────────────────────────────── */
+@keyframes emergencyPulse {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(217,48,37,0.5); }
+  50%       { box-shadow: 0 0 0 8px rgba(217,48,37,0); }
+}
+.emergency-pulse { animation: emergencyPulse 2.2s ease infinite; }
+
+/* ─── Status Badges — Google Colors ─────────────────────────────────────────── */
+.status-pending {
+  background: #FEF7E0; color: #8A4700;
+  border: 1px solid #FDD663; border-radius: 8px;
+  padding: 3px 10px; font-weight: 700; font-size: 0.7rem;
+}
+.status-confirmed {
+  background: #E6F4EA; color: #137333;
+  border: 1px solid #CEEAD6; border-radius: 8px;
+  padding: 3px 10px; font-weight: 700; font-size: 0.7rem;
+}
+.status-cancelled {
+  background: #FCE8E6; color: #A50E0E;
+  border: 1px solid #F5C6C2; border-radius: 8px;
+  padding: 3px 10px; font-weight: 700; font-size: 0.7rem;
+}
+.status-completed {
+  background: #E8F0FE; color: #1557B0;
+  border: 1px solid #AECBFA; border-radius: 8px;
+  padding: 3px 10px; font-weight: 700; font-size: 0.7rem;
+}
+.status-no_show {
+  background: #F8F9FA; color: #3C4043;
+  border: 1px solid #E8EAED; border-radius: 8px;
+  padding: 3px 10px; font-weight: 700; font-size: 0.7rem;
+}
+.status-rescheduled {
+  background: #F3E8FD; color: #6E2DB8;
+  border: 1px solid #D7AEFA; border-radius: 8px;
+  padding: 3px 10px; font-weight: 700; font-size: 0.7rem;
+}
+
+/* ─── Recharts Tooltip ──────────────────────────────────────────────────────── */
+.recharts-default-tooltip {
+  font-family: 'Plus Jakarta Sans', sans-serif !important;
+  border-radius: 12px !important;
+  border: 1px solid #E8EAED !important;
+  box-shadow: 0 4px 16px rgba(32,33,36,0.18) !important;
+  padding: 10px 14px !important;
+}
+.recharts-tooltip-label {
+  font-weight: 700 !important;
+  color: #202124 !important;
+  margin-bottom: 4px !important;
+}
+.recharts-tooltip-item { font-size: 0.8rem !important; color: #5F6368 !important; }
+
+/* ─── FullCalendar Overrides ────────────────────────────────────────────────── */
+.fc { font-family: 'Plus Jakarta Sans', sans-serif !important; }
+.fc-toolbar-title { font-size: 1.0rem !important; font-weight: 700 !important; color: #202124; letter-spacing: -0.2px; }
+.fc-button { font-family: 'Plus Jakarta Sans', sans-serif !important; font-weight: 700 !important; text-transform: none !important; border-radius: 8px !important; font-size: 0.8rem !important; }
+.fc-button-primary { background-color: #1A73E8 !important; border-color: #1A73E8 !important; transition: background-color 0.15s !important; }
+.fc-button-primary:hover { background-color: #1557B0 !important; border-color: #1557B0 !important; }
+.fc-button-primary:not(:disabled).fc-button-active { background-color: #1557B0 !important; border-color: #1557B0 !important; }
+.fc-event { border-radius: 6px !important; border: none !important; font-size: 0.76rem !important; font-weight: 700 !important; padding: 2px 6px !important; cursor: pointer !important; }
+.fc-event:hover { opacity: 0.85 !important; }
+.fc-daygrid-event { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fc-day-today { background-color: rgba(26,115,232,0.04) !important; }
+.fc-now-indicator-line { border-color: #D93025 !important; border-width: 2px !important; }
+.fc-col-header-cell { background-color: #F8F9FA !important; font-weight: 700 !important; font-size: 0.75rem !important; color: #9AA0A6 !important; letter-spacing: 0.06em; text-transform: uppercase; padding: 8px 0 !important; }
+.fc-scrollgrid { border-color: #E8EAED !important; }
+.fc-scrollgrid td, .fc-scrollgrid th { border-color: #E8EAED !important; }
+.fc-timegrid-event .fc-event-title { font-weight: 700; }
+
+/* ─── MUI DataGrid Overrides ────────────────────────────────────────────────── */
+.MuiDataGrid-root { border: 1px solid #E8EAED !important; border-radius: 16px !important; overflow: hidden; font-family: 'Plus Jakarta Sans', sans-serif !important; }
+.MuiDataGrid-columnHeaders { background-color: #F8F9FA !important; border-bottom: 1px solid #E8EAED !important; }
+.MuiDataGrid-columnHeader { font-size: 0.70rem !important; font-weight: 700 !important; text-transform: uppercase !important; letter-spacing: 0.10em !important; color: #9AA0A6 !important; }
+.MuiDataGrid-row:hover { background-color: #F8F9FA !important; }
+.MuiDataGrid-cell { border-bottom: 1px solid #F8F9FA !important; font-size: 0.875rem !important; color: #202124 !important; font-family: 'Plus Jakarta Sans', sans-serif !important; }
+.MuiDataGrid-footerContainer { border-top: 1px solid #E8EAED !important; background: #F8F9FA !important; }
+.MuiDataGrid-selectedRowCount { color: #5F6368 !important; font-size: 0.8rem !important; }
+
+/* ─── Card hover utility ────────────────────────────────────────────────────── */
+.hover-card {
+  transition: transform 0.20s cubic-bezier(0.4,0,0.2,1),
+              box-shadow 0.20s cubic-bezier(0.4,0,0.2,1);
+}
+.hover-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 4px 16px rgba(32,33,36,0.14);
+}
+
+/* ─── Mobile table scroll ───────────────────────────────────────────────────── */
+.table-responsive { overflow-x: auto; -webkit-overflow-scrolling: touch; border-radius: 16px; }
+
+/* ─── Utility ───────────────────────────────────────────────────────────────── */
+.truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.visually-hidden { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0; }
+.card-lift { transition: transform 0.2s ease, box-shadow 0.2s ease; }
+.card-lift:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(32,33,36,0.14); }
+
+/* ─── Specialty tag pills — Google Colors ───────────────────────────────────── */
+.tag-general    { background: #E8F0FE; color: #1557B0; border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.7rem; }
+.tag-cardiology { background: #E6F4EA; color: #0B8043; border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.7rem; }
+.tag-neurology  { background: #F3E8FD; color: #6E2DB8; border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.7rem; }
+.tag-emergency  { background: #FCE8E6; color: #A50E0E; border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.7rem; }
+.tag-pediatrics { background: #FEF7E0; color: #8A4700; border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.7rem; }
+.tag-dermatology { background: #FEF0E0; color: #8A3800; border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.7rem; }
+.tag-psychiatry { background: #F3E8FD; color: #6E2DB8; border-radius: 8px; padding: 4px 10px; font-weight: 700; font-size: 0.7rem; }
+
+/* ─── Mobile safe area ──────────────────────────────────────────────────────── */
+@supports (padding: env(safe-area-inset-bottom)) {
+  .mobile-safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+}
+
+/* ─── Responsive helpers ────────────────────────────────────────────────────── */
+@media (max-width: 599px) { .hide-on-mobile { display: none !important; } }
+@media (max-width: 899px) { .hide-on-tablet { display: none !important; } }
+
+/* ─── iOS scroll momentum ───────────────────────────────────────────────────── */
+.scroll-touch { -webkit-overflow-scrolling: touch; }
+.scroll-x-auto { overflow-x: auto; }
+.scroll-x-hidden::-webkit-scrollbar { display: none; }

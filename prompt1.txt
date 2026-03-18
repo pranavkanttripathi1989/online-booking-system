@@ -1,0 +1,120 @@
+Review the `appointments-test-results.md` file in detail and perform the following actions systematically:
+
+---
+
+### 1. Fix All Identified Issues
+
+* Analyze each issue mentioned in the file thoroughly
+* Identify the **root cause** of every issue (backend, frontend, validation, API contract, or logic flaw)
+* Apply proper fixes with clear and correct implementation
+* For each fix, provide:
+
+  * Issue description
+  * Root cause
+  * Fix applied
+  * Code-level explanation (if applicable)
+  * Files/modules impacted
+
+---
+
+### 2. Re-test Using `auth-test-plan.md`
+
+* Execute **all test cases** from the test plan after applying fixes
+* Do **not skip any test case**
+* Cover:
+
+  * Positive scenarios
+  * Negative scenarios
+  * Edge cases
+* Ensure that all previously failing test cases now pass
+* Validate:
+
+  * Authentication flow
+  * Token handling (generation, expiry, invalid cases)
+  * Input validation
+  * Error handling and HTTP status codes
+
+---
+
+### 3. Update `auth-test-results.md`
+
+Document updated results after re-testing.
+
+For **each test case**, include:
+
+* Test Case ID & Title
+* Input prompts / request payload
+* Expected Output
+* Actual Output
+* Pass/Fail status
+* Detailed observations (performance issues, inconsistencies, anomalies)
+
+Ensure results reflect **current system behavior after fixes**, not previous state.
+
+---
+
+### 4. Implement `auth-test-suggestion.md`
+
+* Apply all suggested improvements and enhancements
+* Ensure proper implementation across backend and frontend
+* Validate each implemented suggestion with testing
+
+---
+
+### 5. Update Test Suggestions After Implementation
+
+* Revise `auth-test-suggestion.md`:
+
+  * Mark completed suggestions as **COMPLETED**
+  * Keep pending ones as **PENDING**
+* Add **new suggestions** discovered during testing (e.g., performance, security, UX improvements)
+
+---
+
+### 6. Update `auth-test-plan.md`
+
+* Revise the test plan based on implemented suggestions
+* Add new test cases for:
+
+  * Edge cases
+  * Failure scenarios
+  * Security validations
+* Improve clarity and coverage of existing test cases
+
+---
+
+### 7. Add Mockup Data in Frontend
+
+* Implement mock data support for frontend authentication flow
+* Create mock responses for:
+
+  * Login success
+  * Login failure
+  * Token handling
+  * Error scenarios
+* Ensure frontend can run independently using mock services (without backend dependency)
+* Provide a toggle mechanism to switch between mock and real API
+
+---
+
+### 8. Ensure Completeness
+
+* Every test case from the **updated test plan** must be executed and documented
+* No missing or skipped scenarios
+* Results must be:
+
+  * Detailed
+  * Well-structured
+  * Easy to review
+* Final output should reflect a **fully tested, stable, and improved system**
+
+---
+
+**Output Expectation:**
+
+* Updated `auth-test-results.md`
+* Updated `auth-test-suggestion.md`
+* Updated `auth-test-plan.md`
+* Summary of fixes and improvements implemented
+
+Ensure high accuracy, completeness, and production-level quality in all outputs.

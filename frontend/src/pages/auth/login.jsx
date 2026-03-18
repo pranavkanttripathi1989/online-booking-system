@@ -1,0 +1,1091 @@
+/**
+ * AG-2 — Login.jsx
+ * Two-column auth screen: Sign In | Register | Forgot Password tabs
+ * Wired to LOGIN_MUTATION (GraphQL) + AuthContext.login()
+ * Falls back to MOCK_USERS for offline/demo mode
+ */
+import React, { useState, useEffect } from 'react';
+import { useNavigate, Navigate } from 'react-router-dom';
+import {
+  Box, Grid, Paper, Stack, Typography, Tabs, Tab, TextField, Button,
+  InputAdornment, IconButton, Select, MenuItem, FormControl, InputLabel,
+  Alert, CircularProgress, Link, Divider,
+  Checkbox, FormControlLabel, LinearProgress, Tooltip, Chip,
+} from '@mui/material';
+import { useMutation } from '@apollo/client';
+import { LOGIN_MUTATION } from '../../graphql/mutations';
+import { useAuth, MOCK_USERS, getPostLoginRedirect } from '../../context/AuthContext';
+import LocalHospitalIcon    from '@mui/icons-material/LocalHospital';
+import MedicalServicesIcon  from '@mui/icons-material/MedicalServices';
+import CheckCircleIcon      from '@mui/icons-material/CheckCircle';
+import EmailOutlinedIcon    from '@mui/icons-material/EmailOutlined';
+import VisibilityIcon       from '@mui/icons-material/Visibility';
+import VisibilityOffIcon    from '@mui/icons-material/VisibilityOff';
+import LockOutlinedIcon     from '@mui/icons-material/LockOutlined';
+import PersonOutlineIcon    from '@mui/icons-material/PersonOutline';
+import SendIcon             from '@mui/icons-material/Send';
+import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked';
+import PhoneAndroidIcon from '@mui/icons-material/PhoneAndroid';
+import OpenInNewIcon from '@mui/icons-material/OpenInNew';
+
+// ─── Demo account role descriptions ─────────────────────────────────────────
+const DEMO_ACCOUNTS = [
+  { label: 'Admin',     email: 'admin@medibook.dev',        password: 'Admin1234!', role: 'admin',     tooltip: 'Full access to all admin features, staff, finances & analytics' },
+  { label: 'Manager',  email: 'manager@medibook.dev',      password: 'Mgr1234!',   role: 'manager',   tooltip: 'Manages clinicians, schedules and availability for an organisation' },
+  { label: 'Clinician',email: 'clinician@medibook.dev',    password: 'Cln1234!',   role: 'clinician', tooltip: 'Clinician portal: calendar, patients, availability & consultations' },
+  { label: 'Staff',    email: 'receptionist@medibook.dev', password: 'Rec1234!',   role: 'staff',     tooltip: 'Reception / staff dashboard: appointments & patient check-ins' },
+  { label: 'Patient',  email: 'patient@medibook.dev',      password: 'Pat1234!',   role: 'patient',   tooltip: 'Patient portal: book appointments, view history & messages' },
+];
+
+// ─── Password strength meter (SUG-AUTH-004) ─────────────────────────────────
+function getPasswordStrength(pw) {
+  const rules = [
+    { key: 'length',    label: 'At least 8 characters',          met: pw.length >= 8 },
+    { key: 'uppercase', label: 'Contains uppercase letter',       met: /[A-Z]/.test(pw) },
+    { key: 'number',    label: 'Contains a number',               met: /\d/.test(pw) },
+    { key: 'special',   label: 'Contains a special character',    met: /[^A-Za-z0-9]/.test(pw) },
+  ];
+  const score = rules.filter(r => r.met).length;
+  const strength = score === 0 ? '' : score <= 1 ? 'Weak' : score <= 2 ? 'Fair' : score === 3 ? 'Good' : 'Strong';
+  const color = { Weak: '#D93025', Fair: '#F9AB00', Good: '#1A73E8', Strong: '#0F9D58' }[strength] || '#E8EAED';
+  return { rules, score, strength, color };
+}
+
+function PasswordStrengthMeter({ password }) {
+  const { rules, score, strength, color } = getPasswordStrength(password);
+  if (!password) return null;
+  return (
+    <Box mt={0.5}>
+      <LinearProgress
+        variant="determinate"
+        value={(score / 4) * 100}
+        sx={{
+          height: 4, borderRadius: 2, mb: 1,
+          bgcolor: '#E8EAED',
+          '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 2, transition: 'all 0.3s' },
+        }}
+      />
+      <Stack spacing={0.4}>
+        {rules.map(r => (
+          <Stack key={r.key} direction="row" spacing={0.75} alignItems="center">
+            {r.met
+              ? <CheckCircleOutlineIcon sx={{ fontSize: '0.8rem', color: '#0F9D58', flexShrink: 0 }} />
+              : <RadioButtonUncheckedIcon sx={{ fontSize: '0.8rem', color: '#DADCE0', flexShrink: 0 }} />}
+            <Typography variant="caption" sx={{ color: r.met ? '#0F9D58' : '#9AA0A6', lineHeight: 1.4 }}>{r.label}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+      {strength && (
+        <Typography variant="caption" sx={{ color, fontWeight: 700, mt: 0.5, display: 'block' }}>
+          Strength: {strength}
+        </Typography>
+      )}
+    </Box>
+  );
+}
+
+// ─── OTP Input (NEW-AUTH-004 / NEW-AUTH-005) ──────────────────────────────────
+// Single MUI TextField styled to look like 6 separated digit boxes.
+// Simple & guaranteed to render — avoids per-box ref/hook complexity.
+function OtpInputBoxes({ value, onChange, disabled }) {
+  const handleChange = (e) => {
+    const digits = e.target.value.replace(/\D/g, '').slice(0, 6);
+    onChange(digits);
+  };
+
+  // Format "123456" as "1 2 3 4 5 6" for display only in a "preview" — but we
+  // keep the actual value as raw digits for logic; letter-spacing does the visual separation
+  return (
+    <TextField
+      fullWidth
+      value={value}
+      onChange={handleChange}
+      disabled={disabled}
+      placeholder="••••••"
+      inputProps={{
+        maxLength: 6,
+        inputMode: 'numeric',
+        pattern: '[0-9]*',
+        'aria-label': 'Enter OTP code',
+      }}
+      sx={{
+        '& .MuiOutlinedInput-input': {
+          textAlign: 'center',
+          fontSize: '2rem',
+          fontWeight: 700,
+          letterSpacing: '0.6em',
+          fontFamily: 'monospace',
+          py: 1.5,
+          color: '#006D77',
+        },
+        '& .MuiOutlinedInput-root': {
+          borderRadius: 2,
+          '& fieldset': { borderWidth: 2 },
+          '&.Mui-focused fieldset': { borderColor: '#006D77', boxShadow: '0 0 0 3px rgba(0,109,119,0.15)' },
+          bgcolor: value ? 'rgba(0,109,119,0.05)' : undefined,
+        },
+      }}
+    />
+  );
+}
+
+
+
+// ─── OTP Login Mode (NEW-AUTH-004) ────────────────────────────────────────────
+const MOCK_OTP = '123456'; // demo-mode accepted code
+
+function OtpLoginMode({ onBack, rememberMe }) {
+  const { login } = useAuth();
+  const navigate  = useNavigate();
+
+  const [step, setStep]         = useState('identifier'); // 'identifier' | 'verify'
+  const [identifier, setId]     = useState('');
+  const [otp, setOtp]           = useState('');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [hint, setHint]         = useState('');
+  const [cooldown, setCooldown] = useState(0);
+
+  // Resend countdown
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const handleSendOtp = async (e) => {
+    e.preventDefault();
+    if (!identifier) return;
+    setError(''); setLoading(true);
+    await new Promise(r => setTimeout(r, 1500));
+    setLoading(false);
+    setStep('verify');
+    setCooldown(60);
+    setHint(`Demo mode — use code: ${MOCK_OTP}`);
+  };
+
+  const handleVerify = async (e) => {
+    e?.preventDefault();
+    if (otp.length < 6) return;
+    setError(''); setLoading(true);
+    await new Promise(r => setTimeout(r, 800));
+    setLoading(false);
+
+    // Mock validation
+    const key = identifier.toLowerCase();
+    const mockUser = MOCK_USERS[key];
+    if (otp === MOCK_OTP && mockUser) {
+      login(mockUser.mock_token || `mock_otp_${Date.now()}`, mockUser, rememberMe);
+      navigate(getPostLoginRedirect(mockUser));
+    } else if (otp === MOCK_OTP) {
+      setError('No demo account found for that email/phone. Try a demo account email.');
+    } else {
+      setError(`Incorrect OTP. In demo mode use ${MOCK_OTP}.`);
+    }
+  };
+
+  // Auto-submit when all 6 digits entered
+  useEffect(() => {
+    if (otp.length === 6) handleVerify();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp]);
+
+  return (
+    <Stack spacing={2}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Link component="button" type="button" onClick={onBack}
+          sx={{ color: '#006D77', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          ← Back to password
+        </Link>
+        <Chip label="Passwordless" size="small"
+          sx={{ bgcolor: 'rgba(0,109,119,0.10)', color: '#006D77', fontWeight: 700, fontSize: '0.65rem', height: 20 }} />
+      </Box>
+
+      <Typography variant="body2" color="text.secondary">
+        {step === 'identifier'
+          ? 'Enter your registered email or phone number to receive a one-time code.'
+          : `Enter the 6-digit code sent to ${identifier}`}
+      </Typography>
+
+      {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+      {hint  && step === 'verify' && (
+        <Alert severity="info" icon={false}
+          sx={{ bgcolor: 'rgba(0,109,119,0.06)', color: '#006D77', border: '1px solid rgba(0,109,119,0.20)', py: 0.5 }}>
+          🔑 {hint}
+        </Alert>
+      )}
+
+      {step === 'identifier' ? (
+        <Box component="form" onSubmit={handleSendOtp} noValidate>
+          <Stack spacing={2}>
+            <TextField
+              fullWidth autoFocus
+              label="Email or Phone Number"
+              value={identifier}
+              onChange={e => setId(e.target.value)}
+              inputProps={{ 'aria-label': 'Email or phone for OTP' }}
+              InputProps={{ startAdornment: (
+                <InputAdornment position="start">
+                  <PhoneAndroidIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                </InputAdornment>
+              )}}
+            />
+            <Button type="submit" variant="contained" fullWidth size="large"
+              disabled={loading || !identifier}
+              sx={{ py: 1.5, fontWeight: 700 }}
+            >
+              {loading ? <CircularProgress size={20} color="inherit" /> : 'Send One-Time Code'}
+            </Button>
+          </Stack>
+        </Box>
+      ) : (
+        <Stack spacing={2}>
+          <OtpInputBoxes value={otp} onChange={setOtp} disabled={loading} />
+          <Button variant="contained" fullWidth size="large"
+            onClick={handleVerify}
+            disabled={loading || otp.length < 6}
+            sx={{ py: 1.5, fontWeight: 700 }}
+          >
+            {loading ? <CircularProgress size={20} color="inherit" /> : 'Verify & Sign In'}
+          </Button>
+          {/* Resend */}
+          {cooldown > 0 ? (
+            <Typography variant="caption" color="text.disabled" textAlign="center">
+              Resend code in {cooldown}s
+            </Typography>
+          ) : (
+            <Button size="small" onClick={handleSendOtp} sx={{ alignSelf: 'center' }}>Resend Code</Button>
+          )}
+        </Stack>
+      )}
+    </Stack>
+  );
+}
+
+// ─── Mobile Signup Mode (NEW-AUTH-005) ────────────────────────────────────────
+function MobileSignupMode({ onBack }) {
+  const [step, setStep]         = useState('phone'); // 'phone' | 'verify' | 'profile'
+  const [phone, setPhone]       = useState('');
+  const [otp, setOtp]           = useState('');
+  const [name, setName]         = useState('');
+  const [role, setRole]         = useState('patient');
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  const [hint, setHint]         = useState('');
+  const [success, setSuccess]   = useState(false);
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const handleSendSms = async (e) => {
+    e.preventDefault();
+    if (!phone) return;
+    setError(''); setLoading(true);
+    await new Promise(r => setTimeout(r, 1500));
+    setLoading(false);
+    setStep('verify');
+    setCooldown(60);
+    setHint(`Demo mode — use code: ${MOCK_OTP}`);
+  };
+
+  const handleVerifyOtp = async (e) => {
+    e?.preventDefault();
+    if (otp.length < 6) return;
+    setError(''); setLoading(true);
+    await new Promise(r => setTimeout(r, 800));
+    setLoading(false);
+    if (otp === MOCK_OTP) {
+      setStep('profile');
+      setHint('');
+    } else {
+      setError(`Incorrect OTP. In demo mode use ${MOCK_OTP}.`);
+    }
+  };
+
+  useEffect(() => {
+    if (step === 'verify' && otp.length === 6) handleVerifyOtp();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otp, step]);
+
+  const handleCreate = async (e) => {
+    e.preventDefault();
+    if (!name) return;
+    setLoading(true);
+    await new Promise(r => setTimeout(r, 1200));
+    setLoading(false);
+    setSuccess(true);
+  };
+
+  if (success) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 3 }}>
+        <CheckCircleIcon sx={{ fontSize: 52, color: '#2DC653', mb: 1 }} />
+        <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>Mobile Account Ready!</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Sign in anytime with your mobile number <strong>{phone}</strong> and an OTP.
+        </Typography>
+        <Button variant="outlined" onClick={onBack} sx={{ color: '#006D77', borderColor: '#006D77' }}>
+          Sign In Now
+        </Button>
+      </Box>
+    );
+  }
+
+  return (
+    <Stack spacing={2}>
+      {/* Header */}
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Link component="button" type="button" onClick={onBack}
+          sx={{ color: '#006D77', fontWeight: 600, fontSize: '0.8rem' }}>
+          ← Back to email signup
+        </Link>
+        <Chip label="Mobile" size="small"
+          sx={{ bgcolor: 'rgba(0,109,119,0.10)', color: '#006D77', fontWeight: 700, fontSize: '0.65rem', height: 20 }} />
+      </Box>
+
+      {/* Step indicator */}
+      <Stack direction="row" spacing={1} alignItems="center">
+        {['Phone', 'Verify', 'Profile'].map((label, i) => {
+          const stepIdx = { phone: 0, verify: 1, profile: 2 }[step];
+          const done = i < stepIdx;
+          const active = i === stepIdx;
+          return (
+            <React.Fragment key={label}>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.3 }}>
+                <Box sx={{
+                  width: 24, height: 24, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  bgcolor: done ? '#0F9D58' : active ? '#006D77' : '#E8EAED',
+                  fontSize: '0.65rem', fontWeight: 800, color: (done || active) ? '#fff' : '#9AA0A6',
+                }}>
+                  {done ? '✓' : i + 1}
+                </Box>
+                <Typography variant="caption" sx={{ fontSize: '0.6rem', color: active ? '#006D77' : '#9AA0A6', fontWeight: active ? 700 : 400 }}>
+                  {label}
+                </Typography>
+              </Box>
+              {i < 2 && <Box sx={{ flex: 1, height: 2, bgcolor: done ? '#0F9D58' : '#E8EAED', borderRadius: 1, mb: 2 }} />}
+            </React.Fragment>
+          );
+        })}
+      </Stack>
+
+      {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+      {hint && (
+        <Alert severity="info" icon={false}
+          sx={{ bgcolor: 'rgba(0,109,119,0.06)', color: '#006D77', border: '1px solid rgba(0,109,119,0.20)', py: 0.5 }}>
+          🔑 {hint}
+        </Alert>
+      )}
+
+      {step === 'phone' && (
+        <Box component="form" onSubmit={handleSendSms} noValidate>
+          <Stack spacing={2}>
+            <TextField
+              fullWidth autoFocus label="Mobile Number" type="tel"
+              value={phone} onChange={e => setPhone(e.target.value)}
+              placeholder="+91 98765 43210"
+              inputProps={{ 'aria-label': 'Mobile number for signup' }}
+              InputProps={{ startAdornment: (
+                <InputAdornment position="start">
+                  <PhoneAndroidIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                </InputAdornment>
+              )}}
+            />
+            <Button type="submit" variant="contained" fullWidth size="large"
+              disabled={loading || !phone}
+              sx={{ py: 1.5, fontWeight: 700 }}
+            >
+              {loading ? <CircularProgress size={20} color="inherit" /> : 'Send Verification Code'}
+            </Button>
+          </Stack>
+        </Box>
+      )}
+
+      {step === 'verify' && (
+        <Stack spacing={2}>
+          <Typography variant="body2" color="text.secondary">
+            Enter the 6-digit code sent to <strong>{phone}</strong>
+          </Typography>
+          <OtpInputBoxes value={otp} onChange={setOtp} disabled={loading} />
+          <Button variant="contained" fullWidth size="large"
+            onClick={handleVerifyOtp} disabled={loading || otp.length < 6}
+            sx={{ py: 1.5, fontWeight: 700 }}
+          >
+            {loading ? <CircularProgress size={20} color="inherit" /> : 'Verify Number'}
+          </Button>
+          {cooldown > 0 ? (
+            <Typography variant="caption" color="text.disabled" textAlign="center">Resend in {cooldown}s</Typography>
+          ) : (
+            <Button size="small" onClick={handleSendSms} sx={{ alignSelf: 'center' }}>Resend Code</Button>
+          )}
+        </Stack>
+      )}
+
+      {step === 'profile' && (
+        <Box component="form" onSubmit={handleCreate} noValidate>
+          <Stack spacing={2}>
+            <TextField
+              fullWidth autoFocus label="Your Name" value={name} onChange={e => setName(e.target.value)} required
+              inputProps={{ 'aria-label': 'Display name' }}
+              InputProps={{ startAdornment: (
+                <InputAdornment position="start"><PersonOutlineIcon sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment>
+              )}}
+            />
+            <FormControl fullWidth>
+              <InputLabel>I am a…</InputLabel>
+              <Select value={role} onChange={e => setRole(e.target.value)} label="I am a…">
+                <MenuItem value="patient">Patient</MenuItem>
+                <MenuItem value="clinician">Clinician</MenuItem>
+                <MenuItem value="receptionist">Receptionist / Staff</MenuItem>
+              </Select>
+            </FormControl>
+            <Button type="submit" variant="contained" fullWidth size="large"
+              disabled={loading || !name}
+              sx={{ py: 1.5, fontWeight: 700 }}
+            >
+              {loading ? <CircularProgress size={20} color="inherit" /> : 'Create Mobile Account'}
+            </Button>
+          </Stack>
+        </Box>
+      )}
+    </Stack>
+  );
+}
+
+// ─── Left brand panel ─────────────────────────────────────────────────────────
+function BrandPanel() {
+  return (
+    <Box
+      sx={{
+        display: { xs: 'none', md: 'flex' },
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: 'linear-gradient(160deg, #004D55 0%, #006D77 60%, #0A9396 100%)',
+        p: 8,
+        minHeight: '100vh',
+      }}
+    >
+      {/* Logo mark */}
+      <Box
+        sx={{
+          width: 80, height: 80, borderRadius: '50%',
+          bgcolor: 'rgba(255,255,255,0.12)',
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+          mb: 3,
+        }}
+      >
+        <MedicalServicesIcon sx={{ fontSize: 40, color: '#fff' }} />
+      </Box>
+
+      <Typography variant="h5" sx={{ color: '#fff', fontWeight: 700, mb: 1, textAlign: 'center' }}>
+        Your health,<br />perfectly scheduled
+      </Typography>
+      <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', mb: 5, textAlign: 'center', maxWidth: 260 }}>
+        The all-in-one platform for modern healthcare practices
+      </Typography>
+
+      {/* Feature list */}
+      <Stack spacing={2.5} sx={{ width: '100%', maxWidth: 280 }}>
+        {[
+          'Book any specialist instantly',
+          'Secure and private — GDPR compliant',
+          'In-person or video consultations',
+          'Automated reminders & follow-ups',
+        ].map((text) => (
+          <Stack key={text} direction="row" alignItems="center" spacing={1.5}>
+            <CheckCircleIcon sx={{ color: '#83C5BE', fontSize: 20, flexShrink: 0 }} />
+            <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.85)' }}>{text}</Typography>
+          </Stack>
+        ))}
+      </Stack>
+    </Box>
+  );
+}
+
+// ─── Sign In Tab ──────────────────────────────────────────────────────────────
+function SignInTab({ onForgot }) {
+  // ─── All hooks declared unconditionally (Rules of Hooks) ──────────────────
+  // NEW-AUTH-004: OTP passwordless mode toggle
+  const [otpMode, setOtpMode]   = useState(false);
+  const [rememberMeOtp]         = useState(true);
+
+  const navigate                = useNavigate();
+  const { login, isAuthenticated } = useAuth();
+  const [email, setEmail]       = useState('');
+  const [password, setPassword] = useState('');
+  const [showPw, setShowPw]     = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [error, setError]       = useState('');
+  // SUG-AUTH-006: Remember Me — checked=localStorage, unchecked=sessionStorage
+  const [rememberMe, setRememberMe] = useState(true);
+  // NEW-AUTH-002: client-side failed attempt tracking
+  const [failedAttempts, setFailedAttempts] = useState(0);
+  const [lockoutSecs, setLockoutSecs] = useState(0);
+
+  // Lockout countdown
+  useEffect(() => {
+    if (lockoutSecs <= 0) return;
+    const t = setTimeout(() => setLockoutSecs(s => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [lockoutSecs]);
+
+  const isLockedOut = lockoutSecs > 0;
+
+  const [loginMutation] = useMutation(LOGIN_MUTATION);
+
+  // NEW-AUTH-004: render OTP mode after all hooks
+  if (otpMode) {
+    return <OtpLoginMode onBack={() => setOtpMode(false)} rememberMe={rememberMeOtp} />;
+  }
+
+  const handleSignIn = async (e) => {
+    e.preventDefault();
+    if (!email || !password) return;
+    if (isLockedOut) return;  // NEW-AUTH-002: block during lockout
+    setError('');
+    setLoading(true);
+
+    try {
+      // ── Try real GraphQL login ──────────────────────────────────────────────
+      const { data } = await loginMutation({ variables: { input: { email, password } } });
+      const { token, user } = data.login;
+      login(token, user, rememberMe);
+      navigate(getPostLoginRedirect(user));
+    } catch {
+      // ── Mock fallback (offline / demo) ─────────────────────────────────────
+      const mockUser = MOCK_USERS[email.toLowerCase()];
+      const knownPassword = mockUser?.mock_password ?? 'password';
+      if (mockUser && (password === knownPassword || password === 'password' || password === 'demo')) {
+        setFailedAttempts(0); // reset on success
+        login(mockUser.mock_token || `mock_${Date.now()}`, mockUser, rememberMe);
+        navigate(getPostLoginRedirect(mockUser));
+      } else if (mockUser) {
+        // NEW-AUTH-002: increment failed attempts
+        const next = failedAttempts + 1;
+        setFailedAttempts(next);
+        if (next >= 5) {
+          setLockoutSecs(60);
+          setError(`Too many failed attempts. Account locked for 60 seconds.`);
+        } else {
+          setError(`Demo password for this account is "${knownPassword}" (or use "password") — ${next}/5 attempts`);
+        }
+      } else {
+        const next = failedAttempts + 1;
+        setFailedAttempts(next);
+        if (next >= 5) {
+          setLockoutSecs(60);
+          setError(`Too many failed attempts. Try again in 60 seconds.`);
+        } else {
+          setError(`Invalid email or password. Click a demo account below. (${next}/5 attempts)`);
+        }
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const fillDemo = (account) => {
+    setEmail(account.email);
+    setPassword(account.password || 'password');
+    setError('');
+  };
+
+  return (
+    <Box component="form" onSubmit={handleSignIn} noValidate>
+      <Stack spacing={2}>
+        {/* NEW-AUTH-002: lockout banner */}
+        {isLockedOut && (
+          <Alert severity="error" icon={false}>
+            🔒 Account temporarily locked. Try again in <strong>{lockoutSecs}s</strong>.
+          </Alert>
+        )}
+        {/* Failed attempts warning 3+ */}
+        {!isLockedOut && failedAttempts >= 3 && failedAttempts < 5 && (
+          <Alert severity="warning">
+            {failedAttempts}/5 failed attempts. Account will lock after 5.
+          </Alert>
+        )}
+        {!isLockedOut && error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+
+        <TextField
+          fullWidth
+          label="Email Address"
+          type="email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
+          required
+          autoComplete="email"
+          autoFocus
+          inputProps={{ 'aria-label': 'Email address' }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <EmailOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        <TextField
+          fullWidth
+          label="Password"
+          type={showPw ? 'text' : 'password'}
+          value={password}
+          onChange={(e) => setPassword(e.target.value)}
+          required
+          autoComplete="current-password"
+          inputProps={{ 'aria-label': 'Password' }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <LockOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+              </InputAdornment>
+            ),
+            endAdornment: (
+              <InputAdornment position="end">
+                {/* SUG-AUTH-015: aria-label on icon button */}
+                <IconButton
+                  onClick={() => setShowPw((v) => !v)}
+                  edge="end"
+                  size="small"
+                  aria-label={showPw ? 'Hide password' : 'Show password'}
+                  tabIndex={0}
+                >
+                  {showPw ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                </IconButton>
+              </InputAdornment>
+            ),
+          }}
+        />
+
+        {/* SUG-AUTH-006: Remember Me + Forgot password row */}
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: -1 }}>
+          <Tooltip title="Uncheck on shared/public devices" placement="bottom-start">
+            <FormControlLabel
+              control={
+                <Checkbox
+                  size="small"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  sx={{ color: '#006D77', '&.Mui-checked': { color: '#006D77' } }}
+                />
+              }
+              label={<Typography variant="body2" sx={{ color: '#5F6368' }}>Remember me</Typography>}
+            />
+          </Tooltip>
+          <Link
+            component="button"
+            type="button"
+            variant="body2"
+            onClick={onForgot}
+            sx={{ color: '#006D77', fontWeight: 600 }}
+          >
+            Forgot password?
+          </Link>
+        </Box>
+
+        <Button
+          type="submit"
+          variant="contained"
+          fullWidth
+          size="large"
+          disabled={loading || !email || !password || isLockedOut}
+          sx={{ py: 1.5, fontWeight: 700, fontSize: '1rem' }}
+        >
+          {isLockedOut
+            ? `Locked — wait ${lockoutSecs}s`
+            : loading ? <CircularProgress size={20} color="inherit" /> : 'Sign In'}
+        </Button>
+
+        {/* NEW-AUTH-004: OTP login link */}
+        <Box sx={{ textAlign: 'center' }}>
+          <Link component="button" type="button" onClick={() => setOtpMode(true)}
+            variant="body2" sx={{ color: '#006D77', fontWeight: 600, fontSize: '0.82rem' }}>
+            Sign in with OTP instead →
+          </Link>
+        </Box>
+
+        {/* SUG-AUTH-011: demo chips with tooltips */}
+        <Box>
+          <Divider sx={{ my: 1 }}>
+            <Typography variant="caption" color="text.secondary">demo accounts</Typography>
+          </Divider>
+          <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center" gap={1}>
+            {DEMO_ACCOUNTS.map((d) => (
+              <Tooltip key={d.email} title={d.tooltip} placement="top" arrow>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => fillDemo(d)}
+                  sx={{ fontSize: '0.72rem', px: 1.5 }}
+                >
+                  {d.label}
+                </Button>
+              </Tooltip>
+            ))}
+          </Stack>
+        </Box>
+      </Stack>
+    </Box>
+  );
+}
+
+// ─── Register Tab ─────────────────────────────────────────────────────────────
+function RegisterTab() {
+  const [form, setForm] = useState({
+    firstName: '', lastName: '', email: '', phone: '', password: '', role: 'patient',
+  });
+  const [showPw, setShowPw]     = useState(false);
+  const [loading, setLoading]   = useState(false);
+  const [success, setSuccess]   = useState(false);
+  const [error, setError]       = useState('');
+  // SUG-AUTH-010: T&C checkbox
+  const [agreedTos, setAgreedTos] = useState(false);
+  // NEW-AUTH-005: mobile signup mode
+  const [mobileMode, setMobileMode] = useState(false);
+
+  const set = (k) => (e) => setForm({ ...form, [k]: e.target.value });
+
+  // SUG-AUTH-004: block submit if password is Weak
+  const { score } = getPasswordStrength(form.password);
+  const isWeak     = form.password.length > 0 && score <= 1;
+  const canSubmit  = form.firstName && form.email && form.password && !isWeak && agreedTos;
+
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    // Simulate registration — replace with real GraphQL mutation when backend ready
+    await new Promise((r) => setTimeout(r, 1500));
+    setLoading(false);
+    setSuccess(true);
+  };
+
+  // NEW-AUTH-005: early-return for mobile mode — outside the form element to
+  // prevent mobile signup's nested form from triggering the register form submit
+  if (mobileMode) {
+    return (
+      <Box sx={{ p: 0 }}>
+        <MobileSignupMode onBack={() => setMobileMode(false)} />
+      </Box>
+    );
+  }
+
+  if (success) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 3 }}>
+        <CheckCircleIcon sx={{ fontSize: 52, color: '#2DC653', mb: 1 }} />
+        <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>Account Created!</Typography>
+        <Typography variant="body2" color="text.secondary">
+          Check your email for a confirmation link before signing in.
+        </Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box component="form" onSubmit={handleRegister} noValidate>
+      <Stack spacing={2}>
+        {error && <Alert severity="error">{error}</Alert>}
+
+        <Grid container spacing={1.5}>
+          <Grid item xs={6}>
+            <TextField fullWidth label="First Name" value={form.firstName} onChange={set('firstName')} required
+              inputProps={{ 'aria-label': 'First name' }}
+              InputProps={{ startAdornment: <InputAdornment position="start"><PersonOutlineIcon sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }}
+            />
+          </Grid>
+          <Grid item xs={6}>
+            <TextField fullWidth label="Last Name" value={form.lastName} onChange={set('lastName')} required
+              inputProps={{ 'aria-label': 'Last name' }}
+            />
+          </Grid>
+        </Grid>
+
+        <TextField
+          fullWidth label="Email Address" type="email" value={form.email} onChange={set('email')} required
+          inputProps={{ 'aria-label': 'Email address' }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><EmailOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }}
+        />
+
+        {/* SUG-AUTH-010: Phone number field */}
+        <TextField
+          fullWidth label="Phone Number (optional)" type="tel" value={form.phone} onChange={set('phone')}
+          inputProps={{ 'aria-label': 'Phone number', pattern: '[0-9+\\-\\s]*' }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><PhoneAndroidIcon sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }}
+          helperText="For appointment reminders and 2FA (optional)"
+        />
+
+        {/* SUG-AUTH-004: password field with show/hide + strength meter */}
+        <Box>
+          <TextField
+            fullWidth label="Password" type={showPw ? 'text' : 'password'} value={form.password} onChange={set('password')} required
+            inputProps={{ 'aria-label': 'Password' }}
+            InputProps={{
+              startAdornment: <InputAdornment position="start"><LockOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment>,
+              endAdornment: (
+                <InputAdornment position="end">
+                  <IconButton
+                    onClick={() => setShowPw(v => !v)} edge="end" size="small"
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
+                  >
+                    {showPw ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+            error={isWeak}
+            helperText={isWeak ? 'Password is too weak — see requirements below' : ''}
+          />
+          <PasswordStrengthMeter password={form.password} />
+        </Box>
+
+        <FormControl fullWidth>
+          <InputLabel>I am a…</InputLabel>
+          <Select value={form.role} onChange={set('role')} label="I am a…">
+            <MenuItem value="patient">Patient</MenuItem>
+            <MenuItem value="clinician">Clinician</MenuItem>
+            <MenuItem value="receptionist">Receptionist / Staff</MenuItem>
+          </Select>
+        </FormControl>
+
+        {/* SUG-AUTH-010: Terms & Conditions checkbox */}
+        <FormControlLabel
+          control={
+            <Checkbox
+              size="small"
+              checked={agreedTos}
+              onChange={(e) => setAgreedTos(e.target.checked)}
+              sx={{ color: '#006D77', '&.Mui-checked': { color: '#006D77' } }}
+              inputProps={{ 'aria-label': 'Agree to Terms and Conditions' }}
+            />
+          }
+          label={
+            <Typography variant="body2" sx={{ color: '#5F6368' }}>
+              I agree to the{' '}
+              <Link href="#" target="_blank" rel="noopener" sx={{ color: '#006D77', fontWeight: 600 }}>Terms of Service</Link>
+              {' '}and{' '}
+              <Link href="#" target="_blank" rel="noopener" sx={{ color: '#006D77', fontWeight: 600 }}>Privacy Policy</Link>
+            </Typography>
+          }
+        />
+
+        <Button
+          type="submit" variant="contained" fullWidth size="large"
+          disabled={loading || !canSubmit}
+          sx={{ py: 1.5, fontWeight: 700 }}
+        >
+          {loading ? <CircularProgress size={20} color="inherit" /> : 'Create Account'}
+        </Button>
+
+        {/* NEW-AUTH-005: Mobile signup link — button only (actual mobile mode rendered above the form) */}
+        <Divider sx={{ my: 0.5 }}>
+          <Typography variant="caption" color="text.secondary">or</Typography>
+        </Divider>
+        <Button
+          type="button"
+          variant="outlined" fullWidth
+          startIcon={<PhoneAndroidIcon sx={{ fontSize: '1rem' }} />}
+          onClick={() => setMobileMode(true)}
+          sx={{ fontWeight: 600, color: '#006D77', borderColor: '#006D77',
+            '&:hover': { bgcolor: 'rgba(0,109,119,0.06)', borderColor: '#004D55' } }}
+        >
+          Sign up with mobile number
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+// ─── Forgot Password Tab (SUG-AUTH-009 + TC-AUTH-013 fix) ────────────────────
+function ForgotPasswordTab() {
+  const [email, setEmail]   = useState('');
+  const [loading, setLoading] = useState(false);
+  const [sent, setSent]     = useState(false);
+  const [error, setError]   = useState('');
+  // SUG-AUTH-009: 60-second cooldown after submission
+  const [cooldown, setCooldown] = useState(0);
+
+  useEffect(() => {
+    if (cooldown <= 0) return;
+    const t = setTimeout(() => setCooldown(c => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
+  const handleSend = async (e) => {
+    e.preventDefault();
+    setError('');
+    setLoading(true);
+    await new Promise((r) => setTimeout(r, 1200));
+    setLoading(false);
+
+    // TC-AUTH-013: Detect unknown emails in mock mode
+    const knownEmails = [
+      'admin@medibook.dev','manager@medibook.dev','clinician@medibook.dev',
+      'receptionist@medibook.dev','patient@medibook.dev',
+      'dr.okafor@medibook.dev','manager2@medibook.dev',
+    ];
+    if (!knownEmails.includes(email.toLowerCase())) {
+      setError(`No account found for "${email}". Check the address or register.`);
+      return;
+    }
+
+    setSent(true);
+    setCooldown(60); // 60-second resend cooldown
+  };
+
+  if (sent) {
+    // NEW-AUTH-003: detect email provider for quick-link
+    const domain = email.split('@')[1]?.toLowerCase() ?? '';
+    const providerLink =
+      domain === 'gmail.com'    ? { url: 'https://mail.google.com', label: 'Open Gmail' } :
+      domain === 'outlook.com'  ? { url: 'https://outlook.live.com', label: 'Open Outlook' } :
+      domain === 'hotmail.com'  ? { url: 'https://outlook.live.com', label: 'Open Outlook' } :
+      domain === 'yahoo.com'    ? { url: 'https://mail.yahoo.com', label: 'Open Yahoo Mail' } :
+      domain === 'icloud.com'   ? { url: 'https://www.icloud.com/mail', label: 'Open iCloud Mail' } :
+      null;
+
+    return (
+      <Box sx={{ textAlign: 'center', py: 2 }}>
+        <CheckCircleIcon sx={{ fontSize: 48, color: '#2DC653', mb: 1 }} />
+        <Typography variant="h5" fontWeight={700}>Check your inbox</Typography>
+        <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+          A reset link has been sent to <strong>{email}</strong>
+        </Typography>
+        {/* NEW-AUTH-003: email provider quick-link */}
+        {providerLink && (
+          <Button
+            component="a" href={providerLink.url} target="_blank" rel="noopener"
+            size="small" variant="outlined" endIcon={<OpenInNewIcon sx={{ fontSize: '0.85rem' }} />}
+            sx={{ mt: 1.5, textTransform: 'none', borderColor: '#006D77', color: '#006D77', '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
+          >
+            {providerLink.label}
+          </Button>
+        )}
+        {/* SUG-AUTH-009: Resend with countdown */}
+        {cooldown > 0 ? (
+          <Typography variant="caption" color="text.disabled" sx={{ mt: 2, display: 'block' }}>
+            Didn't receive it? Resend in {cooldown}s
+          </Typography>
+        ) : (
+          <Button size="small" sx={{ mt: 2 }} onClick={() => { setSent(false); setCooldown(0); }}>
+            Resend Email
+          </Button>
+        )}
+      </Box>
+    );
+  }
+
+  return (
+    <Box component="form" onSubmit={handleSend} noValidate>
+      <Stack spacing={2}>
+        <Typography variant="body2" color="text.secondary">
+          Enter your registered email and we'll send a secure reset link.
+        </Typography>
+        {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+        <TextField
+          fullWidth label="Email Address" type="email"
+          value={email} onChange={(e) => setEmail(e.target.value)} required
+          inputProps={{ 'aria-label': 'Email address for password reset' }}
+          InputProps={{ startAdornment: <InputAdornment position="start"><EmailOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} /></InputAdornment> }}
+        />
+        <Button
+          type="submit" variant="contained" fullWidth size="large"
+          disabled={loading || !email}
+          startIcon={loading ? null : <SendIcon />}
+          sx={{ py: 1.5, fontWeight: 700 }}
+        >
+          {loading ? <CircularProgress size={20} color="inherit" /> : 'Send Reset Link'}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
+// ─── Main Login Component ─────────────────────────────────────────────────────
+export default function Login() {
+  const { isAuthenticated } = useAuth();
+  const [activeTab, setActiveTab] = useState(0);
+
+  // Already logged in — redirect
+  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+
+  return (
+    <Grid container sx={{ minHeight: '100vh' }}>
+      {/* ── Left brand panel ─────────────────────────────────────────────────── */}
+      <Grid item md={5} sx={{ display: { xs: 'none', md: 'block' } }}>
+        <BrandPanel />
+      </Grid>
+
+      {/* ── Right auth panel ─────────────────────────────────────────────────── */}
+      <Grid
+        item xs={12} md={7}
+        sx={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          p: { xs: 2, sm: 4, md: 6 },
+          bgcolor: '#F0F7F8',
+        }}
+      >
+        <Paper
+          elevation={0}
+          sx={{
+            border: '1px solid #D0E8EA',
+            borderRadius: 3,
+            p: { xs: 3, sm: 4 },
+            width: '100%',
+            maxWidth: 420,
+          }}
+        >
+          <Stack spacing={3}>
+            {/* HealthSync logo */}
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Box
+                sx={{
+                  width: 36, height: 36, borderRadius: '50%', bgcolor: '#006D77',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                }}
+              >
+                <LocalHospitalIcon sx={{ color: '#fff', fontSize: 18 }} />
+              </Box>
+              <Typography variant="h5" fontWeight={800} sx={{ color: 'primary.main' }}>
+                HealthSync
+              </Typography>
+            </Stack>
+
+            {/* Tabs: Sign In | Register | Forgot Password */}
+            <Tabs
+              value={activeTab}
+              onChange={(_, v) => setActiveTab(v)}
+              sx={{ borderBottom: '1px solid #D0E8EA', mb: -1 }}
+              aria-label="Authentication options"
+            >
+              <Tab label="Sign In"          id="auth-tab-0" aria-controls="auth-panel-0" />
+              <Tab label="Register"         id="auth-tab-1" aria-controls="auth-panel-1" />
+              <Tab label="Forgot Password"  id="auth-tab-2" aria-controls="auth-panel-2" />
+            </Tabs>
+
+            {/* Tab Panels */}
+            <Box role="tabpanel" id="auth-panel-0" aria-labelledby="auth-tab-0" hidden={activeTab !== 0}>
+              {activeTab === 0 && <SignInTab onForgot={() => setActiveTab(2)} />}
+            </Box>
+            <Box role="tabpanel" id="auth-panel-1" aria-labelledby="auth-tab-1" hidden={activeTab !== 1}>
+              {activeTab === 1 && <RegisterTab />}
+            </Box>
+            <Box role="tabpanel" id="auth-panel-2" aria-labelledby="auth-tab-2" hidden={activeTab !== 2}>
+              {activeTab === 2 && <ForgotPasswordTab />}
+            </Box>
+          </Stack>
+        </Paper>
+      </Grid>
+    </Grid>
+  );
+}

@@ -1,0 +1,1919 @@
+════════════════════════════════════════════════════════════════════════════
+  MEDIBOOK — PROFESSIONAL INTERACTIVE DASHBOARD UI PLAN  v4.0
+  COMPLETE EDITION: Google Colors + Full Responsiveness + Dev Prompts
+  ─────────────────────────────────────────────────────────────────────
+  Stack  : React 18 + MUI v5 + Apollo GraphQL + Recharts + React Router v6
+  Font   : Plus Jakarta Sans
+  Theme  : DocBook v2 → Upgraded to Google Material 3 color system
+  ─────────────────────────────────────────────────────────────────────
+  BREAKPOINTS (MUI defaults — never change these):
+    xs  :   0px →  599px   (mobile portrait)
+    sm  : 600px →  899px   (mobile landscape / small tablet)
+    md  : 900px → 1199px   (tablet / small desktop)
+    lg  :1200px → 1535px   (desktop)
+    xl  :1536px+            (large desktop / 4K)
+  ─────────────────────────────────────────────────────────────────────
+  RULE: Zero structural changes. All existing routes, GraphQL queries,
+  state logic, and component tree preserved. Only sx / style / layout
+  prop changes allowed.
+════════════════════════════════════════════════════════════════════════════
+
+
+════════════════════════════════════════════════════════════════════════════
+  PART A — GOOGLE COLOR SYSTEM
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  A1. CORE BRAND PALETTE (Google Material 3 Applied to Healthcare)
+────────────────────────────────────────────────────────────────────────────
+
+  PRIMARY (Google Blue)
+    main      #1A73E8    Buttons, links, active nav, focus rings
+    light     #4285F4    Gradients, icon fills
+    dark      #1557B0    Hover/pressed states
+    surface   #E8F0FE    Selected chips, active slots, hover fills
+    border    #AECBFA    Input focus borders, chip outlines
+
+  SECONDARY / ACCENT (Google Green)
+    main      #0F9D58    Confirmed, success, availability, live dot
+    light     #1BB371    Hover green
+    dark      #0B8043    Pressed green
+    surface   #E6F4EA    Confirmed chip backgrounds
+    border    #CEEAD6    Confirmed chip borders
+
+  WARNING (Google Yellow)
+    main      #F9AB00    Pending, caution, star ratings
+    surface   #FEF7E0    Pending chip backgrounds
+    border    #FDD663    Pending chip borders
+    text      #8A4700    Text on yellow surface
+
+  DANGER (Google Red)
+    main      #D93025    Cancelled, errors, emergency
+    surface   #FCE8E6    Error chip backgrounds
+    border    #F5C6C2    Error chip borders
+    text      #A50E0E    Text on red surface
+
+  ANALYTICS PURPLE (Google Purple)
+    main      #9334E6    Rescheduled, analytics, psychiatry tag
+    surface   #F3E8FD    Purple chip backgrounds
+    border    #D7AEFA    Purple borders
+    text      #6E2DB8    Text on purple surface
+
+  REVENUE ORANGE (Google Orange)
+    main      #FA7B17    Revenue KPI, dermatology tag
+    surface   #FEF0E0    Orange chip backgrounds
+    text      #8A3800    Text on orange surface
+
+  NEUTRAL (Google Grays)
+    page-bg   #F8F9FA    Canvas background (Google gray-50)
+    card-bg   #FFFFFF    All cards, inputs, dropdowns
+    border    #E8EAED    Hairline borders everywhere
+    hover-bg  #F1F3F4    Row hover, button hover fills
+    active-bg #E8F0FE    Primary-tinted active fill
+    text-1    #202124    Headings, values (Google dark)
+    text-2    #5F6368    Labels, captions, secondary
+    text-3    #9AA0A6    Placeholder, disabled, muted
+
+  SIDEBAR (Google Dark Surface)
+    bg        #202124    Navigation panel background
+    active    linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)
+    text-inv  #FFFFFF    Active nav text
+    text-dim  rgba(255,255,255,0.60)  Inactive nav text
+    text-mute rgba(255,255,255,0.28)  Section labels
+    border    rgba(255,255,255,0.08)  Subtle dividers
+
+────────────────────────────────────────────────────────────────────────────
+  A2. APPOINTMENT STATUS COLOR TABLE
+────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────┬──────────┬──────────┬──────────┬──────────────────────┐
+  │  Status     │  Dot     │  BG      │  Border  │  Text                │
+  ├─────────────┼──────────┼──────────┼──────────┼──────────────────────┤
+  │  confirmed  │ #0F9D58  │ #E6F4EA  │ #CEEAD6  │ #137333             │
+  │  pending    │ #F9AB00  │ #FEF7E0  │ #FDD663  │ #8A4700             │
+  │  cancelled  │ #D93025  │ #FCE8E6  │ #F5C6C2  │ #A50E0E             │
+  │  completed  │ #1A73E8  │ #E8F0FE  │ #AECBFA  │ #1557B0             │
+  │  no_show    │ #80868B  │ #F8F9FA  │ #E8EAED  │ #3C4043             │
+  │  rescheduled│ #9334E6  │ #F3E8FD  │ #D7AEFA  │ #6E2DB8             │
+  └─────────────┴──────────┴──────────┴──────────┴──────────────────────┘
+
+────────────────────────────────────────────────────────────────────────────
+  A3. CHART COLOR SEQUENCE (Google 8-ramp)
+────────────────────────────────────────────────────────────────────────────
+
+  const G_CHART_COLORS = [
+    '#4285F4',   // 1 Google Blue
+    '#0F9D58',   // 2 Google Green
+    '#F9AB00',   // 3 Google Yellow
+    '#D93025',   // 4 Google Red
+    '#9334E6',   // 5 Google Purple
+    '#FA7B17',   // 6 Google Orange
+    '#009688',   // 7 Teal
+    '#EA4335',   // 8 Coral
+  ]
+
+
+════════════════════════════════════════════════════════════════════════════
+  PART B — RESPONSIVE BREAKPOINT SYSTEM
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  B1. LAYOUT SHELL  (src/components/Layout/Layout.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  BREAKPOINT     │  SIDEBAR         │  NAVBAR HEIGHT  │  PADDING    │
+  ├─────────────────┼──────────────────┼─────────────────┼─────────────┤
+  │  xs (0–599)     │  Hidden (drawer) │  60px fixed     │  p: 2       │
+  │  sm (600–899)   │  Hidden (drawer) │  64px fixed     │  p: 2.5     │
+  │  md (900–1199)  │  256px permanent │  64px fixed     │  p: 3       │
+  │  lg (1200+)     │  256px permanent │  64px fixed     │  p: 3       │
+  └─────────────────┴──────────────────┴─────────────────┴─────────────┘
+
+  Layout.jsx main Box — already correct, NO changes needed:
+    width: { md: `calc(100% - 256px)` }
+    ml:    { md: `256px` }
+    pb:    { xs: '80px', md: 3 }   ← bottom nav clearance on mobile
+
+  Content Box padding — already correct, NO changes needed:
+    p: { xs: 2, sm: 2.5, md: 3 }
+    maxWidth: 1440, mx: 'auto'
+
+────────────────────────────────────────────────────────────────────────────
+  B2. MOBILE BOTTOM NAV  (src/components/Layout/MobileBottomNav.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  The component already exists and is correctly implemented.
+  Apply these color upgrades only (NO structural changes):
+
+  Active icon + label color:   '#1A73E8'   (was primary.main)
+  Inactive color:              '#9AA0A6'
+  Border-top:                  '1px solid #E8EAED'
+  Box-shadow:                  '0 -2px 16px rgba(32,33,36,0.10)'
+  Bgcolor:                     '#FFFFFF'
+  Height:                      60px (keep)
+
+  Safe-area iOS (already in code):
+    pb: 'env(safe-area-inset-bottom)'
+
+  Active item indicator (ADD):
+    When Mui-selected, add a small indicator pill above icon:
+    '&.Mui-selected::before': {
+      content: '""',
+      display: 'block',
+      width: 24, height: 3,
+      borderRadius: '0 0 3px 3px',
+      bgcolor: '#1A73E8',
+      position: 'absolute', top: 0,
+      left: '50%', transform: 'translateX(-50%)',
+    }
+
+────────────────────────────────────────────────────────────────────────────
+  B3. NAVBAR RESPONSIVE  (src/components/Layout/Navbar.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  XS (mobile)                                                     │
+  │  Left: Hamburger + page title                                    │
+  │  Right: Search icon (no bar) + Notifications + Avatar            │
+  │  Search bar: HIDDEN (icon-only, opens GlobalSearch dialog)       │
+  └──────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  SM–MD (tablet)                                                  │
+  │  Left: Hamburger + page title                                    │
+  │  Center: Search bar (max-width 280px)                            │
+  │  Right: Dark toggle + Notifications + Avatar                     │
+  └──────────────────────────────────────────────────────────────────┘
+  ┌──────────────────────────────────────────────────────────────────┐
+  │  LG+ (desktop)                                                   │
+  │  Left: Page title (no hamburger — sidebar is permanent)          │
+  │  Center: Search bar (max-width 340px)                            │
+  │  Right: Dark toggle + Notifications + Divider + Avatar           │
+  └──────────────────────────────────────────────────────────────────┘
+
+  Search bar responsive sx (update existing):
+    display: { xs: 'none', sm: 'flex' }
+    maxWidth: { sm: 280, md: 340 }
+    mx: { sm: 1.5, md: 3 }
+
+  Search icon (mobile only — already in code):
+    display: { xs: 'flex', sm: 'none' }
+
+  Hamburger icon (tablet — already in code):
+    display: { xs: 'flex', md: 'none' }
+
+  Page title font size:
+    fontSize: { xs: '0.95rem', sm: '1.0rem', md: '1.05rem' }
+    → Prevent overflow on narrow screens
+
+  Notification badge on mobile:
+    Keep — critical for mobile UX
+
+────────────────────────────────────────────────────────────────────────────
+  B4. SIDEBAR RESPONSIVE  (src/components/Layout/Sidebar.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  Mobile (xs/sm):  Temporary drawer, opens via hamburger, width 280px
+  Tablet+ (md+):   Permanent drawer, always visible, width 256px
+
+  Drawer widths:
+    mobile temporary: 280px  (slightly wider for touch targets)
+    desktop permanent: 256px (DRAWER_WIDTH constant — keep)
+
+  Touch target sizes on mobile:
+    ListItemButton py: { xs: 1.4, md: 1.1 }  ← taller on mobile
+    ListItemButton px: { xs: 1.8, md: 1.5 }
+    ListItemIcon fontSize: { xs: '1.3rem', md: '1.15rem' }
+    ListItemText fontSize: { xs: '0.9rem', md: '0.865rem' }
+
+  Logo block:
+    minHeight: { xs: 68, md: 64 }
+    px: { xs: 3, md: 2.5 }
+
+  User footer on mobile:
+    py: { xs: 2.5, md: 2 }
+    Avatar size: { xs: 40, md: 36 }
+
+
+════════════════════════════════════════════════════════════════════════════
+  PART C — PAGE-BY-PAGE RESPONSIVE + COLOR SPECIFICATIONS
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  C1. DASHBOARD PAGE  (src/pages/DashboardPage.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C1.1  HEADER CARD  — responsive layout
+  ────────────────────────────────────────
+  Existing Box: display flex, justifyContent space-between, flexDirection:
+    { xs: 'column', sm: 'row' }  — ALREADY CORRECT
+
+  Greeting Typography:
+    fontSize: { xs: '1rem', sm: '1.05rem' }
+    color: '#202124'
+
+  Date Typography:
+    display: { xs: 'none', sm: 'block' }   ← hide on very small screens
+
+  "New Booking" Button:
+    width: { xs: '100%', sm: 'auto' }      ← full-width on mobile
+    mt: { xs: 1, sm: 0 }
+    gradient: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+
+  C1.2  KPI GRID  — responsive columns
+  ──────────────────────────────────────
+  Grid container spacing: { xs: 2, sm: 2, md: 2.5 }
+
+  Each Grid item:
+    xs: 6    ← 2 columns on mobile (2×2 grid)
+    sm: 6    ← 2 columns on tablet portrait
+    md: 3    ← 4 columns on desktop
+
+  KpiCard minimum height:
+    minHeight: { xs: 110, sm: 120, md: 'auto' }
+
+  KpiCard value font:
+    fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' }
+
+  KpiCard label font:
+    fontSize: { xs: '0.72rem', sm: '0.8125rem' }
+    → Truncate with noWrap — already in code
+
+  KpiCard icon box size:
+    width: { xs: 40, md: 48 }
+    height: { xs: 40, md: 48 }
+
+  C1.3  CHART ROW 1 (Line + Pie)  — responsive
+  ─────────────────────────────────────────────
+  Grid items:
+    Line chart:  xs: 12, md: 8   ← full width on mobile/tablet
+    Pie chart:   xs: 12, md: 4   ← stacks below line chart on mobile
+
+  AppointmentVolumeChart height:
+    height: { xs: 220, sm: 250, md: 260 }
+
+  ServicePieChart height:
+    height: { xs: 240, sm: 260, md: 260 }
+
+  Pie chart on mobile:
+    cx: { xs: '50%', md: '38%' }    ← center on mobile, left-of-legend on desktop
+    Legend layout on mobile: 'horizontal', verticalAlign: 'bottom'
+    Legend layout on desktop: 'vertical', align: 'right', verticalAlign: 'middle'
+
+  C1.4  UTILISATION CHART  — responsive
+  ──────────────────────────────────────
+  Chart height: { xs: 200, sm: 220, md: 240 }
+  Bar labels: hide on xs (too crowded):
+    <LabelList style={{ display: windowWidth < 600 ? 'none' : 'block' }} />
+  Or use: fontSize: { xs: 0, sm: 11 }  via inline style
+
+  C1.5  RECENT APPOINTMENTS TABLE  — responsive
+  ───────────────────────────────────────────────
+  On xs/sm: hide columns "Clinician" and "Service"
+    Show only: Patient, Date/Time, Status, Action icon
+
+  TableCell display:
+    Clinician cell:  sx={{ display: { xs: 'none', md: 'table-cell' } }}
+    Service cell:    sx={{ display: { xs: 'none', sm: 'table-cell' } }}
+
+  Patient cell on mobile:
+    Show name only (no avatar on xs to save space)
+    Avatar: display: { xs: 'none', sm: 'flex' }
+
+  Date cell on mobile:
+    Use short format: dayjs().format('D MMM') instead of 'D MMM, h:mm A'
+    xs: 'D MMM'
+    sm+: 'D MMM, h:mm A'
+
+────────────────────────────────────────────────────────────────────────────
+  C2. APPOINTMENTS PAGE  (src/pages/AppointmentsPage.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C2.1  PAGE HEADER  — responsive
+  ─────────────────────────────────
+  Header row layout:
+    xs: stack vertically (column), gap 1.5
+    sm+: row with space-between
+
+  Title + button row:
+    Button "New Appointment":
+      xs: fullWidth
+      sm+: auto width
+
+  C2.2  FILTER BAR  — responsive
+  ─────────────────────────────────
+  Filters layout:
+    xs: Stack direction="column", full width inputs, spacing 1.5
+    sm: Stack direction="row", flex-wrap, gap 1.5
+    md: Row of 5 items in flex row
+
+  DatePicker fields on mobile:
+    fullWidth on xs
+    width: { xs: '100%', sm: 160, md: 180 }
+
+  Status filter (TextField select):
+    width: { xs: '100%', sm: 140 }
+
+  Clinician filter:
+    display: { xs: 'none', sm: 'flex' }   ← hide on mobile (space)
+
+  Clear filters button:
+    xs: fullWidth, sm+: auto
+    color '#D93025', border '1px solid #F5C6C2'
+
+  C2.3  STATUS FILTER CHIPS  — responsive
+  ─────────────────────────────────────────
+  Chip row:
+    xs: horizontal scrollable (overflowX: 'auto', display: 'flex', gap: 1)
+    sm+: flex-wrap
+
+  Individual chip size:
+    xs: size="small"
+    md+: size="medium"
+
+  Active chip:
+    bgcolor: '#E8F0FE', color: '#1A73E8', border: '1.5px solid #AECBFA'
+  Inactive chip:
+    bgcolor: '#F8F9FA', color: '#5F6368', border: '1.5px solid #E8EAED'
+
+  C2.4  DATAGRID  — responsive
+  ──────────────────────────────
+  On xs/sm: show only essential columns
+    MOBILE COLUMNS: Patient name, Status chip, Date
+    HIDE: Clinician, Service, Notes, Room
+
+  Column visibility model:
+    clinician: { xs: false, md: true }
+    service:   { xs: false, sm: true }
+    room:      { xs: false, lg: true }
+
+  Implement using DataGrid columnVisibilityModel:
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'))
+    columnVisibilityModel={{
+      clinician_name: !isTablet,
+      service_name: !isMobile,
+      room: !isTablet,
+    }}
+
+  Row height on mobile:
+    getRowHeight: () => (isMobile ? 56 : 52)
+
+  C2.5  FAB BUTTON  — responsive
+  ────────────────────────────────
+  Mobile FAB (xs/sm):
+    position: 'fixed', bottom: 80, right: 20
+    bgcolor gradient: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+    boxShadow: '0 4px 14px rgba(26,115,232,0.40)'
+    zIndex: 1100
+
+  Desktop button (md+):
+    variant="contained" in header row (already in code)
+
+  C2.6  APPOINTMENT DRAWER  — responsive
+  ────────────────────────────────────────
+  Drawer width:
+    xs: '100%'    ← full screen on mobile (like a page)
+    sm: 420
+    md: 480
+
+  Drawer sx:
+    '& .MuiDrawer-paper': {
+      width: { xs: '100%', sm: 420, md: 480 }
+    }
+
+  Drawer header on mobile:
+    Show close button prominently (full-width close bar at top)
+    bgcolor: '#FFFFFF', borderBottom: '1px solid #E8EAED'
+
+────────────────────────────────────────────────────────────────────────────
+  C3. PATIENTS PAGE  (src/pages/PatientsPage.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C3.1  PAGE HEADER  — responsive
+    Same pattern as Appointments page header.
+    "Add Patient" button: fullWidth on xs, auto on sm+
+
+  C3.2  SEARCH BAR  — responsive
+    width: { xs: '100%', sm: 320, md: 380 }
+    On mobile: display as full-width below title
+
+  C3.3  ALPHABET FILTER (ALPHABET row)  — responsive
+    xs: horizontal scroll, smaller buttons
+    sm+: wrap or full row
+    ToggleButton size: { xs: 'small' }
+    fontSize: { xs: '0.7rem', sm: '0.8rem' }
+    minWidth: { xs: 26, sm: 32 }
+
+  C3.4  PATIENTS TABLE  — responsive
+    Mobile columns (xs): Avatar+Name, Phone, Action
+    Tablet columns (sm): Avatar+Name, Email, Phone, Action
+    Desktop (md+): all columns
+
+    HIDE on xs:
+      Email cell:      display: { xs: 'none', sm: 'table-cell' }
+      DOB cell:        display: { xs: 'none', md: 'table-cell' }
+      Gender cell:     display: { xs: 'none', md: 'table-cell' }
+
+  C3.5  ADD PATIENT DIALOG  — responsive
+    fullWidth: true
+    maxWidth: 'xs'
+    Dialog fullScreen on mobile:
+      fullScreen: useMediaQuery(theme.breakpoints.down('sm'))
+    On fullscreen: show back arrow instead of X close icon
+
+────────────────────────────────────────────────────────────────────────────
+  C4. CALENDAR PAGE  (src/pages/CalendarPage.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C4.1  VIEW TOGGLE  — responsive
+    xs: only show "Day" and "Week" (month too dense on mobile)
+    sm+: show all three (Month/Week/Day)
+
+    ToggleButtonGroup:
+      display: { xs: 'flex' }
+      size: { xs: 'small', sm: 'medium' }
+
+  C4.2  DATE NAVIGATION  — responsive
+    xs: show only arrow buttons + current period label (no full date)
+    sm+: full navigation with today button
+
+    Today button: display: { xs: 'none', sm: 'flex' }
+
+  C4.3  CALENDAR GRID  — responsive
+    Day view default on xs (most readable on phone)
+    Week view default on sm
+    Month view default on md+
+
+    Set initialView:
+      const initialView = isMobile ? 'timeGridDay'
+                        : isTablet ? 'timeGridWeek'
+                        : 'dayGridMonth'
+
+  C4.4  EVENT TOOLTIP  — responsive
+    On mobile: tooltip becomes a bottom sheet (Drawer anchor="bottom")
+    On desktop: Popper tooltip (existing)
+    Trigger: onClick vs onHover
+      mobile: onClick opens bottom drawer
+      desktop: onMouseEnter shows Popper
+
+  C4.5  EVENT COLORS (all screen sizes):
+    confirmed:    bgcolor '#1A73E8', textColor '#FFFFFF'
+    pending:      bgcolor '#F9AB00', textColor '#202124'
+    cancelled:    bgcolor '#D93025', textColor '#FFFFFF'
+    completed:    bgcolor '#0F9D58', textColor '#FFFFFF'
+    no_show:      bgcolor '#80868B', textColor '#FFFFFF'
+    rescheduled:  bgcolor '#9334E6', textColor '#FFFFFF'
+
+────────────────────────────────────────────────────────────────────────────
+  C5. CLINICIANS PAGE  (src/pages/CliniciansPage.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C5.1  CLINICIAN CARDS GRID  — responsive
+    xs: 1 column  (xs: 12)
+    sm: 2 columns (sm: 6)
+    md: 2 columns (md: 6)
+    lg: 3 columns (lg: 4)
+    xl: 4 columns (xl: 3)
+
+  C5.2  CLINICIAN CARD layout on mobile:
+    On xs: horizontal layout (row direction)
+      Left: Avatar (56px)
+      Right: Name, specialty, rating, button
+    On sm+: vertical card layout (existing column layout)
+
+    Card direction sx:
+      flexDirection: { xs: 'row', sm: 'column' }
+      alignItems: { xs: 'center', sm: 'stretch' }
+
+  C5.3  CLINICIAN PROFILE DRAWER  — responsive
+    Width: { xs: '100%', sm: 480, md: 520 }
+    fullScreen on xs (same as patient detail)
+
+────────────────────────────────────────────────────────────────────────────
+  C6. BOOKING WIZARD  (src/components/BookingWizard/*)
+────────────────────────────────────────────────────────────────────────────
+
+  C6.1  STEPPER  — responsive
+    xs/sm: vertical stepper (MUI Stepper orientation="vertical")
+    md+:   horizontal stepper (orientation="horizontal")
+
+    <Stepper orientation={{ xs: 'vertical', md: 'horizontal' }}
+    → MUI doesn't support responsive prop directly on Stepper.
+    → Use: orientation={isMobile ? 'vertical' : 'horizontal'}
+
+  C6.2  STEP CONTENT  — responsive
+    xs: full-width form fields, stacked layout
+    md+: 2-column layouts where applicable
+
+    Step 1 (Clinic select):
+      Card grid: xs: 1-col (xs:12), sm: 2-col (sm:6), md: 3-col (md:4)
+
+    Step 2 (Clinician select):
+      Card grid: xs: 1-col, sm: 2-col, md: 3-col
+      On mobile: horizontal compact card (avatar left, text right)
+
+    Step 3 (Slot picker):
+      Slot grid columns: { xs: 3, sm: 4, md: 4 }
+      → 3 cols on mobile (more compact), 4 on larger screens
+      Slot height: { xs: 38, md: 44 }
+      Slot font: { xs: '0.75rem', md: '0.875rem' }
+
+    Step 4 (Patient form):
+      Name fields: Stack direction={{ xs: 'column', sm: 'row' }}
+      All inputs: fullWidth on xs
+
+    Step 5 (Confirm):
+      Summary card: borderRadius { xs: 2, md: 3 }
+      Confirm button: fullWidth, py: 1.75
+
+  C6.3  WIZARD CONTAINER  — responsive
+    maxWidth: { xs: '100%', sm: 680, md: 800 }
+    p: { xs: 2, sm: 3, md: 4 }
+
+────────────────────────────────────────────────────────────────────────────
+  C7. ANALYTICS PAGE  (src/pages/AnalyticsPage.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C7.1  KPI CARDS ROW  — responsive
+    xs: 2 columns (6/6)
+    sm: 2 columns (6/6)
+    md: 4 columns (3/3/3/3)
+
+  C7.2  CHART GRID  — responsive
+    Area chart + Bar chart:
+      xs: 12 (stacked)
+      md: 7 + 5
+
+    Pie chart + Clinician table:
+      xs: 12 (stacked)
+      md: 5 + 7
+
+    Period toggle (7D/1M/3M/1Y):
+      xs: small size chips, horizontal scroll if needed
+      sm+: normal size
+
+  C7.3  CHART HEIGHTS  — responsive
+    AreaChart:   { xs: 200, sm: 240, md: 280 }
+    BarChart:    { xs: 200, sm: 220, md: 260 }
+    PieChart:    { xs: 220, sm: 240, md: 260 }
+
+  C7.4  LEGEND  — responsive
+    xs: legend at bottom, horizontal orientation
+    md+: legend on right, vertical orientation (as is)
+
+────────────────────────────────────────────────────────────────────────────
+  C8. SETTINGS PAGE  (src/pages/SettingsPage.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C8.1  TABS  — responsive
+    xs: scrollable tabs (variant="scrollable" scrollButtons="auto")
+    sm+: standard tabs
+
+  C8.2  FORM FIELDS  — responsive
+    Two-column form grids:
+      xs: 1 column (xs:12)
+      sm: 2 columns (sm:6)
+
+    All TextFields: fullWidth
+
+  C8.3  ACTION BUTTONS (Save, Cancel)  — responsive
+    xs: full-width buttons stacked
+    sm+: auto-width buttons in row
+
+────────────────────────────────────────────────────────────────────────────
+  C9. GLOBAL SEARCH  (src/components/GlobalSearch.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C9.1  DIALOG SIZE  — responsive
+    xs: fullScreen dialog (covers whole phone screen)
+    sm+: standard dialog with maxWidth: 'sm'
+
+    <Dialog fullScreen={isMobile}
+      PaperProps={{ sx: { borderRadius: { xs: 0, sm: 3 } } }}>
+
+  C9.2  SEARCH INPUT  — responsive
+    xs: larger font (16px — prevents iOS auto-zoom)
+    sm+: 14px
+
+  C9.3  RESULTS LIST  — responsive
+    xs: larger touch targets (py: 1.5 per item, minHeight: 56)
+    sm+: compact (py: 1 per item)
+
+────────────────────────────────────────────────────────────────────────────
+  C10. NOTIFICATION PANEL  (src/components/NotificationPanel.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  C10.1  DRAWER  — responsive
+    xs: anchor="bottom", full width, maxHeight: '75vh', border-radius top corners
+      PaperProps: { sx: { borderRadius: '20px 20px 0 0', maxHeight: '75vh' } }
+    sm+: anchor="right", width: 380
+
+    const anchor = isMobile ? 'bottom' : 'right'
+
+  C10.2  DRAG INDICATOR  — mobile only
+    At top of bottom sheet, add drag handle pill:
+    sx: display: { xs: 'flex', sm: 'none' }
+    <Box sx={{ width: 40, height: 4, borderRadius: 2,
+      bgcolor: '#E8EAED', mx: 'auto', mb: 1.5, mt: 1 }} />
+
+
+════════════════════════════════════════════════════════════════════════════
+  PART D — COMPONENT-LEVEL SPECIFICATIONS
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  D1. KPI CARD  (src/components/Dashboard/KpiCard.jsx)
+────────────────────────────────────────────────────────────────────────────
+
+  Card wrapper:
+    bgcolor: '#FFFFFF'
+    border: '1px solid #E8EAED'
+    boxShadow: '0 1px 2px rgba(32,33,36,0.08), 0 2px 6px rgba(32,33,36,0.04)'
+    borderRadius: { xs: 2.5, md: 3 }
+    p: { xs: '16px !important', md: '20px !important' }
+    '&:hover': { transform: 'translateY(-3px)',
+                 boxShadow: '0 4px 12px rgba(32,33,36,0.16)' }
+
+  Icon box:
+    width: { xs: 40, md: 48 }
+    height: { xs: 40, md: 48 }
+    bgcolor: alpha(color, 0.10)
+    border: '1.5px solid ' + alpha(color, 0.20)
+
+  Value Typography:
+    fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' }
+    fontWeight: 800, color: '#202124', letterSpacing: '-0.5px'
+
+  Label Typography:
+    fontSize: { xs: '0.72rem', sm: '0.8125rem' }
+    color: '#5F6368', fontWeight: 500
+
+  Trend badge:
+    px: 1, py: 0.4, borderRadius: 2
+    Positive: { bgcolor:'#E6F4EA', color:'#137333', border:'1px solid #CEEAD6' }
+    Negative: { bgcolor:'#FCE8E6', color:'#A50E0E', border:'1px solid #F5C6C2' }
+    Flat:     { bgcolor:'#F8F9FA', color:'#5F6368', border:'1px solid #E8EAED' }
+
+  Progress bar (ADD — 3px bottom strip):
+    <Box sx={{ mt: 1.5, height: 3, borderRadius: 2, bgcolor: alpha(color, 0.10) }}>
+      <Box sx={{ height: '100%', borderRadius: 2, bgcolor: color,
+        width: `${Math.min(Math.abs(trend ?? 50), 100)}%`,
+        transition: 'width 1.2s cubic-bezier(0.4,0,0.2,1)' }} />
+    </Box>
+
+────────────────────────────────────────────────────────────────────────────
+  D2. STATUS CHIP COMPONENT  (reusable — used in 6+ files)
+────────────────────────────────────────────────────────────────────────────
+
+  Replace MUI color prop pattern with custom sx everywhere:
+
+  function StatusChip({ status, size = 'small' }) {
+    const cfg = STATUS_CONFIG[status] ?? { label: status }
+    return (
+      <Chip
+        label={cfg.label}
+        size={size}
+        sx={{
+          fontWeight: 700,
+          borderRadius: '8px',
+          fontSize: size === 'small' ? '0.68rem' : '0.75rem',
+          bgcolor: cfg.bg,
+          color: cfg.text,
+          border: `1px solid ${cfg.border}`,
+          borderLeft: `3px solid ${cfg.dot}`,
+          height: size === 'small' ? 24 : 28,
+        }}
+      />
+    )
+  }
+
+  STATUS_CONFIG = {
+    confirmed:   { label:'Confirmed',   bg:'#E6F4EA', text:'#137333', border:'#CEEAD6', dot:'#0F9D58' },
+    pending:     { label:'Pending',     bg:'#FEF7E0', text:'#8A4700', border:'#FDD663', dot:'#F9AB00' },
+    cancelled:   { label:'Cancelled',   bg:'#FCE8E6', text:'#A50E0E', border:'#F5C6C2', dot:'#D93025' },
+    completed:   { label:'Completed',   bg:'#E8F0FE', text:'#1557B0', border:'#AECBFA', dot:'#1A73E8' },
+    no_show:     { label:'No Show',     bg:'#F8F9FA', text:'#3C4043', border:'#E8EAED', dot:'#80868B' },
+    rescheduled: { label:'Rescheduled', bg:'#F3E8FD', text:'#6E2DB8', border:'#D7AEFA', dot:'#9334E6' },
+  }
+
+────────────────────────────────────────────────────────────────────────────
+  D3. PAGE HEADER COMPONENT  (pattern used in all pages)
+────────────────────────────────────────────────────────────────────────────
+
+  Standard header pattern for all pages:
+
+  <Box sx={{
+    display: 'flex',
+    alignItems: { xs: 'flex-start', sm: 'center' },
+    justifyContent: 'space-between',
+    flexDirection: { xs: 'column', sm: 'row' },
+    gap: { xs: 1.5, sm: 0 },
+    mb: { xs: 2.5, md: 3 },
+    p: { xs: '16px', sm: '20px 24px' },
+    bgcolor: '#FFFFFF',
+    borderRadius: { xs: 2.5, md: 3 },
+    border: '1px solid #E8EAED',
+    boxShadow: '0 1px 2px rgba(32,33,36,0.06)',
+  }}>
+    <Box>
+      <Typography variant="h5" fontWeight={800} sx={{ color:'#202124',
+        fontSize:{ xs:'1.05rem', sm:'1.125rem', md:'1.25rem' } }}>
+        {title}
+      </Typography>
+      <Typography variant="body2" sx={{ color:'#5F6368', mt:0.25,
+        display:{ xs:'none', sm:'block' } }}>
+        {subtitle}
+      </Typography>
+    </Box>
+    <Box sx={{ display:'flex', gap:1, width:{ xs:'100%', sm:'auto' } }}>
+      {actions}
+    </Box>
+  </Box>
+
+
+════════════════════════════════════════════════════════════════════════════
+  PART E — DETAILED IMPLEMENTATION PROMPTS
+════════════════════════════════════════════════════════════════════════════
+
+  Each prompt below is production-ready. Copy into your AI coding assistant
+  or use as a task brief for your developer. Each prompt is self-contained
+  and references the exact file to modify.
+
+════════════════════════════════════════════════════════════════════════════
+  PROMPT GROUP 1 — THEME & FOUNDATION         ✅ DONE
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 1.1 — Update MUI Theme to Google Color System    ✅ DONE
+  File: src/theme/theme.js
+────────────────────────────────────────────────────────────────────────────
+
+  Update the COLORS object in src/theme/theme.js to use Google Material
+  Design 3 colors. Make only these token value changes (keep all keys):
+
+  blue600: '#1A73E8'      // Google Blue — primary brand
+  blue400: '#4285F4'      // Google Blue light
+  blue200: '#AECBFA'      // Google Blue border
+  blue100: '#D2E3FC'      // Google Blue tint
+  blue50:  '#E8F0FE'      // Google Blue surface
+  blue800: '#1557B0'      // Google Blue dark
+  blue900: '#0D47A1'      // Google Blue darkest
+
+  emerald700: '#0F9D58'   // Google Green
+  emerald500: '#1BB371'
+  emerald300: '#2DC49A'
+  emerald100: '#8FE0CA'   // (add if missing)
+  emerald50:  '#E6F4EA'   // Google Green surface
+
+  amber:    '#F9AB00'     // Google Yellow
+  red:      '#D93025'     // Google Red
+  violet:   '#9334E6'     // Google Purple
+
+  sidebarBg: '#202124'    // Google dark surface
+
+  ink50:  '#F8F9FA'       // Google gray-50
+  ink100: '#E8EAED'       // Google gray-200
+  ink300: '#BDC1C6'       // Google gray-300
+  ink500: '#80868B'       // Google gray-500
+  ink700: '#5F6368'       // Google gray-700
+  ink900: '#3C4043'       // Google gray-800
+  ink950: '#202124'       // Google dark
+
+  Also update MuiButton.containedPrimary gradient:
+    background: `linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)`
+    hover: `linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)`
+    hover shadow: `0 6px 20px rgba(26,115,232,0.38)`
+
+  Also update MuiListItemButton selected state:
+    backgroundColor: '#1A73E8'
+    background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+    boxShadow: '0 2px 12px rgba(26,115,232,0.40)'
+
+  Keep ALL other theme config (shape, typography, component overrides)
+  exactly as is. This single file change cascades Google colors to the
+  entire app automatically.
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 1.2 — Add CSS Variables and Global Polish    ✅ DONE
+  File: src/index.css
+────────────────────────────────────────────────────────────────────────────
+
+  Add the following to src/index.css. Do not remove any existing rules.
+
+  At the top, add CSS custom properties:
+
+  :root {
+    --g-blue:      #1A73E8;
+    --g-blue-lt:   #4285F4;
+    --g-green:     #0F9D58;
+    --g-yellow:    #F9AB00;
+    --g-red:       #D93025;
+    --g-purple:    #9334E6;
+    --g-orange:    #FA7B17;
+    --g-surface:   #F8F9FA;
+    --g-border:    #E8EAED;
+    --g-dark:      #202124;
+    --g-text:      #202124;
+    --g-text-2:    #5F6368;
+    --g-text-3:    #9AA0A6;
+  }
+
+  Add/update scrollbar styles:
+  ::-webkit-scrollbar { width: 6px; height: 6px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: #E8EAED; border-radius: 10px; }
+  ::-webkit-scrollbar-thumb:hover { background: #BDC1C6; }
+
+  Add page enter animation (applied to .page-enter class already used
+  on all page root elements):
+  @keyframes pageIn {
+    from { opacity: 0; transform: translateY(8px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .page-enter {
+    animation: pageIn 0.25s cubic-bezier(0.4, 0, 0.2, 1) both;
+  }
+
+  Fix Recharts tooltip font and border-radius:
+  .recharts-default-tooltip {
+    font-family: 'Plus Jakarta Sans', sans-serif !important;
+    border-radius: 12px !important;
+    border: 1px solid #E8EAED !important;
+    box-shadow: 0 4px 16px rgba(32,33,36,0.18) !important;
+    padding: 10px 14px !important;
+  }
+
+  Add card hover utility class:
+  .hover-card {
+    transition: transform 0.20s cubic-bezier(0.4,0,0.2,1),
+                box-shadow 0.20s cubic-bezier(0.4,0,0.2,1);
+  }
+  .hover-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 4px 16px rgba(32,33,36,0.14);
+  }
+
+  Mobile safe area for fixed bottom elements:
+  @supports (padding: env(safe-area-inset-bottom)) {
+    .mobile-safe-bottom {
+      padding-bottom: env(safe-area-inset-bottom);
+    }
+  }
+
+════════════════════════════════════════════════════════════════════════════
+  PROMPT GROUP 2 — LAYOUT & NAVIGATION         ✅ DONE
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 2.1 — Sidebar Visual Upgrade + Mobile Touch Targets    ✅ DONE
+  File: src/components/Layout/Sidebar.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  In src/components/Layout/Sidebar.jsx, apply only sx/style updates.
+  Do NOT change the JSX structure, nav items array, or any logic.
+
+  1. SidebarContent root Box:
+     Change bgcolor '#0D1B2E' → '#202124'
+
+  2. Logo Box gradient:
+     background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+     boxShadow: '0 4px 14px rgba(26,115,232,0.45)'
+
+  3. Logo text span color: '#4285F4'
+
+  4. Emergency button bgcolor: '#D93025' (keep intent, Google red shade)
+
+  5. Section overline labels:
+     color: 'rgba(255,255,255,0.28)'
+     fontSize: '0.62rem', letterSpacing: '0.14em'
+
+  6. Active ListItemButton sx:
+     bgcolor: 'transparent'     ← remove flat color
+     background: 'linear-gradient(135deg, rgba(66,133,244,0.90) 0%,
+                  rgba(26,115,232,0.95) 100%)'
+     boxShadow: '0 2px 12px rgba(26,115,232,0.38)'
+     '&.Mui-selected': same gradient + shadow
+
+  7. Inactive ListItemButton hover:
+     bgcolor: 'rgba(255,255,255,0.08)'
+
+  8. Mobile touch targets (add responsive py/px):
+     py: { xs: 1.4, md: 1.1 }
+     px: { xs: 1.8, md: 1.5 }
+
+  9. ListItemIcon fontSize:
+     '& .MuiSvgIcon-root': { fontSize: { xs: '1.3rem', md: '1.15rem' } }
+
+  10. ListItemText fontSize:
+      primaryTypographyProps: { fontSize: { xs: '0.9rem', md: '0.865rem' }, fontWeight: ... }
+
+  11. Badge (Messages: 3) bgcolor: '#D93025'
+
+  12. User avatar gradient: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+      Online dot bgcolor: '#0F9D58'
+
+  13. Logout icon hover:
+      color '#D93025', bgcolor alpha('#D93025', 0.15)
+
+  14. Temporary drawer width for mobile:
+      In the drawerSx variable, change mobile width: 280 (was DRAWER_WIDTH 256)
+      '& .MuiDrawer-paper': { width: { xs: 280, md: DRAWER_WIDTH } }
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 2.2 — Navbar Responsive + Google Style    ✅ DONE
+  File: src/components/Layout/Navbar.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  In src/components/Layout/Navbar.jsx, apply only sx/style updates.
+  Do NOT change state logic, event handlers, keyboard shortcuts, or JSX.
+
+  1. Search bar Box (the clickable fake input):
+     bgcolor (light mode): '#F8F9FA'
+     borderColor: '#E8EAED'
+     maxWidth: { sm: 280, md: 340 }
+     mx: { sm: 1.5, md: 3 }
+     Hover: borderColor '#1A73E8', boxShadow '0 0 0 3px rgba(26,115,232,0.10)'
+
+  2. Search ⌘K chip:
+     bgcolor: '#F1F3F4', borderColor: '#E8EAED', color: '#5F6368'
+
+  3. Notification badge:
+     '& .MuiBadge-badge': { bgcolor: '#D93025', color: '#fff' }
+
+  4. Dark mode icon hover colors:
+     sun (light→dark): '#F9AB00'
+     moon (dark→light): '#1A73E8'
+
+  5. User avatar gradient:
+     background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+     Online dot borderColor: 'background.paper'
+     Online dot bgcolor: '#0F9D58'
+
+  6. Page title responsive font:
+     fontSize: { xs: '0.95rem', sm: '1.0rem', md: '1.05rem' }
+     Add: maxWidth: { xs: 200, sm: 'none' }  ← prevent overflow
+
+  7. User menu items hover bgcolor: '#F8F9FA'
+     Logout item color: '#D93025'
+     Logout item hover: bgcolor 'rgba(217,48,37,0.06)'
+
+  8. Date typography in header (if added):
+     display: { xs: 'none', sm: 'block' }
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 2.3 — Mobile Bottom Nav Google Color + Indicator    ✅ DONE
+  File: src/components/Layout/MobileBottomNav.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  In MobileBottomNav.jsx, update only the sx on the Paper and
+  BottomNavigation/BottomNavigationAction. Keep all navigation logic.
+
+  Paper sx:
+    borderTop: '1px solid #E8EAED'
+    boxShadow: '0 -2px 16px rgba(32,33,36,0.10)'
+    bgcolor: '#FFFFFF'
+
+  BottomNavigation sx:
+    bgcolor: '#FFFFFF'
+    height: 60
+
+  BottomNavigationAction:
+    Default color: '#9AA0A6'
+    '&.Mui-selected': {
+      color: '#1A73E8',
+      '& .MuiBottomNavigationAction-label': { fontWeight: 800 }
+    }
+
+  Active indicator pill (add to '&.Mui-selected'):
+    position: 'relative'
+    '&::before': {
+      content: '""',
+      position: 'absolute',
+      top: 0,
+      left: '50%',
+      transform: 'translateX(-50%)',
+      width: 24,
+      height: 3,
+      borderRadius: '0 0 4px 4px',
+      bgcolor: '#1A73E8',
+    }
+    (Implement as a Box inside the action or via sx pseudo-element)
+
+════════════════════════════════════════════════════════════════════════════
+  PROMPT GROUP 3 — DASHBOARD COMPONENTS         ✅ DONE
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 3.1 — KPI Card: Google Colors + Progress Bar + Responsive    ✅ DONE
+  File: src/components/Dashboard/KpiCard.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  In KpiCard.jsx, update the component with these changes. Keep all
+  existing props (icon, label, value, trend, color, loading, prefix).
+  Keep the JSX structure (top row icon+badge, value, label).
+
+  CHANGE 1 — Card sx:
+    bgcolor: '#FFFFFF'
+    border: '1px solid #E8EAED'
+    boxShadow: '0 1px 2px rgba(32,33,36,0.08), 0 2px 6px rgba(32,33,36,0.04)'
+    '&:hover': {
+      transform: 'translateY(-3px)',
+      boxShadow: '0 4px 12px rgba(32,33,36,0.16)',
+    }
+    p: { xs: '16px !important', md: '20px !important' }
+
+  CHANGE 2 — Icon box sx:
+    width: { xs: 40, md: 48 }
+    height: { xs: 40, md: 48 }
+    bgcolor: alpha(color, 0.10)
+    border: '1.5px solid ' + alpha(color, 0.20)
+    borderRadius: 2.5
+
+  CHANGE 3 — Trend badge colors (Google semantic):
+    Positive: trendBg '#E6F4EA', trendColor '#137333', trendBorder '#CEEAD6'
+    Negative: trendBg '#FCE8E6', trendColor '#A50E0E', trendBorder '#F5C6C2'
+    Flat:     trendBg '#F8F9FA', trendColor '#5F6368', trendBorder '#E8EAED'
+
+  CHANGE 4 — Value typography:
+    color: '#202124'   (was '#0F172A')
+    fontSize: { xs: '1.5rem', sm: '1.75rem', md: '2rem' }
+
+  CHANGE 5 — Label typography:
+    color: '#5F6368'   (was '#64748B')
+    fontSize: { xs: '0.72rem', sm: '0.8125rem' }
+
+  ADD — Progress bar below label (after the label Typography):
+    <Box sx={{ mt: 1.5, height: 3, borderRadius: 2, bgcolor: alpha(color, 0.12) }}>
+      <Box sx={{
+        height: '100%', borderRadius: 2, bgcolor: color,
+        width: `${Math.min(Math.abs(trend ?? 50), 100)}%`,
+        transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
+      }} />
+    </Box>
+    Only show when !loading && trend != null
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 3.2 — Appointment Volume Chart: Google Colors + Responsive    ✅ DONE
+  File: src/components/Dashboard/AppointmentVolumeChart.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update AppointmentVolumeChart.jsx. Keep all data logic, mock data
+  generator, and ResponsiveContainer. Only update colors and styling.
+
+  CHANGE 1 — Line colors:
+    confirmed_count stroke: '#1A73E8'   (was '#1565C0')
+    cancelled_count stroke: '#D93025'   (was '#EF5350')
+    confirmed activeDot: { r: 5, fill: '#1A73E8', stroke: '#fff', strokeWidth: 2 }
+    cancelled activeDot: { r: 5, fill: '#D93025', stroke: '#fff', strokeWidth: 2 }
+
+  CHANGE 2 — Grid:
+    CartesianGrid stroke: '#E8EAED' (was theme.palette.divider)
+    strokeDasharray: '4 4'
+
+  CHANGE 3 — Axis ticks:
+    tick: { fontSize: 11, fill: '#9AA0A6', fontFamily: 'Plus Jakarta Sans' }
+
+  CHANGE 4 — Custom tooltip Paper sx:
+    borderRadius: 3
+    border: '1px solid #E8EAED'
+    boxShadow: '0 4px 16px rgba(32,33,36,0.20)'
+    bgcolor: '#FFFFFF'
+    p: 2, minWidth: 170
+
+  CHANGE 5 — Legend:
+    wrapperStyle: { fontSize: 12, fontFamily: 'Plus Jakarta Sans',
+                    color: '#5F6368', paddingTop: 8 }
+
+  CHANGE 6 — Chart title row (update existing Box):
+    Add responsive flex between title and period pills:
+    <Box sx={{ display:'flex', justifyContent:'space-between',
+               alignItems:'center', mb:2 }}>
+      <Typography variant="subtitle1" fontWeight={700} sx={{ color:'#202124' }}>
+        Appointment Volume — Last 30 Days
+      </Typography>
+      <Box sx={{ display:{ xs:'none', sm:'flex' }, gap:0.75 }}>
+        {['7D','14D','30D'].map(p => (
+          <Box key={p} sx={{
+            px:1.5, py:0.5, borderRadius:2,
+            bgcolor: p==='30D' ? '#E8F0FE' : '#F8F9FA',
+            color: p==='30D' ? '#1A73E8' : '#5F6368',
+            border: '1px solid ' + (p==='30D' ? '#AECBFA' : '#E8EAED'),
+            fontSize:'0.72rem', fontWeight:700, cursor:'pointer',
+          }}>
+            {p}
+          </Box>
+        ))}
+      </Box>
+    </Box>
+
+  CHANGE 7 — Responsive chart height:
+    <ResponsiveContainer width="100%" height={isMobile ? 200 : 260}>
+    Add: const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 3.3 — Service Pie Chart: Google Colors + Center Label + Responsive    ✅ DONE
+  File: src/components/Dashboard/ServicePieChart.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update ServicePieChart.jsx. Keep all existing structure (PieChart,
+  Pie, Cell, Tooltip, Legend, ResponsiveContainer). Only update colors,
+  add center label, and add responsive behavior.
+
+  CHANGE 1 — Replace COLOURS array:
+    const COLOURS = ['#4285F4','#0F9D58','#F9AB00','#D93025',
+                     '#9334E6','#FA7B17','#009688','#EA4335']
+
+  CHANGE 2 — Pie props:
+    paddingAngle: 3     ← add gap between segments
+    strokeWidth: 0      ← remove default stroke border
+
+  CHANGE 3 — Custom tooltip:
+    Same Paper sx as Prompt 3.2 Change 4.
+    Show: name + "Bookings: {value}"
+
+  CHANGE 4 — Custom legend, update each row:
+    Count pill sx: {
+      ml: 'auto',
+      pl: 1,
+      bgcolor: alpha(entry.color, 0.12),
+      color: entry.color,
+      borderRadius: '6px',
+      px: 1, py: 0.2,
+      fontSize: '0.68rem',
+      fontWeight: 700,
+    }
+
+  ADD CHANGE 5 — Center donut label:
+    Inside <PieChart>, after <Pie>, add a <text> element for total:
+    const total = chartData.reduce((s, d) => s + (d.count ?? d.value ?? 0), 0)
+    <text x="38%" y="46%" textAnchor="middle" dominantBaseline="middle"
+      style={{ fontSize:22, fontWeight:800, fill:'#202124',
+               fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+      {total}
+    </text>
+    <text x="38%" y="60%" textAnchor="middle"
+      style={{ fontSize:11, fill:'#9AA0A6',
+               fontFamily:"'Plus Jakarta Sans',sans-serif" }}>
+      Total
+    </text>
+
+  CHANGE 6 — Responsive layout:
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+    cx: isMobile ? '50%' : '38%'
+    Legend: layout={isMobile ? 'horizontal' : 'vertical'}
+            align={isMobile ? 'center' : 'right'}
+            verticalAlign={isMobile ? 'bottom' : 'middle'}
+    Chart height: isMobile ? 240 : 260
+    On mobile: show only top 4 legend items to prevent overflow
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 3.4 — Utilisation Chart: Google Colors + Responsive    ✅ DONE
+  File: src/components/Dashboard/UtilisationChart.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update UtilisationChart.jsx. Keep all structure and logic.
+
+  CHANGE 1 — Bar color thresholds:
+    const barColor = (pct) => {
+      if (pct < 50)  return '#D93025'   // Google Red
+      if (pct < 75)  return '#F9AB00'   // Google Yellow
+      return '#0F9D58'                  // Google Green
+    }
+
+  CHANGE 2 — Bar shape:
+    radius: [8, 8, 0, 0]    (was [6,6,0,0])
+    maxBarSize: 52
+
+  CHANGE 3 — Grid:
+    stroke: '#E8EAED', strokeDasharray: '4 4', vertical: false
+
+  CHANGE 4 — Bar label (LabelList):
+    style: { fontSize: 11, fontWeight: 800, fill: '#202124',
+             fontFamily: "'Plus Jakarta Sans', sans-serif" }
+    On mobile, hide labels to prevent crowding:
+      content={isMobile ? undefined : <LabelList ... />}
+      Or: style={{ fontSize: isMobile ? 0 : 11 }}
+
+  CHANGE 5 — Tooltip Paper:
+    Same style as Prompt 3.2 Change 4.
+
+  CHANGE 6 — Legend items (bottom):
+    [{ label:'< 50% — Low', color:'#D93025' },
+     { label:'50–75% — OK', color:'#F9AB00' },
+     { label:'> 75% — Great', color:'#0F9D58' }]
+    Dot shape: borderRadius 3px (square-ish)
+
+  CHANGE 7 — Responsive:
+    Chart height: isMobile ? 200 : 240
+    XAxis tick fontSize: isMobile ? 10 : 11
+    On xs: show only top 4 doctors to avoid overcrowding
+      const chartData = allData.slice(0, isMobile ? 4 : allData.length)
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 3.5 — Recent Appointments Table: Avatar + Google Chips + Responsive    ✅ DONE
+  File: src/components/Dashboard/RecentAppointmentsTable.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update RecentAppointmentsTable.jsx. Keep all navigation logic,
+  mock data, and table structure. Apply the following:
+
+  ADD CHANGE 1 — Import at top:
+    import { Avatar, useMediaQuery } from '@mui/material'
+    import { useTheme } from '@mui/material/styles'
+    import { alpha } from '@mui/material/styles'
+
+  ADD CHANGE 2 — Avatar color picker helper:
+    const AVATAR_COLORS = ['#1A73E8','#0F9D58','#9334E6','#FA7B17',
+                           '#D93025','#009688','#F9AB00','#EA4335']
+    const getAvatarColor = (name) =>
+      AVATAR_COLORS[(name?.charCodeAt(0) ?? 0) % AVATAR_COLORS.length]
+
+  ADD CHANGE 3 — Inside component, add hooks:
+    const theme = useTheme()
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'))
+
+  CHANGE 4 — Replace StatusBadge with Google-colored version:
+    const STATUS_CFG = {
+      confirmed:   { label:'Confirmed',   bg:'#E6F4EA', color:'#137333', dot:'#0F9D58',  border:'#CEEAD6' },
+      pending:     { label:'Pending',     bg:'#FEF7E0', color:'#8A4700', dot:'#F9AB00',  border:'#FDD663' },
+      cancelled:   { label:'Cancelled',   bg:'#FCE8E6', color:'#A50E0E', dot:'#D93025',  border:'#F5C6C2' },
+      completed:   { label:'Completed',   bg:'#E8F0FE', color:'#1557B0', dot:'#1A73E8',  border:'#AECBFA' },
+      no_show:     { label:'No Show',     bg:'#F8F9FA', color:'#3C4043', dot:'#80868B',  border:'#E8EAED' },
+      rescheduled: { label:'Rescheduled', bg:'#F3E8FD', color:'#6E2DB8', dot:'#9334E6',  border:'#D7AEFA' },
+    }
+    Chip sx: {
+      bgcolor: cfg.bg, color: cfg.color,
+      border: `1px solid ${cfg.border}`,
+      borderLeft: `3px solid ${cfg.dot}`,
+      fontWeight: 700, borderRadius: '8px',
+      fontSize: '0.68rem', height: 24,
+    }
+
+  CHANGE 5 — Patient cell: add Avatar before name:
+    <TableCell>
+      <Box sx={{ display:'flex', alignItems:'center', gap:1.25 }}>
+        <Avatar sx={{
+          width: 28, height: 28, fontSize: '0.68rem', fontWeight: 700,
+          bgcolor: alpha(getAvatarColor(appt.patient?.full_name), 0.15),
+          color: getAvatarColor(appt.patient?.full_name),
+          display: { xs: 'none', sm: 'flex' },
+        }}>
+          {appt.patient?.full_name?.split(' ').map(n=>n[0]).join('').slice(0,2)}
+        </Avatar>
+        <Typography variant="body2" fontWeight={600} sx={{ color:'#202124' }}>
+          {appt.patient?.full_name ?? '—'}
+        </Typography>
+      </Box>
+    </TableCell>
+
+  CHANGE 6 — Responsive column visibility:
+    Clinician cell: sx={{ display: { xs:'none', md:'table-cell' } }}
+    Service cell:   sx={{ display: { xs:'none', sm:'table-cell' } }}
+
+  CHANGE 7 — Date format responsive:
+    {dayjs(appt.start_datetime).format(isMobile ? 'D MMM' : 'D MMM, h:mm A')}
+
+  CHANGE 8 — Header row with "View all" button:
+    <Box sx={{ display:'flex', justifyContent:'space-between',
+               alignItems:'center', mb:2 }}>
+      <Typography variant="subtitle1" fontWeight={700} sx={{ color:'#202124' }}>
+        Upcoming Appointments
+      </Typography>
+      <Button variant="text" size="small"
+        onClick={() => navigate('/appointments')}
+        sx={{ color:'#1A73E8', fontWeight:700, fontSize:'0.8rem',
+              '&:hover': { bgcolor:'#E8F0FE' } }}>
+        View all →
+      </Button>
+    </Box>
+
+════════════════════════════════════════════════════════════════════════════
+  PROMPT GROUP 4 — APPOINTMENTS MODULE         ✅ DONE
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 4.1 — Appointments Page: Responsive Layout + Google Chips    ✅ DONE
+  File: src/pages/AppointmentsPage.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update AppointmentsPage.jsx. Keep ALL existing state (filters,
+  pagination, drawer/dialog state), GraphQL queries and mutations,
+  DataGrid columns definition, and FAB logic. Only update:
+
+  CHANGE 1 — StatusChip sx (replace MUI color prop):
+    Use the STATUS_CFG table from Prompt 3.5 Change 4.
+    Apply same sx to the StatusChip function at top of file.
+
+  CHANGE 2 — Filter bar responsive layout:
+    Wrap all filters in:
+    <Stack direction={{ xs:'column', sm:'row' }} flexWrap="wrap"
+           spacing={{ xs:1.5, sm:1 }} alignItems={{ sm:'center' }}>
+
+    Individual filter widths:
+      Search input: fullWidth on xs, width: { sm:200, md:240 } on larger
+      DatePicker: fullWidth on xs, width: { sm:150, md:170 } on larger
+      Status select: fullWidth on xs, width: { sm:130 } on larger
+      Clinician select: display: { xs:'none', sm:'flex' }, width: { sm:160 }
+
+  CHANGE 3 — Status filter chips:
+    Active:   bgcolor '#E8F0FE', color '#1A73E8', border '1.5px solid #AECBFA'
+    Inactive: bgcolor '#F8F9FA', color '#5F6368', border '1.5px solid #E8EAED'
+    On xs: make row horizontally scrollable:
+      <Box sx={{ display:'flex', gap:1, overflowX:'auto',
+                 pb:0.5, '&::-webkit-scrollbar':{ display:'none' } }}>
+
+  CHANGE 4 — DataGrid responsive columns:
+    Add useMediaQuery hooks:
+      const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+      const isTablet = useMediaQuery(theme.breakpoints.down('md'))
+    Pass columnVisibilityModel to DataGrid:
+      columnVisibilityModel={{
+        clinician_name: !isTablet,
+        service_name: !isMobile,
+        room_name: !isTablet,
+        notes: false,
+      }}
+
+  CHANGE 5 — DataGrid header cell sx (add to existing theme or inline):
+    backgroundColor: '#F8F9FA'
+    color: '#9AA0A6'
+    fontWeight: 700
+    fontSize: '0.70rem'
+    textTransform: 'uppercase'
+    letterSpacing: '0.10em'
+
+  CHANGE 6 — FAB gradient:
+    sx={{ background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
+          boxShadow: '0 4px 14px rgba(26,115,232,0.40)',
+          '&:hover': { boxShadow: '0 6px 20px rgba(26,115,232,0.48)',
+                       background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' } }}
+
+  CHANGE 7 — AppointmentDrawer responsive width:
+    Pass sx to Drawer:
+    '& .MuiDrawer-paper': { width: { xs:'100%', sm:420, md:480 } }
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 4.2 — Appointment Drawer: Google Colors + Mobile Full Screen    ✅ DONE
+  File: src/components/Appointments/AppointmentDrawer.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update AppointmentDrawer.jsx. Keep all queries, mutations, and
+  status update logic. Apply:
+
+  ADD CHANGE 1 — useMediaQuery:
+    const theme = useTheme()
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+  CHANGE 2 — Drawer width:
+    '& .MuiDrawer-paper': {
+      width: { xs: '100%', sm: 420, md: 480 },
+      borderRadius: { xs: 0, sm: '20px 0 0 20px' }
+    }
+
+  CHANGE 3 — Status chip in drawer: use Google STATUS_CFG
+    (same as Prompt 3.5 Change 4)
+
+  CHANGE 4 — Action buttons (Confirm/Cancel/Complete):
+    On xs: Stack direction="column", each button fullWidth
+    On sm+: Stack direction="row"
+
+  CHANGE 5 — InfoRow label color:
+    color: '#5F6368'   (was text.secondary)
+  InfoRow value color: '#202124'
+
+  CHANGE 6 — Header close button:
+    color: '#5F6368'
+    '&:hover': { bgcolor: '#F1F3F4', color: '#202124' }
+
+════════════════════════════════════════════════════════════════════════════
+  PROMPT GROUP 5 — BOOKING WIZARD              ✅ DONE
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 5.1 — Booking Wizard: Responsive Stepper + Google Colors    ✅ DONE
+  File: src/components/BookingWizard/BookingWizard.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update BookingWizard.jsx container and Stepper. Keep all step state,
+  validation, and navigation logic.
+
+  ADD — useMediaQuery at top of component:
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+  CHANGE 1 — Stepper orientation:
+    <Stepper activeStep={activeStep}
+             orientation={isMobile ? 'vertical' : 'horizontal'}
+             sx={{ mb: 3 }}>
+
+  CHANGE 2 — Stepper active step color:
+    '& .MuiStepIcon-root.Mui-active': { color: '#1A73E8' }
+    '& .MuiStepIcon-root.Mui-completed': { color: '#0F9D58' }
+    '& .MuiStepLabel-label.Mui-active': { fontWeight: 700, color: '#202124' }
+    '& .MuiStepConnector-line': { borderColor: '#E8EAED' }
+    '& .MuiStepConnector-root.Mui-completed .MuiStepConnector-line':
+      { borderColor: '#0F9D58' }
+    '& .MuiStepConnector-root.Mui-active .MuiStepConnector-line':
+      { borderColor: '#1A73E8' }
+
+  CHANGE 3 — Wizard wrapper max width:
+    maxWidth: { xs: '100%', sm: 680, md: 800 }
+    p: { xs: 2, sm: 3, md: 4 }
+
+  CHANGE 4 — Navigation buttons (Back/Next):
+    Back: variant="outlined", color grey border '#E8EAED'
+    Next: variant="contained", gradient (as per theme)
+    On xs: fullWidth, stacked
+    On sm+: auto width, row
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 5.2 — Booking Step 3 (Slot Picker): Google Slots + Responsive    ✅ DONE
+  File: src/components/BookingWizard/BookingStep3Slot.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update slot grid and slot item styling. Keep all slot selection
+  state, time logic, and available/taken data mapping.
+
+  CHANGE 1 — Slot grid columns:
+    display: 'grid'
+    gridTemplateColumns: { xs: 'repeat(3, 1fr)', sm: 'repeat(4, 1fr)',
+                           md: 'repeat(4, 1fr)' }
+    gap: { xs: 0.75, sm: 1 }
+
+  CHANGE 2 — Slot item sx states:
+
+  Available (not selected):
+    bgcolor: '#F8F9FA', border: '1.5px solid #E8EAED',
+    color: '#5F6368', borderRadius: '10px',
+    py: { xs: 1, md: 1.25 }, fontSize: { xs: '0.75rem', md: '0.875rem' },
+    fontWeight: 600, cursor: 'pointer', textAlign: 'center',
+    transition: 'all 0.15s ease',
+    '&:hover': { bgcolor: '#E8F0FE', borderColor: '#AECBFA', color: '#1A73E8' }
+
+  Selected:
+    bgcolor: '#1A73E8', border: '1.5px solid #1A73E8',
+    color: '#FFFFFF', fontWeight: 700,
+    boxShadow: '0 2px 8px rgba(26,115,232,0.35)',
+    transform: 'scale(1.03)'
+
+  Taken/booked:
+    bgcolor: '#F8F9FA', border: '1px solid #F1F3F4',
+    color: '#BDC1C6', cursor: 'not-allowed',
+    textDecoration: 'line-through', pointerEvents: 'none'
+
+════════════════════════════════════════════════════════════════════════════
+  PROMPT GROUP 6 — PATIENTS, CLINICIANS, CALENDAR    ✅ DONE
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 6.1 — Patients Page: Responsive Table + Google Colors    ✅ DONE
+  File: src/pages/PatientsPage.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update PatientsPage.jsx. Keep all existing MOCK_PATIENTS, pagination,
+  search, alphabet filter, AddPatientDialog, and mutation logic.
+
+  ADD CHANGE 1 — useMediaQuery:
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'))
+
+  CHANGE 2 — Alphabet filter responsive:
+    ToggleButton size: { xs:'small', sm:'medium' }
+    Each button minWidth: { xs: 24, sm: 32 }
+    fontSize: { xs: '0.68rem', sm: '0.75rem' }
+    Wrap in horizontally scrollable Box on xs
+
+  CHANGE 3 — Search bar width:
+    fullWidth on xs, width: { sm:320, md:380 } on larger
+
+  CHANGE 4 — Table column visibility:
+    Email:   display: { xs:'none', sm:'table-cell' }
+    DOB:     display: { xs:'none', md:'table-cell' }
+    Gender:  display: { xs:'none', md:'table-cell' }
+
+  CHANGE 5 — Patient Avatar color (use same getAvatarColor logic):
+    bgcolor: alpha(getAvatarColor(full_name), 0.15)
+    color: getAvatarColor(full_name)
+
+  CHANGE 6 — AddPatientDialog:
+    fullScreen: isMobile  ← full screen on phones
+    PaperProps: { sx: { borderRadius: { xs:0, sm:3 } } }
+    On fullscreen: replace X icon with Back arrow
+
+  CHANGE 7 — "Add Patient" button:
+    sx={{ width: { xs:'100%', sm:'auto' } }}
+    gradient: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 6.2 — Clinician Cards: Responsive Grid + Google Colors    ✅ DONE
+  File: src/components/Clinicians/ClinicianCard.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update ClinicianCard.jsx. Keep existing props and structure.
+
+  CHANGE 1 — Card responsive direction:
+    On xs: show as horizontal compact card (row)
+    On sm+: vertical card layout
+    Card content flexDirection: { xs:'row', sm:'column' }
+    Card content alignItems: { xs:'center', sm:'flex-start' }
+
+  CHANGE 2 — Avatar:
+    On xs: size 52px
+    On sm+: size 72px
+    background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+
+  CHANGE 3 — Specialty tag:
+    borderRadius: '8px' (sharp rectangle)
+    fontWeight: 700, fontSize: '0.72rem'
+    bgcolor: '#E8F0FE', color: '#1557B0'
+
+  CHANGE 4 — Rating stars: color '#F9AB00'
+
+  CHANGE 5 — Book button:
+    On xs: compact size="small", outlined
+    On sm+: fullWidth contained
+
+  Grid items (in parent CliniciansPage):
+    xs:12, sm:6, md:6, lg:4, xl:3
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 6.3 — Global Search: Full-Screen Mobile + Google Colors    ✅ DONE
+  File: src/components/GlobalSearch.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update GlobalSearch.jsx. Keep all search logic, GraphQL queries,
+  keyboard navigation, and result routing.
+
+  ADD — useMediaQuery:
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+  CHANGE 1 — Dialog:
+    fullScreen={isMobile}
+    PaperProps: { sx: { borderRadius: { xs:0, sm:3 },
+                        border: { sm:'1px solid #E8EAED' } } }
+
+  CHANGE 2 — Dialog maxWidth: 'sm' (on non-mobile)
+
+  CHANGE 3 — Search input font size on mobile:
+    fontSize: { xs:'16px', sm:'14px' }   ← 16px prevents iOS auto-zoom!
+
+  CHANGE 4 — Result items touch target:
+    py: { xs: 1.5, sm: 1 }
+    minHeight: { xs: 56, sm: 'auto' }
+
+  CHANGE 5 — Category labels color: '#9AA0A6'
+    fontWeight: 700, fontSize: '0.68rem', uppercase, letterSpacing: '0.12em'
+
+  CHANGE 6 — Result type icons:
+    Patient icon color:     '#0F9D58'
+    Appointment icon color: '#1A73E8'
+    Clinician icon color:   '#9334E6'
+
+════════════════════════════════════════════════════════════════════════════
+  PROMPT GROUP 7 — NOTIFICATION + ANALYTICS + SETTINGS    ✅ DONE
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 7.1 — Notification Panel: Bottom Sheet on Mobile    ✅ DONE
+  File: src/components/NotificationPanel.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update NotificationPanel.jsx. Keep all notification data, mark-read
+  logic, and list rendering. Only update layout and colors.
+
+  ADD — useMediaQuery:
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+
+  CHANGE 1 — Drawer anchor and paper:
+    anchor={isMobile ? 'bottom' : 'right'}
+    PaperProps: { sx: {
+      width: { xs:'100%', sm:380 },
+      maxHeight: { xs:'78vh', sm:'100%' },
+      borderRadius: { xs:'20px 20px 0 0', sm:0 },
+    }}
+
+  ADD CHANGE 2 — Drag handle (mobile only):
+    At very top of drawer content:
+    <Box sx={{ display:{ xs:'flex', sm:'none' },
+               justifyContent:'center', pt:1.5, pb:0.5 }}>
+      <Box sx={{ width:40, height:4, borderRadius:2, bgcolor:'#E8EAED' }} />
+    </Box>
+
+  CHANGE 3 — Unread notification item:
+    bgcolor: '#E8F0FE'
+    borderLeft: '3px solid #1A73E8'
+    '&:hover': { bgcolor: '#E0EAFE' }
+
+  CHANGE 4 — Notification type icon colors:
+    Booking confirmed: '#0F9D58'
+    Cancellation:      '#D93025'
+    Reminder:          '#1A73E8'
+    New patient:       '#9334E6'
+    Warning:           '#F9AB00'
+
+  CHANGE 5 — Mark all read button color: '#1A73E8'
+    '&:hover': { bgcolor: '#E8F0FE' }
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 7.2 — Analytics Page: Responsive Charts + Google Colors    ✅ DONE
+  File: src/pages/AnalyticsPage.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Update AnalyticsPage.jsx. Keep all mock data arrays, existing
+  chart types (AreaChart, BarChart, PieChart), period toggle logic,
+  and KPI cards. Apply only color and responsive changes.
+
+  ADD — useMediaQuery at top:
+    const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+    const isTablet = useMediaQuery(theme.breakpoints.down('md'))
+
+  CHANGE 1 — Google chart colors across all charts:
+    Area/line: '#4285F4' fill, '#1A73E8' stroke (booked)
+              '#0F9D58' fill, '#0F9D58' stroke (completed)
+              '#D93025' fill, '#D93025' stroke (cancelled)
+    Bar: '#1A73E8' for revenue, '#0F9D58' for growth
+    Pie: G_CHART_COLORS array
+
+  CHANGE 2 — KPI card grid (update Grid items):
+    xs: 6, sm: 6, md: 3   (2-col on mobile, 4-col on desktop)
+
+  CHANGE 3 — Chart heights responsive:
+    AreaChart:  { xs:200, sm:240, md:280 }
+    BarChart:   { xs:200, sm:220, md:260 }
+    PieChart:   { xs:220, sm:240, md:260 }
+
+  CHANGE 4 — Period toggle chips on mobile:
+    size="small" on xs
+    In a horizontally scrollable Box on xs
+
+  CHANGE 5 — Grid column layout:
+    Main chart: xs:12, md:8
+    Side chart: xs:12, md:4
+    → Stacks vertically on mobile
+
+  CHANGE 6 — SERVICE_PIX colors — replace with Google chart colors:
+    Map each service to COLOURS array from Prompt 3.3 Change 1.
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 7.3 — Settings Page: Responsive Tabs + Google Colors    ✅ DONE
+  File: src/pages/SettingsPage.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Keep all existing form logic, form validation, and settings mutations.
+
+  CHANGE 1 — Tabs responsive:
+    variant={{ xs:'scrollable', sm:'standard' }}
+    scrollButtons={{ xs:'auto', sm:false }}
+    Active tab indicator color: '#1A73E8'
+    Active tab text color: '#1A73E8'
+    Inactive tab text: '#5F6368'
+
+  CHANGE 2 — Form Grid items:
+    xs: 12, sm: 6   ← two columns on tablet+, one on mobile
+
+  CHANGE 3 — Toggle switches checked color: '#1A73E8'
+
+  CHANGE 4 — Save button:
+    gradient, fullWidth on xs, auto on sm+
+
+════════════════════════════════════════════════════════════════════════════
+  PROMPT GROUP 8 — FINAL POLISH & LOGIN    ✅ DONE
+════════════════════════════════════════════════════════════════════════════
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 8.1 — Login Page: Google Card Style + Mobile Full-Screen    ✅ DONE
+  File: src/pages/LoginPage.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Keep all form logic, validation, API calls, and error handling.
+
+  CHANGE 1 — Page background:
+    bgcolor: '#F8F9FA'  (Google gray-50)
+
+  CHANGE 2 — Login card:
+    bgcolor: '#FFFFFF'
+    border: '1px solid #E8EAED'
+    borderRadius: { xs: 0, sm: 4 }   ← no radius on mobile (full edge-to-edge)
+    boxShadow: { xs: 'none', sm: '0 1px 3px rgba(32,33,36,0.28), 0 4px 8px rgba(32,33,36,0.10)' }
+    maxWidth: { xs: '100%', sm: 420 }
+    width: '100%'
+    p: { xs: 3, sm: 4 }
+    minHeight: { xs: '100vh', sm: 'auto' }   ← full height on mobile
+
+  CHANGE 3 — Input fields:
+    borderColor: '#E8EAED'
+    Focus ring: '0 0 0 3px rgba(26,115,232,0.12)'
+    Focus border: '#1A73E8'
+    Input font size: { xs: '16px', sm: '0.875rem' }   ← prevent iOS zoom!
+
+  CHANGE 4 — Sign In button:
+    gradient: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+    py: 1.5, fullWidth
+    fontSize: '1rem', fontWeight: 800
+    boxShadow: '0 2px 10px rgba(26,115,232,0.35)'
+
+  CHANGE 5 — Forgot password link:
+    color: '#1A73E8'
+    '&:hover': { textDecoration: 'underline' }
+
+────────────────────────────────────────────────────────────────────────────
+  PROMPT 8.2 — Dashboard Page Header: Responsive + Google Style    ✅ DONE
+  File: src/pages/DashboardPage.jsx
+────────────────────────────────────────────────────────────────────────────
+
+  Keep all data fetching, mock fallback, KPI array, loading logic.
+
+  CHANGE 1 — Header Box sx:
+    p: { xs: '14px 16px', sm: '16px 20px', md: '20px 24px' }
+    bgcolor: '#FFFFFF'
+    border: '1px solid #E8EAED'
+    boxShadow: '0 1px 2px rgba(32,33,36,0.06)'
+
+  CHANGE 2 — Greeting color: '#202124'  (was '#0F172A')
+    fontSize: { xs:'1rem', sm:'1.05rem', md:'1.125rem' }
+
+  CHANGE 3 — Date text: display: { xs:'none', sm:'block' }
+    color: '#5F6368'
+
+  CHANGE 4 — New Booking button:
+    width: { xs: '100%', sm: 'auto' }
+    mt: { xs: 1, sm: 0 }
+    background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)'
+
+  CHANGE 5 — KPI Grid spacing:
+    spacing: { xs: 1.5, sm: 2, md: 2.5 }
+  KPI Grid item: xs:6, sm:6, md:3
+
+  CHANGE 6 — KPI colors (kpis array):
+    Appointments: color '#1A73E8'
+    Clinicians:   color '#0F9D58'
+    Patients:     color '#9334E6'
+    Revenue:      color '#FA7B17'
+
+
+════════════════════════════════════════════════════════════════════════════
+  PART F — RESPONSIVE QUICK-REFERENCE CHEATSHEET
+════════════════════════════════════════════════════════════════════════════
+
+  ┌─────────────────────────────────────────────────────────────────────┐
+  │  PATTERN         │  XS (mobile)          │  MD+ (desktop)          │
+  ├─────────────────────────────────────────────────────────────────────┤
+  │  Grid columns    │  xs:6 (2-up)          │  md:3 (4-up) for KPIs  │
+  │  Grid columns    │  xs:12 (stack)        │  md:8+4 for charts      │
+  │  Drawer          │  100% width           │  420-480px              │
+  │  Notification    │  Bottom sheet         │  Right drawer 380px     │
+  │  Dialog (search) │  fullScreen           │  maxWidth="sm"          │
+  │  Dialog (form)   │  fullScreen           │  maxWidth="xs"          │
+  │  Buttons         │  fullWidth            │  auto width             │
+  │  Form fields     │  xs:12 (single col)   │  sm:6 (two col)         │
+  │  Table columns   │  2-3 essential only   │  all columns            │
+  │  Stepper         │  vertical             │  horizontal             │
+  │  Font size input │  16px (prevent zoom)  │  0.875rem               │
+  │  Slot grid       │  3 columns            │  4 columns              │
+  │  Clinician cards │  horizontal layout    │  vertical cards         │
+  │  Calendar view   │  Day (default)        │  Month (default)        │
+  │  Calendar legend │  bottom horizontal    │  right vertical         │
+  │  Page padding    │  p:2 (16px)           │  p:3 (24px)             │
+  │  Header actions  │  stacked below title  │  right of title         │
+  │  Alphabet filter │  horizontal scroll    │  wrap/full row          │
+  │  Date formats    │  'D MMM' (short)      │  'D MMM, h:mm A'        │
+  │  Avatar in table │  hidden on xs         │  shown on sm+           │
+  └─────────────────────────────────────────────────────────────────────┘
+
+  TOUCH TARGET MINIMUM SIZES (iOS/Android HIG compliance):
+    Buttons: min 44px height
+    ListItemButton: py:1.4 on xs = ~44px total height ✓
+    Slot tiles: 38px height on mobile ✓
+    Table rows: minHeight 56px ✓
+    Bottom nav icons: 1.4rem = ~22px icon + label = 60px total ✓
+
+  IOS SPECIFIC FIXES (already accounted for in prompts):
+    Input font-size: 16px  → prevents auto-zoom on focus
+    pb: env(safe-area-inset-bottom)  → iPhone notch clearance
+    -webkit-overflow-scrolling: touch  → momentum scroll
+
+
+════════════════════════════════════════════════════════════════════════════
+  PART G — COLOR QUICK-REFERENCE CARD
+════════════════════════════════════════════════════════════════════════════
+
+  PASTE THIS COMMENT AT TOP OF theme.js FOR QUICK REFERENCE:
+
+  /*
+   * MEDIBOOK — Google Color System
+   * ────────────────────────────────────────────────────────────────────
+   * Primary      #1A73E8   Buttons, links, active nav, focus rings
+   * Primary lt   #4285F4   Gradients, icon fills
+   * Primary dk   #1557B0   Hover/pressed
+   * P. Surface   #E8F0FE   Chips, active fills, selected bg
+   * P. Border    #AECBFA   Chip borders, focus outlines
+   *
+   * Green        #0F9D58   Confirmed, success, availability
+   * G. Surface   #E6F4EA   Confirmed chip bg
+   *
+   * Yellow       #F9AB00   Pending, warnings, ratings
+   * Y. Surface   #FEF7E0   Pending chip bg
+   *
+   * Red          #D93025   Cancelled, errors, emergency
+   * R. Surface   #FCE8E6   Error chip bg
+   *
+   * Purple       #9334E6   Rescheduled, analytics
+   * P. Surface   #F3E8FD   Purple chip bg
+   *
+   * Orange       #FA7B17   Revenue KPI
+   * Sidebar      #202124   Dark nav panel
+   *
+   * Page bg      #F8F9FA   Canvas
+   * Card bg      #FFFFFF   All cards
+   * Border       #E8EAED   Hairlines
+   * Hover        #F1F3F4   Row/button hover
+   *
+   * Text 1       #202124   Headings, values
+   * Text 2       #5F6368   Labels, captions
+   * Text 3       #9AA0A6   Placeholder, disabled
+   * ────────────────────────────────────────────────────────────────────
+   */
+
+════════════════════════════════════════════════════════════════════════════
+  IMPLEMENTATION ORDER (Recommended)
+════════════════════════════════════════════════════════════════════════════
+
+  PHASE 1 — Maximum impact, minimum files (1-2 hours)
+    [1] Prompt 1.1  src/theme/theme.js             ← entire app recolors
+    [2] Prompt 1.2  src/index.css                  ← scrollbar, animations
+
+  PHASE 2 — Dashboard (user's first impression)
+    [3] Prompt 3.1  KpiCard.jsx                    ← progress bar + Google
+    [4] Prompt 3.2  AppointmentVolumeChart.jsx      ← Google lines
+    [5] Prompt 3.3  ServicePieChart.jsx             ← Google donut + total
+    [6] Prompt 3.4  UtilisationChart.jsx            ← Google bars
+    [7] Prompt 3.5  RecentAppointmentsTable.jsx     ← avatars + chips
+    [8] Prompt 8.2  DashboardPage.jsx               ← header + KPI colors
+
+  PHASE 3 — Layout chrome (affects every page)
+    [9]  Prompt 2.1  Sidebar.jsx                    ← dark #202124 + gradient
+    [10] Prompt 2.2  Navbar.jsx                     ← search + colors
+    [11] Prompt 2.3  MobileBottomNav.jsx            ← indicator + G-Blue
+
+  PHASE 4 — Feature pages
+    [12] Prompt 4.1  AppointmentsPage.jsx           ← responsive + chips
+    [13] Prompt 4.2  AppointmentDrawer.jsx          ← mobile full-screen
+    [14] Prompt 5.1  BookingWizard.jsx              ← responsive stepper
+    [15] Prompt 5.2  BookingStep3Slot.jsx           ← slot colors
+    [16] Prompt 6.1  PatientsPage.jsx               ← responsive table
+    [17] Prompt 6.2  ClinicianCard.jsx              ← cards responsive
+    [18] Prompt 6.3  GlobalSearch.jsx               ← mobile full-screen
+
+  PHASE 5 — Polish
+    [19] Prompt 7.1  NotificationPanel.jsx          ← bottom sheet mobile
+    [20] Prompt 7.2  AnalyticsPage.jsx              ← responsive charts
+    [21] Prompt 7.3  SettingsPage.jsx               ← responsive tabs
+    [22] Prompt 8.1  LoginPage.jsx                  ← edge-to-edge mobile
+
+════════════════════════════════════════════════════════════════════════════
+  MediBook Dashboard UI Plan v4.0 — Google Color + Full Responsive Edition
+  Files affected: 22   |  Structural changes: ZERO   |  Total prompts: 22
+  ─────────────────────────────────────────────────────────────────────────
+  ✅ ALL 22 PROMPTS COMPLETE  |  Build: EXIT CODE 0  |  Date: 2026-03-13
+════════════════════════════════════════════════════════════════════════════
