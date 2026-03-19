@@ -80,7 +80,19 @@ export function getAppointments({ status, clinicianId, clinicId, patientId, date
 }
 
 export function getAppointmentById(id) {
-  return store.appointments.find(a => a.id === id) ?? null
+  const appt = store.appointments.find(a => a.id === id) ?? null
+  if (!appt) return null
+  // Generate realistic status_logs for the detail page timeline (NEW-APPT-006)
+  if (!appt.status_logs) {
+    const createdAt = appt.created_at ?? new Date(Date.now() - 86400000).toISOString()
+    const updatedAt = appt.updated_at ?? new Date(new Date(createdAt).getTime() + 3600000).toISOString()
+    const logs = [{ id: `log-${id}-0`, status: 'pending', reason: null, created_at: createdAt, changed_by_user: { name: 'System' } }]
+    if (appt.status !== 'pending') {
+      logs.push({ id: `log-${id}-1`, status: appt.status, reason: appt.cancellation_reason ?? null, created_at: updatedAt, changed_by_user: { name: 'Admin User' } })
+    }
+    appt.status_logs = logs
+  }
+  return appt
 }
 
 export function updateAppointmentStatus(id, status, reason = null) {
@@ -483,4 +495,100 @@ export function getAvailableSlots(clinicianId, dateStr, durationMinutes = 15) {
     slots.push({ time: `${hh}:${mm}`, is_available: !inBreak && !isBooked })
   }
   return slots
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CLINICIAN AVAILABILITY MOCK DATA (SUG-CLAVAIL-002 / STEP 8)
+// Toggle: VITE_MOCK_MODE=true in .env (already used project-wide)
+// ─────────────────────────────────────────────────────────────────────────────
+
+const MOCK_CLINICIAN_AVAILABILITY = [
+  { id: 'av-1', clinicianId: 'clin-1', dayOfWeek: '0', startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: 'room-1' },
+  { id: 'av-2', clinicianId: 'clin-1', dayOfWeek: '1', startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: 'room-2' },
+  { id: 'av-3', clinicianId: 'clin-1', dayOfWeek: '2', startTime: '09:00', endTime: '13:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: 'room-1' },
+  { id: 'av-4', clinicianId: 'clin-1', dayOfWeek: '3', startTime: '10:00', endTime: '18:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: null     },
+  { id: 'av-5', clinicianId: 'clin-1', dayOfWeek: '4', startTime: '09:00', endTime: '15:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: 'room-3' },
+  // Error scenario: set mockAvailabilityError = true to test error paths
+]
+
+const MOCK_LUNCH_BREAKS = [
+  { id: 'lunch-1', clinicianId: 'clin-1', dayOfWeek: 'daily', startTime: '12:30', endTime: '13:30' },
+]
+
+// In-memory copies (mutable, mimics backend state)
+let _clinicianAvailability = [...MOCK_CLINICIAN_AVAILABILITY]
+let _lunchBreaks           = [...MOCK_LUNCH_BREAKS]
+
+/**
+ * Fetch all availability slots for a clinician.
+ * @param {string} clinicianId
+ * @param {boolean} [simulateError] – pass true to test error state
+ */
+export function getClinicianAvailability(clinicianId, simulateError = false) {
+  if (simulateError) throw new Error('Mock API error: could not fetch availability')
+  return _clinicianAvailability.filter(a => a.clinicianId === clinicianId)
+}
+
+/**
+ * Create or update a clinician availability slot.
+ * @param {{ id?: string, clinicianId: string, dayOfWeek: string, startTime: string, endTime: string, recurrenceType: string, roomId?: string, validFrom?: string, validUntil?: string }} input
+ */
+export function saveMockAvailability(input) {
+  if (input.id) {
+    _clinicianAvailability = _clinicianAvailability.map(a =>
+      a.id === input.id ? { ...a, ...input } : a
+    )
+    notify()
+    return _clinicianAvailability.find(a => a.id === input.id)
+  }
+  const newSlot = { id: nextId('av'), ...input }
+  _clinicianAvailability.push(newSlot)
+  notify()
+  return newSlot
+}
+
+/**
+ * Delete a clinician availability slot by ID.
+ * @param {string} id
+ */
+export function deleteMockAvailability(id) {
+  _clinicianAvailability = _clinicianAvailability.filter(a => a.id !== id)
+  notify()
+  return true
+}
+
+/**
+ * Fetch lunch breaks for a clinician.
+ * @param {string} clinicianId
+ */
+export function getMockLunchBreaks(clinicianId) {
+  return _lunchBreaks.filter(lb => lb.clinicianId === clinicianId)
+}
+
+/**
+ * Create or update a lunch break.
+ * @param {{ id?: string, clinicianId: string, dayOfWeek: string, startTime: string, endTime: string }} input
+ */
+export function saveMockLunchBreak(input) {
+  if (input.id) {
+    _lunchBreaks = _lunchBreaks.map(lb =>
+      lb.id === input.id ? { ...lb, ...input } : lb
+    )
+    notify()
+    return _lunchBreaks.find(lb => lb.id === input.id)
+  }
+  const newBreak = { id: nextId('lunch'), ...input }
+  _lunchBreaks.push(newBreak)
+  notify()
+  return newBreak
+}
+
+/**
+ * Delete a lunch break by ID.
+ * @param {string} id
+ */
+export function deleteMockLunchBreak(id) {
+  _lunchBreaks = _lunchBreaks.filter(lb => lb.id !== id)
+  notify()
+  return true
 }

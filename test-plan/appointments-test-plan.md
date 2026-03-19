@@ -5,7 +5,9 @@
 **Routes tested:** `/appointments`, `/appointments/new`, `/appointments/:id`, `/appointments/:id/edit`  
 **GraphQL:** `APPOINTMENTS_QUERY`, `CANCEL_APPOINTMENT_MUTATION`  
 **Mock data:** `src/mocks/store.js` (35 records)  
-**Updated:** 2026-03-18 — Added TC-APPT-020/021/022/023 for implemented suggestions; updated TC-APPT-001 to reflect tab strip.
+**Updated:** 2026-03-18 — Added TC-APPT-020/021/022/023 for implemented suggestions; updated TC-APPT-001 to reflect tab strip.  
+**Updated:** 2026-03-19 Session 3 — Added TC-APPT-024 to TC-APPT-029 for NEW-APPT-001/002/003, SUG-APPT-005, SUG-APPT-007.  
+**Updated:** 2026-03-19 Session 4 — Added TC-APPT-030 to TC-APPT-034 (Print, Status Timeline, Teal Theme, Time Validation, Empty State). **Total: 34 TCs.**
 
 ---
 
@@ -243,13 +245,130 @@
 > On edit page, change Status to "Completed". Click "Save Changes".
 > Assert: mutation fires (network error expected in mock mode — no crash).
 
-**Expected:** `UPDATE_APPOINTMENT_MUTATION` fires correctly. PASS* in mock mode (requires backend for full verify).
+**Expected:** Full PASS in mock mode — `onError` detects network failure, updates MockStore in-memory, shows success snackbar, navigates to detail page.
 
 ---
 
 ### TC-APPT-019 — Reschedule changes date and time
 **Prompt:**
 > On edit page, change Start and End date/time to new values. Click Save.
-> Assert: form captures new values. Mutation fires.
+> Assert: form captures new values, success snackbar, redirect.
 
-**Expected:** Date fields update, mutation triggered. PASS* in mock mode.
+**Expected:** Full PASS in mock mode — date fields captured, MockStore updated, success snackbar, redirect to detail.
+
+---
+
+## 5. Session 3 Additions (2026-03-19)
+
+### TC-APPT-024 — Upcoming/Past tab uses current datetime boundary (NEW-APPT-001/003)
+**Prompt:**
+> On `/appointments`, click "Past" tab.
+> Assert: appointments from *earlier today* (before current time) are shown in Past, not stuck in a grey zone.
+> Assert: "Upcoming" only shows appointments scheduled *after current time*.
+
+**Expected:** `dayjs()` (current moment) used as boundary — not start/end of day. No appointments fall into a no-man's land.
+
+---
+
+### TC-APPT-025 — CSV export includes Room & Clinic columns (NEW-APPT-002)
+**Prompt:**
+> On `/appointments` All tab, click "Export CSV".
+> Assert: snackbar says "Exported X appointments as CSV (10 columns)".
+> Open the CSV: verify columns include Room and Clinic (after Status).
+
+**Expected:** 10-column CSV: ID, Patient, Email, Clinician, Service, Date & Time, Duration, Status, Room, Clinic.
+
+---
+
+### TC-APPT-026 — Inline status change via chip click (SUG-APPT-005)
+**Prompt:**
+> On `/appointments` list, hover over a "Pending" status chip.
+> Assert: tooltip "Click to change status" appears.
+> Click the chip. Assert: dropdown menu with status options opens.
+> Select "Confirmed". Assert: chip changes immediately to "Confirmed" (green).
+> Assert: green snackbar appears: `Status updated to "Confirmed"`.
+
+**Expected:** `handleInlineStatusChange` applies `statusOverrides[rowId]`, updates UI immediately. Mutation fires in background.
+
+---
+
+### TC-APPT-027 — Terminal statuses do not open inline menu (SUG-APPT-005)
+**Prompt:**
+> Click on a "Cancelled", "Completed", or "No Show" status chip.
+> Assert: NO dropdown menu opens. Cursor is `default` (not pointer) on those chips.
+
+**Expected:** Guard condition `['cancelled','completed','no_show'].includes(row.status)` prevents menu from opening.
+
+---
+
+### TC-APPT-028 — Sidebar shows pending appointment count badge (SUG-APPT-007)
+**Prompt:**
+> Log in. Look at sidebar next to "Appointments" nav item.
+> Assert: an amber badge with a number is visible.
+> Assert: the number matches the count of pending appointments in the mock data.
+> Change a pending appointment to confirmed via inline status. Assert: badge count decreases.
+
+**Expected:** `useMemo(() => MockStore.getAppointments({ status: 'pending' }).length, [])` shown as amber badge. Note: badge only decrements on next render/page reload (memo dep array is empty; real-time update requires state subscription).
+
+---
+
+### TC-APPT-029 — Export CSV with 10 columns on Upcoming tab
+**Prompt:**
+> Switch to "Upcoming" tab. Click Export CSV.
+> Assert: snackbar says "Exported X appointments as CSV (10 columns)".
+> Assert: filename is `appointments_upcoming_YYYY-MM-DD.csv`.
+
+**Expected:** Upcoming tab filter applied to export. 10-column CSV with Room + Clinic fields.
+
+---
+
+## 6. Session 4 Additions (2026-03-19 — Theme & Validation)
+
+### TC-APPT-030 — Print appointment detail
+**Prompt:**
+> Navigate to any appointment detail page. Click the "Print" button in the header.
+> Assert: browser print dialog opens.
+
+**Expected:** `window.print()` triggers system print dialog. Button is styled as outlined with print icon.
+
+---
+
+### TC-APPT-031 — Status history timeline shows on detail page
+**Prompt:**
+> Navigate to `/appointments/appt-1` (a confirmed appointment).
+> Scroll to the left column. Assert: "Patient Timeline" card is visible.
+> Assert: at minimum 2 entries: `pending` (System) → `confirmed` (Admin User), each with timestamp.
+
+**Expected:** `status_logs` generated by `getAppointmentById` for all mock records. Timeline card visible. Pending-only appointments show 1 entry.
+
+---
+
+### TC-APPT-032 — Patient card uses teal theme (no blue)
+**Prompt:**
+> Navigate to any appointment detail page.
+> Assert: the patient card top accent bar is teal (`#006D77→#00858F`), not blue.
+> Assert: patient avatar background is teal `#006D77`, not `#1A73E8`.
+
+**Expected:** No blue (`#1A73E8` / `#4285F4`) visible on detail page. Dashboard "+ New Booking" button also teal.
+
+---
+
+### TC-APPT-033 — End-time before start-time validation on edit
+**Prompt:**
+> Navigate to `/appointments/appt-1/edit`.
+> Set the End Date & Time to a time BEFORE the Start Date & Time.
+> Assert: End Date field turns red with helper text "End time must be after start time".
+> Assert: Save Changes button is disabled (greyed out).
+> Set End Time back to AFTER Start Time. Assert: error clears and button re-enables.
+
+**Expected:** `endBeforeStart` computed flag drives `error` + `helperText` on End DateTimePicker and `disabled` on Save button.
+
+---
+
+### TC-APPT-034 — Invalid appointment ID shows empty state
+**Prompt:**
+> Navigate to `/appointments/appt-9999`.
+> Assert: page shows calendar icon + "Appointment not found" text.
+> Assert: "← Back" button is present; clicking it returns to `/appointments`.
+
+**Expected:** `if (!apt)` guard renders empty state with navigation back.

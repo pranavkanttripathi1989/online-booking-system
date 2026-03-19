@@ -116,7 +116,7 @@ export default function DashboardPage() {
       label: 'Total Appointments Today',
       value: d?.total_appointments_today ?? null,
       trend: d?.total_appointments_today_change ?? null,
-      color: '#1A73E8',
+      color: '#006D77',
     },
     {
       icon: MedicalServicesIcon,
@@ -189,11 +189,11 @@ export default function DashboardPage() {
             whiteSpace: 'nowrap',
             width: { xs: '100%', sm: 'auto' },
             mt: { xs: 0.5, sm: 0 },
-            background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-            boxShadow: '0 2px 8px rgba(26,115,232,0.30)',
+            background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
+            boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
             '&:hover': {
-              background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)',
-              boxShadow: '0 4px 14px rgba(26,115,232,0.40)',
+              background: 'linear-gradient(135deg, #005A62 0%, #006D77 100%)',
+              boxShadow: '0 4px 14px rgba(0,109,119,0.45)',
             },
           }}
         >

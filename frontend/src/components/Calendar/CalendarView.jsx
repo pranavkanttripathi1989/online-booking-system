@@ -27,6 +27,11 @@ function EventContent({ eventInfo }) {
   const isTimeGrid = viewType.startsWith('timeGrid')
   const isDayView = viewType === 'timeGridDay'
 
+  // Clinician initials (SUG-CAL-009)
+  const clinicianInitials = extendedProps?.clinician
+    ? extendedProps.clinician.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : null
+
   return (
     <Box sx={{
       px: 0.75,
@@ -79,6 +84,19 @@ function EventContent({ eventInfo }) {
           display: 'block',
         }}>
           {extendedProps.clinician}
+        </Box>
+      )}
+
+      {/* Clinician initials badge — week view only (SUG-CAL-009) */}
+      {isTimeGrid && !isDayView && clinicianInitials && (
+        <Box sx={{
+          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
+          width: 14, height: 14, borderRadius: '50%',
+          bgcolor: 'rgba(255,255,255,0.25)', mt: '1px', flexShrink: 0,
+        }}>
+          <Box component="span" sx={{ fontSize: 7, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
+            {clinicianInitials}
+          </Box>
         </Box>
       )}
     </Box>

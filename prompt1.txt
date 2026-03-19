@@ -1,120 +1,216 @@
-Review the `appointments-test-results.md` file in detail and perform the following actions systematically:
+**Prompt: STRICT Frontend QA, Fix, Re-test & Optimization — Clinician Availability Module**
+
+You are required to perform a **complete, deterministic frontend QA and improvement cycle** on the clinician availability module.
+
+Follow every step exactly. Do not skip, reorder, or approximate any instruction.
 
 ---
 
-### 1. Fix All Identified Issues
+## STEP 1: Parse Input File
 
-* Analyze each issue mentioned in the file thoroughly
-* Identify the **root cause** of every issue (backend, frontend, validation, API contract, or logic flaw)
-* Apply proper fixes with clear and correct implementation
-* For each fix, provide:
-
-  * Issue description
-  * Root cause
-  * Fix applied
-  * Code-level explanation (if applicable)
-  * Files/modules impacted
+* Read `clinician-availability-test-results.md`
+* Extract **all reported issues**
+* Create a structured list of issues before proceeding
 
 ---
 
-### 2. Re-test Using `auth-test-plan.md`
+## STEP 2: Analyze and Fix Issues (Frontend Only)
 
-* Execute **all test cases** from the test plan after applying fixes
-* Do **not skip any test case**
-* Cover:
+For **each issue**, you MUST:
 
-  * Positive scenarios
-  * Negative scenarios
-  * Edge cases
-* Ensure that all previously failing test cases now pass
-* Validate:
+1. Identify root cause strictly from frontend perspective:
 
-  * Authentication flow
-  * Token handling (generation, expiry, invalid cases)
-  * Input validation
-  * Error handling and HTTP status codes
+   * UI rendering issue
+   * State management bug
+   * API handling / mock issue
+   * Validation issue
+   * UX flaw
+   * Edge-case handling gap
 
----
+2. Apply a **production-ready fix**
 
-### 3. Update `auth-test-results.md`
+3. Document in this exact format:
 
-Document updated results after re-testing.
+```
+Issue ID:
+Issue Description:
+Root Cause:
+Fix Implemented:
+Code-Level Explanation:
+Impacted Files:
+```
 
-For **each test case**, include:
-
-* Test Case ID & Title
-* Input prompts / request payload
-* Expected Output
-* Actual Output
-* Pass/Fail status
-* Detailed observations (performance issues, inconsistencies, anomalies)
-
-Ensure results reflect **current system behavior after fixes**, not previous state.
+* Do not combine issues
+* Do not skip any issue
 
 ---
 
-### 4. Implement `auth-test-suggestion.md`
+## STEP 3: Re-test Using Test Plan
 
-* Apply all suggested improvements and enhancements
-* Ensure proper implementation across backend and frontend
-* Validate each implemented suggestion with testing
+* Load `clinician-availability-test-plan.md`
+* Execute **100% of test cases**
+* No skipping allowed
 
----
+For each test case, validate:
 
-### 5. Update Test Suggestions After Implementation
-
-* Revise `auth-test-suggestion.md`:
-
-  * Mark completed suggestions as **COMPLETED**
-  * Keep pending ones as **PENDING**
-* Add **new suggestions** discovered during testing (e.g., performance, security, UX improvements)
+* Form input + validation
+* UI states (loading, success, error)
+* API OR mock behavior
+* Error handling
+* Calendar/availability rendering
 
 ---
 
-### 6. Update `auth-test-plan.md`
+## STEP 4: Record Test Results
 
-* Revise the test plan based on implemented suggestions
+Update `clinician-availability-test-results.md`
+
+For **each test case**, use EXACT structure:
+
+```
+Test Case ID:
+Title:
+
+Input:
+<user actions / form data>
+
+Expected Output:
+<expected UI behavior>
+
+Actual Output:
+<actual UI behavior>
+
+Status:
+PASS / FAIL
+
+Observations:
+<detailed notes: UI bugs, delays, inconsistencies>
+```
+
+Rules:
+
+* No missing test cases
+* No empty fields
+* Must reflect latest behavior after fixes
+
+---
+
+## STEP 5: Implement Suggestions
+
+* Read `clinician-availability-test-suggestion.md`
+* Apply **all frontend-related suggestions**
+* Validate each implementation via testing
+
+---
+
+## STEP 6: Update Suggestions File
+
+Modify `clinician-availability-test-suggestion.md`
+
+For each suggestion:
+
+```
+Suggestion:
+Status: COMPLETED / PENDING
+Notes:
+```
+
+Additionally:
+
+* Add new suggestions discovered during testing
+* Focus on:
+
+  * UX
+  * Performance
+  * Accessibility
+  * Responsiveness
+
+---
+
+## STEP 7: Update Test Plan
+
+Modify `clinician-availability-test-plan.md`
+
+You MUST:
+
 * Add new test cases for:
 
   * Edge cases
-  * Failure scenarios
-  * Security validations
-* Improve clarity and coverage of existing test cases
+  * Validation failures
+  * Loading states
+  * Error states
+  * Empty states
+* Improve clarity of existing test cases
 
 ---
 
-### 7. Add Mockup Data in Frontend
+## STEP 8: Implement Mock Data Layer (MANDATORY)
 
-* Implement mock data support for frontend authentication flow
-* Create mock responses for:
+Frontend MUST support mock mode.
 
-  * Login success
-  * Login failure
-  * Token handling
+Requirements:
+
+* Create mock service layer for clinician availability
+
+* Cover:
+
+  * Fetch availability
+  * Create/update/delete availability
   * Error scenarios
-* Ensure frontend can run independently using mock services (without backend dependency)
-* Provide a toggle mechanism to switch between mock and real API
+
+* Add toggle mechanism:
+
+  * Environment variable OR config flag
+
+Example:
+
+```
+USE_MOCK_API=true
+```
+
+* Ensure app runs **without backend**
 
 ---
 
-### 8. Ensure Completeness
+## STEP 9: Final Validation
 
-* Every test case from the **updated test plan** must be executed and documented
-* No missing or skipped scenarios
-* Results must be:
+You MUST confirm:
 
-  * Detailed
-  * Well-structured
-  * Easy to review
-* Final output should reflect a **fully tested, stable, and improved system**
+* All issues are fixed
+* All test cases executed
+* All failing tests are now passing
+* Mock mode works correctly
+* No UI inconsistencies remain
 
 ---
 
-**Output Expectation:**
+## FINAL OUTPUT (MANDATORY)
 
-* Updated `auth-test-results.md`
-* Updated `auth-test-suggestion.md`
-* Updated `auth-test-plan.md`
-* Summary of fixes and improvements implemented
+Provide ALL of the following:
 
-Ensure high accuracy, completeness, and production-level quality in all outputs.
+1. Updated `clinician-availability-test-results.md`
+2. Updated `clinician-availability-test-suggestion.md`
+3. Updated `clinician-availability-test-plan.md`
+4. Fix Summary:
+
+```
+Total Issues:
+Fixed Issues:
+New Issues Found:
+Test Cases Passed:
+Test Cases Failed:
+```
+
+---
+
+## HARD RULES
+
+* Do NOT skip any step
+* Do NOT assume backend fixes
+* Do NOT leave placeholders
+* Do NOT produce partial output
+* Ensure production-level quality
+
+---
+
+Execute with strict accuracy and completeness.

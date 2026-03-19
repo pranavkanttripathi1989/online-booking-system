@@ -26,7 +26,9 @@ import NotificationsRoundedIcon  from '@mui/icons-material/NotificationsRounded'
 import StarRoundedIcon            from '@mui/icons-material/StarRounded'
 import CheckCircleRoundedIcon     from '@mui/icons-material/CheckCircleRounded'
 import RadioButtonUncheckedIcon   from '@mui/icons-material/RadioButtonUnchecked'
+import PrintRoundedIcon            from '@mui/icons-material/PrintRounded'
 import InfoRoundedIcon            from '@mui/icons-material/InfoRounded'
+
 
 import { APPOINTMENT_DETAIL_QUERY } from '../../graphql/queries'
 import { CANCEL_APPOINTMENT_MUTATION, COMPLETE_APPOINTMENT_MUTATION, MARK_NO_SHOW_MUTATION } from '../../graphql/mutations'
@@ -173,6 +175,14 @@ export default function AppointmentDetailPage() {
             border: `1px solid ${statusCfg.border}`, borderLeft: `4px solid ${statusCfg.dot}`,
             fontWeight: 800, borderRadius: '10px', fontSize: '0.78rem', height: 30,
           }} />
+          <Tooltip title="Print appointment details">
+            <Button variant="outlined" startIcon={<PrintRoundedIcon />}
+              onClick={() => window.print()}
+              sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, borderColor: '#E8EAED', color: '#5F6368', '&:hover': { bgcolor: '#F1F3F4', borderColor: '#BDC1C6' } }}
+            >
+              Print
+            </Button>
+          </Tooltip>
           <Button variant="outlined" startIcon={<EditRoundedIcon />}
             onClick={() => navigate(`/appointments/${id}/edit`)}
             sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, borderColor: '#E8EAED', color: '#5F6368', '&:hover': { bgcolor: '#F1F3F4', borderColor: '#BDC1C6' } }}
@@ -187,14 +197,14 @@ export default function AppointmentDetailPage() {
         <Grid item xs={12} md={8}>
 
           {/* Patient card */}
-          <Card accent="linear-gradient(90deg,#4285F4,#1A73E8)" sx={{ mb: 3 }}>
+          <Card accent="linear-gradient(90deg,#006D77,#00858F)" sx={{ mb: 3 }}>
             <Box sx={{ p: 3 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ sm: 'flex-start' }} justifyContent="space-between">
                 {/* Avatar + name */}
                 <Stack direction="row" spacing={2.5} alignItems="center">
                   <Avatar src={apt.patient?.avatar_url} sx={{
-                    width: 72, height: 72, bgcolor: '#1A73E8', fontSize: '1.4rem', fontWeight: 800,
-                    border: '3px solid rgba(26,115,232,0.15)', boxShadow: '0 4px 14px rgba(26,115,232,0.2)',
+                    width: 72, height: 72, bgcolor: '#006D77', fontSize: '1.4rem', fontWeight: 800,
+                    border: '3px solid rgba(0,109,119,0.15)', boxShadow: '0 4px 14px rgba(0,109,119,0.2)',
                   }}>
                     {initials(apt.patient?.full_name)}
                   </Avatar>

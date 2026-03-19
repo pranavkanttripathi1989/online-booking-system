@@ -5,7 +5,7 @@
 **Original Date:** 2026-03-16 | **Updated:** 2026-03-18  
 **Tested by:** Antigravity AI Browser Agent
 
-> **STATUS UPDATE (2026-03-18):** All critical/medium suggestions from the original file have been implemented (SUG-APPT-001 through 004, 008, 009, 011). Low-priority feature suggestions (005, 006, 007, 010, 012) remain pending.
+> **STATUS UPDATE (2026-03-19 Session 3):** NEW-APPT-001/002/003 and SUG-APPT-005/007 implemented and browser-verified. Tab boundaries now use `dayjs()` (current time); CSV has 10 columns with Room+Clinic; inline status chip menu with optimistic overrides; sidebar amber pending badge. Only backend-dependent features and high-effort UI features remain.
 
 ---
 
@@ -20,11 +20,15 @@
 | SUG-APPT-008 | Upcoming / Past / All tab toggle | 🟡 Medium | ✅ **DONE** | 3-tab Tabs strip; defaults to "Upcoming"; switching tabs resets date filters; subtitle reflects tab |
 | SUG-APPT-009 | Export appointments as CSV | 🟡 Medium | ✅ **DONE** | Blob API CSV with 8 columns; filename includes active tab; respects current filter state |
 | SUG-APPT-011 | "Send Reminder" button on appointment detail | 🟢 Low | ✅ **DONE** | Teal outlined button in Actions panel; 1.5s stub delay → snackbar "Reminder sent to [email]" |
-| SUG-APPT-005 | Inline status change (context menu / dropdown) | 🟡 Medium | ⏳ Pending | Not yet implemented |
+| SUG-APPT-005 | Inline status change (context menu / dropdown) | 🟡 Medium | ✅ **DONE** | Clickable status chip → MUI Menu with 4-dot status options; `statusOverrides` state + `useMemo` merge; terminal statuses locked |
 | SUG-APPT-006 | Bulk row selection + bulk actions | 🟡 Medium | ⏳ Pending | Not yet implemented — high effort |
-| SUG-APPT-007 | Sidebar badge showing pending appointment count | 🟢 Low | ⏳ Pending | Not yet implemented |
+| SUG-APPT-007 | Sidebar badge showing pending appointment count | 🟢 Low | ✅ **DONE** | `useMemo(MockStore.getAppointments({status:'pending'}).length)` → amber `#F9AB00` badge on Appointments nav item |
 | SUG-APPT-010 | Dedicated reschedule flow with slot picker | 🟡 Medium | ⏳ Pending | Not yet implemented |
 | SUG-APPT-012 | Service-specific pre-visit checklist | 🟢 Low | ⏳ Pending | Admin panel config required |
+| NEW-APPT-001 | Upcoming tab boundary → current datetime (not start of day) | 🔴 High | ✅ **DONE** | `dayjs()` replaces `dayjs().startOf('day')` preventing no-man's-land appointments |
+| NEW-APPT-002 | Export CSV → add Room + Clinic columns | 🟢 Low | ✅ **DONE** | 10-column CSV: added `r.room?.name` and `r.clinic?.name`. Snackbar confirms "(10 columns)" |
+| NEW-APPT-003 | Past tab boundary → current datetime (not end of prev day) | 🟢 Low | ✅ **DONE** | Same fix as NEW-APPT-001: `dateTo = dayjs()` for Past tab |
+| NEW-APPT-004 | Send Reminder channel selection (Email/SMS) | 🟡 Medium | ⏳ Pending | Stub still. Needs backend + split button or dropdown |
 
 ---
 
@@ -117,14 +121,14 @@ renderCell: (params) => {
 
 ## Updated Priority Queue
 
-| Priority | Item | Effort |
-|----------|------|--------|
-| 🔴 High | NEW-APPT-001 — Fix Upcoming/Past boundary to current time | Very Low |
-| 🟡 Medium | SUG-APPT-005 — Inline status change per row (context menu) | Medium |
-| 🟡 Medium | NEW-APPT-004 — Send Reminder channel selection (Email/SMS) | Low |
-| 🟡 Medium | SUG-APPT-010 — Dedicated reschedule flow + slot picker | Medium |
-| 🟢 Low | NEW-APPT-002 — Add Room/Clinic to export CSV | Very Low |
-| 🟢 Low | NEW-APPT-003 — Clarify Past tab boundary | Very Low |
-| 🟢 Low | SUG-APPT-006 — Bulk row selection + actions | High |
-| 🟢 Low | SUG-APPT-007 — Pending appointment count badge on sidebar | Low |
-| 🟢 Low | SUG-APPT-012 — Service-specific pre-visit checklist | Medium |
+| Priority | Item | Effort | Status |
+|----------|------|--------|--------|
+| 🟡 Medium | SUG-APPT-004 backend — Send Reminder channel (Email vs SMS) | Low | ⏳ Pending |
+| 🟡 Medium | SUG-APPT-010 — Dedicated reschedule flow + slot picker | Medium | ⏳ Pending |
+| 🟢 Low | SUG-APPT-006 — Bulk row selection + actions | High | ⏳ Pending |
+| 🟢 Low | SUG-APPT-012 — Service-specific pre-visit checklist | Medium | ⏳ Pending |
+| ✅ Done | NEW-APPT-001 — Upcoming tab boundary to current datetime | Very Low | ✅ DONE |
+| ✅ Done | NEW-APPT-002 — Add Room/Clinic to export CSV (10 columns) | Very Low | ✅ DONE |
+| ✅ Done | NEW-APPT-003 — Past tab boundary to current datetime | Very Low | ✅ DONE |
+| ✅ Done | SUG-APPT-005 — Inline status change per row | Medium | ✅ DONE |
+| ✅ Done | SUG-APPT-007 — Pending appointment count badge on sidebar | Low | ✅ DONE |

@@ -6,13 +6,19 @@ import { useSnackbar } from 'notistack'
 import dayjs from 'dayjs'
 import isBetween from 'dayjs/plugin/isBetween'
 import {
+  Badge,
   Box,
   Button,
   Chip,
   CircularProgress,
+  Collapse,
   Divider,
+  Fab,
+  IconButton,
   InputAdornment,
   MenuItem,
+  Select,
+  Skeleton,
   Stack,
   TextField,
   ToggleButton,
@@ -31,6 +37,11 @@ import FiberManualRecordIcon       from '@mui/icons-material/FiberManualRecord'
 import MeetingRoomRoundedIcon      from '@mui/icons-material/MeetingRoomRounded'
 import AccessTimeRoundedIcon       from '@mui/icons-material/AccessTimeRounded'
 import MedicalServicesRoundedIcon  from '@mui/icons-material/MedicalServicesRounded'
+import VideocamRoundedIcon         from '@mui/icons-material/VideocamRounded'
+import EventNoteRoundedIcon        from '@mui/icons-material/EventNoteRounded'
+import ChevronRightRoundedIcon     from '@mui/icons-material/ChevronRightRounded'
+import ChevronLeftRoundedIcon      from '@mui/icons-material/ChevronLeftRounded'
+import TodayRoundedIcon            from '@mui/icons-material/TodayRounded'
 
 import {
   APPOINTMENTS_QUERY,
@@ -56,6 +67,10 @@ const STATUS_COLORS = {
   cancelled: '#D93025', completed: '#006D77', no_show: '#80868B',
 }
 
+// ─── Appointment type meta ────────────────────────────────────────────────────
+const TYPE_OPTIONS = ['', 'in_person', 'video', 'home_visit']
+const TYPE_LABELS  = { '': 'All Types', in_person: 'In-Person', video: 'Video', home_visit: 'Home Visit' }
+
 // ─── Room-view time range ─────────────────────────────────────────────────────
 const ROOM_VIEW_HOURS = Array.from({ length: 15 }, (_, i) => i + 7) // 07–21
 
@@ -79,6 +94,7 @@ function toCalendarEvent(apt) {
 }
 
 // ─── 1-Month Mock Calendar Data ───────────────────────────────────────────────
+// BUG-CAL-002 FIX: Use real MockStore IDs so popover → detail navigation resolves correctly
 const MOCK_CLINICIANS = ['Dr. Jane Smith','Dr. Carlos Vega','Dr. Amy Chen','Dr. Michael Patel','Dr. Sarah Williams']
 const MOCK_PATIENTS   = [
   'John Miller','Sarah Evans','Robert Clark','Emily Davis','Michael Brown',
@@ -88,28 +104,50 @@ const MOCK_PATIENTS   = [
 ]
 const MOCK_ROOMS = ['Room 1A','Room 1B','Room 2A','Room 2B','Room 3','Exam Suite']
 const MOCK_APPOINTMENT_TYPES = [
-  { service: 'General Consultation', status: 'confirmed',  color: '#006D77', duration: 30 },
-  { service: 'Follow-up Visit',      status: 'confirmed',  color: '#007A85', duration: 20 },
-  { service: 'First Visit',          status: 'pending',    color: '#F9AB00', duration: 40 },
-  { service: 'Blood Test',           status: 'confirmed',  color: '#0F9D58', duration: 20 },
-  { service: 'MRI Scan',             status: 'confirmed',  color: '#07827A', duration: 60 },
-  { service: 'Routine Checkup',      status: 'completed',  color: '#9334E6', duration: 30 },
-  { service: 'Emergency — Chest',    status: 'confirmed',  color: '#D93025', duration: 60 },
+  { service: 'General Consultation', status: 'confirmed',  apptType: 'in_person', duration: 30 },
+  { service: 'Follow-up Visit',      status: 'confirmed',  apptType: 'in_person', duration: 20 },
+  { service: 'First Visit',          status: 'pending',    apptType: 'in_person', duration: 40 },
+  { service: 'Blood Test',           status: 'confirmed',  apptType: 'in_person', duration: 20 },
+  { service: 'Telehealth Check-up',  status: 'confirmed',  apptType: 'video',     duration: 30 },
+  { service: 'Routine Checkup',      status: 'completed',  apptType: 'in_person', duration: 30 },
+  { service: 'Home Physio',          status: 'confirmed',  apptType: 'home_visit', duration: 60 },
 ]
 const WEEKDAY_SLOTS = ['08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30','17:00']
 const WEEKEND_SLOTS = ['09:00','09:30','10:00','10:30','11:00']
 
 function generateMockCalendarData() {
-  const events = []
+  // First use real MockStore appointments
+  const storeApts = MockStore.getAppointments()
+  const realEvents = storeApts.map(apt => ({
+    id:    apt.id,
+    title: apt.patient?.full_name ?? 'Unknown',
+    start: apt.start_datetime,
+    end:   apt.end_datetime,
+    backgroundColor: STATUS_COLORS[apt.status] ?? '#006D77',
+    borderColor:     STATUS_COLORS[apt.status] ?? '#006D77',
+    extendedProps: {
+      patient:    apt.patient?.full_name,
+      clinician:  apt.clinician?.full_name,
+      clinicianId: apt.clinician?.id,
+      service:    apt.service?.name,
+      room:       apt.room?.name,
+      roomId:     apt.room?.id,
+      status:     apt.status,
+      apptType:   'in_person',
+    },
+  }))
+
+  // Pad with generated events for current month visual density
+  const extraEvents = []
   const now = new Date()
   const year = now.getFullYear(), month = now.getMonth()
   const daysInMonth = new Date(year, month + 1, 0).getDate()
-  let eventId = 1
+  let eventId = 500 // avoid ID collision with store IDs
   for (let day = 1; day <= daysInMonth; day++) {
     const date = new Date(year, month, day)
     const isWeekend = date.getDay() === 0 || date.getDay() === 6
     const dateStr = `${year}-${String(month+1).padStart(2,'0')}-${String(day).padStart(2,'0')}`
-    const apptCount = isWeekend ? Math.floor(Math.random()*2)+2 : Math.floor(Math.random()*4)+5
+    const apptCount = isWeekend ? Math.floor(Math.random()*2)+1 : Math.floor(Math.random()*3)+2
     const slots = isWeekend ? [...WEEKEND_SLOTS] : [...WEEKDAY_SLOTS]
     slots.sort(() => Math.random()-0.5)
     const usedSlots = slots.slice(0, apptCount).sort()
@@ -121,18 +159,19 @@ function generateMockCalendarData() {
       const [h, m] = timeSlot.split(':').map(Number)
       const startDt = new Date(year, month, day, h, m)
       const endDt = new Date(startDt.getTime() + type.duration*60*1000)
-      events.push({
-        id: `mock-${eventId++}`, title: patient,
+      const bg = STATUS_COLORS[type.status] ?? '#006D77'
+      extraEvents.push({
+        id: `gen-${eventId++}`, title: patient,
         start: startDt.toISOString(), end: endDt.toISOString(),
-        backgroundColor: type.color, borderColor: type.color,
-        extendedProps: { patient, clinician, service: type.service, room, status: type.status, roomId: `mock-room-${room}` },
+        backgroundColor: bg, borderColor: bg,
+        extendedProps: { patient, clinician, service: type.service, room, status: type.status, roomId: `mock-room-${room}`, apptType: type.apptType },
       })
     })
     if (!isWeekend) {
-      events.push({ id: `blocked-lunch-${day}`, title: 'Lunch Break', start: `${dateStr}T12:00:00`, end: `${dateStr}T13:00:00`, display: 'background', backgroundColor: 'rgba(128,134,139,0.18)', extendedProps: { isBlocked: true } })
+      extraEvents.push({ id: `blocked-lunch-${day}`, title: 'Lunch Break', start: `${dateStr}T12:00:00`, end: `${dateStr}T13:00:00`, display: 'background', backgroundColor: 'rgba(128,134,139,0.18)', extendedProps: { isBlocked: true } })
     }
   }
-  return events
+  return [...realEvents, ...extraEvents]
 }
 
 // ─── Availability helpers ─────────────────────────────────────────────────────
@@ -326,6 +365,7 @@ export default function CalendarPage() {
   const [filterClinician, setFilterClinician] = useState('')
   const [filterClinic,    setFilterClinic]    = useState('')
   const [filterStatus,    setFilterStatus]    = useState('')
+  const [filterType,      setFilterType]      = useState('')  // BUG-CAL-004: add type filter
 
   // ── Calendar view state ───────────────────────────────────────────────────
   const calendarRef   = useRef(null)
@@ -340,6 +380,9 @@ export default function CalendarPage() {
   // ── Drawer state ──────────────────────────────────────────────────────────
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [selectedId, setSelectedId] = useState(null)
+
+  // ── SUG-CAL-005: Today's Schedule panel ──────────────────────────────────
+  const [todayOpen, setTodayOpen] = useState(true)
 
   // ── Build GraphQL filters ─────────────────────────────────────────────────
   const buildFilters = useCallback(() => {
@@ -433,6 +476,17 @@ export default function CalendarPage() {
     cancelled: realAppts.filter(e => e.extendedProps?.status === 'cancelled').length,
   }
 
+  // ── SUG-CAL-005: Today's appointments sorted by start time ───────────────
+  const todayEvents = useMemo(() => {
+    const todayStr = dayjs().format('YYYY-MM-DD')
+    return realAppts
+      .filter(e => {
+        const s = e.start ?? e.extendedProps?.start
+        return s && dayjs(s).format('YYYY-MM-DD') === todayStr
+      })
+      .sort((a, b) => dayjs(a.start).valueOf() - dayjs(b.start).valueOf())
+  }, [realAppts])
+
   // ── Popover state (replaces drawer) ──────────────────────────────────────
   const [popoverAnchor, setPopoverAnchor] = useState(null)
   const [popoverEvent,  setPopoverEvent]  = useState(null)
@@ -445,8 +499,22 @@ export default function CalendarPage() {
     setSelectedId(id)
   }
   const handleSlotClick    = (dateStr) => navigate(`/appointments/new?date=${encodeURIComponent(dateStr)}`)
-  const handleClearFilters = () => { setFilterClinician(''); setFilterClinic(''); setFilterStatus('') }
-  const anyFilterActive    = filterClinician || filterClinic || filterStatus
+  const handleClearFilters = () => { setFilterClinician(''); setFilterClinic(''); setFilterStatus(''); setFilterType('') }
+  const anyFilterActive    = filterClinician || filterClinic || filterStatus || filterType
+
+  // ── BUG-CAL-001 FIX: Filtered events ─────────────────────────────────────
+  const filteredEvents = useMemo(() => {
+    let result = events.filter(e => !e.extendedProps?.isBlocked)
+    if (filterClinician) result = result.filter(e => e.extendedProps?.clinicianId === filterClinician)
+    if (filterStatus)    result = result.filter(e => e.extendedProps?.status?.toLowerCase() === filterStatus.toLowerCase())
+    if (filterType)      result = result.filter(e => e.extendedProps?.apptType === filterType)
+    // Clinic filter: only applies when using real store events (which have clinicId)
+    if (filterClinic)    result = result.filter(e => !e.extendedProps?.clinicId || e.extendedProps?.clinicId === filterClinic)
+    // Re-add background events (lunch blocks etc.) unless status/type filter active
+    const bgEvents = filterStatus || filterType ? [] : events.filter(e => e.extendedProps?.isBlocked)
+    return [...result, ...bgEvents]
+  }, [events, filterClinician, filterClinic, filterStatus, filterType])
+
 
   const handleViewChange = (_, newView) => {
     if (!newView) return
@@ -482,10 +550,49 @@ export default function CalendarPage() {
               {loading && <CircularProgress size={14} thickness={5} sx={{ color: '#006D77' }} />}
             </Box>
           </Box>
+          {/* Today's Schedule toggle badge (SUG-CAL-005) */}
+          {!isMobile && (
+            <Tooltip title={todayOpen ? 'Hide Today\'s Schedule' : 'Show Today\'s Schedule'} placement="bottom">
+              <Badge badgeContent={todayEvents.length} color="error"
+                sx={{ cursor: 'pointer', '& .MuiBadge-badge': { bgcolor: '#006D77', fontSize: '0.65rem', minWidth: 16, height: 16 } }}
+                onClick={() => setTodayOpen(v => !v)}
+              >
+                <Box sx={{
+                  width: 36, height: 36, borderRadius: 2, bgcolor: todayOpen ? 'rgba(0,109,119,0.12)' : '#F1F3F4',
+                  display: 'flex', alignItems: 'center', justifyContent: 'center',
+                  border: todayOpen ? '1.5px solid rgba(0,109,119,0.3)' : '1.5px solid #E8EAED',
+                  transition: 'all 0.2s',
+                  '&:hover': { bgcolor: 'rgba(0,109,119,0.12)', borderColor: 'rgba(0,109,119,0.3)' },
+                }}>
+                  <TodayRoundedIcon sx={{ fontSize: '1.1rem', color: todayOpen ? '#006D77' : '#9AA0A6' }} />
+                </Box>
+              </Badge>
+            </Tooltip>
+          )}
         </Box>
 
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-          {/* View Toggle */}
+          {/* Mobile-only view Select — BUG-CAL-003 FIX */}
+          <Select
+            value={currentView}
+            onChange={(e) => handleViewChange(null, e.target.value)}
+            size="small"
+            sx={{
+              display: { xs: 'flex', sm: 'none' },
+              borderRadius: '12px', fontSize: '0.78rem', fontWeight: 700,
+              bgcolor: '#F1F3F4', minWidth: 110,
+              '& fieldset': { border: 'none' },
+              '& .MuiSelect-select': { py: '6px', fontWeight: 700, color: '#006D77' },
+            }}
+          >
+            <MenuItem value="dayGridMonth">Month</MenuItem>
+            <MenuItem value="timeGridWeek">Week</MenuItem>
+            <MenuItem value="timeGridDay">Day</MenuItem>
+            <MenuItem value="listWeek">List</MenuItem>
+            <MenuItem value="resourceDay">Room</MenuItem>
+          </Select>
+
+          {/* Desktop-only ToggleButtonGroup */}
           <ToggleButtonGroup value={currentView} exclusive onChange={handleViewChange} size="small"
             sx={{ bgcolor: '#F1F3F4', borderRadius: '12px', p: '4px', gap: '2px', border: 'none', display: { xs: 'none', sm: 'flex' },
               '& .MuiToggleButtonGroup-grouped': { border: 'none !important', mx: 0 },
@@ -504,9 +611,9 @@ export default function CalendarPage() {
             </ToggleButton>
           </ToggleButtonGroup>
 
-          {/* New Booking */}
+          {/* New Booking — hidden on mobile (FAB provided instead) */}
           <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => navigate('/appointments/new')}
-            sx={{ borderRadius: 2.5, px: 2.5, py: 0.9, fontWeight: 700, textTransform: 'none', fontSize: '0.875rem', fontFamily: "'Plus Jakarta Sans', sans-serif", background: 'linear-gradient(135deg, #00858F 0%, #006D77 100%)', boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
+            sx={{ borderRadius: 2.5, px: 2.5, py: 0.9, fontWeight: 700, textTransform: 'none', fontSize: '0.875rem', fontFamily: "'Plus Jakarta Sans', sans-serif", background: 'linear-gradient(135deg, #00858F 0%, #006D77 100%)', boxShadow: '0 2px 8px rgba(0,109,119,0.30)', display: { xs: 'none', sm: 'flex' },
               '&:hover': { background: 'linear-gradient(135deg, #006D77 0%, #005A62 100%)', boxShadow: '0 4px 14px rgba(0,109,119,0.40)', transform: 'translateY(-1px)' },
               transition: 'all 0.2s ease',
             }}
@@ -518,7 +625,7 @@ export default function CalendarPage() {
 
       {/* ── Filter row (standard views) ──────────────────────────────────── */}
       {!isRoomView && (
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.75, flexWrap: { xs: 'wrap', sm: 'nowrap' }, overflowX: { sm: 'auto' } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5, flexWrap: { xs: 'wrap', sm: 'nowrap' }, overflowX: { sm: 'auto' } }}>
           <PillSelect value={filterClinician} onChange={setFilterClinician} icon={PersonRoundedIcon} placeholder="All Clinicians">
             <MenuItem value="">All Clinicians</MenuItem>
             {clinicians.map(c => <MenuItem key={c.id} value={c.id}>{c.full_name}</MenuItem>)}
@@ -554,6 +661,11 @@ export default function CalendarPage() {
             ))}
           </TextField>
 
+          {/* BUG-CAL-004 FIX: Appointment Type filter */}
+          <PillSelect value={filterType} onChange={setFilterType} icon={VideocamRoundedIcon} placeholder="All Types" minWidth={130}>
+            {TYPE_OPTIONS.map(t => <MenuItem key={t} value={t}>{TYPE_LABELS[t]}</MenuItem>)}
+          </PillSelect>
+
           {anyFilterActive && (
             <Chip label="Clear" size="small" icon={<ClearRoundedIcon sx={{ fontSize: '0.78rem !important' }} />}
               onClick={handleClearFilters}
@@ -574,6 +686,24 @@ export default function CalendarPage() {
               )
             )}
           </Box>
+        </Box>
+      )}
+
+      {/* ── SUG-CAL-007: Status Legend Strip ─────────────────────────────── */}
+      {!isRoomView && (
+        <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 2, mb: 1.5, px: 0.5, flexWrap: 'wrap' }}>
+          {[
+            { label: 'Confirmed', color: '#0F9D58' },
+            { label: 'Pending',   color: '#F9AB00' },
+            { label: 'Cancelled', color: '#D93025' },
+            { label: 'Completed', color: '#006D77' },
+            { label: 'No Show',   color: '#80868B' },
+          ].map(({ label, color }) => (
+            <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
+              <Typography variant="caption" sx={{ color: '#5F6368', fontSize: '0.72rem', fontWeight: 600 }}>{label}</Typography>
+            </Box>
+          ))}
         </Box>
       )}
 
@@ -643,27 +773,190 @@ export default function CalendarPage() {
         </Box>
       )}
 
-      {/* ── Calendar / Room View container ───────────────────────────────── */}
-      <Box id="calendar-container" sx={{ flex: 1, bgcolor: '#FFFFFF', borderRadius: 3, border: '1px solid #E8EAED', overflow: 'hidden', minHeight: 480, boxShadow: '0 1px 4px rgba(32,33,36,0.06), 0 4px 16px rgba(32,33,36,0.04)' }}>
-        {isRoomView ? (
-          <RoomView
-            date={roomViewDate.toDate()}
-            rooms={visibleRooms}
-            appointments={events}
-            availability={availability}
-            onEventClick={(id) => handleEventClick(id, null, events.find(e => e.id === id))}
-          />
-        ) : (
-          <CalendarView
-            calendarRef={calendarRef}
-            events={events}
-            onEventClick={(id, el, evtData) => handleEventClick(id, el, evtData)}
-            onSlotClick={handleSlotClick}
-            currentView={currentView}
-            onViewChange={setCurrentView}
-          />
-        )}
-      </Box>
+      {/* ── SUG-CAL-008: Full skeleton when loading ───────────────────────── */}
+      {loading && (
+        <Box sx={{ flex: 1, bgcolor: '#FFFFFF', borderRadius: 3, border: '1px solid #E8EAED', overflow: 'hidden', minHeight: 480, p: 2 }}>
+          {/* Toolbar skeleton */}
+          <Stack direction="row" spacing={1} mb={2} justifyContent="space-between" alignItems="center">
+            <Stack direction="row" spacing={1}>
+              <Skeleton variant="rounded" width={28} height={28} />
+              <Skeleton variant="rounded" width={130} height={28} sx={{ borderRadius: '14px' }} />
+              <Skeleton variant="rounded" width={60} height={28} sx={{ borderRadius: '14px' }} />
+            </Stack>
+            <Skeleton variant="rounded" width={180} height={28} sx={{ borderRadius: '14px' }} />
+          </Stack>
+          {/* Day-of-week headers */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5, mb: 0.5 }}>
+            {Array.from({ length: 7 }).map((_, i) => (
+              <Skeleton key={i} variant="rounded" height={24} sx={{ borderRadius: 1 }} />
+            ))}
+          </Box>
+          {/* Calendar cells (5 weeks) */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: 0.5 }}>
+            {Array.from({ length: 35 }).map((_, i) => (
+              <Box key={i} sx={{ borderRadius: 1.5, border: '1px solid #F1F3F4', p: 0.5, minHeight: 80 }}>
+                <Skeleton variant="text" width={20} height={18} sx={{ mb: 0.5 }} />
+                {Math.random() > 0.5 && <Skeleton variant="rounded" height={16} sx={{ mb: 0.4, borderRadius: 1 }} />}
+                {Math.random() > 0.65 && <Skeleton variant="rounded" height={16} sx={{ mb: 0.4, borderRadius: 1 }} />}
+                {Math.random() > 0.78 && <Skeleton variant="rounded" height={16} sx={{ borderRadius: 1 }} />}
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {/* ── Calendar / Room View container + Today's Schedule sidebar ────── */}
+      {!loading && (
+        <Box sx={{ flex: 1, display: 'flex', gap: 2, minHeight: 0, alignItems: 'stretch' }}>
+          {/* Main calendar */}
+          <Box id="calendar-container" sx={{ flex: 1, minWidth: 0, bgcolor: '#FFFFFF', borderRadius: 3, border: '1px solid #E8EAED', overflow: 'hidden', minHeight: 480, boxShadow: '0 1px 4px rgba(32,33,36,0.06), 0 4px 16px rgba(32,33,36,0.04)' }}>
+            {isRoomView ? (
+              <RoomView
+                date={roomViewDate.toDate()}
+                rooms={visibleRooms}
+                appointments={filteredEvents}
+                availability={availability}
+                onEventClick={(id) => handleEventClick(id, null, filteredEvents.find(e => e.id === id))}
+              />
+            ) : (
+              <CalendarView
+                calendarRef={calendarRef}
+                events={filteredEvents}
+                onEventClick={(id, el, evtData) => handleEventClick(id, el, evtData)}
+                onSlotClick={handleSlotClick}
+                currentView={currentView}
+                onViewChange={setCurrentView}
+              />
+            )}
+          </Box>
+
+          {/* ── SUG-CAL-005: Today's Schedule sidebar ───────────────────── */}
+          <Collapse in={todayOpen && !isMobile} orientation="horizontal" unmountOnExit
+            sx={{ flexShrink: 0, '& .MuiCollapse-wrapperInner': { width: 272 } }}
+          >
+            <Box sx={{
+              width: 272, height: '100%',
+              bgcolor: '#FFFFFF', borderRadius: 3,
+              border: '1px solid #E8EAED',
+              boxShadow: '0 1px 4px rgba(32,33,36,0.06), 0 4px 16px rgba(32,33,36,0.04)',
+              display: 'flex', flexDirection: 'column', overflow: 'hidden',
+            }}>
+              {/* Panel header */}
+              <Box sx={{
+                px: 2, py: 1.5,
+                background: 'linear-gradient(135deg, rgba(0,109,119,0.07) 0%, rgba(0,109,119,0.12) 100%)',
+                borderBottom: '1px solid #E8EAED',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+              }}>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <EventNoteRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />
+                  <Box>
+                    <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', color: '#202124', lineHeight: 1 }}>Today's Schedule</Typography>
+                    <Typography sx={{ fontSize: '0.68rem', color: '#5F6368', fontWeight: 500 }}>{dayjs().format('ddd, MMM D')}</Typography>
+                  </Box>
+                </Stack>
+                <Stack direction="row" spacing={0.5} alignItems="center">
+                  {todayEvents.length > 0 && (
+                    <Chip label={todayEvents.length} size="small"
+                      sx={{ bgcolor: '#006D77', color: '#fff', fontWeight: 800, fontSize: '0.7rem', height: 20, minWidth: 20, '& .MuiChip-label': { px: 0.75 } }}
+                    />
+                  )}
+                  <IconButton size="small" onClick={() => setTodayOpen(false)} sx={{ color: '#9AA0A6', '&:hover': { color: '#006D77' } }}>
+                    <ChevronRightRoundedIcon sx={{ fontSize: '1rem' }} />
+                  </IconButton>
+                </Stack>
+              </Box>
+
+              {/* Appointment list */}
+              <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5,
+                '&::-webkit-scrollbar': { width: 4 },
+                '&::-webkit-scrollbar-thumb': { bgcolor: '#E8EAED', borderRadius: 2 },
+              }}>
+                {todayEvents.length === 0 ? (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%', minHeight: 180, gap: 1 }}>
+                    <EventNoteRoundedIcon sx={{ fontSize: '2.5rem', color: '#E8EAED' }} />
+                    <Typography sx={{ fontSize: '0.78rem', color: '#9AA0A6', fontWeight: 600, textAlign: 'center' }}>No appointments today</Typography>
+                    <Button size="small" variant="outlined"
+                      onClick={() => navigate('/appointments/new?date=' + encodeURIComponent(dayjs().format('YYYY-MM-DD')))}
+                      sx={{ mt: 0.5, borderRadius: 2, textTransform: 'none', fontSize: '0.72rem', borderColor: '#006D77', color: '#006D77', fontWeight: 700, '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
+                    >
+                      + Add Appointment
+                    </Button>
+                  </Box>
+                ) : (
+                  todayEvents.map((evt, idx) => {
+                    const status = evt.extendedProps?.status ?? 'confirmed'
+                    const statusColor = STATUS_COLORS[status] ?? '#006D77'
+                    const startTime = dayjs(evt.start)
+                    const endTime   = dayjs(evt.end)
+                    const isPast    = endTime.isBefore(dayjs())
+                    const isCurrent = startTime.isBefore(dayjs()) && endTime.isAfter(dayjs())
+                    return (
+                      <Box key={evt.id}
+                        onClick={() => navigate(`/appointments/${evt.id}`)}
+                        sx={{
+                          p: 1.25, mb: 0.75, borderRadius: 2, cursor: 'pointer', border: '1px solid',
+                          borderColor: isCurrent ? statusColor + '60' : '#F1F3F4',
+                          bgcolor: isCurrent ? statusColor + '08' : isPast ? '#FAFAFA' : '#fff',
+                          opacity: isPast ? 0.65 : 1,
+                          transition: 'all 0.15s',
+                          position: 'relative', overflow: 'hidden',
+                          '&:hover': { borderColor: statusColor + '80', bgcolor: statusColor + '06', transform: 'translateX(2px)' },
+                        }}
+                      >
+                        {/* Current appointment highlight stripe */}
+                        {isCurrent && (
+                          <Box sx={{ position: 'absolute', left: 0, top: 0, bottom: 0, width: 3, bgcolor: statusColor, borderRadius: '2px 0 0 2px' }} />
+                        )}
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={0.4}>
+                          <Typography sx={{ fontSize: '0.7rem', fontWeight: 700, color: statusColor }}>
+                            {startTime.format('h:mm A')} – {endTime.format('h:mm A')}
+                          </Typography>
+                          {isCurrent && (
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                              <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0F9D58', animation: 'pulse 2s infinite' }} />
+                              <Typography sx={{ fontSize: '0.6rem', color: '#0F9D58', fontWeight: 700 }}>NOW</Typography>
+                            </Box>
+                          )}
+                        </Stack>
+                        <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#202124', lineHeight: 1.2, mb: 0.2 }} noWrap>
+                          {evt.extendedProps?.patient ?? evt.title}
+                        </Typography>
+                        {evt.extendedProps?.clinician && (
+                          <Typography sx={{ fontSize: '0.68rem', color: '#5F6368', fontWeight: 500 }} noWrap>
+                            {evt.extendedProps.clinician}
+                          </Typography>
+                        )}
+                        {evt.extendedProps?.service && (
+                          <Typography sx={{ fontSize: '0.65rem', color: '#9AA0A6', mt: 0.3 }} noWrap>
+                            {evt.extendedProps.service}
+                          </Typography>
+                        )}
+                        <Box sx={{ mt: 0.5, display: 'inline-block', bgcolor: statusColor + '18', borderRadius: 0.75, px: 0.6, py: '1px' }}>
+                          <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: statusColor, textTransform: 'capitalize' }}>
+                            {status.replace('_', ' ')}
+                          </Typography>
+                        </Box>
+                      </Box>
+                    )
+                  })
+                )}
+              </Box>
+
+              {/* Footer */}
+              <Box sx={{ px: 2, py: 1.25, borderTop: '1px solid #F1F3F4' }}>
+                <Button fullWidth size="small" variant="text"
+                  onClick={() => navigate('/appointments')}
+                  endIcon={<ChevronRightRoundedIcon sx={{ fontSize: '0.9rem' }} />}
+                  sx={{ textTransform: 'none', fontSize: '0.75rem', fontWeight: 700, color: '#006D77', '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
+                >
+                  View All Appointments
+                </Button>
+              </Box>
+            </Box>
+          </Collapse>
+        </Box>
+      )}
 
       {/* ── Event detail Popover ─────────────────────────────────────────── */}
       {popoverEvent && (
@@ -784,6 +1077,21 @@ export default function CalendarPage() {
           </Box>
         </Box>
       )}
+
+      {/* ── SUG-CAL-010: Mobile FAB for New Booking ───────────────────────── */}
+      <Fab
+        aria-label="New Booking"
+        onClick={() => navigate('/appointments/new')}
+        sx={{
+          display: { xs: 'flex', sm: 'none' },
+          position: 'fixed', bottom: 24, right: 24, zIndex: 1200,
+          background: 'linear-gradient(135deg, #00858F 0%, #006D77 100%)',
+          boxShadow: '0 4px 14px rgba(0,109,119,0.40)',
+          '&:hover': { background: 'linear-gradient(135deg, #006D77 0%, #005A62 100%)' },
+        }}
+      >
+        <AddRoundedIcon sx={{ color: '#fff' }} />
+      </Fab>
     </Box>
   )
 }

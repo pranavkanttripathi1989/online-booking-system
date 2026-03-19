@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { useApolloClient } from '@apollo/client'
 import {
@@ -12,6 +13,8 @@ import {
 } from '@mui/icons-material'
 
 import { useAuth } from '../../context/AuthContext'
+import * as MockStore from '../../mocks/store'
+
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 export const DRAWER_WIDTH = 256
@@ -37,7 +40,7 @@ const NAV_SECTIONS = [
     items: [
       { label: 'Dashboard',     path: '/dashboard',        icon: <DashboardRounded />,    roles: null },
       { label: 'Calendar',      path: '/calendar',         icon: <CalendarMonthRounded />, roles: null },
-      { label: 'Appointments',  path: '/appointments',     icon: <EventNoteRounded />,     roles: null },
+      { label: 'Appointments',  path: '/appointments',     icon: <EventNoteRounded />,     roles: null, badgeDynamic: 'pending' },
       { label: 'New Booking',   path: '/appointments/new', icon: <PersonAddRounded />,     roles: null },
     ],
   },
@@ -57,6 +60,7 @@ const NAV_SECTIONS = [
       { label: 'Analytics',     path: '/analytics',        icon: <BarChartRounded />,           roles: ['admin', 'super_admin'] },
       { label: 'Staff',         path: '/staff',            icon: <BadgeRounded />,              roles: ['admin', 'super_admin'] },
       { label: 'Test Results',  path: '/test-results',     icon: <ScienceRounded />,            roles: ['admin', 'super_admin', 'clinician'] },
+      { label: 'My Availability', path: '/clinician/availability', icon: <AccessTimeRounded />,  roles: ['clinician'] },
     ],
   },
   {
@@ -76,7 +80,11 @@ function SidebarContent({ onClose }) {
 
   const handleLogout = () => { logout(client); navigate('/login', { replace: true }) }
 
+  // SUG-APPT-007: Dynamic pending appointment count for sidebar badge
+  const pendingCount = useMemo(() => MockStore.getAppointments({ status: 'pending' }).length, [])
+
   const isActive = (path) => {
+
     if (path === '/appointments' && pathname === '/appointments/new') return false
     return pathname === path || pathname.startsWith(path + '/')
   }
@@ -200,11 +208,16 @@ function SidebarContent({ onClose }) {
                           color: 'inherit',
                         }}
                       />
-                      {item.badge && (
-                        <Box sx={{ bgcolor: '#D93025', color: '#fff', borderRadius: '10px', px: 1, py: 0.2, fontSize: '0.6rem', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>
-                          {item.badge}
-                        </Box>
-                      )}
+                      {/* static badge or dynamic pending count (SUG-APPT-007) */}
+                      {(() => {
+                        const badgeVal = item.badge ?? (item.badgeDynamic === 'pending' ? (pendingCount > 0 ? pendingCount : null) : null)
+                        if (!badgeVal) return null
+                        return (
+                          <Box sx={{ bgcolor: '#F9AB00', color: '#000', borderRadius: '10px', px: 1, py: 0.2, fontSize: '0.6rem', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>
+                            {badgeVal}
+                          </Box>
+                        )
+                      })()}
                     </ListItemButton>
                   )
                 })}

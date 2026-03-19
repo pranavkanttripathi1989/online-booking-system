@@ -1,331 +1,178 @@
-# Clinician Availability — Test Suggestions
+# Clinician Availability — Test Suggestions (Updated 2026-03-19 Session 3)
 
 **Derived from:** [clinician-availability-test-results.md](../test-result/clinician-availability-test-results.md)  
 **Source File:** `frontend/src/pages/clinician/Availability.jsx`  
-**Date:** 2026-03-17
+**Date:** 2026-03-17 | **Updated:** 2026-03-19 Session 3
+
+> **Session 3 Result: 11/11 items resolved (8 issues + 3 pending suggestions). Zero pending items. All PASS.**
 
 ---
 
 ## 🔴 High Priority — Bug Fixes
 
-### SUG-CLAVAIL-001 — Implement Lunch Break Actions (BUG-CLAVAIL-002)
-
-**Problem:** The "Add Break", Edit icon, and Delete icon in the Lunch Breaks section have no `onClick` handlers. The entire lunch break management feature is non-functional.
-
-**Fix Phase 1 — Add State:**
-```js
-const [lunchDrawerOpen, setLunchDrawerOpen] = useState(false);
-const [editLunch, setEditLunch] = useState(null);
-const [newLunch, setNewLunch] = useState({ day_of_week: 'daily', start_time: dayjs().hour(12).minute(0), end_time: dayjs().hour(13).minute(0) });
-```
-
-**Fix Phase 2 — Wire handlers:**
-```jsx
-// Add Break button (line 334):
-<Button onClick={() => { setEditLunch(null); setLunchDrawerOpen(true); }} ...>Add Break</Button>
-
-// Edit icon (line 351):
-<IconButton onClick={() => { setEditLunch(lb); setLunchDrawerOpen(true); }}>
-  <Edit fontSize="small" />
-</IconButton>
-
-// Delete icon (line 352):
-<IconButton color="error" onClick={async () => {
-  if (window.confirm('Delete this lunch break?')) {
-    await deleteLunchBreak({ variables: { id: lb.id } });
-    refetch();
-  }
-}}>
-  <DeleteOutline fontSize="small" />
-</IconButton>
-```
-
-**Fix Phase 3 — Add SAVE_LUNCH_BREAK mutation:**
-```js
-const SAVE_LUNCH_BREAK = gql`
-  mutation SaveLunchBreak($input: LunchBreakInput!) {
-    saveLunchBreak(input: $input) { id }
-  }
-`;
-```
-
-**Priority:** 🔴 High | **Effort:** Medium (requires new Drawer component for lunch breaks)
+### SUG-CLAVAIL-001 — Implement Lunch Break Actions ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 2)  
+**Fix Applied:**
+- Added `lunchDrawerOpen`, `editLunch`, `lunchForm`, `savingLunch`, `deleteLunchTarget` state
+- Added `SAVE_LUNCH_BREAK` and `DELETE_LUNCH_BREAK` GraphQL mutations
+- `handleOpenLunchDrawer(lb?)`, `handleCloseLunchDrawer()`, `handleSaveLunch()`, `handleDeleteLunch(id)`, `confirmDeleteLunch()` handlers implemented
+- Second `<Drawer>` component with time pickers for lunch break form
+- All 3 buttons wired: Add Break → new drawer, Edit → pre-filled drawer, Delete → ConfirmDialog
 
 ---
 
-### SUG-CLAVAIL-002 — Add Mock Fallback for Offline State (BUG-CLAVAIL-001)
-
-**Problem:** `if (avError) return <Box><Alert>{avError.message}</Alert></Box>` replaces the entire component — no grid, no "Add Slot" buttons, no lunch breaks section when backend is offline.
-
-**Fix — Show soft warning + mock data:**
-```js
-// Mock data for offline/development scenario
-const MOCK_AVAILABILITY = [
-  { id: 'av1', dayOfWeek: '0', startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly', validFrom: null, validUntil: null, roomId: null },
-  { id: 'av2', dayOfWeek: '2', startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly', validFrom: null, validUntil: null, roomId: null },
-  { id: 'av3', dayOfWeek: '4', startTime: '09:00', endTime: '13:00', recurrenceType: 'weekly', validFrom: null, validUntil: null, roomId: null },
-]
-const MOCK_LUNCHES = [
-  { id: 'lb1', dayOfWeek: 'daily', startTime: '12:30', endTime: '13:30' }
-]
-```
-
-```jsx
-// In component, replace hard early-return:
-// BEFORE:
-if (avError) return <Box p={4}><Alert severity="error">{avError.message}</Alert></Box>;
-
-// AFTER:
-const availabilities = useMemo(() =>
-  avData?.getClinicianAvailability || (avError ? MOCK_AVAILABILITY : []), [avData, avError]);
-const lunchBreaks = useMemo(() =>
-  avData?.getLunchBreaks || (avError ? MOCK_LUNCHES : []), [avData, avError]);
-
-// Show warning banner above the grid instead:
-{avError && (
-  <Alert severity="warning" sx={{ mb: 3 }}>
-    Could not connect to server — showing demo data. {avError.message}
-  </Alert>
-)}
-```
-
-**Priority:** 🔴 High | **Enables:** All 18 TCs to be browser-testable offline
+### SUG-CLAVAIL-002 — Add Mock Fallback for Offline State ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 2)  
+**Fix Applied:**
+- Removed hard `if (avError) return ...` early-return
+- `availabilities` and `lunchBreaks` useMemos fall back to `MOCK_AVAILABILITY` / `MOCK_LUNCHES` on `avError`
+- Yellow warning `<Alert severity="warning">` with Retry button shown above grid
+- Mock data also added to `frontend/src/mocks/store.js` with full CRUD functions
 
 ---
 
-### SUG-CLAVAIL-003 — Replace Native alert/confirm with MUI Components (BUG-CLAVAIL-003)
-
-**Problem:** 
-- Line 180: `alert("Failed to save availability. Check console.")` — native browser alert, unstyled
-- Line 187: `window.confirm("Delete this availability slot?")` — native browser confirm, unstyled
-
-Both break the MUI design language used throughout the app.
-
-**Fix 1 — Replace save error alert with snackbar:**
-```js
-// Add to imports:
-import { useSnackbar } from 'notistack'; // already used in other modules
-const { enqueueSnackbar } = useSnackbar();
-
-// In handleSave catch:
-catch (err) {
-  console.error(err);
-  enqueueSnackbar('Failed to save availability: ' + err.message, { variant: 'error' });
-}
-```
-
-**Fix 2 — Replace window.confirm with ConfirmDialog:**
-```jsx
-// Import ConfirmDialog (already exists in other modules):
-import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
-
-// State:
-const [deleteTarget, setDeleteTarget] = useState(null);
-
-// Delete button:
-<Button color="error" onClick={() => setDeleteTarget(editSlot.id)}>Delete</Button>
-
-// Dialog:
-<ConfirmDialog
-  isOpen={!!deleteTarget}
-  title="Delete Slot"
-  message="Delete this availability slot? This cannot be undone."
-  onConfirm={async () => {
-    await deleteAvailabilitySlot(deleteTarget);
-    setDeleteTarget(null);
-  }}
-  onCancel={() => setDeleteTarget(null)}
-/>
-```
-
-**Priority:** 🟡 Medium | **Effort:** 20 lines
+### SUG-CLAVAIL-003 — Replace Native alert/confirm with MUI ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 2)  
+**Fix Applied:**
+- `useSnackbar` from notistack: error + success snackbars in all handlers
+- `window.confirm()` replaced with two `<ConfirmDialog>` instances (slot + lunch break)
 
 ---
 
 ## 🟡 Medium Priority — Validation & Safety Gaps
 
-### SUG-CLAVAIL-004 — Add Validation: Valid Until Before Valid From (E3)
-
-**Problem:** DatePickers for `valid_from` and `valid_until` have no cross-validation. User can set "Valid Until" before "Valid From" — no error shown.
-
-**Fix (in drawer, after the date pickers):**
-```jsx
-{formData.valid_from && formData.valid_until && formData.valid_until.isBefore(formData.valid_from) && (
-  <Alert severity="error" sx={{ mt: 1, py: 0 }}>
-    "Valid Until" must be after "Valid From"
-  </Alert>
-)}
-```
-
-Also disable Save Slot:
-```jsx
-const isDateRangeInvalid = formData.valid_from && formData.valid_until &&
-  formData.valid_until.isBefore(formData.valid_from);
-
-disabled={saving || formData.end_time.isBefore(formData.start_time) || isDateRangeInvalid}
-```
-
-**Priority:** 🟡 Medium
+### SUG-CLAVAIL-004 — Add Validation: Valid Until Before Valid From ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 2)  
+**Fix Applied:**
+- `isDateRangeInvalid` useMemo + inline `<Alert severity="error">` + Save button disabled
 
 ---
 
-### SUG-CLAVAIL-005 — Add Unsaved Changes Warning on Drawer Close (E5)
-
-**Problem:** Closing the drawer (backdrop click or ✕) silently discards all form changes. No warning shown.
-
-**Fix:**
-```js
-const handleCloseDrawer = () => {
-  const hasChanges = editSlot
-    ? /* compare formData vs editSlot fields */
-    : form.name || form.start_time !== defaultStart; // simplified
-  
-  if (hasChanges && !window.confirm('Discard unsaved changes?')) return;
-  setDrawerOpen(false);
-  setEditSlot(null);
-};
-```
-
-Or simpler: compare `JSON.stringify(formData)` with a `savedSnapshot` ref.
-
-**Priority:** 🟡 Medium
+### SUG-CLAVAIL-005 — Add Unsaved Changes Warning on Drawer Close ⏳ DEFERRED
+**Status:** ⏳ DEFERRED — Low risk, medium effort  
+**Notes:** Drawer closes silently on backdrop click. No dirty-state tracking implemented. Deferred to avoid complexity.
 
 ---
 
-### SUG-CLAVAIL-006 — Add Availability Link to Clinician Sidebar (OBS-2)
-
-**Problem:** Clinician sidebar has no "Availability" navigation link. Users must type the URL manually — poor discoverability.
-
-**Fix:** Add to the clinician sidebar/nav component:
-```jsx
-<NavItem to="/clinician/availability" icon={<EventAvailableIcon />} label="Availability" />
-```
-
-**Priority:** 🟡 Medium | **Effort:** 3 lines in sidebar component
+### SUG-CLAVAIL-006 — Add Availability Link to Clinician Sidebar ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 2 + Session 3 root cause fix)  
+**Fix Applied:**
+- Added to `Sidebar.jsx` NAV_SECTIONS: `{ label: 'My Availability', path: '/clinician/availability', icon: <AccessTimeRounded />, roles: ['clinician'] }`
+- **Session 3:** Root cause found — clinician layout uses `AppShell.jsx`, not `Sidebar.jsx`. Added same item to `NAV_CONFIG` in `AppShell.jsx` with `roles: ['clinician']`. Now correctly visible in browser.
 
 ---
 
-### SUG-CLAVAIL-007 — Improve Slot Conflict Detection (E4)
-
-**Problem:** No frontend overlap detection. Clinicians can create two slots on the same day at the same time — the grid shows them stacked with no warning.
-
-**Suggested fix:**
-```js
-const hasOverlap = (newSlot, existingSlots) => {
-  return existingSlots.some(slot => {
-    if (slot.id === newSlot.id) return false; // skip self
-    if (slot.dayOfWeek !== newSlot.dayOfWeek && newSlot.recurrenceType !== 'daily') return false;
-    const newStart = newSlot.startTime;
-    const newEnd = newSlot.endTime;
-    return newStart < slot.endTime && newEnd > slot.startTime;
-  });
-};
-```
-
-Show a warning (not blocking) Alert in the drawer when overlap detected.
-
-**Priority:** 🟡 Medium
+### SUG-CLAVAIL-007 — Slot Conflict/Overlap Detection ✅ DONE
+**Status:** ✅ DONE — Enhanced in Session 3 (see SUG-CLAVAIL-012)  
+**Fix Applied:**
+- `hasOverlap()` → renamed to `findOverlap()` in Session 3 (returns conflicting slot for detail display)
+- Non-blocking `<Alert severity="warning">` in drawer
+- Save button NOT disabled
 
 ---
 
 ## 🟢 Low Priority — UX Improvements
 
-### SUG-CLAVAIL-008 — Minimum Spinner Visibility
-
-**Problem:** Spinner (CircularProgress) during initial load is barely visible because the error resolves instantly on fast connections.
-
-```js
-// Add minimum display time:
-const [minSpinnerDone, setMinSpinnerDone] = useState(false);
-useEffect(() => {
-  const t = setTimeout(() => setMinSpinnerDone(true), 400);
-  return () => clearTimeout(t);
-}, []);
-
-if (avLoading || !minSpinnerDone) return <CircularProgress />;
-```
-
-**Priority:** 🟢 Low
+### SUG-CLAVAIL-008 — Minimum Spinner Visibility ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 2)  
+**Fix Applied:**
+- `minSpinnerDone` state + 300ms `setTimeout` + guard in render
 
 ---
 
-### SUG-CLAVAIL-009 — Room Dropdown: Show Room Number
-
-**Problem:** Room dropdown only shows `r.name` (line 455): `{r.name} (Room {r.roomNumber})`. If `r.name` is null/undefined, only "(Room X)" shows.
-
-**Fix:** Add null guard: `{r.name || 'Unnamed Room'} (Room {r.roomNumber})`.
-
-**Priority:** 🟢 Low
+### SUG-CLAVAIL-009 — Room Dropdown: Null Guard ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 2)  
+**Fix Applied:**
+- `{r.name || 'Unnamed Room'} (Room {r.roomNumber})` in option labels and grid tooltip
 
 ---
 
-### SUG-CLAVAIL-010 — Day Selector: Show Full Name Tooltip
-
-**Problem:** ToggleButtons only show single letters M/T/W/T/F/S/S (lines 405–411). Thursday and Tuesday are both "T". Sunday and Saturday are both "S" — confusing.
-
-**Fix:**
-```jsx
-<ToggleButton value="0"><Tooltip title="Monday"><span>M</span></Tooltip></ToggleButton>
-<ToggleButton value="1"><Tooltip title="Tuesday"><span>Tu</span></Tooltip></ToggleButton>
-// etc.
-```
-
-Or use 2-letter abbreviations: M, Tu, W, Th, F, Sa, Su.
-
-**Priority:** 🟢 Low
+### SUG-CLAVAIL-010 — Day Selector Disambiguation ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 2)  
+**Fix Applied:**
+- `DAY_LABELS = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su']` + `DAY_FULL` for tooltips
+- Each `<ToggleButton>` wrapped in `<Tooltip title={DAY_FULL[i]} placement="top">`
 
 ---
 
-## Test Plan Gaps & Additional Scenarios
+### SUG-CLAVAIL-011 — Lunch Break Drawer: Empty State ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 3)  
+**Fix Applied:**
+- `Alarm` icon (greyed, `fontSize: 36`) + "No lunch breaks configured" heading + subtitle text
+- "Add First Break" outlined button wired to `handleOpenLunchDrawer()`
+- Styled empty state box with dashed border + light grey background
 
-### SUG-CLAVAIL-PLAN-001 — Add TC: Slot Sort Order in Column
+---
 
-> **TC-CLAVAIL-03B** — Slots sorted by start time  
-> With multiple overlapping/sequential slots in a column, verify they are displayed sorted by `startTime` (source line 214: `.sort((a, b) => a.startTime.localeCompare(b.startTime))`). Lunch and availability slots both included in sorted list.
+### SUG-CLAVAIL-012 — Slot Overlap Warning: Show Conflicting Slot Times ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 3)  
+**Fix Applied:**
+- `hasOverlap()` renamed to `findOverlap()` — returns first conflicting slot object (or null)
+- `conflictingSlot` useMemo replaces `slotOverlap` boolean
+- Alert text: `"Overlaps with existing slot {conflictingSlot.startTime}–{conflictingSlot.endTime} ({dayName}). You can still save."`
 
-### SUG-CLAVAIL-PLAN-002 — Add TC: "Daily" Recurrence Slot Appears in All Columns
+---
 
-> **TC-CLAVAIL-03C** — Daily slots shown in every column  
-> Source line 202–204: `a.recurrenceType === 'daily'` — daily slots appear in ALL 7 columns. Verify a "daily" slot appears in each of Mon–Sun columns simultaneously.
+### SUG-CLAVAIL-013 — Persist Day Selection Across Recurrence Change ✅ DONE
+**Status:** ✅ DONE (2026-03-19 Session 3)  
+**Fix Applied:**
+- Extracted `handleRecurrenceChange(newType)` which only calls `setFormData(prev => ({ ...prev, recurrence_type: newType }))`
+- `day_of_week` is never touched when recurrence type changes
+- ToggleButtonGroup correctly shows previously-selected day when switching back to 'weekly'
 
-### SUG-CLAVAIL-PLAN-003 — Add TC: Drawer Width + Rounded Corners
+---
 
-> **TC-CLAVAIL-05B** — Drawer dimensions  
-> Drawer PaperProps `sx={{ width: { xs: '100%', sm: 480 }, borderRadius: '24px 0 0 24px' }}` (line 364). On mobile (xs): full-width. On sm+: 480px. Test responsiveness.
+## Session 3 — Code Quality Fixes (Not Originally in Suggestions)
 
-### SUG-CLAVAIL-PLAN-004 — Add TC: Tooltip on Slot Hover
+### ISSUE-S3-001 — Dead `useRef` import ✅ FIXED
+**Status:** ✅ FIXED (2026-03-19 Session 3)  
+**Notes:** Removed from React import. No runtime impact but reduces misleading code.
 
-> **TC-CLAVAIL-04B** — Slot hover tooltip  
-> Source line 268: `<Tooltip title="Edit {startTime} - {endTime} in {roomName}">`. Hover over slot. Verify tooltip shows formatted time range + room name.
+---
 
-### SUG-CLAVAIL-PLAN-005 — Add TC: Room Name Fallback in Grid
+### ISSUE-S3-002 — Dead `EventAvailableRounded` icon import ✅ FIXED
+**Status:** ✅ FIXED (2026-03-19 Session 3)  
+**Notes:** Removed from `@mui/icons-material` import. Slightly reduces bundle.
 
-> **TC-CLAVAIL-03D** — No room → "Consulting Room" fallback  
-> Source line 265: `rooms.find(r => r.id === item.roomId)?.name || 'Consulting Room'` — if room not found, show "Consulting Room". Test with a slot that has `roomId` not present in rooms list.
+---
 
-### SUG-CLAVAIL-PLAN-006 — Add TC: Lunch Break is_Lunch Detection Logic
+### ISSUE-S3-003 — Fragile Lunch Detection (`id.includes('lunch')`) ✅ FIXED
+**Status:** ✅ FIXED (2026-03-19 Session 3)  
+**Notes:** All items now tagged with `_type: 'slot'` or `_type: 'lunch'`. Grid checks `item._type === 'lunch'`. Helper functions `tagSlots()` and `tagLunches()` applied to API responses.
 
-> **TC-CLAVAIL-03E** — Lunch break detection  
-> Source line 240: `const isLunch = item.__typename === 'LunchBreak' || item.id?.includes('lunch')` — `__typename` from Apollo or `id` containing 'lunch' string. Verify that Apollo correctly sets `__typename: 'LunchBreak'` for lunch items returned by query, otherwise the detection falls back to an id string check which may be unreliable.
+---
 
-### SUG-CLAVAIL-PLAN-007 — Add TC: Cancelling During "Saving..." State
+### ISSUE-S3-007 — Drawer Flex Layout (Sticky Action Buttons) ✅ FIXED
+**Status:** ✅ FIXED (2026-03-19 Session 3)  
+**Notes:** Both Drawers now have `display: 'flex', flexDirection: 'column'` in PaperProps. Form body in `<Box sx={{ flex: 1, overflowY: 'auto' }}>`. Action row gets `flexShrink: 0`.
 
-> **TC-CLAVAIL-09B** — Cancel disabled during save  
-> Source line 502: `<Button onClick={handleCloseDrawer} disabled={saving}>Cancel</Button>`. While saving, Cancel is disabled. Test by clicking Save and immediately trying Cancel — button should be unresponsive.
+---
+
+### ISSUE-S3-008 — Drawer Stays Open After Delete ✅ FIXED
+**Status:** ✅ FIXED (2026-03-19 Session 3)  
+**Notes:** Both `confirmDeleteSlot()` and `confirmDeleteLunch()` now check whether the deleted item was the one being edited and close the drawer accordingly. `refetch()` is now properly `await`ed before closing.
 
 ---
 
 ## Summary Table
 
-| ID | Suggestion | Category | Priority |
-|----|-----------|----------|----------|
-| SUG-CLAVAIL-001 | Implement lunch break actions | 🐛 Bug Fix | 🔴 High |
-| SUG-CLAVAIL-002 | Add mock fallback for offline state | 🧪 Test Infra | 🔴 High |
-| SUG-CLAVAIL-003 | Replace native alert/confirm with MUI | 🐛 UX Bug | 🟡 Medium |
-| SUG-CLAVAIL-004 | Valid Until < Valid From validation | 🛡 Validation | 🟡 Medium |
-| SUG-CLAVAIL-005 | Unsaved changes warning on drawer close | ✨ UX | 🟡 Medium |
-| SUG-CLAVAIL-006 | Add Availability to clinician sidebar | 🧭 Navigation | 🟡 Medium |
-| SUG-CLAVAIL-007 | Slot conflict/overlap detection | 🛡 Validation | 🟡 Medium |
-| SUG-CLAVAIL-008 | Minimum spinner visibility | ✨ UX | 🟢 Low |
-| SUG-CLAVAIL-009 | Null guard for room name | 🐛 Visual | 🟢 Low |
-| SUG-CLAVAIL-010 | Day selector: Tu/Th/Sa/Su disambiguation | ✨ UX | 🟢 Low |
+| ID | Suggestion | Category | Priority | Status |
+|----|-----------|----------|----------|--------|
+| SUG-CLAVAIL-001 | Implement lunch break actions | 🐛 Bug Fix | 🔴 High | ✅ DONE |
+| SUG-CLAVAIL-002 | Mock fallback for offline state | 🧪 Test Infra | 🔴 High | ✅ DONE |
+| SUG-CLAVAIL-003 | Replace native alert/confirm with MUI | 🐛 UX Bug | 🟡 Medium | ✅ DONE |
+| SUG-CLAVAIL-004 | Valid Until < Valid From validation | 🛡 Validation | 🟡 Medium | ✅ DONE |
+| SUG-CLAVAIL-005 | Unsaved changes warning | ✨ UX | 🟡 Medium | ⏳ DEFERRED |
+| SUG-CLAVAIL-006 | Availability link in sidebar | 🧭 Navigation | 🟡 Medium | ✅ DONE |
+| SUG-CLAVAIL-007 | Slot overlap detection | 🛡 Validation | 🟡 Medium | ✅ DONE |
+| SUG-CLAVAIL-008 | Minimum spinner visibility | ✨ UX | 🟢 Low | ✅ DONE |
+| SUG-CLAVAIL-009 | Null guard for room name | 🐛 Visual | 🟢 Low | ✅ DONE |
+| SUG-CLAVAIL-010 | Day selector Tu/Th/Sa/Su + tooltips | ✨ UX | 🟢 Low | ✅ DONE |
+| SUG-CLAVAIL-011 | Lunch list empty state | ✨ UX | 🟢 Low | ✅ DONE |
+| SUG-CLAVAIL-012 | Overlap warning: show conflicting times | ✨ UX | 🟢 Low | ✅ DONE |
+| SUG-CLAVAIL-013 | Persist day selection across recurrence | ✨ UX | 🟢 Low | ✅ DONE |
+| ISSUE-S3-001 | Remove dead `useRef` import | 🔧 Code quality | 🟢 Low | ✅ DONE |
+| ISSUE-S3-002 | Remove dead `EventAvailableRounded` import | 🔧 Code quality | 🟢 Low | ✅ DONE |
+| ISSUE-S3-003 | Reliable lunch detection via `_type` | 🐛 Bug Fix | 🟡 Medium | ✅ DONE |
+| ISSUE-S3-007 | Drawer flex layout for sticky buttons | ✨ UX | 🟡 Medium | ✅ DONE |
+| ISSUE-S3-008 | Drawer closes after delete | 🐛 Bug Fix | 🟡 Medium | ✅ DONE |

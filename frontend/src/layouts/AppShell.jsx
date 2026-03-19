@@ -99,6 +99,7 @@ const NAV_CONFIG = [
   { label: 'Reviews',      path: '/reviews',              icon: <StarRoundedIcon />,         roles: ['admin','super_admin','manager'] },
   { label: 'Analytics',    path: '/analytics',            icon: <BarChartIcon />,            roles: ['admin','super_admin','manager'] },
   { label: 'Test Results', path: '/test-results',         icon: <ScienceRoundedIcon />,      roles: ['admin','super_admin','manager','clinician'] },
+  { label: 'My Availability', path: '/clinician/availability', icon: <EventAvailableIcon />,  roles: ['clinician'] },
   { label: 'Settings',     path: '/settings',             icon: <SettingsIcon />,            roles: 'all' },
 ]
 

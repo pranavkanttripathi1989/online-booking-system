@@ -40,8 +40,9 @@ import UpcomingRoundedIcon from '@mui/icons-material/UpcomingRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 
 import { APPOINTMENTS_QUERY, CLINICIANS_QUERY } from '../../graphql/queries'
-import { CANCEL_APPOINTMENT_MUTATION } from '../../graphql/mutations'
+import { CANCEL_APPOINTMENT_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations'
 import CancelDialog from '../../components/Appointments/CancelDialog'
+import Menu from '@mui/material/Menu'
 
 // ─── Mock Appointments — now from centralized store (35 records, plan-compliant)
 // BACKEND SWAP: remove these lines and use only apiRows from useQuery
@@ -134,6 +135,10 @@ export default function AppointmentsPage() {
   // SUG-APPT-002: Optimistic cancel — track locally-cancelled IDs
   const [optimisticCancelled, setOptimisticCancelled] = useState(new Set())
 
+  // SUG-APPT-005: Inline status change — track per-row overrides
+  const [statusOverrides, setStatusOverrides] = useState({}) // { [id]: newStatus }
+  const [statusMenuAnchor, setStatusMenuAnchor] = useState(null) // { el, rowId }
+
   // ── Build variables ───────────────────────────────────────────────────────
   const buildFilters = useCallback(() => {
     const f = {}
@@ -162,6 +167,9 @@ export default function AppointmentsPage() {
   // ── Mutations ─────────────────────────────────────────────────────────────
   const [cancelAppointment] = useMutation(CANCEL_APPOINTMENT_MUTATION, {
     onCompleted: () => { refetch(); setCancelOpen(false); setCancelId(null) },
+  })
+  const [updateAppointment] = useMutation(UPDATE_APPOINTMENT_MUTATION, {
+    onError: () => {} // silent — optimistic override already applied
   })
 
   // ── Handlers ──────────────────────────────────────────────────────────────
@@ -206,15 +214,19 @@ export default function AppointmentsPage() {
     setCancelId(null)
   }
 
-  // SUG-APPT-009: Export CSV
+  // SUG-APPT-005: Inline status change handler
+  const handleInlineStatusChange = (rowId, newStatus) => {
+    setStatusOverrides(prev => ({ ...prev, [rowId]: newStatus }))
+    setStatusMenuAnchor(null)
+    updateAppointment({ variables: { id: rowId, input: { status: newStatus } } })
+    enqueueSnackbar(`Status updated to "${STATUS_CFG[newStatus]?.label ?? newStatus}"`, { variant: 'success', autoHideDuration: 3000 })
+  }
+
+  // SUG-APPT-009: Export CSV — now with Room + Clinic columns (NEW-APPT-002)
   const handleExport = () => {
     try {
-      const displayRows = rows.map(r => ({
-        ...r,
-        status: optimisticCancelled.has(r.id) ? 'cancelled' : r.status,
-      }))
       const exportRows = [
-        ['ID', 'Patient', 'Email', 'Clinician', 'Service', 'Date & Time', 'Duration (min)', 'Status'],
+        ['ID', 'Patient', 'Email', 'Clinician', 'Service', 'Date & Time', 'Duration (min)', 'Status', 'Room', 'Clinic'],
         ...displayRows.map(r => [
           r.id,
           r.patient?.full_name ?? '',
@@ -224,6 +236,8 @@ export default function AppointmentsPage() {
           r.start_datetime ? dayjs(r.start_datetime).format('DD MMM YYYY HH:mm') : '',
           r.duration_minutes ?? '',
           r.status ?? '',
+          r.room?.name ?? '',
+          r.clinic?.name ?? '',
         ]),
       ]
       const csv = exportRows.map(row =>
@@ -236,7 +250,7 @@ export default function AppointmentsPage() {
       a.download = `appointments_${viewTab}_${dayjs().format('YYYY-MM-DD')}.csv`
       document.body.appendChild(a); a.click()
       document.body.removeChild(a); URL.revokeObjectURL(url)
-      enqueueSnackbar(`Exported ${displayRows.length} appointments as CSV`, { variant: 'success' })
+      enqueueSnackbar(`Exported ${displayRows.length} appointments as CSV (10 columns)`, { variant: 'success' })
     } catch {
       enqueueSnackbar('Export failed — please try again.', { variant: 'error' })
     }
@@ -244,10 +258,11 @@ export default function AppointmentsPage() {
 
   const apiRows  = data?.appointments?.data ?? []
 
-  // SUG-APPT-008: Compute tab-based date bounds
-  const today = dayjs().startOf('day')
-  const tabDateFrom = viewTab === 'upcoming' ? today.format('YYYY-MM-DD') : undefined
-  const tabDateTo   = viewTab === 'past'     ? today.subtract(1, 'day').format('YYYY-MM-DD') : undefined
+  // NEW-APPT-001 + NEW-APPT-003: Use current datetime (not start/end of day)
+  // so today's elapsed appointments appear in "Past" and not in no-man's land
+  const now = dayjs()
+  const tabDateFrom = viewTab === 'upcoming' ? now.format('YYYY-MM-DDTHH:mm') : undefined
+  const tabDateTo   = viewTab === 'past'     ? now.format('YYYY-MM-DDTHH:mm')  : undefined
 
   // Fall back to 35 plan-compliant mock rows when backend is offline
   const mockRows = useMemo(() => {
@@ -264,10 +279,14 @@ export default function AppointmentsPage() {
   const rows  = apiRows.length > 0 ? apiRows : mockRows
   const total = apiRows.length > 0 ? (data?.appointments?.paginatorInfo?.total ?? 0) : mockRows.length
 
-  // SUG-APPT-002: Apply optimistic cancellations to displayed rows
+  // SUG-APPT-002 + SUG-APPT-005: Apply optimistic cancellations and inline status overrides
   const displayRows = useMemo(() =>
-    rows.map(r => optimisticCancelled.has(r.id) ? { ...r, status: 'cancelled' } : r),
-    [rows, optimisticCancelled]
+    rows.map(r => {
+      if (optimisticCancelled.has(r.id)) return { ...r, status: 'cancelled' }
+      if (statusOverrides[r.id])         return { ...r, status: statusOverrides[r.id] }
+      return r
+    }),
+    [rows, optimisticCancelled, statusOverrides]
   )
 
   // Detect if any filter is active (for contextual empty state)
@@ -363,9 +382,46 @@ export default function AppointmentsPage() {
     {
       field: 'status',
       headerName: 'Status',
-      width: 130,
+      width: 145,
       sortable: false,
-      renderCell: ({ row }) => <StatusChip status={row.status} />,
+      // SUG-APPT-005: Inline status change — clicking chip opens a small context menu
+      renderCell: ({ row }) => (
+        <>
+          <Tooltip title="Click to change status"  placement="top">
+            <Box
+              component="span"
+              onClick={(e) => {
+                if (!['cancelled','completed','no_show'].includes(row.status))
+                  setStatusMenuAnchor({ el: e.currentTarget, rowId: row.id })
+              }}
+              sx={{ cursor: ['cancelled','completed','no_show'].includes(row.status) ? 'default' : 'pointer' }}
+            >
+              <StatusChip status={row.status} />
+            </Box>
+          </Tooltip>
+          <Menu
+            anchorEl={statusMenuAnchor?.rowId === row.id ? statusMenuAnchor.el : null}
+            open={statusMenuAnchor?.rowId === row.id}
+            onClose={() => setStatusMenuAnchor(null)}
+            transformOrigin={{ vertical: 'top', horizontal: 'left' }}
+            PaperProps={{ sx: { borderRadius: 2, boxShadow: 3, minWidth: 160 } }}
+          >
+            {['confirmed', 'pending', 'cancelled', 'completed', 'no_show']
+              .filter(s => s !== row.status)
+              .map(s => (
+                <MenuItem
+                  key={s}
+                  dense
+                  onClick={() => handleInlineStatusChange(row.id, s)}
+                  sx={{ gap: 1.5 }}
+                >
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: STATUS_CFG[s]?.dot, flexShrink: 0 }} />
+                  {STATUS_CFG[s]?.label ?? s}
+                </MenuItem>
+              ))}
+          </Menu>
+        </>
+      ),
     },
     {
       field: 'actions',
@@ -452,11 +508,11 @@ export default function AppointmentsPage() {
               onClick={() => navigate('/appointments/new')}
               sx={{
                 borderRadius: 2, px: 2.5,
-                background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-                boxShadow: '0 2px 8px rgba(26,115,232,0.30)',
+                background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
+                boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)',
-                  boxShadow: '0 4px 14px rgba(26,115,232,0.40)',
+                  background: 'linear-gradient(135deg, #005A62 0%, #006D77 100%)',
+                  boxShadow: '0 4px 14px rgba(0,109,119,0.45)',
                 },
               }}
             >
@@ -473,8 +529,8 @@ export default function AppointmentsPage() {
             sx={{
               px: 1,
               '& .MuiTab-root': { fontWeight: 700, textTransform: 'none', minHeight: 48, fontSize: '0.875rem', color: '#5F6368' },
-              '& .MuiTab-root.Mui-selected': { color: '#1A73E8' },
-              '& .MuiTabs-indicator': { bgcolor: '#1A73E8', height: 3, borderRadius: '3px 3px 0 0' },
+              '& .MuiTab-root.Mui-selected': { color: '#006D77' },
+              '& .MuiTabs-indicator': { bgcolor: '#006D77', height: 3, borderRadius: '3px 3px 0 0' },
             }}
           >
             <Tab value="upcoming" icon={<UpcomingRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Upcoming" />
@@ -505,7 +561,7 @@ export default function AppointmentsPage() {
                 onChange={(e) => setSearchDraft(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 onBlur={() => setSearch(searchDraft)}
-                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#1A73E8' } }}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#006D77' } }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
@@ -525,7 +581,7 @@ export default function AppointmentsPage() {
                 label="Status"
                 value={status}
                 onChange={(e) => { setStatus(e.target.value); setPaginationModel((p) => ({ ...p, page: 0 })) }}
-                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#1A73E8' } }}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#006D77' } }}
               >
                 {STATUS_OPTIONS.map((s) => (
                   <MenuItem key={s} value={s} sx={{ textTransform: 'capitalize' }}>
@@ -544,7 +600,7 @@ export default function AppointmentsPage() {
                 label="Clinician"
                 value={clinicianId}
                 onChange={(e) => { setClinicianId(e.target.value); setPaginationModel((p) => ({ ...p, page: 0 })) }}
-                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#1A73E8' } }}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#006D77' } }}
               >
                 <MenuItem value="">All Clinicians</MenuItem>
                 {clinicians.map((c) => (
