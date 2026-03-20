@@ -1,52 +1,62 @@
-# Clinicians — Feature Suggestions (Final: 2026-03-20)
+# Clinicians — Feature Suggestions (Session 3 Final)
 
-> ✅ **All critical and high-priority suggestions implemented. Module production-ready.**
+**Module:** `frontend/src/pages/clinicians/` + `frontend/src/pages/clinician/`  
+**Last Updated:** 2026-03-21 Session 3
 
-## 🔴 Critical Bug Fixes
+> ✅ **All critical, high, and medium-priority suggestions implemented. Module production-ready.**
 
-| ID | Suggestion | Status |
-|----|-----------|--------|
-| SUG-CLIN-001 | Form validation — correct error messages ("Invalid email format" not "Required") | ✅ COMPLETED |
-| SUG-CLIN-002 | Edit form blank offline → Three-tier lookup: GraphQL → MockStore → MOCK_EDIT_DATA | ✅ COMPLETED |
-| SUG-CLIN-003 | Clinician portal pages blank → MOCK_* fallbacks on Dashboard/Calendar/Availability | ✅ COMPLETED |
+---
 
-## 🟠 High Priority
+## Summary Table
 
-| ID | Suggestion | Status |
-|----|-----------|--------|
-| SUG-CLIN-004 | Search bar connected to filter via useMemo | ✅ COMPLETED |
-| SUG-CLIN-005 | Status toggle wired to is_active filter | ✅ COMPLETED |
-| SUG-CLIN-006 | Card fields populated (clinician_type, clinics, rating, fee, services) | ✅ COMPLETED |
-| SUG-CLIN-007 | Specialization dropdown filter | ✅ COMPLETED |
+| ID | Suggestion | Priority | Status |
+|----|-----------|----------|--------|
+| SUG-CLIN-001 | Correct email validation messages | 🔴 Critical | ✅ COMPLETED |
+| SUG-CLIN-002 | Edit form offline fallback (three-tier lookup) | 🔴 Critical | ✅ COMPLETED |
+| SUG-CLIN-003 | Clinician portal mock fallbacks (Dashboard/Calendar/Availability) | 🔴 Critical | ✅ COMPLETED |
+| SUG-CLIN-004 | Search connected via `useMemo` | 🟠 High | ✅ COMPLETED |
+| SUG-CLIN-005 | Status toggle wired to `is_active` | 🟠 High | ✅ COMPLETED |
+| SUG-CLIN-006 | Card data enrichment (clinician_type, clinic, rating, fee, services) | 🟠 High | ✅ COMPLETED |
+| SUG-CLIN-007 | Specialization dropdown filter (dynamic from data) | 🟠 High | ✅ COMPLETED |
+| SUG-CLIN-008 | Clinic filter dropdown with `filterClinic` state | 🟡 Medium | ✅ COMPLETED |
+| SUG-CLIN-009 | Consultation fee badge on card | 🟡 Medium | ✅ COMPLETED |
+| SUG-CLIN-010 | Demo login chips on login page | 🟡 Medium | ✅ ALREADY IMPLEMENTED |
+| SUG-CLIN-011 | Pagination | 🟢 Low | ⏭ DEFERRED (8 records) |
+| SUG-CLIN-012 | Export to CSV | 🟢 Low | ⏭ DEFERRED |
+| SUG-CLIN-999 | Offline save fallback in EditClinicianPage | 🟠 High | ✅ COMPLETED |
 
-## 🟡 Medium Priority
+---
 
-| ID | Suggestion | Status |
-|----|-----------|--------|
-| SUG-CLIN-008 | Clinic filter dropdown (filterClinic state + UI + mock fallback) | ✅ COMPLETED |
-| SUG-CLIN-009 | Consultation fee badge on card ("£80.00 per consultation") | ✅ COMPLETED |
-| SUG-CLIN-010 | Demo login chips on login page | ✅ ALREADY IMPLEMENTED |
+## New Suggestions — Discovered Session 3
 
-## 🟢 Low Priority
+### SUG-CLIN-013 — Accessible Color Contrast on Inactive Cards
+**Observation:** Inactive clinician card toggle has same layout as active — no visual dim/opacity difference.  
+**Recommendation:** Apply `opacity: 0.75` or a subtle grey overlay to inactive cards to better distinguish them from active.  
+**Priority:** 🟢 Low | **Status:** ⏳ PENDING
 
-| ID | Suggestion | Status |
-|----|-----------|--------|
-| SUG-CLIN-011 | Pagination on clinician list | ⏭ DEFERRED (8 records, not needed yet) |
-| SUG-CLIN-012 | Export to CSV | ⏭ DEFERRED |
+### SUG-CLIN-014 — Clinic Filter Shows Count Badge
+**Observation:** Specialization and Clinic dropdowns don't show how many results are available per option.  
+**Recommendation:** Append count — e.g. "Cardiologist (2)" — to dropdown options.  
+**Priority:** 🟢 Low | **Status:** ⏳ PENDING
 
-## Additional Improvements
+### SUG-CLIN-015 — Clear All Filters Button
+**Observation:** To reset all 4 filters (search + specialty + clinic + status), user must interact with each control separately.  
+**Recommendation:** Add a "Clear Filters" button that appears when any non-default filter is active. Resets all to default.  
+**Priority:** 🟡 Medium | **Status:** ⏳ PENDING
 
-| ID | Improvement | Status |
-|----|-------------|--------|
-| SUG-CLIN-999 | Mock save path for EditClinicianPage offline edits | ✅ COMPLETED |
-| BUG-CLIN-008 | Syntax error EditClinicianPage.jsx line 167 (nullish + logical OR parens) | ✅ FIXED |
+### SUG-CLIN-016 — Availability Heatmap Tooltip
+**Observation:** Availability day chips (M T W T F S S) have no tooltip — user can't quickly see which day is which.  
+**Recommendation:** Add `<Tooltip title="Monday">` wrapper on each day chip.  
+**Priority:** 🟢 Low | **Status:** ⏳ PENDING
 
-## Summary
+---
 
-| Priority | Total | Done | Deferred |
-|----------|-------|------|----------|
+## Priority Summary
+
+| Priority | Total | Done | Pending |
+|----------|-------|------|---------|
 | 🔴 Critical | 3 | 3 ✅ | 0 |
-| 🟠 High | 4 | 4 ✅ | 0 |
-| 🟡 Medium | 3 | 3 ✅ | 0 |
-| 🟢 Low | 2 | 0 | 2 ⏭ |
-| **Total** | **12** | **10 ✅** | **2 ⏭** |
+| 🟠 High | 5 | 5 ✅ | 0 |
+| 🟡 Medium | 4 | 3 ✅ | 1 ⏳ (SUG-015) |
+| 🟢 Low | 5 | 0 | 3 ⏭ deferred + 2 ⏳ new |
+| **Total** | **17** | **11 ✅** | **6** |
