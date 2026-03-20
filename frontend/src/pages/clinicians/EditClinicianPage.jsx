@@ -118,23 +118,36 @@ export default function EditClinicianPage() {
 
   const handleSubmit = () => {
     if (!validate()) return
-    updateClinician({
-      variables: {
-        id,
-        input: {
-          first_name: form.first_name, last_name: form.last_name,
-          email: form.email, phone: form.phone || undefined,
-          gender: form.gender || undefined, bio: form.bio || undefined,
-          consultation_fee: form.consultation_fee ? parseFloat(form.consultation_fee) : undefined,
-          clinician_type_id: form.clinician_type_id || undefined,
-          clinic_ids:  form.clinic_ids.length > 0  ? form.clinic_ids  : undefined,
-          service_ids: form.service_ids.length > 0 ? form.service_ids : undefined,
-          languages:   form.languages.length > 0   ? form.languages   : undefined,
-          is_active:   form.is_active,
-        }
+    const input = {
+      first_name: form.first_name, last_name: form.last_name,
+      email: form.email, phone: form.phone || undefined,
+      gender: form.gender || undefined, bio: form.bio || undefined,
+      consultation_fee: form.consultation_fee ? parseFloat(form.consultation_fee) : undefined,
+      clinician_type_id: form.clinician_type_id || undefined,
+      clinic_ids:  form.clinic_ids.length  > 0 ? form.clinic_ids  : undefined,
+      service_ids: form.service_ids.length > 0 ? form.service_ids : undefined,
+      languages:   form.languages.length   > 0 ? form.languages   : undefined,
+      is_active:   form.is_active,
+    }
+    updateClinician({ variables: { id, input } }).catch(() => {
+      // SUG-CLIN-999: offline mock fallback — backend unavailable, update MockStore directly
+      const mockResult = MockStore.updateClinician(id, {
+        first_name: form.first_name, last_name: form.last_name,
+        full_name: `${form.first_name} ${form.last_name}`.trim(),
+        email: form.email, phone: form.phone,
+        gender: form.gender, bio: form.bio,
+        consultation_fee: parseFloat(form.consultation_fee) || 0,
+        is_active: form.is_active,
+      })
+      if (mockResult) {
+        enqueueSnackbar('Clinician updated (offline mode)', { variant: 'success' })
+      } else {
+        enqueueSnackbar('Unable to save — clinician not found in mock store', { variant: 'warning' })
       }
+      navigate(`/clinicians/${id}`)
     })
   }
+
 
   return (
     <Box className="page-enter">
@@ -151,7 +164,7 @@ export default function EditClinicianPage() {
           </Box>
           <Box>
             <Typography variant="h5" fontWeight={800} color="#202124">
-              Edit — {(data?.clinician ?? mockClinicianRaw)?.full_name ?? `${form.first_name} ${form.last_name}`.trim() || 'Clinician'}
+              Edit — {((data?.clinician ?? mockClinicianRaw)?.full_name ?? `${form.first_name} ${form.last_name}`.trim()) || 'Clinician'}
             </Typography>
             <Typography variant="body2" color="text.secondary">Update clinician details</Typography>
           </Box>
