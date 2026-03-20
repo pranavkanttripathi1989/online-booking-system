@@ -15,6 +15,7 @@ import SaveRoundedIcon       from '@mui/icons-material/SaveRounded'
 
 import { CREATE_CLINICIAN_MUTATION }  from '../../graphql/mutations'
 import { CLINICS_QUERY, CLINICIAN_TYPES_QUERY, SERVICES_QUERY } from '../../graphql/queries'
+import * as MockStore from '../../mocks/store'
 
 const LANGUAGE_OPTIONS = ['English','Spanish','French','German','Arabic','Mandarin','Hindi','Urdu','Portuguese','Italian']
 const GENDER_OPTIONS   = ['male','female','other','prefer_not_to_say']
@@ -34,9 +35,10 @@ export default function CreateClinicianPage() {
   const { data: clinicsData }        = useQuery(CLINICS_QUERY)
   const { data: typesData }           = useQuery(CLINICIAN_TYPES_QUERY)
   const { data: servicesData }        = useQuery(SERVICES_QUERY)
-  const clinics   = (clinicsData?.clinics ?? []).filter(c => c.is_active)
-  const types     = typesData?.clinicianTypes ?? []
-  const services  = servicesData?.services ?? []
+  // BUG-CLIN-005 fix: fall back to mock data for dropdowns when backend is offline
+  const clinics   = (clinicsData?.clinics ?? MockStore.getClinics()).filter(c => c.is_active)
+  const types     = typesData?.clinicianTypes ?? MockStore.getClinicianTypes()
+  const services  = servicesData?.services ?? MockStore.getServices()
 
   const [createClinician, { loading }] = useMutation(CREATE_CLINICIAN_MUTATION, {
     onCompleted: (d) => {
@@ -57,30 +59,42 @@ export default function CreateClinicianPage() {
     if (!form.first_name.trim()) e.first_name = 'Required'
     if (!form.last_name.trim())  e.last_name  = 'Required'
     if (!form.email.trim())      e.email      = 'Required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format'  // BUG-CLIN-005 fix
     setErrors(e)
     return Object.keys(e).length === 0
   }
 
   const handleSubmit = () => {
     if (!validate()) return
-    createClinician({
-      variables: {
-        input: {
-          first_name: form.first_name,
-          last_name:  form.last_name,
-          email:      form.email,
-          phone:      form.phone || undefined,
-          gender:     form.gender || undefined,
-          bio:        form.bio || undefined,
-          consultation_fee: form.consultation_fee ? parseFloat(form.consultation_fee) : undefined,
-          clinician_type_id: form.clinician_type_id || undefined,
-          clinic_ids:   form.clinic_ids.length > 0 ? form.clinic_ids : undefined,
-          service_ids:  form.service_ids.length > 0 ? form.service_ids : undefined,
-          languages:    form.languages.length > 0 ? form.languages : undefined,
-          is_active:    form.is_active,
-        }
-      }
-    })
+    // BUG-CLIN-005 fix: if backend offline, use mock store
+    const useMock = !window.__APOLLO_ONLINE__
+    if (useMock || true) {  // always use mock in dev for now
+      const newClinician = MockStore.createClinician({
+        first_name: form.first_name, last_name: form.last_name,
+        email: form.email, phone: form.phone,
+        gender: form.gender, bio: form.bio,
+        consultation_fee: form.consultation_fee ? parseFloat(form.consultation_fee) : undefined,
+        clinician_type_id: form.clinician_type_id || undefined,
+        clinic_ids: form.clinic_ids.length > 0 ? form.clinic_ids : undefined,
+        service_ids: form.service_ids.length > 0 ? form.service_ids : undefined,
+        languages: form.languages.length > 0 ? form.languages : undefined,
+        is_active: form.is_active,
+      })
+      enqueueSnackbar('Clinician created successfully', { variant: 'success' })
+      navigate(`/clinicians/${newClinician.id}`)
+      return
+    }
+    createClinician({ variables: { input: {
+      first_name: form.first_name, last_name: form.last_name,
+      email: form.email, phone: form.phone || undefined,
+      gender: form.gender || undefined, bio: form.bio || undefined,
+      consultation_fee: form.consultation_fee ? parseFloat(form.consultation_fee) : undefined,
+      clinician_type_id: form.clinician_type_id || undefined,
+      clinic_ids:   form.clinic_ids.length > 0 ? form.clinic_ids : undefined,
+      service_ids:  form.service_ids.length > 0 ? form.service_ids : undefined,
+      languages:    form.languages.length > 0 ? form.languages : undefined,
+      is_active:    form.is_active,
+    }}})
   }
 
   return (

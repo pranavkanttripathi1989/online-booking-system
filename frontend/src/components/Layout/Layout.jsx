@@ -19,9 +19,14 @@ const TOP_NAV_HEIGHT = 60 // px (TopNav bar height)
 
 export default function Layout() {
   const [mobileOpen,  setMobileOpen]  = useState(false)
-  // Persist nav layout in localStorage — 'left' (default) or 'top'
+  // BUG-NAV-002 FIX: read 'medibook_nav_layout' first, fall back to legacy 'hs_nav_layout'
+  // so user preference persisted by AppShell is respected on first launch
   const [navLayout,   setNavLayout]   = useState(() => {
-    try { return localStorage.getItem('medibook_nav_layout') ?? 'left' } catch { return 'left' }
+    try {
+      return localStorage.getItem('medibook_nav_layout')
+          ?? localStorage.getItem('hs_nav_layout')
+          ?? 'left'
+    } catch { return 'left' }
   })
 
   // Shared state hoisted here so TopNav and Navbar can trigger the same panels

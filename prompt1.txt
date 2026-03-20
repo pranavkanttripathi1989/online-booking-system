@@ -1,14 +1,25 @@
-**Prompt: STRICT Frontend QA, Fix, Re-test & Optimization — Clinician Availability Module**
+**Prompt: STRICT Frontend QA, Fix, Re-test & Optimization clinician dashboard **
 
-You are required to perform a **complete, deterministic frontend QA and improvement cycle** on the clinician availability module.
+You are required to perform a **complete, deterministic frontend QA and improvement cycle** for the **[MODULE_NAME]** module.
 
 Follow every step exactly. Do not skip, reorder, or approximate any instruction.
 
 ---
 
+## CONFIGURATION (EDIT ONLY THIS SECTION)
+
+Replace the placeholders below before execution:
+
+* RESULTS_FILE: `clinicians-test-results.md`
+* TEST_PLAN_FILE: `clinicians-test-plan-done.md `
+* SUGGESTION_FILE: `clinicians-test-suggestion.md`
+* UPDATED_TEST_PLAN_FILE: `clinicians-test-plan-done.md`
+
+---
+
 ## STEP 1: Parse Input File
 
-* Read `clinician-availability-test-results.md`
+* Read **RESULTS_FILE**
 * Extract **all reported issues**
 * Create a structured list of issues before proceeding
 
@@ -40,6 +51,8 @@ Code-Level Explanation:
 Impacted Files:
 ```
 
+Rules:
+
 * Do not combine issues
 * Do not skip any issue
 
@@ -47,7 +60,7 @@ Impacted Files:
 
 ## STEP 3: Re-test Using Test Plan
 
-* Load `clinician-availability-test-plan.md`
+* Load **TEST_PLAN_FILE**
 * Execute **100% of test cases**
 * No skipping allowed
 
@@ -57,13 +70,12 @@ For each test case, validate:
 * UI states (loading, success, error)
 * API OR mock behavior
 * Error handling
-* Calendar/availability rendering
 
 ---
 
 ## STEP 4: Record Test Results
 
-Update `clinician-availability-test-results.md`
+Update **RESULTS_FILE**
 
 For **each test case**, use EXACT structure:
 
@@ -97,7 +109,7 @@ Rules:
 
 ## STEP 5: Implement Suggestions
 
-* Read `clinician-availability-test-suggestion.md`
+* Read **SUGGESTION_FILE**
 * Apply **all frontend-related suggestions**
 * Validate each implementation via testing
 
@@ -105,7 +117,7 @@ Rules:
 
 ## STEP 6: Update Suggestions File
 
-Modify `clinician-availability-test-suggestion.md`
+Modify **SUGGESTION_FILE**
 
 For each suggestion:
 
@@ -129,7 +141,7 @@ Additionally:
 
 ## STEP 7: Update Test Plan
 
-Modify `clinician-availability-test-plan.md`
+Modify **UPDATED_TEST_PLAN_FILE**
 
 You MUST:
 
@@ -150,12 +162,10 @@ Frontend MUST support mock mode.
 
 Requirements:
 
-* Create mock service layer for clinician availability
+* Create mock handling for:
 
-* Cover:
-
-  * Fetch availability
-  * Create/update/delete availability
+  * Fetch
+  * Create / Update / Delete
   * Error scenarios
 
 * Add toggle mechanism:
@@ -188,9 +198,9 @@ You MUST confirm:
 
 Provide ALL of the following:
 
-1. Updated `clinician-availability-test-results.md`
-2. Updated `clinician-availability-test-suggestion.md`
-3. Updated `clinician-availability-test-plan.md`
+1. Updated **RESULTS_FILE**
+2. Updated **SUGGESTION_FILE**
+3. Updated **UPDATED_TEST_PLAN_FILE**
 4. Fix Summary:
 
 ```

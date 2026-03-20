@@ -40,15 +40,21 @@ const MOCK_DASHBOARD = {
   total_clinicians: 12,            total_clinicians_change: 0,
   total_patients: 1483,            total_patients_change: 12.1,
   total_revenue_month: 28750,      total_revenue_month_change: 9.3,
-  volume_by_day: [
-    { date: 'Mon', confirmed_count: 14, cancelled_count: 2 },
-    { date: 'Tue', confirmed_count: 20, cancelled_count: 3 },
-    { date: 'Wed', confirmed_count: 17, cancelled_count: 1 },
-    { date: 'Thu', confirmed_count: 26, cancelled_count: 4 },
-    { date: 'Fri', confirmed_count: 22, cancelled_count: 3 },
-    { date: 'Sat', confirmed_count: 11, cancelled_count: 1 },
-    { date: 'Sun', confirmed_count:  6, cancelled_count: 0 },
-  ],
+  // 30 days of ISO-dated data so 7D/14D/30D toggle slices are meaningful
+  volume_by_day: (() => {
+    const today = new Date()
+    return Array.from({ length: 30 }, (_, i) => {
+      const d = new Date(today); d.setDate(today.getDate() - (29 - i))
+      const iso = d.toISOString().split('T')[0]
+      const dow = d.getDay() // 0=Sun,6=Sat
+      const isWeekend = dow === 0 || dow === 6
+      return {
+        date: iso,
+        confirmed_count: isWeekend ? Math.floor(Math.random() * 10) + 2 : Math.floor(Math.random() * 20) + 8,
+        cancelled_count: Math.floor(Math.random() * 4),
+      }
+    })
+  })(),
   bookings_by_service: [
     { name: 'Consultation', value: 38 }, { name: 'Blood Test', value: 22 },
     { name: 'MRI Scan', value: 15 },     { name: 'X-Ray', value: 12 }, { name: 'Other', value: 13 },
@@ -110,6 +116,7 @@ export default function DashboardPage() {
 
   const firstName = user?.name?.split(' ')[0] ?? 'there'
 
+  // SUG-DASH-004: each KPI card now has an href so clicking drills down
   const kpis = [
     {
       icon: CalendarMonthIcon,
@@ -117,6 +124,7 @@ export default function DashboardPage() {
       value: d?.total_appointments_today ?? null,
       trend: d?.total_appointments_today_change ?? null,
       color: '#006D77',
+      href: '/appointments',
     },
     {
       icon: MedicalServicesIcon,
@@ -124,6 +132,7 @@ export default function DashboardPage() {
       value: d?.total_clinicians ?? null,
       trend: d?.total_clinicians_change ?? null,
       color: '#0F9D58',
+      href: '/clinicians',
     },
     {
       icon: GroupIcon,
@@ -131,6 +140,7 @@ export default function DashboardPage() {
       value: d?.total_patients ?? null,
       trend: d?.total_patients_change ?? null,
       color: '#9334E6',
+      href: '/patients',
     },
     {
       icon: AttachMoneyIcon,
@@ -139,6 +149,7 @@ export default function DashboardPage() {
       trend: d?.total_revenue_month_change ?? null,
       color: '#FA7B17',
       prefix: '$',
+      href: '/finances',
     },
   ]
 
@@ -214,7 +225,19 @@ export default function DashboardPage() {
           <Grid item xs={6} sm={6} md={3} key={kpi.label}>
             {isLoading
               ? <KpiSkeleton />
-              : <KpiCard {...kpi} loading={false} />
+              : (
+                <Box
+                  onClick={() => kpi.href && navigate(kpi.href)}
+                  sx={{
+                    cursor: kpi.href ? 'pointer' : 'default',
+                    borderRadius: 3,
+                    transition: 'transform 0.15s, box-shadow 0.15s',
+                    '&:hover': kpi.href ? { transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(0,0,0,0.10)' } : {},
+                  }}
+                >
+                  <KpiCard {...kpi} loading={false} />
+                </Box>
+              )
             }
           </Grid>
         ))}

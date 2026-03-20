@@ -371,7 +371,7 @@ export default function DoctorProfile() {
               {selectedSlot && (
                 <Box sx={{ bgcolor: `${BRAND}0A`, border: `1px solid ${BRAND}30`, borderRadius: 2, p: 2 }}>
                 <Typography variant="body2" color={BRAND} gutterBottom fontWeight={600}>
-                  {selectedDate.format('MMM D, YYYY')} at {selectedSlot} — {appointmentType === 'inperson' ? 'In-Person' : 'Video'}
+                  {selectedDate.format('DD/MM/YYYY')} at {selectedSlot} — {appointmentType === 'inperson' ? 'In-Person' : 'Video'}
                 </Typography>
                 <Button
                   variant="contained"

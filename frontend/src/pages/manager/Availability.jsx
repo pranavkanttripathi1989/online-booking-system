@@ -12,6 +12,19 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
 
+// ─── Mock data fallbacks (BUG-MGR-002 FIX) ──────────────────────────────────
+
+const MOCK_CLINICIANS_AV = [
+  { id: 'clin-1', firstName: 'Dr. Sarah', lastName: 'Mitchell', isActive: true },
+  { id: 'clin-2', firstName: 'Dr. James', lastName: 'Okafor',   isActive: true },
+  { id: 'clin-3', firstName: 'Dr. Priya', lastName: 'Sharma',   isActive: true },
+]
+const MOCK_CLINICS_AV = [
+  { id: 'clinic-1', name: 'City Heart Clinic' },
+  { id: 'clinic-2', name: 'Central Medical Centre' },
+  { id: 'clinic-3', name: 'Family Health Hub' },
+]
+
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
@@ -226,8 +239,9 @@ export default function ManagerAvailability() {
   }
 
   const availabilities = data?.availabilities || []
-  const clinicians     = (data?.clinicians || []).filter(c => c.isActive)
-  const clinics        = data?.clinics || []
+  // BUG-MGR-002 FIX: fall back to mock data when GraphQL returns nothing
+  const clinicians     = ((data?.clinicians?.length ? data.clinicians : MOCK_CLINICIANS_AV)).filter(c => c.isActive)
+  const clinics        = data?.clinics?.length ? data.clinics : MOCK_CLINICS_AV
 
   if (loading && !data) {
     return (

@@ -1,53 +1,147 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
+import dayjs from 'dayjs';
 import {
-  Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Avatar,
+  Box, Grid, Typography, Card, CardContent, Stack, Button, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, TextField, InputAdornment,
+  IconButton, TableSortLabel, Tooltip, TablePagination, InputAdornment, TextField,
 } from '@mui/material';
-import { PatientAvatar, SearchField, StatusChip } from '../../components/shared';
-import SearchIcon from '@mui/icons-material/Search';
-import VisibilityIcon from '@mui/icons-material/Visibility';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import { useNavigate } from 'react-router-dom';
+import { PatientAvatar } from '../../components/shared';
+import SearchIcon         from '@mui/icons-material/Search';
+import ClearIcon          from '@mui/icons-material/Clear';
+import VisibilityIcon     from '@mui/icons-material/Visibility';
+import CalendarMonthIcon  from '@mui/icons-material/CalendarMonth';
+import PersonSearchIcon   from '@mui/icons-material/PersonSearch';
+import { useNavigate }    from 'react-router-dom';
 
-const PATIENTS = [
-  { id: 1, name: 'Emma Wilson',  dob: '1990-04-12', email: 'emma@email.com',  lastVisit: '2026-03-05', totalVisits: 6, nextAppt: '2026-03-20', condition: 'Hypertension', status: 'active' },
-  { id: 2, name: 'Omar Hassan',  dob: '1982-11-28', email: 'omar@email.com',  lastVisit: '2026-02-18', totalVisits: 3, nextAppt: null,          condition: 'Arrhythmia',  status: 'active' },
-  { id: 3, name: 'Lily Chen',    dob: '2001-06-15', email: 'lily@email.com',  lastVisit: '2026-03-01', totalVisits: 1, nextAppt: null,          condition: '—',           status: 'new'    },
-  { id: 4, name: 'James Brown',  dob: '1975-03-22', email: 'james@mail.com',  lastVisit: '2026-01-14', totalVisits: 8, nextAppt: '2026-03-25', condition: 'Cholesterol', status: 'active' },
-  { id: 5, name: 'Sophie Müller',dob: '1988-09-01', email: 'sophie@mail.com', lastVisit: '2025-12-10', totalVisits: 2, nextAppt: null,          condition: '—',           status: 'inactive' },
+// ─── Mock Patients ─────────────────────────────────────────────────────────────
+// Named export so booking wizard can import for pre-fill lookup (SUG-CLPAT-011)
+export const MOCK_PATIENTS = [
+  { id: 'pt-1', name: 'Alice Thompson',  dob: '1985-03-12', email: 'alice.thompson@gmail.com',       lastVisit: '2026-03-05', totalVisits: 6, nextAppt: '2026-03-20', condition: 'Hypertension', status: 'active'   },
+  { id: 'pt-2', name: 'Marcus Chen',     dob: '1990-07-25', email: 'marcus.chen@outlook.com',        lastVisit: '2026-02-18', totalVisits: 3, nextAppt: null,          condition: 'Asthma',       status: 'active'   },
+  { id: 'pt-3', name: 'Fatima Al-Hassan',dob: '1978-11-04', email: 'fatima.alhassan@email.com',      lastVisit: '2026-03-01', totalVisits: 1, nextAppt: null,          condition: 'Diabetes',     status: 'new'      },
+  { id: 'pt-4', name: 'George Williams', dob: '1962-05-18', email: 'george.williams@btinternet.com', lastVisit: '2026-01-14', totalVisits: 8, nextAppt: '2026-03-25', condition: 'Cholesterol',  status: 'active'   },
+  { id: 'pt-5', name: 'Sophie Turner',   dob: '1995-09-30', email: 'sophie.turner@gmail.com',        lastVisit: '2025-12-10', totalVisits: 2, nextAppt: null,          condition: '—',            status: 'inactive' },
 ];
 
+// ─── Constants ────────────────────────────────────────────────────────────────
+const STITCH_BRAND = '#006D77';
+
+const FILTERS = ['all', 'active', 'new', 'inactive'];
+const FILTER_LABELS = { all: 'All', active: 'Active', new: 'New', inactive: 'Inactive' };
+
+const COLS = [
+  { key: 'name',        label: 'Patient',          sortable: true  },
+  { key: 'dob',         label: 'Date of Birth',    sortable: true  },
+  { key: 'condition',   label: 'Condition',        sortable: false },
+  { key: 'lastVisit',   label: 'Last Visit',       sortable: true  },
+  { key: 'nextAppt',    label: 'Next Appointment', sortable: true  },
+  { key: 'totalVisits', label: 'Total Visits',     sortable: true  },
+  { key: 'status',      label: 'Status',           sortable: true  },
+  { key: 'actions',     label: 'Actions',          sortable: false },
+];
+
+// ─── Status colours ────────────────────────────────────────────────────────────
+const getStatusStyle = (status) => ({
+  bgcolor:       status === 'active' ? '#D1FAE5' : status === 'new' ? '#DBEAFE' : '#F3F4F6',
+  color:         status === 'active' ? '#065F46' : status === 'new' ? '#1E40AF' : '#6B7280',
+  fontWeight:    700,
+  textTransform: 'capitalize',
+});
+
+// ─── Helpers ──────────────────────────────────────────────────────────────────
+// SUG-CLPAT-008: safe single-word name split
+const splitName = (fullName = '') => {
+  const [first = '', ...rest] = fullName.split(' ');
+  return { firstName: first, lastName: rest.join(' ') };
+};
+
+// SUG-CLPAT-010: Unicode normalization for diacritic-insensitive search
+const normalise = (str = '') =>
+  str.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+
+// Sort comparator (null/undefined → '' so nulls sort to start of asc)
+const compareBy = (key, dir) => (a, b) => {
+  const av = a[key] ?? '';
+  const bv = b[key] ?? '';
+  if (av < bv) return dir === 'asc' ? -1 : 1;
+  if (av > bv) return dir === 'asc' ?  1 : -1;
+  return 0;
+};
+
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function ClinicianPatients() {
   const navigate = useNavigate();
-  const [search, setSearch] = useState('');
-  const [filter, setFilter] = useState('all');
 
-  const filtered = PATIENTS.filter((p) => {
-    const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.email.toLowerCase().includes(search.toLowerCase());
-    const matchFilter = filter === 'all' || p.status === filter;
-    return matchSearch && matchFilter;
-  });
+  // ── State ──────────────────────────────────────────────────────────────────
+  const [search,   setSearch]   = useState('');
+  const [filter,   setFilter]   = useState('all');
+  const [sortKey,  setSortKey]  = useState('name');
+  const [sortDir,  setSortDir]  = useState('asc');
+  // SUG-CLPAT-012: pagination
+  const [page,     setPage]     = useState(0);
+  const [rowsPerPage, setRowsPerPage] = useState(5);
 
+  // ── Sort handler ───────────────────────────────────────────────────────────
+  const handleSort = (key) => {
+    setSortDir(prev => (sortKey === key && prev === 'asc') ? 'desc' : 'asc');
+    setSortKey(key);
+    setPage(0); // reset to first page on sort change
+  };
+
+  // ── Filter chip counts (always based on full MOCK list) ───────────────────
+  const countOf = (status) =>
+    status === 'all' ? MOCK_PATIENTS.length : MOCK_PATIENTS.filter(p => p.status === status).length;
+
+  // ── Filtered + sorted + paginated list ────────────────────────────────────
+  const filtered = useMemo(() => {
+    const q = normalise(search); // SUG-010: normalise query too
+    return MOCK_PATIENTS
+      .filter(p => {
+        const matchSearch =
+          !search ||
+          normalise(p.name  ?? '').includes(q) ||  // SUG-010: diacritic-safe
+          normalise(p.email ?? '').includes(q);     // SUG-002: null guard
+        const matchFilter = filter === 'all' || p.status === filter;
+        return matchSearch && matchFilter;
+      })
+      .sort(compareBy(sortKey, sortDir));
+  }, [search, filter, sortKey, sortDir]);
+
+  // Paginated slice
+  const paginated = rowsPerPage === -1
+    ? filtered
+    : filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+
+  // Reset to page 0 whenever filter/search changes
+  const handleFilterChange = (f) => { setFilter(f); setPage(0); };
+  const handleSearchChange = (val) => { setSearch(val); setPage(0); };
+
+  // ── KPI calculations ───────────────────────────────────────────────────────
+  const kpis = [
+    { label: 'Total Patients', value: MOCK_PATIENTS.length,                                    color: STITCH_BRAND },
+    { label: 'Active',         value: MOCK_PATIENTS.filter(p => p.status === 'active').length, color: '#2DC653'    },
+    { label: 'New This Month', value: MOCK_PATIENTS.filter(p => p.status === 'new').length,    color: '#3A86FF'    },
+    { label: 'Upcoming Appts', value: MOCK_PATIENTS.filter(p => p.nextAppt).length,            color: '#E29578'    },
+  ];
+
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <Box>
+      {/* HEADER */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h2" fontWeight={700}>My Patients</Typography>
-          <Typography variant="body2" color="text.secondary">{PATIENTS.length} patients · {PATIENTS.filter((p) => p.nextAppt).length} with upcoming appointments</Typography>
+          <Typography variant="body2" color="text.secondary">
+            {MOCK_PATIENTS.length} patients · {MOCK_PATIENTS.filter(p => p.nextAppt).length} with upcoming appointments
+          </Typography>
         </Box>
       </Stack>
 
-      {/* Quick stats */}
+      {/* KPI CARDS */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        {[
-          { label: 'Total Patients',  value: PATIENTS.length,                                        color: '#006D77' },
-          { label: 'Active',          value: PATIENTS.filter((p) => p.status === 'active').length,   color: '#2DC653' },
-          { label: 'New This Month',  value: PATIENTS.filter((p) => p.status === 'new').length,      color: '#3A86FF' },
-          { label: 'Upcoming Appts',  value: PATIENTS.filter((p) => p.nextAppt).length,              color: '#E29578' },
-        ].map(({ label, value, color }) => (
+        {kpis.map(({ label, value, color }) => (
           <Grid item xs={6} sm={3} key={label}>
-            <Card sx={{ borderTop: `4px solid ${color}` }}>
+            <Card sx={{ borderTop: `4px solid ${color}`, height: '100%' }}>
               <CardContent sx={{ p: 2 }}>
                 <Typography variant="h3" fontWeight={800} sx={{ color }}>{value}</Typography>
                 <Typography variant="body2" color="text.secondary">{label}</Typography>
@@ -57,83 +151,222 @@ export default function ClinicianPatients() {
         ))}
       </Grid>
 
-      {/* Filters */}
-      <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center">
-        <SearchField value={search} onChange={setSearch} placeholder="Search by name or email..." sx={{ width: 280 }} />
-        <Stack direction="row" spacing={1}>
-          {['all', 'active', 'new', 'inactive'].map((f) => (
-            <Chip key={f} label={f.charAt(0).toUpperCase() + f.slice(1)} onClick={() => setFilter(f)} color={filter === f ? 'primary' : 'default'} variant={filter === f ? 'filled' : 'outlined'} sx={{ cursor: 'pointer' }} />
+      {/* FILTERS */}
+      <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap" gap={1}>
+        {/* Search field — inline with clear button */}
+        <TextField
+          size="small"
+          value={search}
+          onChange={e => handleSearchChange(e.target.value)}
+          placeholder="Search by name or email…"
+          sx={{ width: 280 }}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon sx={{ fontSize: 18, color: 'text.disabled' }} />
+              </InputAdornment>
+            ),
+            endAdornment: search ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => handleSearchChange('')} edge="end" aria-label="Clear search">
+                  <ClearIcon sx={{ fontSize: 16 }} />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }}
+        />
+
+        {/* Filter chips with count badges */}
+        <Stack direction="row" spacing={1} flexWrap="wrap">
+          {FILTERS.map(f => (
+            <Chip
+              key={f}
+              label={`${FILTER_LABELS[f]} (${countOf(f)})`}
+              onClick={() => handleFilterChange(f)}
+              color={filter === f ? 'primary' : 'default'}
+              variant={filter === f ? 'filled' : 'outlined'}
+              sx={{ cursor: 'pointer', fontWeight: filter === f ? 700 : 400 }}
+            />
           ))}
         </Stack>
+
+        {/* Results count badge */}
+        <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+          {filtered.length === MOCK_PATIENTS.length
+            ? `${filtered.length} patients`
+            : `${filtered.length} of ${MOCK_PATIENTS.length} patients`}
+        </Typography>
       </Stack>
 
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ border: '1px solid #D0E8EA' }}>
-        <Table>
-          <TableHead>
+      {/* TABLE */}
+      <TableContainer component={Paper} sx={{ border: '1px solid #D0E8EA', borderRadius: 2 }}>
+        <Table size="small">
+          <TableHead sx={{ bgcolor: '#F8FCFC' }}>
             <TableRow>
-              <TableCell>Patient</TableCell>
-              <TableCell>Date of Birth</TableCell>
-              <TableCell>Condition</TableCell>
-              <TableCell>Last Visit</TableCell>
-              <TableCell>Next Appointment</TableCell>
-              <TableCell>Total Visits</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell>Actions</TableCell>
+              {COLS.map(({ key, label, sortable }) => (
+                <TableCell key={key} sx={{ fontWeight: 700, borderBottom: '2px solid #D0E8EA', py: 1.5 }}>
+                  {sortable ? (
+                    <TableSortLabel
+                      active={sortKey === key}
+                      direction={sortKey === key ? sortDir : 'asc'}
+                      onClick={() => handleSort(key)}
+                    >
+                      {label}
+                    </TableSortLabel>
+                  ) : label}
+                </TableCell>
+              ))}
             </TableRow>
           </TableHead>
+
           <TableBody>
-            {filtered.map((patient) => (
-              <TableRow key={patient.id} hover>
-                <TableCell>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <PatientAvatar firstName={patient.name.split(' ')[0]} lastName={patient.name.split(' ')[1]} email={patient.email} size="sm" />
-                    <Box>
-                      <Typography variant="body2" fontWeight={600}>{patient.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{patient.email}</Typography>
-                    </Box>
-                  </Stack>
-                </TableCell>
-                <TableCell><Typography variant="body2">{patient.dob}</Typography></TableCell>
-                <TableCell>
-                  {patient.condition !== '—'
-                    ? <Chip label={patient.condition} size="small" color="warning" variant="outlined" />
-                    : <Typography variant="body2" color="text.secondary">—</Typography>}
-                </TableCell>
-                <TableCell><Typography variant="body2">{patient.lastVisit}</Typography></TableCell>
-                <TableCell>
-                  {patient.nextAppt
-                    ? <Stack direction="row" alignItems="center" spacing={0.5}><CalendarMonthIcon sx={{ fontSize: 14, color: '#2DC653' }} /><Typography variant="body2" sx={{ color: '#2DC653', fontWeight: 600 }}>{patient.nextAppt}</Typography></Stack>
-                    : <Typography variant="body2" color="text.secondary">None</Typography>}
-                </TableCell>
-                <TableCell>
-                  <Chip label={patient.totalVisits} size="small" sx={{ bgcolor: '#E8F8F9', fontWeight: 700 }} />
-                </TableCell>
-                <TableCell>
-                  <Chip
-                    label={patient.status}
-                    size="small"
-                    sx={{
-                      bgcolor: patient.status === 'active' ? '#D1FAE5' : patient.status === 'new' ? '#DBEAFE' : '#F3F4F6',
-                      color:   patient.status === 'active' ? '#065F46' : patient.status === 'new' ? '#1E40AF' : '#6B7280',
-                      fontWeight: 700, textTransform: 'capitalize',
-                    }}
-                  />
-                </TableCell>
-                <TableCell>
-                  <Stack direction="row" spacing={0.5}>
-                    <IconButton size="small" onClick={() => navigate(`/patients/${patient.id}`)} aria-label={`View ${patient.name}'s details`}>
-                      <VisibilityIcon fontSize="small" />
-                    </IconButton>
-                    <IconButton size="small" onClick={() => navigate('/appointments/book')} aria-label={`Book appointment for ${patient.name}`}>
-                      <CalendarMonthIcon fontSize="small" />
-                    </IconButton>
+            {/* Empty state */}
+            {filtered.length === 0 ? (
+              <TableRow>
+                <TableCell colSpan={8} align="center" sx={{ py: 7 }}>
+                  <Stack spacing={1.5} alignItems="center">
+                    <PersonSearchIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
+                    <Typography variant="body1" fontWeight={600} color="text.secondary">
+                      No patients found
+                    </Typography>
+                    <Typography variant="body2" color="text.disabled">
+                      {search
+                        ? `No results for "${search}". Try a different name or email.`
+                        : `No patients match the "${FILTER_LABELS[filter]}" filter.`}
+                    </Typography>
+                    {(search || filter !== 'all') && (
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => { handleSearchChange(''); handleFilterChange('all'); }}
+                        sx={{ mt: 1, color: STITCH_BRAND, borderColor: STITCH_BRAND, borderRadius: 2 }}
+                      >
+                        Clear filters
+                      </Button>
+                    )}
                   </Stack>
                 </TableCell>
               </TableRow>
-            ))}
+            ) : (
+              paginated.map(patient => {
+                const { firstName, lastName } = splitName(patient.name); // SUG-008
+                return (
+                  <TableRow
+                    key={patient.id}
+                    hover
+                    sx={{ '&:last-child td': { borderBottom: 0 } }}
+                  >
+                    {/* Patient */}
+                    <TableCell>
+                      <Stack direction="row" spacing={1.5} alignItems="center">
+                        <PatientAvatar firstName={firstName} lastName={lastName} email={patient.email} size="sm" />
+                        <Box>
+                          <Typography variant="body2" fontWeight={600}>{patient.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {patient.email ?? '—'}
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </TableCell>
+
+                    {/* DOB */}
+                    <TableCell>
+                      <Typography variant="body2">
+                        {patient.dob ? dayjs(patient.dob).format('DD/MM/YYYY') : '—'}
+                      </Typography>
+                    </TableCell>
+
+                    {/* Condition */}
+                    <TableCell>
+                      {patient.condition && patient.condition !== '—'
+                        ? <Chip label={patient.condition} size="small" color="warning" variant="outlined" />
+                        : <Typography variant="body2" color="text.secondary">—</Typography>}
+                    </TableCell>
+
+                    {/* Last Visit */}
+                    <TableCell>
+                      <Typography variant="body2">
+                        {patient.lastVisit ? dayjs(patient.lastVisit).format('DD/MM/YYYY') : '—'}
+                      </Typography>
+                    </TableCell>
+
+                    {/* Next Appointment */}
+                    <TableCell>
+                      {patient.nextAppt
+                        ? (
+                          <Stack direction="row" alignItems="center" spacing={0.5}>
+                            <CalendarMonthIcon sx={{ fontSize: 14, color: '#2DC653' }} />
+                            <Typography variant="body2" sx={{ color: '#2DC653', fontWeight: 600 }}>
+                              {dayjs(patient.nextAppt).format('DD/MM/YYYY')}
+                            </Typography>
+                          </Stack>
+                        )
+                        : <Typography variant="body2" color="text.secondary">None</Typography>}
+                    </TableCell>
+
+                    {/* Total Visits */}
+                    <TableCell>
+                      <Chip
+                        label={patient.totalVisits}
+                        size="small"
+                        sx={{ bgcolor: '#E8F8F9', fontWeight: 700, color: STITCH_BRAND }}
+                      />
+                    </TableCell>
+
+                    {/* Status */}
+                    <TableCell>
+                      <Chip label={patient.status} size="small" sx={getStatusStyle(patient.status)} />
+                    </TableCell>
+
+                    {/* Actions */}
+                    <TableCell>
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title={`View ${patient.name}'s profile`} placement="top">
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate(`/patients/${patient.id}`)}
+                            aria-label={`View ${patient.name}'s profile`}
+                            sx={{ color: STITCH_BRAND, '&:hover': { bgcolor: '#E8F8F9' } }}
+                          >
+                            <VisibilityIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+
+                        {/* SUG-CLPAT-003: pass patient context to booking wizard */}
+                        <Tooltip title={`Book appointment for ${patient.name}`} placement="top">
+                          <IconButton
+                            size="small"
+                            onClick={() => navigate('/appointments/book', {
+                              state: { patientId: patient.id, patientName: patient.name },
+                            })}
+                            aria-label={`Book appointment for ${patient.name}`}
+                            sx={{ color: '#3A86FF', '&:hover': { bgcolor: '#EFF6FF' } }}
+                          >
+                            <CalendarMonthIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    </TableCell>
+                  </TableRow>
+                );
+              })
+            )}
           </TableBody>
         </Table>
+
+        {/* SUG-CLPAT-012: Pagination */}
+        {filtered.length > 0 && (
+          <TablePagination
+            rowsPerPageOptions={[5, 10, 25, { label: 'All', value: -1 }]}
+            component="div"
+            count={filtered.length}
+            rowsPerPage={rowsPerPage}
+            page={page}
+            onPageChange={(_, newPage) => setPage(newPage)}
+            onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            sx={{ borderTop: '1px solid #E8EAED' }}
+          />
+        )}
       </TableContainer>
     </Box>
   );

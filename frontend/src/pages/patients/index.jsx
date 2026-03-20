@@ -270,7 +270,7 @@ export default function PatientsPage() {
                       <TableCell sx={{ fontSize: 13, color: '#5F6368', display: { xs: 'none', sm: 'table-cell' } }}>{p.email ?? '—'}</TableCell>
                       <TableCell sx={{ fontSize: 13, color: '#5F6368' }}>{p.phone ?? '—'}</TableCell>
                       <TableCell sx={{ fontSize: 13, color: '#5F6368', display: { xs: 'none', md: 'table-cell' } }}>
-                        {p.date_of_birth ? dayjs(p.date_of_birth).format('DD MMM YYYY') : '—'}
+                        {p.date_of_birth ? dayjs(p.date_of_birth).format('DD/MM/YYYY') : '—'}
                       </TableCell>
                       <TableCell>
                         {p.gender ? (

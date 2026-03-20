@@ -233,7 +233,7 @@ export default function AppointmentsPage() {
           r.patient?.email ?? '',
           r.clinician?.full_name ?? '',
           r.service?.name ?? '',
-          r.start_datetime ? dayjs(r.start_datetime).format('DD MMM YYYY HH:mm') : '',
+          r.start_datetime ? dayjs(r.start_datetime).format('DD MMM YYYY, h:mm A') : '',
           r.duration_minutes ?? '',
           r.status ?? '',
           r.room?.name ?? '',
@@ -368,7 +368,7 @@ export default function AppointmentsPage() {
       sortable: false,
       renderCell: ({ row }) =>
         row.start_datetime
-          ? dayjs(row.start_datetime).format('DD MMM YYYY, HH:mm')
+          ? dayjs(row.start_datetime).format('DD MMM YYYY, h:mm A')
           : '—',
     },
     {

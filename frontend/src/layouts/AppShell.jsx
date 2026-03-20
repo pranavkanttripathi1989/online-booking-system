@@ -64,6 +64,7 @@ import StarRoundedIcon          from '@mui/icons-material/StarRounded'
 import { useAuth } from '../context/AuthContext'
 import NotificationBell from '../components/shared/NotificationBell'
 import { useInactivityLogout } from '../hooks/useInactivityLogout'
+import * as MockStore from '../mocks/store'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DRAWER_WIDTH = 260
@@ -88,19 +89,30 @@ const TYPE_BG    = { patient: '#E6F4EA', clinician: '#F3E8FD', appointment: 'rgb
 
 // ─── Nav config — filtered by role ────────────────────────────────────────────
 const NAV_CONFIG = [
-  { label: 'Dashboard',    path: '/dashboard',            icon: <DashboardIcon />,          roles: 'all' },
-  { label: 'Appointments', path: '/appointments',         icon: <EventNoteIcon />,           roles: 'all' },
-  { label: 'Calendar',     path: '/calendar',             icon: <CalendarMonthIcon />,       roles: 'all' },
-  { label: 'Patients',     path: '/patients',             icon: <GroupIcon />,               roles: ['admin','super_admin','manager','clinician','receptionist'] },
-  { label: 'Clinicians',   path: '/clinicians',           icon: <PersonIcon />,              roles: ['admin','super_admin','manager','receptionist'] },
-  { label: 'Messages',     path: '/messages',             icon: <MessageIcon />,             roles: 'all', badge: 3 },
-  { label: 'Staff',        path: '/staff',                icon: <BadgeIcon />,               roles: ['admin','super_admin','manager'] },
-  { label: 'Finances',     path: '/finances',             icon: <AttachMoneyIcon />,         roles: ['admin','super_admin','manager'] },
-  { label: 'Reviews',      path: '/reviews',              icon: <StarRoundedIcon />,         roles: ['admin','super_admin','manager'] },
-  { label: 'Analytics',    path: '/analytics',            icon: <BarChartIcon />,            roles: ['admin','super_admin','manager'] },
-  { label: 'Test Results', path: '/test-results',         icon: <ScienceRoundedIcon />,      roles: ['admin','super_admin','manager','clinician'] },
-  { label: 'My Availability', path: '/clinician/availability', icon: <EventAvailableIcon />,  roles: ['clinician'] },
-  { label: 'Settings',     path: '/settings',             icon: <SettingsIcon />,            roles: 'all' },
+  // ── Dashboard: role-specific portals ──────────────────────────────────────
+  { label: 'My Dashboard',  path: '/clinician/dashboard',  icon: <DashboardIcon />,          roles: ['clinician'] },
+  { label: 'My Dashboard',  path: '/patient/dashboard',    icon: <DashboardIcon />,          roles: ['patient'] },
+  { label: 'Dashboard',     path: '/dashboard',            icon: <DashboardIcon />,          roles: ['admin','super_admin','receptionist','staff'] },
+  { label: 'Dashboard',     path: '/manager/dashboard',    icon: <DashboardIcon />,          roles: ['manager'] },
+  // ── Appointments: role-specific ───────────────────────────────────────────
+  { label: 'My Appointments', path: '/patient/appointments', icon: <EventNoteIcon />,        roles: ['patient'] },
+  { label: 'Appointments',  path: '/appointments',         icon: <EventNoteIcon />,          roles: ['admin','super_admin','manager','receptionist','staff','clinician'] },
+  // ── Calendar: role-specific ───────────────────────────────────────────────
+  { label: 'My Calendar',   path: '/clinician/calendar',   icon: <CalendarMonthIcon />,      roles: ['clinician'] },
+  { label: 'Calendar',      path: '/calendar',             icon: <CalendarMonthIcon />,      roles: ['admin','super_admin','manager','receptionist','staff'] },
+  // ── Patients ──────────────────────────────────────────────────────────────
+  { label: 'My Patients',   path: '/clinician/patients',   icon: <GroupIcon />,              roles: ['clinician'] },
+  { label: 'Patients',      path: '/patients',             icon: <GroupIcon />,              roles: ['admin','super_admin','manager','receptionist','staff'] },
+  { label: 'Clinicians',    path: '/clinicians',           icon: <PersonIcon />,             roles: ['admin','super_admin','manager','receptionist','staff'] },
+  // ── Shared ────────────────────────────────────────────────────────────────
+  { label: 'Messages',      path: '/messages',             icon: <MessageIcon />,            roles: 'all', badge: 0 },
+  { label: 'Staff',         path: '/staff',                icon: <BadgeIcon />,              roles: ['admin','super_admin','manager'] },
+  { label: 'Finances',      path: '/finances',             icon: <AttachMoneyIcon />,        roles: ['admin','super_admin','manager'] },
+  { label: 'Reviews',       path: '/reviews',              icon: <StarRoundedIcon />,        roles: ['admin','super_admin','manager'] },
+  { label: 'Analytics',     path: '/analytics',            icon: <BarChartIcon />,           roles: ['admin','super_admin','manager'] },
+  { label: 'Test Results',  path: '/test-results',         icon: <ScienceRoundedIcon />,     roles: ['admin','super_admin','manager','clinician'] },
+  { label: 'My Availability', path: '/clinician/availability', icon: <EventAvailableIcon />, roles: ['clinician'] },
+  { label: 'Settings',      path: '/settings',             icon: <SettingsIcon />,           roles: 'all' },
 ]
 
 const ADMIN_CHILDREN = [
@@ -116,6 +128,7 @@ const ADMIN_CHILDREN = [
 ]
 
 const MANAGER_CHILDREN = [
+  { label: 'Dashboard',    path: '/manager/dashboard', icon: <DashboardIcon /> },
   { label: 'Clinics',      path: '/manager/clinics',      icon: <BusinessIcon /> },
   { label: 'Availability', path: '/manager/availability', icon: <EventAvailableIcon /> },
   { label: 'Blocks',       path: '/manager/blocks',       icon: <BlockIcon /> },
@@ -493,6 +506,10 @@ export default function AppShell() {
   const [darkMode,         setDarkMode]          = useState(false)
   // SUG-AUTH-003: inactivity auto-logout warning
   const [warnSeconds,      setWarnSeconds]       = useState(null)
+  // BUG-MSG-001: live unread badge from MockStore
+  const [msgUnreadCount,   setMsgUnreadCount]    = useState(
+    () => MockStore.getStore().message_threads.filter(t => (t.unread_count ?? 0) > 0).length
+  )
 
   // Nav layout toggle (persisted)
   const [navLayout, setNavLayout] = useState(() => {
@@ -510,7 +527,11 @@ export default function AppShell() {
   const userRoles   = user?.roles?.map(r => r.name) || ['patient']
   const role        = userRoles[0]
   const roleCfg     = ROLE_COLORS[role] || ROLE_COLORS.patient
-  const navItems    = filterNav(NAV_CONFIG, userRoles)
+  const rawNavItems = filterNav(NAV_CONFIG, userRoles)
+  // BUG-MSG-001: inject live unread count into Messages nav badge
+  const navItems    = rawNavItems.map(item =>
+    item.path === '/messages' ? { ...item, badge: msgUnreadCount } : item
+  )
   const initials    = (user?.name || user?.email || 'U').slice(0, 1).toUpperCase()
   const displayName = user?.name || user?.email || 'User'
 
@@ -538,6 +559,14 @@ export default function AppShell() {
       const next = prev === 'left' ? 'top' : 'left'
       try { localStorage.setItem('hs_nav_layout', next) } catch {}
       return next
+    })
+  }, [])
+
+  // BUG-MSG-001: subscribe to MockStore for live Messages unread badge
+  useEffect(() => {
+    return MockStore.subscribe(() => {
+      const count = MockStore.getStore().message_threads.filter(t => (t.unread_count ?? 0) > 0).length
+      setMsgUnreadCount(count)
     })
   }, [])
 
@@ -805,7 +834,7 @@ export default function AppShell() {
         </Box>
         <Divider sx={{ borderColor: '#E8EAED' }} />
         <Box sx={{ p: 1 }}>
-          <MenuItem onClick={() => { navigate('/profile'); setAnchorEl(null) }} sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}>
+          <MenuItem onClick={() => { navigate(userRoles.includes('patient') ? '/patient/profile' : '/profile'); setAnchorEl(null) }} sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}>
             <ListItemIcon><AccountCircleIcon fontSize="small" sx={{ color: '#5F6368' }} /></ListItemIcon>
             <Typography variant="body2" fontWeight={600}>My Profile</Typography>
           </MenuItem>

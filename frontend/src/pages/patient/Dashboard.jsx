@@ -122,7 +122,7 @@ export default function PatientDashboard() {
             <Button 
               variant="outlined" 
               startIcon={<Add />}
-              onClick={() => navigate('/booking/search')}
+              onClick={() => navigate('/appointments/book')}
               sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.6)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
             >
               Book Appointment
@@ -189,7 +189,7 @@ export default function PatientDashboard() {
           {upcomingAppointments.length === 0 ? (
             <Paper elevation={0} sx={{ p: 4, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 3 }}>
               <Typography color="text.secondary" mb={2}>You have no upcoming appointments.</Typography>
-              <Button variant="contained" onClick={() => navigate('/booking/search')}>Find a Doctor</Button>
+              <Button variant="contained" onClick={() => navigate('/appointments/book')}>Find a Doctor</Button>
             </Paper>
           ) : (
             upcomingAppointments.map(appt => {
@@ -242,7 +242,7 @@ export default function PatientDashboard() {
                       </Stack>
                       
                       <Stack direction="row" flexWrap="wrap" gap={1} mt={1.5}>
-                        <Chip size="small" icon={<AccessTime fontSize="small" />} label={`${startDateTime.format('HH:mm')} (${appt.duration || 30} min)`} />
+                        <Chip size="small" icon={<AccessTime fontSize="small" />} label={`${startDateTime.format('h:mm A')} (${appt.duration || 30} min)`} />
                         <Chip size="small" icon={appt.type === 'video' ? <Videocam fontSize="small" /> : <CalendarMonth fontSize="small" />} label={appt.type === 'video' ? 'Video Consult' : 'In-Person'} variant="outlined" />
                         <StatusChip status={appt.status} />
                       </Stack>

@@ -202,12 +202,19 @@ export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout })
   }, [navigate])
 
   const handleInlineKey = (e) => {
-    const resultCount = query.length >= 1
-      ? SEARCH_DATA.filter(d => d.label.toLowerCase().includes(query.toLowerCase()) || d.sub.toLowerCase().includes(query.toLowerCase())).slice(0, 8).length
-      : SEARCH_DATA.filter(d => d.type === 'page').slice(0, 6).length
+    const results = query.length >= 1
+      ? SEARCH_DATA.filter(d => d.label.toLowerCase().includes(query.toLowerCase()) || d.sub.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
+      : SEARCH_DATA.filter(d => d.type === 'page').slice(0, 6)
+    const resultCount = results.length
     if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, resultCount - 1)) }
     if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)) }
     if (e.key === 'Escape')   { closeInline() }
+    // BUG-NAV-001 FIX: plain Enter navigates to the highlighted result
+    if (e.key === 'Enter' && !e.ctrlKey) {
+      e.preventDefault()
+      const selected = results[activeIdx]
+      if (selected) { handleSelect(selected) } else { closeInline(); setSearchOpen(true) }
+    }
     if (e.key === 'Enter' && e.ctrlKey) { closeInline(); setSearchOpen(true) }
   }
 

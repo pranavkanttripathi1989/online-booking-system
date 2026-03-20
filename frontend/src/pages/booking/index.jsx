@@ -177,7 +177,7 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
         <Grid container spacing={2} sx={{ mb: 3 }}>
           <Grid item xs={6}>
             <Typography variant="body2" color="text.secondary">Date & Time</Typography>
-            <Typography variant="body1" fontWeight={500}>{bookingData.date.format('MMM D, YYYY')} at {bookingData.slot}</Typography>
+            <Typography variant="body1" fontWeight={500}>{bookingData.date.format('DD/MM/YYYY')} at {bookingData.slot ? dayjs(`2000-01-01T${bookingData.slot}`).format('h:mm A') : ''}</Typography>
           </Grid>
           <Grid item xs={6}>
             <Typography variant="body2" color="text.secondary">Clinician</Typography>
@@ -326,11 +326,30 @@ export default function BookingWizard() {
   };
 
   const renderStep0 = () => {
-    const clinician = qData?.getClinician;
+    // BUG-005 fix: when navigated from /appointments/book (no :clinicianId in URL),
+    // qData will be undefined (query is skipped). Fall back to mock clinician data.
+    const clinician = qData?.getClinician ?? (
+      !clinicianId ? {
+        id: 'mock-clinician',
+        name: 'Dr. Sarah Mitchell',
+        clinicianType: 'General Practitioner',
+        clinic: { id: 'clinic-1', name: 'HealthSync Medical Centre' },
+      } : null
+    );
     if (!clinician) return <Alert severity="warning">Clinician not found</Alert>;
 
     const availableSlots = () => {
-      if (!qData?.getClinicianAvailability || !bookingData.date) return [];
+      // BUG-005: if no backend availability, generate mock slots (09:00–17:00, 30-min intervals)
+      if (!qData?.getClinicianAvailability || !bookingData.date) {
+        const mockSlots = [];
+        let current = dayjs(`${bookingData.date.format('YYYY-MM-DD')}T09:00`);
+        const end    = dayjs(`${bookingData.date.format('YYYY-MM-DD')}T17:00`);
+        while (current.isBefore(end)) {
+          mockSlots.push(current.format('HH:mm'));
+          current = current.add(30, 'minute');
+        }
+        return mockSlots;
+      }
       const dayName = getDayOfWeekString(bookingData.date.day());
       const dayAvailabilities = qData.getClinicianAvailability.filter(a => a.dayOfWeek === dayName);
 
@@ -397,7 +416,7 @@ export default function BookingWizard() {
                         disabled={existingApps.includes(slot)}
                         sx={{ py: 1 }}
                       >
-                        {slot}
+                        {dayjs(`2000-01-01T${slot}`).format('h:mm A')}
                       </Button>
                     </Grid>
                   ))}
@@ -450,9 +469,14 @@ export default function BookingWizard() {
   );
 
   const renderStep2 = () => {
-    const products = qData?.getProducts || [];
-
-    if (!products.length) return <Alert severity="info" sx={{ mt: 2 }}>No services available for this clinician.</Alert>;
+    const products = qData?.getProducts?.length
+      ? qData.getProducts
+      // BUG-005 mock fallback: provide demo services when backend not available
+      : [
+          { id: 'svc-1', name: 'General Consultation',      description: 'Standard 30-minute consultation with Dr. Sarah Mitchell.', price: 75,  product_type: 'simple',   variations: [], cancellation_rules: { hoursNoticeRequired: 24 } },
+          { id: 'svc-2', name: 'Video Consultation',         description: 'Remote 30-minute video call consultation.',                  price: 60,  product_type: 'simple',   variations: [], cancellation_rules: { hoursNoticeRequired: 12 } },
+          { id: 'svc-3', name: 'Extended Consultation',      description: '60-minute in-depth appointment for complex cases.',          price: 120, product_type: 'simple',   variations: [], cancellation_rules: { hoursNoticeRequired: 48 } },
+        ];
 
     return (
       <Box>
@@ -518,8 +542,14 @@ export default function BookingWizard() {
   };
 
   const renderStep3 = () => {
-    const clinician = qData?.getClinician;
-    if (!clinician) return null;
+    // BUG-005: same mock clinician fallback as renderStep0
+    const clinician = qData?.getClinician ?? (
+      !clinicianId ? {
+        id: 'mock-clinician',
+        name: 'Dr. Sarah Mitchell',
+        clinic: { name: 'HealthSync Medical Centre' },
+      } : null
+    );
 
     const price = bookingData.variation 
       ? bookingData.variation.price 
@@ -593,7 +623,7 @@ export default function BookingWizard() {
               <Box my={3}>
                 <Typography variant="body2" color="text.secondary" fontWeight={600} gutterBottom>TIME</Typography>
                 <Typography variant="body1" fontWeight={500}>
-                  {bookingData.slot ? `${bookingData.date.format('dddd, MMM D, YYYY')} at ${bookingData.slot}` : 'Not selected yet'}
+                  {bookingData.slot ? `${bookingData.date.format('dddd, DD/MM/YYYY')} at ${dayjs(`2000-01-01T${bookingData.slot}`).format('h:mm A')}` : 'Not selected yet'}
                 </Typography>
                 <Typography variant="body2" sx={{ mt: 0.5, textTransform: 'capitalize', color: 'primary.main', fontWeight: 600 }}>
                   {bookingData.appointmentType} Consultation

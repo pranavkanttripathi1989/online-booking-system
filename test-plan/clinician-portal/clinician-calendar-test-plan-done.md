@@ -1,154 +1,231 @@
 # Clinician Calendar — Test Plan
 
-**Route:** `/clinician/calendar`
-**File:** `frontend/src/pages/clinician/Calendar.jsx`
-**Status:** ⚠️ NOT DONE — Test has not been executed yet.
+**Route:** `/clinician/calendar`  
+**File:** `frontend/src/pages/clinician/Calendar.jsx`  
+**Status:** ✅ Updated — 2026-03-19 (Session 2 QA)
 
 ---
 
 ## Feature Overview
 
-A weekly calendar grid (Mon–Sun, 09:00–17:00) with mock appointment/break/block events. Week offset navigation (previous/next/today). Clicking an event block sets a selected state and shows a detail card below. No backend integration — all data is static `EVENTS` mock array.
+Weekly calendar grid (Mon–Sun, 09:00–17:00) with week-aware mock appointment/break/block events. Dynamic week navigation using dayjs — header dates change per offset. Week label shows "This Week / Next Week / Last Week / N Weeks Ago / Week +N". Clicking an event shows a "Appointment Details" panel with time, type chip, "View Patient" (navigates to `/patients/{id}`) and "Join Call" (video only, navigates to `/video/{id}`). Current-time red line in today's column. Overlap detection: same-time events rendered side-by-side. Responsive with horizontal scroll for narrow viewports.
 
 ---
 
 ## Test Cases
 
-### TC-CLCAL-01 — Page Load
-**Steps:** Navigate to `/clinician/calendar`.
+### TC-CLCAL-00 — Navigation to Calendar from Sidebar
+**Steps:** From any clinician page, click "Calendar" in sidebar.  
+**Expected:** Navigate to `/clinician/calendar`. Page load confirmed.
+
+---
+
+### TC-CLCAL-01 — Page Load: Header, Grid, Legend
+**Steps:** Navigate to `/clinician/calendar`.  
 **Expected:**
-- Title "Calendar", subtitle "Dr. James Wilson · City Heart Clinic".
-- Weekly grid with 7 day columns (Mon–Sun).
-- Hour rows from 09:00 to 17:00 (9 hours × 60px = 540px).
+- h2 "Calendar"
+- Subtitle shows logged-in clinician name + org (dynamic, not hardcoded)
+- 7-day grid with hour rows 09:00–17:00
+- Legend: In-Person (teal), Video (purple), Break (amber), Blocked (grey)
+- Week range displayed right-aligned: e.g. "17 Mar – 23 Mar 2026"
+
+---
+
+### TC-CLCAL-01B — Subtitle Matches Logged-In User
+**Steps:** Log in as Dr. Sarah Mitchell; observe subtitle.  
+**Expected:** "Dr. Sarah Mitchell · [org name]" — NOT "Dr. James Wilson".
 
 ---
 
 ### TC-CLCAL-02 — Week Navigation: Next Week
-**Steps:** Click the ">" (next) icon.
+**Steps:** Click `>`.  
 **Expected:**
-- `weekOffset` increments by 1.
-- Week label chip changes to "Next Week" (offset=1) or "Week +{N}".
+- Chip label → "Next Week"
+- Day header dates advance by 7
+- Different events visible (next-week events only)
+
+---
+
+### TC-CLCAL-02B — Week Navigation: Week +N Labels
+**Steps:** Click `>` multiple times.  
+**Expected:** Labels "Week +2", "Week +3" etc.
+
+---
+
+### TC-CLCAL-02C — Dates Update on Navigation
+**Steps:** Click `>` once; verify day header dates.  
+**Expected:** Dates advance exactly 7 days from current-week Monday (not hardcoded).
 
 ---
 
 ### TC-CLCAL-03 — Week Navigation: Previous Week
-**Steps:** Click the "<" (previous) icon.
-**Expected:**
-- `weekOffset` decrements by 1.
-- Label changes accordingly (negative offset = "Week -1" implicitly — no label for negative, just "Week {offset}).
+**Steps:** Click `<` once from "This Week".  
+**Expected:** Label → "Last Week"; dates go back 7; previous-week events shown.
 
 ---
 
-### TC-CLCAL-04 — Week Navigation: Today Button / Chip Click
-**Steps:** Navigate to next week; click "Today" button or week label chip.
-**Expected:**
-- `weekOffset` resets to 0.
-- Label returns to "This Week".
+### TC-CLCAL-03B — Saturday and Sunday Empty Columns
+**Steps:** View Sat/Sun columns.  
+**Expected:** No event blocks. "No appts" caption visible.
+
+---
+
+### TC-CLCAL-04 — Today Button Resets weekOffset
+**Steps:** Navigate away; click "Today".  
+**Expected:** Chip → "This Week"; dates return to current week.
+
+---
+
+### TC-CLCAL-04B — Chip Click Resets weekOffset
+**Steps:** Click chip label.  
+**Expected:** Returns to "This Week".
+
+---
+
+### TC-CLCAL-04C — Negative Offset "N Weeks Ago" Label
+**Steps:** Click `<` three times (weekOffset = -3).  
+**Expected:** Label = "3 Weeks Ago".
 
 ---
 
 ### TC-CLCAL-05 — Legend Display
-**Steps:** View below the header.
-**Expected:**
-- 4 legend items: In-Person (#006D77), Video (#7C3AED), Break (#D97706), Blocked (#6B7280).
-- Each shows coloured 12×12 square.
+**Steps:** View below header.  
+**Expected:** 4 legend items; week range shown right-aligned.
 
 ---
 
 ### TC-CLCAL-06 — Time Column
-**Steps:** View leftmost column.
-**Expected:**
-- 56px wide; 9 time labels: 09:00 through 17:00.
-- Each occupies a 60px row.
+**Steps:** View leftmost column.  
+**Expected:** 56px wide; 9 labels 09:00–17:00; each 60px.
 
 ---
 
-### TC-CLCAL-07 — Day Headers
-**Steps:** View column headers.
-**Expected:**
-- Each header: day abbreviation (Mon–Sun) + date number (20–26 hardcoded).
-- Monday (dayIdx=0) has highlighted background `#E8F8F9` and teal date number.
+### TC-CLCAL-07 — Day Headers: Dynamic Dates + Today Highlight
+**Steps:** View column headers.  
+**Expected:** Dates from dayjs (not hardcoded). Today's column: circular teal badge around date number.
 
 ---
 
-### TC-CLCAL-08 — Event Blocks: Positioning
-**Steps:** Verify events are correctly positioned.
+### TC-CLCAL-08 — Event Blocks: Positioning Formula
+**Steps:** Verify event positions.  
 **Expected:**
-- Event starting at 9:00 → `top = (9-9) * 60 = 0px`.
-- Event from 10:00–11:00 (duration 1h) → top = 60px, height = 58px.
-- Event from 12:00–12:30 → top = 180px, height = 28px.
+- `topPx = (start - 9) * 60`
+- `heightPx = (end - start) * 60 - 2`
+- 09:00 event → top=0; 10:00 → top=60; 12:00 → top=180
 
 ---
 
-### TC-CLCAL-09 — Event Blocks: Colour by Type/Status
-**Steps:** View different event blocks.
-**Expected:**
-- `color: '#006D77'` for in-person confirmed events.
-- `color: '#7C3AED'` for video events.
-- `color: '#D97706'` for break events.
-- `color: '#6B7280'` for block events.
+### TC-CLCAL-08B — Event at Grid Bottom (17:00)
+**Steps:** Hypothetically add/verify event at 17:00.  
+**Expected:** `topPx=480` inside 540px container; no overflow; `overflow: 'hidden'` on grid.
 
 ---
 
-### TC-CLCAL-10 — Event Block: Patient Name Display
-**Steps:** Hover over any event block.
-**Expected:**
-- Tooltip shows `"{patient} · {type}"`.
-- Patient name shown inside block (white text, fontWeight 700, noWrap).
+### TC-CLCAL-09 — Event Blocks: Colour by Type
+**Steps:** View colored blocks.  
+**Expected:** In-person=#006D77, Video=#7C3AED, Break=#D97706, Block=#6B7280.
 
 ---
 
-### TC-CLCAL-11 — Event Block: Short Events
-**Steps:** View 30-min events (heightPx = 28).
-**Expected:**
-- Only patient name shown (no type emoji — `heightPx > 22` is just barely true).
+### TC-CLCAL-10 — Event Tooltip on Hover
+**Steps:** Hover over event.  
+**Expected:** Tooltip = `"{patient} · {type} · {HH:MM}–{HH:MM}"` (time range included).
 
 ---
 
-### TC-CLCAL-12 — Event Block Click: Sets Selected
-**Steps:** Click on any non-break, non-block event.
-**Expected:**
-- `selected` state set to that event.
-- Detail card appears below calendar.
+### TC-CLCAL-11 — Short Events: Emoji Shown
+**Steps:** View 30-min events.  
+**Expected:** `heightPx=28 > 22` → emoji visible below name; in-person=🏥, video=📹, break=☕.
 
 ---
 
-### TC-CLCAL-13 — Event Block: Break/Block Not Selectable for Detail
-**Steps:** Click on a break (LUNCH) or block event.
-**Expected:**
-- Click triggers `setSelected(ev)` but detail card check `selected.type !== 'break' && selected.type !== 'block'` prevents card from showing.
+### TC-CLCAL-11B — Block Type Emoji
+**Steps:** Verify block event emoji.  
+**Expected:** `type='block'` → falls through to default `🏥` emoji.
 
 ---
 
-### TC-CLCAL-14 — Detail Card: Patient Info Display
-**Steps:** Click an in-person appointment event.
-**Expected:**
-- "Appointment Details" card appears.
-- Patient name, type chip (LocationOnIcon + "in-person"), "View Patient" + Close buttons.
+### TC-CLCAL-12 — Click In-Person Event: Detail Card
+**Steps:** Click an in-person event.  
+**Expected:** "Appointment Details" card with teal border; Avatar: 2-letter initials; name; time shown; in-person chip (LocationOnIcon); "View Patient" button (with navigation); no "Join Call".
 
 ---
 
-### TC-CLCAL-15 — Detail Card: Video Appointment Shows Join Call
-**Steps:** Click a video event.
-**Expected:**
-- "Join Call" button shown (with VideocamIcon).
-- Navigates to `/video/:id`.
+### TC-CLCAL-12B — Click Same Event Twice
+**Steps:** Click same event twice.  
+**Expected:** Card stays open; no toggle behavior.
+
+---
+
+### TC-CLCAL-13 — Click Break Event: No Detail Card
+**Steps:** Click LUNCH block.  
+**Expected:** No "Appointment Details" card. `selected.type !== 'break'` guard.
+
+---
+
+### TC-CLCAL-13B — Click Block Event: No Detail Card
+**Steps:** Click Team Meeting block.  
+**Expected:** No card. `selected.type !== 'block'` guard.
+
+---
+
+### TC-CLCAL-14B — View Patient Button Navigates
+**Steps:** Click event → detail card. Click "View Patient".  
+**Expected:** Navigate to `/patients/{patientId}`. (Guard: null patientId = no-op.)
+
+---
+
+### TC-CLCAL-14C — Avatar Initials Derivation
+**Steps:** Click various events; observe avatar.  
+**Expected:** Emma Wilson → "EW"; Lily Chen → "LC"; Sophie M. → "SM".
+
+---
+
+### TC-CLCAL-15 — Video Event: "Join Call" Button
+**Steps:** Click Lily Chen (video, Tue).  
+**Expected:** "Join Call" button (VideocamIcon, contained); "View Patient" also present.
+
+---
+
+### TC-CLCAL-15B — Join Call Navigation
+**Steps:** Click "Join Call" on video event.  
+**Expected:** Navigate to `/video/{id}`.
 
 ---
 
 ### TC-CLCAL-16 — Detail Card Close Button
-**Steps:** Click "Close" in detail card.
-**Expected:**
-- `selected` set to null; card disappears.
+**Steps:** Click "Close" in open detail card.  
+**Expected:** `selected = null`; card unmounts.
 
 ---
 
 ### TC-CLCAL-17 — Event Block: Hover Effect
-**Steps:** Hover over an event block.
-**Expected:**
-- `opacity` increases from 0.9 → 1.
-- `boxShadow` shown (`0 2px 8px rgba(0,0,0,0.2)`).
-- CSS `transition: 'opacity 0.15s'`.
+**Steps:** Hover over any event.  
+**Expected:** `opacity: 0.9 → 1`; `boxShadow: '0 2px 8px rgba(0,0,0,0.2)'`; `transition: 'opacity 0.15s'`.
+
+---
+
+### TC-CLCAL-18 — Overlap Detection: Side-by-Side Layout
+**Steps:** View Mon column (Omar Hassan 10:00–10:30 + Anna Ko 10:06–10:36).  
+**Expected:** Events rendered side-by-side (not stacked). Each occupies ~50% width of column.
+
+---
+
+### TC-CLCAL-19 — Current Time Red Line
+**Steps:** Visit during 09:00–17:00; observe today's column.  
+**Expected:** Red horizontal line at current time position. Red dot on left end. Updates every 60s.
+
+---
+
+### TC-CLCAL-20 — Responsive Horizontal Scroll
+**Steps:** Narrow browser window below 700px.  
+**Expected:** Horizontal scrollbar visible; calendar not collapsed; min-width 700px enforced.
+
+---
+
+### TC-CLCAL-21 — Mock Data Layer: Different Events per Week
+**Steps:** Navigate forward (Next Week) and back (Last Week).  
+**Expected:** Different event sets per week (week-aware `MOCK_EVENTS`).
 
 ---
 
@@ -156,8 +233,21 @@ A weekly calendar grid (Mon–Sun, 09:00–17:00) with mock appointment/break/bl
 
 | # | Edge Case | Expected |
 |---|-----------|----------|
-| E1 | Event at exactly 17:00 (end of grid) | Block positioned at bottom edge; may overflow |
-| E2 | `weekOffset` = -1 | Label would show "Week +-1" — no explict negative handling |
-| E3 | Events array empty | Calendar renders with no blocks; no crash |
-| E4 | Very long patient name in event | `noWrap` clips text in block |
-| E5 | Multiple events at same time in same column | Blocks overlap (same left/right absolute positioning) |
+| E1 | Event at 17:00 (grid bottom) | `topPx=480` inside 540px; no overflow |
+| E2 | `weekOffset=-1` | "Last Week" label (not "Week +-1") |
+| E3 | Empty events array (far future week) | Grid renders without crash; "No appts" in Sat/Sun |
+| E4 | Long patient name | `noWrap` clips text with ellipsis |
+| E5 | Multiple overlapping events | Side-by-side via `assignOverlapColumns()` |
+| E6 | `patientId=null` for break/block | Guard prevents navigation |
+| E7 | Current time outside 09:00–17:00 | Red line hidden via `currentTimePx >= 0 && <= grid height` |
+
+---
+
+## Summary
+
+| TC Range | Count | Status |
+|----------|-------|--------|
+| TC-CLCAL-00 to TC-CLCAL-17 | 18 | ✅ Original (updated/improved) |
+| TC-CLCAL-18 to TC-CLCAL-21 | 4 | ✅ New — Session 2 |
+| Additional new cases (01B, 02C, 03B, 04C, 11B, 12B, 14B, 14C, 15B) | 9 | ✅ New — Session 2 |
+| Edge cases (E1–E7) | 7 | ✅ 6 resolved, 1 documented (E4 noWrap) |

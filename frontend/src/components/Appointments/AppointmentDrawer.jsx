@@ -218,7 +218,7 @@ export default function AppointmentDrawer({ open, appointmentId, onClose, onRefe
                 <InfoRow
                   icon={<AccessTimeIcon fontSize="small" />}
                   label="Date & Time"
-                  value={dayjs(apt.start_datetime).format('dddd, DD MMM YYYY • HH:mm')}
+                  value={dayjs(apt.start_datetime).format('dddd, DD MMM YYYY • h:mm A')}
                 />
                 <InfoRow
                   icon={<AccessTimeIcon fontSize="small" />}
@@ -288,7 +288,7 @@ export default function AppointmentDrawer({ open, appointmentId, onClose, onRefe
                               </Typography>
                             )}
                             <Typography variant="caption" color="text.disabled">
-                              {dayjs(log.created_at).format('DD MMM YYYY, HH:mm')}
+                              {dayjs(log.created_at).format('DD MMM YYYY, h:mm A')}
                               {log.changed_by_user ? ` · ${log.changed_by_user.name}` : ''}
                             </Typography>
                           </Box>

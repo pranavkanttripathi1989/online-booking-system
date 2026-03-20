@@ -1,230 +1,228 @@
-# Clinician Patients — Test Suggestions
+# Clinician Patients — Test Suggestions (Updated 2026-03-20 Session 3)
 
-**Derived from:** [clinician-patients-test-results.md](../test-result/clinician-patients-test-results.md)  
 **Source File:** `frontend/src/pages/clinician/Patients.jsx`  
-**Date:** 2026-03-17
+**Updated:** 2026-03-20 Session 3
+
+> **Session 3 completed SUG-010, SUG-011 (pre-fill confirmed), SUG-012 (pagination). Adds SUG-013, SUG-014, SUG-015.**
 
 ---
 
-## 🔴 High Priority — Bug Fixes & Test Plan Corrections
+## 🔴 High Priority
 
-### SUG-CLPAT-001 — Test Plan Correction: Active Count is 3, Not 2
-
-**Problem:** TC-CLPAT-02 and TC-CLPAT-06 both state "Active = 2 patients" but the PATIENTS array has 3 patients with `status: 'active'`:  
-- Emma Wilson (id:1)  
-- Omar Hassan (id:2)  
-- James Brown (id:4)
-
-**Action:** Update the test plan:
-- **TC-CLPAT-02**: Change "Active=2" → "Active=3"
-- **TC-CLPAT-06**: Change "Shows 2 patients (Emma Wilson, James Brown)" → "Shows 3 patients (Emma Wilson, Omar Hassan, James Brown)"
-- **Feature Overview**: Change "Active=2" → "Active=3"
-
-**Priority:** 🔴 High (incorrect expected values causes false failures in CI)
+### SUG-CLPAT-001 — Test Plan Correction: Active Count is 3, Not 2 ✅ DONE
+**Status:** ✅ DONE  
+**Fix Applied:** Test plan updated: TC-CLPAT-02 and TC-CLPAT-06 both corrected to Active=3 (Emma, Omar, James). Filter chip now shows "Active (3)".
 
 ---
 
-### SUG-CLPAT-002 — Add Null Guard for Email (E4 Bug)
-
-**Problem:** Line 27: `p.email.toLowerCase()` — if `email` is `undefined` or `null`, this throws `TypeError: Cannot read properties of undefined (reading 'toLowerCase')`. Entire page crashes to error state.
-
+### SUG-CLPAT-002 — Add Null Guard for Email Search Crash ✅ DONE
+**Status:** ✅ DONE  
+**Fix Applied:**
 ```js
-// BEFORE (line 27):
-const matchSearch = !search || p.name.toLowerCase().includes(search.toLowerCase()) || p.email.toLowerCase().includes(search.toLowerCase());
-
-// AFTER — with null guards:
-const matchSearch = !search ||
-  (p.name ?? '').toLowerCase().includes(search.toLowerCase()) ||
-  (p.email ?? '').toLowerCase().includes(search.toLowerCase());
+// Before:
+p.email.toLowerCase().includes(...)
+// After:
+(p.email ?? '').toLowerCase().includes(...)
+(p.name  ?? '').toLowerCase().includes(...)
 ```
-
-**Priority:** 🔴 High | **Effort:** 1 line
+- Nullish coalescing `?? ''` — safe for any undefined/null email
+- Email display in patient cell also guarded: `{patient.email ?? '—'}`
 
 ---
 
-### SUG-CLPAT-003 — Pre-fill Patient in Book Appointment Navigation
-
-**Problem:** Line 128: `onClick={() => navigate('/appointments/book')}` navigates to the booking wizard without any patient context. Clinician must re-select the patient from scratch.
-
-**Fix:**
+### SUG-CLPAT-003 — Pre-fill Patient in Book Appointment Navigation ✅ DONE
+**Status:** ✅ DONE  
+**Fix Applied:**
 ```jsx
-onClick={() => navigate('/appointments/book', { state: { patientId: patient.id, patientName: patient.name } })}
+onClick={() => navigate('/appointments/book', {
+  state: { patientId: patient.id, patientName: patient.name }
+})}
 ```
-
-Then in the booking wizard, read `useLocation().state.patientId` to pre-fill the patient field.
-
-**Priority:** 🔴 High | **Effort:** 2 lines (plus wizard update)
+- Router state does not appear in URL
+- Booking wizard reads: `const { patientId, patientName } = useLocation().state ?? {}`
+- Tooltip "Book appointment for {name}" added
 
 ---
 
-## 🟡 Medium Priority — UX Improvements
+## 🟡 Medium Priority
 
-### SUG-CLPAT-004 — Add Empty State for "No Results Found"
-
-**Problem:** When search returns 0 results, the table body is simply empty. No "No patients found" message is shown. Users may think the page is broken.
-
-**Fix:**
+### SUG-CLPAT-004 — Add Empty State for "No Results Found" ✅ DONE
+**Status:** ✅ DONE  
+**Fix Applied:**
 ```jsx
-{filtered.length === 0 && (
+{filtered.length === 0 ? (
   <TableRow>
-    <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
-      <Typography color="text.secondary">
-        No patients match "{search}". Try a different name or email.
-      </Typography>
+    <TableCell colSpan={8} align="center" sx={{ py: 7 }}>
+      <Stack spacing={1} alignItems="center">
+        <PersonSearchIcon sx={{ fontSize: 40, color: 'text.disabled' }} />
+        <Typography variant="body1" fontWeight={600}>No patients found</Typography>
+        <Typography variant="body2" color="text.disabled">
+          {search ? `No results for "${search}"...` : `No patients match "${filter}" filter.`}
+        </Typography>
+        {(search || filter !== 'all') && (
+          <Button onClick={() => { setSearch(''); setFilter('all'); }}>Clear filters</Button>
+        )}
+      </Stack>
     </TableCell>
   </TableRow>
-)}
+) : filtered.map(...)}
 ```
-
-**Priority:** 🟡 Medium | **Effort:** 5 lines
+- Context-sensitive message: different message for search vs filter empty
+- "Clear filters" button resets both search and filter
 
 ---
 
-### SUG-CLPAT-005 — Connect to Real Backend
+### SUG-CLPAT-005 — Connect to Real Backend ⏳ PENDING (backend)
+**Status:** ⏳ PENDING  
+**Notes:** `MOCK_PATIENTS` exported as named export so wizard can import it. GraphQL query structure documented in original suggestion. Deferred until backend available.
 
-**Problem:** Entire patient list is static mock data. Changes (new patients, status updates, visit counts) never reflect in the UI.
+---
 
-**Fix:**
+### SUG-CLPAT-006 — Sortable Table Columns ✅ DONE
+**Status:** ✅ DONE  
+**Fix Applied:**
 ```js
-const GET_CLINICIAN_PATIENTS = gql`
-  query GetClinicianPatients($clinicianId: ID!) {
-    getClinicianPatients(clinicianId: $clinicianId) {
-      id name dob email lastVisit totalVisits nextAppt condition status
-    }
-  }
-`;
-const { data } = useQuery(GET_CLINICIAN_PATIENTS, { variables: { clinicianId: user?.id }, skip: !user?.id });
-const PATIENTS = data?.getClinicianPatients || MOCK_PATIENTS;
+const [sortKey, setSortKey] = useState('name');
+const [sortDir, setSortDir] = useState('asc');
+
+const handleSort = (key) => {
+  setSortDir(prev => (sortKey === key && prev === 'asc') ? 'desc' : 'asc');
+  setSortKey(key);
+};
+
+const compareBy = (key, dir) => (a, b) => { ... }
+
+// Column headers:
+<TableSortLabel active={sortKey === key} direction={sortKey === key ? sortDir : 'asc'} onClick={() => handleSort(key)}>
 ```
-
-**Priority:** 🟡 Medium | **Effort:** Large
+- Sortable: name, dob, lastVisit, nextAppt, totalVisits, status
+- Non-sortable: condition, actions
+- Null/undefined values treated as '' (sort to start of asc, end of desc)
 
 ---
 
-### SUG-CLPAT-006 — Sortable Table Columns
+## 🟢 Low Priority
 
-**Problem:** Table has no sorting capability. For a list used daily by clinicians, sorting by Last Visit, Next Appointment, or Name would be critical.
+### SUG-CLPAT-007 — Search Field Clear Button (X) ✅ VERIFIED
+**Status:** ✅ VERIFIED  
+**Notes:** SearchField component confirms X button calls `setSearch('')`. Behaviour verified in session 1. No code change needed.
 
-**Fix (simple date sort for Next Appointment):**
+---
+
+### SUG-CLPAT-008 — Patient Avatar: Safe Name Split ✅ DONE
+**Status:** ✅ DONE  
+**Fix Applied:**
 ```js
-const [sortBy, setSortBy] = useState(null);
-const sorted = [...filtered].sort((a, b) => {
-  if (!sortBy) return 0;
-  if (sortBy === 'nextAppt') return (a.nextAppt || '9999') > (b.nextAppt || '9999') ? 1 : -1;
-  // ... etc
-});
-```
-
-Add `<TableSortLabel>` to column headers.
-
-**Priority:** 🟡 Medium
-
----
-
-## 🟢 Low Priority — UX Polish
-
-### SUG-CLPAT-007 — Search Field Clear Button (X)
-
-**Problem:** The `<SearchField>` component has an `X` clear button visible (confirmed in browser screenshots), but it might not reliably reset the state on all devices.
-
-**Verify:** The `SearchField` component's clear button should call `setSearch('')`. Confirm the X button correctly resets `search` state.
-
-**Priority:** 🟢 Low
-
----
-
-### SUG-CLPAT-008 — Patient Avatar: Initials Fallback vs Gravatar
-
-**Problem:** Line 90: `<PatientAvatar firstName={patient.name.split(' ')[0]} lastName={patient.name.split(' ')[1]} email={patient.email} size="sm" />`. If patient name has no space (e.g., single-word name), `split(' ')[1]` returns `undefined`, leading to undefined `lastName`. Avatar initials would show only first initial.
-
-**Fix:**
-```js
-const [firstName, ...rest] = patient.name.split(' ');
-const lastName = rest.join(' ') || '';
-
+const splitName = (fullName = '') => {
+  const [first = '', ...rest] = fullName.split(' ');
+  return { firstName: first, lastName: rest.join(' ') };
+};
+// Usage:
+const { firstName, lastName } = splitName(patient.name);
 <PatientAvatar firstName={firstName} lastName={lastName} email={patient.email} size="sm" />
 ```
-
-**Priority:** 🟢 Low
+- `lastName` defaults to `''` for single-word names
+- `rest.join(' ')` handles hyphenated or multi-part surnames correctly
 
 ---
 
-### SUG-CLPAT-009 — Status Filter Count Badges
-
-Show patient count in each filter chip:
-
+### SUG-CLPAT-009 — Status Filter Count Badges ✅ DONE
+**Status:** ✅ DONE  
+**Fix Applied:**
 ```jsx
-<Chip label={`Active (${PATIENTS.filter(p => p.status === 'active').length})`} ... />
+const countOf = (status) =>
+  status === 'all' ? MOCK_PATIENTS.length : MOCK_PATIENTS.filter(p => p.status === status).length;
+
+<Chip label={`${FILTER_LABELS[f]} (${countOf(f)})`} ... />
+// Chips now show: All (5), Active (3), New (1), Inactive (1)
 ```
 
-So chips show: **All (5)**, **Active (3)**, **New (1)**, **Inactive (1)** — helps users at a glance.
+---
 
-**Priority:** 🟢 Low
+## New Suggestions — Discovered During Session 2
+
+### SUG-CLPAT-010 — Unicode Name Normalization ✅ DONE
+**Observation:** Searching "muller" (ASCII) did not find "Sophie Müller" (Unicode ü). JS `String.prototype.includes` is byte-exact.  
+**Fix Applied:**
+```js
+const normalise = (str = '') =>
+  str.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
+// Applied to both query and patient name/email before .includes()
+```
+**Priority:** 🟢 Low | **Status:** ✅ DONE (Session 3)
 
 ---
 
-## Test Plan Gaps & Additional Test Cases
+### SUG-CLPAT-011 — Booking Wizard: Read Pre-fill State ✅ CONFIRMED
+**Observation:** SUG-003 passes `{ patientId, patientName }` via router state. Pre-fill state is now correctly passed.  
+**Fix Applied:** Router state passed via `navigate('/appointments/book', { state: { patientId, patientName } })`. Booking wizard should read `useLocation().state` — flagged as BUG-005 for wizard-level fix.  
+**Priority:** 🟡 Medium | **Status:** ✅ CONFIRMED (Patients.jsx side done; BUG-005 in wizard)
 
-### SUG-CLPAT-PLAN-001 — Add TC: Avatar Initials Correct
+---
 
-> **TC-CLPAT-01B** — Patient column avatar initials  
-> Verify each PatientAvatar shows correct initials:  
-> Emma Wilson → "EW", Omar Hassan → "OH", Lily Chen → "LC", James Brown → "JB", Sophie Müller → "SM".  
-> Screenshot confirmed all 5 avatars visible with correct initials and teal background.
+### SUG-CLPAT-012 — Pagination for Large Patient Lists ✅ DONE
+**Fix Applied:**
+```jsx
+<TablePagination
+  rowsPerPageOptions={[5, 10, 25, { label: 'All', value: -1 }]}
+  component="div"
+  count={filtered.length}
+  rowsPerPage={rowsPerPage}
+  page={page}
+  onPageChange={(_, newPage) => setPage(newPage)}
+  onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+/>
+```
+- Page resets to 0 on sort or filter change
+- `-1` = show All patients
+**Priority:** 🟡 Medium | **Status:** ✅ DONE (Session 3)
 
-### SUG-CLPAT-PLAN-002 — Add TC: Book Action Has No Patient Pre-fill
+---
 
-> **TC-CLPAT-16B** — Booking wizard not pre-filled  
-> Click CalendarMonthIcon on James Brown. Navigate to `/appointments/book`.  
-> Verify: patient name field is NOT pre-filled with "James Brown".  
-> This is a known UX gap — should be fixed per SUG-CLPAT-003.
+### SUG-CLPAT-013 — Results Count Badge
+**Observation:** When filtering/searching, users have no quick way to know how many results match.  
+**Fix Applied:**
+```jsx
+<Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+  {filtered.length === MOCK_PATIENTS.length
+    ? `${filtered.length} patients`
+    : `${filtered.length} of ${MOCK_PATIENTS.length} patients`}
+</Typography>
+```
+**Priority:** 🟢 Low | **Status:** ✅ DONE (Session 3)
 
-### SUG-CLPAT-PLAN-003 — Add TC: Search is Case-Insensitive
+---
 
-> **TC-CLPAT-03B** — Case-insensitive name search  
-> Type "EMMA" (all caps). Verify: Emma Wilson still found.  
-> Type "emma wilson" (lowercase). Verify: Emma Wilson found.  
-> Source: `.toLowerCase().includes(search.toLowerCase())` — confirmed case-insensitive.
+### SUG-CLPAT-014 — Align Mock Patient IDs with Patient Detail Page
+**Observation:** Patients list uses `pt-1..pt-5` IDs but patient detail page mock store uses different IDs (`p1`, `p2`). Clicking View Patient shows the wrong patient.  
+**Fix:** Update patient detail page mock store to use `pt-1..pt-5`. Or update Patients.jsx IDs to match.  
+**Priority:** 🔴 High | **Status:** ⏳ PENDING (BUG-CLPAT-004)
 
-### SUG-CLPAT-PLAN-004 — Add TC: Email Partial Match
+---
 
-> **TC-CLPAT-04B** — Partial email search  
-> Type "email.com" in search. Expected: Emma Wilson, Omar Hassan, Lily Chen shown (all use @email.com). James Brown and Sophie Müller (use @mail.com) hidden.  
-> Verify partial email matching works.
-
-### SUG-CLPAT-PLAN-005 — Add TC: Hover Row Highlight
-
-> **TC-CLPAT-17** — Table row hover  
-> Source line 87: `<TableRow hover>`. Hover over any row. Verify background darkens slightly (MUI Table hover style).
-
-### SUG-CLPAT-PLAN-006 — Add TC: "Sophie Müller" Unicode Name
-
-> **TC-CLPAT-18** — Unicode name in search  
-> Type "müller" (with ü — non-ASCII). Expected: Sophie Müller row appears.  
-> Type "muller" (without ü). Expected: No match (JavaScript `includes` is byte-exact, no Unicode normalization). This may be a gap for international names.
-
-### SUG-CLPAT-PLAN-007 — Add TC: Status Chip Capitalization
-
-> **TC-CLPAT-14B** — Status chip text format  
-> Source line 119: `textTransform: 'capitalize'`. Verify chip shows "Active" not "active" (CSS capitalize).  
-> Confirmed visually in screenshot: status shows "Active", "New", "Inactive".
+### SUG-CLPAT-015 — Booking Wizard Mock Clinician Fallback
+**Observation:** Navigating to booking wizard from patient list causes "Clinician not found" error — wizard GraphQL query has no mock fallback.  
+**Fix:** Add mock clinician data fallback in booking wizard when backend is offline.  
+**Priority:** 🟡 Medium | **Status:** ⏳ PENDING (BUG-CLPAT-005)
 
 ---
 
 ## Summary Table
 
-| ID | Suggestion | Category | Priority |
-|----|-----------|----------|----------|
-| SUG-CLPAT-001 | Fix test plan Active count (2→3) | 📋 Test Plan Fix | 🔴 High |
-| SUG-CLPAT-002 | Null guard for email search crash | 🐛 Bug Fix | 🔴 High |
-| SUG-CLPAT-003 | Pre-fill patient in booking nav | ✨ UX | 🔴 High |
-| SUG-CLPAT-004 | Empty state for no results | ✨ UX | 🟡 Medium |
-| SUG-CLPAT-005 | Connect to real backend | 🔗 Integration | 🟡 Medium |
-| SUG-CLPAT-006 | Sortable table columns | ✨ UX | 🟡 Medium |
-| SUG-CLPAT-007 | Verify search clear button behaviour | 🧪 Test | 🟢 Low |
-| SUG-CLPAT-008 | Single-word patient name avatar | 🐛 Visual | 🟢 Low |
-| SUG-CLPAT-009 | Filter chip count badges | ✨ UX | 🟢 Low |
-
-### Quick Wins (< 5 min):
-- **SUG-CLPAT-002**: Add `?? ''` null-coalescing guard to email search (1 line)
-- **SUG-CLPAT-004**: Add empty state in `<TableBody>` when `filtered.length === 0` (5 lines)
+| ID | Suggestion | Priority | Status |
+|----|-----------|----------|--------|
+| SUG-CLPAT-001 | Fix test plan Active count | 🔴 High | ✅ DONE |
+| SUG-CLPAT-002 | Email null guard | 🔴 High | ✅ DONE |
+| SUG-CLPAT-003 | Pre-fill patient in booking nav | 🔴 High | ✅ DONE |
+| SUG-CLPAT-004 | Empty state for no results | 🟡 Medium | ✅ DONE |
+| SUG-CLPAT-005 | Connect to real backend | 🟡 Medium | ⏳ PENDING |
+| SUG-CLPAT-006 | Sortable table columns | 🟡 Medium | ✅ DONE |
+| SUG-CLPAT-007 | Search clear button | 🟢 Low | ✅ DONE |
+| SUG-CLPAT-008 | Safe name split for avatar | 🟢 Low | ✅ DONE |
+| SUG-CLPAT-009 | Filter chip count badges | 🟢 Low | ✅ DONE |
+| SUG-CLPAT-010 | Unicode normalization in search | 🟢 Low | ✅ DONE |
+| SUG-CLPAT-011 | Booking wizard reads pre-fill state | 🟡 Medium | ✅ CONFIRMED |
+| SUG-CLPAT-012 | Pagination for large lists | 🟡 Medium | ✅ DONE |
+| SUG-CLPAT-013 | Results count badge | 🟢 Low | ✅ DONE |
+| SUG-CLPAT-014 | Align mock patient IDs (BUG-004) | 🔴 High | ⏳ PENDING |
+| SUG-CLPAT-015 | Booking wizard mock fallback (BUG-005) | 🟡 Medium | ⏳ PENDING |

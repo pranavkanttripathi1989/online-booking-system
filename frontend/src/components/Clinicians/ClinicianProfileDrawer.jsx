@@ -66,7 +66,7 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
   const apptColumns = [
     {
       field: 'start_datetime', headerName: 'Date & Time', flex: 1, sortable: false,
-      renderCell: ({ row }) => dayjs(row.start_datetime).format('DD MMM, HH:mm'),
+      renderCell: ({ row }) => dayjs(row.start_datetime).format('DD MMM, h:mm A'),
     },
     {
       field: 'patient', headerName: 'Patient', flex: 1, sortable: false,

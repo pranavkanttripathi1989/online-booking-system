@@ -17,19 +17,19 @@ dayjs.extend(localizedFormat)
 export const formatDate = (datetime, tz = 'UTC') =>
   dayjs.utc(datetime).tz(tz).format('ddd, DD MMM YYYY')
 
-/** Format: "09:30 AM" */
+/** Format: "9:30 AM" (h:mm A — no leading zero, uppercase AM/PM) */
 export const formatTime = (datetime, tz = 'UTC') =>
-  dayjs.utc(datetime).tz(tz).format('hh:mm A')
+  dayjs.utc(datetime).tz(tz).format('h:mm A')
 
-/** Format: "Thu, 12 Mar 2026 • 09:30 AM" */
+/** Format: "Thu, 12 Mar 2026 • 9:30 AM" */
 export const formatDateTime = (datetime, tz = 'UTC') =>
-  dayjs.utc(datetime).tz(tz).format('ddd, DD MMM YYYY • hh:mm A')
+  dayjs.utc(datetime).tz(tz).format('ddd, DD MMM YYYY • h:mm A')
 
-/** Format: "09:30 – 10:00 AM" */
+/** Format: "9:30 AM – 10:00 AM" */
 export const formatTimeRange = (start, end, tz = 'UTC') => {
   const s = dayjs.utc(start).tz(tz)
   const e = dayjs.utc(end).tz(tz)
-  return `${s.format('hh:mm')} – ${e.format('hh:mm A')}`
+  return `${s.format('h:mm A')} – ${e.format('h:mm A')}`
 }
 
 /** Format: "2 hours 30 minutes" or "45 minutes" */

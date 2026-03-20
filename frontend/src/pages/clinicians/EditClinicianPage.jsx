@@ -14,9 +14,30 @@ import SaveRoundedIcon      from '@mui/icons-material/SaveRounded'
 
 import { UPDATE_CLINICIAN_MUTATION }  from '../../graphql/mutations'
 import { CLINICIAN_DETAIL_QUERY, CLINICS_QUERY, CLINICIAN_TYPES_QUERY, SERVICES_QUERY } from '../../graphql/queries'
+import * as MockStore from '../../mocks/store'
 
 const LANGUAGE_OPTIONS = ['English','Spanish','French','German','Arabic','Mandarin','Hindi','Urdu','Portuguese','Italian']
 const GENDER_OPTIONS   = ['male','female','other','prefer_not_to_say']
+
+// BUG-CLIN-006 fix: Local offline fallback that mirrors the mock clinicians from index.jsx.
+// MockStore.getClinicianById searches store.clinicians (ids: "clin-X") but URL params
+// can be "c1", "c2" etc. — so we keep a parallel map keyed by those short ids.
+const MOCK_EDIT_DATA = {
+  c1: { first_name: 'Jane',    last_name: 'Smith',    email: 'jane.smith@medibook.com',   phone: '+44 7700 900001', gender: 'female', bio: 'Experienced General Practitioner with 10+ years in primary care.', consultation_fee: '80',  is_active: true,  clinician_type: { id: 'ct1', name: 'General Practitioner' }, clinics: [{ id: 'cl1' }], services: [{ id: 'sv1' }, { id: 'sv2' }], languages: ['English'] },
+  c2: { first_name: 'Carlos',  last_name: 'Vega',     email: 'carlos.vega@medibook.com',  phone: '+44 7700 900002', gender: 'male',   bio: 'Consultant Cardiologist specialising in interventional cardiology.', consultation_fee: '120', is_active: true,  clinician_type: { id: 'ct2', name: 'Cardiologist' }, clinics: [{ id: 'cl1' }], services: [{ id: 'sv3' }], languages: ['English', 'Spanish'] },
+  c3: { first_name: 'Amy',     last_name: 'Chen',     email: 'amy.chen@medibook.com',     phone: '+44 7700 900003', gender: 'female', bio: 'Neurologist with expertise in headache disorders and epilepsy.', consultation_fee: '150', is_active: true,  clinician_type: { id: 'ct3', name: 'Neurologist' }, clinics: [{ id: 'cl2' }], services: [{ id: 'sv5' }], languages: ['English', 'Mandarin'] },
+  c4: { first_name: 'Michael', last_name: 'Patel',    email: 'michael.patel@medibook.com',phone: '+44 7700 900004', gender: 'male',   bio: 'Cardiologist focusing on preventive cardiology.', consultation_fee: '130', is_active: true,  clinician_type: { id: 'ct2', name: 'Cardiologist' }, clinics: [{ id: 'cl2' }], services: [{ id: 'sv3' }], languages: ['English', 'Hindi'] },
+  c5: { first_name: 'Sarah',   last_name: 'Williams', email: 'sarah.williams@medibook.com',phone: '+44 7700 900005', gender: 'female', bio: 'Physiotherapist with a strong background in musculoskeletal rehabilitation.', consultation_fee: '70',  is_active: true,  clinician_type: { id: 'ct4', name: 'Physiotherapist' }, clinics: [{ id: 'cl1' }], services: [{ id: 'sv7' }, { id: 'sv8' }], languages: ['English'] },
+  c6: { first_name: 'Omar',    last_name: 'Hassan',   email: 'omar.hassan@medibook.com',   phone: '+44 7700 900006', gender: 'male',   bio: 'Senior Radiologist specialised in CT and MRI imaging.', consultation_fee: '0',   is_active: false, clinician_type: { id: 'ct5', name: 'Radiologist' }, clinics: [{ id: 'cl3' }], services: [], languages: ['English', 'Arabic'] },
+  c7: { first_name: 'Sarah',   last_name: 'Mitchell', email: 'sarah.mitchell@medibook.com',phone: '+44 7700 900007', gender: 'female', bio: 'GP with special interest in women\'s health and family medicine.', consultation_fee: '85',  is_active: true,  clinician_type: { id: 'ct1', name: 'General Practitioner' }, clinics: [{ id: 'cl1' }], services: [{ id: 'sv1' }], languages: ['English'] },
+  c8: { first_name: 'Priya',   last_name: 'Sharma',   email: 'priya.sharma@medibook.com',  phone: '+44 7700 900008', gender: 'female', bio: 'Consultant Dermatologist with expertise in skin cancer screening.', consultation_fee: '110', is_active: true,  clinician_type: { id: 'ct6', name: 'Dermatologist' }, clinics: [{ id: 'cl3' }], services: [{ id: 'sv9' }, { id: 'sv10' }], languages: ['English', 'Hindi'] },
+}
+// Also support "clin-X" format IDs from MockStore
+;['1','2','3','4','5','6','7','8'].forEach(n => {
+  if (MOCK_EDIT_DATA[`c${n}`]) MOCK_EDIT_DATA[`clin-${n}`] = MOCK_EDIT_DATA[`c${n}`]
+})
+
+
 
 export default function EditClinicianPage() {
   const { id }     = useParams()
@@ -25,23 +46,28 @@ export default function EditClinicianPage() {
   const [form, setForm] = useState(null)
   const [errors, setErrors] = useState({})
 
-  const { data, loading: fetching } = useQuery(CLINICIAN_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
+  const { data, loading: fetching } = useQuery(CLINICIAN_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'cache-and-network' })
   const { data: clinicsData }       = useQuery(CLINICS_QUERY)
   const { data: typesData }         = useQuery(CLINICIAN_TYPES_QUERY)
   const { data: servicesData }      = useQuery(SERVICES_QUERY)
-  const clinics  = (clinicsData?.clinics ?? []).filter(c => c.is_active)
-  const types    = typesData?.clinicianTypes ?? []
-  const services = servicesData?.services ?? []
+  // BUG-CLIN-006 fix: fall back to MockStore for dropdown options when backend offline
+  const clinics  = (clinicsData?.clinics?.length ? clinicsData.clinics : MockStore.getClinics()).filter(c => c.is_active)
+  const types    = typesData?.clinicianTypes ?? MockStore.getClinicianTypes()
+  const services = servicesData?.services ?? MockStore.getServices()
 
-  // Populate form once data loads
+  // BUG-CLIN-006 fix: three-tier lookup:
+  //   1. Live GraphQL data  2. MockStore (clin-X ids)  3. MOCK_EDIT_DATA (c1..c8 ids)
+  const mockClinicianRaw = MockStore.getClinicianById(id) ?? MockStore.getClinicianById(`clin-${id}`) ?? MOCK_EDIT_DATA[id] ?? null
+
+  // Populate form once data loads (or from mock fallback)
   useEffect(() => {
-    if (!data?.clinician) return
-    const c = data.clinician
+    const c = data?.clinician ?? mockClinicianRaw
+    if (!c) return
     setForm({
       first_name:        c.first_name ?? '',
       last_name:         c.last_name  ?? '',
       email:             c.email      ?? '',
-      phone:             c.phone      ?? '',
+      phone:             c.phone      ?? c.phone_number ?? '',
       gender:            c.gender     ?? '',
       bio:               c.bio        ?? '',
       consultation_fee:  c.consultation_fee?.toString() ?? '',
@@ -51,7 +77,7 @@ export default function EditClinicianPage() {
       languages:         c.languages  ?? [],
       is_active:         c.is_active  ?? true,
     })
-  }, [data])
+  }, [data?.clinician?.id, id]) // eslint-disable-line
 
   const [updateClinician, { loading }] = useMutation(UPDATE_CLINICIAN_MUTATION, {
     onCompleted: () => {
@@ -61,7 +87,8 @@ export default function EditClinicianPage() {
     onError: (err) => enqueueSnackbar(err.message, { variant: 'error' }),
   })
 
-  if (fetching || !form) {
+  // BUG-CLIN-006: only show skeleton if truly loading AND no mock fallback available (inc. MOCK_EDIT_DATA)
+  if (fetching && !form && !mockClinicianRaw && !MOCK_EDIT_DATA[id]) {
     return (
       <Box>
         <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
@@ -72,6 +99,7 @@ export default function EditClinicianPage() {
       </Box>
     )
   }
+  if (!form) return null
 
   const set      = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
   const setMulti = (field) => (e) => {
@@ -84,6 +112,7 @@ export default function EditClinicianPage() {
     if (!form.first_name.trim()) e.first_name = 'Required'
     if (!form.last_name.trim())  e.last_name  = 'Required'
     if (!form.email.trim())      e.email      = 'Required'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format'  // BUG-CLIN-005 fix
     setErrors(e); return Object.keys(e).length === 0
   }
 
@@ -122,7 +151,7 @@ export default function EditClinicianPage() {
           </Box>
           <Box>
             <Typography variant="h5" fontWeight={800} color="#202124">
-              Edit — {data?.clinician?.full_name}
+              Edit — {(data?.clinician ?? mockClinicianRaw)?.full_name ?? `${form.first_name} ${form.last_name}`.trim() || 'Clinician'}
             </Typography>
             <Typography variant="body2" color="text.secondary">Update clinician details</Typography>
           </Box>

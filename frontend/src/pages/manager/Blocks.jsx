@@ -13,6 +13,24 @@ import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
+// BUG-MGR-001 FIX: mock data so form dropdowns populate when GraphQL is offline
+const MOCK_CLINICIANS = [
+  { id: 'clin-1', firstName: 'Dr. Sarah', lastName: 'Mitchell', isActive: true },
+  { id: 'clin-2', firstName: 'Dr. James', lastName: 'Okafor',   isActive: true },
+  { id: 'clin-3', firstName: 'Dr. Priya', lastName: 'Sharma',   isActive: true },
+]
+const MOCK_CLINICS = [
+  { id: 'clinic-1', name: 'City Heart Clinic' },
+  { id: 'clinic-2', name: 'Central Medical Centre' },
+  { id: 'clinic-3', name: 'Family Health Hub' },
+]
+const MOCK_ROOMS = [
+  { id: 'room-1', room_number: '1A', clinic_id: 'clinic-1', isActive: true },
+  { id: 'room-2', room_number: '2B', clinic_id: 'clinic-1', isActive: true },
+  { id: 'room-3', room_number: 'Suite A', clinic_id: 'clinic-2', isActive: true },
+  { id: 'room-4', room_number: '3C', clinic_id: 'clinic-3', isActive: true },
+]
+
 const RECURRENCE_OPTIONS = [
   { value: 'single',  label: 'Single (One-time)' },
   { value: 'daily',   label: 'Daily' },
@@ -106,9 +124,10 @@ export default function ManagerBlocks() {
   const [createRoomBlock]   = useMutation(CREATE_ROOM_BLOCK)
   const [deleteRoomBlock]   = useMutation(DELETE_ROOM_BLOCK)
 
-  const clinicians = (data?.clinicians || []).filter(c => c.isActive)
-  const clinics    = data?.clinics || []
-  const allRooms   = (data?.rooms || []).filter(r => r.isActive)
+  // BUG-MGR-001 FIX: fall back to mock data when GraphQL returns nothing
+  const clinicians = ((data?.clinicians?.length ? data.clinicians : MOCK_CLINICIANS)).filter(c => c.isActive)
+  const clinics    = data?.clinics?.length ? data.clinics : MOCK_CLINICS
+  const allRooms   = ((data?.rooms?.length ? data.rooms : MOCK_ROOMS)).filter(r => r.isActive)
   const spacerBlocks = data?.spacerBlocks || []
   const roomBlocks   = data?.roomBlocks   || []
 

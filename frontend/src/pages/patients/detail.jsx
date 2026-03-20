@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import dayjs from 'dayjs'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import {
@@ -21,9 +22,22 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
 
-// ─── Mock patient ────────────────────────────────────────────────────────────
-const MOCK_PATIENT = {
-  id: '1', full_name: 'John Michael Doe', email: 'john.doe@email.com',
+// ─── Mock patients (BUG-004 fix: keyed by id so URL param resolves correctly) ─
+// Supports both 'pt-1'..'pt-5' (clinician patients list) and '1'..'5' (admin list)
+const MOCK_PATIENTS_DETAIL = {
+  'pt-1': { id: 'pt-1', full_name: 'Alice Thompson',   email: 'alice.thompson@gmail.com',       phone: '+1 555-1001', date_of_birth: '1985-03-12', gender: 'female', blood_type: 'A+',  allergies: ['None'],         address: '12 Oak Avenue, Boston, MA 02101',            emergency_contact: 'Bob Thompson — +1 555-2001',  primary_clinician: 'Dr. Sarah Mitchell', status: 'active',   total_visits: 6,  last_visit: '2026-03-05', outstanding_balance: 0,   notes: 'Patient has controlled hypertension on medication.' },
+  'pt-2': { id: 'pt-2', full_name: 'Marcus Chen',      email: 'marcus.chen@outlook.com',        phone: '+1 555-1002', date_of_birth: '1990-07-25', gender: 'male',   blood_type: 'B+',  allergies: ['Dust'],         address: '45 Pine Street, San Francisco, CA 94101',    emergency_contact: 'Lin Chen — +1 555-2002',      primary_clinician: 'Dr. Sarah Mitchell', status: 'active',   total_visits: 3,  last_visit: '2026-02-18', outstanding_balance: 50,  notes: 'Patient uses inhaler for asthma management.' },
+  'pt-3': { id: 'pt-3', full_name: 'Fatima Al-Hassan', email: 'fatima.alhassan@email.com',      phone: '+1 555-1003', date_of_birth: '1978-11-04', gender: 'female', blood_type: 'O+',  allergies: ['Insulin'],      address: '78 Birch Road, Chicago, IL 60601',           emergency_contact: 'Omar Al-Hassan — +1 555-2003', primary_clinician: 'Dr. Sarah Mitchell', status: 'new',      total_visits: 1,  last_visit: '2026-03-01', outstanding_balance: 200, notes: 'Newly diagnosed with Type 2 Diabetes. Lifestyle changes recommended.' },
+  'pt-4': { id: 'pt-4', full_name: 'George Williams',  email: 'george.williams@btinternet.com', phone: '+1 555-1004', date_of_birth: '1962-05-18', gender: 'male',   blood_type: 'AB-', allergies: ['Aspirin'],       address: '22 Elm Drive, New York, NY 10001',           emergency_contact: 'Mary Williams — +1 555-2004', primary_clinician: 'Dr. Sarah Mitchell', status: 'active',   total_visits: 8,  last_visit: '2026-01-14', outstanding_balance: 75,  notes: 'On statin therapy for high cholesterol. Regular follow-ups needed.' },
+  'pt-5': { id: 'pt-5', full_name: 'Sophie Turner',    email: 'sophie.turner@gmail.com',        phone: '+1 555-1005', date_of_birth: '1995-09-30', gender: 'female', blood_type: 'O-',  allergies: ['None'],         address: '9 Maple Lane, Austin, TX 73301',             emergency_contact: 'James Turner — +1 555-2005',  primary_clinician: 'Dr. Sarah Mitchell', status: 'inactive', total_visits: 2,  last_visit: '2025-12-10', outstanding_balance: 0,   notes: 'Patient has not attended in 3+ months. Outreach recommended.' },
+  // Aliases for numeric IDs used by admin patients list
+  '1': { id: '1', full_name: 'Alice Johnson',  email: 'alice@email.com',   phone: '+1 555-1001', date_of_birth: '1992-05-12', gender: 'female', blood_type: 'A+', allergies: ['Penicillin', 'Pollen'], address: '142 Maple Street, Springfield, IL 62701',  emergency_contact: 'Jane Johnson — +1 555-9876', primary_clinician: 'Dr. Jane Smith', status: 'active', total_visits: 14, last_visit: '2026-02-28', outstanding_balance: 120, notes: 'Patient prefers morning appointments. Has mild anxiety.' },
+  '2': { id: '2', full_name: 'Bob Smith',      email: 'bob@email.com',     phone: '+1 555-1002', date_of_birth: '1979-11-30', gender: 'male',   blood_type: 'B+', allergies: [],                          address: '88 River Road, Austin, TX 78701',          emergency_contact: 'Alice Smith — +1 555-8765',  primary_clinician: 'Dr. Carlos Vega', status: 'active', total_visits: 7,  last_visit: '2026-01-15', outstanding_balance: 0,   notes: '' },
+};
+
+// Default fallback for IDs not matched
+const MOCK_PATIENT_DEFAULT = {
+  id: 'demo', full_name: 'John Michael Doe', email: 'john.doe@email.com',
   phone: '+1 (555) 234-5678', date_of_birth: '1989-04-15',
   gender: 'male', blood_type: 'O+', allergies: ['Penicillin', 'Pollen'],
   address: '142 Maple Street, Springfield, IL 62701, USA',
@@ -31,7 +45,9 @@ const MOCK_PATIENT = {
   primary_clinician: 'Dr. Jane Smith', status: 'active',
   total_visits: 14, last_visit: '2026-02-28', outstanding_balance: 120,
   notes: 'Patient prefers morning appointments. Has mild anxiety — handle with care.',
-}
+};
+
+
 
 const MOCK_HISTORY = [
   { date: '2026-02-28', clinician: 'Dr. Jane Smith', service: 'Consultation', diagnosis: 'Seasonal allergy flare-up', notes: 'Prescribed antihistamines for 2 weeks.' },
@@ -78,7 +94,7 @@ export default function PatientDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [tab, setTab] = useState(0)
-  const p = MOCK_PATIENT // In prod: use useQuery with id
+  const p = MOCK_PATIENTS_DETAIL[id] ?? MOCK_PATIENT_DEFAULT  // BUG-004 fix: look up by URL id
 
   const age = Math.floor((new Date() - new Date(p.date_of_birth)) / (365.25 * 24 * 3600 * 1000))
 
@@ -120,7 +136,7 @@ export default function PatientDetailPage() {
               </Typography>
               <Stack direction="row" spacing={1} flexWrap="wrap">
                 <Chip icon={<CalendarMonthRoundedIcon />} label={`${p.total_visits} Visits`} size="small" variant="outlined" />
-                <Chip icon={<AccessTimeRoundedIcon />} label={`Last: ${p.last_visit}`} size="small" variant="outlined" />
+                <Chip icon={<AccessTimeRoundedIcon />} label={`Last: ${dayjs(p.last_visit).format('DD/MM/YYYY')}`} size="small" variant="outlined" />
                 {p.outstanding_balance > 0 && <Chip label={`$${p.outstanding_balance} Balance`} size="small" color="warning" />}
               </Stack>
             </Grid>
@@ -159,7 +175,7 @@ export default function PatientDetailPage() {
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem', mb: 1.5 }}>Personal Information</Typography>
-                <InfoRow label="Date of Birth" value={`${p.date_of_birth} (${age} years old)`} icon={AccessTimeRoundedIcon} />
+                <InfoRow label="Date of Birth" value={`${dayjs(p.date_of_birth).format('DD/MM/YYYY')} (${age} years old)`} icon={AccessTimeRoundedIcon} />
                 <InfoRow label="Gender" value={p.gender} icon={PersonRoundedIcon} />
                 <InfoRow label="Blood Type" value={p.blood_type} icon={MedicalServicesRoundedIcon} />
                 <InfoRow label="Allergies" value={p.allergies.join(', ')} icon={ScienceRoundedIcon} />
@@ -198,7 +214,7 @@ export default function PatientDetailPage() {
                       <Typography variant="body2" fontWeight={700} sx={{ color: '#0D1B2E' }}>{h.diagnosis}</Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>{h.clinician} · {h.service}</Typography>
                     </Box>
-                    <Chip label={h.date} size="small" variant="outlined" sx={{ fontSize: '0.72rem' }} />
+                    <Chip label={dayjs(h.date).format('DD/MM/YYYY')} size="small" variant="outlined" sx={{ fontSize: '0.72rem' }} />
                   </Stack>
                   <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.75, lineHeight: 1.7 }}>{h.notes}</Typography>
                 </Box>
@@ -222,7 +238,7 @@ export default function PatientDetailPage() {
                   const Icon = STATUS_ICONS[a.status] || CheckCircleRoundedIcon
                   return (
                     <TableRow key={a.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{a.date}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{dayjs(a.date).format('DD/MM/YYYY, h:mm A')}</TableCell>
                       <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.clinician}</TableCell>
                       <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.service}</TableCell>
                       <TableCell><Chip icon={<Icon sx={{ fontSize: '0.85rem !important' }} />} label={a.status} color={STATUS_COLORS[a.status] || 'default'} size="small" sx={{ fontWeight: 700, textTransform: 'capitalize', fontSize: '0.72rem' }} /></TableCell>
@@ -246,7 +262,7 @@ export default function PatientDetailPage() {
                         </Box>
                         <Box>
                           <Typography variant="body2" fontWeight={700}>{t.name}</Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>Ordered by {t.ordered_by} · {t.date}</Typography>
+                           <Typography variant="caption" sx={{ color: 'text.secondary' }}>Ordered by {t.ordered_by} · {dayjs(t.date).format('DD/MM/YYYY')}</Typography>
                         </Box>
                       </Stack>
                       <Stack direction="row" spacing={1} alignItems="center">

@@ -236,7 +236,7 @@ export default function AppointmentDetailPage() {
                   </Grid>
                   <Grid item xs={12} sm={4}>
                     <InfoTile icon={<AccessTimeRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                      label="Time" value={`${startDt.format('HH:mm')} – ${endDt.format('HH:mm')} (${duration ?? '?'} min)`} />
+                      label="Time" value={`${startDt.format('h:mm A')} – ${endDt.format('h:mm A')} (${duration ?? '?'} min)`} />
                   </Grid>
                   <Grid item xs={12} sm={4}>
                     <InfoTile icon={<MedicalServicesRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
@@ -320,7 +320,7 @@ export default function AppointmentDetailPage() {
                           </Typography>
                           {log.reason && <Typography variant="caption" color="text.secondary" display="block">{log.reason}</Typography>}
                           <Typography variant="caption" color="text.disabled">
-                            {dayjs(log.created_at).format('DD MMM YYYY, HH:mm')}
+                            {dayjs(log.created_at).format('DD MMM YYYY, h:mm A')}
                             {log.changed_by_user ? ` · ${log.changed_by_user.name}` : ''}
                           </Typography>
                         </Box>
@@ -382,7 +382,7 @@ export default function AppointmentDetailPage() {
                 <InfoTile icon={<CalendarMonthRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
                   label="Date" value={startDt.format('dddd, DD MMM YYYY')} />
                 <InfoTile icon={<AccessTimeRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                  label="Time" value={`${startDt.format('HH:mm')} – ${endDt.format('HH:mm')}`} />
+                  label="Time" value={`${startDt.format('h:mm A')} – ${endDt.format('h:mm A')}`} />
                 <InfoTile icon={<TimerRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
                   label="Duration" value={`${duration ?? '—'} min`} />
                 <Divider />

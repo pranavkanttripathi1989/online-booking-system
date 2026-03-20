@@ -1,292 +1,167 @@
-# Clinician Dashboard — Test Suggestions
+# Clinician Dashboard — Test Suggestions (Updated 2026-03-19 Session 2)
 
 **Derived from:** [clinician-dashboard-test-results.md](../test-result/clinician-dashboard-test-results.md)  
 **Source File:** `frontend/src/pages/clinician/Dashboard.jsx`  
-**Date:** 2026-03-17
+**Date:** 2026-03-17 | **Updated:** 2026-03-19 Session 2
+
+> **Session 2 completed all 10 items (6 bugs + 4 suggestions). Zero remaining pending items.**
 
 ---
 
 ## 🔴 High Priority — Functional Gaps
 
-### SUG-CLDASH-001 — Wire "Add Block" Button (BUG-CLDASH-001)
-
-**Problem:** Line 178: `<Button variant="outlined" startIcon={<Add />}>Add Block</Button>` has **no `onClick`**. Clicking it does nothing. This is a key workflow action — clinicians need to block time for admin/personal use.
-
-**Fix:**
-```jsx
-// Option A: Open a drawer
-const [blockDrawerOpen, setBlockDrawerOpen] = useState(false);
-
-<Button onClick={() => setBlockDrawerOpen(true)} ...>Add Block</Button>
-
-<Drawer anchor="right" open={blockDrawerOpen} onClose={() => setBlockDrawerOpen(false)}>
-  {/* Block creation form: startTime, endTime/duration, reason */}
-</Drawer>
-```
-
-**Option B:** Navigate to blocks management page:
-```jsx
-<Button onClick={() => navigate('/clinician/blocks/new')} ...>Add Block</Button>
-```
-
-**Priority:** 🔴 High | **Effort:** Medium (requires new mutation + form)
+### SUG-CLDASH-001 — Wire "Add Block" Button ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- `const [blockDrawerOpen, setBlockDrawerOpen] = useState(false)`
+- Button `onClick={() => setBlockDrawerOpen(true)}`
+- Full Drawer (anchor="right", 360px wide) with:
+  - StartTime / EndTime time pickers (HTML `type="time"`)
+  - Reason optional textarea
+  - Cancel + Save Block buttons
+  - Save disabled until both time fields filled
+  - `handleSaveBlock()`: closes drawer + resets form (production: would fire mutation)
+- Drawer PaperProps flex-column layout with sticky footer buttons
 
 ---
 
-### SUG-CLDASH-002 — Wire Timeline Appointment Block Click (BUG-CLDASH-002)
-
-**Problem:** Line 245: `onClick={() => console.log('Selected Appt', appt.id)}` — only logs to console. No UI change occurs when a clinician clicks an appointment in the timeline. Should show a detail drawer or card.
-
-**Fix:**
-```js
-const [selectedAppt, setSelectedAppt] = useState(null);
-```
-
-```jsx
-// Timeline block:
-onClick={() => setSelectedAppt(appt)}
-
-// Detail drawer:
-<Drawer anchor="right" open={!!selectedAppt} onClose={() => setSelectedAppt(null)}>
-  {selectedAppt && (
-    <Box p={3}>
-      <Typography variant="h5">{selectedAppt.patient.firstName} {selectedAppt.patient.lastName}</Typography>
-      <Typography>{selectedAppt.startTime} · {selectedAppt.duration || 30} mins</Typography>
-      {selectedAppt.type === 'video' && (
-        <Button onClick={() => navigate('/video-consultation/' + selectedAppt.id)}>Join Call</Button>
-      )}
-    </Box>
-  )}
-</Drawer>
-```
-
-**Priority:** 🔴 High | **Effort:** Medium
+### SUG-CLDASH-002 — Wire Timeline Appointment Block Click ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- `const [selectedAppt, setSelectedAppt] = useState(null)`
+- `onClick={() => setSelectedAppt(appt)}` on each timeline block card
+- Full Appointment Detail Drawer:
+  - Patient name + Gravatar 56px avatar
+  - Start time + duration + product name
+  - Status chip (colour-coded via `getStatusColor()`)
+  - Type chip (📹 Video or 🏥 In-Person)
+  - "View Notes" → `navigate('/patients/{id}/notes')`
+  - "Join Video Call" button (video type only) → `navigate('/video-consultation/{id}')`
+  - "Close" text button
 
 ---
 
-### SUG-CLDASH-003 — Wire "View Notes" Button in Upcoming Next
-
-**Problem:** Line 339: `<Button variant="outlined" fullWidth>View Notes</Button>` has no `onClick`. Clicking it does nothing.
-
-**Fix:**
-```jsx
-<Button variant="outlined" fullWidth onClick={() => navigate('/patients/' + nextAppt.patient.id + '/notes')}>
-  View Notes
-</Button>
-```
-
-**Priority:** 🔴 High | **Effort:** 1 line
+### SUG-CLDASH-003 — Wire "View Notes" Button in Upcoming Next ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- `onClick={() => navigate('/patients/${nextAppt.patient.id}/notes')}`
+- Applied to both the "View Notes" in Upcoming Next panel AND in the appointment detail drawer
 
 ---
 
-### SUG-CLDASH-004 — Add Mock Appointment Data for Offline Testing
-
-**Problem:** The timeline, "Upcoming Next" panel, and queue all show empty/fallback state when backend is offline. Unlike the KPI cards (which use `|| 12/5/7/3`), the appointment-dependent panels have no mock data fallback, so 6 out of 16 TCs are always SKIPPED.
-
-**Fix — Add mock appointments array:**
-```js
-const MOCK_APPOINTMENTS = [
-  { id: 'a1', startTime: '09:00', endTime: '09:30', duration: 30, status: 'completed', type: 'in-person',
-    patient: { id: 'p1', firstName: 'Emma', lastName: 'Wilson' }, product: { id: 'pr1', name: 'General Consultation' } },
-  { id: 'a2', startTime: '10:00', endTime: '11:00', duration: 60, status: 'scheduled', type: 'video',
-    patient: { id: 'p2', firstName: 'Lily', lastName: 'Chen' }, product: { id: 'pr2', name: 'Video Consultation' } },
-  { id: 'a3', startTime: '11:30', endTime: '12:00', duration: 30, status: 'scheduled', type: 'in-person',
-    patient: { id: 'p3', firstName: 'James', lastName: 'Brown' }, product: { id: 'pr3', name: 'Follow-up' } },
-  { id: 'a4', startTime: '14:00', endTime: '14:30', duration: 30, status: 'scheduled', type: 'in-person',
-    patient: { id: 'p4', firstName: 'Amir', lastName: 'Patel' }, product: { id: 'pr4', name: 'Specialist Review' } },
-];
-const MOCK_LUNCH = [{ id: 'lb1', startTime: '12:30', endTime: '13:30', duration: 60 }];
-
-// In component:
-const allAppointments = data?.getAppointments || (error ? MOCK_APPOINTMENTS : []);
-const lunchBreaks = data?.getLunchBreaks || (error ? MOCK_LUNCH : []);
-```
-
-**Priority:** 🔴 High | **Enables:** TC-CLDASH-05, 08, 09, 10, 12, 14 — all currently SKIPPED
+### SUG-CLDASH-004 — Mock Appointment Data for Offline Testing ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- `MOCK_APPOINTMENTS` (5 items: completed, 3×scheduled, cancelled; includes video and in-person types)
+- `MOCK_LUNCH` (1 lunch break 12:30–13:30)
+- `MOCK_SPACERS` (1 spacer block 08:00–08:30 "Morning admin")
+- `const isMock = !data && !!error`
+- `allAppointments = data?.getAppointments || (isMock ? MOCK_APPOINTMENTS : [])`
+- Enables: TC-05, 08, 09, 10, 11, 12, 14 — all now PASS (were all SKIPPED)
 
 ---
 
 ## 🟡 Medium Priority — Validation & UX Gaps
 
-### SUG-CLDASH-005 — Fix Fallback Name: "Dr. Doctor" is Awkward
-
-**Problem:** When `data?.getClinician` is null (offline), the fallback `{ name: 'Doctor' }` renders as **"Dr. Doctor"**.
-
-**Fix:**
-```js
-const clinician = data?.getClinician || { name: '—', clinicianType: 'Clinician', clinic: { name: 'Clinic' } };
-// Renders as "Dr. —" which is clearly a placeholder
-```
-
-Or:
-```jsx
-<Typography variant="h5" color="white" fontWeight={800}>
-  {clinician.name ? `Dr. ${clinician.name}` : user?.email || 'Doctor'}
-</Typography>
-```
-
-**Priority:** 🟡 Medium | **Effort:** 2 lines
+### SUG-CLDASH-005 — Fix "Dr. Doctor" Fallback Name ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- Clinician fallback: `{ name: null, clinicianType: user?.clinician?.clinician_type?.name || 'Clinician', clinic: {...} }`
+- `displayName = clinician.name ? 'Dr. '+clinician.name : user?.clinician?.full_name || user?.name || 'Dr. —'`
+- In mock mode, shows "Dr. Sarah Mitchell" from useAuth. Only "Dr. —" if truly no info.
 
 ---
 
-### SUG-CLDASH-006 — Guard Against Invalid startTime Format (E1)
-
-**Problem:** `getTopAndHeight('invalid-time', 30)` → `split(':')` → `['invalid-time']` → `[NaN, NaN]` → `topPx = NaN`. Block not positioned (not rendered at all or at `top: NaN`).
-
-**Fix:**
+### SUG-CLDASH-006 — Guard Against Invalid startTime Format ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
 ```js
 const getTopAndHeight = (startTime, durationOrEndTime) => {
-  if (!startTime || !startTime.includes(':')) return { top: 0, height: 36 }; // safe fallback
+  if (!startTime || !startTime.includes(':')) return { top: 0, height: 36 };
   const [h, m] = startTime.split(':').map(Number);
   if (isNaN(h) || isNaN(m)) return { top: 0, height: 36 };
   // ... rest unchanged
 };
 ```
-
-**Priority:** 🟡 Medium | **Effort:** 3 lines
+- Safe fallback: `{ top: 0, height: 36 }` — renders at grid top with minimum height
+- Also guards endTime string: checks `includes(':')` before parsing
 
 ---
 
-### SUG-CLDASH-007 — Prevent Overlapping Appointment Blocks (E5)
-
-**Problem:** Multiple appointments at the same time use identical `left: 64, right: 12` — they overlap completely, hiding each other.
-
-**Fix (simplified side-by-side):**
-```js
-// After filtering dayEvents, detect overlaps and assign column index:
-const getColumnIndex = (appt, allAppts) => {
-  const earlier = allAppts.filter(a => a.id !== appt.id && a.startTime < appt.startTime && a.endTime > appt.startTime);
-  return earlier.length; // column 0, 1, 2...
-};
-```
-
-Then apply fractional `left` / `right` per column.
-
-**Priority:** 🟡 Medium
+### SUG-CLDASH-007 — Overlap Detection for Same-Time Blocks ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- `assignOverlapColumns(appts)` function: sorts by startTime, greedily assigns columns
+- Each appt gets `_col` (0-indexed) and `_totalCols`
+- Overlap: `left = calc(64px + (col/totalCols)*100%)`, `width = calc((1/totalCols)*100% - 76px)`
+- Single-appt columns keep original `left: 64, right: 12` for backwards compat
 
 ---
 
 ## 🟢 Low Priority — UX Improvements
 
-### SUG-CLDASH-008 — Add "Current Time" Indicator on Timeline
-
-```jsx
-// Current time red line
-const nowMins = dayjs().hour() * 60 + dayjs().minute();
-const nowTop = (nowMins - START_MINS) * PIXELS_PER_MIN;
-{nowTop >= 0 && nowTop <= 720 && (
-  <Box sx={{ position: 'absolute', top: nowTop, left: 0, right: 0, height: 2, bgcolor: 'error.main', zIndex: 20 }}>
-    <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'error.main', position: 'absolute', left: 56, top: -3 }} />
-  </Box>
-)}
-```
-
-**Priority:** 🟢 Low
+### SUG-CLDASH-008 — Add Current Time Indicator + Auto-Scroll ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- `showNowLine = nowTop >= 0 && nowTop <= TIMELINE_HEIGHT`
+- Red `<Box height=2 bgcolor='error.main'>` + `<Box width=8 height=8 borderRadius='50%'>` dot on left
+- `useRef(timelineRef)` + `useEffect`: `timelineRef.current.scrollTop = Math.max(0, nowTop - 60)` on mount
+- Auto-scroll positions current time 60px from top of visible area
 
 ---
 
-### SUG-CLDASH-009 — KPI Cards: Distinguish Live vs Fallback
-
-**Problem:** KPI values 12/5/7/3 look the same whether from real data or fallback. Users have no indication the data is stale/mocked.
-
-**Fix:** Show a subtle indicator:
-```jsx
-{error && <Typography variant="caption" color="warning.main">⚠ Offline — showing demo data</Typography>}
-```
-
-**Priority:** 🟢 Low
+### SUG-CLDASH-009 — Show Offline/Stale Data Indicator ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- `{isMock && <Alert severity="warning">⚠ Offline — showing demo data. Changes will not be saved until reconnected.</Alert>}`
+- Shown below banner, above KPI cards
+- Consistent with Availability module's offline banner pattern
 
 ---
 
-### SUG-CLDASH-010 — Auto-Refresh: Show Last Updated Timestamp
-
-Since page auto-refreshes every 60s, show "Last updated: 2 min ago" in the header.
-
-```js
-const [lastRefresh, setLastRefresh] = useState(dayjs());
-// In interval:
-setInterval(() => { refetch(); setLastRefresh(dayjs()); }, 60000);
-```
-
-```jsx
-<Typography variant="caption" color="rgba(255,255,255,0.6)">
-  Updated {dayjs().diff(lastRefresh, 'minute')} min ago
-</Typography>
-```
-
-**Priority:** 🟢 Low
+### SUG-CLDASH-010 — Show "Last Updated" Timestamp ✅ DONE
+**Status:** ✅ DONE (2026-03-19)  
+**Fix Applied:**
+- `const [lastRefresh, setLastRefresh] = useState(dayjs())`
+- Updated in 60s interval: `setLastRefresh(dayjs())`
+- Shown in header banner: `"Updated {dayjs().diff(lastRefresh, 'minute')} min ago"` (white 0.65rem opacity 0.5)
 
 ---
 
-## Test Plan Gaps & Additional Scenarios
+## New Suggestions — Discovered During Session 2
 
-### SUG-CLDASH-PLAN-001 — Add TC: Timeline Block Colours for Each Status
+### SUG-CLDASH-011 — "Mark as Complete" action in Appointment Drawer
+**Observation:** The appointment detail drawer (BUG-002 fix) shows status info but clinicians can't quickly mark an appointment as complete. A "Mark Complete" button would streamline workflow.  
+**Priority:** 🟡 Medium | **Effort:** Medium (requires mutation) | **Status:** ⏳ PENDING (backend)
 
-> **TC-CLDASH-08B** — Verify all 3 status colours in timeline  
-> Requires mock data. With MOCK_APPOINTMENTS:  
-> 'completed' → `#2DC653` green.  
-> 'scheduled' → `#006D77` teal.  
-> 'cancelled' → `#E63946` red.  
-> Source: `getStatusColor` function (lines 139–145).
+---
 
-### SUG-CLDASH-PLAN-002 — Add TC: Product Name Hidden on Short Blocks
+### SUG-CLDASH-012 — Queue Patient Click → Appointment Preview
+**Observation:** Queue patient list items are not clickable. Clicking a queue patient should open the same appointment detail drawer.  
+**Priority:** 🟡 Medium | **Effort:** Small (reuse selected drawer) | **Status:** ⏳ PENDING
 
-> **TC-CLDASH-08C** — Height > 30px threshold for product name  
-> Source line 252: `{height > 30 && <Typography>{appt.product?.name}</Typography>}`.  
-> 30-min block: `height = 30 * 1.2 = 36 > 30` → product name visible.  
-> 20-min block: `height = 20 * 1.2 = 24 < 30` → product name hidden.
+---
 
-### SUG-CLDASH-PLAN-003 — Add TC: Gravatar Avatar Loads
-
-> **TC-CLDASH-12B** — Upcoming Next avatar  
-> With `nextAppt.patient.id`, avatar URL = `https://www.gravatar.com/avatar/{id}?d=mp`.  
-> Verify default avatar image loads (mp = mystery person fallback).  
-> Check width/height = 56px, border = `2px solid #006D7730`.
-
-### SUG-CLDASH-PLAN-004 — Add TC: "Start Session" Video-Only
-
-> **TC-CLDASH-12C** — "Start Session" shown only for video type  
-> With in-person next appointment: only "View Notes" shown (no "Start Session").  
-> With video next appointment: both "View Notes" + "Start Session" shown.  
-> Click "Start Session" → navigate to `/video-consultation/{id}`.
-
-### SUG-CLDASH-PLAN-005 — Add TC: Queue Capped at 4
-
-> **TC-CLDASH-14B** — Queue max 4 items  
-> Add 6 upcoming appointments. `nextAppt` = first one. `queue = slice(0, 4)` = next 4.  
-> Verify exactly 4 items in queue list, even with 5+ upcoming.
-
-### SUG-CLDASH-PLAN-006 — Add TC: Refresh Interval Persists on Navigation
-
-> **TC-CLDASH-16B** — Cleanup on unmount  
-> Source line 83: `return () => clearInterval(interval)`.  
-> Navigate away and back to verify no duplicate intervals accumulate.  
-> Test: check browser DevTools for multiple refetch calls per minute.
-
-### SUG-CLDASH-PLAN-007 — Add TC: Timeline Scrolls to Current Time
-
-> **TC-CLDASH-07B** — Timeline initial scroll position  
-> Currently, timeline starts at 08:00. If current time is 14:00, user must manually scroll.  
-> Enhancement suggestion: scroll to current time on mount using a `useRef` and `scrollIntoView`.
+### SUG-CLDASH-013 — Block Drawer: Save to Spacer API
+**Observation:** The Add Block drawer form saves locally in mock mode but needs a mutation (`createSpacerBlock`) to persist.  
+**Priority:** 🟡 Medium | **Effort:** Medium (backend endpoint + mutation) | **Status:** ⏳ PENDING (backend)
 
 ---
 
 ## Summary Table
 
-| ID | Suggestion | Category | Priority |
-|----|-----------|----------|----------|
-| SUG-CLDASH-001 | Wire Add Block button | 🐛 Bug Fix | 🔴 High |
-| SUG-CLDASH-002 | Wire timeline block click → drawer | 🐛 Bug Fix | 🔴 High |
-| SUG-CLDASH-003 | Wire "View Notes" onClick | 🐛 Bug Fix | 🔴 High |
-| SUG-CLDASH-004 | Add mock appointment data for offline | 🧪 Test Infra | 🔴 High |
-| SUG-CLDASH-005 | Fix "Dr. Doctor" fallback name | ✨ UX | 🟡 Medium |
-| SUG-CLDASH-006 | Guard against invalid startTime format | 🛡 Validation | 🟡 Medium |
-| SUG-CLDASH-007 | Overlap handling for same-time blocks | ✨ UX | 🟡 Medium |
-| SUG-CLDASH-008 | Current time red line indicator | ✨ UX Polish | 🟢 Low |
-| SUG-CLDASH-009 | Show offline/stale data indicator | ✨ UX | 🟢 Low |
-| SUG-CLDASH-010 | Show "last updated" timestamp | ✨ UX | 🟢 Low |
-
-### Quick Wins (< 5 min each):
-- **SUG-CLDASH-003**: Add `onClick={() => navigate('/patients/' + nextAppt.patient.id + '/notes')}` to View Notes (1 line)
-- **SUG-CLDASH-005**: Change fallback `name: 'Doctor'` to `name: '—'` (1 word)
-- **SUG-CLDASH-006**: Add NaN guard in `getTopAndHeight` (3 lines)
+| ID | Suggestion | Category | Priority | Status |
+|----|-----------|----------|----------|--------|
+| SUG-CLDASH-001 | Wire Add Block → drawer with form | 🐛 Bug Fix | 🔴 High | ✅ DONE |
+| SUG-CLDASH-002 | Wire timeline block click → detail drawer | 🐛 Bug Fix | 🔴 High | ✅ DONE |
+| SUG-CLDASH-003 | Wire "View Notes" onClick | 🐛 Bug Fix | 🔴 High | ✅ DONE |
+| SUG-CLDASH-004 | Mock appointment data for offline | 🧪 Test Infra | 🔴 High | ✅ DONE |
+| SUG-CLDASH-005 | Fix "Dr. Doctor" fallback name | ✨ UX | 🟡 Medium | ✅ DONE |
+| SUG-CLDASH-006 | Guard invalid startTime format | 🛡 Validation | 🟡 Medium | ✅ DONE |
+| SUG-CLDASH-007 | Overlap detection for same-time blocks | ✨ UX | 🟡 Medium | ✅ DONE |
+| SUG-CLDASH-008 | Current time line + auto-scroll | ✨ UX Polish | 🟢 Low | ✅ DONE |
+| SUG-CLDASH-009 | Offline data indicator alert | ✨ UX | 🟢 Low | ✅ DONE |
+| SUG-CLDASH-010 | "Last updated" timestamp | ✨ UX | 🟢 Low | ✅ DONE |
+| SUG-CLDASH-011 | "Mark Complete" in detail drawer | ✨ UX | 🟡 Medium | ⏳ PENDING (backend) |
+| SUG-CLDASH-012 | Queue patient click → appointment preview | ✨ UX | 🟡 Medium | ⏳ PENDING |
+| SUG-CLDASH-013 | Block form → createSpacerBlock mutation | 🔗 Integration | 🟡 Medium | ⏳ PENDING (backend) |

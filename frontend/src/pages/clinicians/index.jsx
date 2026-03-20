@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import { useQuery } from '@apollo/client'
 import { useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
@@ -7,6 +7,7 @@ import {
   Box,
   Button,
   Grid,
+  InputAdornment,
   MenuItem,
   Paper,
   Skeleton,
@@ -16,6 +17,7 @@ import {
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import AddIcon from '@mui/icons-material/Add'
 
 import { CLINICIANS_QUERY, CLINICS_QUERY } from '../../graphql/queries'
@@ -25,60 +27,127 @@ import ClinicianProfileDrawer from '../../components/Clinicians/ClinicianProfile
 import ClinicianFormDrawer from '../../components/Clinicians/ClinicianFormDrawer'
 
 // ─── Mock Clinicians (fallback when backend is offline) ─────────────────────
+// BUG-CLIN-001 fix: use `clinician_type` object + `clinics` array to match
+// ClinicianCard's expected data shape (it reads clinician_type.name and clinics).
+// Added consultation_fee, avg_rating, total_reviews, services, availability_templates.
 const MOCK_CLINICIANS = [
   {
-    id: 'c1', full_name: 'Dr. Jane Smith', title: 'Dr.', specialty: 'General Practitioner',
+    id: 'c1', full_name: 'Dr. Jane Smith', specialty: 'General Practitioner',
+    clinician_type: { id: 'ct1', name: 'General Practitioner' },
     qualification: 'MBBS, MRCGP', email: 'jane.smith@medibook.com', phone: '+44 7700 900001',
-    is_active: true,
-    clinic: { id: 'cl1', name: 'Central Medical Centre' },
-    availability_heatmap: [3, 5, 4, 5, 4, 2, 0],
-    reviews_avg: 4.8, reviews_count: 128,
-    appointments_this_week: 34,
+    is_active: true, consultation_fee: 80, avg_rating: 4.8, total_reviews: 128,
+    avatar_url: null,
+    clinic:  { id: 'cl1', name: 'Central Medical Centre' },
+    clinics: [{ id: 'cl1', name: 'Central Medical Centre' }],
+    services: [{ id: 'sv1', name: 'General Consultation' }, { id: 'sv2', name: 'Follow-up' }],
+    availability_templates: [
+      { id: 'at1', day_of_week: 1, is_active: true },
+      { id: 'at2', day_of_week: 2, is_active: true },
+      { id: 'at3', day_of_week: 3, is_active: true },
+      { id: 'at4', day_of_week: 4, is_active: true },
+      { id: 'at5', day_of_week: 5, is_active: true },
+    ],
   },
   {
-    id: 'c2', full_name: 'Dr. Carlos Vega', title: 'Dr.', specialty: 'Cardiologist',
+    id: 'c2', full_name: 'Dr. Carlos Vega', specialty: 'Cardiologist',
+    clinician_type: { id: 'ct2', name: 'Cardiologist' },
     qualification: 'MD, FRCP', email: 'carlos.vega@medibook.com', phone: '+44 7700 900002',
-    is_active: true,
-    clinic: { id: 'cl1', name: 'Central Medical Centre' },
-    availability_heatmap: [2, 4, 3, 4, 3, 1, 0],
-    reviews_avg: 4.6, reviews_count: 96,
-    appointments_this_week: 28,
+    is_active: true, consultation_fee: 120, avg_rating: 4.6, total_reviews: 96,
+    avatar_url: null,
+    clinic:  { id: 'cl1', name: 'Central Medical Centre' },
+    clinics: [{ id: 'cl1', name: 'Central Medical Centre' }],
+    services: [{ id: 'sv3', name: 'Cardiac Assessment' }, { id: 'sv4', name: 'ECG' }],
+    availability_templates: [
+      { id: 'at6', day_of_week: 1, is_active: true },
+      { id: 'at7', day_of_week: 3, is_active: true },
+      { id: 'at8', day_of_week: 5, is_active: true },
+    ],
   },
   {
-    id: 'c3', full_name: 'Dr. Amy Chen', title: 'Dr.', specialty: 'Neurologist',
+    id: 'c3', full_name: 'Dr. Amy Chen', specialty: 'Neurologist',
+    clinician_type: { id: 'ct3', name: 'Neurologist' },
     qualification: 'MBChB, FRCP (Neurology)', email: 'amy.chen@medibook.com', phone: '+44 7700 900003',
-    is_active: true,
-    clinic: { id: 'cl2', name: 'North Clinic' },
-    availability_heatmap: [1, 3, 4, 3, 4, 2, 0],
-    reviews_avg: 4.9, reviews_count: 74,
-    appointments_this_week: 22,
+    is_active: true, consultation_fee: 150, avg_rating: 4.9, total_reviews: 74,
+    avatar_url: null,
+    clinic:  { id: 'cl2', name: 'North Clinic' },
+    clinics: [{ id: 'cl2', name: 'North Clinic' }],
+    services: [{ id: 'sv5', name: 'Neurology Consult' }, { id: 'sv6', name: 'MRI Review' }],
+    availability_templates: [
+      { id: 'at9',  day_of_week: 2, is_active: true },
+      { id: 'at10', day_of_week: 4, is_active: true },
+    ],
   },
   {
-    id: 'c4', full_name: 'Dr. Michael Patel', title: 'Dr.', specialty: 'Cardiologist',
+    id: 'c4', full_name: 'Dr. Michael Patel', specialty: 'Cardiologist',
+    clinician_type: { id: 'ct2', name: 'Cardiologist' },
     qualification: 'MD, FACC', email: 'michael.patel@medibook.com', phone: '+44 7700 900004',
-    is_active: true,
-    clinic: { id: 'cl2', name: 'North Clinic' },
-    availability_heatmap: [2, 2, 3, 2, 3, 0, 0],
-    reviews_avg: 4.5, reviews_count: 51,
-    appointments_this_week: 18,
+    is_active: true, consultation_fee: 130, avg_rating: 4.5, total_reviews: 51,
+    avatar_url: null,
+    clinic:  { id: 'cl2', name: 'North Clinic' },
+    clinics: [{ id: 'cl2', name: 'North Clinic' }],
+    services: [{ id: 'sv3', name: 'Cardiac Assessment' }],
+    availability_templates: [
+      { id: 'at11', day_of_week: 1, is_active: true },
+      { id: 'at12', day_of_week: 2, is_active: true },
+    ],
   },
   {
-    id: 'c5', full_name: 'Dr. Sarah Williams', title: 'Dr.', specialty: 'Physiotherapist',
+    id: 'c5', full_name: 'Dr. Sarah Williams', specialty: 'Physiotherapist',
+    clinician_type: { id: 'ct4', name: 'Physiotherapist' },
     qualification: 'BSc Physiotherapy, MCSP', email: 'sarah.williams@medibook.com', phone: '+44 7700 900005',
-    is_active: true,
-    clinic: { id: 'cl1', name: 'Central Medical Centre' },
-    availability_heatmap: [4, 5, 5, 4, 5, 3, 0],
-    reviews_avg: 4.7, reviews_count: 62,
-    appointments_this_week: 41,
+    is_active: true, consultation_fee: 70, avg_rating: 4.7, total_reviews: 62,
+    avatar_url: null,
+    clinic:  { id: 'cl1', name: 'Central Medical Centre' },
+    clinics: [{ id: 'cl1', name: 'Central Medical Centre' }],
+    services: [{ id: 'sv7', name: 'Physio Assessment' }, { id: 'sv8', name: 'Rehabilitation Session' }],
+    availability_templates: [
+      { id: 'at13', day_of_week: 1, is_active: true },
+      { id: 'at14', day_of_week: 2, is_active: true },
+      { id: 'at15', day_of_week: 3, is_active: true },
+      { id: 'at16', day_of_week: 4, is_active: true },
+      { id: 'at17', day_of_week: 5, is_active: true },
+      { id: 'at18', day_of_week: 6, is_active: true },
+    ],
   },
   {
-    id: 'c6', full_name: 'Dr. Omar Hassan', title: 'Dr.', specialty: 'Radiologist',
+    id: 'c6', full_name: 'Dr. Omar Hassan', specialty: 'Radiologist',
+    clinician_type: { id: 'ct5', name: 'Radiologist' },
     qualification: 'FRCR', email: 'omar.hassan@medibook.com', phone: '+44 7700 900006',
-    is_active: false,
-    clinic: { id: 'cl3', name: 'East Wing Radiology' },
-    availability_heatmap: [0, 0, 0, 0, 0, 0, 0],
-    reviews_avg: 4.3, reviews_count: 38,
-    appointments_this_week: 0,
+    is_active: false, consultation_fee: 0, avg_rating: 4.3, total_reviews: 38,
+    avatar_url: null,
+    clinic:  { id: 'cl3', name: 'East Wing Radiology' },
+    clinics: [{ id: 'cl3', name: 'East Wing Radiology' }],
+    services: [],
+    availability_templates: [],
+  },
+  {
+    id: 'c7', full_name: 'Dr. Sarah Mitchell', specialty: 'General Practitioner',
+    clinician_type: { id: 'ct1', name: 'General Practitioner' },
+    qualification: 'MBBS, DFFP', email: 'sarah.mitchell@medibook.com', phone: '+44 7700 900007',
+    is_active: true, consultation_fee: 85, avg_rating: 4.7, total_reviews: 110,
+    avatar_url: null,
+    clinic:  { id: 'cl1', name: 'Central Medical Centre' },
+    clinics: [{ id: 'cl1', name: 'Central Medical Centre' }],
+    services: [{ id: 'sv1', name: 'General Consultation' }],
+    availability_templates: [
+      { id: 'at19', day_of_week: 1, is_active: true },
+      { id: 'at20', day_of_week: 3, is_active: true },
+      { id: 'at21', day_of_week: 5, is_active: true },
+    ],
+  },
+  {
+    id: 'c8', full_name: 'Dr. Priya Sharma', specialty: 'Dermatologist',
+    clinician_type: { id: 'ct6', name: 'Dermatologist' },
+    qualification: 'MBBS, MRCP (Dermatology)', email: 'priya.sharma@medibook.com', phone: '+44 7700 900008',
+    is_active: true, consultation_fee: 110, avg_rating: 4.8, total_reviews: 89,
+    avatar_url: null,
+    clinic:  { id: 'cl3', name: 'East Wing Radiology' },
+    clinics: [{ id: 'cl3', name: 'East Wing Radiology' }],
+    services: [{ id: 'sv9', name: 'Skin Consultation' }, { id: 'sv10', name: 'Mole Check' }],
+    availability_templates: [
+      { id: 'at22', day_of_week: 2, is_active: true },
+      { id: 'at23', day_of_week: 4, is_active: true },
+    ],
   },
 ]
 
@@ -101,18 +170,13 @@ export default function CliniciansPage() {
   const isAdmin = user?.roles?.some((r) => ['admin','super_admin','receptionist'].includes(r.name))
 
   // Filters
-  const [filterClinic, setFilterClinic] = useState('')
-  const [filterActive, setFilterActive] = useState('all')
-
-  // Build query variables
-  const queryVars = {
-    first: 50,
-    ...(filterClinic ? { clinic_id: filterClinic } : {}),
-    ...(filterActive !== 'all' ? { is_active: filterActive === 'active' } : {}),
-  }
+  const [filterClinic,   setFilterClinic]   = useState('')
+  const [filterActive,   setFilterActive]   = useState('all')
+  const [searchTerm,     setSearchTerm]     = useState('')      // BUG-CLIN-002 fix
+  const [filterSpecialty, setFilterSpecialty] = useState('')   // BUG-CLIN-003 fix
 
   const { data, loading, error, refetch } = useQuery(CLINICIANS_QUERY, {
-    variables: queryVars,
+    variables: { first: 50 },
     fetchPolicy: 'cache-and-network',
   })
 
@@ -120,8 +184,40 @@ export default function CliniciansPage() {
 
   const apiClinicians = data?.clinicians?.data ?? []
   // Fall back to 6 rich mock clinicians when backend is offline
-  const clinicians = apiClinicians.length > 0 ? apiClinicians : MOCK_CLINICIANS
+  const allClinicians = apiClinicians.length > 0 ? apiClinicians : MOCK_CLINICIANS
   const clinics = clinicsData?.clinics ?? []
+
+  // Derive specialty list from data for filter dropdown (BUG-CLIN-003)
+  const specialties = useMemo(() =>
+    [...new Set(allClinicians.map(c => c.specialty ?? c.clinician_type?.name).filter(Boolean))].sort()
+  , [allClinicians])
+
+  // BUG-CLIN-002/004/003 fix: local useMemo filter so mock data responds to all filters
+  const clinicians = useMemo(() => {
+    let result = allClinicians
+    if (searchTerm.trim()) {
+      const q = searchTerm.toLowerCase()
+      result = result.filter(c =>
+        (c.full_name ?? `${c.first_name ?? ''} ${c.last_name ?? ''}`).toLowerCase().includes(q) ||
+        (c.specialty ?? c.clinician_type?.name ?? '').toLowerCase().includes(q) ||
+        (c.email ?? '').toLowerCase().includes(q)
+      )
+    }
+    if (filterSpecialty) {
+      result = result.filter(c =>
+        (c.specialty ?? c.clinician_type?.name) === filterSpecialty
+      )
+    }
+    if (filterActive !== 'all') {
+      result = result.filter(c => filterActive === 'active' ? c.is_active : !c.is_active)
+    }
+    if (filterClinic) {
+      result = result.filter(c => c.clinic?.id === filterClinic ||
+        c.clinics?.some?.(cl => cl.id === filterClinic)
+      )
+    }
+    return result
+  }, [allClinicians, searchTerm, filterSpecialty, filterActive, filterClinic])
 
   const handleViewProfile = (clinician) => navigate(`/clinicians/${clinician.id}`)
   const handleAdd         = () => navigate('/clinicians/new')
@@ -152,25 +248,43 @@ export default function CliniciansPage() {
         </Alert>
       )}
 
-      {/* Filter bar */}
+      {/* Filter bar — BUG-CLIN-002/003/004 fixed */}
       <Paper elevation={0} sx={{ p: 2, mb: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3, background: 'rgba(0,0,0,0.01)' }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center" flexWrap="wrap">
+          {/* Search — BUG-CLIN-002 fix */}
+          <TextField
+            size="small" label="Search clinicians" value={searchTerm} sx={{ minWidth: 220, flex: 1 }}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            InputProps={{ startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ fontSize: '1rem', color: 'text.disabled' }} /></InputAdornment> }}
+          />
+
+          {/* Specialty filter — BUG-CLIN-003 fix */}
+          <TextField
+            select size="small" label="Specialization" value={filterSpecialty} sx={{ minWidth: 180 }}
+            onChange={(e) => setFilterSpecialty(e.target.value)}
+          >
+            <MenuItem value="">All Specializations</MenuItem>
+            {specialties.map(s => (<MenuItem key={s} value={s}>{s}</MenuItem>))}
+          </TextField>
+
           {/* Clinic filter */}
           <TextField
-            select size="small" label="Clinic" value={filterClinic} sx={{ minWidth: 180 }}
+            select size="small" label="Clinic" value={filterClinic} sx={{ minWidth: 160 }}
             onChange={(e) => setFilterClinic(e.target.value)}
           >
             <MenuItem value="">All Clinics</MenuItem>
-            {clinics.filter((c) => c.is_active).map((c) => (
+            {(clinics.length > 0 ? clinics.filter(c => c.is_active) : [
+              { id: 'cl1', name: 'Central Medical Centre' },
+              { id: 'cl2', name: 'North Clinic' },
+              { id: 'cl3', name: 'East Wing Radiology' },
+            ]).map((c) => (
               <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
             ))}
           </TextField>
 
-          {/* Active toggle */}
+          {/* Active toggle — BUG-CLIN-004 fix */}
           <ToggleButtonGroup
-            size="small"
-            exclusive
-            value={filterActive}
+            size="small" exclusive value={filterActive}
             onChange={(_, v) => { if (v) setFilterActive(v) }}
           >
             <ToggleButton value="all">All</ToggleButton>

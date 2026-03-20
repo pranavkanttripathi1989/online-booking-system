@@ -5,7 +5,7 @@ import {
   Box, Grid, Paper, Typography, Stack, Button, Card, CardContent, CardActions,
   Chip, Switch, IconButton, TextField, InputAdornment, List, ListItemButton,
   ListItemText, Badge, Collapse, Dialog, DialogTitle, DialogContent, DialogActions,
-  Tabs, Tab, RadioGroup, FormControlLabel, Radio, Autocomplete, Table,
+  Tabs, Tab, RadioGroup, FormControl, FormControlLabel, Radio, Autocomplete, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress, Alert
 } from '@mui/material';
 import {
@@ -14,6 +14,22 @@ import {
 import { useAuth } from '../../../hooks/useAuth';
 
 const BRAND = '#006D77';
+
+// --- Mock data fallbacks (BUG-MGR-003 FIX — module level) ---
+const MOCK_SERVICES_DATA = [
+  { id: 'svc-1', name: 'GP Consultation',     description: 'Standard GP consultation - 20 minutes', price: 100, sku: 'GPS-001', is_active: true,  product_type: 'simple',   variations: [], cancellation_rules: [] },
+  { id: 'svc-2', name: 'Blood Test (Full)',    description: 'Comprehensive metabolic panel',          price: 75,  sku: 'BLD-001', is_active: true,  product_type: 'simple',   variations: [], cancellation_rules: [] },
+  { id: 'svc-3', name: 'X-Ray (Single View)', description: 'Diagnostic X-ray, one projection',      price: 120, sku: 'XRY-001', is_active: true,  product_type: 'simple',   variations: [], cancellation_rules: [] },
+  { id: 'svc-4', name: 'Physiotherapy',        description: '45-minute physiotherapy session',        price: 85,  sku: 'PHY-001', is_active: true,  product_type: 'variable', variations: [], cancellation_rules: [] },
+  { id: 'svc-5', name: 'Dermatology Review',   description: 'Specialist skin consultation',           price: 150, sku: 'DRM-001', is_active: true,  product_type: 'simple',   variations: [], cancellation_rules: [] },
+  { id: 'svc-6', name: 'ECG Recording',        description: '12-lead electrocardiogram',             price: 95,  sku: 'ECG-001', is_active: false, product_type: 'simple',   variations: [], cancellation_rules: [] },
+];
+const MOCK_CATEGORIES_DATA = [
+  { id: 'cat-1', name: 'Consultations', products: [{ id: 'svc-1' }], subcategories: [] },
+  { id: 'cat-2', name: 'Diagnostics',   products: [{ id: 'svc-2' }, { id: 'svc-3' }, { id: 'svc-6' }], subcategories: [] },
+  { id: 'cat-3', name: 'Therapy',       products: [{ id: 'svc-4' }], subcategories: [] },
+  { id: 'cat-4', name: 'Specialist',    products: [{ id: 'svc-5' }], subcategories: [] },
+];
 
 // --- GraphQL ---
 
@@ -138,9 +154,12 @@ export default function ServiceCatalog() {
   const categories = useMemo(() => data?.getProductCategories || [], [data]);
   let products = useMemo(() => data?.getProducts || [], [data]);
 
+  // BUG-MGR-003 FIX: use mock data when error/no data; isMock defined below in render body
+
   if (searchQuery) {
     products = products.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase())));
   }
+
 
   // Handlers
   const handleToggleCat = (id) => {
@@ -244,7 +263,15 @@ export default function ServiceCatalog() {
   };
 
   if (loading && !data) return <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box>;
-  if (error) return <Box p={2}><Alert severity="error">{error.message}</Alert></Box>;
+  // BUG-MGR-003 FIX: use module-level mock data when backend is offline
+  const isMock = !!error || (!loading && !data);
+
+  // override derived arrays when backend is offline
+  const displayCategories = isMock ? MOCK_CATEGORIES_DATA : categories;
+  let displayProducts = isMock ? MOCK_SERVICES_DATA : products;
+  if (searchQuery) {
+    displayProducts = displayProducts.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase())));
+  }
 
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto" display="flex" gap={4} flexDirection={{ xs: 'column', md: 'row' }} alignItems="flex-start">
@@ -267,7 +294,7 @@ export default function ServiceCatalog() {
               <ListItemText primary={<Typography variant="body2" fontWeight={selectedCategoryId === null ? 700 : 500} color={selectedCategoryId === null ? BRAND : 'text.primary'}>All Services</Typography>} />
             </ListItemButton>
 
-            {categories.map(cat => (
+            {displayCategories.map(cat => (
               <Box key={cat.id}>
                 <Stack direction="row" alignItems="center">
                   {cat.subcategories?.length > 0 && (
@@ -321,9 +348,9 @@ export default function ServiceCatalog() {
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={3} gap={2}>
           <Box>
             <Typography variant="h5" fontWeight={800}>
-              {selectedCategoryId ? categories.find(c => c.id === selectedCategoryId)?.name || 'Category' : 'All Services'}
+              {selectedCategoryId ? displayCategories.find(c => c.id === selectedCategoryId)?.name || 'Category' : 'All Services'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">{products.length} items found</Typography>
+            <Typography variant="body2" color="text.secondary">{displayProducts.length} items found</Typography>
           </Box>
           
           <Stack direction="row" gap={2} width={{ xs: '100%', sm: 'auto' }}>
@@ -342,14 +369,14 @@ export default function ServiceCatalog() {
         </Stack>
 
         <Grid container spacing={3}>
-          {products.length === 0 ? (
+          {displayProducts.length === 0 ? (
             <Grid item xs={12}>
               <Paper elevation={0} sx={{ p: 6, textAlign: 'center', border: '1px dashed', borderColor: 'divider', borderRadius: 3 }}>
                 <Typography color="text.secondary">No services found in this category.</Typography>
               </Paper>
             </Grid>
           ) : (
-            products.map(product => (
+            displayProducts.map(product => (
               <Grid item xs={12} sm={6} lg={4} xl={3} key={product.id}>
                 <Card 
                   elevation={0}
@@ -456,7 +483,7 @@ export default function ServiceCatalog() {
                 <Autocomplete
                   options={categories}
                   getOptionLabel={(option) => option.name}
-                  value={categories.find(c => c.id === editProduct?.category_id) || null}
+                  value={displayCategories.find(c => c.id === editProduct?.category_id) || null}
                   onChange={(e, val) => handleProductChange('category_id', val ? val.id : null)}
                   renderInput={(params) => <TextField {...params} label="Category" />}
                 />

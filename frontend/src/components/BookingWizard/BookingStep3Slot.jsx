@@ -43,7 +43,7 @@ function generateMockSlots(date, serviceId) {
 
 function SlotChip({ slot, selected, onSelect }) {
   const isAvailable = slot.is_available !== false
-  const time = dayjs(slot.start_datetime).format('HH:mm')
+  const time = dayjs(slot.start_datetime).format('h:mm A')
 
   return (
     <Chip
@@ -193,7 +193,7 @@ export default function BookingStep3Slot({ wizardData, updateWizard }) {
                     }}
                   >
                     <Typography variant="body2" fontWeight={600} color="primary">
-                      ✓ Selected: {dayjs(selectedSlot.start_datetime).format('HH:mm')} — {dayjs(selectedSlot.end_datetime).format('HH:mm')}
+                      ✓ Selected: {dayjs(selectedSlot.start_datetime).format('h:mm A')} — {dayjs(selectedSlot.end_datetime).format('h:mm A')}
                     </Typography>
                   </Box>
                 )}

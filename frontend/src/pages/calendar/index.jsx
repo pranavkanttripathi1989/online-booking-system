@@ -721,7 +721,7 @@ export default function CalendarPage() {
             <Stack direction="row" spacing={0.5} alignItems="center">
               <Chip label="‹" size="small" onClick={() => setRoomViewDate(d => d.subtract(1, 'day'))} sx={{ cursor: 'pointer', fontWeight: 700, borderRadius: '10px', bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }} />
               <Chip
-                label={roomViewDate.isSame(dayjs(), 'day') ? 'Today' : roomViewDate.format('ddd, MMM D')}
+                label={roomViewDate.isSame(dayjs(), 'day') ? 'Today' : roomViewDate.format('ddd, DD MMM')}
                 size="small"
                 onClick={() => setRoomViewDate(dayjs())}
                 sx={{ cursor: 'pointer', fontWeight: 700, borderRadius: '10px', bgcolor: roomViewDate.isSame(dayjs(), 'day') ? 'rgba(0,109,119,0.10)' : '#F1F3F4', color: roomViewDate.isSame(dayjs(), 'day') ? '#006D77' : 'inherit', '&:hover': { bgcolor: '#E8EAED' } }}
@@ -852,7 +852,7 @@ export default function CalendarPage() {
                   <EventNoteRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />
                   <Box>
                     <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', color: '#202124', lineHeight: 1 }}>Today's Schedule</Typography>
-                    <Typography sx={{ fontSize: '0.68rem', color: '#5F6368', fontWeight: 500 }}>{dayjs().format('ddd, MMM D')}</Typography>
+                    <Typography sx={{ fontSize: '0.68rem', color: '#5F6368', fontWeight: 500 }}>{dayjs().format('ddd, DD MMM')}</Typography>
                   </Box>
                 </Stack>
                 <Stack direction="row" spacing={0.5} alignItems="center">
@@ -1033,7 +1033,7 @@ export default function CalendarPage() {
                 {[[
                   <AccessTimeRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />,
                   'Time',
-                  `${dayjs(popoverEvent.start).format('ddd DD MMM, HH:mm')} – ${dayjs(popoverEvent.end).format('HH:mm')}`,
+                   `${dayjs(popoverEvent.start).format('ddd DD MMM, h:mm A')} \u2013 ${dayjs(popoverEvent.end).format('h:mm A')}`,
                 ],[
                   <MedicalServicesRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />,
                   'Service',

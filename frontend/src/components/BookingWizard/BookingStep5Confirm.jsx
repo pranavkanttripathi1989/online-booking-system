@@ -87,7 +87,7 @@ function SuccessScreen({ appointment, navigate, onBookAnother }) {
         </Typography>
         <Typography variant="body2" color="text.secondary">
           {appointment?.start_datetime
-            ? dayjs(appointment.start_datetime).format('dddd, DD MMM YYYY at HH:mm')
+            ? dayjs(appointment.start_datetime).format('dddd, DD MMM YYYY at h:mm A')
             : ''}
         </Typography>
       </Box>
@@ -266,7 +266,7 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
             icon={<AccessTimeIcon fontSize="small" />}
             label="Time"
             value={slot?.start_datetime
-              ? `${dayjs(slot.start_datetime).format('HH:mm')} — ${dayjs(slot.end_datetime).format('HH:mm')}`
+              ? `${dayjs(slot.start_datetime).format('h:mm A')} — ${dayjs(slot.end_datetime).format('h:mm A')}`
               : '—'}
           />
           <Divider />

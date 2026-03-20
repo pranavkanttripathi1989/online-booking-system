@@ -104,7 +104,7 @@ const PIE_COLORS = {
 
 // --- Mock Data Fallbacks (if Apollo fails/loading without cache) ---
 const MOCK_TIME_SERIES = Array.from({ length: 7 }).map((_, i) => ({
-  date: dayjs().subtract(6 - i, 'day').format('MMM DD'),
+  date: dayjs().subtract(6 - i, 'day').format('DD MMM'),
   scheduled: Math.floor(Math.random() * 20) + 10,
   completed: Math.floor(Math.random() * 15) + 5,
   cancelled: Math.floor(Math.random() * 5),
@@ -391,7 +391,7 @@ export default function ManagerDashboard() {
                 ))
               ) : transactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((trx) => (
                 <TableRow key={trx.id} hover>
-                  <TableCell><Typography variant="body2">{dayjs(trx.createdAt).format('DD MMM YYYY, HH:mm')}</Typography></TableCell>
+                  <TableCell><Typography variant="body2">{dayjs(trx.createdAt).format('DD MMM YYYY, h:mm A')}</Typography></TableCell>
                   <TableCell>
                     <Stack direction="row" alignItems="center" gap={1.5}>
                       <Avatar src={`https://www.gravatar.com/avatar/${trx.appointment?.patient.id}?d=mp`} sx={{ width: 32, height: 32 }} />

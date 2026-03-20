@@ -367,6 +367,17 @@ export function createThread(participantIds, initialMessage, fromId) {
   return thread
 }
 
+// BUG-MSG-001 fix: mark all messages in thread as read for the given viewer
+export function markThreadAsRead(threadId, viewerId) {
+  const thread = store.message_threads.find(t => t.id === threadId)
+  if (!thread) return
+  thread.messages.forEach(m => {
+    if (m.from_id !== viewerId) m.read = true
+  })
+  thread.unread_count = 0
+  notify()
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // REVIEWS
 // ─────────────────────────────────────────────────────────────────────────────

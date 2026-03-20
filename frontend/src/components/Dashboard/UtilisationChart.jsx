@@ -59,14 +59,27 @@ export default function UtilisationChart({ data }) {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
-  const allData = (data && data.length > 0)
-    ? data.map((d) => ({
-        name: d.clinician?.full_name ?? 'Unknown',
-        utilisation_percent: Math.round(d.utilisation_percent ?? 0),
-        slots_booked: d.slots_booked,
-        slots_available: d.slots_available,
-      }))
-    : MOCK
+  // BUG-DASH-002 FIX: normalise() handles both data shapes:
+  //   Shape A (live API): { clinician: { full_name }, utilisation_percent, slots_booked, slots_available }
+  //   Shape B (dashboard mock): { name, booked, available }
+  //   Shape C (dashboard mock alt): { name, utilisation_percent } — already has pct
+  const normalise = (d) => {
+    // Derive name — try API shape first, then plain `name`
+    const name = d.clinician?.full_name ?? d.name ?? 'Unknown'
+    // Derive percent — precomputed OR calculated from booked/available
+    let pct = d.utilisation_percent ?? null
+    if (pct == null && d.booked != null && d.available != null && d.available > 0) {
+      pct = Math.round((d.booked / d.available) * 100)
+    }
+    return {
+      name,
+      utilisation_percent: Math.round(pct ?? 0),
+      slots_booked:    d.slots_booked    ?? d.booked    ?? null,
+      slots_available: d.slots_available ?? d.available ?? null,
+    }
+  }
+
+  const allData = (data && data.length > 0) ? data.map(normalise) : MOCK
 
   // Limit to 4 on mobile
   const chartData = allData.slice(0, isMobile ? 4 : 99)

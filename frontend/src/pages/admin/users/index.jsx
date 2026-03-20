@@ -528,7 +528,7 @@ export default function AdminUsers() {
                         </TableCell>
                         <TableCell>
                           <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
-                            {dayjs(log.createdAt).format('MMM DD, HH:mm:ss')}
+                            {dayjs(log.createdAt).format('DD MMM YYYY, h:mm A')}
                           </Typography>
                         </TableCell>
                         <TableCell>

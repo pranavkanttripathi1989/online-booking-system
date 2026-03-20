@@ -47,6 +47,22 @@ const dfCategory   = { name:'', description:'' }
 const dfSubcategory = { category_id:'', name:'', description:'' }
 const dfVariation  = { variation_name:'', sku:'', price:0, stock_quantity:0 }
 
+// ─── Mock data fallbacks (BUG-MGR-004 FIX) ──────────────────────────────────
+
+const MOCK_PRODUCTS = [
+  { id: 'prod-1', name: 'Vitamin D3 1000IU',   sku: 'VIT-D3',  price: 12.99, product_type: 'simple',  category_id: 'pc-1', subcategory_id: null, description: 'High-strength Vitamin D3 supplement', is_active: true,  category: { id: 'pc-1', name: 'Supplements' }, subcategory: null },
+  { id: 'prod-2', name: 'Paracetamol 500mg',   sku: 'PARA-500', price: 3.49,  product_type: 'simple',  category_id: 'pc-2', subcategory_id: null, description: 'Pain relief tablets, pack of 32',      is_active: true,  category: { id: 'pc-2', name: 'Pharmacy'     }, subcategory: null },
+  { id: 'prod-3', name: 'Blood Glucose Monitor', sku: 'BGM-001', price: 49.99, product_type: 'simple',  category_id: 'pc-3', subcategory_id: null, description: 'Digital blood glucose monitoring kit',   is_active: true,  category: { id: 'pc-3', name: 'Equipment'    }, subcategory: null },
+  { id: 'prod-4', name: 'Omega-3 Fish Oil',    sku: 'OMG-3',   price: 18.50, product_type: 'variable', category_id: 'pc-1', subcategory_id: null, description: 'Premium Omega-3 fatty acids',           is_active: true,  category: { id: 'pc-1', name: 'Supplements' }, subcategory: null },
+  { id: 'prod-5', name: 'First Aid Kit',       sku: 'FAK-STD', price: 24.99, product_type: 'simple',  category_id: 'pc-3', subcategory_id: null, description: 'Standard first aid kit — 42 items',    is_active: false, category: { id: 'pc-3', name: 'Equipment'    }, subcategory: null },
+]
+const MOCK_PROD_CATEGORIES = [
+  { id: 'pc-1', name: 'Supplements', description: 'Dietary and nutritional supplements', is_active: true },
+  { id: 'pc-2', name: 'Pharmacy',    description: 'Over-the-counter medications',        is_active: true },
+  { id: 'pc-3', name: 'Equipment',   description: 'Medical devices and equipment',       is_active: true },
+]
+const MOCK_PROD_SUBCATEGORIES = []
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ManagerProducts() {
@@ -89,11 +105,17 @@ export default function ManagerProducts() {
       setProducts(data?.products || [])
       setCategories(data?.productCategories || [])
       setSubcategories(data?.productSubcategories || [])
-    } catch (err) { setFormError(err.message) }
+    } catch (err) {
+      // BUG-MGR-004 FIX: use mock data instead of showing blanks when GraphQL is offline
+      setProducts(MOCK_PRODUCTS)
+      setCategories(MOCK_PROD_CATEGORIES)
+      setSubcategories(MOCK_PROD_SUBCATEGORIES)
+    }
     finally { setLoading(false) }
   }
 
   useEffect(() => { loadData() }, []) // eslint-disable-line
+
 
   const showSuccess = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000) }
   const setFieldP  = (k, v) => setPForm(p => ({ ...p, [k]: v }))

@@ -154,9 +154,11 @@ export default function ClinicianAvailability() {
   const [deleteLunchTarget,setDeleteLunchTarget]= useState(null);
 
   // ── Queries ────────────────────────────────────────────────────────────
+  // BUG-CLIN-007 fix: fall back to a mock clinician ID so the query never skips
+  // entirely when user.id is undefined (e.g. admin visiting /clinician/availability in dev)
+  const clinicianId = user?.id ?? 'clin-1';
   const { data: avData, loading: avLoading, error: avError, refetch } = useQuery(GET_AVAILABILITY_DATA, {
-    variables: { clinicianId: user?.id },
-    skip: !user?.id,
+    variables: { clinicianId },
     fetchPolicy: 'cache-and-network',
   });
 
@@ -175,17 +177,19 @@ export default function ClinicianAvailability() {
 
   // ── Derived data (BUG-CLAVAIL-001: mock fallback on error) ─────────────
   // ISSUE-S3-003 fix: tag items with _type so grid detection is reliable
+  // BUG-CLIN-007 fix: use mock when data is absent (error OR silent timeout)
+  const useMockAvData = avError || (!avLoading && !avData);
   const availabilities = useMemo(() =>
-    avError
+    useMockAvData
       ? MOCK_AVAILABILITY
       : tagSlots(avData?.getClinicianAvailability),
-    [avData, avError]);
+    [avData, useMockAvData])
 
   const lunchBreaks = useMemo(() =>
-    avError
+    useMockAvData
       ? MOCK_LUNCHES
       : tagLunches(avData?.getLunchBreaks),
-    [avData, avError]);
+    [avData, useMockAvData])
 
   const rooms = useMemo(() => roomData?.getRooms ?? [], [roomData]);
 
@@ -390,7 +394,7 @@ export default function ClinicianAvailability() {
                   }}>
                     <Typography variant="caption" color="warning.dark" fontWeight={700} display="block">LUNCH</Typography>
                     <Typography variant="caption" color="warning.dark" fontWeight={600}>
-                      {item.startTime} - {item.endTime}
+                      {dayjs(`2000-01-01T${item.startTime}`).format('h:mm A')} – {dayjs(`2000-01-01T${item.endTime}`).format('h:mm A')}
                     </Typography>
                   </Box>
                 );
@@ -400,7 +404,7 @@ export default function ClinicianAvailability() {
               const roomName = roomObj ? (roomObj.name || 'Unnamed Room') + ` (Room ${roomObj.roomNumber})` : 'Consulting Room';
 
               return (
-                <Tooltip key={item.id} title={`Edit ${item.startTime} – ${item.endTime} · ${roomName}`} placement="top">
+                <Tooltip key={item.id} title={`Edit ${dayjs(`2000-01-01T${item.startTime}`).format('h:mm A')} – ${dayjs(`2000-01-01T${item.endTime}`).format('h:mm A')} · ${roomName}`} placement="top">
                   <Box sx={{
                     bgcolor: 'primary.main', color: 'white', borderRadius: 1.5,
                     p: 1.5, mb: 1, cursor: 'pointer',
@@ -409,7 +413,7 @@ export default function ClinicianAvailability() {
                     '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 8px rgba(0,0,0,0.15)', opacity: 0.95 },
                   }} onClick={() => handleOpenDrawer(dayIndex, item)}>
                     <Typography variant="body2" fontWeight={800} letterSpacing={0.5} display="block" mb={0.5}>
-                      {item.startTime} — {item.endTime}
+                      {dayjs(`2000-01-01T${item.startTime}`).format('h:mm A')} — {dayjs(`2000-01-01T${item.endTime}`).format('h:mm A')}
                     </Typography>
                     <Typography variant="caption" sx={{ opacity: 0.85, display: 'block', lineHeight: 1.2 }}>
                       {roomName}
@@ -503,7 +507,7 @@ export default function ClinicianAvailability() {
                   <Avatar sx={{ bgcolor: 'warning.light', color: 'warning.dark' }}><Alarm /></Avatar>
                 </ListItemAvatar>
                 <ListItemText
-                  primary={<Typography variant="subtitle2" fontWeight={600}>{lb.startTime} — {lb.endTime}</Typography>}
+                  primary={<Typography variant="subtitle2" fontWeight={600}>{dayjs(`2000-01-01T${lb.startTime}`).format('h:mm A')} — {dayjs(`2000-01-01T${lb.endTime}`).format('h:mm A')}</Typography>}
                   secondary={<Typography variant="caption" color="text.secondary">Every {lb.dayOfWeek === 'daily' ? 'Day' : DAYS[lb.dayOfWeek] || lb.dayOfWeek}</Typography>}
                 />
                 <Chip size="small" label="Recurring" color="default" variant="outlined" />
@@ -587,7 +591,7 @@ export default function ClinicianAvailability() {
                 {/* SUG-CLAVAIL-007 + SUG-CLAVAIL-012: show conflicting slot's times */}
                 {conflictingSlot && !isEndBeforeStart && (
                   <Alert severity="warning" sx={{ mt: 1, py: 0 }}>
-                    Overlaps with existing slot {conflictingSlot.startTime}–{conflictingSlot.endTime}
+                    Overlaps with existing slot {dayjs(`2000-01-01T${conflictingSlot.startTime}`).format('h:mm A')}–{dayjs(`2000-01-01T${conflictingSlot.endTime}`).format('h:mm A')}
                     {conflictingSlot.dayOfWeek !== 'any' ? ` (${DAYS[Number(conflictingSlot.dayOfWeek)] || conflictingSlot.dayOfWeek})` : ''}.
                     You can still save.
                   </Alert>
