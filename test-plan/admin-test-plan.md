@@ -1,239 +1,228 @@
-# Admin Panel — Test Plan (Updated Post-Implementation)
+# Admin Panel — Test Plan (Session 3 Final)
 
 **Feature area:** `/src/pages/admin/`  
-**Files:** `users/index.jsx`, `users/form.jsx`, `Organizations.jsx`, `Communications.jsx`, `Languages.jsx`, `Roles.jsx`, `ClinicianTypes.jsx`, `RoomTypes.jsx`, `Policies.jsx`, `EmailTemplates.jsx`, `layouts/AdminLayout.jsx`  
-**Routes tested:** `/admin/users`, `/admin/users/new`, `/admin/users/:id/edit`, `/admin/organizations`, `/admin/roles`, `/admin/communications`, `/admin/policies`, `/admin/clinician-types`, `/admin/room-types`, `/admin/languages`, `/admin/email-templates`, `/forbidden`  
+**Files:** `users/index.jsx`, `users/form.jsx`, `Organizations.jsx`, `Communications.jsx`, `Languages.jsx`, `Roles.jsx`, `ClinicianTypes.jsx`, `RoomTypes.jsx`, `Policies.jsx`, `EmailTemplates.jsx`, `layouts/AdminLayout.jsx`, `App.jsx`  
+**Routes:** `/admin`, `/admin/users`, `/admin/users/new`, `/admin/users/:id/edit`, `/admin/organizations`, `/admin/roles`, `/admin/communications`, `/admin/policies`, `/admin/clinician-types`, `/admin/room-types`, `/admin/languages`, `/admin/email-templates`, `/forbidden`  
 **Access:** Admin, Super Admin only  
-**Updated:** 2026-03-18 — added TC-ADMIN-015 through TC-ADMIN-022 based on suggestions
+**Updated:** 2026-03-24 — Session 3: added TC-ADMIN-023/024/025, edge cases E7–E11
+
+---
+
+## Mock Data Reference
+
+| Page | Mock Data Source | Records |
+|------|-----------------|---------|
+| Users | `mockUsers` local const in `users/index.jsx` | 4 users |
+| Roles | `MOCK_ROLES` catch fallback in `Roles.jsx` | 6 roles |
+| Organizations | `MOCK_ORGS` catch fallback in `Organizations.jsx` | 3 orgs |
+| Email Templates | `MOCK_EMAIL_TEMPLATES` catch fallback in `EmailTemplates.jsx` | 5 templates |
+| Clinician Types | `MOCK_CLINICIAN_TYPES` catch fallback in `ClinicianTypes.jsx` | 4 types |
+| Languages | `MOCK_LANGUAGES` catch fallback in `Languages.jsx` | 3 languages |
+| Room Types | `MOCK_ROOM_TYPES` catch fallback in `RoomTypes.jsx` | 5 types (Session 3) |
+| Audit Logs | Inline mock array in `users/index.jsx` | 3 entries |
+| Communications | Hardcoded local data in `Communications.jsx` | 6 templates |
+| Policies | Hardcoded local data in `Policies.jsx` | 4 tabs, 6 cards |
 
 ---
 
 ## Users & RBAC (`/admin/users`)
 
 ### TC-ADMIN-001 — Users list renders
-**Prompt:**
-> Log in as Admin. Navigate to `http://localhost:3001/admin/users`.
-> Assert: table of all system users with Name, Email, Role chip, Status chip, Last Login, Actions (Edit, Deactivate). At least 4 mock users visible.
-
-**Expected:** Mock user list (Dr. Sarah Chen, Marcus Wright, Elena Rodriguez, James Wilson). Role chips are color-coded. Admin sidebar visible on left.
+**Steps:** Log in as Admin. Navigate to `/admin/users`.  
+**Expected:** 4 mock users (Dr. Sarah Chen, Marcus Wright, Elena Rodriguez, James Wilson). Role chips color-coded. Admin sidebar visible. 
 
 ---
 
-### TC-ADMIN-002 — Create new user (admin user form)
-**Prompt:**
-> Click "Add User" button. Navigate to `/admin/users/new`.
-> Fill: Full Name "New Admin", Email "newadmin@clinic.com", Password "Admin1234!", assign role "Admin" from dropdown. Click "Create User".
-> Assert: Success snackbar "User created successfully" appears. Navigate back to `/admin/users`.
-> If backend offline: Assert warning snackbar "User 'New Admin' created (mock mode — backend offline)" appears.
-
-**Expected:** CREATE_USER_MUTATION fires. Snackbar fires and navigates. Offline fallback graceful.
+### TC-ADMIN-002 — Create new user
+**Steps:** Click "Add User". Navigate to `/admin/users/new`. Fill Name, Email, Password, Role.  
+**Expected:** Form renders: Account Details section (Name, Email, Password, Confirm Password), Roles multi-select. Offline → warning snackbar + navigate back.
 
 ---
 
-### TC-ADMIN-003 — Edit user form pre-fills existing data
-**Prompt:**
-> On `/admin/users`, click the pencil edit icon on Marcus Wright's row.
-> Assert: URL changes to `/admin/users/2/edit`. Full Name field pre-filled "Marcus Wright", Email field pre-filled "m.wright@healthsync.com".
-
-**Expected:** When backend offline: MOCK_USER_STORE lookup fills the form. When online: GET_USER_BY_ID query fills with real data.
+### TC-ADMIN-003 — Edit user form pre-fills
+**Steps:** Click pencil icon on Marcus Wright → `/admin/users/2/edit`.  
+**Expected:** Name "Marcus Wright", Email "m.wright@healthsync.com" pre-filled via `MOCK_USER_STORE` offline. Online: `GET_USER_BY_ID` fills real data.
 
 ---
 
-### TC-ADMIN-004 — Non-admin access to admin page blocked
-**Prompt:**
-> Navigate to `http://localhost:3001/forbidden`.
-> Assert: page shows "Access Forbidden" / 403 content. URL is /403 or /forbidden.
-
-**Expected:** RoleGuard blocks non-admin access. `/forbidden` route alias redirects to `/403`.
+### TC-ADMIN-004 — /forbidden route
+**Steps:** Navigate to `http://localhost:3001/forbidden`.  
+**Expected:** Redirects to `/403`. "Access Forbidden" page shown.
 
 ---
 
-## Sidebar Navigation (New — SUG-ADMIN-008)
-
-### TC-ADMIN-015 — Admin sidebar visible on all admin pages
-**Prompt:**
-> Log in as Admin. Navigate to `/admin/users`.
-> Assert: Left sidebar visible with "ADMIN CONSOLE" heading and 3 sections: "USERS & ACCESS", "SYSTEM", "REFERENCE DATA".
-> Click "Languages" in sidebar → Assert URL changes to `/admin/languages`. Sidebar highlights "Languages".
-> Click "Roles" in sidebar → Assert URL changes to `/admin/roles`.
-
-**Expected:** Sidebar present on every `/admin/*` page. Active item highlighted with teal color + accent bar.
+### TC-ADMIN-015 — Admin sidebar visible
+**Steps:** Log in → `/admin/users`. Observe left panel.  
+**Expected:** "ADMIN CONSOLE" heading, 3 sections (Users & Access, System, Reference Data), 10 nav items. Active teal highlight + accent bar.
 
 ---
 
-### TC-ADMIN-016 — Admin sidebar sub-section navigation — System
-**Prompt:**
-> From any admin page, click: Organizations, Policies, Communications, Email Templates one by one.
-> Assert: each click navigates to correct URL and sidebar item becomes active.
-
-**Expected:** All 4 System section items navigate correctly.
+### TC-ADMIN-016 — Sidebar System navigation
+**Steps:** Click Organizations, Policies, Communications, Email Templates.  
+**Expected:** Each routes correctly. Active state updates.
 
 ---
 
-### TC-ADMIN-017 — Admin sidebar sub-section navigation — Reference Data
-**Prompt:**
-> From any admin page, click: Clinician Types, Room Types, Languages.
-> Assert: each click navigates to correct URL and renders content.
-
-**Expected:** All 3 Reference Data items navigate and show mock data.
+### TC-ADMIN-017 — Sidebar Reference Data navigation  
+**Steps:** Click Clinician Types, Room Types, Languages.  
+**Expected:** All 3 navigate and show mock data.
 
 ---
 
 ## Organizations (`/admin/organizations`)
 
-### TC-ADMIN-005 — Organizations list with mock data
-**Prompt:**
-> Navigate to `/admin/organizations`. Wait 2s for Apollo timeout.
-> Assert: 3 mock organizations visible (MediBook Main Clinic, Westside Health Center, Downtown Medical Group). KPI cards show Total/Active/Inactive counts.
-
-**Expected:** `MOCK_ORGS` fallback kicks in on Apollo error. No "Failed to fetch" error banner.
+### TC-ADMIN-005 — Organizations list
+**Steps:** Navigate to `/admin/organizations`. Wait 2s.  
+**Expected:** 3 mock orgs (MediBook Main Clinic, Westside Health, Downtown Medical [inactive]). KPIs: 3/2/1.
 
 ---
 
 ### TC-ADMIN-006 — Create organization dialog
-**Prompt:**
-> Click "Add Organization". Assert: modal dialog opens with fields: Name, Code/Slug, Contact Email, City, country, Active toggle.
-
-**Expected:** Dialog opens with all required fields. Name, Code, Email are marked required.
+**Steps:** Click "Add Organization".  
+**Expected:** Modal: Name*, Code*, Email*, address fields, Cancel + "Create Organization".
 
 ---
 
 ## Roles (`/admin/roles`)
 
-### TC-ADMIN-007 — Default roles listed with mock data
-**Prompt:**
-> Navigate to `/admin/roles`. Wait 2s.
-> Assert: 6 mock roles visible (System Admin, Admin, Manager, Clinician, Receptionist, Patient). Each has description, active toggle, created date.
-
-**Expected:** `MOCK_ROLES` renders. No "No roles defined yet" empty state.
+### TC-ADMIN-007 — Roles list
+**Steps:** Navigate to `/admin/roles`. Wait 2s.  
+**Expected:** 6 roles: System Admin, Admin, Manager, Clinician, Receptionist, Patient.
 
 ---
 
-### TC-ADMIN-008 — Create custom role
-**Prompt:**
-> Click "Add Role". Fill Name "Coordinator", Description "Appointment coordinator role". Save.
-> Assert: inline form validates. Success snackbar (requires backend) OR role added locally.
-
-**Expected:** Inline form appears below button. Name + Description fields required.
+### TC-ADMIN-008 — Create role
+**Steps:** Click "Add Role". Fill Name "Coordinator".  
+**Expected:** Inline form below button. Name required.
 
 ---
 
 ## Email Templates (`/admin/email-templates`)
 
-### TC-ADMIN-009 — Templates list with mock data
-**Prompt:**
-> Navigate to `/admin/email-templates`. Wait 2s.
-> Assert: 5 mock templates visible: Appointment Confirmation, Appointment Reminder, Appointment Cancellation, Password Reset, Welcome Email.
-> Assert: each template card shows type chip, active status chip, subject line, and `{{variable}}` chips.
-
-**Expected:** `MOCK_EMAIL_TEMPLATES` renders with full template cards.
+### TC-ADMIN-009 — Templates list
+**Steps:** Navigate to `/admin/email-templates`. Wait 2s.  
+**Expected:** 5 templates with type chip, status chip, subject, `{{variable}}` chips.
 
 ---
 
-### TC-ADMIN-010 — Edit email template (inline)
-**Prompt:**
-> Click the pencil edit icon on "Appointment Confirmation" template.
-> Assert: inline edit form opens. Subject field pre-filled. Body textarea (monospace) pre-filled. Save Template and Cancel buttons visible.
-
-**Expected:** Pre-fill uses existing template data from `MOCK_EMAIL_TEMPLATES[0]`.
+### TC-ADMIN-010 — Edit email template
+**Steps:** Click pencil on "Appointment Confirmation".  
+**Expected:** Inline form: Subject pre-filled, Body monospace pre-filled. Save + Cancel.
 
 ---
 
 ## Communications (`/admin/communications`)
 
 ### TC-ADMIN-011 — Communications page
-**Prompt:**
-> Navigate to `/admin/communications`.
-> Assert: "Communications" heading. 3 tabs: Notification Templates, Global Settings, Send Test Message.
-> Assert Tab 1 shows 6 notification template toggles.
-
-**Expected:** Hardcoded local data renders (no Apollo). Always works.
+**Steps:** Navigate to `/admin/communications`.  
+**Expected:** 3 tabs with 6 notification template toggles on Tab 1. Hardcoded — works offline.
 
 ---
 
 ## Policies (`/admin/policies`)
 
 ### TC-ADMIN-012 — Policies page
-**Prompt:**
-> Navigate to `/admin/policies`.
-> Assert: "Policies & Compliance" heading + "Save All Changes" button. 4 tabs: Booking Policies, Security & Privacy, GDPR & Compliance, Cancellation Rules.
-> Assert Tab 1 shows 6 editable policy cards.
-
-**Expected:** Hardcoded local data renders. Always works.
+**Steps:** Navigate to `/admin/policies`.  
+**Expected:** "Policies & Compliance" + "Save All Changes". 4 tabs, 6 editable cards on Tab 1.
 
 ---
 
 ## Clinician Types (`/admin/clinician-types`)
 
-### TC-ADMIN-013 — Clinician types list and create
-**Prompt:**
-> Navigate to `/admin/clinician-types`. Wait 2s.
-> Assert: 4 types visible: General Practitioner, Cardiologist, Neurologist, Physiotherapist.
-> Click "Add Type", type "Rheumatologist", click Save.
-> Assert: success snackbar OR new type appears in list.
-
-**Expected:** `MOCK_CLINICIAN_TYPES` renders. Add form opens inline.
+### TC-ADMIN-013 — Clinician types list
+**Steps:** Navigate to `/admin/clinician-types`. Wait 2s.  
+**Expected:** 4 types: General Practitioner, Cardiologist, Neurologist, Physiotherapist. Add Type inline form.
 
 ---
 
 ## Languages (`/admin/languages`)
 
-### TC-ADMIN-014 — Languages list and toggle
-**Prompt:**
-> Navigate to `/admin/languages`. Wait 2s.
-> Assert: 3 languages: English (Active + "Default" chip, delete disabled), Spanish (Active), French (Inactive).
-> Toggle French to Active. Assert: toggle switches state.
-
-**Expected:** `MOCK_LANGUAGES` renders. Toggle is interactive UI (no backend needed to toggle).
+### TC-ADMIN-014 — Languages list + toggle
+**Steps:** Navigate to `/admin/languages`. Wait 2s.  
+**Expected:** English (Active, Default, delete disabled), Spanish (Active), French (Inactive). Toggles interactive.
 
 ---
 
-## Room Types (`/admin/room-types`) — New TC
+## Room Types (`/admin/room-types`)
 
-### TC-ADMIN-018 — Room types list (known limitation)
-**Prompt:**
-> Navigate to `/admin/room-types`. Wait 2s.
-> Assert: either mock room types render OR empty state "No room types configured".
-
-**Expected (current):** Empty state — `RoomTypes.jsx` does not yet have mock fallback (NEW-ADMIN-001).  
-**Expected (after fix):** Mock types like "Consultation Room", "Procedure Room".
+### TC-ADMIN-018 — Room types list with mock data
+**Steps:** Navigate to `/admin/room-types`. Wait 2s.  
+**Expected:** 5 mock types: Consultation Room, Procedure Room, Video Suite, Waiting Area Annex (all Active), Therapy Room (Inactive). "Offline — showing demo room types" info banner.
 
 ---
 
-## Audit Log (already exists as Tab 3 of Users page)
+## Audit Log
 
-### TC-ADMIN-019 — Audit Log tab renders
-**Prompt:**
-> Navigate to `/admin/users`. Click "Audit Logs" tab.
-> Assert: audit log entries visible with Timestamp, Action, User columns. Filter dropdowns for Action type. Expand a log entry to see JSON payload.
-
-**Expected:** Mock audit logs render. Filter chips (CREATE/UPDATE/DELETE/READ) clickable.
+### TC-ADMIN-019 — Audit log tab renders
+**Steps:** `/admin/users` → click "Audit Logs" tab.  
+**Expected:** 3 mock entries with Timestamp, User, Action chip, Resource. Date pickers. Expand → JSON payload.
 
 ---
 
 ## Edge Cases & Regression Tests
 
 ### TC-ADMIN-020 — Search clears and re-shows all users
-**Prompt:**
-> On `/admin/users`, type "sarah" in search. User count drops to 1. Clear search field.
-> Assert: all 4 users return. Pagination shows "Showing 4 of 4".
-
-**Expected:** `filteredUsers` correctly re-includes all users on empty search.
+**Steps:** Type "sarah" → clear search.  
+**Expected:** All 4 return. "Showing 4 of 4 users".
 
 ---
 
 ### TC-ADMIN-021 — Search by role name
-**Prompt:**
-> Type "Clinician" in the search field on `/admin/users`.
-> Assert: only users with Clinician role remain.
-
-**Expected:** `filteredUsers` useMemo filters on `roles[].name`.
+**Steps:** Type "Clinician" in search.  
+**Expected:** Only users with Clinician role visible.
 
 ---
 
-### TC-ADMIN-022 — Edit user cancel navigates back
-**Prompt:**
-> Navigate to `/admin/users/:id/edit` for any user. Click "Cancel" button.
-> Assert: navigates back to `/admin/users` without saving.
+### TC-ADMIN-022 — Edit user cancel
+**Steps:** `/admin/users/:id/edit` → click Cancel.  
+**Expected:** Navigate back to `/admin/users` without saving.
 
-**Expected:** Cancel button calls `navigate('/admin/users')` — no mutation fired.
+---
+
+## Session 3 New Test Cases
+
+### TC-ADMIN-023 — /admin redirect to /admin/users (Session 3)
+**Steps:** Navigate to `http://localhost:3001/admin`.  
+**Expected:** Auto-redirect to `/admin/users`. Users list rendered. No 404.  
+**Fix:** `<Route path="/admin" element={<Navigate to="/admin/users" replace />}` in App.jsx.
+
+---
+
+### TC-ADMIN-024 — Audit Log opens via URL param ?tab=2 (Session 3)
+**Steps:** Navigate to `http://localhost:3001/admin/users?tab=2`.  
+**Expected:** Page opens on "Audit Logs" tab directly (NOT "Users Directory").  
+**Fix:** `useSearchParams()` + lazy `useState` init from `?tab=` param.
+
+---
+
+### TC-ADMIN-025 — Room Types form (offline) (Session 3)
+**Steps:** Navigate to `/admin/room-types`. Click "Add Room Type".  
+**Expected:** Inline form appears: Name (required), Description (multiline), Create + Cancel buttons. Offline info banner visible above form.
+
+---
+
+## Edge Cases
+
+| # | Edge Case | Expected |
+|---|-----------|----------|
+| E1 | Backend offline: all 7 Apollo pages | Mock data renders. No blank page. No crash. |
+| E2 | Search empty, filter by role | `filteredUsers` all displayed. Role dropdown filters independently. |
+| E3 | Edit user ID not in `MOCK_USER_STORE` | Form loads blank. No crash. |
+| E4 | Navigate to `/admin/users?tab=99` | `Math.min(t, 2)` caps to 2 (Audit Logs). No crash. |
+| E5 | Navigate to `/admin/users?tab=abc` | `isNaN` check → defaults to tab 0. |
+| E6 | Room Types "Add" form in mock mode | Submit fires mutation → catches → `setFormError` shown. MOCK_ROOM_TYPES unchanged. |
+| E7 | Create user form: empty submit | Required field validation triggered for all empty required fields. |
+| E8 | Roles page with long description | Row text wraps correctly. No overflow. |
+| E9 | Email template with many variables | Variable chips wrap in flexbox. No overflow. |
+| E10 | Languages English delete button | Delete disabled (grey, non-interactive). English row protected. |
+| E11 | Sidebar active state on nested route | `/admin/users/new` → "Users & RBAC" sidebar item still highlighted (startsWith match). |
+
+---
+
+## Session Summary
+
+| Session | TCs | Status |
+|---------|-----|--------|
+| Session 1 (2026-03-16) | 14 | 1 PASS, 11 FAIL, 1 PARTIAL, 1 SKIP |
+| Session 2 (2026-03-18) | +8 (TC-015 to 022) | 22 TC: 21 PASS, 1 PARTIAL |
+| Session 3 (2026-03-24) | +3 (TC-023 to 025) | **25 PASS, 0 PARTIAL, 0 FAIL** ✅ |

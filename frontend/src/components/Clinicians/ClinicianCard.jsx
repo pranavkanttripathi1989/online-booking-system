@@ -22,9 +22,10 @@ import OpenInDrawerIcon from '@mui/icons-material/OpenInNew'
 import { TOGGLE_CLINICIAN_ACTIVE_MUTATION } from '../../graphql/mutations'
 
 // ─── Avatar colour derived from name ─────────────────────────────────────────
+// Teal-family palette matching app brand (#006D77)
 const NAME_COLOURS = [
-  '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b',
-  '#10b981', '#3b82f6', '#ef4444', '#14b8a6',
+  '#006D77', '#0E9F9F', '#14B8A6', '#0D9488',
+  '#0F766E', '#1CBFBF', '#2D8A8A', '#047857',
 ]
 function nameColour(name = '') {
   let h = 0

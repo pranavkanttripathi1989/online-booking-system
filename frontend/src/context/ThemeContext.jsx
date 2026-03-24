@@ -8,13 +8,14 @@ const ThemeModeContext = createContext({ mode: 'light', toggle: () => {} })
 export const useThemeMode = () => useContext(ThemeModeContext)
 
 // ─── Shared palette tokens ─────────────────────────────────────────────────────
+// Brand teal: #006D77 (primary), #4ECDC4 (light), #004D56 (dark)
 const sharedTokens = {
   primary: {
-    main: COLORS.blue600,
-    light: COLORS.blue400,
-    dark: COLORS.blue800,
-    '50': COLORS.blue50,
-    '100': COLORS.blue100,
+    main: '#006D77',
+    light: '#4ECDC4',
+    dark: '#004D56',
+    '50': '#E8F8F9',
+    '100': '#D0EEF0',
     contrastText: '#FFFFFF',
   },
   secondary: {
@@ -67,7 +68,7 @@ const getDesignTokens = (mode) => ({
       defaultProps: { disableElevation: true },
       styleOverrides: {
         root: { borderRadius: 10, padding: '8px 18px', textTransform: 'none', fontWeight: 700 },
-        contained: { boxShadow: 'none', '&:hover': { boxShadow: '0 4px 12px rgba(21,101,199,0.22)' } },
+        contained: { boxShadow: 'none', '&:hover': { boxShadow: '0 4px 12px rgba(0,109,119,0.28)' } },
       },
     },
     MuiCard: {

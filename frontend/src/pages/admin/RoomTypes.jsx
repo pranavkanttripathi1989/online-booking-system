@@ -15,7 +15,14 @@ const CREATE_RT = gql`mutation CreateRoomType($input: CreateRoomTypeInput!) { cr
 const UPDATE_RT = gql`mutation UpdateRoomType($id:ID!,$input: UpdateRoomTypeInput!) { updateRoomType(id:$id,input:$input) { success userErrors{message} } }`
 const DELETE_RT = gql`mutation DeleteRoomType($id:ID!) { deleteRoomType(id:$id) { success userErrors{message} } }`
 
-const defaultForm = { name: '', description: '', is_active: true }
+// ─── Mock fallback (NEW-ADMIN-001) ─────────────────────────────────────────
+const MOCK_ROOM_TYPES = [
+  { id: 'rt-1', name: 'Consultation Room',   description: 'Standard GP / specialist consultation', is_active: true },
+  { id: 'rt-2', name: 'Procedure Room',      description: 'Minor surgical and clinical procedures', is_active: true },
+  { id: 'rt-3', name: 'Video Suite',         description: 'Dedicated remote / video consultation room', is_active: true },
+  { id: 'rt-4', name: 'Waiting Area Annex',  description: 'Overflow waiting space for busy clinics', is_active: true },
+  { id: 'rt-5', name: 'Therapy Room',        description: 'Physiotherapy and occupational therapy', is_active: false },
+]
 
 export default function AdminRoomTypes() {
   const client = useApolloClient()
@@ -29,14 +36,24 @@ export default function AdminRoomTypes() {
   const [formError, setFormError]     = useState(null)
   const [successMsg, setSuccessMsg]   = useState(null)
   const [submitting, setSubmitting]   = useState(false)
+  const [isMockMode, setIsMockMode]   = useState(false)
 
   const load = async () => {
     setLoading(true)
-    try { const { data } = await client.query({ query: GET_ROOM_TYPES, fetchPolicy: 'network-only' }); setTypes(data?.roomTypes || []) }
-    catch (err) { setFormError(err.message) }
+    try {
+      const { data } = await client.query({ query: GET_ROOM_TYPES, fetchPolicy: 'network-only' })
+      setTypes(data?.roomTypes || [])
+      setIsMockMode(false)
+    }
+    catch {
+      // NEW-ADMIN-001: seed mock data when backend is offline
+      setTypes(MOCK_ROOM_TYPES)
+      setIsMockMode(true)
+    }
     finally { setLoading(false) }
   }
   useEffect(() => { load() }, []) // eslint-disable-line
+
 
   const showSuccess = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000) }
   const setField = (k, v) => setForm(p => ({ ...p, [k]: v }))
@@ -86,6 +103,7 @@ export default function AdminRoomTypes() {
         <Button variant="contained" startIcon={<AddIcon />} onClick={() => { reset(); setShowForm(p => !p) }}>Add Room Type</Button>
       </Stack>
 
+      {isMockMode && <Alert severity="info" sx={{ mb: 2 }}>Offline — showing demo room types. Changes will not persist until backend is available.</Alert>}
       {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
       {formError   && <Alert severity="error"   sx={{ mb: 2 }} onClose={() => setFormError(null)}>{formError}</Alert>}
 

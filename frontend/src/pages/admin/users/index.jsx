@@ -1,6 +1,6 @@
 import React, { useState, useMemo } from 'react';
 import { useQuery, useMutation, gql } from '@apollo/client';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Grid, Paper, Typography, Stack, Button, TextField, Select, MenuItem,
   Tabs, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -127,7 +127,12 @@ function StatCard({ icon, value, label, color }) {
 // --- Main Component ---
 export default function AdminUsers() {
   const navigate = useNavigate();
-  const [adminTab, setAdminTab] = useState(0);
+  const [searchParams] = useSearchParams();
+  // NEW-ADMIN-002: support ?tab=N so sidebar "Audit Log" link (/admin/users?tab=2) opens correct tab
+  const [adminTab, setAdminTab] = useState(() => {
+    const t = parseInt(searchParams.get('tab') ?? '0', 10);
+    return isNaN(t) ? 0 : Math.min(t, 2);
+  });
 
   // Tab 0 state
   const [userSearch, setUserSearch] = useState('');

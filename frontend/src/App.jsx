@@ -260,6 +260,8 @@ function App() {
           {/* ── Admin only — wrapped in AdminLayout sidebar ───────────── */}
           <Route element={<RoleGuard roles={['admin', 'super_admin']} />}>
             <Route element={<AdminLayout />}>
+              {/* NEW-ADMIN-003: /admin → /admin/users default landing */}
+              <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
               <Route path="/admin/users"           element={<Suspense fallback={<ShellPageLoader />}><AdminUsers /></Suspense>} />
               <Route path="/admin/users/new"       element={<Suspense fallback={<ShellPageLoader />}><CreateUserPage /></Suspense>} />
               <Route path="/admin/users/:id/edit"  element={<Suspense fallback={<ShellPageLoader />}><EditUserPage /></Suspense>} />

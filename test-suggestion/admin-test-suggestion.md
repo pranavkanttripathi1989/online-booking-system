@@ -1,90 +1,67 @@
-# Admin Panel — Feature Suggestions (Updated Post-Implementation)
+# Admin Panel — Feature Suggestions (Session 3 Final)
 
-**Derived from:** [admin-test-results.md](../test-result/admin-test-results.md)  
-**Test Plan Source:** [admin-test-plan.md](../test-plan/admin-test-plan.md)  
-**Original Date:** 2026-03-16 | **Updated:** 2026-03-18  
-**Tested by:** Antigravity AI Browser Agent
+**Module:** `frontend/src/pages/admin/`  
+**Last Updated:** 2026-03-24 Session 3
 
-> **STATUS UPDATE (2026-03-18):** All 7 critical bug fixes (SUG-001 to SUG-007) and both feature suggestions (SUG-008, SUG-009) have been implemented and verified. The Admin Panel is now fully functional with mock data. All 14 test cases pass.
+> ✅ **All critical and high priority items complete. All 3 outstanding new issues resolved.**
 
 ---
 
 ## Implementation Status
 
-| ID | Suggestion | Priority | Status | Implemented |
-|----|-----------|----------|--------|-------------|
-| SUG-ADMIN-001 | Fix 4 blank admin pages (route + mock data) | 🔴 Critical | ✅ **DONE** | Mock data in `ClinicianTypes.jsx`, `Languages.jsx` catch blocks |
-| SUG-ADMIN-002 | Add mock data to Orgs, Roles, Email Templates | 🔴 Critical | ✅ **DONE** | `MOCK_ORGS`, `MOCK_ROLES`, `MOCK_EMAIL_TEMPLATES` catch fallbacks |
-| SUG-ADMIN-003 | Optimistic add for new user creation | 🔴 High | ✅ **DONE** | `onError` in `form.jsx` now shows warning snackbar + navigates (mock mode) |
-| SUG-ADMIN-004 | Edit user form pre-fill from existing data | 🔴 High | ✅ **DONE** | `GET_USER_BY_ID` + `MOCK_USER_STORE` fallback in `EditUserPage` |
-| SUG-ADMIN-005 | Register /forbidden route + alias | 🟡 Medium | ✅ **DONE** | `<Route path="/forbidden" element={<Navigate to="/403" replace />}` in App.jsx |
-| SUG-ADMIN-006 | Fix users list search filter with useMemo | 🟡 Medium | ✅ **DONE** | `filteredUsers = useMemo(...)` filtering by name, email, role |
-| SUG-ADMIN-007 | Fix pagination count from local array | 🟢 Low | ✅ **DONE** | `Showing {filteredUsers.length} of {filteredUsers.length}` |
-| SUG-ADMIN-008 | Admin left sidebar navigation | 🟡 Medium | ✅ **DONE** | `AdminLayout.jsx` with 3 sections, 10 nav items, active route highlighting |
-| SUG-ADMIN-009 | Add audit log page | 🟢 Low | ✅ **DONE** | Audit Log exists as Tab 3 ("Audit Logs") on `/admin/users` |
+| ID | Suggestion | Priority | Status |
+|----|-----------|----------|--------|
+| SUG-ADMIN-001 | Fix blank admin pages (route + mock data) | 🔴 Critical | ✅ DONE |
+| SUG-ADMIN-002 | Mock data for Orgs, Roles, Email Templates | 🔴 Critical | ✅ DONE |
+| SUG-ADMIN-003 | Offline user creation fallback | 🔴 High | ✅ DONE |
+| SUG-ADMIN-004 | Edit user form pre-fill | 🔴 High | ✅ DONE |
+| SUG-ADMIN-005 | Register /forbidden route | 🟡 Medium | ✅ DONE |
+| SUG-ADMIN-006 | Users list search filter (useMemo) | 🟡 Medium | ✅ DONE |
+| SUG-ADMIN-007 | Pagination count from local array | 🟢 Low | ✅ DONE |
+| SUG-ADMIN-008 | Admin left sidebar navigation | 🟡 Medium | ✅ DONE |
+| SUG-ADMIN-009 | Audit log page | 🟢 Low | ✅ DONE |
+| NEW-ADMIN-001 | Room Types mock data | 🔴 High | ✅ **DONE (Session 3)** |
+| NEW-ADMIN-002 | Sidebar Audit Log ?tab= URL param | 🟡 Medium | ✅ **DONE (Session 3)** |
+| NEW-ADMIN-003 | /admin redirect to /admin/users | 🟡 Medium | ✅ **DONE (Session 3)** |
+| NEW-ADMIN-004 | Admin breadcrumbs on edit pages | 🟢 Low | ⏳ PENDING |
 
 ---
 
-## Detailed Implementation Notes
+## Session 3 Implementation Notes
 
-### SUG-ADMIN-001 + SUG-ADMIN-002 — Mock Data Fallbacks
-**Implementation:** Added `MOCK_*` arrays to 5 Apollo-dependent pages and set them in the `catch` block:
-- `ClinicianTypes.jsx` → `MOCK_CLINICIAN_TYPES` (4 types)
-- `Languages.jsx` → `MOCK_LANGUAGES` (3 languages, English as default)
-- `Roles.jsx` → `MOCK_ROLES` (6 roles including System Admin)
-- `EmailTemplates.jsx` → `MOCK_EMAIL_TEMPLATES` (5 templates with variables)
-- `Organizations.jsx` → `MOCK_ORGS` (3 orgs including 1 inactive)
+### NEW-ADMIN-001 — Room Types Mock Data
+**Implementation:** Added `MOCK_ROOM_TYPES` (5 entries: Consultation Room, Procedure Room, Video Suite, Waiting Area Annex, Therapy Room) to `RoomTypes.jsx`. Seeded in `catch` block when Apollo query fails. Added `isMockMode` boolean state + offline info `<Alert>` shown in UI when in mock mode.
 
-### SUG-ADMIN-003 — Offline User Creation
-**Implementation:** In `form.jsx` `createUser.onError`, detect `err.networkError` → show warning snackbar `"User '{{name}}' created (mock mode — backend offline)"` and navigate back. Previously showed a raw GraphQL error and stayed on form.
+### NEW-ADMIN-002 — Audit Log Tab URL Param
+**Implementation:** Added `useSearchParams` import to `users/index.jsx`. Changed `adminTab` from `useState(0)` to a lazy initializer: `useState(() => { const t = parseInt(searchParams.get('tab') ?? '0', 10); return isNaN(t) ? 0 : Math.min(t, 2); })`. Sidebar "Audit Log" navigates to `/admin/users?tab=2` — page now opens directly at Audit Logs tab.
 
-### SUG-ADMIN-004 — Edit User Pre-fill
-**Implementation:** `EditUserPage` now calls `useQuery(GET_USER_BY_ID, { variables: { id } })`. Falls back to `MOCK_USER_STORE[id]` if backend offline. Shows loading spinner during fetch.
-
-### SUG-ADMIN-005 — /forbidden Route
-**Implementation:** Added `<Route path="/forbidden" element={<Navigate to="/403" replace />}` in `App.jsx`. The existing `/403` Forbidden403 component handles the actual display.
-
-### SUG-ADMIN-006 + SUG-ADMIN-007 — Search and Pagination Fix
-**Implementation:** Added `filteredUsers = useMemo(...)` in `users/index.jsx` that filters `displayedUsers` by `userSearch` across name, email, and role. Pagination label uses `filteredUsers.length` instead of hardcoded `24`.
-
-### SUG-ADMIN-008 — Admin Sidebar Navigation
-**Implementation:** Created `src/layouts/AdminLayout.jsx`:
-- Permanent `<Drawer>` 224px wide
-- "ADMIN CONSOLE" heading
-- 3 sections: **Users & Access** (Users, Roles, Audit Log), **System** (Organizations, Policies, Communications, Email Templates), **Reference Data** (Clinician Types, Room Types, Languages)
-- Active route detection via `location.pathname.startsWith(path)`
-- Active items show teal text + vertical accent bar on right
-- Wired into `App.jsx` as nested layout wrapping all `/admin/*` routes
-
-### SUG-ADMIN-009 — Audit Log
-**Already existed** as Tab 3 ("Audit Logs") on `/admin/users`. Shows action filter, date pickers, mock log entries with expandable JSON payload. The sidebar "Audit Log" item navigates to `/admin/users?tab=2`.
+### NEW-ADMIN-003 — /admin Default Redirect
+**Implementation:** Added `<Route path="/admin" element={<Navigate to="/admin/users" replace />} />` as first child inside the `AdminLayout` route block in `App.jsx`. Admin users now land on Users list when navigating to `/admin` directly.
 
 ---
 
-## New Recommendations (Discovered During Testing)
+## New Suggestions (Session 3 Discovery)
 
-### NEW-ADMIN-001 — Room Types Page Has No Mock Data
-**Observation:** `/admin/room-types` (`RoomTypes.jsx`) also uses Apollo Client with no mock fallback. It was not in the original test plan but is now accessible via the sidebar.  
-**Fix:** Add `MOCK_ROOM_TYPES` similar to ClinicianTypes.
+### NEW-ADMIN-005 — Room Types: Mock CRUD Operations
+**Observation:** In mock mode, clicking Create/Edit/Delete on Room Types fires the GraphQL mutation which fails → error snackbar shown. The MOCK_ROOM_TYPES state is not updated optimistically.  
+**Recommendation:** Add in-memory CRUD to mock mode: `setTypes(prev => [...prev, { id: `rt-${Date.now()}`, ...form }])` after catching the network error.  
+**Priority:** 🟢 Low | **Status:** ⏳ PENDING
 
-### NEW-ADMIN-002 — Sidebar "Audit Log" Tab navigation limitation
-**Observation:** The "Audit Log" sidebar item navigates to `/admin/users?tab=2` but `users/index.jsx` reads the active tab from component state, not from the URL query param. The page opens at Tab 1 (Users Directory) rather than jumping to Tab 3 (Audit Logs).  
-**Fix:** Parse `?tab=` param via `useSearchParams` and initialize `activeTab` from it.
+### NEW-ADMIN-006 — Users List: Avatar Colors Should Use Teal Palette
+**Observation:** `getAvatarColor()` in `users/index.jsx` (line 225) still uses old `['#6366F1', '#EC4899', '#F59E0B', ...]` palette — same issue as was fixed in ClinicianCard.  
+**Recommendation:** Replace with teal-family colours: `['#006D77', '#0E9F9F', '#14B8A6', '#0D9488', '#1CBFBF', '#047857']`.  
+**Priority:** 🟡 Medium | **Status:** ⏳ PENDING
 
-### NEW-ADMIN-003 — Add /admin/dashboard as default Admin landing page
-**Observation:** When the Admin logs in, they land on the general `/dashboard` (manager dashboard). A dedicated `/admin` route that redirects to `/admin/users` would improve the admin experience.  
-**Fix:** Add `<Route path="/admin" element={<Navigate to="/admin/users" replace />}` in App.jsx.
-
-### NEW-ADMIN-004 — Admin Breadcrumbs for Edit Pages
-**Observation:** On `/admin/users/:id/edit`, there is a back arrow button but no breadcrumb trail. Adding `Admin > Users > Edit User` breadcrumbs would improve navigation context.
+### NEW-ADMIN-007 — Admin breadcrumbs on edit pages
+**Observation:** `/admin/users/:id/edit` has a back arrow but no breadcrumb. Long-standing observation from NEW-ADMIN-004.  
+**Priority:** 🟢 Low | **Status:** ⏳ PENDING
 
 ---
 
-## Priority Queue for Next Session
+## Priority Queue
 
 | Priority | Item | Effort |
 |----------|------|--------|
-| 🔴 High | NEW-ADMIN-001: Room Types mock data | Very Low (10 min) |
-| 🟡 Medium | NEW-ADMIN-002: Sidebar Audit Log tab fix | Low (30 min) |
-| 🟡 Medium | NEW-ADMIN-003: /admin redirect to /admin/users | Very Low (5 min) |
-| 🟢 Low | NEW-ADMIN-004: Admin breadcrumbs | Medium (1 hr) |
+| 🟡 Medium | NEW-ADMIN-006: Fix avatar colors in users table | Very Low (5 min) |
+| 🟢 Low | NEW-ADMIN-005: Room Types in-memory CRUD mock | Low (30 min) |
+| 🟢 Low | NEW-ADMIN-007: Breadcrumbs on edit pages | Medium (1 hr) |
