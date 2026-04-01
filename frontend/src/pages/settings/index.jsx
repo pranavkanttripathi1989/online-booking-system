@@ -1,10 +1,11 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { Helmet } from 'react-helmet-async'
 import {
   Box, Button, Typography, Tabs, Tab, Grid, Card, CardContent, Stack, Divider,
   TextField, Avatar, Switch, FormControlLabel, Paper, Chip, IconButton,
   Slider, Radio, RadioGroup, FormControl, FormLabel, MenuItem, Alert,
   Tooltip, Table, TableBody, TableCell, TableHead, TableRow,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -45,14 +46,30 @@ const MOCK_SESSIONS = [
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
   const { user } = useAuth()
+  const fileRef = useRef(null) // SUG-SET-001: camera icon file upload
   const [tab, setTab] = useState(0)
-  const [saved, setSaved] = useState(false)
+  const [saved, setSaved]     = useState(null) // SUG-SET-010: null|string
 
   // Profile state
   const [firstName, setFirstName]   = useState(user?.name?.split(' ')[0] ?? 'Admin')
   const [lastName, setLastName]     = useState(user?.name?.split(' ').slice(1).join(' ') ?? 'User')
   const [phone, setPhone]           = useState('+1 555-000-1234')
   const [bio, setBio]               = useState('')
+
+  // Password state (SUG-SET-002)
+  const [currentPw, setCurrentPw]   = useState('')
+  const [newPw, setNewPw]           = useState('')
+  const [confirmPw, setConfirmPw]   = useState('')
+  const [pwError, setPwError]       = useState(null)
+
+  // Sessions state (SUG-SET-003)
+  const [sessions, setSessions] = useState(MOCK_SESSIONS)
+
+  // 2FA controlled state (SUG-SET-008)
+  const [twoFa, setTwoFa] = useState(false)
+
+  // Deactivate confirm dialog state (SUG-SET-004)
+  const [deactivateOpen, setDeactivateOpen] = useState(false)
 
   // Notifications state
   const [notifs, setNotifs] = useState(NOTIF_ROWS)
@@ -65,7 +82,28 @@ export default function SettingsPage() {
   const [rtl, setRtl]             = useState(false)
   const [language, setLanguage]   = useState('en')
 
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2500) }
+  // SUG-SET-010: Per-tab contextual success messages
+  const handleSave = (context = 'Changes') => {
+    setSaved(`${context} saved successfully!`)
+    setTimeout(() => setSaved(null), 2500)
+  }
+
+  // SUG-SET-002: Password validation
+  const handlePasswordUpdate = () => {
+    setPwError(null)
+    if (!currentPw) { setPwError('Please enter your current password.'); return }
+    if (newPw.length < 8) { setPwError('New password must be at least 8 characters.'); return }
+    if (newPw !== confirmPw) { setPwError('Passwords do not match.'); return }
+    // BACKEND SWAP: call UPDATE_PASSWORD mutation with { currentPw, newPw }
+    setCurrentPw(''); setNewPw(''); setConfirmPw('')
+    handleSave('Password')
+  }
+
+  // SUG-SET-003: Revoke session
+  const handleRevoke = (id) => {
+    setSessions(prev => prev.filter(s => s.id !== id))
+  }
+
   const toggleNotif = (idx, channel) => {
     setNotifs(prev => prev.map((r, i) => i === idx ? { ...r, [channel]: !r[channel] } : r))
   }
@@ -79,7 +117,8 @@ export default function SettingsPage() {
         <Typography variant="body2" sx={{ color: '#5F6368' }}>Manage your account, notifications, and preferences</Typography>
       </Box>
 
-      {saved && <Alert severity="success" sx={{ mb: 2.5, borderRadius: 2.5 }}>Changes saved successfully!</Alert>}
+      {/* SUG-SET-010: Per-tab contextual saved message */}
+      {saved && <Alert severity="success" sx={{ mb: 2.5, borderRadius: 2.5 }} onClose={() => setSaved(null)}>{saved}</Alert>}
 
       <Paper sx={{ borderRadius: 3, border: '1px solid #E8EAED', boxShadow: 'none', overflow: 'hidden' }}>
         <Tabs
@@ -108,7 +147,17 @@ export default function SettingsPage() {
                   <Avatar sx={{ width: 110, height: 110, bgcolor: '#E8F0FE', color: '#1A73E8', fontSize: '2.5rem', fontWeight: 800 }}>
                     {(firstName[0] ?? '') + (lastName[0] ?? '')}
                   </Avatar>
-                  <IconButton size="small" sx={{ position: 'absolute', bottom: 0, right: 0, bgcolor: '#fff', border: '2px solid #E8EAED', '&:hover': { bgcolor: '#E8F0FE' } }}>
+                  {/* SUG-SET-001: Wire camera icon to hidden file input */}
+                  <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/gif" style={{ display: 'none' }} onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    if (file.size > 2 * 1024 * 1024) { alert('File must be under 2 MB'); return }
+                    const url = URL.createObjectURL(file)
+                    // Optimistic preview would set avatarUrl state here
+                    handleSave('Photo')
+                  }} />
+                  <IconButton size="small" onClick={() => fileRef.current?.click()} aria-label="Change profile photo"
+                    sx={{ position: 'absolute', bottom: 0, right: 0, bgcolor: '#fff', border: '2px solid #E8EAED', '&:hover': { bgcolor: '#E8F0FE' } }}>
                     <CameraAltRoundedIcon fontSize="small" sx={{ color: '#1A73E8' }} />
                   </IconButton>
                 </Box>
@@ -149,7 +198,7 @@ export default function SettingsPage() {
                   <Grid item xs={12} sm={4}><TextField fullWidth label="State / Province" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
                   <Grid item xs={12} sm={4}><TextField fullWidth label="ZIP / Postal Code" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
                   <Grid item xs={12}>
-                    <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={handleSave}
+                    <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => handleSave('Profile changes')}
                       sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, px: 3,
                         background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
                         '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
@@ -167,10 +216,12 @@ export default function SettingsPage() {
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}><LockRoundedIcon sx={{ fontSize: '1.1rem', color: 'primary.main' }} /> Change Password</Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Current Password" type="password" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="New Password" type="password" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
-                  <Grid item xs={12} sm={6}><TextField fullWidth label="Confirm New Password" type="password" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
-                  <Grid item xs={12}><Button variant="outlined" sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Update Password</Button></Grid>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="Current Password" type="password" value={currentPw} onChange={e => setCurrentPw(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="New Password" type="password" helperText="Min 8 characters" value={newPw} onChange={e => setNewPw(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  <Grid item xs={12} sm={6}><TextField fullWidth label="Confirm New Password" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  {/* SUG-SET-002: Password validation — error alert + wired onClick */}
+                  {pwError && <Grid item xs={12}><Alert severity="error" onClose={() => setPwError(null)}>{pwError}</Alert></Grid>}
+                  <Grid item xs={12}><Button variant="outlined" onClick={handlePasswordUpdate} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Update Password</Button></Grid>
                 </Grid>
               </Box>
               <Divider />
@@ -178,14 +229,16 @@ export default function SettingsPage() {
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><SecurityRoundedIcon sx={{ fontSize: '1.1rem', color: '#0F9D58' }} /> Two-Factor Authentication</Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>Add an extra layer of security to your account by enabling 2FA.</Typography>
-                <FormControlLabel control={<Switch color="success" />} label={<Typography fontWeight={600}>Enable 2FA (TOTP)</Typography>} />
+                {/* SUG-SET-008: 2FA controlled state */}
+                <FormControlLabel control={<Switch color="success" checked={twoFa} onChange={(e) => setTwoFa(e.target.checked)} />} label={<Typography fontWeight={600}>Enable 2FA (TOTP)</Typography>} />
               </Box>
               <Divider />
               {/* Active sessions */}
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}><DevicesRoundedIcon sx={{ fontSize: '1.1rem', color: '#9334E6' }} /> Active Sessions</Typography>
                 <Stack spacing={1.5}>
-                  {MOCK_SESSIONS.map((s) => (
+                  {/* SUG-SET-003: sessions as state; Revoke wired to handleRevoke */}
+                  {sessions.map((s) => (
                     <Paper key={s.id} variant="outlined" sx={{ p: 2, borderRadius: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, borderColor: s.current ? 'primary.main' : 'divider' }}>
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <DevicesRoundedIcon sx={{ color: s.current ? 'primary.main' : 'text.disabled' }} />
@@ -194,7 +247,7 @@ export default function SettingsPage() {
                           <Typography variant="caption" sx={{ color: 'text.secondary' }}>{s.location} · {s.last_seen}</Typography>
                         </Box>
                       </Stack>
-                      {!s.current && <Button size="small" color="error" variant="outlined" sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Revoke</Button>}
+                      {!s.current && <Button size="small" color="error" variant="outlined" onClick={() => handleRevoke(s.id)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Revoke</Button>}
                     </Paper>
                   ))}
                 </Stack>
@@ -204,7 +257,8 @@ export default function SettingsPage() {
               <Box sx={{ p: 2.5, border: '1.5px solid #F5C6C2', borderRadius: 2.5, bgcolor: '#FCE8E6' }}>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#D93025', mb: 0.5 }}>Danger Zone</Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>Deactivating your account will immediately revoke all access. This action cannot be undone.</Typography>
-                <Button variant="outlined" color="error" startIcon={<DeleteRoundedIcon />} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Deactivate Account</Button>
+                {/* SUG-SET-004: Confirm dialog before deactivating */}
+                <Button variant="outlined" color="error" startIcon={<DeleteRoundedIcon />} onClick={() => setDeactivateOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Deactivate Account</Button>
               </Box>
             </Stack>
           </TabPanel>
@@ -236,7 +290,7 @@ export default function SettingsPage() {
                 </TableBody>
               </Table>
             </Paper>
-            <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={handleSave}
+            <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => handleSave('Notification preferences')}
               sx={{ mt: 3, borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
                 background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
                 '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
@@ -285,7 +339,7 @@ export default function SettingsPage() {
                   <FormControlLabel control={<Switch checked={rtl} onChange={() => setRtl(!rtl)} color="primary" />} label={<Box><Typography variant="body2" fontWeight={700}>RTL Layout</Typography><Typography variant="caption" sx={{ color: 'text.secondary' }}>For Arabic, Hebrew, and other RTL languages</Typography></Box>} />
                 </Stack>
               </Box>
-              <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={handleSave}
+              <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => handleSave('Appearance settings')}
                 sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, alignSelf: 'flex-start',
                   background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
                   '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
@@ -311,7 +365,7 @@ export default function SettingsPage() {
               </TextField></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Default Slot Duration (min)" defaultValue="30" type="number" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
               <Grid item xs={12}>
-                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={handleSave}
+                <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => handleSave('Clinic settings')}
                   sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
                     background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
                     '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
@@ -322,6 +376,22 @@ export default function SettingsPage() {
 
         </Box>
       </Paper>
+      {/* SUG-SET-004: Deactivate Account confirmation dialog */}
+      <Dialog open={deactivateOpen} onClose={() => setDeactivateOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={700} sx={{ color: '#D93025' }}>Deactivate Account?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: '#5F6368' }}>
+            Deactivating your account will immediately revoke all access and cannot be undone.
+            Are you sure you want to continue?
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setDeactivateOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="error" startIcon={<DeleteRoundedIcon />}
+            onClick={() => { setDeactivateOpen(false); /* BACKEND SWAP: call DEACTIVATE_ACCOUNT mutation */ }}
+          >Deactivate</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

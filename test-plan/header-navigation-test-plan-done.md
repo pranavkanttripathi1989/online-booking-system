@@ -1,9 +1,9 @@
 # Header & Navigation — Test Plan (COMPLETED — v1.0)
 
 **Standard:** All nav interactions tested across sidebar, AppBar, search, layout toggle, user menu, dark mode, mobile.  
-**Total Test Cases:** 32 (29 original + 3 new edge cases)  
+**Total Test Cases:** 32 (29 original + 3 new Session 2)  
 **All Passing:** ✅  
-**Completed:** 2026-03-20
+**Completed:** 2026-03-30 (Session 2)
 
 ---
 
@@ -104,3 +104,26 @@
 - ✅ Dark mode toggles correctly via ThemeContext
 - ✅ Mobile: hamburger drawer + bottom nav visible
 - ✅ No blank pages or crashes across all nav flows
+
+---
+
+## Session 2 Test Cases (TC-NAV-030 to TC-NAV-032)
+
+### TC-NAV-030 — New Appointment Button aria-label (SUG-NAV-006)
+**Prompt:** Inspect header with browser a11y tools or screen reader.  
+**Expected:** AddRounded (+) IconButton has `aria-label="Create new appointment"`. Mobile search button has `aria-label="Open search"`.  
+**Edge:** Dark mode toggle already had `aria-label="Toggle dark mode"`. Mobile hamburger already had `aria-label="Open navigation"`.
+
+---
+
+### TC-NAV-031 — Messages Badge in Mobile Bottom Nav (SUG-NAV-007)
+**Prompt:** View app on 375px screen — check Messages item in bottom nav.  
+**Expected:** Red badge showing "3" on Messages icon, matching sidebar and top-nav badges.  
+**Edge:** Badge only renders for `item.path === '/messages'` — other items unchanged.
+
+---
+
+### TC-NAV-032 — Search Available in TopNav Mode (SUG-NAV-008)
+**Prompt:** Switch to Top Nav layout. Click Search icon in top nav right rail.  
+**Expected:** GlobalSearch dialog opens.  
+**Actual:** `onOpenSearch` prop called → dialog opens correctly. Search pill in Navbar.jsx also available (both modes have search access).

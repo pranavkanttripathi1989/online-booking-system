@@ -4,7 +4,7 @@ import {
   Box, Grid, Paper, Typography, Stack, ToggleButtonGroup, ToggleButton,
   Select, MenuItem, FormControl, InputLabel, Card, Avatar, Table,
   TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
-  Skeleton, Chip
+  Skeleton, Chip, Alert, Collapse
 } from '@mui/material';
 import {
   EventNote, AttachMoney, PeopleAlt, Speed, Cancel
@@ -146,6 +146,11 @@ export default function ManagerDashboard() {
     };
   }, [dateFilter, customStart, customEnd]);
 
+  // BUG-DASH-001 FIX — validate custom date range
+  const dateRangeError = dateFilter === 'custom' && customStart && customEnd && customStart.isAfter(customEnd)
+    ? 'Start date cannot be after End date.'
+    : null;
+
   // Query Data
   const { data, loading, error } = useQuery(GET_MANAGER_DASHBOARD_DATA, {
     variables: { 
@@ -153,7 +158,7 @@ export default function ManagerDashboard() {
       startDate: startStr,
       endDate: endStr
     },
-    skip: !user // ensure we don't query if not logged in
+    skip: !user || !!dateRangeError // BUG-DASH-001: skip query when dates are inverted
   });
 
   const handleDateToggle = (e, newFilter) => {
@@ -225,6 +230,13 @@ export default function ManagerDashboard() {
           </FormControl>
         </Stack>
       </Stack>
+
+      {/* BUG-DASH-001 FIX — date range validation alert */}
+      <Collapse in={!!dateRangeError}>
+        <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>
+          {dateRangeError}
+        </Alert>
+      </Collapse>
 
       {/* KPI ROW — Stitch KPI cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, overflowX: 'auto', pb: 1 }}>

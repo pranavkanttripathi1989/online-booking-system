@@ -1,5 +1,5 @@
 import { useNavigate, useLocation } from 'react-router-dom'
-import { Paper, BottomNavigation, BottomNavigationAction, Box } from '@mui/material'
+import { Paper, BottomNavigation, BottomNavigationAction, Box, Badge } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import DashboardRoundedIcon from '@mui/icons-material/DashboardRounded'
 import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded'
@@ -91,7 +91,14 @@ export default function MobileBottomNav() {
                       bgcolor: '#1A73E8',
                     }} />
                   )}
-                  <item.icon sx={{ fontSize: '1.4rem' }} />
+                  {/* SUG-NAV-007: badge for Messages item */}
+                  {item.path === '/messages' ? (
+                    <Badge badgeContent={3} sx={{ '& .MuiBadge-badge': { bgcolor: '#D93025', color: '#fff', fontSize: '0.5rem', minWidth: 14, height: 14, top: 2, right: -2 } }}>
+                      <item.icon sx={{ fontSize: '1.4rem' }} />
+                    </Badge>
+                  ) : (
+                    <item.icon sx={{ fontSize: '1.4rem' }} />
+                  )}
                 </Box>
               }
             />

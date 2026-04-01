@@ -1,221 +1,174 @@
-# Staff Management — Test Plan
+# Staff Module — Test Plan (v2.0)
 
-**Feature area:** `/src/pages/staff/`  
-**Files:** `index.jsx`, `new.jsx`, `edit.jsx`  
-**Routes tested:** `/staff`, `/staff/new`, `/staff/edit/:id`  
-**Mock data:** 8 staff members hardcoded in `index.jsx` and `edit.jsx`  
-**Access:** Admin, Super Admin, Manager roles only
+**Module:** Staff Management (`/staff`, `/staff/new`, `/staff/edit/:id`)
+**Source:** `staff/index.jsx` · `staff/new.jsx` · `staff/edit.jsx`
+**Updated:** 2026-03-31 (Session QA v2.0)
 
 ---
 
-## 1. Staff List Page (`/staff`)
+## Feature Overview
 
-### TC-STAFF-001 — List renders 8 mock staff members
-**Prompt:**  
-> Log in as Admin. Navigate to `http://localhost:3001/staff`.  
-> Assert: table shows 8 rows with columns: Staff Member (avatar + name + since date), Role chip, Department, Phone, Email, Status chip, Actions (Edit + Deactivate icons).
-
-**Expected:** All 8 mock records visible. Role chips colored (teal, green, purple, etc.). Status chips (Active/On Leave/Inactive).
+Staff management system for the clinic. Staff list (8 mock members) with search/filter/tabs, add staff form with validation + password strength meter, edit staff form with unsaved changes detection and deactivate flow. All mock data is inline. No backend required.
 
 ---
 
-### TC-STAFF-002 — Search by name
-**Prompt:**  
-> On `/staff`, type "Sara" in the search field.  
-> Assert: only "Sara Johnson" row visible. Other rows hidden.
+## 1. Staff List — Page Load & Layout
 
-**Expected:** Client-side filter on `name`, `role`, `dept` fields.
+### TC-STAFF-01 — Page load
+**Steps:** Navigate to `/staff`.
+**Expected:** "Staff Management" h4. Subtitle shows activeCount + total. "Add Staff Member" button. 4 KPI cards. Search + dept chip filter. Tabs: All(8)/Active(6)/Others(2). Table 8 rows.
 
----
+### TC-STAFF-22 — Status chip colors
+**Steps:** View status chips in All tab.
+**Expected:** Active=green (#E6F4EA/#137333). On Leave=yellow (#FEF7E0/#8A4700). Inactive=gray (#F8F9FA/#5F6368).
 
-### TC-STAFF-003 — Search by role
-**Prompt:**  
-> Type "Nurse" in the search field.  
-> Assert: only "Lisa Park" (Nurse) row visible.
-
-**Expected:** Search matches `role` field. Case-insensitive comparison.
+### TC-STAFF-23 — Role color chips
+**Steps:** View role chips in table.
+**Expected:** Each role has distinct color per ROLE_COLORS map (Receptionist=blue, Nurse=purple, etc.).
 
 ---
 
-### TC-STAFF-004 — Department filter chip — Front Desk
-**Prompt:**  
-> On `/staff`, click the "Front Desk" department chip in the filter bar.  
-> Assert: only Sara Johnson and Amy Chen (both Front Desk) are visible. Active chip turns teal.
+## 2. Search & Filters
 
-**Expected:** `departmentFilter = 'Front Desk'` applied. Teal chip selection style.
+### TC-STAFF-03 — Search by name
+**Steps:** Type "Sara".
+**Expected:** Sara Johnson only.
 
----
+### TC-STAFF-04 — Search by role
+**Steps:** Type "Nurse".
+**Expected:** Lisa Park only.
 
-### TC-STAFF-005 — Tab: Active only
-**Prompt:**  
-> Click the "Active (N)" tab.  
-> Assert: only staff with status "active" shown. James Wilson (on_leave) and Patricia Brown (inactive) disappear.
+### TC-STAFF-07 — Department filter chip
+**Steps:** Click "Front Desk" chip.
+**Expected:** Sara Johnson + Amy Chen (2 rows). Chip highlighted.
 
-**Expected:** `tab=1` filter: `s.status === 'active'` applied.
+### TC-STAFF-08 — Empty state
+**Steps:** Search = "XYZ".
+**Expected:** "No staff members found" centered in table.
 
----
-
-### TC-STAFF-006 — Tab: Others (non-active)
-**Prompt:**  
-> Click the "Others (N)" tab.  
-> Assert: only James Wilson (on_leave) and Patricia Brown (inactive) shown.
-
-**Expected:** `tab=2` filter: `s.status !== 'active'`.
+### TC-STAFF-26 — Search + tab combined
+**Steps:** Tab=Active; search "chen".
+**Expected:** Amy Chen only (active + name match).
 
 ---
 
-### TC-STAFF-007 — Add Staff Member button is teal and navigates
-**Prompt:**  
-> On `/staff`, observe the "Add Staff Member" button color.  
-> Assert: button is teal gradient (NOT blue). Click it — navigated to `/staff/new`.
+## 3. Tabs
 
-**Expected:** Background is `linear-gradient(135deg, #00858F 0%, #006D77 100%)`. Navigation fires.
+### TC-STAFF-05 — Active tab
+**Steps:** Click "Active (6)".
+**Expected:** Sara, Mark, Lisa, Amy, Robert, Kevin (6 rows).
 
----
-
-### TC-STAFF-008 — Edit (pencil) icon navigates to edit page
-**Prompt:**  
-> On `/staff`, click the teal pencil (EditRoundedIcon) on "Sara Johnson" row.  
-> Assert: navigated to `/staff/edit/1`. Edit form loads with Sara Johnson's data pre-filled.
-
-**Expected:** `navigate('/staff/edit/1')` fires. Edit page renders.
+### TC-STAFF-06 — Others tab
+**Steps:** Click "Others (2)".
+**Expected:** James Wilson (On Leave) + Patricia Brown (Inactive).
 
 ---
 
-### TC-STAFF-009 — KPI cards show correct counts
-**Prompt:**  
-> On `/staff`, observe the 4 KPI cards.  
-> Assert: "Total Staff" = 8, "Active" = 6, "On Leave" = 1, "Departments" = number of unique departments.
+## 4. Navigation
 
-**Expected:** Counts derived from MOCK_STAFF array. Correct values shown.
+### TC-STAFF-09 — Row click navigates to edit
+**Steps:** Click Sara Johnson row.
+**Expected:** Navigate to /staff/edit/1.
 
----
+### TC-STAFF-10 — Edit icon navigates (no row propagation)
+**Steps:** Click pencil icon on Sara.
+**Expected:** Navigate to /staff/edit/1. Row onClick does NOT double-fire (e.stopPropagation).
 
-## 2. Add Staff Page (`/staff/new`)
-
-### TC-STAFF-010 — All form sections visible
-**Prompt:**  
-> Navigate to `/staff/new`.  
-> Assert: page shows: left preview card (with "?" avatar, status selector), right form with sections: Personal Information, Contact Details, Role & Department, Login Credentials, Additional Notes.
-
-**Expected:** Full two-column layout renders. FieldSection icons visible.
+### TC-STAFF-11 — Add Staff button
+**Steps:** Click "Add Staff Member".
+**Expected:** Navigate to /staff/new.
 
 ---
 
-### TC-STAFF-011 — Live avatar preview updates with name
-**Prompt:**  
-> On `/staff/new`, type "John Smith" in the Full Name field.  
-> Assert: the avatar on the left card immediately shows "JS" initials and the name "John Smith" below it.
+## 5. Deactivate from List
 
-**Expected:** `getInitials()` and `avatarColor()` functions reactive to `form.name` state.
+### TC-STAFF-12 — Deactivate icon opens dialog
+**Steps:** Click PersonOff icon on Sara Johnson.
+**Expected:** Dialog opens "Deactivate Staff Member". Row onClick does NOT fire.
 
----
-
-### TC-STAFF-012 — Role and department update preview card
-**Prompt:**  
-> Select Role "Nurse" and Department "General Practice".  
-> Assert: left preview card shows "Nurse" chip and "General Practice" text below the name.
-
-**Expected:** Card reactively shows `form.role` as Chip and `form.department` as text.
+### TC-STAFF-13 — Deactivate confirm
+**Steps:** Click "Yes, Deactivate".
+**Expected:** Snackbar "Sara Johnson has been deactivated" (warning). Dialog closes.
 
 ---
 
-### TC-STAFF-013 — Status selector changes highlight
-**Prompt:**  
-> Click "On Leave" in the status selector list.  
-> Assert: "On Leave" row shows teal border, orange dot, checkmark. "Active" loses its teal border.
+## 6. Add Staff Form (/staff/new)
 
-**Expected:** Visual status selector updates. `form.status` changes to `'on_leave'`.
+### TC-STAFF-14 — Validation: all empty submit
+**Steps:** Navigate to /staff/new; click "Add Staff Member" without filling any field.
+**Expected:** 6 errors: Full name /, Email /, Phone /, Role /, Department /, Password /.
 
----
+### TC-STAFF-15 — Email format validation
+**Steps:** Enter email = "notanemail"; click save.
+**Expected:** "Invalid email address" shown under email.
 
-### TC-STAFF-014 — Required fields validation
-**Prompt:**  
-> On `/staff/new`, click "Add Staff Member" without filling any fields.  
-> Assert: error messages appear under: Full Name, Email, Phone, Role, Department, Password fields.
+### TC-STAFF-16 — Password mismatch
+**Steps:** Password="Abc123!!", Confirm="Different".
+**Expected:** "Passwords do not match".
 
-**Expected:** `validate()` function returns errors. `setErrors()` sets state. Fields show red helper text.
+### TC-STAFF-17 — Password too short
+**Steps:** Password="abc".
+**Expected:** "Minimum 8 characters".
 
----
+### TC-STAFF-18 — Password strength: Strong
+**Steps:** Enter "Abc123!!".
+**Expected:** Strength="Strong" (#006D77 bar). Has uppercase+digit+special+length≥8.
 
-### TC-STAFF-015 — Password strength meter updates
-**Prompt:**  
-> Type "abc" in the Password field.  
-> Assert: strength bar appears (red = "Weak"). Type "Abc123!!" — bar shows green "Strong".
+### TC-STAFF-19 — Password strength: Weak
+**Steps:** Enter "abc".
+**Expected:** Strength="Weak" (red bar). No criteria met.
 
-**Expected:** `pwdStrength` computed from length + character classes. `LinearProgress` value and color update.
+### TC-STAFF-20 — Live preview card
+**Steps:** Fill name="Hannah Lee", role=Nurse, dept=Radiology, email=h@h.com.
+**Expected:** Avatar initials "HL", role chip, dept, email shown in left preview card reactively.
 
----
+### TC-STAFF-21 — Successful submit
+**Steps:** Fill all required fields correctly; click save.
+**Expected:** LinearProgress bar. 900ms delay. Snackbar "{name} added to staff successfully!" (success). Navigate to /staff.
 
-### TC-STAFF-016 — Passwords must match
-**Prompt:**  
-> Enter Password "Hello1234!" and Confirm Password "Hello9999!". Click Add Staff Member.  
-> Assert: "Passwords do not match" error on the Confirm Password field.
+### TC-STAFF-24 — Back arrow
+**Steps:** Click back arrow on /staff/new.
+**Expected:** Navigate to /staff.
 
-**Expected:** `validate()` checks `form.password !== form.confirmPassword`. Error set.
-
----
-
-### TC-STAFF-017 — Successful staff creation
-**Prompt:**  
-> Fill: Full Name "Test User", Email "test@clinic.com", Phone "+1 555-1234", Role "Receptionist", Department "Front Desk", Password "Pass1234!", Confirm "Pass1234!".  
-> Click "Add Staff Member".  
-> Assert: 900ms loading state, then green snackbar "Test User added to staff successfully!". Redirected to `/staff`.
-
-**Expected:** Mock save completes. `enqueueSnackbar` fires. `navigate('/staff')` called.
+### TC-STAFF-25 — Cancel button
+**Steps:** Fill partial form; click Cancel.
+**Expected:** Navigate to /staff. No data saved.
 
 ---
 
-## 3. Edit Staff Page (`/staff/edit/:id`)
+## 7. Edit Staff Form (/staff/edit/:id)
 
-### TC-STAFF-018 — Edit page loads with pre-filled data for Sara Johnson
-**Prompt:**  
-> Navigate to `/staff/edit/1`.  
-> Assert: Full Name = "Sara Johnson", Role = "Receptionist", Department = "Front Desk", Email = "sara@healthsync.dev", Start Date = 2022-03-15.
+### TC-STAFF-27 — Edit page loads with pre-filled data
+**Steps:** Navigate to /staff/edit/1.
+**Expected:** Form pre-filled with Sara Johnson's data. "Unsaved changes" chip hidden.
 
-**Expected:** `MOCK_STAFF.find(s => s.id === '1')` matches. All fields pre-filled.
+### TC-STAFF-28 — Unsaved changes chip
+**Steps:** Edit any field on edit page.
+**Expected:** "Unsaved changes" amber chip appears. Save Changes button enabled (hasChanges=true).
 
----
+### TC-STAFF-29 — Save Changes disabled by default
+**Steps:** Load edit page without changing anything.
+**Expected:** Save Changes button: disabled. hasChanges=false on load.
 
-### TC-STAFF-019 — "Unsaved changes" chip appears on edit
-**Prompt:**  
-> On `/staff/edit/1`, change the phone number to "+1 000-0000".  
-> Assert: amber "Unsaved changes" chip appears in the page header. Save Changes button becomes enabled.
-
-**Expected:** `hasChanges` computed as `JSON.stringify(form) !== JSON.stringify(original)`. Chip renders.
-
----
-
-### TC-STAFF-020 — Save Changes disabled with no edits
-**Prompt:**  
-> On `/staff/edit/1`, do not change anything.  
-> Assert: "Save Changes" button is greyed out (disabled).
-
-**Expected:** `disabled={!hasChanges}` on the button.
+### TC-STAFF-30 — Deactivate from edit page
+**Steps:** Click "Deactivate" red button on edit page.
+**Expected:** Dialog opens with staff name. "Yes, Deactivate" marks as inactive + navigate to /staff.
 
 ---
 
-### TC-STAFF-021 — Deactivate opens confirmation dialog
-**Prompt:**  
-> On `/staff/edit/1`, click "Deactivate Member" button.  
-> Assert: a dialog appears saying "Sara Johnson will be marked as inactive". Confirm and Cancel buttons visible.
+## Edge Cases
 
-**Expected:** `Dialog` with `deactivateOpen=true`. Dialog text references staff member name.
-
----
-
-### TC-STAFF-022 — Confirm deactivation redirects to staff list
-**Prompt:**  
-> In the deactivate confirm dialog, click "Yes, Deactivate".  
-> Assert: warning snackbar "Sara Johnson has been deactivated". Redirect to `/staff`.
-
-**Expected:** `handleDeactivate()` fires. 600ms delay. Snackbar + navigate.
+| # | Edge | Expected |
+|---|------|----------|
+| E1 | Search + dept filter both active | Intersection of both filters applied |
+| E2 | Navigate to /staff/edit/999 (unknown ID) | Error snackbar + redirect to /staff |
+| E3 | Submit empty email="" in Add form | "Email is required" (required check before format check) |
+| E4 | Submit email="a@b" (no TLD) | "Invalid email address" (regex fails) |
+| E5 | Password strength: "password" (all lowercase 8 chars) | Score 1 (Weak) — no uppercase/digit/special |
+| E6 | Password strength: "Pass123" (< 8 chars) | Score 2 (Fair) — has uppercase+digit, length 7 |
+| E7 | Combined search + tab: Others tab + search "inactive" | Filters independently via matchSearch + matchStatus |
+| E8 | Deactivate dialog: click Cancel | Dialog closes, no snackbar, staff row unchanged |
 
 ---
 
-### TC-STAFF-023 — Unknown staff ID redirects
-**Prompt:**  
-> Navigate to `/staff/edit/99999`.  
-> Assert: error snackbar "Staff member not found". Redirect to `/staff`.
-
-**Expected:** `MOCK_STAFF.find()` returns undefined. `navigate('/staff')` + snackbar error.
+## Total: 30 Test Cases + 8 Edge Cases

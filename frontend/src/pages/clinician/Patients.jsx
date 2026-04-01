@@ -1,10 +1,11 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useRef, useCallback } from 'react';
 import dayjs from 'dayjs';
 import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
   IconButton, TableSortLabel, Tooltip, TablePagination, InputAdornment, TextField,
 } from '@mui/material';
+import DownloadIcon from '@mui/icons-material/Download';
 import { PatientAvatar } from '../../components/shared';
 import SearchIcon         from '@mui/icons-material/Search';
 import ClearIcon          from '@mui/icons-material/Clear';
@@ -74,12 +75,22 @@ export default function ClinicianPatients() {
 
   // ── State ──────────────────────────────────────────────────────────────────
   const [search,   setSearch]   = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filter,   setFilter]   = useState('all');
   const [sortKey,  setSortKey]  = useState('name');
   const [sortDir,  setSortDir]  = useState('asc');
   // SUG-CLPAT-012: pagination
   const [page,     setPage]     = useState(0);
   const [rowsPerPage, setRowsPerPage] = useState(5);
+
+  // NEW-CLPAT-022: debounced search — avoids re-filtering on every keystroke
+  const debounceTimer = useRef(null);
+  const handleSearch = useCallback((val) => {
+    setSearch(val); // update input field immediately
+    setPage(0);
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(() => setDebouncedSearch(val), 150);
+  }, []);
 
   // ── Sort handler ───────────────────────────────────────────────────────────
   const handleSort = (key) => {
@@ -94,18 +105,18 @@ export default function ClinicianPatients() {
 
   // ── Filtered + sorted + paginated list ────────────────────────────────────
   const filtered = useMemo(() => {
-    const q = normalise(search); // SUG-010: normalise query too
+    const q = normalise(debouncedSearch); // NEW-CLPAT-022: use debounced value
     return MOCK_PATIENTS
       .filter(p => {
         const matchSearch =
-          !search ||
+          !debouncedSearch ||
           normalise(p.name  ?? '').includes(q) ||  // SUG-010: diacritic-safe
           normalise(p.email ?? '').includes(q);     // SUG-002: null guard
         const matchFilter = filter === 'all' || p.status === filter;
         return matchSearch && matchFilter;
       })
       .sort(compareBy(sortKey, sortDir));
-  }, [search, filter, sortKey, sortDir]);
+  }, [debouncedSearch, filter, sortKey, sortDir]);
 
   // Paginated slice
   const paginated = rowsPerPage === -1
@@ -114,7 +125,23 @@ export default function ClinicianPatients() {
 
   // Reset to page 0 whenever filter/search changes
   const handleFilterChange = (f) => { setFilter(f); setPage(0); };
-  const handleSearchChange = (val) => { setSearch(val); setPage(0); };
+  const handleSearchChange = (val) => { handleSearch(val); };
+
+  // NEW-CLPAT-023: Export CSV of filtered patient list
+  const exportCSV = () => {
+    const header = ['Name', 'DOB', 'Email', 'Condition', 'Last Visit', 'Next Appt', 'Total Visits', 'Status'];
+    const rows = filtered.map(p => [
+      p.name, p.dob, p.email ?? '', p.condition ?? '',
+      p.lastVisit ?? '', p.nextAppt ?? '', p.totalVisits, p.status,
+    ]);
+    const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url; a.download = `my-patients-${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   // ── KPI calculations ───────────────────────────────────────────────────────
   const kpis = [
@@ -135,21 +162,34 @@ export default function ClinicianPatients() {
             {MOCK_PATIENTS.length} patients · {MOCK_PATIENTS.filter(p => p.nextAppt).length} with upcoming appointments
           </Typography>
         </Box>
+        {/* NEW-CLPAT-023: Export CSV button */}
+        <Tooltip title={`Export ${filtered.length} patient${filtered.length !== 1 ? 's' : ''} to CSV`}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<DownloadIcon />}
+            onClick={exportCSV}
+            sx={{ color: STITCH_BRAND, borderColor: STITCH_BRAND, borderRadius: 2, fontWeight: 600,
+              '&:hover': { bgcolor: '#E8F8F9' } }}
+          >
+            Export CSV
+          </Button>
+        </Tooltip>
       </Stack>
 
-      {/* KPI CARDS */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
+      {/* KPI CARDS — SUG-CLPAT-017: horizontal scroll on mobile */}
+      <Box sx={{ display: 'flex', gap: 2, mb: 3, overflowX: { xs: 'auto', sm: 'visible' }, pb: { xs: 1, sm: 0 }, flexWrap: { xs: 'nowrap', sm: 'wrap' } }}>
         {kpis.map(({ label, value, color }) => (
-          <Grid item xs={6} sm={3} key={label}>
+          <Box key={label} sx={{ minWidth: { xs: 130, sm: 0 }, flex: { xs: '0 0 auto', sm: '1 1 0' } }}>
             <Card sx={{ borderTop: `4px solid ${color}`, height: '100%' }}>
               <CardContent sx={{ p: 2 }}>
                 <Typography variant="h3" fontWeight={800} sx={{ color }}>{value}</Typography>
                 <Typography variant="body2" color="text.secondary">{label}</Typography>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
         ))}
-      </Grid>
+      </Box>
 
       {/* FILTERS */}
       <Stack direction="row" spacing={2} sx={{ mb: 2 }} alignItems="center" flexWrap="wrap" gap={1}>
@@ -176,13 +216,15 @@ export default function ClinicianPatients() {
           }}
         />
 
-        {/* Filter chips with count badges */}
+        {/* Filter chips — SUG-CLPAT-016: keyboard nav (Enter/Space) */}
         <Stack direction="row" spacing={1} flexWrap="wrap">
           {FILTERS.map(f => (
             <Chip
               key={f}
               label={`${FILTER_LABELS[f]} (${countOf(f)})`}
               onClick={() => handleFilterChange(f)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFilterChange(f); } }}
+              tabIndex={0}
               color={filter === f ? 'primary' : 'default'}
               variant={filter === f ? 'filled' : 'outlined'}
               sx={{ cursor: 'pointer', fontWeight: filter === f ? 700 : 400 }}
@@ -250,11 +292,16 @@ export default function ClinicianPatients() {
             ) : (
               paginated.map(patient => {
                 const { firstName, lastName } = splitName(patient.name); // SUG-008
+                // NEW-CLPAT-019: overdue warning — last visit > 90 days
+                const daysSinceVisit = patient.lastVisit ? dayjs().diff(dayjs(patient.lastVisit), 'day') : null;
+                const isOverdue = daysSinceVisit !== null && daysSinceVisit > 90 && patient.status !== 'inactive';
                 return (
                   <TableRow
                     key={patient.id}
                     hover
-                    sx={{ '&:last-child td': { borderBottom: 0 } }}
+                    tabIndex={0}
+                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/patients/${patient.id}`); }}
+                    sx={{ '&:last-child td': { borderBottom: 0 }, cursor: 'pointer' }}
                   >
                     {/* Patient */}
                     <TableCell>
@@ -269,11 +316,20 @@ export default function ClinicianPatients() {
                       </Stack>
                     </TableCell>
 
-                    {/* DOB */}
+                    {/* DOB — NEW-CLPAT-021: show computed age badge */}
                     <TableCell>
-                      <Typography variant="body2">
-                        {patient.dob ? dayjs(patient.dob).format('DD/MM/YYYY') : '—'}
-                      </Typography>
+                      <Stack direction="row" alignItems="center" spacing={0.75}>
+                        <Typography variant="body2">
+                          {patient.dob ? dayjs(patient.dob).format('DD/MM/YYYY') : '—'}
+                        </Typography>
+                        {patient.dob && (
+                          <Chip
+                            label={`${dayjs().diff(dayjs(patient.dob), 'year')}y`}
+                            size="small"
+                            sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 600, fontSize: '0.6rem', height: 16, px: 0}}
+                          />
+                        )}
+                      </Stack>
                     </TableCell>
 
                     {/* Condition */}
@@ -283,11 +339,13 @@ export default function ClinicianPatients() {
                         : <Typography variant="body2" color="text.secondary">—</Typography>}
                     </TableCell>
 
-                    {/* Last Visit */}
+                    {/* Last Visit — NEW-CLPAT-018: relative "N days ago" tooltip */}
                     <TableCell>
-                      <Typography variant="body2">
-                        {patient.lastVisit ? dayjs(patient.lastVisit).format('DD/MM/YYYY') : '—'}
-                      </Typography>
+                      <Tooltip title={patient.lastVisit ? `${daysSinceVisit} days ago` : 'No visit recorded'} placement="top">
+                        <Typography variant="body2" sx={{ cursor: 'help' }}>
+                          {patient.lastVisit ? dayjs(patient.lastVisit).format('DD/MM/YYYY') : '—'}
+                        </Typography>
+                      </Tooltip>
                     </TableCell>
 
                     {/* Next Appointment */}
@@ -313,9 +371,16 @@ export default function ClinicianPatients() {
                       />
                     </TableCell>
 
-                    {/* Status */}
+                    {/* Status — NEW-CLPAT-019: overdue warning badge */}
                     <TableCell>
-                      <Chip label={patient.status} size="small" sx={getStatusStyle(patient.status)} />
+                      <Stack direction="row" spacing={0.5} alignItems="center">
+                        <Chip label={patient.status} size="small" sx={getStatusStyle(patient.status)} />
+                        {isOverdue && (
+                          <Tooltip title={`Last visit ${daysSinceVisit} days ago — consider follow-up`}>
+                            <Chip label="Overdue" size="small" sx={{ bgcolor: '#FFF3CD', color: '#856404', fontWeight: 700, fontSize: '0.65rem', height: 18 }} />
+                          </Tooltip>
+                        )}
+                      </Stack>
                     </TableCell>
 
                     {/* Actions */}

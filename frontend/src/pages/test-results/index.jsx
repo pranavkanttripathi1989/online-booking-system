@@ -4,7 +4,7 @@ import {
   Box, Button, Typography, Chip, Grid, Card, CardContent, Stack, Paper,
   Table, TableBody, TableCell, TableHead, TableRow, TextField, InputAdornment,
   MenuItem, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
-  Divider, LinearProgress,
+  Divider, LinearProgress, Select, FormControl, InputLabel,
 } from '@mui/material'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded'
@@ -38,8 +38,14 @@ const MOCK_RESULTS = [
     values: [],
   },
   {
+    // SUG-TRES-007: Added Ketones value with flag:'low' to exercise the low/amber colour path
     id: 'TR-006', patient: 'Jessica Liu',    test: 'Urine Analysis',          ordered_by: 'Dr. Carlos Vega',  date_ordered: '2026-02-15', date_completed: '2026-02-16', status: 'completed', type: 'Urine Test',
-    values: [{ name: 'pH', value: '6.0', ref: '4.5–8.0', flag: 'normal' }, { name: 'Protein', value: 'Negative', ref: 'Negative', flag: 'normal' }, { name: 'Glucose', value: 'Trace', ref: 'Negative', flag: 'high' }],
+    values: [
+      { name: 'pH',       value: '6.0',       ref: '4.5–8.0',  flag: 'normal' },
+      { name: 'Protein',  value: 'Negative',  ref: 'Negative', flag: 'normal' },
+      { name: 'Glucose',  value: 'Trace',     ref: 'Negative', flag: 'high'   },
+      { name: 'Ketones',  value: 'Trace',     ref: 'Negative', flag: 'low'    },
+    ],
   },
 ]
 
@@ -52,6 +58,26 @@ const STATUS_PROPS = {
 const FLAG_COLORS = { normal: '#0B7B5C', high: '#DC2626', low: '#D97706' }
 
 // ─── Result Detail Dialog ─────────────────────────────────────────────────────
+// SUG-TRES-001: handleDownloadPDF generates mock CSV/text file download
+function handleDownloadPDF(result) {
+  const lines = [
+    `Test Result: ${result.id}`,
+    `Test: ${result.test}`,
+    `Patient: ${result.patient}`,
+    `Ordered by: ${result.ordered_by}`,
+    `Date Ordered: ${result.date_ordered}`,
+    `Date Completed: ${result.date_completed}`,
+    '',
+    'Parameters:',
+    ...result.values.map(v => `  ${v.name}: ${v.value} (Ref: ${v.ref}) [${v.flag.toUpperCase()}]`),
+  ]
+  const blob = new Blob([lines.join('\n')], { type: 'text/plain' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = `${result.id}-result.txt`; a.click()
+  URL.revokeObjectURL(url)
+}
+
 function ResultDialog({ result, onClose }) {
   if (!result) return null
   return (
@@ -76,18 +102,22 @@ function ResultDialog({ result, onClose }) {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {result.values.map((v, i) => (
-                  <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
-                    <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{v.name}</TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: '0.85rem', color: FLAG_COLORS[v.flag] || 'text.primary' }}>{v.value}</TableCell>
-                    <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{v.ref}</TableCell>
-                    <TableCell>
-                      <Chip label={v.flag} size="small"
-                        sx={{ bgcolor: `${FLAG_COLORS[v.flag]}18`, color: FLAG_COLORS[v.flag], fontWeight: 700, fontSize: '0.7rem', textTransform: 'capitalize' }}
-                      />
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {result.values.map((v, i) => {
+                  // SUG-TRES-003: fallback to grey for unknown flag values
+                  const flagColor = FLAG_COLORS[v.flag] || '#64748B'
+                  return (
+                    <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
+                      <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{v.name}</TableCell>
+                      <TableCell sx={{ fontWeight: 700, fontSize: '0.85rem', color: flagColor }}>{v.value}</TableCell>
+                      <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{v.ref}</TableCell>
+                      <TableCell>
+                        <Chip label={v.flag} size="small"
+                          sx={{ bgcolor: `${flagColor}18`, color: flagColor, fontWeight: 700, fontSize: '0.7rem', textTransform: 'capitalize' }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
               </TableBody>
             </Table>
           )
@@ -96,7 +126,10 @@ function ResultDialog({ result, onClose }) {
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} sx={{ textTransform: 'none', fontWeight: 700 }}>Close</Button>
         {result.status === 'completed' && (
-          <Button variant="outlined" startIcon={<DownloadRoundedIcon />} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Download PDF</Button>
+          // SUG-TRES-001: Download PDF wired to handleDownloadPDF
+          <Button variant="outlined" startIcon={<DownloadRoundedIcon />}
+            onClick={() => handleDownloadPDF(result)}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Download PDF</Button>
         )}
       </DialogActions>
     </Dialog>
@@ -109,6 +142,14 @@ export default function TestResultsPage() {
   const [typeFilter, setTypeFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
   const [viewResult, setViewResult] = useState(null)
+  // SUG-TRES-002: Order Test dialog state
+  const [orderOpen, setOrderOpen] = useState(false)
+  const [orderForm, setOrderForm] = useState({ patient: '', testType: 'Blood Test' })
+
+  const handleOrderSubmit = () => {
+    setOrderOpen(false)
+    setOrderForm({ patient: '', testType: 'Blood Test' })
+  }
 
   const types = ['All', ...new Set(MOCK_RESULTS.map(r => r.type))]
   const filtered = MOCK_RESULTS.filter(r => {
@@ -130,7 +171,10 @@ export default function TestResultsPage() {
           <Typography variant="h4" fontWeight={800} sx={{ color: '#0D1B2E' }}>Medical Test Results</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>{MOCK_RESULTS.length} total results · {counts.pending} pending</Typography>
         </Box>
-        <Button variant="contained" startIcon={<ScienceRoundedIcon />} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>Order Test</Button>
+        {/* SUG-TRES-002: Order Test wired to dialog */}
+        <Button variant="contained" startIcon={<ScienceRoundedIcon />}
+          onClick={() => setOrderOpen(true)}
+          sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>Order Test</Button>
       </Box>
 
       {/* ── Status KPIs ─────────────────────────────────────────────────── */}
@@ -172,6 +216,13 @@ export default function TestResultsPage() {
           <TextField select size="small" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Status" sx={{ minWidth: 130, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
             {['All', 'completed', 'processing', 'pending'].map(s => <MenuItem key={s} value={s} sx={{ textTransform: 'capitalize' }}>{s.charAt(0).toUpperCase() + s.slice(1)}</MenuItem>)}
           </TextField>
+          {/* SUG-TRES-004: Reset Filters button */}
+          {(search || typeFilter !== 'All' || statusFilter !== 'All') && (
+            <Button size="small" variant="text" onClick={() => { setSearch(''); setTypeFilter('All'); setStatusFilter('All') }}
+              sx={{ textTransform: 'none', fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap' }}>
+              Clear Filters
+            </Button>
+          )}
         </Box>
 
         {/* ── Table ───────────────────────────────────────────────────── */}
@@ -222,6 +273,35 @@ export default function TestResultsPage() {
       </Paper>
 
       <ResultDialog result={viewResult} onClose={() => setViewResult(null)} />
+
+      {/* SUG-TRES-002: Order New Test Dialog */}
+      <Dialog open={orderOpen} onClose={() => setOrderOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Order New Test</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            <TextField
+              label="Patient Name" fullWidth size="small"
+              value={orderForm.patient}
+              onChange={e => setOrderForm(f => ({ ...f, patient: e.target.value }))}
+              placeholder="Search patient by name…"
+            />
+            <TextField select label="Test Type" fullWidth size="small"
+              value={orderForm.testType}
+              onChange={e => setOrderForm(f => ({ ...f, testType: e.target.value }))}
+            >
+              {['Blood Test', 'X-Ray', 'MRI', 'Urine Test', 'DNA Testing'].map(t => (
+                <MenuItem key={t} value={t}>{TYPE_ICONS[t]} {t}</MenuItem>
+              ))}
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={() => setOrderOpen(false)} sx={{ textTransform: 'none', fontWeight: 700, color: '#5F6368' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleOrderSubmit}
+            disabled={!orderForm.patient.trim()}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Submit Order</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

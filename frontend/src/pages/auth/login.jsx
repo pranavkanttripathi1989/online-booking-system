@@ -5,13 +5,14 @@
  * Falls back to MOCK_USERS for offline/demo mode
  */
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
+import { useNavigate, Navigate, useSearchParams } from 'react-router-dom';
 import {
   Box, Grid, Paper, Stack, Typography, Tabs, Tab, TextField, Button,
   InputAdornment, IconButton, Select, MenuItem, FormControl, InputLabel,
   Alert, CircularProgress, Link, Divider,
   Checkbox, FormControlLabel, LinearProgress, Tooltip, Chip,
 } from '@mui/material';
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { useMutation } from '@apollo/client';
 import { LOGIN_MUTATION } from '../../graphql/mutations';
 import { useAuth, MOCK_USERS, getPostLoginRedirect } from '../../context/AuthContext';
@@ -528,6 +529,11 @@ function SignInTab({ onForgot }) {
   // NEW-AUTH-002: client-side failed attempt tracking
   const [failedAttempts, setFailedAttempts] = useState(0);
   const [lockoutSecs, setLockoutSecs] = useState(0);
+  // NEW-AUTH-007: Caps Lock detection
+  const [capsLock, setCapsLock] = useState(false);
+  // NEW-AUTH-008: inline email format validation
+  const [emailTouched, setEmailTouched] = useState(false);
+  const emailInvalid = emailTouched && email.length > 0 && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
   // Lockout countdown
   useEffect(() => {
@@ -614,15 +620,19 @@ function SignInTab({ onForgot }) {
         )}
         {!isLockedOut && error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
 
+        {/* NEW-AUTH-008: inline email format validation */}
         <TextField
           fullWidth
           label="Email Address"
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={(e) => { setEmail(e.target.value); setEmailTouched(true); }}
+          onBlur={() => setEmailTouched(true)}
           required
           autoComplete="email"
           autoFocus
+          error={emailInvalid}
+          helperText={emailInvalid ? 'Please enter a valid email address' : ''}
           inputProps={{ 'aria-label': 'Email address' }}
           InputProps={{
             startAdornment: (
@@ -633,37 +643,49 @@ function SignInTab({ onForgot }) {
           }}
         />
 
-        <TextField
-          fullWidth
-          label="Password"
-          type={showPw ? 'text' : 'password'}
-          value={password}
-          onChange={(e) => setPassword(e.target.value)}
-          required
-          autoComplete="current-password"
-          inputProps={{ 'aria-label': 'Password' }}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <LockOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
-              </InputAdornment>
-            ),
-            endAdornment: (
-              <InputAdornment position="end">
-                {/* SUG-AUTH-015: aria-label on icon button */}
-                <IconButton
-                  onClick={() => setShowPw((v) => !v)}
-                  edge="end"
-                  size="small"
-                  aria-label={showPw ? 'Hide password' : 'Show password'}
-                  tabIndex={0}
-                >
-                  {showPw ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
-                </IconButton>
-              </InputAdornment>
-            ),
-          }}
-        />
+        {/* NEW-AUTH-007: Caps Lock warning + password field */}
+        <Box>
+          <TextField
+            fullWidth
+            label="Password"
+            type={showPw ? 'text' : 'password'}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            onKeyUp={(e) => setCapsLock(e.getModifierState('CapsLock'))}
+            required
+            autoComplete="current-password"
+            inputProps={{ 'aria-label': 'Password' }}
+            InputProps={{
+              startAdornment: (
+                <InputAdornment position="start">
+                  <LockOutlinedIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
+                </InputAdornment>
+              ),
+              endAdornment: (
+                <InputAdornment position="end">
+                  {/* SUG-AUTH-015: aria-label on icon button */}
+                  <IconButton
+                    onClick={() => setShowPw((v) => !v)}
+                    edge="end"
+                    size="small"
+                    aria-label={showPw ? 'Hide password' : 'Show password'}
+                    tabIndex={0}
+                  >
+                    {showPw ? <VisibilityOffIcon fontSize="small" /> : <VisibilityIcon fontSize="small" />}
+                  </IconButton>
+                </InputAdornment>
+              ),
+            }}
+          />
+          {capsLock && (
+            <Stack direction="row" alignItems="center" spacing={0.5} mt={0.5}>
+              <WarningAmberRoundedIcon sx={{ fontSize: '0.9rem', color: '#F9AB00' }} />
+              <Typography variant="caption" sx={{ color: '#F9AB00', fontWeight: 600 }}>
+                Caps Lock is on
+              </Typography>
+            </Stack>
+          )}
+        </Box>
 
         {/* SUG-AUTH-006: Remember Me + Forgot password row */}
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: -1 }}>
@@ -1013,6 +1035,9 @@ function ForgotPasswordTab() {
 export default function Login() {
   const { isAuthenticated } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
+  // NEW-AUTH-006: session-expired banner via query param
+  const [searchParams] = useSearchParams();
+  const sessionExpired = searchParams.get('reason') === 'session_expired';
 
   // Already logged in — redirect
   if (isAuthenticated) return <Navigate to="/dashboard" replace />;
@@ -1046,6 +1071,17 @@ export default function Login() {
           }}
         >
           <Stack spacing={3}>
+            {/* NEW-AUTH-006: session expired banner */}
+            {sessionExpired && (
+              <Alert
+                severity="warning"
+                icon={<WarningAmberRoundedIcon fontSize="inherit" />}
+                onClose={() => searchParams.delete('reason')}
+                sx={{ borderRadius: 2 }}
+              >
+                Your session expired due to inactivity. Please sign in again.
+              </Alert>
+            )}
             {/* HealthSync logo */}
             <Stack direction="row" alignItems="center" spacing={1}>
               <Box

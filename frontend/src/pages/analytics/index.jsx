@@ -2,7 +2,7 @@ import { useState, useMemo } from 'react'
 import { Helmet } from 'react-helmet-async'
 import {
   Box, Button, Card, CardContent, Chip, Grid, MenuItem, Paper,
-  Stack, TextField, ToggleButton, ToggleButtonGroup, Typography,
+  Stack, TextField, ToggleButton, ToggleButtonGroup, Typography, Divider, Skeleton,
 } from '@mui/material'
 import { useSnackbar } from 'notistack'
 import TrendingUpRoundedIcon    from '@mui/icons-material/TrendingUpRounded'
@@ -12,6 +12,7 @@ import PeopleAltRoundedIcon     from '@mui/icons-material/PeopleAltRounded'
 import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded'
 import AttachMoneyRoundedIcon   from '@mui/icons-material/AttachMoneyRounded'
 import StarRoundedIcon          from '@mui/icons-material/StarRounded'
+import CompareArrowsRoundedIcon from '@mui/icons-material/CompareArrowsRounded'
 import {
   AreaChart, Area, BarChart, Bar, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend,
@@ -28,14 +29,30 @@ const ALL_MONTHLY_APPTS = [
   { month: 'Mar', booked: 210, completed: 190, cancelled: 20, revenue: 27800 },
 ]
 
-const WEEKLY_APPTS = [
-  { day: 'Mon', booked: 38, completed: 34, cancelled: 4,  revenue: 5100 },
-  { day: 'Tue', booked: 42, completed: 39, cancelled: 3,  revenue: 5600 },
-  { day: 'Wed', booked: 46, completed: 41, cancelled: 5,  revenue: 5900 },
-  { day: 'Thu', booked: 35, completed: 32, cancelled: 3,  revenue: 4800 },
-  { day: 'Fri', booked: 51, completed: 46, cancelled: 5,  revenue: 7100 },
-  { day: 'Sat', booked: 29, completed: 27, cancelled: 2,  revenue: 4200 },
-  { day: 'Sun', booked: 12, completed: 11, cancelled: 1,  revenue: 1800 },
+// FIX NEW-AF-002: Multiple weeks of data so weekly mode can be sliced by date range
+// Each entry represents one week (Mon–Sun). We keep 7 weeks total (≈ same max as 7 months).
+const ALL_WEEKLY_APPTS = [
+  { day: 'Wk1 Mon', booked: 28, completed: 25, cancelled: 3,  revenue: 3800 },
+  { day: 'Wk1 Tue', booked: 32, completed: 29, cancelled: 3,  revenue: 4300 },
+  { day: 'Wk1 Wed', booked: 38, completed: 34, cancelled: 4,  revenue: 5100 },
+  { day: 'Wk1 Thu', booked: 30, completed: 27, cancelled: 3,  revenue: 4100 },
+  { day: 'Wk1 Fri', booked: 44, completed: 40, cancelled: 4,  revenue: 5900 },
+  { day: 'Wk1 Sat', booked: 22, completed: 20, cancelled: 2,  revenue: 3200 },
+  { day: 'Wk1 Sun', booked: 10, completed: 9,  cancelled: 1,  revenue: 1500 },
+  { day: 'Wk2 Mon', booked: 33, completed: 30, cancelled: 3,  revenue: 4400 },
+  { day: 'Wk2 Tue', booked: 37, completed: 34, cancelled: 3,  revenue: 5000 },
+  { day: 'Wk2 Wed', booked: 41, completed: 37, cancelled: 4,  revenue: 5500 },
+  { day: 'Wk2 Thu', booked: 35, completed: 32, cancelled: 3,  revenue: 4800 },
+  { day: 'Wk2 Fri', booked: 48, completed: 43, cancelled: 5,  revenue: 6400 },
+  { day: 'Wk2 Sat', booked: 25, completed: 23, cancelled: 2,  revenue: 3600 },
+  { day: 'Wk2 Sun', booked: 11, completed: 10, cancelled: 1,  revenue: 1700 },
+  { day: 'Wk3 Mon', booked: 36, completed: 33, cancelled: 3,  revenue: 4700 },
+  { day: 'Wk3 Tue', booked: 40, completed: 37, cancelled: 3,  revenue: 5300 },
+  { day: 'Wk3 Wed', booked: 44, completed: 40, cancelled: 4,  revenue: 5800 },
+  { day: 'Wk3 Thu', booked: 33, completed: 30, cancelled: 3,  revenue: 4500 },
+  { day: 'Wk3 Fri', booked: 50, completed: 45, cancelled: 5,  revenue: 6800 },
+  { day: 'Wk3 Sat', booked: 27, completed: 25, cancelled: 2,  revenue: 3900 },
+  { day: 'Wk3 Sun', booked: 12, completed: 11, cancelled: 1,  revenue: 1800 },
 ]
 
 const ALL_PATIENT_GROWTH = [
@@ -84,19 +101,41 @@ const STATUS_BREAKDOWN = [
   { name: 'No Show',    value: 9,  color: '#9E9E9E' },
 ]
 
+// SUG-AF-006: Comparison KPIs — prior period values for delta display
 const KPIS = [
-  { label: 'Total Appointments', value: '1,167', delta: '+12.4%', up: true, icon: EventAvailableRoundedIcon, color: '#1A73E8' },
-  { label: 'New Patients',       value: '254',   delta: '+8.7%',  up: true, icon: PeopleAltRoundedIcon,     color: '#0F9D58' },
-  { label: 'Revenue (Mar)',      value: '$27,800', delta: '+9.4%', up: true, icon: AttachMoneyRoundedIcon,   color: '#9334E6' },
-  { label: 'Avg. Rating',        value: '4.7',   delta: '+0.2',   up: true, icon: StarRoundedIcon,          color: '#FA7B17' },
+  {
+    label: 'Total Appointments', value: '1,167', rawValue: 1167, priorValue: 1038,
+    delta: '+12.4%', up: true, icon: EventAvailableRoundedIcon, color: '#1A73E8'
+  },
+  {
+    label: 'New Patients', value: '254', rawValue: 254, priorValue: 234,
+    delta: '+8.7%', up: true, icon: PeopleAltRoundedIcon, color: '#0F9D58'
+  },
+  {
+    label: 'Revenue (Mar)', value: '$27,800', rawValue: 27800, priorValue: 25389,
+    delta: '+9.4%', up: true, icon: AttachMoneyRoundedIcon, color: '#9334E6'
+  },
+  {
+    label: 'Avg. Rating', value: '4.7', rawValue: 4.7, priorValue: 4.5,
+    delta: '+0.2', up: true, icon: StarRoundedIcon, color: '#FA7B17'
+  },
 ]
 
 // Date range → how many months to slice from the end
 const DATE_RANGE_MONTHS = {
-  last1month: 1,
+  last1month:  1,
   last3months: 3,
   last7months: 7,
-  this_year: 7, // same data set covers 7 months
+  this_year:   7,
+}
+
+// FIX NEW-AF-002: Date range → how many weekly data points (days) to slice
+// last1month ≈ 1 week, last3months ≈ 2 weeks, last7months ≈ 3 weeks
+const DATE_RANGE_WEEKS = {
+  last1month:  7,
+  last3months: 14,
+  last7months: 21,
+  this_year:   21,
 }
 
 // ─── Tooltip ─────────────────────────────────────────────────────────────────
@@ -135,19 +174,47 @@ function SectionCard({ title, subtitle, children, action }) {
   )
 }
 
+// SUG-AF-006: Prior period comparison badge
+function CompareBadge({ priorValue, rawValue, label }) {
+  const diff = rawValue - priorValue
+  const pct  = ((diff / priorValue) * 100).toFixed(1)
+  const up   = diff >= 0
+  return (
+    <Box sx={{ mt: 1, p: 1, borderRadius: 2, bgcolor: up ? '#E6F4EA' : '#FCE8E6', border: `1px solid ${up ? '#CEEAD6' : '#F5C6C2'}` }}>
+      <Typography variant="caption" sx={{ color: up ? '#137333' : '#A50E0E', fontWeight: 700, display: 'block' }}>
+        vs prior period: {up ? '+' : ''}{pct}%
+      </Typography>
+      <Typography variant="caption" sx={{ color: 'text.disabled' }}>Prior: {label}</Typography>
+    </Box>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function AnalyticsPage() {
   const { enqueueSnackbar } = useSnackbar()
   const [timeframe, setTimeframe] = useState('monthly')
   // FIX BUG-AF-001: controlled date range state
   const [dateRange, setDateRange] = useState('last7months')
+  // SUG-AF-006: comparison mode toggle
+  const [compareMode, setCompareMode] = useState(false)
 
   // FIX BUG-AF-001: derive chart data slices from dateRange
   const monthCount = DATE_RANGE_MONTHS[dateRange] ?? 7
-  const apptData    = timeframe === 'weekly' ? WEEKLY_APPTS : ALL_MONTHLY_APPTS.slice(-monthCount)
+  const weekCount  = DATE_RANGE_WEEKS[dateRange] ?? 21
+
+  // FIX NEW-AF-002: weekly data is now sliced based on date range (weekCount days)
+  const apptData    = timeframe === 'weekly'
+    ? ALL_WEEKLY_APPTS.slice(-weekCount)
+    : ALL_MONTHLY_APPTS.slice(-monthCount)
   const revenueData = ALL_REVENUE_MONTHLY.slice(-monthCount)
   const growthData  = ALL_PATIENT_GROWTH.slice(-monthCount)
   const xKey        = timeframe === 'weekly' ? 'day' : 'month'
+
+  // Persist date range to localStorage for SUG-AF-008 (shared date range context)
+  const handleDateRangeChange = (newRange) => {
+    setDateRange(newRange)
+    try { localStorage.setItem('medibook_dateRange', newRange) } catch { /* ignore */ }
+  }
 
   // FIX BUG-AF-003: CSV export implementation
   const handleExport = () => {
@@ -175,6 +242,12 @@ export default function AnalyticsPage() {
     }
   }
 
+  const rangeLabel = dateRange
+    .replace('last1month', 'Last 1 Month')
+    .replace('last3months', 'Last 3 Months')
+    .replace('last7months', 'Last 7 Months')
+    .replace('this_year', 'This Year')
+
   return (
     <Box className="page-enter" sx={{ pb: 4 }}>
       <Helmet><title>Analytics — MediBook</title></Helmet>
@@ -190,7 +263,8 @@ export default function AnalyticsPage() {
           <TextField
             select size="small"
             value={dateRange}
-            onChange={(e) => setDateRange(e.target.value)}
+            onChange={(e) => handleDateRangeChange(e.target.value)}
+            inputProps={{ 'aria-label': 'Select date range' }}
             sx={{ minWidth: { xs: '100%', sm: 160 }, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
           >
             {[
@@ -200,11 +274,31 @@ export default function AnalyticsPage() {
               ['this_year',   'This Year'],
             ].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
           </TextField>
+
+          {/* SUG-AF-006: Compare toggle */}
+          <Button
+            variant={compareMode ? 'contained' : 'outlined'}
+            startIcon={<CompareArrowsRoundedIcon />}
+            onClick={() => setCompareMode(c => !c)}
+            aria-pressed={compareMode}
+            sx={{
+              borderRadius: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap',
+              ...(compareMode
+                ? { background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)' }
+                : { borderColor: '#DADCE0', color: '#202124', '&:hover': { bgcolor: '#F1F3F4', borderColor: '#9AA0A6' } }
+              ),
+              width: { xs: '100%', sm: 'auto' },
+            }}
+          >
+            {compareMode ? 'Comparing' : 'Compare'}
+          </Button>
+
           {/* FIX BUG-AF-003: wired export handler */}
           <Button
             variant="outlined"
             startIcon={<FileDownloadRoundedIcon />}
             onClick={handleExport}
+            aria-label="Export analytics as CSV"
             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap', borderColor: '#DADCE0', color: '#202124', '&:hover': { bgcolor: '#F1F3F4', borderColor: '#9AA0A6' }, width: { xs: '100%', sm: 'auto' } }}
           >Export CSV</Button>
         </Stack>
@@ -229,6 +323,16 @@ export default function AnalyticsPage() {
                 </Stack>
                 <Typography variant="h4" fontWeight={800} sx={{ color: k.color, mb: 0.25 }}>{k.value}</Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{k.label}</Typography>
+                {/* SUG-AF-006: comparison panel */}
+                {compareMode && (
+                  <CompareBadge
+                    rawValue={k.rawValue}
+                    priorValue={k.priorValue}
+                    label={k.label.includes('$') || k.label.includes('Revenue')
+                      ? `$${k.priorValue.toLocaleString()}`
+                      : String(k.priorValue)}
+                  />
+                )}
               </CardContent>
             </Card>
           </Grid>
@@ -237,21 +341,31 @@ export default function AnalyticsPage() {
 
       {/* ── Timeframe toggle ────────────────────────────────────────────── */}
       <Box sx={{ mb: 2.5 }}>
-        <ToggleButtonGroup value={timeframe} exclusive onChange={(_, v) => { if (v) setTimeframe(v) }} size="small">
+        <ToggleButtonGroup
+          value={timeframe} exclusive
+          onChange={(_, v) => { if (v) setTimeframe(v) }}
+          size="small"
+          aria-label="Chart timeframe"
+        >
           {[['weekly','Weekly'], ['monthly','Monthly']].map(([v,l]) => (
-            <ToggleButton key={v} value={v} sx={{ textTransform: 'none', fontWeight: 700, px: 2.5, '&.Mui-selected': { bgcolor: '#E8F0FE', color: '#1A73E8', borderColor: '#AECBFA' } }}>{l}</ToggleButton>
+            <ToggleButton key={v} value={v} aria-label={`${l} view`} sx={{ textTransform: 'none', fontWeight: 700, px: 2.5, '&.Mui-selected': { bgcolor: '#E8F0FE', color: '#1A73E8', borderColor: '#AECBFA' } }}>{l}</ToggleButton>
           ))}
         </ToggleButtonGroup>
         <Typography variant="caption" sx={{ ml: 2, color: 'text.disabled' }}>
-          Showing {monthCount > 1 ? `last ${monthCount} months` : 'last month'} data
+          {timeframe === 'weekly'
+            ? `Showing last ${weekCount} days (${rangeLabel})`
+            : `Showing last ${monthCount} month${monthCount > 1 ? 's' : ''} (${rangeLabel})`}
         </Typography>
       </Box>
 
       <Grid container spacing={3}>
 
-        {/* ── Appointment Volume (Area) ── BUG-AF-001 fixed: uses sliced apptData */}
+        {/* ── Appointment Volume (Area) ── BUG-AF-001 + NEW-AF-002 fixed */}
         <Grid item xs={12} lg={8}>
-          <SectionCard title="Appointment Volume" subtitle={`Bookings, completions, and cancellations · ${dateRange.replace('last','Last ').replace('months',' months').replace('this_year','This Year')}`}>
+          <SectionCard
+            title="Appointment Volume"
+            subtitle={`Bookings, completions, cancellations · ${rangeLabel}${timeframe === 'weekly' ? ' — Weekly view' : ''}`}
+          >
             <ResponsiveContainer width="100%" height={280}>
               <AreaChart data={apptData} margin={{ top: 4, right: 8, left: -20, bottom: 0 }}>
                 <defs>
@@ -375,7 +489,14 @@ export default function AnalyticsPage() {
                   <Paper sx={{ p: 2, borderRadius: 2.5, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
                     <Typography variant="caption" fontWeight={700} sx={{ color: 'text.secondary', display: 'block', mb: 0.75, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{c.name}</Typography>
                     <Typography variant="h5" fontWeight={800} sx={{ color: c.utilization >= 80 ? '#0F9D58' : c.utilization >= 60 ? '#F9AB00' : '#D93025', mb: 1 }}>{c.utilization}%</Typography>
-                    <Box sx={{ height: 6, bgcolor: '#F1F3F4', borderRadius: 3, overflow: 'hidden' }}>
+                    <Box
+                      role="progressbar"
+                      aria-valuenow={c.utilization}
+                      aria-valuemin={0}
+                      aria-valuemax={100}
+                      aria-label={`${c.name} utilization`}
+                      sx={{ height: 6, bgcolor: '#F1F3F4', borderRadius: 3, overflow: 'hidden' }}
+                    >
                       <Box sx={{ height: '100%', width: `${c.utilization}%`, bgcolor: c.utilization >= 80 ? '#0F9D58' : c.utilization >= 60 ? '#F9AB00' : '#D93025', borderRadius: 3, transition: 'width 0.6s ease' }} />
                     </Box>
                     <Typography variant="caption" sx={{ color: 'text.secondary', mt: 0.75, display: 'block' }}>{c.booked}/{c.slots} slots</Typography>

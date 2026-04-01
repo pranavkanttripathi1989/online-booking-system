@@ -292,6 +292,67 @@ Clinician-facing patient list with:
 | TC-CLPAT-01 to TC-CLPAT-16 | 16 | Session 1 (corrected in S2) |
 | TC-CLPAT-01B to TC-CLPAT-21 | 10 | Session 2 (new cases) |
 | TC-CLPAT-22 to TC-CLPAT-29 | 8 | Session 3 (new cases) |
+| TC-CLPAT-30 to TC-CLPAT-36 | 7 | Session 4 (new cases) |
+| TC-CLPAT-37 to TC-CLPAT-41 | 5 | Session 5 (new cases) |
 | Edge Cases E1–E6 | 6 | Sessions 1–2 |
 | Edge Cases E7–E9 | 3 | Session 3 |
-| **Total** | **43** | |
+| **Total** | **46+** | |
+
+---
+
+## Session 5 Test Cases (TC-CLPAT-37 to TC-CLPAT-41)
+
+### TC-CLPAT-37 — Keyboard Navigation: Filter Chips (SUG-CLPAT-016)
+**Steps:** Tab to any filter chip. Press Enter. Then press Space.  
+**Expected:** Filter applies on both Enter and Space keypresses. `preventDefault()` on Space prevents scroll.
+
+---
+
+### TC-CLPAT-38 — Mobile KPI Horizontal Scroll (SUG-CLPAT-017)
+**Steps:** View page at < 600px viewport width.  
+**Expected:** KPI cards in a single horizontal scroll row; `minWidth: 130px` per card; scroll indicator visible; no wrapping.
+
+---
+
+### TC-CLPAT-39 — Last Visit Tooltip "N Days Ago" (NEW-CLPAT-018)
+**Steps:** Hover over any Last Visit cell.  
+**Expected:** Tooltip: "{N} days ago". For null lastVisit: "No visit recorded". Cell cursor changes to `help`.
+
+---
+
+### TC-CLPAT-40 — Overdue Badge for Long-Inactive Patients (NEW-CLPAT-019)
+**Steps:** View Status column for patient with lastVisit > 90 days and non-inactive status.  
+**Expected:** Small amber "Overdue" chip next to Status chip. Tooltip: "Last visit N days ago — consider follow-up".  
+**Negative:** Inactive patients → no Overdue badge. Status = 'inactive' → no badge.
+
+---
+
+### TC-CLPAT-41 — Keyboard Row Navigation (NEW-CLPAT-020)
+**Steps:** Tab to a patient row. Press Enter.  
+**Expected:** Navigate to `/patients/:id`. Row has `cursor: pointer` and `tabIndex={0}`.
+
+---
+
+## Session 6 Test Cases (TC-CLPAT-42 to TC-CLPAT-44)
+
+### TC-CLPAT-42 — DOB Cell Age Badge (NEW-CLPAT-021)
+**Steps:** View any patient row with a valid DOB value.  
+**Expected:** DOB formatted date (DD/MM/YYYY) + small grey "41y" chip beside it. Null DOB → no chip.
+
+---
+
+### TC-CLPAT-43 — Debounced Search (NEW-CLPAT-022)
+**Steps:** Type "A", "Al", "Ali", "Alic", "Alice" rapidly in the search field.  
+**Expected:** Input field updates immediately on each keystroke. Table filtering triggers only after a 150ms pause. No intermediate flicker for each typed char. Clearing the field resets both states.
+
+---
+
+### TC-CLPAT-44 — Export CSV Button (NEW-CLPAT-023)
+**Steps:**
+1. Click "Export CSV" with all 5 patients showing.  
+   **Expected:** Browser downloads `my-patients-YYYY-MM-DD.csv` with 6 lines (header + 5 rows).
+2. Apply "Active" filter → click "Export CSV".  
+   **Expected:** CSV contains header + 3 rows (active patients only).
+3. Tooltip shows: "Export N patient(s) to CSV".  
+   **Expected:** Singular "patient" when N=1; plural "patients" otherwise.
+

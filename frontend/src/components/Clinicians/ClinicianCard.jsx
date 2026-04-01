@@ -38,7 +38,8 @@ function initials(name = '') {
 }
 
 // ─── 7-day Availability Heatmap ───────────────────────────────────────────────
-const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+const DAYS       = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+const FULL_DAYS  = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] // SUG-016
 // day_of_week: 0=Sun in some APIs; FullCalendar uses 1=Mon. We'll treat 0=Mon here.
 function AvailabilityHeatmap({ templates = [] }) {
   // Build a set of which days (0=Mon…6=Sun) have active templates
@@ -56,7 +57,7 @@ function AvailabilityHeatmap({ templates = [] }) {
       </Typography>
       <Stack direction="row" spacing={0.5}>
         {DAYS.map((label, idx) => (
-          <Tooltip key={label} title={label} placement="top" arrow>
+          <Tooltip key={label} title={FULL_DAYS[idx]} placement="top" arrow>
             <Box
               sx={{
                 width: 22,

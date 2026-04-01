@@ -2,20 +2,17 @@
 
 **Derived from:** [manager-billing-test-results.md](../test-result/manager-billing-test-results.md)  
 **Source File:** `frontend/src/pages/manager/Billing.jsx`  
-**Date:** 2026-03-17
-
-> Billing page passes all 19 test cases. All gaps are feature completeness items (stubs needing implementation), not bugs.
+**Last Updated:** 2026-03-30
 
 ---
 
-## 🔴 High Priority — Backend Wiring
+## Implementation Status
 
 ### SUG-BILL-001 — Wire Page to Live Backend (GraphQL / REST)
-**Current state:** All data (`INVOICES`, `REVENUE_DATA`, `SUMMARY`) is hardcoded in the component.  
-**Suggested approach:**
+**Status:** PENDING  
+**Priority:** 🔴 High  
+**Notes:** All data (`INVOICES_SEED`, `REVENUE_DATA`, `SUMMARY`) still hardcoded as constants. GraphQL query skeleton provided below for when backend is ready:
 ```js
-import { useQuery, gql } from '@apollo/client'
-
 const GET_BILLING_DATA = gql`
   query GetBillingData($clinicId: ID!, $from: Date!, $to: Date!) {
     invoices(clinicId: $clinicId, from: $from, to: $to) {
@@ -30,264 +27,142 @@ const GET_BILLING_DATA = gql`
   }
 `
 ```
-**Priority:** 🔴 High — page is completely disconnected from real data
 
 ---
 
-## 🟡 Medium Priority — Feature Implementation (Stubs)
-
 ### SUG-BILL-002 — Implement Invoice Search Filtering
-**Triggered by:** TC-MGR-BILL-17  
-**Current state:** `<TextField label="Search invoices">` is an uncontrolled input — no filter logic.  
-**Fix:**
-```js
-const [searchQuery, setSearchQuery] = useState('')
-
-const filtered = INVOICES.filter((inv) => {
-  const matchMethod = methodFilter === 'all' || inv.method === methodFilter
-  const matchSearch = !searchQuery ||
-    inv.patient.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    inv.service.toLowerCase().includes(searchQuery.toLowerCase())
-  return matchMethod && matchSearch
-})
-
-// In JSX:
-<TextField
-  value={searchQuery}
-  onChange={(e) => setSearchQuery(e.target.value)}
-  label="Search invoices"
-/>
-```
-**Priority:** 🟡 Medium — core table UX
+**Status:** ✅ COMPLETED  
+**Notes:** `searchQuery` state added. `filtered` array now matches against `patient`, `id`, `service`, and `clinician` fields (case-insensitive). TextField is fully controlled (`value` + `onChange`). Verified: searching "Emma" → 1 row; "INV-004" → 1 row; "Neurology" → 1 row; clear → 5 rows.
 
 ---
 
 ### SUG-BILL-003 — Wire Date Period Filter to Data
-**Triggered by:** TC-MGR-BILL-04  
-**Current state:** `dateFilter` state updates on selection but no component reads it.  
-**Fix:** Once backend is live, pass `dateFilter` value as a query variable. For now, at minimum show a badge/chip indicating the active filter:
-```js
-// Visual indicator only (interim fix):
-<Chip label={dateFilter === 'this-month' ? 'March 2026' : dateFilter} size="small" color="primary" sx={{ ml: 1 }} />
-```
-**Priority:** 🟡 Medium
+**Status:** ✅ COMPLETED (interim visual fix)  
+**Notes:** Date filter now shows a prominent `<Chip>` next to the clinic name that displays the human-readable period ("March 2026", "February 2026", "Q4 2025", "Jan – Mar 2026"). Full data filtering awaits backend wiring (SUG-BILL-001).
 
 ---
 
 ### SUG-BILL-004 — Implement Invoice View (Detail Drawer or Page)
-**Triggered by:** TC-MGR-BILL-12  
-**Fix option A — Slide-in drawer:**
-```jsx
-const [viewInvoice, setViewInvoice] = useState(null)
-
-<IconButton onClick={() => setViewInvoice(inv)}><VisibilityIcon /></IconButton>
-
-<Drawer anchor="right" open={!!viewInvoice} onClose={() => setViewInvoice(null)}>
-  {viewInvoice && <InvoiceDetail invoice={viewInvoice} />}
-</Drawer>
-```
-**Fix option B — Navigate to route:** `navigate('/manager/billing/invoices/' + inv.id)`  
-**Priority:** 🟡 Medium
+**Status:** PENDING  
+**Priority:** 🟡 Medium  
+**Notes:** View (eye) icon renders with `aria-label` and Tooltip. No drawer/navigation implemented. Options: (A) `<Drawer>` slide-in with `<InvoiceDetail>` component, or (B) `navigate('/manager/billing/invoices/' + inv.id)`.
 
 ---
 
 ### SUG-BILL-005 — Implement Invoice PDF Download
-**Triggered by:** TC-MGR-BILL-13  
-**Fix:**
-```js
-const handleDownload = (inv) => {
-  // Use jsPDF or react-pdf to generate a PDF:
-  const doc = new jsPDF()
-  doc.text(`Invoice: ${inv.id}`, 10, 10)
-  doc.text(`Patient: ${inv.patient}`, 10, 20)
-  doc.text(`Amount: £${inv.amount}`, 10, 30)
-  doc.save(`${inv.id}.pdf`)
-}
-
-<IconButton onClick={() => handleDownload(inv)}><DownloadIcon /></IconButton>
-```
-**Priority:** 🟡 Medium
+**Status:** PENDING  
+**Priority:** 🟡 Medium  
+**Notes:** Download icon renders with `aria-label` and Tooltip. No PDF generation. Suggested: jsPDF library or react-pdf.
 
 ---
 
 ### SUG-BILL-006 — Implement Export CSV/PDF Button
-**Triggered by:** TC-MGR-BILL-15  
-**Fix — Export CSV of filtered invoices:**
-```js
-const handleExport = () => {
-  const csv = [
-    ['Invoice', 'Patient', 'Clinician', 'Service', 'Date', 'Amount', 'Method', 'Status'],
-    ...filtered.map(inv => [inv.id, inv.patient, inv.clinician, inv.service, inv.date, `£${inv.amount}`, inv.method, inv.status])
-  ].map(r => r.join(',')).join('\n')
-
-  const blob = new Blob([csv], { type: 'text/csv' })
-  const url  = URL.createObjectURL(blob)
-  const a    = document.createElement('a')
-  a.href = url; a.download = `billing-export-${dateFilter}.csv`; a.click()
-  URL.revokeObjectURL(url)
-}
-```
-**Priority:** 🟡 Medium
+**Status:** ✅ COMPLETED  
+**Notes:** Export button now triggers `Blob + URL.createObjectURL` CSV download of `filtered` invoices. Filename: `billing-export-{dateFilter}.csv`. Cells are quoted to handle special characters (e.g., "Sophie Müller"). Verified in browser — download triggered successfully.
 
 ---
 
 ### SUG-BILL-007 — Implement Refund Action with Confirmation Dialog
-**Triggered by:** TC-MGR-BILL-14  
-**Fix:**
-```jsx
-const handleRefund = (inv) => {
-  if (confirm(`Refund £${inv.amount} for ${inv.patient}?`)) {
-    // Call refundInvoice mutation
-    refundInvoice({ variables: { id: inv.id } })
-  }
-}
-
-{inv.status === 'paid' && (
-  <Tooltip title="Issue Refund">
-    <IconButton size="small" color="error" onClick={() => handleRefund(inv)}>
-      <RefundIcon fontSize="small" />
-    </IconButton>
-  </Tooltip>
-)}
-```
-Use `ConfirmDialog` component (already used in Availability.jsx) for a better UX than `window.confirm`.  
-**Priority:** 🟡 Medium
+**Status:** ✅ COMPLETED  
+**Notes:** Refund icon click opens `<ConfirmDialog>` with title "Issue Refund", message showing amount + patient + invoice ID. On confirm: optimistic state update sets `status → 'refunded'` locally, green success banner shows for 4 seconds, refund icon disappears from the row, status chip changes from "Confirmed" → "Cancelled". Uses `ConfirmDialog` component with `confirmLabel="Refund"` and `confirmColor="warning"` (amber). Verified end-to-end in browser.
 
 ---
 
 ### SUG-BILL-008 — Implement Generate Invoice Wizard
-**Triggered by:** TC-MGR-BILL-16  
-**Fix:** Clicking "Generate Invoice" should open a modal/drawer with:
-- Patient selector (from existing patients)
-- Clinician selector
-- Service selector
-- Amount input
-- Due date picker
-- Method selector (Card / Cash / Insurance)
-
-**Priority:** 🟢 Low (complex feature)
+**Status:** PENDING  
+**Priority:** 🟢 Low (complex feature)  
+**Notes:** "Generate Invoice" button still a stub. Suggested: modal/drawer with patient selector, clinician selector, service field, amount input, date picker, method selector.
 
 ---
 
-## 🟢 Low Priority — UX Enhancements
-
 ### SUG-BILL-009 — Add Pagination to Invoice Table
-**Observation:** Currently 5 mock invoices. In production, a clinic could have hundreds.  
-**Fix:**
-```jsx
-import { TablePagination } from '@mui/material'
-
-const [page, setPage]       = useState(0)
-const [rowsPerPage, setRows] = useState(10)
-
-const paginated = filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
-
-// In table footer:
-<TablePagination
-  count={filtered.length}
-  page={page}
-  rowsPerPage={rowsPerPage}
-  onPageChange={(_, p) => setPage(p)}
-  onRowsPerPageChange={(e) => { setRows(+e.target.value); setPage(0) }}
-/>
-```
-**Priority:** 🟢 Low (needed before production)
+**Status:** PENDING  
+**Priority:** 🟢 Low  
+**Notes:** Currently 5 mock invoices — pagination not urgent. Counter chip `"N of M"` now shows filtered count, giving some context. `TablePagination` recommended before backend goes live.
 
 ---
 
 ### SUG-BILL-010 — Add Chart Legend to Revenue Breakdown
-**Observation:** TC-MGR-BILL-03 confirmed the chart uses two distinct teal colors but has NO legend explaining which color is "Clinic Fees" vs "Service Fees".  
-**Fix:** Add Recharts `<Legend />` below the chart, or add manual colored swatches:
-```jsx
-import { Legend } from 'recharts'
-// Inside BarChart:
-<Legend />
-```
-**Priority:** 🟢 Low — UX clarity
+**Status:** ✅ COMPLETED  
+**Notes:** Recharts `<Legend verticalAlign="top" height={32} />` added inside `<BarChart>`. Legend labels "Clinic Fees" (dark teal `#006D77`) and "Service Fees" (lighter teal `#83C5BE`) sourced from `name` prop on each `<Bar>`. Verified visually in screenshot. Chart height increased from 240→260 to accommodate legend.
 
 ---
 
 ### SUG-BILL-011 — Add Status Filter Alongside Method Filter
-**Observation:** Only Payment Method filter exists. Managers also need to filter by invoice status (Paid / Pending / Refunded) to track outstanding and refund requests.  
-**Fix:**
-```jsx
-const [statusFilter, setStatusFilter] = useState('all')
-
-const filtered = INVOICES.filter(inv =>
-  (methodFilter === 'all' || inv.method === methodFilter) &&
-  (statusFilter === 'all' || inv.status === statusFilter)
-)
-
-<FormControl size="small" sx={{ minWidth: 140 }}>
-  <InputLabel>Status</InputLabel>
-  <Select value={statusFilter} onChange={e => setStatusFilter(e.target.value)} label="Status">
-    <MenuItem value="all">All Statuses</MenuItem>
-    <MenuItem value="paid">Paid</MenuItem>
-    <MenuItem value="pending">Pending</MenuItem>
-    <MenuItem value="refunded">Refunded</MenuItem>
-  </Select>
-</FormControl>
-```
-**Priority:** 🟡 Medium — high clinical value
+**Status:** ✅ COMPLETED  
+**Notes:** `statusFilter` state added. `<FormControl>` with Status Select (All / Paid / Pending / Refunded) placed in the invoice toolbar between Search and Payment Method dropdown. Filter combined with `methodFilter` and `searchQuery` in `filtered` derivation. Verified: Status=Paid→3 rows, Pending→1, Refunded→1, All→5. Combined test: Status=Paid + Search="James" → 1 row.
 
 ---
 
 ### SUG-BILL-012 — KPI Cards: Make Clickable for Drill-Down
-**Observation:** KPI cards show summary numbers but are not interactive.  
-**Suggestion:**  
-- "Outstanding Invoices (£2,340)" click → auto-set Payment Method filter to Insurance + Status to Pending  
-- "Refunds This Month (£450)" click → auto-filter to status=refunded  
-**Priority:** 🟢 Low — UX polish
+**Status:** PENDING  
+**Priority:** 🟢 Low  
+**Notes:** KPI cards remain non-interactive. Suggested approach: "Outstanding Invoices" click → set `statusFilter='pending'`; "Refunds This Month" click → set `statusFilter='refunded'`.
 
 ---
 
-## Test Plan Gaps & Additional Scenarios
+## New Suggestions (Discovered This Round)
 
-### SUG-BILL-PLAN-001 — Test with Empty Invoice Array
-Add a test case that temporarily empties `INVOICES`:
-```js
-// Temporarily set: const INVOICES = []
-```
-**Expected:** Table renders with empty body, no crash, no "undefined.map is not a function" error.  
-**Reason:** Current plan mentions this as E5 but it's only theoretically tested — add a concrete step to force it.
+---
 
-### SUG-BILL-PLAN-002 — Test Refund Button Triggers Mutation (Post-Implementation)
-Once `handleRefund` is implemented, add:
-- TC-MGR-BILL-14B: Click refund icon on INV-001. Confirm dialog appears. Click Confirm. Assert: mutation fires, status chip changes to "Cancelled", refund button disappears.
+### SUG-BILL-013 — Add Invoice Count Chip to Table Header
+**Status:** ✅ COMPLETED (included in this round)  
+**Notes:** `Invoices` header now shows a count chip like "3 of 5" when filters reduce the visible set. Implemented as `{filtered.length !== invoices.length && <Chip label={...} />}`. UX improvement that gives instant feedback on filter effectiveness.
 
-### SUG-BILL-PLAN-003 — Test Payment Method = "Insurance" + Status = "Pending" Combo Filter
-After SUG-BILL-011 is implemented:
-> Set Method=Insurance, Status=Pending → Assert: 1 row (INV-004)  
-> Set Method=Card, Status=Refunded → Assert: 1 row (INV-003)
+---
 
-### SUG-BILL-PLAN-004 — Accessibility Test
-Add: Navigate table headers with Tab key. Assert: all interactive elements (sort buttons, filter dropdowns, action icons) are keyboard-focusable with visible focus rings.
+### SUG-BILL-014 — Add Empty State When All Invoices Filtered Out
+**Status:** ✅ COMPLETED (included in this round)  
+**Notes:** When `filtered.length === 0`, renders centered ReceiptIcon + "No invoices match your filters." message + "Clear filters" button that resets all 3 filters simultaneously. Verified in browser: Status=Refunded + Search="Omar Hassan" → empty state → Clear filters → all 5 rows restored.
 
-### SUG-BILL-PLAN-005 — Revenue Chart: No Data Month
-Add mock data with a month where `clinics: 0, services: 0`. Assert: bar renders at zero height without crash, no NaN displayed in tooltip.
+---
+
+### SUG-BILL-015 — Add `aria-label` to All Icon Buttons
+**Status:** ✅ COMPLETED (included in this round)  
+**Notes:** All action icon buttons now have `aria-label={...inv.id}` and `<Tooltip>` text. Satisfies WCAG 2.1 SC 4.1.2 for accessible names.
+
+---
+
+### SUG-BILL-016 — Wrap Page in ErrorBoundary
+**Status:** ✅ COMPLETED (included in this round)  
+**Notes:** Page now wrapped in reusable `<ErrorBoundary>` component (consistent with Availability page). Prevents blank-screen crashes from propagating past this page.
+
+---
+
+### SUG-BILL-017 — Add Refund Loading State
+**Suggestion:** When the refund mutation fires against the live backend, show a loading spinner on the Refund button while awaiting the response.  
+**Status:** PENDING  
+**Priority:** 🟡 Medium  
+**Notes:** Currently uses optimistic update (no loading state). For live backend, add `isRefunding` state: `<IconButton disabled={isRefunding}>{isRefunding ? <CircularProgress size={16}/> : <RefundIcon/>}</IconButton>`.
+
+---
+
+### SUG-BILL-018 — Export Respects Active Filters
+**Suggestion:** The Export button currently exports `filtered` (it does respect active filters). Verify this is clearly communicated to the manager with a Tooltip.  
+**Status:** ✅ COMPLETED  
+**Notes:** Tooltip on Export button says "Export filtered invoices as CSV". Manager knows the export reflects current search/filter state.
 
 ---
 
 ## Summary Table
 
-| ID | Suggestion | Category | Priority | Effort |
+| ID | Suggestion | Category | Priority | Status |
 |----|-----------|----------|----------|--------|
-| SUG-BILL-001 | Wire to live backend | 🔌 Backend | 🔴 High | High |
-| SUG-BILL-002 | Implement invoice search filter | 🚀 Feature | 🟡 Medium | Low |
-| SUG-BILL-003 | Wire date filter to data | 🚀 Feature | 🟡 Medium | Low |
-| SUG-BILL-004 | Invoice view drawer/page | 🚀 Feature | 🟡 Medium | Medium |
-| SUG-BILL-005 | Invoice PDF download | 🚀 Feature | 🟡 Medium | Medium |
-| SUG-BILL-006 | CSV/PDF export | 🚀 Feature | 🟡 Medium | Low |
-| SUG-BILL-007 | Refund with confirm dialog | 🚀 Feature | 🟡 Medium | Low |
-| SUG-BILL-008 | Generate invoice wizard | 🚀 Feature | 🟢 Low | High |
-| SUG-BILL-009 | Pagination for invoice table | ✨ UX | 🟢 Low | Low |
-| SUG-BILL-010 | Add chart legend | ✨ UX | 🟢 Low | Very Low |
-| SUG-BILL-011 | Status filter for invoices | ✨ UX | 🟡 Medium | Low |
-| SUG-BILL-012 | Clickable KPI cards drill-down | ✨ UX | 🟢 Low | Low |
-
-### Quick Wins (< 30 min each):
-1. **SUG-BILL-002** — 20 min — add `searchQuery` state + filter to `filtered` array
-2. **SUG-BILL-006** — 20 min — `Blob` + `URL.createObjectURL` CSV download
-3. **SUG-BILL-010** — 2 min — add `<Legend />` inside `<BarChart>`
-4. **SUG-BILL-011** — 20 min — add status filter to toolbar
+| SUG-BILL-001 | Wire to live backend | 🔌 Backend | 🔴 High | PENDING |
+| SUG-BILL-002 | Invoice search filter | 🚀 Feature | 🟡 Medium | ✅ COMPLETED |
+| SUG-BILL-003 | Wire date filter to data | 🚀 Feature | 🟡 Medium | ✅ COMPLETED (interim) |
+| SUG-BILL-004 | Invoice view drawer | 🚀 Feature | 🟡 Medium | PENDING |
+| SUG-BILL-005 | Invoice PDF download | 🚀 Feature | 🟡 Medium | PENDING |
+| SUG-BILL-006 | CSV export | 🚀 Feature | 🟡 Medium | ✅ COMPLETED |
+| SUG-BILL-007 | Refund with confirm dialog | 🚀 Feature | 🟡 Medium | ✅ COMPLETED |
+| SUG-BILL-008 | Generate invoice wizard | 🚀 Feature | 🟢 Low | PENDING |
+| SUG-BILL-009 | Pagination | ✨ UX | 🟢 Low | PENDING |
+| SUG-BILL-010 | Chart legend | ✨ UX | 🟢 Low | ✅ COMPLETED |
+| SUG-BILL-011 | Status filter | ✨ UX | 🟡 Medium | ✅ COMPLETED |
+| SUG-BILL-012 | Clickable KPI drill-down | ✨ UX | 🟢 Low | PENDING |
+| SUG-BILL-013 | Invoice count chip | ✨ UX | 🟢 Low | ✅ COMPLETED |
+| SUG-BILL-014 | Empty state + clear filters | ✨ UX | 🟡 Medium | ✅ COMPLETED |
+| SUG-BILL-015 | aria-labels on icon buttons | ♿ Accessibility | 🟡 Medium | ✅ COMPLETED |
+| SUG-BILL-016 | ErrorBoundary wrapper | 🛡 Resilience | 🟡 Medium | ✅ COMPLETED |
+| SUG-BILL-017 | Refund loading state | ✨ UX | 🟡 Medium | PENDING |
+| SUG-BILL-018 | Export tooltip clarification | ✨ UX | 🟢 Low | ✅ COMPLETED |

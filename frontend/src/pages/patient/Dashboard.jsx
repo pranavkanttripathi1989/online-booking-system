@@ -1,13 +1,14 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQuery, gql } from '@apollo/client';
 import {
   Box, Grid, Paper, Typography, Stack, Button, Avatar, Card, CardActions,
-  Chip, List, ListItem, ListItemAvatar, ListItemText, CircularProgress, Alert
+  Chip, List, ListItem, ListItemAvatar, ListItemText, CircularProgress, Alert,
+  Skeleton, Dialog, DialogTitle, DialogContent, DialogActions as MuiDialogActions,
 } from '@mui/material';
 import {
   Add, CalendarMonth, CheckCircle, AccessTime, Cancel, Videocam,
-  Payment, Settings, Warning, ArrowForward
+  Payment, Settings, Warning, ArrowForward, EventRepeat,
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -33,7 +34,6 @@ const GET_PATIENT_DASHBOARD_DATA = gql`
         clinicianType
       }
     }
-    # Assuming getNotifications is available based on instructions
     getNotifications(userId: $userId, limit: 5) {
       id
       title
@@ -41,7 +41,6 @@ const GET_PATIENT_DASHBOARD_DATA = gql`
       type
       createdAt
     }
-    # For KPI numbers
     getPatientKpis(patientId: $userId) {
       total
       completed
@@ -50,6 +49,25 @@ const GET_PATIENT_DASHBOARD_DATA = gql`
     }
   }
 `;
+
+// --- Mock Data Fallback (SUG-PTDASH-004) ---
+const MOCK_UPCOMING = [
+  {
+    id: 'm1', startTime: '2026-04-10T10:00:00Z', endTime: '2026-04-10T10:30:00Z',
+    status: 'scheduled', type: 'video', duration: 30,
+    clinician: { id: 'c1', name: 'Dr. Sarah Johnson', clinicianType: 'Cardiologist' },
+  },
+  {
+    id: 'm2', startTime: '2026-04-15T14:00:00Z', endTime: '2026-04-15T14:30:00Z',
+    status: 'scheduled', type: 'in-person', duration: 45,
+    clinician: { id: 'c2', name: 'Dr. Marcus Osei', clinicianType: 'Neurologist' },
+  },
+];
+const MOCK_NOTIFICATIONS = [
+  { id: 'n1', title: 'Appointment Confirmed', message: 'Your video appointment with Dr. Sarah Johnson is confirmed for 10 Apr at 10:00 AM.', type: 'appointment', createdAt: new Date(Date.now() - 2 * 60000).toISOString() },
+  { id: 'n2', title: 'Payment Successful', message: '£85 has been charged for your Cardiology consultation.', type: 'payment', createdAt: new Date(Date.now() - 30 * 60000).toISOString() },
+];
+const MOCK_KPIS = { total: 12, completed: 9, upcoming: 2, cancelled: 1 };
 
 // --- Helper Components ---
 
@@ -77,11 +95,21 @@ const StatusChip = ({ status }) => {
   return <Chip size="small" variant="filled" {...getProps()} />;
 };
 
+// SUG-PTDASH-006: Dynamic greeting based on time of day
+function getGreeting() {
+  const hour = new Date().getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 18) return 'Good afternoon';
+  return 'Good evening';
+}
+
 export default function PatientDashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
 
-  // We are passing user.id as both patientId and userId
+  // SUG-PTDASH-003: Cancel dialog state
+  const [cancelId, setCancelId] = useState(null);
+
   const { data, loading, error } = useQuery(GET_PATIENT_DASHBOARD_DATA, {
     variables: { userId: user?.id },
     skip: !user?.id,
@@ -89,63 +117,28 @@ export default function PatientDashboard() {
 
   if (!user) return <Alert severity="warning">Please log in to view your dashboard.</Alert>;
 
-  const upcomingAppointments = data?.getPatientAppointments || [];
-  const notifications = data?.getNotifications || [];
-  const kpis = data?.getPatientKpis || { total: 0, completed: 0, upcoming: upcomingAppointments.length, cancelled: 0 };
+  // SUG-PTDASH-004: Mock fallbacks when backend offline
+  const upcomingAppointments = data?.getPatientAppointments || MOCK_UPCOMING;
+  const notifications = data?.getNotifications || MOCK_NOTIFICATIONS;
+  const kpis = data?.getPatientKpis || { ...MOCK_KPIS, upcoming: upcomingAppointments.length };
 
-  // For the 'Your Doctors' section, we can extract unique clinicians from recent appointments, or mock it if empty
+  // Guard: safe clinician extraction (E1: null clinician.id)
   const uniqueClinicians = Array.from(
-    new Map(upcomingAppointments.map(app => [app.clinician.id, app.clinician])).values()
+    new Map(
+      upcomingAppointments
+        .filter(a => a.clinician?.id)
+        .map(a => [a.clinician.id, a.clinician])
+    ).values()
   ).slice(0, 3);
 
-  const renderWelcomeBanner = () => (
-    <Paper 
-      elevation={0}
-      sx={{ 
-        background: 'linear-gradient(135deg, #004D55 0%, #0A9396 100%)',
-        p: 4, 
-        borderRadius: 3, 
-        mb: 3,
-        color: 'white'
-      }}
-    >
-      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
-        <Box>
-          <Typography variant="h5" fontWeight={700} gutterBottom>
-            Good morning, {user?.firstName || user?.name?.split(' ')[0] || 'Patient'}
-          </Typography>
-          <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.8)' }}>
-            Here's a quick overview of your health schedule and upcoming tasks.
-          </Typography>
-          
-          <Stack direction="row" gap={2} mt={3} flexWrap="wrap">
-            <Button 
-              variant="outlined" 
-              startIcon={<Add />}
-              onClick={() => navigate('/appointments/book')}
-              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.6)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
-            >
-              Book Appointment
-            </Button>
-            <Button 
-              variant="outlined"
-              onClick={() => navigate('/patient/appointments')}
-              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.6)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
-            >
-              View All
-            </Button>
-          </Stack>
-        </Box>
-        
-        <Box sx={{ display: { xs: 'none', md: 'block' }, ml: 'auto' }}>
-          <Avatar 
-            src={`https://www.gravatar.com/avatar/${user?.id}?d=mp&s=120`} 
-            sx={{ width: 100, height: 100, border: '4px solid rgba(255,255,255,0.2)' }} 
-          />
-        </Box>
-      </Stack>
-    </Paper>
-  );
+  // SUG-PTDASH-003: Handlers for Reschedule and Cancel
+  const handleReschedule = (apptId) => navigate(`/patient/appointments?reschedule=${apptId}`);
+  const handleCancelConfirm = () => {
+    // In production: call CANCEL_APPOINTMENT mutation
+    // For mock: visual-only (no state change — dashboard reads from Apollo fallback)
+    console.log('cancel appointment', cancelId);
+    setCancelId(null);
+  };
 
   const getNotificationIcon = (type) => {
     switch (type) {
@@ -157,11 +150,83 @@ export default function PatientDashboard() {
     }
   };
 
-  // NOTE: Not blocking on loading — mock data fallbacks above ensure immediate render.
+  const renderWelcomeBanner = () => (
+    <Paper
+      elevation={0}
+      sx={{
+        background: 'linear-gradient(135deg, #004D55 0%, #0A9396 100%)',
+        p: 4,
+        borderRadius: 3,
+        mb: 3,
+        color: 'white'
+      }}
+    >
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
+        <Box>
+          {/* SUG-PTDASH-006: Dynamic greeting */}
+          <Typography variant="h5" fontWeight={700} gutterBottom>
+            {getGreeting()}, {user?.firstName || user?.name?.split(' ')[0] || 'Patient'}
+          </Typography>
+          <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.8)' }}>
+            Here's a quick overview of your health schedule and upcoming tasks.
+          </Typography>
+
+          <Stack direction="row" gap={2} mt={3} flexWrap="wrap">
+            <Button
+              variant="outlined"
+              startIcon={<Add />}
+              onClick={() => navigate('/appointments/book')}
+              aria-label="Book a new appointment"
+              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.6)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              Book Appointment
+            </Button>
+            <Button
+              variant="outlined"
+              onClick={() => navigate('/patient/appointments')}
+              aria-label="View all appointments"
+              sx={{ color: 'white', borderColor: 'rgba(255,255,255,0.6)', '&:hover': { borderColor: 'white', bgcolor: 'rgba(255,255,255,0.1)' } }}
+            >
+              View All
+            </Button>
+          </Stack>
+        </Box>
+
+        <Box sx={{ display: { xs: 'none', md: 'block' }, ml: 'auto' }}>
+          <Avatar
+            src={`https://www.gravatar.com/avatar/${user?.id}?d=mp&s=120`}
+            sx={{ width: 100, height: 100, border: '4px solid rgba(255,255,255,0.2)' }}
+          />
+        </Box>
+      </Stack>
+    </Paper>
+  );
+
+  // SUG-PTDASH-005: Loading skeleton
+  if (loading) return (
+    <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
+      {renderWelcomeBanner()}
+      <Grid container spacing={2} mb={4}>
+        {[1, 2, 3, 4].map(i => (
+          <Grid item xs={6} sm={3} key={i}>
+            <Skeleton variant="rectangular" height={80} sx={{ borderRadius: 3 }} />
+          </Grid>
+        ))}
+      </Grid>
+      <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 3 }} />
+    </Box>
+  );
 
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
       {renderWelcomeBanner()}
+
+      {/* SUG-PTDASH-008: Apollo error state */}
+      {error && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          Could not load live dashboard data — showing demo information.
+        </Alert>
+      )}
 
       <Grid container spacing={2} mb={4}>
         <Grid item xs={6} sm={3}>
@@ -197,12 +262,12 @@ export default function PatientDashboard() {
               const statusColor = appt.status === 'scheduled' ? '#006D77' : appt.status === 'completed' ? '#2DC653' : '#E63946';
 
               return (
-                <Card 
-                  key={appt.id} 
+                <Card
+                  key={appt.id}
                   elevation={0}
-                  sx={{ 
-                    mb: 2, 
-                    border: '1px solid', 
+                  sx={{
+                    mb: 2,
+                    border: '1px solid',
                     borderColor: 'divider',
                     borderLeft: `4px solid ${statusColor}`,
                     borderRadius: 2
@@ -210,11 +275,11 @@ export default function PatientDashboard() {
                 >
                   <Box p={2} display="flex" flexWrap="wrap" gap={2}>
                     {/* Date Block */}
-                    <Box 
-                      sx={{ 
-                        bgcolor: 'primary.main', 
-                        color: 'white', 
-                        borderRadius: 2, 
+                    <Box
+                      sx={{
+                        bgcolor: 'primary.main',
+                        color: 'white',
+                        borderRadius: 2,
                         p: 1.5,
                         minWidth: 70,
                         textAlign: 'center',
@@ -234,13 +299,13 @@ export default function PatientDashboard() {
                     {/* Content Block */}
                     <Box flexGrow={1}>
                       <Stack direction="row" alignItems="center" gap={2}>
-                        <Avatar src={`https://www.gravatar.com/avatar/${appt.clinician.id}?d=mp`} sx={{ width: 48, height: 48 }} />
+                        <Avatar src={`https://www.gravatar.com/avatar/${appt.clinician?.id}?d=mp`} sx={{ width: 48, height: 48 }} />
                         <Box>
-                          <Typography variant="subtitle1" fontWeight={700}>{appt.clinician.name}</Typography>
-                          <Typography variant="body2" color="text.secondary">{appt.clinician.clinicianType}</Typography>
+                          <Typography variant="subtitle1" fontWeight={700}>{appt.clinician?.name}</Typography>
+                          <Typography variant="body2" color="text.secondary">{appt.clinician?.clinicianType}</Typography>
                         </Box>
                       </Stack>
-                      
+
                       <Stack direction="row" flexWrap="wrap" gap={1} mt={1.5}>
                         <Chip size="small" icon={<AccessTime fontSize="small" />} label={`${startDateTime.format('h:mm A')} (${appt.duration || 30} min)`} />
                         <Chip size="small" icon={appt.type === 'video' ? <Videocam fontSize="small" /> : <CalendarMonth fontSize="small" />} label={appt.type === 'video' ? 'Video Consult' : 'In-Person'} variant="outlined" />
@@ -251,12 +316,30 @@ export default function PatientDashboard() {
 
                   <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'flex-start', flexWrap: 'wrap' }}>
                     {appt.type === 'video' && appt.status === 'scheduled' && (
-                      <Button variant="contained" color="secondary" size="small" startIcon={<Videocam />}>
+                      <Button
+                        variant="contained" color="secondary" size="small" startIcon={<Videocam />}
+                        onClick={() => navigate(`/video/${appt.id}`)}
+                        aria-label={`Join video call with ${appt.clinician?.name}`}
+                      >
                         Join Video
                       </Button>
                     )}
-                    <Button variant="outlined" size="small">Reschedule</Button>
-                    <Button color="error" size="small">Cancel</Button>
+                    {/* SUG-PTDASH-003: Reschedule handler */}
+                    <Button
+                      variant="outlined" size="small" startIcon={<EventRepeat />}
+                      onClick={() => handleReschedule(appt.id)}
+                      aria-label={`Reschedule appointment with ${appt.clinician?.name}`}
+                    >
+                      Reschedule
+                    </Button>
+                    {/* SUG-PTDASH-003: Cancel handler with dialog */}
+                    <Button
+                      color="error" size="small" startIcon={<Cancel />}
+                      onClick={() => setCancelId(appt.id)}
+                      aria-label={`Cancel appointment with ${appt.clinician?.name}`}
+                    >
+                      Cancel
+                    </Button>
                   </CardActions>
                 </Card>
               );
@@ -267,8 +350,12 @@ export default function PatientDashboard() {
         {/* Right Column - Side Content */}
         <Grid item xs={12} md={4}>
           <Paper elevation={0} sx={{ p: 2.5, mb: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom>Your Doctors</Typography>
-            
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Typography variant="h6" fontWeight={700}>Your Doctors</Typography>
+              {/* SUG-PTDASH-010: View all link */}
+              <Button size="small" onClick={() => navigate('/patient/appointments')} sx={{ fontSize: '0.75rem' }}>View all</Button>
+            </Box>
+
             {uniqueClinicians.length === 0 ? (
               <Typography variant="body2" color="text.secondary" py={2}>No recent doctors found.</Typography>
             ) : (
@@ -278,11 +365,11 @@ export default function PatientDashboard() {
                     <ListItemAvatar>
                       <Avatar src={`https://www.gravatar.com/avatar/${clinician.id}?d=mp`} />
                     </ListItemAvatar>
-                    <ListItemText 
-                      primary={<Typography variant="subtitle2" fontWeight={600}>{clinician.name}</Typography>} 
-                      secondary={<Typography variant="caption" color="text.secondary">{clinician.clinicianType}</Typography>} 
+                    <ListItemText
+                      primary={<Typography variant="subtitle2" fontWeight={600}>{clinician.name}</Typography>}
+                      secondary={<Typography variant="caption" color="text.secondary">{clinician.clinicianType}</Typography>}
                     />
-                    <Button size="small" variant="outlined" onClick={() => navigate(`/clinician/${clinician.id}`)}>Book</Button>
+                    <Button size="small" variant="outlined" onClick={() => navigate(`/appointments/book?clinician=${clinician.id}`)}>Book</Button>
                   </ListItem>
                 ))}
               </List>
@@ -290,21 +377,26 @@ export default function PatientDashboard() {
           </Paper>
 
           <Paper elevation={0} sx={{ p: 2.5, border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom>Recent Activity</Typography>
-            
+            <Box display="flex" justifyContent="space-between" alignItems="center" mb={1}>
+              <Typography variant="h6" fontWeight={700}>Recent Activity</Typography>
+              {/* SUG-PTDASH-010: View all link */}
+              <Button size="small" onClick={() => navigate('/notifications')} sx={{ fontSize: '0.75rem' }}>View all</Button>
+            </Box>
+
             {notifications.length === 0 ? (
               <Typography variant="body2" color="text.secondary" py={2}>No recent activity.</Typography>
             ) : (
               <List disablePadding>
-                {notifications.map((notif, idx) => (
-                  <ListItem key={notif.id || idx} disableGutters alignItems="flex-start" divider={idx !== notifications.length - 1} sx={{ py: 1.5 }}>
+                {/* SUG-PTDASH-007: Client-side limit */}
+                {notifications.slice(0, 5).map((notif, idx) => (
+                  <ListItem key={notif.id || idx} disableGutters alignItems="flex-start" divider={idx !== Math.min(notifications.length, 5) - 1} sx={{ py: 1.5 }}>
                     <ListItemAvatar sx={{ minWidth: 40, mt: 0.5 }}>
                       <Box sx={{ bgcolor: 'action.hover', p: 1, borderRadius: '50%', display: 'inline-flex' }}>
                         {getNotificationIcon(notif.type)}
                       </Box>
                     </ListItemAvatar>
-                    <ListItemText 
-                      primary={<Typography variant="subtitle2" fontWeight={600} mb={0.5}>{notif.title}</Typography>} 
+                    <ListItemText
+                      primary={<Typography variant="subtitle2" fontWeight={600} mb={0.5}>{notif.title}</Typography>}
                       secondary={
                         <Box>
                           <Typography variant="body2" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
@@ -314,7 +406,7 @@ export default function PatientDashboard() {
                             {dayjs(notif.createdAt).fromNow()}
                           </Typography>
                         </Box>
-                      } 
+                      }
                     />
                   </ListItem>
                 ))}
@@ -323,6 +415,27 @@ export default function PatientDashboard() {
           </Paper>
         </Grid>
       </Grid>
+
+      {/* SUG-PTDASH-003: Cancel Confirmation Dialog */}
+      <Dialog open={Boolean(cancelId)} onClose={() => setCancelId(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Cancel Appointment?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Are you sure you want to cancel this appointment? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <MuiDialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCancelId(null)} sx={{ textTransform: 'none' }}>Keep Appointment</Button>
+          <Button
+            id="dashboard-confirm-cancel-btn"
+            color="error" variant="contained"
+            onClick={handleCancelConfirm}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            Yes, Cancel
+          </Button>
+        </MuiDialogActions>
+      </Dialog>
     </Box>
   );
 }

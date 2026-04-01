@@ -92,7 +92,10 @@ export default function UtilisationChart({ data }) {
         sx={{ color: '#202124', fontSize: { xs: '0.875rem', md: '0.9375rem' } }}>
         Clinician Utilisation
       </Typography>
-      <ResponsiveContainer width="100%" height={isMobile ? 200 : 240}>
+      {/* NEW-DASH-012: horizontal scroll on mobile so bars aren't squished */}
+      <Box sx={{ overflowX: 'auto', overflowY: 'visible' }}>
+        <Box sx={{ minWidth: isMobile ? chartData.length * 52 : '100%' }}>
+          <ResponsiveContainer width="100%" height={isMobile ? 200 : 240}>
         <BarChart data={chartData} margin={{ top: 20, right: 16, bottom: 0, left: -10 }}>
           <CartesianGrid strokeDasharray="4 4" stroke="#E8EAED" vertical={false} />
           <XAxis dataKey="name" tick={TICK_STYLE} axisLine={false} tickLine={false} />
@@ -120,7 +123,9 @@ export default function UtilisationChart({ data }) {
             />
           </Bar>
         </BarChart>
-      </ResponsiveContainer>
+          </ResponsiveContainer>
+        </Box>
+      </Box>
 
       {/* Google traffic-light legend */}
       <Box display="flex" gap={2.5} mt={1.5} justifyContent="center" flexWrap="wrap">

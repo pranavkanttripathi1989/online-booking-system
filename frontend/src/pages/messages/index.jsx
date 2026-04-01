@@ -22,6 +22,7 @@ import LocalHospitalRoundedIcon    from '@mui/icons-material/LocalHospitalRounde
 import BadgeRoundedIcon            from '@mui/icons-material/BadgeRounded'
 import * as MockStore from '../../mocks/store'
 import { useAuth } from '../../context/AuthContext'
+import ErrorBoundary from '../../components/ErrorBoundary'
 
 // ─── Role colour map (SUG-MSG-005) ───────────────────────────────────────────
 const ROLE_STYLE = {
@@ -152,7 +153,7 @@ function RoleChip({ role }) {
 }
 
 // ─── MessagesPage ─────────────────────────────────────────────────────────────
-export default function MessagesPage() {
+function MessagesPage() {
   const { user } = useAuth()
   const currentUserId = user?.id ?? user?.clinician?.id ?? 'u-3'
 
@@ -303,6 +304,7 @@ export default function MessagesPage() {
               <Tooltip title="New Message">
                 <IconButton
                   id="compose-new-message-btn"
+                  aria-label="New message"
                   size="small"
                   onClick={() => setComposeOpen(true)}
                   sx={{ color: '#006D77', bgcolor: '#E0F7F7', '&:hover': { bgcolor: '#C8F0F0' }, borderRadius: 1.5, flexShrink: 0, width: 36, height: 36 }}
@@ -348,6 +350,7 @@ export default function MessagesPage() {
                 {isMobile && (
                   <IconButton
                     id="back-to-inbox-btn"
+                    aria-label="Back to inbox"
                     size="small"
                     onClick={() => setActiveThread(null)}
                     sx={{ color: '#5F6368', mr: 0.5 }}
@@ -371,12 +374,12 @@ export default function MessagesPage() {
                 </Box>
                 <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>
                   {[
-                    { Icon: CallRoundedIcon,     title: 'Call' },
-                    { Icon: VideocamRoundedIcon, title: 'Video call' },
-                    { Icon: InfoOutlinedIcon,    title: 'Info' },
-                  ].map(({ Icon, title }, i) => (
+                    { Icon: CallRoundedIcon,     title: 'Call',       label: 'Start voice call' },
+                    { Icon: VideocamRoundedIcon, title: 'Video call', label: 'Start video call' },
+                    { Icon: InfoOutlinedIcon,    title: 'Info',       label: 'Conversation info' },
+                  ].map(({ Icon, title, label }, i) => (
                     <Tooltip key={i} title={title}>
-                      <IconButton size="small" sx={{ color: '#9AA0A6', '&:hover': { bgcolor: '#F8F9FA', color: '#1A73E8' }, transition: 'all 0.15s' }}>
+                      <IconButton aria-label={label} size="small" sx={{ color: '#9AA0A6', '&:hover': { bgcolor: '#F8F9FA', color: '#1A73E8' }, transition: 'all 0.15s' }}>
                         <Icon sx={{ fontSize: '1.15rem' }} />
                       </IconButton>
                     </Tooltip>
@@ -402,10 +405,10 @@ export default function MessagesPage() {
               {/* Input */}
               <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #F5F7FA', bgcolor: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Tooltip title="Attach file">
-                  <IconButton size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><AttachFileRoundedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
+                  <IconButton aria-label="Attach file" size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><AttachFileRoundedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
                 </Tooltip>
                 <Tooltip title="Emoji">
-                  <IconButton size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><EmojiEmotionsOutlinedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
+                  <IconButton aria-label="Insert emoji" size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><EmojiEmotionsOutlinedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
                 </Tooltip>
                 <Box sx={{
                   flex: 1, bgcolor: '#F8F9FA', border: '1.5px solid #E8EAED', borderRadius: '12px', px: 2, py: 1,
@@ -515,4 +518,9 @@ export default function MessagesPage() {
       `}</style>
     </Box>
   )
+}
+
+// ErrorBoundary wrapper for crash resilience
+export default function MessagesPageWithBoundary() {
+  return <ErrorBoundary><MessagesPage /></ErrorBoundary>
 }

@@ -1,239 +1,123 @@
-# Medical Test Results Page — Test Suggestions
+# Test Results Page — Test Suggestions (v2.0)
 
-**Derived from:** [test-results-page-test-results.md](../test-result/test-results-page-test-results.md)  
-**Source File:** `frontend/src/pages/test-results/index.jsx`  
-**Date:** 2026-03-17
-
----
-
-## 🔴 High Priority — Bug Fixes
-
-### SUG-TRES-001 — Implement "Download PDF" Handler (TC-TRES-20)
-
-**Problem:** "Download PDF" button has no `onClick`. Clicking does nothing. Core feature completely missing.
-
-**Fix — Generate a simple PDF or open a print preview:**
-```jsx
-const handleDownloadPDF = (result) => {
-  // Option 1: Open browser print with result details
-  const win = window.open('', '_blank');
-  win.document.write(`<h1>${result.test}</h1>
-    <p>Patient: ${result.patient}</p>
-    <p>Ordered by: ${result.ordered_by}</p>
-    <table border="1">
-      <tr><th>Parameter</th><th>Result</th><th>Reference</th><th>Flag</th></tr>
-      ${result.values.map(v =>
-        `<tr><td>${v.name}</td><td>${v.value}</td><td>${v.ref}</td><td>${v.flag}</td></tr>`
-      ).join('')}
-    </table>`);
-  win.print();
-};
-
-// In ResultDialog:
-<Button onClick={() => handleDownloadPDF(result)}>Download PDF</Button>
-```
-
-**Priority:** 🔴 High | **Effort:** ~15 lines
+**Module:** Test Results (`/test-results`) — `pages/test-results/index.jsx`
+**Updated:** 2026-03-31 (Session QA v2.0)
 
 ---
 
-### SUG-TRES-002 — Implement "Order Test" Button Handler (TC-TRES-21)
+## 🔴 High Priority — COMPLETED
 
-**Problem:** "Order Test" button in page header has no `onClick`. The button appears as a primary CTA but is completely non-functional.
-
-**Fix — Open an "Order Test" dialog:**
-```jsx
-const [orderOpen, setOrderOpen] = useState(false);
-
-<Button onClick={() => setOrderOpen(true)}>Order Test</Button>
-
-// Minimal "Order Test" dialog with patient selector, test type, ordering clinician
-<Dialog open={orderOpen} onClose={() => setOrderOpen(false)}>
-  <DialogTitle>Order New Test</DialogTitle>
-  <DialogContent>
-    <TextField label="Patient" fullWidth />
-    <TextField select label="Test Type" fullWidth>
-      {['Blood Test', 'X-Ray', 'MRI', 'Urine Test'].map(t =>
-        <MenuItem value={t}>{t}</MenuItem>)}
-    </TextField>
-  </DialogContent>
-  <DialogActions>
-    <Button onClick={() => setOrderOpen(false)}>Cancel</Button>
-    <Button variant="contained">Submit Order</Button>
-  </DialogActions>
-</Dialog>
+### SUG-TRES-001 — Implement "Download PDF" Button Handler
+```
+Status: COMPLETED
+Notes: handleDownloadPDF(result) function added before ResultDialog component.
+       Builds plain-text lines from result.id, .test, .patient, .ordered_by, .values.
+       Creates Blob(text/plain) → URL.createObjectURL → <a> element click → revokeObjectURL.
+       File downloaded as: `${result.id}-result.txt` (e.g. TR-001-result.txt).
+       Button: onClick={() => handleDownloadPDF(result)}
+Files: pages/test-results/index.jsx
 ```
 
-**Priority:** 🔴 High | **Effort:** ~30 lines
+### SUG-TRES-002 — Implement "Order Test" Button Handler
+```
+Status: COMPLETED
+Notes: const [orderOpen, setOrderOpen] = useState(false)
+       const [orderForm, setOrderForm] = useState({ patient: '', testType: 'Blood Test' })
+       handleOrderSubmit(): setOrderOpen(false) + reset form.
+       "Order Test" header button: onClick={() => setOrderOpen(true)}
+       Full dialog: Patient Name (TextField) + Test Type (Select: 5 options with emoji icons).
+       Submit button: disabled when patient name empty.
+Files: pages/test-results/index.jsx
+```
+
+### SUG-TRES-003 — Fix Unknown Flag Chip Background Color
+```
+Status: COMPLETED
+Notes: const flagColor = FLAG_COLORS[v.flag] || '#64748B' — fallback to grey.
+       Chip: bgcolor: `${flagColor}18`, color: flagColor
+       Value cell: color: flagColor
+       Previously: `${undefined}18` = "undefined18" — invalid CSS, chip had no background.
+Files: pages/test-results/index.jsx
+```
 
 ---
 
-### SUG-TRES-003 — Fix Unknown Flag Chip Background Color (Edge Case E2)
+## 🟡 Medium Priority — COMPLETED
 
-**Problem:** When a flag value is not in `FLAG_COLORS` (e.g., `flag: 'critical'`), the chip gets:
-```js
-bgcolor: `${FLAG_COLORS[v.flag]}18`  // = `${undefined}18` = "undefined18"
+### SUG-TRES-004 — Add "Reset Filters" / Clear Button
 ```
-This is an invalid CSS value — the chip renders without a background.
-
-**Fix:**
-```jsx
-const flagColor = FLAG_COLORS[v.flag] || '#64748B'; // fallback grey for unknown
-<Chip
-  label={v.flag}
-  sx={{
-    bgcolor: `${flagColor}18`,
-    color: flagColor,
-    // ...
-  }}
-/>
+Status: COMPLETED
+Notes: Conditional <Button> rendered when any filter is active:
+       (search || typeFilter !== 'All' || statusFilter !== 'All')
+       onClick: setSearch(''), setTypeFilter('All'), setStatusFilter('All')
+       Button style: text variant, color:#64748B, "Clear Filters" label.
+       Button disappears when all filters are at default.
+Files: pages/test-results/index.jsx
 ```
 
-**Priority:** 🔴 High | **Effort:** 2 lines
+### SUG-TRES-007 — Add "low" Flag Test Data to TR-006
+```
+Status: COMPLETED
+Notes: TR-006 (Urine Analysis) values array extended with:
+       { name: 'Ketones', value: 'Trace', ref: 'Negative', flag: 'low' }
+       This exercises FLAG_COLORS.low = '#D97706' (amber) rendering path.
+       Confirmed: value text amber, chip amber bg (#D9770618), label "low".
+Files: pages/test-results/index.jsx
+```
 
 ---
 
-## 🟡 Medium Priority — UX Improvements
+## 🟡 Medium Priority — Pending
 
-### SUG-TRES-004 — Add "Reset Filters" / Clear Button (OBS-4)
-
-**Problem:** No way to reset all 3 filters (search + type + status) at once. Users must manually clear each one separately.
-
-**Fix:**
-```jsx
-{(search || typeFilter !== 'All' || statusFilter !== 'All') && (
-  <Button size="small" variant="text" onClick={() => {
-    setSearch(''); setTypeFilter('All'); setStatusFilter('All');
-  }}>
-    Clear Filters
-  </Button>
-)}
+### SUG-TRES-005 — Add Column Sorting
 ```
-
-**Priority:** 🟡 Medium | **Effort:** ~8 lines
-
----
-
-### SUG-TRES-005 — Add Column Sorting (OBS-6)
-
-**Problem:** Table has no sorting. All 6 results appear in insertion order only. Clinical users need to sort by Date Ordered or Status.
-
-**Fix:**
-```jsx
-const [sortField, setSortField] = useState('date_ordered');
-const [sortDir, setSortDir] = useState('desc');
-
-const sorted = [...filtered].sort((a, b) => {
-  const cmp = (a[sortField] || '').localeCompare(b[sortField] || '');
-  return sortDir === 'asc' ? cmp : -cmp;
-});
+Status: PENDING
+Notes: Add sortField/sortDir state. TableSortLabel on column headers (Date Ordered, Patient, Status).
+       [...filtered].sort() with localeCompare for string fields.
+       Default sort: Date Ordered desc (newest first).
+Priority: Medium
 ```
-Use `<TableSortLabel>` MUI component in column headers.
-
-**Priority:** 🟡 Medium | **Effort:** ~25 lines
-
----
 
 ### SUG-TRES-006 — Add Loading Skeleton for Backend Integration
-
-**Problem:** Page renders mock data synchronously. When connected to backend, there will be an initial loading state with no feedback.
-
-**Fix:** While `loading` is true (Apollo `useQuery`), render `<Skeleton>` placeholders for KPI cards and table rows.
-
-**Priority:** 🟡 Medium (future-proofing)
-
----
-
-### SUG-TRES-007 — Add "low" Flag Color Test Data
-
-**Problem:** `FLAG_COLORS` has `low: '#D97706'` (amber) but no mock data has `flag: 'low'`. No test confirms the "low" path works visually.
-
-**Fix:** Add one mock entry with `flag: 'low'` (e.g., for TR-006 Glucose → "Trace" value marked as `low`). This also enables TC-TRES-22 (see below).
-
-**Priority:** 🟡 Medium | **Effort:** 1 mock data line
+```
+Status: PENDING
+Notes: When useQuery loading=true, render Skeleton placeholders for KPI cards + table rows.
+       Add useMemo for filter computations (performance).
+Priority: Medium (future-proofing)
+```
 
 ---
 
-## Additional Test Cases
+## New Suggestions (Session)
 
-### SUG-TRES-PLAN-001 — TC: Type Dropdown Contains All 5 Options (E1)
+### SUG-TRES-008 — Order Test: Add to Mock Data on Submit
+```
+Status: PENDING
+Notes: handleOrderSubmit currently only closes dialog. It should push new record to a mock state array
+       (useState([...MOCK_RESULTS])) so the new order appears in the table as 'pending'.
+Priority: Medium
+```
 
-> **TC-TRES-22** — Type dropdown options validation  
-> Click "Type" dropdown.  
-> Expected: Options = ["All", "Blood Test", "X-Ray", "MRI", "Urine Test"] — derived dynamically from `new Set(MOCK_RESULTS.map(r => r.type))`.  
-> Confirm: Adding a new mock result with `type: 'DNA Testing'` would auto-add it to the dropdown (since `TYPE_ICONS['DNA Testing'] = '🧬'` already exists).
-
-### SUG-TRES-PLAN-002 — TC: Low Flag Color Display (E2 extension)
-
-> **TC-TRES-23** — "low" flag shows amber color  
-> After adding a mock result with `flag: 'low'`, open that result's dialog.  
-> Expected: value text color = amber `#D97706`. Flag chip: amber bg (`#D9770618`) + amber text.  
-> Source: `FLAG_COLORS = { low: '#D97706' }`.
-
-### SUG-TRES-PLAN-003 — TC: Unknown Flag Falls Back to Grey (E2)
-
-> **TC-TRES-24** — Unknown flag value renders safely  
-> Inject mock data with `flag: 'critical'` (not in FLAG_COLORS).  
-> Expected (current bug): chip bgcolor = "undefined18" — invalid CSS.  
-> Expected (after SUG-003): grey chip bg (#64748B + 18% alpha).
-
-### SUG-TRES-PLAN-004 — TC: Download PDF Clicked (Bug Repro)
-
-> **TC-TRES-25** — Verify Download PDF is non-functional (TC-20 repro)  
-> Open any completed result (TR-001, TR-002, TR-003, TR-006).  
-> Click "Download PDF". Monitor browser download prompt and Network tab.  
-> Expected: No download. No network request. No browser action.
-
-### SUG-TRES-PLAN-005 — TC: Order Test Clicked (Bug Repro)
-
-> **TC-TRES-26** — Verify Order Test is non-functional (TC-21 repro)  
-> Click "Order Test" button in header.  
-> Expected: No modal opened, no route navigation, no console action.  
-> After SUG-002 fix: an "Order New Test" dialog should open.
-
-### SUG-TRES-PLAN-006 — TC: Reset Filters Clears All
-
-> **TC-TRES-27** — Reset all filters at once  
-> Set Search = "John", Type = "Blood Test", Status = "Completed".  
-> Expected: 1 row shown (TR-001).  
-> Click "Clear Filters" button (after SUG-004 fix).  
-> Expected: All 6 rows returned, all 3 filters reset.
-
-### SUG-TRES-PLAN-007 — TC: Search is Case-Insensitive
-
-> **TC-TRES-28** — Case-insensitive patient/test/ID search  
-> Type "sarah" (lowercase) → same result as "Sarah".  
-> Type "tr-001" (lowercase) → same result as "TR-001".  
-> Source: `.toLowerCase().includes(search.toLowerCase())`.
-
-### SUG-TRES-PLAN-008 — TC: Sort by Date Ordered (After Enhancement)
-
-> **TC-TRES-29** — Column sort on Date Ordered  
-> After SUG-005 addition: click "Date Ordered" column header.  
-> Expected: Oldest first (TR-006: 2026-02-15) → Newest last (TR-005: 2026-03-10).  
-> Click again: reverse order.
-
-### SUG-TRES-PLAN-009 — TC: Urine Test Filter → TR-006 Only
-
-> **TC-TRES-30** — Type = "Urine Test" filter  
-> Select "Urine Test" from Type dropdown.  
-> Expected: 1 row — TR-006 Jessica Liu, Urine Analysis. 🧪 emoji shown.  
-> (This type is not covered in TC-TRES-07 which only covers Blood Test.)
+### SUG-TRES-009 — Add "Share Result" Action in Dialog
+```
+Status: PENDING
+Notes: Along with Download PDF, add a "Share" button that copies a formatted summary to clipboard.
+       Use navigator.clipboard.writeText(lines.join('\n')).
+Priority: Low
+```
 
 ---
 
 ## Summary Table
 
-| ID | Suggestion | Category | Priority |
-|----|-----------|----------|----------|
-| SUG-TRES-001 | Implement Download PDF handler | 🐛 Bug Fix | 🔴 High |
-| SUG-TRES-002 | Implement Order Test handler | 🐛 Bug Fix | 🔴 High |
-| SUG-TRES-003 | Fix unknown flag chip bgcolor | 🛡 Guard | 🔴 High |
-| SUG-TRES-004 | Add Reset Filters button | ✨ UX | 🟡 Medium |
-| SUG-TRES-005 | Add column sorting | ✨ Feature | 🟡 Medium |
-| SUG-TRES-006 | Add loading skeleton | ⚡ Performance | 🟡 Medium |
-| SUG-TRES-007 | Add "low" flag test data | 🧪 Test Data | 🟡 Medium |
-
-### Quick Wins (1–3 lines):
-- **SUG-TRES-003**: `const flagColor = FLAG_COLORS[v.flag] || '#64748B'` — 1 line fix
-- **SUG-TRES-004**: Reset button conditional render — ~8 lines
+| ID | Description | Status |
+|----|-------------|--------|
+| SUG-TRES-001 | Download PDF handler | ✅ COMPLETED |
+| SUG-TRES-002 | Order Test dialog | ✅ COMPLETED |
+| SUG-TRES-003 | Unknown flag chip fallback | ✅ COMPLETED |
+| SUG-TRES-004 | Clear Filters button | ✅ COMPLETED |
+| SUG-TRES-005 | Column sorting | ⏳ PENDING |
+| SUG-TRES-006 | Loading skeleton | ⏳ PENDING |
+| SUG-TRES-007 | "low" flag mock data | ✅ COMPLETED |
+| SUG-TRES-008 | Order pushes to mock state | ⏳ PENDING (New) |
+| SUG-TRES-009 | Share result to clipboard | ⏳ PENDING (New) |

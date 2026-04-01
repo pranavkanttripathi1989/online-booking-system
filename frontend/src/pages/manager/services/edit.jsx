@@ -31,7 +31,17 @@ export default function EditServicePage() {
     onError: (err) => enqueueSnackbar(err.message, { variant:'error' }),
   })
 
-  if (fetching || !form) return <Box><Skeleton variant="rectangular" height={56} sx={{ borderRadius:2, mb:3 }} /><Skeleton variant="rectangular" height={400} sx={{ borderRadius:3 }} /></Box>
+  // BUG-SVC-003 FIX: always render back-button header in skeleton state to prevent nav trap
+  if (fetching || !form) return (
+    <Box className="page-enter">
+      <Box sx={{ display:'flex', alignItems:'center', gap:1.5, mb:3 }}>
+        <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor:'#F1F3F4' }} aria-label="Back to services"><ArrowBackRoundedIcon /></IconButton>
+        <Typography variant="h5" fontWeight={800} color="text.secondary">Edit Service</Typography>
+      </Box>
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius:2, mb:3 }} />
+      <Skeleton variant="rectangular" height={400} sx={{ borderRadius:3 }} />
+    </Box>
+  )
 
   const set = (f) => (e) => setForm(p => ({...p, [f]: e.target.value}))
 
@@ -60,8 +70,8 @@ export default function EditServicePage() {
             <Grid container spacing={2.5}>
               <Grid item xs={12}><TextField fullWidth label="Service Name *" value={form.name} onChange={set('name')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Description" value={form.description} onChange={set('description')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Duration (minutes)" type="number" value={form.duration_minutes} onChange={set('duration_minutes')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} InputProps={{ startAdornment:<InputAdornment position="start">£</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Duration (minutes)" type="number" value={form.duration_minutes} onChange={set('duration_minutes')} inputProps={{ min: 1 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} inputProps={{ min: 0, step: 0.01 }} InputProps={{ startAdornment:<InputAdornment position="start">£</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
             </Grid>
           </Paper>
         </Grid>

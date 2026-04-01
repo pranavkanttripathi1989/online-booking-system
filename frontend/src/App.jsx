@@ -211,6 +211,10 @@ function App() {
           <Route path="/patient/dashboard"      element={<Suspense fallback={<ShellPageLoader />}><PatientDashboard /></Suspense>} />
           <Route path="/patient/appointments"   element={<Suspense fallback={<ShellPageLoader />}><PatientAppointments /></Suspense>} />
           <Route path="/patient/profile"        element={<Suspense fallback={<ShellPageLoader />}><PatientProfile /></Suspense>} />
+          {/* SUG-PTDASH-001: /booking/search used by Patient Dashboard CTAs — redirect to existing booking wizard */}
+          <Route path="/booking/search"         element={<Navigate to="/appointments/book" replace />} />
+          {/* SUG-PTAPPT-003: Receipt page redirect — navigates to appointments list until a receipt page is built */}
+          <Route path="/patient/appointments/:id/receipt" element={<Navigate to="/patient/appointments" replace />} />
 
           {/* ── Clinician Portal ──────────────────────────────────────── */}
           <Route path="/clinician/dashboard"    element={<Suspense fallback={<ShellPageLoader />}><ClinicianDashboard /></Suspense>} />

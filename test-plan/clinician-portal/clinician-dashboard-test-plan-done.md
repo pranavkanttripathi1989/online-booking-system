@@ -2,7 +2,7 @@
 
 **Route:** `/clinician/dashboard`  
 **File:** `frontend/src/pages/clinician/Dashboard.jsx`  
-**Status:** ✅ Updated — 2026-03-19 (Session 2 QA)
+**Status:** ✅ Updated — 2026-03-30 (Session 5 QA) · **Total: 34 TCs, 10 Edge Cases**
 
 ---
 
@@ -311,3 +311,28 @@ Clinician-facing dashboard with:
 | E8 | Labels in PM hours | "2:30 PM" not "14:30" |
 | E9 | Queue video item click | Drawer shows Join Call button; not shown for in-person |
 | E10 | Multiple rapid queue clicks | Drawer always shows most-recently-clicked patient |
+
+---
+
+## Session 5 Test Cases (TC-CLDASH-32 to TC-CLDASH-34)
+
+### TC-CLDASH-32 — "Now h:mm A" Chip on Current Time Line (SUG-CLDASH-014)
+**Steps:** Load dashboard between 08:00–18:00. Observe the red current-time line.  
+**Expected:** A small red pill chip reading "Now 2:35 PM" appears immediately to the right of the red dot. Chip is non-clickable (`pointerEvents: none`). Chip hidden when time is outside 08:00–18:00.
+
+---
+
+### TC-CLDASH-33 — Block Snackbar Uses 12h Format (SUG-CLDASH-015)
+**Steps:** Click "Add Block" → enter Start: 10:00, End: 11:00 → Save.  
+**Expected:** Snackbar reads: `"Block 10:00 AM–11:00 AM added to schedule."` No 24h `HH:mm` found.
+
+---
+
+### TC-CLDASH-34 — Delete Locally-Added Block from Timeline (SUG-CLDASH-016)
+**Steps:**
+1. Add a block via "Add Block" drawer. Observe grey spacer on timeline.  
+   **Expected:** × button visible at right edge of the new block.
+2. Click ×.  
+   **Expected:** Block removed from timeline instantly. No page refresh needed.
+3. Observe MOCK_SPACERS "Morning admin" block.  
+   **Expected:** No × button shown (server-side blocks are not deletable from frontend).

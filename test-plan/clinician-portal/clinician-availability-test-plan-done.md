@@ -2,7 +2,7 @@
 
 **Route:** `/clinician/availability`  
 **File:** `frontend/src/pages/clinician/Availability.jsx`  
-**Status:** ✅ Updated — 2026-03-19 (Session 3 QA)
+**Status:** ✅ Updated — 2026-03-30 (Session 4 QA) · **Total: 41 TCs, 9 Edge Cases**
 
 ---
 
@@ -199,4 +199,33 @@
 | TC-CLAVAIL-01 to TC-CLAVAIL-18 | 18 | ✅ Updated (Session 2 + 3) |
 | TC-CLAVAIL-19 to TC-CLAVAIL-31 | 13 | ✅ Added Session 2 |
 | TC-CLAVAIL-32 to TC-CLAVAIL-38 | 7  | ✅ Added Session 3 |
+| TC-CLAVAIL-39 to TC-CLAVAIL-41 | 3  | ✅ Added Session 4 |
 | Edge cases (E1–E9) | 9 | ✅ 8 resolved, 1 deferred (E5) |
+
+---
+
+## Session 4 Test Cases (TC-CLAVAIL-39 to TC-CLAVAIL-41)
+
+### TC-CLAVAIL-39 — Duration Badge on Slot Cards (NEW-CLAVAIL-014)
+**Steps:** Load `/clinician/availability` in mock mode. Observe slot cards in the weekly grid.  
+**Expected:** Each slot card shows a frosted-pill badge (e.g. "8h", "4h 30m") at the right side of the time row.  
+**Expected (edge):** Slot where end ≤ start shows no badge (returns `null` from `formatDuration()`).
+
+---
+
+### TC-CLAVAIL-40 — Delete Button in Lunch Edit Drawer (NEW-CLAVAIL-015)
+**Steps:**
+1. Click the Edit icon on an existing lunch break. Observe drawer bottom bar.  
+   **Expected:** Red "Delete" button at lower-left. Cancel + Save Break at lower-right.
+2. Click "Add Break". Observe drawer bottom bar.  
+   **Expected:** No Delete button (New break — editLunch is null → `<Box />` placeholder).
+3. Click Delete while in edit mode.  
+   **Expected:** `ConfirmDialog` opens (existing flow via `handleDeleteLunch()`).
+
+---
+
+### TC-CLAVAIL-41 — Slot/Lunch Count Chips in Header (NEW-CLAVAIL-016)
+**Steps:** Load page with 5 mock slots and 1 mock lunch break.  
+**Expected:** Two chips appear below subtitle: `"5 slots"` (primary-light) and `"1 lunch break"` (warning-light).  
+**Expected (singular):** With 1 slot: `"1 slot"` (no trailing 's'). With 0: `"0 slots"`.  
+**Expected (reactive):** After adding/removing a slot, counts update without page refresh.

@@ -73,6 +73,17 @@ const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 const DAY_LABELS = ['M', 'Tu', 'W', 'Th', 'F', 'Sa', 'Su'];
 const DAY_FULL   = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
 
+// NEW-CLAVAIL-014: Format duration from HH:mm strings (e.g. '09:00' → '17:00' = '8h')
+function formatDuration(startTime, endTime) {
+  const [sh, sm] = startTime.split(':').map(Number);
+  const [eh, em] = endTime.split(':').map(Number);
+  const totalMins = (eh * 60 + em) - (sh * 60 + sm);
+  if (totalMins <= 0) return null;
+  const h = Math.floor(totalMins / 60);
+  const m = totalMins % 60;
+  return m === 0 ? `${h}h` : `${h}h ${m}m`;
+}
+
 // ─── Mock Data (BUG-CLAVAIL-001 / SUG-CLAVAIL-002) ─────────────────────────
 // Items are tagged with _type so the grid can distinguish slots from lunches
 // without relying on fragile ID-substring checks (ISSUE-S3-003 fix)
@@ -403,6 +414,8 @@ export default function ClinicianAvailability() {
               const roomObj  = rooms.find(r => r.id === item.roomId);
               const roomName = roomObj ? (roomObj.name || 'Unnamed Room') + ` (Room ${roomObj.roomNumber})` : 'Consulting Room';
 
+              // NEW-CLAVAIL-014: compute duration for badge
+              const durationLabel = formatDuration(item.startTime, item.endTime);
               return (
                 <Tooltip key={item.id} title={`Edit ${dayjs(`2000-01-01T${item.startTime}`).format('h:mm A')} – ${dayjs(`2000-01-01T${item.endTime}`).format('h:mm A')} · ${roomName}`} placement="top">
                   <Box sx={{
@@ -412,9 +425,20 @@ export default function ClinicianAvailability() {
                     boxShadow: '0 2px 4px rgba(0,0,0,0.1)',
                     '&:hover': { transform: 'translateY(-2px)', boxShadow: '0 4px 8px rgba(0,0,0,0.15)', opacity: 0.95 },
                   }} onClick={() => handleOpenDrawer(dayIndex, item)}>
-                    <Typography variant="body2" fontWeight={800} letterSpacing={0.5} display="block" mb={0.5}>
-                      {dayjs(`2000-01-01T${item.startTime}`).format('h:mm A')} — {dayjs(`2000-01-01T${item.endTime}`).format('h:mm A')}
-                    </Typography>
+                    <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={0.5}>
+                      <Typography variant="body2" fontWeight={800} letterSpacing={0.5}>
+                        {dayjs(`2000-01-01T${item.startTime}`).format('h:mm A')} — {dayjs(`2000-01-01T${item.endTime}`).format('h:mm A')}
+                      </Typography>
+                      {/* NEW-CLAVAIL-014: duration badge */}
+                      {durationLabel && (
+                        <Typography variant="caption" sx={{
+                          bgcolor: 'rgba(255,255,255,0.2)', borderRadius: 1, px: 0.75, py: '2px',
+                          fontWeight: 700, lineHeight: 1.4, flexShrink: 0, ml: 0.5,
+                        }}>
+                          {durationLabel}
+                        </Typography>
+                      )}
+                    </Box>
                     <Typography variant="caption" sx={{ opacity: 0.85, display: 'block', lineHeight: 1.2 }}>
                       {roomName}
                     </Typography>
@@ -442,6 +466,10 @@ export default function ClinicianAvailability() {
     );
   }
 
+  // NEW-CLAVAIL-016: Total slot + lunch break count for summary header
+  const totalSlots  = availabilities.filter(a => a._type === 'slot').length;
+  const totalLunches = lunchBreaks.length;
+
   // ── Main render ───────────────────────────────────────────────────────
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
@@ -453,6 +481,13 @@ export default function ClinicianAvailability() {
           <Typography variant="body1" color="text.secondary">
             Configure your working hours, recurring blocks, and lunch breaks.
           </Typography>
+          {/* NEW-CLAVAIL-016: at-a-glance summary */}
+          <Box display="flex" gap={1} mt={1}>
+            <Chip size="small" label={`${totalSlots} slot${totalSlots !== 1 ? 's' : ''}`}
+              sx={{ bgcolor: 'primary.light', color: 'primary.dark', fontWeight: 700, fontSize: '0.72rem' }} />
+            <Chip size="small" label={`${totalLunches} lunch break${totalLunches !== 1 ? 's' : ''}`}
+              sx={{ bgcolor: 'warning.light', color: 'warning.dark', fontWeight: 700, fontSize: '0.72rem' }} />
+          </Box>
         </Box>
       </Box>
 
@@ -596,6 +631,17 @@ export default function ClinicianAvailability() {
                     You can still save.
                   </Alert>
                 )}
+                {/* SUG-DT-006: live 12h preview — shows selected times in h:mm A format */}
+                {(formData.start_time || formData.end_time) && !isEndBeforeStart && (
+                  <Box sx={{ mt: 1, px: 1.5, py: 0.75, bgcolor: '#E8F8F9', borderRadius: 2, border: '1px solid #B2EBF2' }}>
+                    <Typography variant="caption" sx={{ color: '#006D77', fontWeight: 700 }}>
+                      Selected:{' '}
+                      {formData.start_time ? formData.start_time.format('h:mm A') : '—'}
+                      {' – '}
+                      {formData.end_time ? formData.end_time.format('h:mm A') : '—'}
+                    </Typography>
+                  </Box>
+                )}
               </Box>
 
               {/* 4. Location */}
@@ -713,13 +759,21 @@ export default function ClinicianAvailability() {
           </LocalizationProvider>
         </Box>
 
-        <Stack direction="row" justifyContent="flex-end" gap={2}
+        {/* NEW-CLAVAIL-015: Delete button in lunch edit drawer action row */}
+        <Stack direction="row" justifyContent="space-between" alignItems="center"
           sx={{ mt: 3, pt: 3, borderTop: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
-          <Button onClick={handleCloseLunchDrawer} disabled={savingLunch} variant="outlined">Cancel</Button>
-          <Button variant="contained" onClick={handleSaveLunch}
-            disabled={savingLunch || isLunchEndBeforeStart}>
-            {savingLunch ? 'Saving…' : 'Save Break'}
-          </Button>
+          {editLunch ? (
+            <Button color="error" onClick={() => handleDeleteLunch(editLunch.id)} disabled={savingLunch}>
+              Delete
+            </Button>
+          ) : <Box />}
+          <Stack direction="row" gap={2}>
+            <Button onClick={handleCloseLunchDrawer} disabled={savingLunch} variant="outlined">Cancel</Button>
+            <Button variant="contained" onClick={handleSaveLunch}
+              disabled={savingLunch || isLunchEndBeforeStart}>
+              {savingLunch ? 'Saving…' : 'Save Break'}
+            </Button>
+          </Stack>
         </Stack>
       </Drawer>
 

@@ -409,6 +409,12 @@ export function respondToReview(id, response) {
   return review
 }
 
+// SUG-REV-003: Persist deletes to MockStore (consistent with respondToReview)
+export function deleteReview(id) {
+  store.reviews = store.reviews.filter(r => r.id !== id)
+  notify()
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // AVAILABILITY / BLOCKS
 // ─────────────────────────────────────────────────────────────────────────────

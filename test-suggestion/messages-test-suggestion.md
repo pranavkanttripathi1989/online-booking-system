@@ -1,7 +1,7 @@
-# Messages — Test Suggestions & Implementation Status
+# Messages — Test Suggestions & Implementation Status (Final)
 
-**Module:** Messages / Inbox  
-**Last Updated:** 2026-03-20  
+**Module:** Messages / Inbox
+**Last Updated:** 2026-03-31 (Session QA)
 
 ---
 
@@ -20,25 +20,19 @@
 
 | ID | Suggestion | Priority | Status | Notes |
 |----|-----------|----------|--------|-------|
-| SUG-MSG-005 | Conversation type labels (Patient/Clinician/Staff role chips with icons/colors) | 🟡 Medium | ✅ COMPLETED | `ROLE_STYLE` map + `RoleChip` component; visible in contact list and thread header |
-| SUG-MSG-006 | Message delivery status ticks (✓ sent, ✓✓ green = read by recipient) | 🟡 Medium | ✅ COMPLETED | `DoneRoundedIcon`/`DoneAllRoundedIcon` with tooltip on sent messages |
-| SUG-MSG-007 | Quick reply shortcut from appointment detail page | 🟢 Low | ⏳ DEFERRED | Would require cross-page state or URL params. Deferred to next sprint. |
+| SUG-MSG-005 | Conversation type labels (Patient/Clinician/Staff role chips) | 🟡 Medium | ✅ COMPLETED | `ROLE_STYLE` map + `RoleChip` component; visible in contact list and thread header |
+| SUG-MSG-006 | Message delivery status ticks (✓ sent, ✓✓ green = read) | 🟡 Medium | ✅ COMPLETED | `DoneRoundedIcon`/`DoneAllRoundedIcon` with tooltip on sent messages |
+| SUG-MSG-007 | Quick reply shortcut from appointment detail page | 🟢 Low | ⏳ DEFERRED | Requires cross-page state or URL params. Deferred to next sprint. |
 | SUG-MSG-008 | Attachment / file upload support | 🟢 Low | ⏳ DEFERRED | Requires file handling mock. Deferred to next sprint. |
 
 ---
 
-## Additional Code Quality Improvements Applied
+## Session QA Fixes (New)
 
-| Improvement | Rationale |
-|-------------|-----------|
-| `useEffect` subscription uses `[]` + `activeThreadRef` pattern | Prevents re-subscription on every thread click (memory leak) |
-| Empty search state with icon + message | Better UX when no conversations match search |
-| Grouped Autocomplete in compose dialog | Patients and clinicians separated with role icons |
-| `AppShell` `NAV_CONFIG` Messages badge changed from hardcoded `3` to `0`; subscribes to MockStore | Dynamic badge stays in sync with actual unread count |
-| `send` button disabled when input empty | Prevents empty message submission |
-| `fontSize: '16px'` on mobile message input | Prevents iOS auto-zoom on focus |
-| `multiline maxRows={3}` on input | Graceful handling of long messages |
-| Tooltips on all icon action buttons | Accessibility + discoverability |
+| ID | Fix | Priority | Status | Notes |
+|----|-----|----------|--------|-------|
+| SUG-MSG-009 | aria-labels on all icon buttons | 🟡 Medium | ✅ COMPLETED | compose btn (`"New message"`), back btn (`"Back to inbox"`), call (`"Start voice call"`), video (`"Start video call"`), info (`"Conversation info"`), attach (`"Attach file"`), emoji (`"Insert emoji"`) |
+| SUG-MSG-010 | ErrorBoundary wrapper on MessagesPage | 🟡 Medium | ✅ COMPLETED | `MessagesPageWithBoundary` export wraps `MessagesPage` in `<ErrorBoundary>` |
 
 ---
 
@@ -46,7 +40,24 @@
 
 | Item | Reason |
 |------|--------|
-| SUG-MSG-007 Quick reply from appointment | Cross-page routing state needed; out of scope for this sprint |
-| SUG-MSG-008 Attachment upload | Mock file handling not implemented; defer |
+| SUG-MSG-007 Quick reply from appointment | Cross-page routing state needed; out of scope for this session |
+| SUG-MSG-008 Attachment upload | Mock file handling not implemented; deferred |
 | Real-time WebSocket typing indicators | Backend required; mock-only scope |
 | Message read receipts per-user | Complex multi-user state; backend required |
+
+---
+
+## Summary Table
+
+| ID | Description | Status |
+|----|-------------|--------|
+| SUG-MSG-001 | Unread badge clear on thread select | ✅ COMPLETED |
+| SUG-MSG-002 | Compose new message button + dialog | ✅ COMPLETED |
+| SUG-MSG-003 | Mobile back button in thread view | ✅ COMPLETED |
+| SUG-MSG-004 | Search useMemo (no race condition) | ✅ COMPLETED |
+| SUG-MSG-005 | Role type labels (Patient/Clinician/Staff) | ✅ COMPLETED |
+| SUG-MSG-006 | Delivery ticks (✓/✓✓) on sent messages | ✅ COMPLETED |
+| SUG-MSG-007 | Quick reply from appointments | ⏳ DEFERRED |
+| SUG-MSG-008 | Attachment upload | ⏳ DEFERRED |
+| SUG-MSG-009 | aria-labels on all icon buttons | ✅ COMPLETED |
+| SUG-MSG-010 | ErrorBoundary wrapper | ✅ COMPLETED |

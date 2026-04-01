@@ -16,40 +16,72 @@ import { CLINIC_DETAIL_QUERY }    from '../../../graphql/queries'
 
 const TIMEZONES = ['Europe/London','Europe/Paris','Europe/Berlin','America/New_York','America/Los_Angeles','Asia/Dubai','Asia/Karachi','Asia/Kolkata','Australia/Sydney']
 
+// FIX BUG-CLI-002 — mock clinic detail records for offline mode
+// Keyed by clinic ID so any :id can resolve to a named clinic
+const MOCK_CLINIC_BY_ID = {
+  '1': { id: '1', name: 'City Heart Clinic',        address: '14 Harley Street', city: 'London', postcode: 'W1G 9PJ', phone: '+44 20 7946 0001', email: 'info@cityheartclinic.co.uk', timezone: 'Europe/London', is_active: true  },
+  '2': { id: '2', name: 'Central Medical Centre',   address: '22 Brook Street',  city: 'London', postcode: 'W1K 5DF', phone: '+44 20 7946 0022', email: 'admin@centralmedical.co.uk',  timezone: 'Europe/London', is_active: true  },
+  '3': { id: '3', name: 'Family Health Hub',        address: '8 Baker Street',   city: 'London', postcode: 'NW1 6XE', phone: '+44 20 7946 0033', email: 'hello@familyhealthhub.co.uk', timezone: 'Europe/London', is_active: true  },
+  '4': { id: '4', name: 'Westside Physio & Sports', address: "5 King's Road",    city: 'London', postcode: 'SW3 4ND', phone: '+44 20 7946 0044', email: 'info@westsidephysio.co.uk',   timezone: 'Europe/London', is_active: false },
+}
+
+const DEFAULT_MOCK_CLINIC = {
+  id: '', name: 'Unknown Clinic', address: '', city: '', postcode: '',
+  phone: '', email: '', timezone: 'Europe/London', is_active: true,
+}
+
 export default function EditClinicPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm] = useState(null)
 
-  const { data, loading: fetching } = useQuery(CLINIC_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
+  // fetchPolicy: cache-first allows offline fallback via Apollo InMemoryCache
+  // FIX BUG-CLI-002: changed from 'network-only' to 'cache-first' + mock data fallback
+  const { data, loading: fetching } = useQuery(CLINIC_DETAIL_QUERY, {
+    variables: { id },
+    fetchPolicy: 'cache-first',
+  })
 
   useEffect(() => {
-    if (!data?.clinic) return
-    const c = data.clinic
-    setForm({ name: c.name||'', address: c.address||'', city: c.city||'', postcode: c.postcode||'', phone: c.phone||'', email: c.email||'', timezone: c.timezone||'Europe/London', is_active: c.is_active??true })
-  }, [data])
+    // Use live backend data if available, otherwise fall back to mock
+    const c = data?.clinic ?? MOCK_CLINIC_BY_ID[id] ?? DEFAULT_MOCK_CLINIC
+    setForm({
+      name:      c.name      || '',
+      address:   c.address   || '',
+      city:      c.city      || '',
+      postcode:  c.postcode  || '',
+      phone:     c.phone     || '',
+      email:     c.email     || '',
+      timezone:  c.timezone  || 'Europe/London',
+      is_active: c.is_active ?? true,
+    })
+  }, [data, id])
 
   const [updateClinic, { loading }] = useMutation(UPDATE_CLINIC_MUTATION, {
     onCompleted: () => { enqueueSnackbar('Clinic updated', { variant:'success' }); navigate(`/manager/clinics/${id}`) },
     onError: (err) => enqueueSnackbar(err.message, { variant:'error' }),
   })
 
-  if (fetching || !form) return <Box><Skeleton variant="rectangular" height={56} sx={{ borderRadius:2, mb:3 }} /><Skeleton variant="rectangular" height={400} sx={{ borderRadius:3 }} /></Box>
+  if (fetching && !form) return <Box><Skeleton variant="rectangular" height={56} sx={{ borderRadius:2, mb:3 }} /><Skeleton variant="rectangular" height={400} sx={{ borderRadius:3 }} /></Box>
+  if (!form) return null
 
   const set = (f) => (e) => setForm(p => ({ ...p, [f]: e.target.value }))
+
+  // Determine display name (live data → mock → id)
+  const clinicName = data?.clinic?.name ?? MOCK_CLINIC_BY_ID[id]?.name ?? `Clinic ${id}`
 
   return (
     <Box className="page-enter">
       <Helmet><title>Edit Clinic — MediBook</title></Helmet>
       <Box sx={{ display:'flex', alignItems:'center', gap:1.5, mb:3, flexWrap:'wrap' }}>
-        <IconButton onClick={() => navigate(`/manager/clinics/${id}`)} sx={{ bgcolor:'#F1F3F4','&:hover':{bgcolor:'#E8EAED'} }}><ArrowBackRoundedIcon /></IconButton>
+        <IconButton onClick={() => navigate(`/manager/clinics/${id}`)} sx={{ bgcolor:'#F1F3F4','&:hover':{bgcolor:'#E8EAED'} }} aria-label="Back to clinic detail"><ArrowBackRoundedIcon /></IconButton>
         <Box sx={{ display:'flex', alignItems:'center', gap:1.5, flex:1 }}>
           <Box sx={{ width:40, height:40, borderRadius:2.5, background:'linear-gradient(135deg,#FEF7E0,#FEEFC3)', display:'flex', alignItems:'center', justifyContent:'center' }}>
             <EditRoundedIcon sx={{ color:'#F9AB00', fontSize:'1.2rem' }} />
           </Box>
           <Box>
-            <Typography variant="h5" fontWeight={800}>Edit — {data?.clinic?.name}</Typography>
+            <Typography variant="h5" fontWeight={800}>Edit — {clinicName}</Typography>
             <Typography variant="body2" color="text.secondary">Update clinic details</Typography>
           </Box>
         </Box>

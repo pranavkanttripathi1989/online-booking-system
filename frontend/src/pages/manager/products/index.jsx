@@ -13,6 +13,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import InventoryIcon from '@mui/icons-material/Inventory2'
 import CategoryIcon from '@mui/icons-material/Category'
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog'
+import ErrorBoundary from '../../../components/ErrorBoundary'
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 
@@ -65,7 +66,7 @@ const MOCK_PROD_SUBCATEGORIES = []
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ManagerProducts() {
+function ManagerProducts() {
   const client = useApolloClient()
   const navigate = useNavigate()
 
@@ -97,6 +98,7 @@ export default function ManagerProducts() {
   const [formError, setFormError]           = useState(null)
   const [successMsg, setSuccessMsg]         = useState(null)
   const [submitting, setSubmitting]         = useState(false)
+  const [isMockData, setIsMockData]         = useState(false)   // SUG-MGR-009
 
   const loadData = async () => {
     setLoading(true)
@@ -110,6 +112,7 @@ export default function ManagerProducts() {
       setProducts(MOCK_PRODUCTS)
       setCategories(MOCK_PROD_CATEGORIES)
       setSubcategories(MOCK_PROD_SUBCATEGORIES)
+      setIsMockData(true)   // SUG-MGR-009
     }
     finally { setLoading(false) }
   }
@@ -119,6 +122,11 @@ export default function ManagerProducts() {
 
   const showSuccess = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000) }
   const setFieldP  = (k, v) => setPForm(p => ({ ...p, [k]: v }))
+
+  // GAP-PRD-002 FIX — reset subcategory_id when category changes to avoid stale selection
+  useEffect(() => {
+    setPForm(p => ({ ...p, subcategory_id: '' }))
+  }, [pForm.category_id]) // eslint-disable-line
 
   // ── Product CRUD ──────────────────────────────────────────────────────────
   const resetPForm = () => { setPForm(dfProduct); setVariations([]); setEditProduct(null); setShowPForm(false); setFormError(null) }
@@ -218,6 +226,13 @@ export default function ManagerProducts() {
 
       {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
       {formError   && <Alert severity="error"   sx={{ mb: 2 }} onClose={() => setFormError(null)}>{formError}</Alert>}
+      {/* SUG-MGR-009 FIX: offline demo data banner */}
+      {isMockData && (
+        <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+          <strong>Demo mode</strong> — Showing sample data. Backend is offline or unreachable.
+        </Alert>
+      )}
+
 
       {/* Tabs */}
       <Tabs value={tabIndex} onChange={(_, v) => setTabIndex(v)} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
@@ -258,6 +273,10 @@ export default function ManagerProducts() {
                         <Select label="Subcategory" value={pForm.subcategory_id}
                           onChange={e => setFieldP('subcategory_id', e.target.value)}>
                           <MenuItem value="">None</MenuItem>
+                          {/* SUG-PRD-007 FIX: empty state when category has no subcategories */}
+                          {pForm.category_id && filteredSubs.length === 0 && (
+                            <MenuItem value="" disabled>No subcategories for this category</MenuItem>
+                          )}
                           {filteredSubs.map(s => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
                         </Select>
                       </FormControl>
@@ -277,8 +296,10 @@ export default function ManagerProducts() {
 
                     {pForm.product_type === 'simple' && (
                       <Grid item xs={12} sm={6}>
+                        {/* GAP-PRD-001 FIX: min=0 prevents negative price */}
                         <TextField fullWidth required size="small" type="number" label="Price"
                           InputProps={{ startAdornment: <InputAdornment position="start">£</InputAdornment> }}
+                          inputProps={{ min: 0, step: 0.01 }}
                           value={pForm.price} onChange={e => setFieldP('price', e.target.value)} />
                       </Grid>
                     )}
@@ -336,10 +357,11 @@ export default function ManagerProducts() {
                       <InventoryIcon color="primary" />
                       <Stack direction="row" spacing={0.5}>
                         <Tooltip title="Edit">
-                          <IconButton size="small" onClick={() => navigate(`/manager/products/${p.id}/edit`)}><EditIcon fontSize="small" /></IconButton>
+                          {/* GAP-PRD-001 + aria-label */}
+                          <IconButton size="small" aria-label={`Edit ${p.name}`} onClick={() => navigate(`/manager/products/${p.id}/edit`)}><EditIcon fontSize="small" /></IconButton>
                         </Tooltip>
                         <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={() => handleDelete('product', p.id)}><DeleteIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" color="error" aria-label={`Delete ${p.name}`} onClick={() => handleDelete('product', p.id)}><DeleteIcon fontSize="small" /></IconButton>
                         </Tooltip>
                       </Stack>
                     </Stack>
@@ -428,11 +450,12 @@ export default function ManagerProducts() {
                       </Stack>
                     </Box>
                     <Stack direction="row" spacing={0.5}>
+                      {/* SUG-PRD-010 FIX: aria-labels on category icon buttons */}
                       <Tooltip title="Edit category">
-                        <IconButton size="small" onClick={() => { setEditCat(cat); setCatForm({ name: cat.name, description: cat.description || '' }); setShowCatForm(true) }}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" aria-label={`Edit category ${cat.name}`} onClick={() => { setEditCat(cat); setCatForm({ name: cat.name, description: cat.description || '' }); setShowCatForm(true) }}><EditIcon fontSize="small" /></IconButton>
                       </Tooltip>
                       <Tooltip title="Delete category">
-                        <IconButton size="small" color="error" onClick={() => handleDelete('category', cat.id)}><DeleteIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" aria-label={`Delete category ${cat.name}`} onClick={() => handleDelete('category', cat.id)}><DeleteIcon fontSize="small" /></IconButton>
                       </Tooltip>
                     </Stack>
                   </Stack>
@@ -458,4 +481,9 @@ export default function ManagerProducts() {
       />
     </Box>
   )
+}
+
+// SUG-PRD-009 FIX: ErrorBoundary wraps the full module for crash resilience
+export default function ManagerProductsWithBoundary() {
+  return <ErrorBoundary><ManagerProducts /></ErrorBoundary>
 }

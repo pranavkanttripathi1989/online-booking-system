@@ -1,8 +1,9 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box, Stack, Typography, Card, CardContent, Button, Chip, Divider,
   Avatar, Paper, Tab, Tabs, IconButton, Grid, TextField, InputAdornment,
   Select, MenuItem, FormControl, InputLabel,
+  Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material';
 import { StatusChip, EmptyState, AppointmentsListSkeleton } from '../../components/shared';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -42,7 +43,9 @@ const APPOINTMENTS = [
   },
 ];
 
-function AppointmentCard({ appt, onCancel, onJoinVideo }) {
+// SUG-PTAPPT-003: Receipt handler (passed down from parent)
+// SUG-PTAPPT-005: Price null guard
+function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt }) {
   const isUpcoming   = ['scheduled', 'confirmed'].includes(appt.status);
   const borderColor  = appt.status === 'confirmed' ? '#2DC653' : appt.status === 'scheduled' ? '#006D77' : appt.status === 'cancelled' ? '#E63946' : '#D0E8EA';
 
@@ -55,7 +58,8 @@ function AppointmentCard({ appt, onCancel, onJoinVideo }) {
         <Grid item xs>
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }}>
             <Box>
-              <Typography fontWeight={700}>{appt.doctor}</Typography>
+              {/* SUG-PTAPPT-006: noWrap + maxWidth guard for long doctor names */}
+              <Typography fontWeight={700} noWrap sx={{ maxWidth: 280 }}>{appt.doctor}</Typography>
               <Chip label={appt.specialty} size="small" color="primary" variant="outlined" sx={{ mt: 0.25, mr: 1 }} />
               <Chip
                 icon={appt.type === 'video' ? <VideocamIcon /> : <LocationOnIcon />}
@@ -76,7 +80,10 @@ function AppointmentCard({ appt, onCancel, onJoinVideo }) {
               <AccessTimeIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
               <Typography variant="body2" color="text.secondary">{appt.time}</Typography>
             </Stack>
-            <Typography variant="body2" color="primary" fontWeight={700}>£{appt.price}</Typography>
+            {/* SUG-PTAPPT-005: Null guard for missing price */}
+            <Typography variant="body2" color="primary" fontWeight={700}>
+              {appt.price != null ? `£${appt.price}` : 'Price TBD'}
+            </Typography>
           </Stack>
         </Grid>
 
@@ -92,13 +99,21 @@ function AppointmentCard({ appt, onCancel, onJoinVideo }) {
                 Join Call
               </Button>
             )}
+            {/* SUG-PTAPPT-003: Receipt onClick handler */}
             {appt.status === 'completed' && (
-              <Button variant="outlined" size="small" startIcon={<DownloadIcon />}>Receipt</Button>
+              <Button
+                variant="outlined" size="small" startIcon={<DownloadIcon />}
+                aria-label={`Download receipt for ${appt.service}`}
+                onClick={() => onReceipt(appt)}
+              >
+                Receipt
+              </Button>
             )}
             {isUpcoming && (
               <Button
                 variant="outlined" size="small" color="error" startIcon={<CancelIcon />}
                 onClick={() => onCancel(appt.id)}
+                aria-label={`Cancel appointment with ${appt.doctor}`}
               >
                 Cancel
               </Button>
@@ -111,16 +126,52 @@ function AppointmentCard({ appt, onCancel, onJoinVideo }) {
 }
 
 export default function PatientAppointments() {
-  const navigate     = useNavigate();
+  const navigate = useNavigate();
   const [tab, setTab] = useState(0);
   const [search, setSearch] = useState('');
 
-  const upcoming  = APPOINTMENTS.filter((a) => ['scheduled', 'confirmed'].includes(a.status));
-  const past      = APPOINTMENTS.filter((a) => ['completed', 'cancelled'].includes(a.status));
+  // SUG-PTAPPT-002: Controlled sort state
+  const [sortBy, setSortBy] = useState('date');
 
-  const filtered = (tab === 0 ? upcoming : past).filter((a) =>
-    !search || a.doctor.toLowerCase().includes(search.toLowerCase()) || a.specialty.toLowerCase().includes(search.toLowerCase())
-  );
+  // SUG-PTAPPT-001 + SUG-PTAPPT-007: Convert to state so cancel updates UI + subtitle
+  const [appointments, setAppointments] = useState(APPOINTMENTS);
+  const [cancelId, setCancelId] = useState(null);
+
+  const upcoming = appointments.filter((a) => ['scheduled', 'confirmed'].includes(a.status));
+  const past     = appointments.filter((a) => ['completed', 'cancelled'].includes(a.status));
+
+  // SUG-PTAPPT-001: Cancel handler — update status in state, no backend call in mock mode
+  const handleCancel = (id) => {
+    setAppointments((prev) =>
+      prev.map((a) => a.id === id ? { ...a, status: 'cancelled' } : a)
+    );
+    setCancelId(null);
+  };
+
+  // SUG-PTAPPT-003: Receipt handler — navigate to receipt page
+  const handleReceipt = (appt) => {
+    navigate(`/patient/appointments/${appt.id}/receipt`);
+  };
+
+  // SUG-PTAPPT-002 + SUG-PTAPPT-004: search resets on tab change; sort applied via useMemo
+  const handleTabChange = (_, v) => {
+    setTab(v);
+    setSearch(''); // Clear search on tab switch (E4 fix)
+  };
+
+  const filtered = useMemo(() => {
+    const base = (tab === 0 ? upcoming : past).filter((a) =>
+      !search ||
+      a.doctor.toLowerCase().includes(search.toLowerCase()) ||
+      a.specialty.toLowerCase().includes(search.toLowerCase())
+    );
+    // SUG-PTAPPT-002: Apply sort
+    return [...base].sort((a, b) => {
+      if (sortBy === 'doctor') return a.doctor.localeCompare(b.doctor);
+      if (sortBy === 'price')  return (a.price ?? 0) - (b.price ?? 0);
+      return new Date(a.date) - new Date(b.date); // default: date ascending
+    });
+  }, [tab, upcoming, past, search, sortBy]);
 
   return (
     <Box>
@@ -134,13 +185,13 @@ export default function PatientAppointments() {
         </Button>
       </Stack>
 
-      {/* Tabs */}
-      <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ borderBottom: '1px solid #D0E8EA', mb: 2 }}>
+      {/* Tabs — search resets on switch (SUG-PTAPPT-004) */}
+      <Tabs value={tab} onChange={handleTabChange} sx={{ borderBottom: '1px solid #D0E8EA', mb: 2 }}>
         <Tab label={`Upcoming (${upcoming.length})`} />
         <Tab label={`Past (${past.length})`} />
       </Tabs>
 
-      {/* Search + filter */}
+      {/* Search + sort — sort is now controlled (SUG-PTAPPT-002) */}
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <TextField
           size="small" placeholder="Search by doctor or specialty..."
@@ -150,7 +201,7 @@ export default function PatientAppointments() {
         />
         <FormControl size="small" sx={{ minWidth: 140 }}>
           <InputLabel>Sort by</InputLabel>
-          <Select defaultValue="date" label="Sort by">
+          <Select value={sortBy} onChange={(e) => setSortBy(e.target.value)} label="Sort by">
             <MenuItem value="date">Date</MenuItem>
             <MenuItem value="doctor">Doctor</MenuItem>
             <MenuItem value="price">Price</MenuItem>
@@ -172,12 +223,34 @@ export default function PatientAppointments() {
             <AppointmentCard
               key={appt.id}
               appt={appt}
-              onCancel={(id) => console.log('cancel', id)}
+              onCancel={(id) => setCancelId(id)}        // SUG-PTAPPT-001
               onJoinVideo={(id) => navigate(`/video/${id}`)}
+              onReceipt={handleReceipt}                 // SUG-PTAPPT-003
             />
           ))}
         </Stack>
       )}
+
+      {/* SUG-PTAPPT-001: Cancel Confirm Dialog */}
+      <Dialog open={Boolean(cancelId)} onClose={() => setCancelId(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Cancel Appointment?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary">
+            Are you sure you want to cancel this appointment? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setCancelId(null)} sx={{ textTransform: 'none' }}>Keep Appointment</Button>
+          <Button
+            id="confirm-cancel-btn"
+            color="error" variant="contained"
+            onClick={() => handleCancel(cancelId)}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            Yes, Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }

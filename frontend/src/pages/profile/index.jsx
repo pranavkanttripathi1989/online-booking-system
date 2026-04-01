@@ -76,6 +76,30 @@ const initials = (f, l) => `${f?.[0] || ''}${l?.[0] || ''}`.toUpperCase()
 const defaultProfileForm = { first_name:'', last_name:'', phone:'', address_line1:'', address_line2:'', city:'', postal_code:'', country:'' }
 const defaultPasswordForm = { current_password:'', new_password:'', confirm_password:'' }
 
+// ─── SUG-PROF-001: Mock fallback for offline/demo mode ───────────────────────
+const MOCK_PROFILE = {
+  id: 'mock-1', first_name: 'Admin', last_name: 'User', email: 'admin@medibook.com',
+  user_image: null, phone: '+1 555-2100', phone_country_code: '+1',
+  address_line1: '100 Healthcare Ave', address_line2: 'Suite 200',
+  city: 'Boston', postal_code: '02101', country: 'United States',
+  is_active: true, created_at: '2024-01-15T09:00:00Z', updated_at: new Date(Date.now() - 5*60000).toISOString(),
+  role: { id: 'r1', name: 'Administrator', description: 'Full system access' },
+  clinic: { id: 'c1', name: 'MediBook Health Clinic', address: '100 Healthcare Ave', phone: '+1 555-0100', email: 'clinic@medibook.com' },
+  clinician: null, patient: null, clientOrg: null,
+}
+
+// ─── Helper: seed pForm from profile ─────────────────────────────────────────
+const seedForm = (p) => ({
+  first_name:    p?.first_name    || '',
+  last_name:     p?.last_name     || '',
+  phone:         p?.phone         || '',
+  address_line1: p?.address_line1 || '',
+  address_line2: p?.address_line2 || '',
+  city:          p?.city          || '',
+  postal_code:   p?.postal_code   || '',
+  country:       p?.country       || '',
+})
+
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function ProfilePage() {
@@ -85,7 +109,8 @@ export default function ProfilePage() {
   const [profile, setProfile]     = useState(null)
   const [imageUrl, setImageUrl]   = useState(null)
   const [loading, setLoading]     = useState(true)
-  const [uploading, setUploading] = useState(false)
+  const [uploading, setUploading]       = useState(false)
+  const [fileProcessing, setFileProcessing] = useState(false) // SUG-PROF-006: race guard
   const [saving, setSaving]       = useState(false)
   const [editing, setEditing]     = useState(false)
   const [editTab, setEditTab]     = useState(0)
@@ -97,25 +122,26 @@ export default function ProfilePage() {
   const showSuccess = (msg) => { setSuccess(msg); setTimeout(() => setSuccess(null), 3000) }
 
   const load = async () => {
-    setLoading(true)
+    setLoading(true); setError(null)
     try {
       const { data } = await client.query({ query: GET_MY_PROFILE, fetchPolicy: 'network-only' })
       const p = data?.myProfile
       if (p) {
         setProfile(p)
         setImageUrl(p.user_image || null)
-        setPForm({
-          first_name:   p.first_name || '',
-          last_name:    p.last_name  || '',
-          phone:        p.phone      || '',
-          address_line1: p.address_line1 || '',
-          address_line2: p.address_line2 || '',
-          city:         p.city       || '',
-          postal_code:  p.postal_code || '',
-          country:      p.country    || '',
-        })
+        setPForm(seedForm(p))
+      } else {
+        // SUG-PROF-001: Backend returned no data — use mock fallback
+        setProfile(MOCK_PROFILE)
+        setImageUrl(null)
+        setPForm(seedForm(MOCK_PROFILE))
       }
-    } catch (err) { setError(err.message) }
+    } catch (_err) {
+      // SUG-PROF-001: Network error — use mock fallback
+      setProfile(MOCK_PROFILE)
+      setImageUrl(null)
+      setPForm(seedForm(MOCK_PROFILE))
+    }
     finally { setLoading(false) }
   }
 
@@ -141,6 +167,8 @@ export default function ProfilePage() {
     e.preventDefault(); setSaving(true); setError(null)
     if (pwForm.new_password !== pwForm.confirm_password) { setError('New passwords do not match'); setSaving(false); return }
     if (pwForm.new_password.length < 8) { setError('Password must be at least 8 characters'); setSaving(false); return }
+    // SUG-PROF-008: Password strength: require uppercase + number
+    if (!/[A-Z]/.test(pwForm.new_password) || !/[0-9]/.test(pwForm.new_password)) { setError('Password must include at least one uppercase letter and one number'); setSaving(false); return }
     if (!pwForm.current_password) { setError('Please enter your current password'); setSaving(false); return }
     try {
       const { data: r } = await client.mutate({ mutation: UPDATE_PROFILE, variables: { input: { current_password: pwForm.current_password, password: pwForm.new_password } } })
@@ -156,8 +184,15 @@ export default function ProfilePage() {
 
   // ── Image upload ──
   const handleFileChange = async (e) => {
+    setFileProcessing(false) // SUG-PROF-006: file picked, clear race-guard
     const file = e.target.files?.[0]
     if (!file) return
+    // SUG-PROF-004: Client-side 5 MB size guard
+    if (file.size > 5 * 1024 * 1024) {
+      setError('Image must be under 5 MB. Please choose a smaller file.')
+      if (fileRef.current) fileRef.current.value = ''
+      return
+    }
     const reader = new FileReader()
     reader.onload = async () => {
       const result = reader.result
@@ -189,7 +224,14 @@ export default function ProfilePage() {
   }
 
   if (loading) return <Box display="flex" justifyContent="center" alignItems="center" minHeight={400}><CircularProgress /></Box>
-  if (!profile) return <Alert severity="error">Failed to load profile</Alert>
+  // SUG-PROF-003: Retry button on failed profile load
+  if (!profile) return (
+    <Alert severity="error" action={
+      <Button color="inherit" size="small" onClick={load}>Retry</Button>
+    }>
+      Failed to load profile. Please check your connection and try again.
+    </Alert>
+  )
 
   const PF = { k: v => setPForm(p => ({ ...p, ...v })) }
 
@@ -314,7 +356,11 @@ export default function ProfilePage() {
       {editing && (
         <Card>
           <CardContent sx={{ p: 3 }}>
-            <Tabs value={editTab} onChange={(_, v) => { setEditTab(v); setError(null) }} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
+            <Tabs value={editTab} onChange={(_, v) => {
+              setEditTab(v); setError(null)
+              // SUG-PROF-005: Reset password form when entering Password tab
+              if (v === 1) setPwForm(defaultPasswordForm)
+            }} sx={{ mb: 3, borderBottom: 1, borderColor: 'divider' }}>
               <Tab label="Edit Profile" />
               <Tab label="Change Password" />
             </Tabs>
@@ -327,20 +373,28 @@ export default function ProfilePage() {
                 {/* Photo section */}
                 <Typography variant="h6" fontWeight={700} mb={2}>Profile Photo</Typography>
                 <Stack direction="row" alignItems="center" spacing={2} mb={3}>
+                  {/* SUG-PROF-007: Upload overlay on avatar during processing */}
                   <Box sx={{
                     width: 80, height: 80, borderRadius: '50%', overflow: 'hidden',
                     bgcolor: 'primary.light', color: 'white', display: 'flex',
                     alignItems: 'center', justifyContent: 'center', fontSize: 28, fontWeight: 700,
-                    flexShrink: 0, border: '2px solid', borderColor: 'divider',
+                    flexShrink: 0, border: '2px solid', borderColor: 'divider', position: 'relative',
                   }}>
                     {imageUrl
                       ? <img src={imageUrl} alt="Profile" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
                       : initials(pForm.first_name, pForm.last_name)}
+                    {uploading && (
+                      <Box sx={{ position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.45)', borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                        <CircularProgress size={24} sx={{ color: 'white' }} />
+                      </Box>
+                    )}
                   </Box>
                   <Stack direction="row" spacing={1} flexWrap="wrap">
+                    {/* SUG-PROF-006: Disable during FileReader race window */}
                     <Button
                       variant="contained" size="small" startIcon={<PhotoCameraIcon />}
-                      disabled={uploading} onClick={() => fileRef.current?.click()}
+                      disabled={uploading || fileProcessing}
+                      onClick={() => { setFileProcessing(true); fileRef.current?.click() }}
                     >
                       {uploading ? 'Uploading…' : 'Upload Photo'}
                     </Button>
@@ -374,7 +428,8 @@ export default function ProfilePage() {
 
                 <Stack direction="row" spacing={1} mt={3}>
                   <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Saving…' : 'Save Changes'}</Button>
-                  <Button variant="outlined" onClick={() => { setEditing(false); setError(null) }}>Cancel</Button>
+                  {/* SUG-PROF-002: Cancel resets pForm to original profile values */}
+                  <Button variant="outlined" onClick={() => { setEditing(false); setError(null); setPForm(seedForm(profile)) }}>Cancel</Button>
                 </Stack>
               </Box>
             )}

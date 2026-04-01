@@ -12,6 +12,7 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'
 import PaginationBar from '../../../components/PaginationBar/PaginationBar'
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog'
 import { usePagination } from '../../../hooks/usePagination'
+import ErrorBoundary from '../../../components/ErrorBoundary'
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 
@@ -49,13 +50,26 @@ const DELETE_ROOM = gql`
   }
 `
 
+// ─── Mock data (offline fallback) ──────────────────────────────────────────
+
+const MOCK_ROOMS = [
+  { id: 'rm-1', room_number: '101', room_type: 'rt-1', roomTypeName: 'Consultation', clinician_type: 'ct-1', clinicianTypeName: 'GP', is_active: true,  clinic: { id: 'cl-1', name: 'London Central Clinic' } },
+  { id: 'rm-2', room_number: '102', room_type: 'rt-1', roomTypeName: 'Consultation', clinician_type: 'ct-1', clinicianTypeName: 'GP', is_active: true,  clinic: { id: 'cl-1', name: 'London Central Clinic' } },
+  { id: 'rm-3', room_number: '201', room_type: 'rt-2', roomTypeName: 'Therapy',      clinician_type: 'ct-2', clinicianTypeName: 'Therapist', is_active: false, clinic: { id: 'cl-2', name: 'Midlands Health Hub'   } },
+]
+const MOCK_METADATA = {
+  clinics:        [{ id: 'cl-1', name: 'London Central Clinic' }, { id: 'cl-2', name: 'Midlands Health Hub' }],
+  roomTypes:      [{ id: 'rt-1', name: 'Consultation' }, { id: 'rt-2', name: 'Therapy' }],
+  clinicianTypes: [{ id: 'ct-1', name: 'GP' }, { id: 'ct-2', name: 'Therapist' }],
+}
+
 // ─── Default form ─────────────────────────────────────────────────────────────
 
 const defaultForm = { clinicId: '', roomNumber: '', roomType: '', clinicianType: '' }
 
 // ─── Component ────────────────────────────────────────────────────────────────
 
-export default function ManagerRooms() {
+function ManagerRooms() {
   const client = useApolloClient()
 
   const [metadata, setMetadata]       = useState({ clinics: [], clinicianTypes: [], roomTypes: [] })
@@ -70,12 +84,21 @@ export default function ManagerRooms() {
 
   // ── Pagination hook ──
   const fetchFn = useCallback(async ({ search, limit, offset }) => {
-    const { data } = await client.query({
-      query: GET_ROOMS_PAGINATED,
-      variables: { search: { search, limit, offset } },
-      fetchPolicy: 'network-only',
-    })
-    return data?.roomsPaginated
+    try {
+      const { data } = await client.query({
+        query: GET_ROOMS_PAGINATED,
+        variables: { search: { search, limit, offset } },
+        fetchPolicy: 'network-only',
+      })
+      return data?.roomsPaginated
+    } catch {
+      // Mock fallback when backend offline
+      const filtered = MOCK_ROOMS.filter(r =>
+        !search || r.room_number.toLowerCase().includes(search.toLowerCase()) ||
+        r.roomTypeName.toLowerCase().includes(search.toLowerCase())
+      )
+      return { data: filtered, pageInfo: { total: filtered.length, limit, offset, hasNextPage: false, hasPreviousPage: false } }
+    }
   }, [client])
 
   const { data: rooms, pagination, searchTerm, loading, handleSearch, nextPage, previousPage, currentPage, totalPages, loadData } = usePagination(fetchFn)
@@ -93,6 +116,10 @@ export default function ManagerRooms() {
         roomType:      data?.roomTypes?.[0]?.id      || '',
         clinicianType: data?.clinicianTypes?.[0]?.id || '',
       }))
+    }).catch(() => {
+      // Mock metadata fallback
+      setMetadata(MOCK_METADATA)
+      setForm(prev => ({ ...prev, roomType: MOCK_METADATA.roomTypes[0].id, clinicianType: MOCK_METADATA.clinicianTypes[0].id }))
     })
     loadData(0)
   }, []) // eslint-disable-line
@@ -265,16 +292,18 @@ export default function ManagerRooms() {
                       <MeetingRoomIcon color="success" />
                     </Box>
                     <Stack direction="row" spacing={0.5}>
+                      {/* SUG-RM-003 FIX: aria-labels on card icon buttons */}
                       <Tooltip title="Edit">
-                        <IconButton size="small" onClick={() => handleEdit(room)}><EditIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" aria-label={`Edit room ${room.room_number}`} onClick={() => handleEdit(room)}><EditIcon fontSize="small" /></IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(room.id)}><DeleteIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" color="error" aria-label={`Delete room ${room.room_number}`} onClick={() => handleDelete(room.id)}><DeleteIcon fontSize="small" /></IconButton>
                       </Tooltip>
                     </Stack>
                   </Stack>
 
-                  <Typography variant="h6" fontWeight={700}>Room {room.room_number}</Typography>
+                  {/* SUG-RM-002 FIX: noWrap + ellipsis prevents long room numbers overflowing card */}
+                  <Typography variant="h6" fontWeight={700} noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>Room {room.room_number}</Typography>
                   <Typography variant="body2" color="text.secondary">{room.roomTypeName || room.room_type}</Typography>
                   <Typography variant="caption" color="text.secondary">{room.clinic?.name}</Typography>
 
@@ -301,4 +330,9 @@ export default function ManagerRooms() {
       />
     </Box>
   )
+}
+
+// SUG-RM-005 FIX: ErrorBoundary wrapper for crash resilience
+export default function ManagerRoomsWithBoundary() {
+  return <ErrorBoundary><ManagerRooms /></ErrorBoundary>
 }

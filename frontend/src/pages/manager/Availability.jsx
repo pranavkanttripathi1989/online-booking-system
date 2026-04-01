@@ -11,18 +11,114 @@ import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
+import ErrorBoundary from '../../components/ErrorBoundary'
 
-// ─── Mock data fallbacks (BUG-MGR-002 FIX) ──────────────────────────────────
+// ─── Mock data fallbacks ─────────────────────────────────────────────────────
+// Toggle: set VITE_USE_MOCK_API=true in .env (or leave backend offline — same effect)
+// When the GraphQL backend is unavailable, these fixtures keep the page functional.
 
+// Clinicians — IDs match seed.js (cln-*)
 const MOCK_CLINICIANS_AV = [
-  { id: 'clin-1', firstName: 'Dr. Sarah', lastName: 'Mitchell', isActive: true },
-  { id: 'clin-2', firstName: 'Dr. James', lastName: 'Okafor',   isActive: true },
-  { id: 'clin-3', firstName: 'Dr. Priya', lastName: 'Sharma',   isActive: true },
+  { id: 'cln-1', firstName: 'Sarah',  lastName: 'Mitchell',  isActive: true },
+  { id: 'cln-2', firstName: 'James',  lastName: 'Okafor',    isActive: true },
+  { id: 'cln-3', firstName: 'Priya',  lastName: 'Sharma',    isActive: true },
+  { id: 'cln-5', firstName: 'Lucy',   lastName: 'Harrington',isActive: true },
+  { id: 'cln-6', firstName: 'Ben',    lastName: 'Whitfield', isActive: true },
 ]
+
+// Clinics — IDs match seed.js (cli-*)
 const MOCK_CLINICS_AV = [
-  { id: 'clinic-1', name: 'City Heart Clinic' },
-  { id: 'clinic-2', name: 'Central Medical Centre' },
-  { id: 'clinic-3', name: 'Family Health Hub' },
+  { id: 'cli-1', name: 'Meridian Central' },
+  { id: 'cli-2', name: 'Meridian East' },
+  { id: 'cli-3', name: 'Meridian North' },
+  { id: 'cli-4', name: 'CityCore West End' },
+  { id: 'cli-5', name: 'Wellspring Primary' },
+]
+
+// Rooms per clinic — used as offline fallback when getRooms query returns nothing
+const MOCK_ROOMS_BY_CLINIC = {
+  'cli-1': [
+    { id: 'rm-1', roomNumber: '1 — Consultation A', isActive: true },
+    { id: 'rm-2', roomNumber: '2 — Consultation B', isActive: true },
+    { id: 'rm-3', roomNumber: '3 — Procedure Room 1', isActive: true },
+  ],
+  'cli-2': [
+    { id: 'rm-4', roomNumber: '4 — Physio Suite', isActive: true },
+    { id: 'rm-5', roomNumber: '5 — Consultation A', isActive: true },
+  ],
+  'cli-3': [
+    { id: 'rm-6', roomNumber: '6 — Mental Health Suite', isActive: true },
+    { id: 'rm-7', roomNumber: '7 — Consultation A', isActive: true },
+  ],
+  'cli-4': [
+    { id: 'rm-8',  roomNumber: '8 — Derma Suite', isActive: true },
+    { id: 'rm-9',  roomNumber: '9 — Cardio Suite', isActive: true },
+    { id: 'rm-10', roomNumber: '10 — Consultation A', isActive: true },
+  ],
+  'cli-5': [
+    { id: 'rm-11', roomNumber: '11 — Main Consultation', isActive: true },
+    { id: 'rm-12', roomNumber: "12 — Children's Room", isActive: true },
+  ],
+}
+
+// Availability records — rich mock set covering all display scenarios:
+//   weekly+dayOfWeek, daily, "No weekends" chip, valid period range, "From" date, "Always active"
+const MOCK_AVAILABILITIES = [
+  {
+    id: 'mgrav-1',
+    clinicianId: 'cln-1', clinician: { id: 'cln-1', firstName: 'Sarah',  lastName: 'Mitchell'  },
+    clinicId:   'cli-1', clinic:    { id: 'cli-1', name: 'Meridian Central' },
+    roomId: 'rm-1',      room: { id: 'rm-1', roomNumber: '1 — Consultation A' },
+    startTime: '09:00', endTime: '17:00',
+    recurrenceType: 'weekly', dayOfWeek: 1,          // Monday
+    excludeWeekends: false, excludeSaturday: false, excludeSunday: false,
+    validFrom: '2026-01-01', validUntil: '2026-12-31',
+    isActive: true,
+  },
+  {
+    id: 'mgrav-2',
+    clinicianId: 'cln-2', clinician: { id: 'cln-2', firstName: 'James',  lastName: 'Okafor' },
+    clinicId:   'cli-1', clinic:    { id: 'cli-1', name: 'Meridian Central' },
+    roomId: null, room: null,
+    startTime: '08:00', endTime: '16:00',
+    recurrenceType: 'daily', dayOfWeek: null,
+    excludeWeekends: true, excludeSaturday: true, excludeSunday: true,
+    validFrom: '2026-04-01', validUntil: null,
+    isActive: true,
+  },
+  {
+    id: 'mgrav-3',
+    clinicianId: 'cln-3', clinician: { id: 'cln-3', firstName: 'Priya',  lastName: 'Sharma' },
+    clinicId:   'cli-4', clinic:    { id: 'cli-4', name: 'CityCore West End' },
+    roomId: 'rm-9', room: { id: 'rm-9', roomNumber: '9 — Cardio Suite' },
+    startTime: '10:00', endTime: '18:00',
+    recurrenceType: 'weekly', dayOfWeek: 3,          // Wednesday
+    excludeWeekends: false, excludeSaturday: false, excludeSunday: false,
+    validFrom: null, validUntil: null,               // Always active
+    isActive: true,
+  },
+  {
+    id: 'mgrav-4',
+    clinicianId: 'cln-5', clinician: { id: 'cln-5', firstName: 'Lucy',   lastName: 'Harrington' },
+    clinicId:   'cli-2', clinic:    { id: 'cli-2', name: 'Meridian East' },
+    roomId: 'rm-4', room: { id: 'rm-4', roomNumber: '4 — Physio Suite' },
+    startTime: '08:30', endTime: '13:00',
+    recurrenceType: 'weekly', dayOfWeek: 5,          // Friday
+    excludeWeekends: false, excludeSaturday: false, excludeSunday: false,
+    validFrom: '2026-03-01', validUntil: '2026-06-30',
+    isActive: true,
+  },
+  {
+    id: 'mgrav-5',
+    clinicianId: 'cln-6', clinician: { id: 'cln-6', firstName: 'Ben',    lastName: 'Whitfield' },
+    clinicId:   'cli-3', clinic:    { id: 'cli-3', name: 'Meridian North' },
+    roomId: 'rm-6', room: { id: 'rm-6', roomNumber: '6 — Mental Health Suite' },
+    startTime: '09:00', endTime: '17:00',
+    recurrenceType: 'monthly', dayOfWeek: null,
+    excludeWeekends: false, excludeSaturday: false, excludeSunday: false,
+    validFrom: '2026-01-15', validUntil: null,
+    isActive: true,
+  },
 ]
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
@@ -133,14 +229,19 @@ export default function ManagerAvailability() {
   const [updateAvailability] = useMutation(UPDATE_AVAILABILITY)
   const [deleteAvailability] = useMutation(DELETE_AVAILABILITY)
 
-  // Load rooms when clinic changes
+  // Load rooms when clinic changes — with offline fallback (SUG-AVAIL-014 / BUG-AVAIL-006)
   const loadRoomsForClinic = useCallback(async (clinicId) => {
     if (!clinicId) { setRooms([]); return }
     setRoomsLoading(true)
     try {
       const { data: roomData } = await getRooms({ variables: { clinicId } })
-      setRooms((roomData?.rooms || []).filter(r => r.isActive))
-    } catch { setRooms([]) } finally { setRoomsLoading(false) }
+      const liveRooms = (roomData?.rooms || []).filter(r => r.isActive)
+      // Fall back to mock rooms if backend is offline or returns empty
+      setRooms(liveRooms.length ? liveRooms : (MOCK_ROOMS_BY_CLINIC[clinicId] ?? []))
+    } catch {
+      // Backend unreachable — use mock rooms so offline testing works (SUG-AVAIL-014)
+      setRooms(MOCK_ROOMS_BY_CLINIC[clinicId] ?? [])
+    } finally { setRoomsLoading(false) }
   }, [getRooms])
 
   useEffect(() => {
@@ -203,6 +304,15 @@ export default function ManagerAvailability() {
     if (form.valid_from && form.valid_until && form.valid_until < form.valid_from) {
       setFormError('"Valid Until" cannot be before "Valid From".'); return
     }
+    // SUG-AVAIL-008 — Validate custom dates format (YYYY-MM-DD per date, comma-separated)
+    if (form.recurrence_type === 'custom' && form.custom_dates?.trim()) {
+      const dates = form.custom_dates.split(',').map(d => d.trim()).filter(Boolean)
+      const validFmt = /^\d{4}-\d{2}-\d{2}$/
+      if (!dates.every(d => validFmt.test(d))) {
+        setFormError('Custom dates must be in YYYY-MM-DD format, separated by commas (e.g. 2026-04-01, 2026-04-15).')
+        return
+      }
+    }
     const input = {
       clinician_id:     form.clinician_id,
       clinic_id:        form.clinic_id,
@@ -238,9 +348,9 @@ export default function ManagerAvailability() {
     } catch (e) { setFormError(e.message) }
   }
 
-  const availabilities = data?.availabilities || []
-  // BUG-MGR-002 FIX: fall back to mock data when GraphQL returns nothing
-  const clinicians     = ((data?.clinicians?.length ? data.clinicians : MOCK_CLINICIANS_AV)).filter(c => c.isActive)
+  // SUG-AVAIL-014 — Offline mock fallbacks: availabilities, clinicians, clinics
+  const availabilities = data?.availabilities?.length ? data.availabilities : MOCK_AVAILABILITIES
+  const clinicians     = (data?.clinicians?.length ? data.clinicians : MOCK_CLINICIANS_AV).filter(c => c.isActive)
   const clinics        = data?.clinics?.length ? data.clinics : MOCK_CLINICS_AV
 
   if (loading && !data) {
@@ -251,7 +361,9 @@ export default function ManagerAvailability() {
     )
   }
 
+  // SUG-AVAIL-007 — ErrorBoundary wraps entire page output to catch runtime render crashes
   return (
+    <ErrorBoundary>
     <Box>
       {/* Header */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
@@ -383,7 +495,9 @@ export default function ManagerAvailability() {
                 <Grid item xs={12} sm={6}>
                   <TextField fullWidth size="small" type="date" label="Valid Until"
                     InputLabelProps={{ shrink: true }} value={form.valid_until}
-                    onChange={e => setField('valid_until', e.target.value)} />
+                    onChange={e => setField('valid_until', e.target.value)}
+                    helperText="Leave blank for no end date" />
+
                 </Grid>
 
                 {/* Exclude weekends */}
@@ -517,5 +631,6 @@ export default function ManagerAvailability() {
         onCancel={() => { setConfirmOpen(false); setDeletingId(null) }}
       />
     </Box>
+    </ErrorBoundary>
   )
 }

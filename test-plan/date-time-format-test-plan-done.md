@@ -1,9 +1,9 @@
 # Date & Time Format — Test Plan (COMPLETED — v4.0)
 
 **Standard:** `DD/MM/YYYY` · `h:mm A` (12-hour, uppercase AM/PM, no leading zero)  
-**Total Test Cases:** 65 (64 original + 1 new regression check DT-22-01)  
+**Total Test Cases:** 69 (67 through S5 + 2 new S6)  
 **All Passing:** ✅  
-**Completed:** 2026-03-20 (Session 4)
+**Completed:** 2026-03-30 (Session 5)
 
 ---
 
@@ -187,3 +187,34 @@
 - ✅ Backend-only formats (`YYYY-MM-DD`, `HH:mm`) preserved in API calls
 - ✅ No `hh:mm` (2-digit hour) in display context
 - ✅ Zero display violations confirmed by 4-scan grep audit
+
+---
+
+## Session 5 Test Cases (2026-03-30)
+
+### Module: Clinician Availability — TimePicker 12h Preview
+| TC | Field | Expected | Status |
+|----|-------|----------|--------|
+| DT-23-01 | Slot drawer live preview | "Selected: 9:00 AM – 5:00 PM" in teal box below pickers | ✅ |
+| DT-23-01a | Start only set | "Selected: 9:00 AM – —" (end shows dash) | ✅ |
+| DT-23-01b | End before start | Preview hidden (error shown instead) | ✅ |
+| DT-23-01c | Both null | Preview hidden | ✅ |
+
+### Module: dateUtils.js — Deprecation Marker
+| TC | Field | Expected | Status |
+|----|-------|----------|--------|
+| DT-23-02 | File header | `@deprecated` JSDoc steers new code to `dateTime.js` | ✅ |
+| DT-23-02a | `formatSlotTime()` note | Comment states HH:mm is intentional (API-only, not display) | ✅ |
+
+### Module: dateTime.js — Session 6 Helpers
+| TC | Field | Expected | Status |
+|----|-------|----------|--------|
+| DT-24-01 | `formatRelativeTime()` < 60s | "just now" | ✅ |
+| DT-24-01a | `formatRelativeTime()` < 60min | "X min ago" | ✅ |
+| DT-24-01b | `formatRelativeTime()` < 24h | "X hour(s) ago" | ✅ |
+| DT-24-01c | `formatRelativeTime()` < 7d | "X day(s) ago" | ✅ |
+| DT-24-01d | `formatRelativeTime()` ≥ 7d | Falls back to `formatShortDate()` ("19 Mar 2026") | ✅ |
+| DT-24-01e | `formatRelativeTime(null)` | "—" | ✅ |
+| DT-24-02 | `formatCurrency(28750)` | "£28,750.00" (en-GB GBP) | ✅ |
+| DT-24-02a | `formatCurrency(null)` | "£0.00" | ✅ |
+| DT-24-02b | `formatCurrency(100, 'USD')` | "$100.00" | ✅ |

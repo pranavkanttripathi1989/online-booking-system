@@ -1,187 +1,252 @@
-# Patients — Test Plan
+# Patients — Test Plan (Updated v2.0)
 
-**Feature area:** `/src/pages/patients/`  
-**Files:** `index.jsx`, `CreatePatientPage.jsx`, `EditPatientPage.jsx`, `detail.jsx`  
-**Routes tested:** `/patients`, `/patients/new`, `/patients/:id`, `/patients/:id/edit`  
-**GraphQL:** `PATIENTS_QUERY`, `CREATE_PATIENT_MUTATION`, `UPDATE_PATIENT_MUTATION`  
-**Validation:** zod + react-hook-form  
-**Mock data:** 15 mock patients in `index.jsx`
+**Feature area:** `/src/pages/patients/`
+**Files:** `index.jsx`, `CreatePatientPage.jsx`, `EditPatientPage.jsx`, `detail.jsx`
+**Routes tested:** `/patients`, `/patients/new`, `/patients/:id`, `/patients/:id/edit`
+**GraphQL:** `PATIENTS_QUERY`, `CREATE_PATIENT_MUTATION`, `UPDATE_PATIENT_MUTATION`
+**Validation:** Custom validate() in CreatePatientPage + zod/RHF in AddPatientDialog
+**Mock data:** 15 mock patients (index.jsx), 20-entry MOCK_PATIENTS_DETAIL (detail.jsx), MOCK_EDIT_PATIENTS (EditPatientPage.jsx)
+**Updated:** 2026-03-31 (Session QA v2.0)
 
 ---
 
 ## 1. Patient List Page (`/patients`)
 
 ### TC-PAT-001 — List loads with 15 mock patients
-**Prompt:**  
-> Navigate to `http://localhost:3001/patients`.  
-> Assert: table renders at least 15 rows with columns: Patient (avatar + name), Email, Phone, Date of Birth, Gender, Actions.
-
-**Expected:** Mock fallback renders. Skeleton loaders shown briefly, then real/mock data appears.
+**Steps:** Navigate to `/patients`.
+**Expected:** Table renders 15 rows. Columns: Patient (avatar+name), Email, Phone, DOB, Gender, Actions. "Patients" h4 + count display. "Add Patient" blue gradient button.
 
 ---
 
 ### TC-PAT-002 — Search by name (debounced)
-**Prompt:**  
-> On `/patients`, type "Alice" in the search field.  
-> Assert: within 400ms, table filters to show only rows where the patient name contains "Alice". Rows without "Alice" disappear.
-
-**Expected:** 300ms debounce. `debouncedSearch` triggers re-filter. Search icon shows spinner briefly.
+**Steps:** Type "Alice" in search field.
+**Expected:** 300ms debounce. Only rows with "Alice" in full_name shown. Search icon visible. ClearIcon appears.
 
 ---
 
 ### TC-PAT-003 — Search clear button resets list
-**Prompt:**  
-> Type "bob" in the search field. Click the clear (X) button that appears at the right of the search field.  
-> Assert: all patients return. Search field is empty.
-
-**Expected:** `ClearIcon` button visible when search has content. Clicking clears `search` state.
+**Steps:** Type "bob"; click ClearIcon (×).
+**Expected:** All 15 patients returned. Search field empty.
 
 ---
 
 ### TC-PAT-004 — A-Z alphabet filter
-**Prompt:**  
-> On `/patients`, click the letter "A" in the A-Z filter strip.  
-> Assert: only patients whose names begin with "A" are shown. Click "All" — all patients return.
-
-**Expected:** `activeLetter` state set. Mock filter applies. Active chip shows teal highlight.
+**Steps:** Click "A" chip; observe; click "All".
+**Expected:** "A" → Alice Johnson only (teal chip highlight). "All" → all 15 patients.
 
 ---
 
 ### TC-PAT-005 — Gender toggle filter — Female
-**Prompt:**  
-> On `/patients`, click the "Female" toggle button in the gender filter.  
-> Assert: only female patients shown. Table count updates. Toggle button shows selected state.
-
-**Expected:** `genderFilter = 'female'` applied. Male/Other rows hidden.
+**Steps:** Click "Female" toggle button.
+**Expected:** Only female patients shown. Toggle shows selected state.
 
 ---
 
-### TC-PAT-006 — Gender + alphabet combined filter
-**Prompt:**  
-> Select gender "Male" AND click letter "B" in alphabet strip.  
-> Assert: only male patients whose name starts with "B" appear (e.g., "Bob Smith").
-
-**Expected:** Both filters apply simultaneously via `&&` logic in the filter function.
+### TC-PAT-006 — Gender + alphabet combined
+**Steps:** Select "Male"; click "B".
+**Expected:** Only male patients starting with "B" (Bob Smith).
 
 ---
 
-### TC-PAT-007 — Click row navigates to patient detail
-**Prompt:**  
-> On `/patients`, click anywhere on the "Alice Johnson" row.  
-> Assert: navigated to `/patients/1`. Detail page renders Alice's profile.
-
-**Expected:** `onClick={() => navigate('/patients/1')}` fires. Detail page for patient ID 1 loads.
+### TC-PAT-007 — Click row → correct patient detail
+**Steps:** Click "Alice Johnson" row.
+**Expected:** Navigate to `/patients/1`. Detail shows Alice Johnson (not "John Michael Doe" default). *(Previously BUG-PAT-001 — now fixed)*
 
 ---
 
-### TC-PAT-008 — Pagination controls work
-**Prompt:**  
-> On `/patients`, change "Rows per page" from 25 to 10.  
-> Assert: table shows max 10 rows. Next page button becomes enabled (if >10 patients).
-
-**Expected:** `TablePagination` updates `rowsPerPage=10`. Next page navigates to rows 11-20.
+### TC-PAT-008 — Pagination controls
+**Steps:** Change rows per page to 10.
+**Expected:** 10 rows shown. "1–10 of 15" shown. Page navigation works.
 
 ---
 
-### TC-PAT-009 — View Profile button opens detail
-**Prompt:**  
-> On the patients table, click the external link (OpenInNew) icon in the Actions column for any row.  
-> Assert: navigates to `/patients/:id` without navigating away from the row click zone.
-
-**Expected:** `e.stopPropagation()` prevents row click double-triggering. Icon navigates correctly.
+### TC-PAT-009 — View Profile icon (stopPropagation)
+**Steps:** Click OpenInNew icon in Actions column.
+**Expected:** Navigate to `/patients/:id`. Row click NOT double-fired.
 
 ---
 
-## 2. Add Patient (`/patients/new`)
-
-### TC-PAT-010 — Add Patient form navigation
-**Prompt:**  
-> On `/patients`, click "Add Patient" button.  
-> Assert: navigated to `/patients/new`. A full-page form for creating a new patient renders.
-
-**Expected:** Button calls `navigate('/patients/new')`. Create page loads with all fields empty.
+### TC-PAT-010 — Add Patient → /patients/new
+**Steps:** Click "Add Patient" button.
+**Expected:** Navigate to `/patients/new`. Create form loads.
 
 ---
 
-### TC-PAT-011 — Required fields validation
-**Prompt:**  
-> On `/patients/new`, click "Save" without filling any fields.  
-> Assert: red validation errors appear under First Name, Last Name, Email, Phone. All say "Required" or similar.
-
-**Expected:** zod schema: first_name min 1, last_name min 1, email valid, phone min 7. RHF shows errors.
+### TC-PAT-011 — Loading skeleton
+**Steps:** Observe brief loading state.
+**Expected:** 8 skeleton rows (6-cell wide) shown while loading. Data loads after.
 
 ---
 
-### TC-PAT-012 — Invalid email validation
-**Prompt:**  
-> On `/patients/new`, enter "notanemail" in the Email field. Click Save.  
-> Assert: field shows "Invalid email" or "Enter a valid email address".
-
-**Expected:** zod `z.string().email()` fails. React Hook Form shows inline error.
+### TC-PAT-012 — Empty search result
+**Steps:** Type "zzz" in search.
+**Expected:** `No patients match "zzz"` in table. No rows.
 
 ---
 
-### TC-PAT-013 — Successful patient creation
-**Prompt:**  
-> On `/patients/new`, fill: First Name "John", Last Name "Doe", Email "john.doe@test.com", Phone "+1 555-9999", DOB "1990-01-01", Gender "Male". Click Save.  
-> Assert: success snackbar appears. Redirected to patient list or new patient's detail page.
-
-**Expected:** `CREATE_PATIENT_MUTATION` fires or mock silent-succeeds. Snackbar shows. Navigation fires.
+### TC-PAT-013 — Error alert + Retry button
+**Steps:** Backend returns non-null error.
+**Expected:** "Backend unavailable — showing sample data" warning alert. "Retry" action button visible.
 
 ---
 
-### TC-PAT-014 — Optional fields do not block save
-**Prompt:**  
-> On `/patients/new`, fill only required fields (First Name, Last Name, Email, Phone). Leave DOB and Gender empty. Click Save.  
-> Assert: form submits without DOB/Gender errors. Success snackbar shown.
+## 2. Create Patient (`/patients/new`)
 
-**Expected:** `date_of_birth` and `gender` are optional in zod schema. No validation error for empty optional fields.
-
----
-
-## 3. Patient Detail Page (`/patients/:id`)
-
-### TC-PAT-015 — Profile page shows all patient data
-**Prompt:**  
-> Navigate to `/patients/1`.  
-> Assert: Name, Email, Phone, DOB, Gender visible. Profile avatar shows first initial. Appointment history section or tab visible.
-
-**Expected:** Detail page renders with all data sections. No blank panels.
+### TC-PAT-014 — Form loads empty
+**Steps:** Navigate to `/patients/new`.
+**Expected:** "New Patient" h5, PersonAddIcon, all 8 fields empty. "Cancel" + "Save Patient" buttons.
 
 ---
 
-### TC-PAT-016 — Unknown patient ID shows not-found
-**Prompt:**  
-> Navigate to `/patients/99999`.  
-> Assert: "Patient not found" message or redirect to 404 page. No React crash.
+### TC-PAT-015 — All required fields empty → errors
+**Steps:** Click "Save Patient" without filling any fields.
+**Expected:** Errors under First Name ("Required"), Last Name ("Required"), Email ("Required"), Phone ("Required").
 
-**Expected:** `data?.patient` is null → graceful error state rendered.
+---
+
+### TC-PAT-016 — Invalid email format → error
+**Steps:** Enter "notanemail"; fill First Name/Last Name/Phone; click Save.
+**Expected:** "Invalid email address" shown under Email. Form not submitted.
+
+---
+
+### TC-PAT-017 — Valid submit (mock mode)
+**Steps:** Fill all required fields with valid data; click Save Patient.
+**Expected:** "Patient created (demo mode)" snackbar. Navigate to `/patients`.
+
+---
+
+### TC-PAT-018 — Optional fields (DOB, Gender) do not block save
+**Steps:** Fill only required fields (First Name, Last Name, Email, Phone). Leave DOB + Gender empty.
+**Expected:** No DOB/Gender errors. Form submits. Demo success snackbar.
+
+---
+
+### TC-PAT-019 — Cancel navigates back
+**Steps:** Click "Cancel" on create form.
+**Expected:** Navigate to `/patients`.
+
+---
+
+### TC-PAT-020 — Back arrow navigates back
+**Steps:** Click ArrowBack IconButton.
+**Expected:** Navigate to `/patients`.
+
+---
+
+## 3. Patient Detail (`/patients/:id`)
+
+### TC-PAT-021 — Detail: correct patient for row ID
+**Steps:** Navigate to `/patients/1`.
+**Expected:** "Alice Johnson" rendered with correct data. *(BUG-PAT-001 fix verified)*
+
+---
+
+### TC-PAT-022 — Detail: row ID 10 (two-digit)
+**Steps:** Navigate to `/patients/10`.
+**Expected:** "Julia Roberts" rendered with Nuts allergy, A+ blood type, $75 balance.
+
+---
+
+### TC-PAT-023 — Detail: back button
+**Steps:** Click "Back to Patients".
+**Expected:** Navigate to `/patients`.
+
+---
+
+### TC-PAT-024 — Detail: hero action buttons
+**Steps:** View hero header buttons.
+**Expected:** "New Appointment" → `/appointments/new`. "Message" → `/messages`. "Edit Patient" → `/patients/:id/edit`.
+
+---
+
+### TC-PAT-025 — Detail: overview tab (default)
+**Steps:** Default tab.
+**Expected:** Personal info, contact, clinical notes, primary clinician sections visible.
+
+---
+
+### TC-PAT-026 — Detail: medical history tab
+**Steps:** Click Medical History tab.
+**Expected:** 4 timeline entries with date chip, clinician, service, notes.
+
+---
+
+### TC-PAT-027 — Detail: appointments tab
+**Steps:** Click Appointments (4) tab.
+**Expected:** Table: 4 rows. Status chips: confirmed/completed/cancelled/pending with icons.
+
+---
+
+### TC-PAT-028 — Detail: test results tab
+**Steps:** Click Test Results tab.
+**Expected:** 4 cards. Completed tests show "View Result" button. Allergy Panel shows "pending" chip.
+
+---
+
+### TC-PAT-029 — Detail: documents tab (empty state)
+**Steps:** Click Documents tab.
+**Expected:** "No documents yet" empty state. FolderIcon. "Upload Document" button.
+
+---
+
+### TC-PAT-030 — Detail: unknown ID → default fallback
+**Steps:** Navigate to `/patients/99999`.
+**Expected:** "John Michael Doe" default rendered. No crash.
 
 ---
 
 ## 4. Edit Patient (`/patients/:id/edit`)
 
-### TC-PAT-017 — Edit form pre-fills existing data
-**Prompt:**  
-> Navigate to `/patients/1/edit`.  
-> Assert: First Name, Last Name, Email, Phone, DOB, Gender fields all pre-filled with Alice Johnson's data.
-
-**Expected:** Edit form loaded with existing patient record values.
+### TC-PAT-031 — Edit: mock fallback load
+**Steps:** Navigate to `/patients/1/edit` with backend offline.
+**Expected:** Form pre-fills from MOCK_EDIT_PATIENTS['1']: Alice Johnson's data. No permanent skeleton.
 
 ---
 
-### TC-PAT-018 — Edit and save patient
-**Prompt:**  
-> On `/patients/1/edit`, change Phone to "+1 555-0000". Click Save.  
-> Assert: success snackbar. Navigate to patient detail. Phone now shows "+1 555-0000".
-
-**Expected:** `UPDATE_PATIENT_MUTATION` fires. Detail page updated. Snackbar shown.
+### TC-PAT-032 — Edit: skeleton during fetch
+**Steps:** Navigate with slow backend.
+**Expected:** Two skeleton bars shown while fetching=true.
 
 ---
 
-### TC-PAT-019 — Cancel edit returns to patient list or detail
-**Prompt:**  
-> On `/patients/1/edit`, click "Cancel" button.  
-> Assert: navigated back to `/patients` or `/patients/1`. No changes saved.
+### TC-PAT-033 — Edit: validation — empty required fields
+**Steps:** Clear First Name; click Save Changes.
+**Expected:** "Required" error shown. Form not submitted.
 
-**Expected:** Cancel button calls `navigate(-1)` or `navigate('/patients')`.
+---
+
+### TC-PAT-034 — Edit: mock save (demo mode)
+**Steps:** Change Phone; click Save Changes.
+**Expected:** "Patient updated (demo mode)" snackbar. Navigate to `/patients/1`.
+
+---
+
+### TC-PAT-035 — Edit: cancel → detail page
+**Steps:** Click Cancel.
+**Expected:** Navigate to `/patients/1`.
+
+---
+
+### TC-PAT-036 — Edit: back arrow → detail
+**Steps:** Click ArrowBack.
+**Expected:** Navigate to `/patients/1`.
+
+---
+
+## Edge Cases
+
+| # | Edge | Expected |
+|---|------|----------|
+| E1 | Patient with no gender in list | '—' in gender cell |
+| E2 | Patient with empty allergies array in detail | '' shown (join of []) |
+| E3 | Two-digit IDs ('10', '11') in detail | Correct patient rendered from MOCK_PATIENTS_DETAIL |
+| E4 | Unknown id in edit page | MOCK_EDIT_DEFAULT ("John Doe") seeded |
+| E5 | Search empty string | All 15 patients shown |
+| E6 | A-Z same letter twice | Toggles off (null) |
+| E7 | Email "a@b" (minimal valid format) | Passes regex — accepted |
+| E8 | Phone "123456" (6 chars) | Fails — "Enter valid phone number (min 7 chars)" |
+
+---
+
+## Total: 36 Test Cases + 8 Edge Cases

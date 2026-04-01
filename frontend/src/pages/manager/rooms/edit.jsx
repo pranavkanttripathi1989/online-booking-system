@@ -33,7 +33,17 @@ export default function EditRoomPage() {
     onError: (err) => enqueueSnackbar(err.message, { variant:'error' }),
   })
 
-  if (fetching || !form) return <Box><Skeleton variant="rectangular" height={56} sx={{ borderRadius:2, mb:3 }} /><Skeleton variant="rectangular" height={300} sx={{ borderRadius:3 }} /></Box>
+  // BUG-RM-002 FIX: always render a minimal back-button header so user isn't navigation-trapped
+  if (fetching || !form) return (
+    <Box className="page-enter">
+      <Box sx={{ display:'flex', alignItems:'center', gap:1.5, mb:3 }}>
+        <IconButton onClick={() => navigate('/manager/rooms')} sx={{ bgcolor:'#F1F3F4' }} aria-label="Back to rooms"><ArrowBackRoundedIcon /></IconButton>
+        <Typography variant="h5" fontWeight={800} color="text.secondary">Edit Room</Typography>
+      </Box>
+      <Skeleton variant="rectangular" height={56} sx={{ borderRadius:2, mb:3 }} />
+      <Skeleton variant="rectangular" height={300} sx={{ borderRadius:3 }} />
+    </Box>
+  )
 
   const set = (f) => (e) => setForm(p => ({...p, [f]: e.target.value}))
 
@@ -61,7 +71,7 @@ export default function EditRoomPage() {
             <Typography variant="subtitle1" fontWeight={700} mb={2.5}>Room Details</Typography>
             <Grid container spacing={2.5}>
               <Grid item xs={12}><TextField fullWidth label="Room Name *" value={form.name} onChange={set('name')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Capacity" type="number" value={form.capacity} onChange={set('capacity')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Capacity" type="number" value={form.capacity} onChange={set('capacity')} inputProps={{ min: 0 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}>
                 <TextField select fullWidth label="Clinic" value={form.clinic_id} onChange={set('clinic_id')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }}>
                   <MenuItem value="">No clinic</MenuItem>

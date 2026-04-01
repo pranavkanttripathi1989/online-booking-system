@@ -1,88 +1,71 @@
-# Date & Time Format — Feature Suggestions (Session 4)
+# Date & Time Format — Feature Suggestions (Session 7 — 2026-03-30)
 
-**Last Updated:** 2026-03-20 (Session 4)
+**Module:** `utils/dateTime.js`, `utils/dateUtils.js`, all date-rendering components  
+**Updated:** 2026-03-30 Session 7
 
----
-
-## All Implemented Suggestions
-
-| ID | Suggestion | Status |
-|----|-----------|--------|
-| SUG-DT-IMPL-001 | Create `dateTime.js` utility | ✅ COMPLETED |
-| SUG-DT-IMPL-002–011 | Fix all Session 1 HH:mm violations (11 files) | ✅ COMPLETED |
-| SUG-DT-001 | Chart axis `MMM DD` → `DD MMM` (4 files) | ✅ COMPLETED |
-| SUG-DT-002 | Patient list DOB `DD/MM/YYYY` | ✅ COMPLETED |
-| SUG-DT-003 | Adopt `dateTime.js` project-wide | ✅ COMPLETED |
-| SUG-DT-004 | Clinician Availability display labels | ✅ COMPLETED |
-| SUG-DT-005 | Public doctor-profile booking date | ✅ COMPLETED |
-| SUG-DT-S3-001 | Clinician Dashboard next apt time (`h:mm A`) | ✅ COMPLETED |
-| SUG-DT-S3-002 | Calendar popover Time row (`h:mm A`) | ✅ COMPLETED |
-| SUG-DT-S3-003 | Patient Dashboard apt chip (`h:mm A`) | ✅ COMPLETED |
+> ✅ **All actionable frontend suggestions implemented. 2 new adoption-gap items added (Session 7).**
 
 ---
 
-## Session 4 Fixed
+## Summary Table
 
-### SUG-DT-S4-001 — dateUtils.js formatTime / formatDateTime / formatTimeRange
-```
-Suggestion:   Fix hh:mm A (leading zero) and missing AM/PM in dateUtils.js
-Status:       COMPLETED
-Notes:        dateUtils.js is currently unused (no consumers), but the functions
-              violated the h:mm A standard in 3 places. Now corrected:
-              - formatTime: hh:mm A → h:mm A
-              - formatDateTime: hh:mm A → h:mm A
-              - formatTimeRange start: hh:mm (no AM/PM) → h:mm A
-              Both sides of formatTimeRange now produce "9:30 AM – 10:00 AM"
-Files:        frontend/src/utils/dateUtils.js lines 22, 26, 32
-```
+| ID | Suggestion | Priority | Status |
+|----|-----------|----------|--------|
+| SUG-DT-IMPL-001 | Create `dateTime.js` utility | ✅ | ✅ DONE |
+| SUG-DT-IMPL-002–011 | Fix all Session 1 HH:mm violations | 🔴 | ✅ DONE |
+| SUG-DT-001 to 005 | Chart axis, DOB, project-wide adoption | 🟠 | ✅ DONE |
+| SUG-DT-S3-001–003 | Clinician/Calendar/Patient times | 🟠 | ✅ DONE |
+| SUG-DT-S4-001 | dateUtils.js formatTime/formatTimeRange fix | 🟡 | ✅ DONE |
+| **SUG-DT-006** | Availability TimePicker 12h preview | 🟢 | ✅ DONE (S5) |
+| **SUG-DT-010** | dateUtils.js `@deprecated` JSDoc comment | 🟢 | ✅ DONE (S5) |
+| **NEW-DT-011a** | `formatRelativeTime()` helper | 🟡 | ✅ DONE (S6) |
+| **NEW-DT-011b** | `formatCurrency()` helper | 🟡 | ✅ DONE (S6) |
+| **SUG-DT-S7-001** | Adopt `formatRelativeTime` in Messages sidebar | 🟡 | ⏭ PENDING |
+| **SUG-DT-S7-002** | Adopt `formatCurrency` in Billing/Finance components | 🟡 | ⏭ PENDING |
+| SUG-DT-008 | Regression audit pre-commit hook | 🟠 | ⏭ DEFERRED (CI/infra) |
+| SUG-DT-009 | formatSlotTime() HH:mm monitor | 🟢 | ⏭ MONITOR (intentional API use) |
 
 ---
 
-## Remaining / Pending
+## Session 7 New Suggestions
 
-### SUG-DT-006 — Availability TimePicker 12h Preview (P3)
-```
-Suggestion:   Add live "Selected: 9:00 AM" preview below TimePicker in Availability drawer
-Status:       PENDING
-Priority:     Low — UX micro-enhancement
-Files:        frontend/src/pages/clinician/Availability.jsx
-```
+### SUG-DT-S7-001 — Adopt `formatRelativeTime` in Messages Sidebar
+**Priority:** 🟡 Medium | **Status:** PENDING
 
-### SUG-DT-008 — Regression Audit Script / Pre-commit Hook (P1)
-```
-Suggestion:   Add grep-based audit as pre-commit hook or CI step to prevent regressions
-Status:       PENDING
-Priority:     High — prevents future violations
-Command:      grep -rn "format('hh:mm')\|format('HH:mm')" src --include="*.jsx" \
-              | grep -v "Availability|booking/index|doctor-profile|dateUtils"
-              If any output → new violation exists
-Notes:        Ideally run as part of CI pipeline (GitHub Actions or Husky pre-commit)
-```
+**Context:** `formatRelativeTime()` was added to `dateTime.js` in Session 6 but no component imports it yet. The Messages sidebar thread list likely shows raw timestamps or ISO strings.
 
-### SUG-DT-009 — dateUtils.js Timezone Function Monitoring (P2)
-```
-Suggestion:   formatSlotTime() in dateUtils.js (line 54) uses HH:mm for internal
-              slot comparison. If this ever renders to UI, convert to h:mm A.
-Status:       PENDING (monitor only — not a display violation)
-Priority:     Low
-```
-
-### SUG-DT-010 — Migrate dateUtils.js consumers to dateTime.js (P2)
-```
-Suggestion:   dateUtils.js is currently unused (no imports). If new code starts
-              importing it, steer towards dateTime.js (the project standard).
-              Consider adding a deprecation comment to dateUtils.js.
-Status:       PENDING (low urgency — file currently has no consumers)
-Priority:     Low
+**Recommended change:**
+```jsx
+// In Messages sidebar thread list
+import { formatRelativeTime } from '../../utils/dateTime'
+// Replace raw timestamp display:
+<Typography>{formatRelativeTime(thread.last_message_at)}</Typography>
+// → "just now", "2 min ago", "3 days ago", or "19 Mar 2026"
 ```
 
 ---
 
-## Summary
+### SUG-DT-S7-002 — Adopt `formatCurrency` in Billing/Finance Components
+**Priority:** 🟡 Medium | **Status:** PENDING
 
-| Category | Count | Status |
-|----------|-------|--------|
-| Bug fixes | 11 | ✅ All done |
-| UX/format improvements | 3 | ✅ All done |
-| Maintenance (Session 4) | 1 | ✅ Done |
-| Pending (low priority) | 4 | ⏭ Deferred |
+**Context:** `formatCurrency()` is defined in both `dateTime.js` and `dateUtils.js` (intentional mirror). No component currently imports from `dateTime.js`. Billing/Finance pages likely use hardcoded `£${value.toFixed(2)}` or inline `Intl.NumberFormat`.
+
+**Recommended change:**
+```jsx
+import { formatCurrency } from '../../utils/dateTime'
+// Replace:
+// £{Number(value).toFixed(2)}
+// With:
+{formatCurrency(value)}  // → £28,750.00 (handles null, commas, GBP symbol)
+```
+
+---
+
+## Remaining
+
+| Item | Requires |
+|------|---------|
+| SUG-DT-S7-001 | Messages component review + import |
+| SUG-DT-S7-002 | Billing/Finance component review + import |
+| SUG-DT-008 | CI pipeline (GitHub Actions/Husky) — infrastructure work |
+| SUG-DT-009 | Monitor only — `formatSlotTime()` is intentional API format |

@@ -5,9 +5,14 @@ import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
 import dayjs from 'dayjs'
 import {
-  Avatar, Box, Button, Chip, Divider, Grid, IconButton,
-  Paper, Skeleton, Stack, Tooltip, Typography,
+  Avatar, Box, Button, Chip, Dialog, DialogTitle, DialogContent,
+  DialogActions, Divider, FormControl, FormControlLabel, FormLabel,
+  Grid, IconButton, Paper, Radio, RadioGroup, Skeleton, Stack,
+  Tooltip, Typography,
 } from '@mui/material'
+import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import ArrowBackRoundedIcon       from '@mui/icons-material/ArrowBackRounded'
 import EditRoundedIcon            from '@mui/icons-material/EditRounded'
 import TaskAltRoundedIcon         from '@mui/icons-material/TaskAltRounded'
@@ -28,6 +33,8 @@ import CheckCircleRoundedIcon     from '@mui/icons-material/CheckCircleRounded'
 import RadioButtonUncheckedIcon   from '@mui/icons-material/RadioButtonUnchecked'
 import PrintRoundedIcon            from '@mui/icons-material/PrintRounded'
 import InfoRoundedIcon            from '@mui/icons-material/InfoRounded'
+import EventRepeatRoundedIcon     from '@mui/icons-material/EventRepeatRounded'
+import SmsRoundedIcon             from '@mui/icons-material/SmsRounded'
 
 
 import { APPOINTMENT_DETAIL_QUERY } from '../../graphql/queries'
@@ -43,6 +50,87 @@ const STATUS_CFG = {
   completed:   { label: 'Completed',   bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
   no_show:     { label: 'No Show',     bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED', dot: '#80868B' },
   rescheduled: { label: 'Rescheduled', bg: '#F3E8FD', color: '#6E2DB8', border: '#D7AEFA', dot: '#9334E6' },
+}
+
+// ─── SUG-APPT-012: Service-specific pre-visit checklists ─────────────────────
+const SERVICE_CHECKLISTS = {
+  default: [
+    'Arrive 15 minutes early for check-in',
+    'Bring a valid photo ID',
+    'Bring your insurance card',
+    'List any current medications',
+  ],
+  'GP Consultation': [
+    'Arrive 15 minutes early for check-in',
+    'Bring a valid photo ID and insurance card',
+    'List any current medications and dosages',
+    'Note any recent symptoms or concerns',
+    'Bring previous lab results if available',
+  ],
+  'Mental Health': [
+    'Arrive 10 minutes early',
+    'Bring a list of current medications',
+    'Note any changes in mood or behaviour since last visit',
+    'Bring your referral letter if applicable',
+    'Confidentiality: sessions are private unless safety is at risk',
+  ],
+  'Physiotherapy': [
+    'Wear comfortable, loose-fitting clothing',
+    'Bring your referral letter or X-ray/MRI reports',
+    'List any medications you are currently taking',
+    'Be prepared to demonstrate your range of motion',
+    'Arrive 5 minutes early to complete intake paperwork',
+  ],
+  'Child Health': [
+    'Bring the child\'s immunization record',
+    'Bring a valid photo ID for the parent/guardian',
+    'Note any recent illnesses or medications',
+    'Bring the child\'s Medicare/insurance card',
+    'Allow extra time for the child to settle',
+  ],
+  'Dermatology': [
+    'Remove nail polish from toenails if foot concern',
+    'Arrive without make-up if face is being assessed',
+    'Bring photos of any rash or lesion history',
+    'List any topical creams or treatments currently used',
+  ],
+  'Dental': [
+    'Brush and floss before your appointment',
+    'Bring a list of any medications you take',
+    'Note any tooth pain, sensitivity, or bleeding gums',
+    'Bring previous dental X-rays if available',
+    'Inform us if you have any dental anxiety',
+  ],
+  'Cardiology': [
+    'Avoid caffeine 24 hours before stress tests',
+    'Bring a list of current medications',
+    'Bring previous ECG or echo results if available',
+    'Wear comfortable shoes if a treadmill test is scheduled',
+    'Inform us of any chest pain episodes',
+  ],
+  'X-Ray': [
+    'Remove all metal jewellery before the scan',
+    'Wear comfortable clothing without metal fasteners',
+    'Inform the technician if you are or might be pregnant',
+    'Bring your referral letter',
+  ],
+  'Lab Test': [
+    'Fast for 8–12 hours if a fasting blood test is required',
+    'Drink plenty of water (unless instructed otherwise)',
+    'Bring your referral form or doctor\'s request',
+    'Avoid strenuous exercise 24 hours before',
+  ],
+}
+
+function getChecklist(serviceName) {
+  if (!serviceName) return SERVICE_CHECKLISTS.default
+  // Try exact match first, then partial match
+  if (SERVICE_CHECKLISTS[serviceName]) return SERVICE_CHECKLISTS[serviceName]
+  const key = Object.keys(SERVICE_CHECKLISTS).find(k =>
+    serviceName.toLowerCase().includes(k.toLowerCase()) ||
+    k.toLowerCase().includes(serviceName.toLowerCase())
+  )
+  return key ? SERVICE_CHECKLISTS[key] : SERVICE_CHECKLISTS.default
 }
 
 // ─── Quick info tile ──────────────────────────────────────────────────────────
@@ -85,6 +173,137 @@ function Card({ children, accent, sx = {} }) {
   )
 }
 
+// ─── SUG-APPT-010: Reschedule Dialog ─────────────────────────────────────────
+function RescheduleDialog({ open, apt, onClose, onSave }) {
+  const [newStart, setNewStart] = useState(apt?.start_datetime ? dayjs(apt.start_datetime) : dayjs())
+  const [newEnd, setNewEnd]     = useState(apt?.end_datetime   ? dayjs(apt.end_datetime)   : dayjs().add(apt?.duration_minutes ?? 30, 'minute'))
+  const endBeforeStart = newEnd && newStart && !newEnd.isAfter(newStart)
+
+  return (
+    <LocalizationProvider dateAdapter={AdapterDayjs}>
+      <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800, color: '#202124', display: 'flex', alignItems: 'center', gap: 1 }}>
+          <EventRepeatRoundedIcon sx={{ color: '#9334E6' }} />
+          Reschedule Appointment
+        </DialogTitle>
+        <DialogContent sx={{ pt: 1 }}>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Select a new date and time for <strong>{apt?.patient?.full_name ?? 'this appointment'}</strong>.
+            Current: {apt?.start_datetime ? dayjs(apt.start_datetime).format('ddd DD MMM YYYY, h:mm A') : '—'}
+          </Typography>
+          <Stack spacing={2.5}>
+            <DateTimePicker
+              label="New Start Date & Time"
+              value={newStart}
+              onChange={setNewStart}
+              slotProps={{ textField: { fullWidth: true, size: 'small', required: true } }}
+            />
+            <DateTimePicker
+              label="New End Date & Time"
+              value={newEnd}
+              onChange={setNewEnd}
+              slotProps={{
+                textField: {
+                  fullWidth: true, size: 'small', required: true,
+                  error: endBeforeStart,
+                  helperText: endBeforeStart ? 'End time must be after start time' : '',
+                }
+              }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+          <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 2, fontWeight: 700 }}>
+            Keep Current
+          </Button>
+          <Button
+            onClick={() => onSave(newStart, newEnd)}
+            variant="contained"
+            disabled={endBeforeStart || !newStart || !newEnd}
+            sx={{
+              borderRadius: 2, fontWeight: 700,
+              background: 'linear-gradient(135deg,#9334E6,#7627C8)',
+              '&:hover': { background: 'linear-gradient(135deg,#7627C8,#5E1FA0)' },
+            }}
+          >
+            Confirm Reschedule
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </LocalizationProvider>
+  )
+}
+
+// ─── NEW-APPT-004: Send Reminder Channel Dialog ───────────────────────────────
+function ReminderDialog({ open, onClose, onSend, patientEmail, patientPhone }) {
+  const [channel, setChannel] = useState('email')
+  const hasEmail = Boolean(patientEmail)
+  const hasPhone = Boolean(patientPhone)
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 800, color: '#202124', display: 'flex', alignItems: 'center', gap: 1 }}>
+        <NotificationsRoundedIcon sx={{ color: '#006D77' }} />
+        Send Reminder
+      </DialogTitle>
+      <DialogContent sx={{ pt: 1 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+          Choose how to notify the patient:
+        </Typography>
+        <FormControl component="fieldset">
+          <FormLabel component="legend" sx={{ fontSize: '0.75rem', fontWeight: 700, color: '#5F6368', mb: 1 }}>
+            Notification Channel
+          </FormLabel>
+          <RadioGroup value={channel} onChange={(e) => setChannel(e.target.value)}>
+            <FormControlLabel
+              value="email"
+              disabled={!hasEmail}
+              control={<Radio size="small" sx={{ '&.Mui-checked': { color: '#006D77' } }} />}
+              label={
+                <Box>
+                  <Typography variant="body2" fontWeight={600}>
+                    Email {!hasEmail && <Chip label="No email on file" size="small" sx={{ ml: 1, fontSize: '0.65rem', height: 18 }} />}
+                  </Typography>
+                  {hasEmail && <Typography variant="caption" color="text.secondary">{patientEmail}</Typography>}
+                </Box>
+              }
+            />
+            <FormControlLabel
+              value="sms"
+              disabled={!hasPhone}
+              control={<Radio size="small" sx={{ '&.Mui-checked': { color: '#006D77' } }} />}
+              label={
+                <Box>
+                  <Typography variant="body2" fontWeight={600}>
+                    SMS {!hasPhone && <Chip label="No phone on file" size="small" sx={{ ml: 1, fontSize: '0.65rem', height: 18 }} />}
+                  </Typography>
+                  {hasPhone && <Typography variant="caption" color="text.secondary">{patientPhone}</Typography>}
+                </Box>
+              }
+            />
+          </RadioGroup>
+        </FormControl>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
+        <Button onClick={onClose} variant="outlined" sx={{ borderRadius: 2, fontWeight: 700 }}>
+          Cancel
+        </Button>
+        <Button
+          onClick={() => onSend(channel)}
+          variant="contained"
+          sx={{
+            borderRadius: 2, fontWeight: 700,
+            background: 'linear-gradient(135deg,#006D77,#00858F)',
+            '&:hover': { background: 'linear-gradient(135deg,#005A62,#006D77)' },
+          }}
+        >
+          Send via {channel === 'email' ? 'Email' : 'SMS'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 // ─── AppointmentDetailPage ────────────────────────────────────────────────────
 export default function AppointmentDetailPage() {
   const { id }   = useParams()
@@ -92,6 +311,12 @@ export default function AppointmentDetailPage() {
   const { enqueueSnackbar } = useSnackbar()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [reminderSending, setReminderSending] = useState(false)
+
+  // SUG-APPT-010: Reschedule dialog state
+  const [rescheduleOpen, setRescheduleOpen] = useState(false)
+
+  // NEW-APPT-004: Reminder channel dialog state
+  const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
 
   const { data, loading, refetch } = useQuery(APPOINTMENT_DETAIL_QUERY, {
     variables: { id }, skip: !id, fetchPolicy: 'network-only',
@@ -116,14 +341,31 @@ export default function AppointmentDetailPage() {
     onCompleted: () => { setCancelOpen(false); refetch() }
   })
 
-  // SUG-APPT-011: Send Reminder stub
-  const handleSendReminder = () => {
+  // NEW-APPT-004: Send Reminder with channel selection
+  const handleSendReminder = (channel) => {
+    setReminderDialogOpen(false)
     setReminderSending(true)
     setTimeout(() => {
       setReminderSending(false)
-      const contact = apt?.patient?.email ?? apt?.patient?.phone ?? 'the patient'
-      enqueueSnackbar(`Reminder sent to ${contact}`, { variant: 'success' })
+      const contact = channel === 'sms'
+        ? (apt?.patient?.phone ?? 'patient phone')
+        : (apt?.patient?.email ?? 'patient email')
+      enqueueSnackbar(`Reminder sent via ${channel.toUpperCase()} to ${contact}`, { variant: 'success' })
     }, 1500)
+  }
+
+  // SUG-APPT-010: Reschedule handler — updates MockStore optimistically
+  const handleReschedule = (newStart, newEnd) => {
+    setRescheduleOpen(false)
+    if (apt) {
+      MockStore.updateAppointment?.(apt.id, {
+        start_datetime: newStart.toISOString(),
+        end_datetime: newEnd.toISOString(),
+        status: 'rescheduled',
+      })
+    }
+    enqueueSnackbar('Appointment rescheduled successfully.', { variant: 'success' })
+    navigate('/appointments')
   }
 
   const initials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? '?'
@@ -148,6 +390,9 @@ export default function AppointmentDetailPage() {
   const startDt  = dayjs(apt.start_datetime)
   const endDt    = apt.end_datetime ? dayjs(apt.end_datetime) : startDt.add(apt.duration_minutes ?? 15, 'minute')
   const duration = apt.duration_minutes ?? apt.service?.duration_minutes
+
+  // SUG-APPT-012: Get service-specific checklist
+  const checklist = getChecklist(apt.service?.name)
 
   return (
     <Box className="page-enter" sx={{ pb: 6 }}>
@@ -178,6 +423,7 @@ export default function AppointmentDetailPage() {
           <Tooltip title="Print appointment details">
             <Button variant="outlined" startIcon={<PrintRoundedIcon />}
               onClick={() => window.print()}
+              aria-label="Print appointment details"
               sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, borderColor: '#E8EAED', color: '#5F6368', '&:hover': { bgcolor: '#F1F3F4', borderColor: '#BDC1C6' } }}
             >
               Print
@@ -421,6 +667,17 @@ export default function AppointmentDetailPage() {
                   >
                     Mark No Show
                   </Button>
+
+                  {/* SUG-APPT-010: Reschedule button */}
+                  <Button fullWidth variant="outlined" startIcon={<EventRepeatRoundedIcon />}
+                    onClick={() => setRescheduleOpen(true)}
+                    sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
+                      borderColor: '#9334E6', color: '#9334E6', '&:hover': { bgcolor: 'rgba(147,52,230,0.06)', borderColor: '#9334E6' },
+                    }}
+                  >
+                    Reschedule
+                  </Button>
+
                   <Button fullWidth variant="outlined" startIcon={<CancelRoundedIcon />}
                     onClick={() => setCancelOpen(true)}
                     sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
@@ -429,13 +686,15 @@ export default function AppointmentDetailPage() {
                   >
                     Cancel Appointment
                   </Button>
-                  {/* SUG-APPT-011: Send Reminder */}
+
+                  {/* NEW-APPT-004: Send Reminder with channel selection */}
                   <Button
                     fullWidth
                     variant="outlined"
                     startIcon={<NotificationsRoundedIcon />}
-                    onClick={handleSendReminder}
+                    onClick={() => setReminderDialogOpen(true)}
                     disabled={reminderSending}
+                    aria-label="Send appointment reminder to patient"
                     sx={{
                       borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
                       borderColor: '#006D77', color: '#006D77',
@@ -449,22 +708,22 @@ export default function AppointmentDetailPage() {
             </Card>
           )}
 
-          {/* Pre-visit checklist */}
+          {/* SUG-APPT-012: Service-specific pre-visit checklist */}
           <Card>
             <Box sx={{ p: 3, bgcolor: 'rgba(0,109,119,0.04)', border: '1px solid rgba(0,109,119,0.12)', borderRadius: 3 }}>
               <Stack direction="row" spacing={1} alignItems="flex-start">
                 <InfoRoundedIcon sx={{ color: '#006D77', fontSize: '1.1rem', mt: 0.2, flexShrink: 0 }} />
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#006D77', mb: 1 }}>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#006D77', mb: 0.5 }}>
                     Pre-visit Checklist
                   </Typography>
+                  {apt.service?.name && (
+                    <Typography variant="caption" sx={{ color: '#5F6368', mb: 1, display: 'block' }}>
+                      Specific to: <strong>{apt.service.name}</strong>
+                    </Typography>
+                  )}
                   <Stack spacing={0.75}>
-                    {[
-                      'Arrive 15 minutes early for check-in',
-                      'Bring a valid photo ID',
-                      'Bring your insurance card',
-                      'List any current medications',
-                    ].map((item) => (
+                    {checklist.map((item) => (
                       <Stack key={item} direction="row" spacing={1} alignItems="center">
                         <CheckCircleRoundedIcon sx={{ fontSize: '0.85rem', color: '#0F9D58', flexShrink: 0 }} />
                         <Typography variant="caption" sx={{ color: '#3C4043', lineHeight: 1.5 }}>{item}</Typography>
@@ -483,6 +742,23 @@ export default function AppointmentDetailPage() {
         appointmentId={apt?.id}
         onClose={() => setCancelOpen(false)}
         onConfirm={(apptId, reason) => cancelAppointment({ variables: { id: apptId, reason } })}
+      />
+
+      {/* SUG-APPT-010: Reschedule Dialog */}
+      <RescheduleDialog
+        open={rescheduleOpen}
+        apt={apt}
+        onClose={() => setRescheduleOpen(false)}
+        onSave={handleReschedule}
+      />
+
+      {/* NEW-APPT-004: Reminder Channel Dialog */}
+      <ReminderDialog
+        open={reminderDialogOpen}
+        onClose={() => setReminderDialogOpen(false)}
+        onSend={handleSendReminder}
+        patientEmail={apt?.patient?.email}
+        patientPhone={apt?.patient?.phone}
       />
     </Box>
   )

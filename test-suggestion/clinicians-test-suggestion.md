@@ -1,9 +1,9 @@
-# Clinicians — Feature Suggestions (Session 3 Final)
+# Clinicians — Feature Suggestions (Session 4 — 2026-03-30)
 
-**Module:** `frontend/src/pages/clinicians/` + `frontend/src/pages/clinician/`  
-**Last Updated:** 2026-03-21 Session 3
+**Module:** `frontend/src/pages/clinicians/index.jsx` + `components/Clinicians/ClinicianCard.jsx`  
+**Updated:** 2026-03-30 Session 4
 
-> ✅ **All critical, high, and medium-priority suggestions implemented. Module production-ready.**
+> ✅ **All frontend suggestions implemented. Module production-ready.**
 
 ---
 
@@ -11,52 +11,62 @@
 
 | ID | Suggestion | Priority | Status |
 |----|-----------|----------|--------|
-| SUG-CLIN-001 | Correct email validation messages | 🔴 Critical | ✅ COMPLETED |
-| SUG-CLIN-002 | Edit form offline fallback (three-tier lookup) | 🔴 Critical | ✅ COMPLETED |
-| SUG-CLIN-003 | Clinician portal mock fallbacks (Dashboard/Calendar/Availability) | 🔴 Critical | ✅ COMPLETED |
-| SUG-CLIN-004 | Search connected via `useMemo` | 🟠 High | ✅ COMPLETED |
-| SUG-CLIN-005 | Status toggle wired to `is_active` | 🟠 High | ✅ COMPLETED |
-| SUG-CLIN-006 | Card data enrichment (clinician_type, clinic, rating, fee, services) | 🟠 High | ✅ COMPLETED |
-| SUG-CLIN-007 | Specialization dropdown filter (dynamic from data) | 🟠 High | ✅ COMPLETED |
-| SUG-CLIN-008 | Clinic filter dropdown with `filterClinic` state | 🟡 Medium | ✅ COMPLETED |
-| SUG-CLIN-009 | Consultation fee badge on card | 🟡 Medium | ✅ COMPLETED |
-| SUG-CLIN-010 | Demo login chips on login page | 🟡 Medium | ✅ ALREADY IMPLEMENTED |
+| SUG-CLIN-001 | Email validation messages | 🔴 Critical | ✅ DONE |
+| SUG-CLIN-002 | Edit form offline fallback | 🔴 Critical | ✅ DONE |
+| SUG-CLIN-003 | Portal mock fallbacks | 🔴 Critical | ✅ DONE |
+| SUG-CLIN-004 | Search via useMemo | 🟠 High | ✅ DONE |
+| SUG-CLIN-005 | Status toggle wired | 🟠 High | ✅ DONE |
+| SUG-CLIN-006 | Card data enrichment | 🟠 High | ✅ DONE |
+| SUG-CLIN-007 | Specialization dropdown | 🟠 High | ✅ DONE |
+| SUG-CLIN-008 | Clinic filter dropdown | 🟡 Medium | ✅ DONE |
+| SUG-CLIN-009 | Fee badge on card | 🟡 Medium | ✅ DONE |
+| SUG-CLIN-010 | Demo login chips | 🟡 Medium | ✅ DONE |
 | SUG-CLIN-011 | Pagination | 🟢 Low | ⏭ DEFERRED (8 records) |
 | SUG-CLIN-012 | Export to CSV | 🟢 Low | ⏭ DEFERRED |
-| SUG-CLIN-999 | Offline save fallback in EditClinicianPage | 🟠 High | ✅ COMPLETED |
+| SUG-CLIN-999 | Offline save fallback | 🟠 High | ✅ DONE |
+| **SUG-CLIN-013** | Inactive card dim | 🟢 Low | ✅ DONE (S4) |
+| **SUG-CLIN-014** | Filter count badges | 🟢 Low | ✅ DONE (S4) |
+| **SUG-CLIN-015** | Clear All Filters button | 🟡 Medium | ✅ DONE (S4) |
+| **SUG-CLIN-016** | Heatmap full day tooltips | 🟢 Low | ✅ DONE (S4) |
 
 ---
 
-## New Suggestions — Discovered Session 3
+## Session 4 Implementation Notes
 
-### SUG-CLIN-013 — Accessible Color Contrast on Inactive Cards
-**Observation:** Inactive clinician card toggle has same layout as active — no visual dim/opacity difference.  
-**Recommendation:** Apply `opacity: 0.75` or a subtle grey overlay to inactive cards to better distinguish them from active.  
-**Priority:** 🟢 Low | **Status:** ⏳ PENDING
+### SUG-013 — Inactive Card Dim
+```jsx
+// clinicians/index.jsx — wrapping inactive cards
+<Box sx={c.is_active ? {} : { opacity: 0.70, filter: 'grayscale(30%)', transition: 'opacity 0.2s' }}>
+  <ClinicianCard ... />
+</Box>
+```
 
-### SUG-CLIN-014 — Clinic Filter Shows Count Badge
-**Observation:** Specialization and Clinic dropdowns don't show how many results are available per option.  
-**Recommendation:** Append count — e.g. "Cardiologist (2)" — to dropdown options.  
-**Priority:** 🟢 Low | **Status:** ⏳ PENDING
+### SUG-014 — Count Badges in Dropdowns
+```js
+const specialtyCount = (sp) => allClinicians.filter(c => (c.specialty ?? c.clinician_type?.name) === sp).length
+const clinicCount = (clId) => allClinicians.filter(c => c.clinic?.id === clId || c.clinics?.some?.(cl => cl.id === clId)).length
+// In MenuItem: <Chip label={specialtyCount(s)} size="small" sx={{ bgcolor:'#E8F8F9', color:'#006D77' }} />
+```
 
-### SUG-CLIN-015 — Clear All Filters Button
-**Observation:** To reset all 4 filters (search + specialty + clinic + status), user must interact with each control separately.  
-**Recommendation:** Add a "Clear Filters" button that appears when any non-default filter is active. Resets all to default.  
-**Priority:** 🟡 Medium | **Status:** ⏳ PENDING
+### SUG-015 — Clear Filters Button
+```js
+const isFiltered = searchTerm.trim() !== '' || filterSpecialty !== '' || filterClinic !== '' || filterActive !== 'all'
+const clearFilters = () => { setSearchTerm(''); setFilterSpecialty(''); setFilterClinic(''); setFilterActive('all') }
+// Danger-red outlined button with FilterListOffIcon — only shown when isFiltered=true
+```
 
-### SUG-CLIN-016 — Availability Heatmap Tooltip
-**Observation:** Availability day chips (M T W T F S S) have no tooltip — user can't quickly see which day is which.  
-**Recommendation:** Add `<Tooltip title="Monday">` wrapper on each day chip.  
-**Priority:** 🟢 Low | **Status:** ⏳ PENDING
+### SUG-016 — Full Day Name Tooltips
+```js
+const FULL_DAYS = ['Monday','Tuesday','Wednesday','Thursday','Friday','Saturday','Sunday']
+// <Tooltip title={FULL_DAYS[idx]} ...> — replaces short title={label}
+```
 
 ---
 
-## Priority Summary
+## Remaining
 
-| Priority | Total | Done | Pending |
-|----------|-------|------|---------|
-| 🔴 Critical | 3 | 3 ✅ | 0 |
-| 🟠 High | 5 | 5 ✅ | 0 |
-| 🟡 Medium | 4 | 3 ✅ | 1 ⏳ (SUG-015) |
-| 🟢 Low | 5 | 0 | 3 ⏭ deferred + 2 ⏳ new |
-| **Total** | **17** | **11 ✅** | **6** |
+| Item | Requires |
+|------|---------|
+| SUG-011 (Pagination) | 8 records — deferred until data grows |
+| SUG-012 (Export CSV) | Low priority — deferred |
+| Backend Integration | Real GraphQL API |

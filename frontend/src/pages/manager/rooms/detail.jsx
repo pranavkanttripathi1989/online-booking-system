@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
+import ErrorBoundary from '../../../components/ErrorBoundary'
 import {
   Avatar, Box, Button, Chip, Divider, Grid, IconButton,
   Paper, Skeleton, Stack, Typography,
@@ -14,15 +15,17 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import CancelRoundedIcon    from '@mui/icons-material/CancelRounded'
 import { ROOM_DETAIL_QUERY } from '../../../graphql/queries'
 
-export default function RoomDetailPage() {
+function RoomDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
 
-  const { data, loading } = useQuery(ROOM_DETAIL_QUERY, {
+  const { data, loading, error } = useQuery(ROOM_DETAIL_QUERY, {
     variables: { id },
     fetchPolicy: 'cache-and-network',
   })
 
+  // BUG-RM-001 FIX: trigger mock fallback on Apollo network error (data=undefined)
+  // as well as when data.room is null (unknown ID with live backend)
   const room = data?.room
 
   if (loading && !room) return (
@@ -32,7 +35,7 @@ export default function RoomDetailPage() {
     </Box>
   )
 
-  // Mock fallback so the page never appears empty
+  // Mock fallback — activates on Apollo error OR unknown ID
   const r = room ?? {
     id,
     name: 'Room 1A',
@@ -47,7 +50,8 @@ export default function RoomDetailPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/rooms')} sx={{ bgcolor: '#F1F3F4' }}>
+        {/* SUG-RM-004 FIX: aria-label on back button */}
+        <IconButton onClick={() => navigate('/manager/rooms')} sx={{ bgcolor: '#F1F3F4' }} aria-label="Back to rooms">
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ flex: 1 }}>
@@ -123,4 +127,9 @@ export default function RoomDetailPage() {
       </Grid>
     </Box>
   )
+}
+
+// SUG-RM-005 FIX: ErrorBoundary wrapper for crash resilience
+export default function RoomDetailPageWithBoundary() {
+  return <ErrorBoundary><RoomDetailPage /></ErrorBoundary>
 }

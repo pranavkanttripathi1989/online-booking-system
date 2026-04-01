@@ -108,12 +108,13 @@ export default function AddStaffPage() {
   const initials = form.name ? getInitials(form.name) : '?'
   const avatarBg = form.name ? avatarColor(form.name) : '#9AA0A6'
 
-  // Password strength
+  // Password strength — BUG-STAFF-004 fix: evaluate complexity FIRST, then length fallbacks
   const pwdStrength = !form.password ? 0
-    : form.password.length < 6 ? 1
-    : form.password.length < 10 && /[A-Z]/.test(form.password) ? 2
-    : /[A-Z]/.test(form.password) && /[0-9]/.test(form.password) && /[^A-Za-z0-9]/.test(form.password) ? 4
-    : 3
+    : /[A-Z]/.test(form.password) && /[0-9]/.test(form.password) && /[^A-Za-z0-9]/.test(form.password) && form.password.length >= 8 ? 4
+    : form.password.length >= 10 || (/[A-Z]/.test(form.password) && /[0-9]/.test(form.password)) ? 3
+    : form.password.length >= 6 ? 2
+    : 1
+
   const pwdColors = ['', '#D93025', '#F9AB00', '#0B7B5C', '#006D77']
   const pwdLabels = ['', 'Weak', 'Fair', 'Good', 'Strong']
 

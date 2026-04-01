@@ -2,14 +2,19 @@ import React, { useState } from 'react';
 import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Avatar,
   Divider, TextField, Paper, IconButton, Alert, Switch, FormControlLabel,
+  InputAdornment,
 } from '@mui/material';
-import { PatientAvatar } from '../../components/shared';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ShieldIcon from '@mui/icons-material/Shield';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import AddIcon from '@mui/icons-material/Add';
+import CheckIcon from '@mui/icons-material/Check';
+import { useAuth } from '../../hooks/useAuth';
+
+// SUG-PTPROF-009: PatientAvatar unused import removed
 
 const INITIAL = {
   firstName: 'Emma',   lastName: 'Wilson',
@@ -23,10 +28,31 @@ const INITIAL = {
 };
 
 export default function PatientProfile() {
-  const [profile, setProfile] = useState(INITIAL);
+  // SUG-PTPROF-004: Use auth context to seed profile name/email where available
+  const { user } = useAuth();
+
+  const seedFromAuth = () => {
+    if (!user) return INITIAL;
+    const [first = '', ...rest] = (user.name || '').split(' ');
+    return {
+      ...INITIAL,
+      firstName: user.firstName || first || INITIAL.firstName,
+      lastName: user.lastName || rest.join(' ') || INITIAL.lastName,
+      email: user.email || INITIAL.email,
+    };
+  };
+
+  const SEEDED = seedFromAuth();
+  const [profile, setProfile] = useState(SEEDED);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft]     = useState(INITIAL);
+  const [draft, setDraft]     = useState(SEEDED);
   const [saveOk, setSaveOk]   = useState(false);
+
+  // SUG-PTPROF-001/005: Add/delete allergy state
+  const [newAllergy, setNewAllergy]               = useState('');
+  const [showAllergyInput, setShowAllergyInput]   = useState(false);
+  const [newCondition, setNewCondition]           = useState('');
+  const [showConditionInput, setShowConditionInput] = useState(false);
 
   const handleSave = () => {
     setProfile(draft);
@@ -35,6 +61,34 @@ export default function PatientProfile() {
     setTimeout(() => setSaveOk(false), 3000);
   };
 
+  const handleDiscard = () => {
+    setEditing(false);
+    setDraft(profile);
+    setShowAllergyInput(false);
+    setShowConditionInput(false);
+    setNewAllergy('');
+    setNewCondition('');
+  };
+
+  // SUG-PTPROF-001: Add allergy handler
+  const handleAddAllergy = () => {
+    if (newAllergy.trim()) {
+      setDraft({ ...draft, allergies: [...draft.allergies, newAllergy.trim()] });
+      setNewAllergy('');
+      setShowAllergyInput(false);
+    }
+  };
+
+  // SUG-PTPROF-001: Add condition handler
+  const handleAddCondition = () => {
+    if (newCondition.trim()) {
+      setDraft({ ...draft, conditions: [...draft.conditions, newCondition.trim()] });
+      setNewCondition('');
+      setShowConditionInput(false);
+    }
+  };
+
+  // Personal info field helper
   const field = (label, key, type = 'text') => (
     <Box>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>{label}</Typography>
@@ -45,17 +99,34 @@ export default function PatientProfile() {
     </Box>
   );
 
+  // SUG-PTPROF-003: Insurance field helper (editable in edit mode)
+  const insuranceField = (label, key) => (
+    <Box>
+      <Typography variant="caption" color="text.secondary">{label}</Typography>
+      {editing
+        ? <TextField fullWidth size="small" value={draft.insurance[key] || ''} onChange={(e) => setDraft({ ...draft, insurance: { ...draft.insurance, [key]: e.target.value } })} sx={{ mt: 0.5 }} />
+        : <Typography fontWeight={600}>{profile.insurance[key]}</Typography>
+      }
+    </Box>
+  );
+
+  // SUG-PTPROF-002: Safe initials with null guard
+  const initials = `${profile.firstName?.[0] ?? '?'}${profile.lastName?.[0] ?? ''}`;
+  const displayName = (profile.firstName || profile.lastName)
+    ? `${profile.firstName} ${profile.lastName}`.trim()
+    : 'Unknown Patient';
+
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h2" fontWeight={700}>My Profile</Typography>
         {editing ? (
           <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<CancelIcon />} onClick={() => { setEditing(false); setDraft(profile); }}>Discard</Button>
-            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave}>Save Changes</Button>
+            <Button variant="outlined" startIcon={<CancelIcon />} onClick={handleDiscard} aria-label="Discard changes">Discard</Button>
+            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} aria-label="Save profile changes">Save Changes</Button>
           </Stack>
         ) : (
-          <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditing(true)}>Edit Profile</Button>
+          <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditing(true)} aria-label="Edit profile">Edit Profile</Button>
         )}
       </Stack>
 
@@ -65,10 +136,11 @@ export default function PatientProfile() {
         {/* Left — avatar card */}
         <Grid item xs={12} md={3}>
           <Card sx={{ textAlign: 'center', p: 3 }}>
+            {/* SUG-PTPROF-002: Null-guarded avatar initials */}
             <Avatar sx={{ width: 80, height: 80, bgcolor: '#006D77', fontSize: '1.8rem', fontWeight: 800, mx: 'auto', mb: 2 }}>
-              {profile.firstName[0]}{profile.lastName[0]}
+              {initials}
             </Avatar>
-            <Typography fontWeight={700}>{profile.firstName} {profile.lastName}</Typography>
+            <Typography fontWeight={700}>{displayName}</Typography>
             <Typography variant="body2" color="text.secondary">{profile.email}</Typography>
             <Chip label="Patient" sx={{ mt: 1, bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }} />
             <Divider sx={{ my: 2 }} />
@@ -114,25 +186,93 @@ export default function PatientProfile() {
                   <Typography variant="h5" fontWeight={700}>Medical Information</Typography>
                 </Stack>
                 <Grid container spacing={2}>
+                  {/* Allergies */}
                   <Grid item xs={12} sm={6}>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>Allergies</Typography>
                     <Stack direction="row" flexWrap="wrap" gap={0.75}>
-                      {profile.allergies.map((a) => <Chip key={a} label={a} size="small" color="error" variant="outlined" />)}
-                      {editing && <Chip label="+ Add" size="small" variant="outlined" sx={{ cursor: 'pointer' }} />}
+                      {(editing ? draft.allergies : profile.allergies).map((a) => (
+                        <Chip
+                          key={a} label={a} size="small" color="error" variant="outlined"
+                          /* SUG-PTPROF-005: Delete button in edit mode */
+                          onDelete={editing ? () => setDraft({ ...draft, allergies: draft.allergies.filter(x => x !== a) }) : undefined}
+                        />
+                      ))}
+                      {/* SUG-PTPROF-001: Wired "+ Add" for allergies */}
+                      {editing && (
+                        showAllergyInput ? (
+                          <Stack direction="row" gap={0.5} alignItems="center">
+                            <TextField
+                              size="small" value={newAllergy}
+                              onChange={(e) => setNewAllergy(e.target.value)}
+                              placeholder="e.g. Peanuts"
+                              onKeyDown={(e) => e.key === 'Enter' && handleAddAllergy()}
+                              inputProps={{ 'aria-label': 'New allergy name' }}
+                              sx={{ width: 130 }}
+                            />
+                            <IconButton size="small" onClick={handleAddAllergy} aria-label="Confirm add allergy" color="primary">
+                              <CheckIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => { setShowAllergyInput(false); setNewAllergy(''); }} aria-label="Cancel add allergy">
+                              <CancelIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        ) : (
+                          <Chip
+                            label="+ Add" size="small" variant="outlined"
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => setShowAllergyInput(true)}
+                            aria-label="Add new allergy"
+                          />
+                        )
+                      )}
                     </Stack>
                   </Grid>
+
+                  {/* Conditions */}
                   <Grid item xs={12} sm={6}>
                     <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>Existing Conditions</Typography>
                     <Stack direction="row" flexWrap="wrap" gap={0.75}>
-                      {profile.conditions.map((c) => <Chip key={c} label={c} size="small" color="warning" variant="outlined" />)}
-                      {editing && <Chip label="+ Add" size="small" variant="outlined" sx={{ cursor: 'pointer' }} />}
+                      {(editing ? draft.conditions : profile.conditions).map((c) => (
+                        <Chip
+                          key={c} label={c} size="small" color="warning" variant="outlined"
+                          /* SUG-PTPROF-005: Delete button for conditions */
+                          onDelete={editing ? () => setDraft({ ...draft, conditions: draft.conditions.filter(x => x !== c) }) : undefined}
+                        />
+                      ))}
+                      {editing && (
+                        showConditionInput ? (
+                          <Stack direction="row" gap={0.5} alignItems="center">
+                            <TextField
+                              size="small" value={newCondition}
+                              onChange={(e) => setNewCondition(e.target.value)}
+                              placeholder="e.g. Diabetes"
+                              onKeyDown={(e) => e.key === 'Enter' && handleAddCondition()}
+                              inputProps={{ 'aria-label': 'New condition name' }}
+                              sx={{ width: 130 }}
+                            />
+                            <IconButton size="small" onClick={handleAddCondition} aria-label="Confirm add condition" color="primary">
+                              <CheckIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton size="small" onClick={() => { setShowConditionInput(false); setNewCondition(''); }} aria-label="Cancel add condition">
+                              <CancelIcon fontSize="small" />
+                            </IconButton>
+                          </Stack>
+                        ) : (
+                          <Chip
+                            label="+ Add" size="small" variant="outlined"
+                            sx={{ cursor: 'pointer' }}
+                            onClick={() => setShowConditionInput(true)}
+                            aria-label="Add new condition"
+                          />
+                        )
+                      )}
                     </Stack>
                   </Grid>
                 </Grid>
               </CardContent>
             </Card>
 
-            {/* Insurance */}
+            {/* Insurance — SUG-PTPROF-003: Now editable */}
             <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.5 }}>
@@ -140,18 +280,9 @@ export default function PatientProfile() {
                   <Typography variant="h5" fontWeight={700}>Insurance</Typography>
                 </Stack>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>
-                    <Typography variant="caption" color="text.secondary">Provider</Typography>
-                    <Typography fontWeight={600}>{profile.insurance.provider}</Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <Typography variant="caption" color="text.secondary">Policy Number</Typography>
-                    <Typography fontWeight={600}>{profile.insurance.policyNo}</Typography>
-                  </Grid>
-                  <Grid item xs={12} sm={4}>
-                    <Typography variant="caption" color="text.secondary">Expires</Typography>
-                    <Typography fontWeight={600}>{profile.insurance.expires}</Typography>
-                  </Grid>
+                  <Grid item xs={12} sm={4}>{insuranceField('Provider', 'provider')}</Grid>
+                  <Grid item xs={12} sm={4}>{insuranceField('Policy Number', 'policyNo')}</Grid>
+                  <Grid item xs={12} sm={4}>{insuranceField('Expires', 'expires')}</Grid>
                 </Grid>
               </CardContent>
             </Card>
@@ -177,6 +308,7 @@ export default function PatientProfile() {
                             checked={editing ? draft.notifications[key] : profile.notifications[key]}
                             onChange={(e) => setDraft({ ...draft, notifications: { ...draft.notifications, [key]: e.target.checked } })}
                             disabled={!editing}
+                            inputProps={{ 'aria-label': label }}
                           />
                         }
                         label={<Typography variant="body2">{label}</Typography>}

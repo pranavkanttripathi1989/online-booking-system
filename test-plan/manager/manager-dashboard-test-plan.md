@@ -251,3 +251,38 @@ Analytics overview page with date-range filtering, clinic filtering, 5 KPI cards
 | E8 | Toggling date filter rapidly | No duplicate queries; state is stable |
 | E9 | `getClinics` returns empty list | Only "All Clinics" option shown; no error |
 | E10 | Custom dates not yet picked (null) | Fallback to today's date; no `NaN` in query vars |
+| E11 | Custom Start > End date | Red alert shown via Collapse; query skipped |
+| E12 | Correct End date after error state | Alert hides; query resumes automatically |
+
+---
+
+### TC-MGR-DASH-21 — Date Error Alert Animation (Session 7 — new)
+**Description:** Collapse animation fires when dateRangeError appears/clears.
+**Steps:**
+1. Select Custom, set Start after End.
+2. Observe alert appearance.
+3. Fix End date to be after Start.
+**Expected:** Alert slides in (Collapse open) when error active; slides out when cleared.
+
+---
+
+### TC-MGR-DASH-22 — Query Skipped on Inverted Dates (Session 7 — new)
+**Description:** When customStart > customEnd, `skip: !!dateRangeError` prevents Apollo query.
+**Steps:**
+1. Select Custom, set Start after End.
+2. Open browser devtools Network tab.
+**Expected:** No GraphQL request during error state. Existing mock data remains visible.
+
+---
+
+### TC-MGR-DASH-23 — Error Clears on Date Correction (Session 7 — new)
+**Description:** Fixing inverted dates clears error and restores query.
+**Steps:**
+1. Trigger date error (Start > End).
+2. Set End date to be after Start.
+**Expected:** `dateRangeError = null` → alert hidden → query skips removed → data refreshes.
+
+---
+
+## Total: 23 Test Cases + 12 Edge Cases
+

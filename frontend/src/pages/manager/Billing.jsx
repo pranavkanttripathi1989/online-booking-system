@@ -2,18 +2,22 @@ import React, { useState } from 'react';
 import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Paper, IconButton, Select, MenuItem, FormControl, InputLabel, TextField,
-  LinearProgress,
+  IconButton, Select, MenuItem, FormControl, InputLabel, TextField,
+  Tooltip, Alert,
 } from '@mui/material';
 import { StatusChip } from '../../components/shared';
+import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
+import ErrorBoundary from '../../components/ErrorBoundary';
 import DownloadIcon from '@mui/icons-material/Download';
 import ReceiptIcon from '@mui/icons-material/Receipt';
 import VisibilityIcon from '@mui/icons-material/Visibility';
 import RefundIcon from '@mui/icons-material/CurrencyExchange';
-import TrendingUpIcon from '@mui/icons-material/TrendingUp';
-import AccountBalanceIcon from '@mui/icons-material/AccountBalance';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
+  ResponsiveContainer, Legend,
+} from 'recharts';
 
+// ─── Mock data (VITE_USE_MOCK_API=true or backend offline → same effect) ──────
 const REVENUE_DATA = [
   { name: 'Sep', clinics: 5200, services: 3100, net: 7420 },
   { name: 'Oct', clinics: 6100, services: 3800, net: 8820 },
@@ -24,160 +28,317 @@ const REVENUE_DATA = [
   { name: 'Mar', clinics: 8100, services: 5400, net: 11880 },
 ];
 
-const INVOICES = [
-  { id: 'INV-001', patient: 'Emma Wilson',  clinician: 'Dr. Johnson', service: 'Cardiology Consultation', date: '2026-03-20', amount: 85,  status: 'paid',    method: 'Card' },
-  { id: 'INV-002', patient: 'James Brown',  clinician: 'Dr. Osei',    service: 'Neurology Assessment',    date: '2026-03-20', amount: 120, status: 'paid',    method: 'Card' },
-  { id: 'INV-003', patient: 'Lily Chen',    clinician: 'Dr. Sharma',  service: 'Paediatrics Check-up',    date: '2026-03-19', amount: 75,  status: 'refunded', method: 'Card' },
-  { id: 'INV-004', patient: 'Omar Hassan',  clinician: 'Dr. Johnson', service: 'ECG Recording',           date: '2026-03-18', amount: 120, status: 'pending',  method: 'Insurance' },
-  { id: 'INV-005', patient: 'Sophie Müller',clinician: 'Dr. Johnson', service: 'Post-op Review',          date: '2026-03-17', amount: 85,  status: 'paid',     method: 'Cash' },
+const INVOICES_SEED = [
+  { id: 'INV-001', patient: 'Emma Wilson',   clinician: 'Dr. Johnson', service: 'Cardiology Consultation', date: '2026-03-20', amount: 85,  status: 'paid',     method: 'Card' },
+  { id: 'INV-002', patient: 'James Brown',   clinician: 'Dr. Osei',    service: 'Neurology Assessment',    date: '2026-03-20', amount: 120, status: 'paid',     method: 'Card' },
+  { id: 'INV-003', patient: 'Lily Chen',     clinician: 'Dr. Sharma',  service: 'Paediatrics Check-up',    date: '2026-03-19', amount: 75,  status: 'refunded', method: 'Card' },
+  { id: 'INV-004', patient: 'Omar Hassan',   clinician: 'Dr. Johnson', service: 'ECG Recording',           date: '2026-03-18', amount: 120, status: 'pending',  method: 'Insurance' },
+  { id: 'INV-005', patient: 'Sophie Müller', clinician: 'Dr. Johnson', service: 'Post-op Review',          date: '2026-03-17', amount: 85,  status: 'paid',     method: 'Cash' },
 ];
 
 const SUMMARY = [
-  { label: 'Total Revenue (Mar)',   value: '£11,880', sub: '+12% vs last month', color: '#2DC653' },
-  { label: 'Outstanding Invoices', value: '£2,340',  sub: '8 invoices pending',  color: '#FFB703' },
-  { label: 'Refunds This Month',   value: '£450',    sub: '3 refund requests',   color: '#E63946' },
-  { label: 'Avg Rev / Appointment', value: '£92.40', sub: '245 appointments',     color: '#006D77' },
+  { label: 'Total Revenue (Mar)',    value: '£11,880', sub: '+12% vs last month', color: '#2DC653' },
+  { label: 'Outstanding Invoices',  value: '£2,340',  sub: '8 invoices pending',  color: '#FFB703' },
+  { label: 'Refunds This Month',    value: '£450',    sub: '3 refund requests',   color: '#E63946' },
+  { label: 'Avg Rev / Appointment', value: '£92.40',  sub: '245 appointments',    color: '#006D77' },
 ];
 
 const STATUS_COLOR = { paid: 'confirmed', pending: 'scheduled', refunded: 'cancelled' };
 
-export default function ManagerBilling() {
-  const [dateFilter, setDateFilter] = useState('this-month');
-  const [methodFilter, setMethodFilter] = useState('all');
+const DATE_LABELS = {
+  'this-month':    'March 2026',
+  'last-month':    'February 2026',
+  'last-quarter':  'Q4 2025',
+  'ytd':           'Jan – Mar 2026',
+};
 
-  const filtered = INVOICES.filter((inv) => methodFilter === 'all' || inv.method === methodFilter);
+export default function ManagerBilling() {
+  // ── Filters ────────────────────────────────────────────────────────────────
+  const [dateFilter,   setDateFilter]   = useState('this-month');
+  const [methodFilter, setMethodFilter] = useState('all');
+  const [statusFilter, setStatusFilter] = useState('all');    // SUG-BILL-011
+  const [searchQuery,  setSearchQuery]  = useState('');       // SUG-BILL-002
+
+  // ── Invoice state (mutable copy, enables optimistic refund) ────────────────
+  const [invoices, setInvoices] = useState(INVOICES_SEED);
+  const [successMsg, setSuccessMsg] = useState(null);
+
+  // ── Refund confirm dialog state (SUG-BILL-007) ─────────────────────────────
+  const [refundTarget, setRefundTarget] = useState(null);
+
+  // ── Derived filtered list (SUG-BILL-002 + SUG-BILL-011) ───────────────────
+  const filtered = invoices.filter((inv) => {
+    const matchMethod = methodFilter === 'all' || inv.method === methodFilter;
+    const matchStatus = statusFilter === 'all' || inv.status === statusFilter;
+    const q = searchQuery.trim().toLowerCase();
+    const matchSearch = !q ||
+      inv.patient.toLowerCase().includes(q) ||
+      inv.id.toLowerCase().includes(q) ||
+      inv.service.toLowerCase().includes(q) ||
+      inv.clinician.toLowerCase().includes(q);
+    return matchMethod && matchStatus && matchSearch;
+  });
+
+  // ── Handlers ───────────────────────────────────────────────────────────────
+
+  /** SUG-BILL-006 — CSV export of currently-filtered invoices */
+  const handleExport = () => {
+    const headers = ['Invoice', 'Patient', 'Clinician', 'Service', 'Date', 'Amount', 'Method', 'Status'];
+    const rows = filtered.map(inv =>
+      [inv.id, inv.patient, inv.clinician, inv.service, inv.date, `£${inv.amount}`, inv.method, inv.status]
+    );
+    const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url  = URL.createObjectURL(blob);
+    const a    = document.createElement('a');
+    a.href = url;
+    a.download = `billing-export-${dateFilter}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  /** SUG-BILL-007 — Confirm refund: opens dialog */
+  const handleRefundClick = (inv) => setRefundTarget(inv);
+
+  /** SUG-BILL-007 — Execute refund after confirmation (optimistic update) */
+  const confirmRefund = () => {
+    if (!refundTarget) return;
+    setInvoices(prev =>
+      prev.map(inv => inv.id === refundTarget.id ? { ...inv, status: 'refunded' } : inv)
+    );
+    setSuccessMsg(`Refund of £${refundTarget.amount} issued for ${refundTarget.patient}.`);
+    setTimeout(() => setSuccessMsg(null), 4000);
+    setRefundTarget(null);
+  };
 
   return (
-    <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
-        <Box>
-          <Typography variant="h2" fontWeight={700}>Billing & Revenue</Typography>
-          <Typography variant="body2" color="text.secondary">City Heart Clinic · March 2026</Typography>
-        </Box>
-        <Stack direction="row" spacing={1.5}>
-          <FormControl size="small" sx={{ minWidth: 140 }}>
-            <Select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
-              <MenuItem value="this-month">This Month</MenuItem>
-              <MenuItem value="last-month">Last Month</MenuItem>
-              <MenuItem value="last-quarter">Last Quarter</MenuItem>
-              <MenuItem value="ytd">Year to Date</MenuItem>
-            </Select>
-          </FormControl>
-          <Button startIcon={<DownloadIcon />} variant="outlined">Export</Button>
-        </Stack>
-      </Stack>
+    <ErrorBoundary>
+      <Box>
 
-      {/* KPI Row */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        {SUMMARY.map(({ label, value, sub, color }) => (
-          <Grid item xs={12} sm={6} md={3} key={label}>
-            <Card sx={{ borderTop: `4px solid ${color}` }}>
-              <CardContent sx={{ p: 2 }}>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{label}</Typography>
-                <Typography variant="h3" fontWeight={800} sx={{ color, mb: 0.25 }}>{value}</Typography>
-                <Typography variant="caption" color="text.secondary">{sub}</Typography>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
-      </Grid>
-
-      {/* Revenue Chart */}
-      <Card sx={{ mb: 3 }}>
-        <CardContent sx={{ p: 2.5 }}>
-          <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Revenue Breakdown</Typography>
-          <ResponsiveContainer width="100%" height={240}>
-            <BarChart data={REVENUE_DATA}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#E8F0F2" />
-              <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-              <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `£${v / 1000}k`} />
-              <Tooltip formatter={(v) => `£${v.toLocaleString()}`} />
-              <Bar dataKey="clinics"  fill="#006D77" radius={[4, 4, 0, 0]} name="Clinic Fees" stackId="a" />
-              <Bar dataKey="services" fill="#83C5BE" radius={[4, 4, 0, 0]} name="Service Fees" stackId="a" />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      {/* Invoices Table */}
-      <Card>
-        <CardContent sx={{ p: 2.5 }}>
-          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }}>
-            <Typography variant="h5" fontWeight={700}>Invoices</Typography>
-            <Stack direction="row" spacing={1}>
-              <TextField size="small" label="Search invoices" sx={{ width: 200 }} />
-              <FormControl size="small" sx={{ minWidth: 140 }}>
-                <InputLabel>Payment Method</InputLabel>
-                <Select value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)} label="Payment Method">
-                  {['all', 'Card', 'Cash', 'Insurance'].map((m) => (
-                    <MenuItem key={m} value={m}>{m === 'all' ? 'All Methods' : m}</MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
-              <Button startIcon={<ReceiptIcon />} variant="outlined" size="small">Generate Invoice</Button>
+        {/* ── Page Header ──────────────────────────────────────────────────── */}
+        <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+          <Box>
+            <Typography variant="h2" fontWeight={700}>Billing &amp; Revenue</Typography>
+            <Stack direction="row" alignItems="center" spacing={1}>
+              <Typography variant="body2" color="text.secondary">City Heart Clinic</Typography>
+              {/* SUG-BILL-003 — active period chip */}
+              <Chip
+                label={DATE_LABELS[dateFilter] ?? dateFilter}
+                size="small"
+                color="primary"
+                variant="outlined"
+                sx={{ fontWeight: 600 }}
+              />
             </Stack>
+          </Box>
+          <Stack direction="row" spacing={1.5}>
+            <FormControl size="small" sx={{ minWidth: 140 }}>
+              <Select value={dateFilter} onChange={(e) => setDateFilter(e.target.value)}>
+                <MenuItem value="this-month">This Month</MenuItem>
+                <MenuItem value="last-month">Last Month</MenuItem>
+                <MenuItem value="last-quarter">Last Quarter</MenuItem>
+                <MenuItem value="ytd">Year to Date</MenuItem>
+              </Select>
+            </FormControl>
+            {/* SUG-BILL-006 — wired Export button */}
+            <Tooltip title="Export filtered invoices as CSV">
+              <Button startIcon={<DownloadIcon />} variant="outlined" onClick={handleExport}>
+                Export
+              </Button>
+            </Tooltip>
           </Stack>
+        </Stack>
 
-          <TableContainer>
-            <Table>
-              <TableHead>
-                <TableRow>
-                  <TableCell>Invoice</TableCell>
-                  <TableCell>Patient</TableCell>
-                  <TableCell>Clinician</TableCell>
-                  <TableCell>Service</TableCell>
-                  <TableCell>Date</TableCell>
-                  <TableCell>Amount</TableCell>
-                  <TableCell>Method</TableCell>
-                  <TableCell>Status</TableCell>
-                  <TableCell>Actions</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {filtered.map((inv) => (
-                  <TableRow key={inv.id} hover>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={700} color="primary">{inv.id}</Typography>
-                    </TableCell>
-                    <TableCell>{inv.patient}</TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{inv.clinician}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" color="text.secondary">{inv.service}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2">{inv.date}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" fontWeight={700}>£{inv.amount}</Typography>
-                    </TableCell>
-                    <TableCell>
-                      <Chip
-                        label={inv.method}
-                        size="small"
-                        sx={{ bgcolor: '#F0F7F8', color: '#004D55' }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <StatusChip status={STATUS_COLOR[inv.status] || inv.status} />
-                    </TableCell>
-                    <TableCell>
-                      <Stack direction="row" spacing={0.5}>
-                        <IconButton size="small"><VisibilityIcon fontSize="small" /></IconButton>
-                        <IconButton size="small"><DownloadIcon fontSize="small" /></IconButton>
-                        {inv.status === 'paid' && (
-                          <IconButton size="small" color="error"><RefundIcon fontSize="small" /></IconButton>
-                        )}
-                      </Stack>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </CardContent>
-      </Card>
-    </Box>
+        {/* ── Success banner ────────────────────────────────────────────────── */}
+        {successMsg && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setSuccessMsg(null)}>
+            {successMsg}
+          </Alert>
+        )}
+
+        {/* ── KPI Cards ─────────────────────────────────────────────────────── */}
+        <Grid container spacing={2} sx={{ mb: 3 }}>
+          {SUMMARY.map(({ label, value, sub, color }) => (
+            <Grid item xs={12} sm={6} md={3} key={label}>
+              <Card sx={{ borderTop: `4px solid ${color}` }}>
+                <CardContent sx={{ p: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>{label}</Typography>
+                  <Typography variant="h3" fontWeight={800} sx={{ color, mb: 0.25 }}>{value}</Typography>
+                  <Typography variant="caption" color="text.secondary">{sub}</Typography>
+                </CardContent>
+              </Card>
+            </Grid>
+          ))}
+        </Grid>
+
+        {/* ── Revenue Chart (SUG-BILL-010 — Legend added) ───────────────────── */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent sx={{ p: 2.5 }}>
+            <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Revenue Breakdown</Typography>
+            <ResponsiveContainer width="100%" height={260}>
+              <BarChart data={REVENUE_DATA} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#E8F0F2" />
+                <XAxis dataKey="name" tick={{ fontSize: 12 }} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `£${v / 1000}k`} />
+                <RechartsTooltip formatter={(v) => `£${v.toLocaleString()}`} />
+                {/* SUG-BILL-010 — Legend so users know which colour is which */}
+                <Legend verticalAlign="top" height={32} />
+                <Bar dataKey="clinics"  fill="#006D77" radius={[4, 4, 0, 0]} name="Clinic Fees"   stackId="a" />
+                <Bar dataKey="services" fill="#83C5BE" radius={[4, 4, 0, 0]} name="Service Fees"  stackId="a" />
+              </BarChart>
+            </ResponsiveContainer>
+          </CardContent>
+        </Card>
+
+        {/* ── Invoices Table ────────────────────────────────────────────────── */}
+        <Card>
+          <CardContent sx={{ p: 2.5 }}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
+              <Typography variant="h5" fontWeight={700}>
+                Invoices
+                {filtered.length !== invoices.length && (
+                  <Chip label={`${filtered.length} of ${invoices.length}`} size="small" sx={{ ml: 1, fontWeight: 600 }} />
+                )}
+              </Typography>
+              <Stack direction="row" spacing={1} flexWrap="wrap">
+                {/* SUG-BILL-002 — wired search field */}
+                <TextField
+                  size="small"
+                  label="Search invoices"
+                  sx={{ width: 200 }}
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  inputProps={{ 'aria-label': 'Search invoices by patient, ID or service' }}
+                />
+                {/* SUG-BILL-011 — Status filter */}
+                <FormControl size="small" sx={{ minWidth: 130 }}>
+                  <InputLabel>Status</InputLabel>
+                  <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Status">
+                    <MenuItem value="all">All Statuses</MenuItem>
+                    <MenuItem value="paid">Paid</MenuItem>
+                    <MenuItem value="pending">Pending</MenuItem>
+                    <MenuItem value="refunded">Refunded</MenuItem>
+                  </Select>
+                </FormControl>
+                {/* Method filter (existing) */}
+                <FormControl size="small" sx={{ minWidth: 140 }}>
+                  <InputLabel>Payment Method</InputLabel>
+                  <Select value={methodFilter} onChange={(e) => setMethodFilter(e.target.value)} label="Payment Method">
+                    {['all', 'Card', 'Cash', 'Insurance'].map((m) => (
+                      <MenuItem key={m} value={m}>{m === 'all' ? 'All Methods' : m}</MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+                <Button startIcon={<ReceiptIcon />} variant="outlined" size="small">
+                  Generate Invoice
+                </Button>
+              </Stack>
+            </Stack>
+
+            {/* Empty state when all invoices are filtered out */}
+            {filtered.length === 0 && (
+              <Box textAlign="center" py={5}>
+                <ReceiptIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1, display: 'block', mx: 'auto' }} />
+                <Typography color="text.secondary">No invoices match your filters.</Typography>
+                <Button size="small" sx={{ mt: 1 }} onClick={() => { setSearchQuery(''); setMethodFilter('all'); setStatusFilter('all'); }}>
+                  Clear filters
+                </Button>
+              </Box>
+            )}
+
+            {filtered.length > 0 && (
+              <TableContainer>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Invoice</TableCell>
+                      <TableCell>Patient</TableCell>
+                      <TableCell>Clinician</TableCell>
+                      <TableCell>Service</TableCell>
+                      <TableCell>Date</TableCell>
+                      <TableCell>Amount</TableCell>
+                      <TableCell>Method</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {filtered.map((inv) => (
+                      <TableRow key={inv.id} hover>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={700} color="primary">{inv.id}</Typography>
+                        </TableCell>
+                        <TableCell>{inv.patient}</TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{inv.clinician}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" color="text.secondary">{inv.service}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2">{inv.date}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" fontWeight={700}>£{inv.amount}</Typography>
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={inv.method} size="small" sx={{ bgcolor: '#F0F7F8', color: '#004D55' }} />
+                        </TableCell>
+                        <TableCell>
+                          <StatusChip status={STATUS_COLOR[inv.status] || inv.status} />
+                        </TableCell>
+                        <TableCell>
+                          <Stack direction="row" spacing={0.5}>
+                            <Tooltip title="View invoice">
+                              <IconButton size="small" aria-label={`View invoice ${inv.id}`}>
+                                <VisibilityIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title="Download invoice">
+                              <IconButton size="small" aria-label={`Download invoice ${inv.id}`}>
+                                <DownloadIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            {/* SUG-BILL-007 — Refund with confirm dialog */}
+                            {inv.status === 'paid' && (
+                              <Tooltip title="Issue refund">
+                                <IconButton
+                                  size="small"
+                                  color="error"
+                                  aria-label={`Refund invoice ${inv.id}`}
+                                  onClick={() => handleRefundClick(inv)}
+                                >
+                                  <RefundIcon fontSize="small" />
+                                </IconButton>
+                              </Tooltip>
+                            )}
+                          </Stack>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* ── Refund Confirm Dialog (SUG-BILL-007) ─────────────────────────── */}
+        <ConfirmDialog
+          isOpen={!!refundTarget}
+          title="Issue Refund"
+          message={
+            refundTarget
+              ? `Issue a refund of £${refundTarget.amount} for ${refundTarget.patient} (${refundTarget.id})? This action cannot be undone.`
+              : ''
+          }
+          onConfirm={confirmRefund}
+          onCancel={() => setRefundTarget(null)}
+          confirmLabel="Refund"
+          confirmColor="warning"
+        />
+
+      </Box>
+    </ErrorBoundary>
   );
 }

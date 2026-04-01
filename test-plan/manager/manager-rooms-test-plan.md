@@ -319,13 +319,57 @@ Full CRUD module for rooms. The index page uses a custom `usePagination` hook wi
 |---|-----------|-------------------|
 | E1 | No rooms in system | Index shows empty state card |
 | E2 | Search matches 0 rooms after paginating | Returns to empty state; no crash |
-| E3 | Room type/clinician type arrays empty in metadata | Dropdowns empty; form cannot be submitted without selection |
+| E3 | Room type/clinician type arrays empty in metadata | MOCK_METADATA provides 2 options each offline |
 | E4 | Capacity = 0 | Sent as `undefined` (falsy); backend handles as null |
-| E5 | Negative capacity entered | No frontend validation; backend may reject |
+| E5 | Negative capacity entered | **FIXED:** `inputProps={{ min: 0 }}` on create + edit Capacity fields |
 | E6 | Room number with special characters | Accepted as string; backend may validate |
 | E7 | Editing and creating at same time (form state conflict) | Only one form open at a time (toggling closes other) |
-| E8 | Invalid room ID in detail URL | Mock fallback renders |
-| E9 | Invalid room ID in edit URL | Skeleton shown; if data.room is null, form never renders (infinite skeleton) |
+| E8 | Invalid room ID in detail URL | **FIXED:** Mock fallback renders "Room 1A" — also on Apollo network error |
+| E9 | Invalid room ID in edit URL | **PARTIAL FIXED:** Skeleton + back-button header visible; user can navigate away |
 | E10 | Room with no clinic assigned | Clinic cell shows "—" on detail page |
-| E11 | Very long room number (50+ chars) | Card overflows; Enhancement: truncation needed |
+| E11 | Very long room number (50+ chars) | Card overflows; SUG-RM-002: truncation needed |
 | E12 | Deleting a room that's in-use | Backend should reject with userError; shown as alert |
+
+---
+
+## Session 1 Fix Test Cases
+
+### TC-MGR-RM-34 — Detail Page: Mock Fallback on Apollo Network Error (BUG-RM-001)
+**Steps:** Navigate to `/manager/rooms/any-id` with backend offline.
+**Expected:**
+- `error` from `useQuery` is truthy; `room = undefined`.
+- `loading = false` → skeleton skipped; falls through to `r = room ?? { name:'Room 1A', ... }`.
+- Page renders "Room 1A", capacity "4 people", clinic "London Central Clinic", "Active" chip.
+- No blank/white page.
+
+---
+
+### TC-MGR-RM-35 — Edit Page: Back Button Visible in Skeleton State (BUG-RM-002)
+**Steps:** Navigate to `/manager/rooms/any-id/edit` with backend offline.
+**Expected:**
+- `fetching = true || form = null` → early-return.
+- Early-return renders `<Box>` with header containing `ArrowBackRoundedIcon` + "Edit Room" text.
+- Clicking back-arrow navigates to `/manager/rooms`.
+- Two skeleton rectangles appear below header.
+
+---
+
+### TC-MGR-RM-36 — Index Page: Mock Rooms Load Offline (GAP-RM-001)
+**Steps:** Navigate to `/manager/rooms` with backend offline.
+**Expected:**
+- `fetchFn` catch block returns `MOCK_ROOMS` pageInfo.
+- 3 room cards shown: Room 101 (Consultation/GP/London Central), Room 102, Room 201 (Therapy — Inactive).
+- Metadata dropdowns in inline form show Consultation/Therapy + GP/Therapist options.
+
+---
+
+### TC-MGR-RM-37 — Capacity Field: Negative Value Rejected (GAP-RM-002)
+**Steps:** On create or edit page, enter Capacity = `-1`.
+**Expected:**
+- Browser enforces `min=0` from `inputProps`.
+- Value clamped or rejected; mutation input cannot include negative capacity.
+
+---
+
+## Total: 37 Test Cases + 12 Edge Cases
+

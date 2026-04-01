@@ -333,6 +333,27 @@ export default function ClinicianDashboard() {
         <StitchKpiCard title="Remaining"   value={upcomingApps.length   || 7}   icon={<AccessTime />}   color={STITCH_BRAND} />
         <StitchKpiCard title="Video Calls" value={videoApps.length      || 3}   icon={<Videocam />}     color="#7C3AED" />
       </Box>
+      {/* NEW-CLDASH-019: completed/total progress bar */}
+      {allAppointments.length > 0 && (
+        <Box sx={{ mb: 3, px: 0.5 }}>
+          <Stack direction="row" justifyContent="space-between" mb={0.5}>
+            <Typography variant="caption" color="text.secondary" fontWeight={600}>
+              Today's Progress
+            </Typography>
+            <Typography variant="caption" color="text.secondary">
+              {completedApps.length} / {allAppointments.length} completed
+            </Typography>
+          </Stack>
+          <Box sx={{ height: 6, bgcolor: '#E8F8F9', borderRadius: 3, overflow: 'hidden' }}>
+            <Box sx={{
+              height: '100%', borderRadius: 3,
+              bgcolor: '#10B981',
+              width: `${Math.min(100, (completedApps.length / allAppointments.length) * 100)}%`,
+              transition: 'width 0.4s ease',
+            }} />
+          </Box>
+        </Box>
+      )}
 
       <Grid container spacing={3}>
 
@@ -360,10 +381,20 @@ export default function ClinicianDashboard() {
                 );
               })}
 
-              {/* SUG-CLDASH-008: current time red line */}
+              {/* SUG-CLDASH-008: current time red line + SUG-CLDASH-014: Now label */}
               {showNowLine && (
                 <Box sx={{ position: 'absolute', top: nowTop, left: 0, right: 0, height: 2, bgcolor: 'error.main', zIndex: 20, pointerEvents: 'none' }}>
                   <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'error.main', position: 'absolute', left: 56, top: -3 }} />
+                  {/* SUG-CLDASH-014: "Now h:mm A" chip next to dot */}
+                  <Box sx={{
+                    position: 'absolute', left: 68, top: -10,
+                    bgcolor: 'error.main', color: 'white',
+                    fontSize: '0.6rem', fontWeight: 700, lineHeight: 1,
+                    px: 0.75, py: '3px', borderRadius: '6px',
+                    letterSpacing: 0.2, whiteSpace: 'nowrap',
+                  }}>
+                    Now {dayjs().format('h:mm A')}
+                  </Box>
                 </Box>
               )}
 
@@ -430,14 +461,25 @@ export default function ClinicianDashboard() {
                 );
               })}
 
-              {/* Spacer / Blocked */}
+              {/* Spacer / Blocked — SUG-CLDASH-016: delete button on each block */}
               {spacerBlocks.map((sb) => {
                 const { top, height } = getTopAndHeight(sb.startTime, sb.duration || sb.endTime);
+                const isLocal = sb.id?.startsWith('local-');
                 return (
                   <Tooltip key={sb.id} title={sb.reason || 'Blocked time'}>
-                    <Box sx={{ position: 'absolute', left: 64, right: 12, top, height: Math.max(height, 28), bgcolor: '#F8FAFC', border: '1.5px dashed #CBD5E1', borderRadius: 1.5, display: 'flex', alignItems: 'center', gap: 0.75, px: 1 }}>
-                      <DoNotDisturb sx={{ fontSize: 13, color: '#94A3B8' }} />
-                      <Typography variant="caption" color="text.secondary" fontWeight={600} noWrap>Blocked{sb.reason ? `: ${sb.reason}` : ''}</Typography>
+                    <Box sx={{ position: 'absolute', left: 64, right: 12, top, height: Math.max(height, 28), bgcolor: '#F8FAFC', border: '1.5px dashed #CBD5E1', borderRadius: 1.5, display: 'flex', alignItems: 'center', gap: 0.75, px: 1, pr: 0.5 }}>
+                      <DoNotDisturb sx={{ fontSize: 13, color: '#94A3B8', flexShrink: 0 }} />
+                      <Typography variant="caption" color="text.secondary" fontWeight={600} noWrap sx={{ flex: 1 }}>Blocked{sb.reason ? `: ${sb.reason}` : ''}</Typography>
+                      {/* SUG-CLDASH-016: remove locally-added blocks without page refresh */}
+                      {isLocal && (
+                        <IconButton
+                          size="small"
+                          onClick={(e) => { e.stopPropagation(); setLocalSpacers(prev => prev.filter(s => s.id !== sb.id)); }}
+                          sx={{ p: 0, color: '#94A3B8', '&:hover': { color: 'error.main' }, flexShrink: 0 }}
+                        >
+                          <CloseIcon sx={{ fontSize: 12 }} />
+                        </IconButton>
+                      )}
                     </Box>
                   </Tooltip>
                 );
@@ -552,6 +594,21 @@ export default function ClinicianDashboard() {
           <Typography variant="body2" color="text.secondary" mb={3}>
             Block out time in your schedule to prevent appointment bookings.
           </Typography>
+          {/* NEW-CLDASH-017: real-time duration preview */}
+          {blockForm.startTime && blockForm.endTime && (() => {
+            const [sh, sm] = blockForm.startTime.split(':').map(Number);
+            const [eh, em] = blockForm.endTime.split(':').map(Number);
+            const dur = (eh * 60 + em) - (sh * 60 + sm);
+            if (dur <= 0) return null;
+            return (
+              <Box sx={{ mb: 2, px: 1.5, py: 0.75, bgcolor: '#E8F8F9', borderRadius: 2, display: 'inline-flex', alignItems: 'center', gap: 0.75 }}>
+                <AccessTime sx={{ fontSize: 14, color: STITCH_BRAND }} />
+                <Typography variant="caption" color={STITCH_BRAND} fontWeight={700}>
+                  Duration: {dur >= 60 ? `${Math.floor(dur/60)}h ${dur%60 ? dur%60+'m' : ''}`.trim() : `${dur} mins`}
+                </Typography>
+              </Box>
+            );
+          })()}
           <Stack spacing={2.5}>
             <TextField
               label="Start Time" type="time" fullWidth size="small"
@@ -603,8 +660,22 @@ export default function ClinicianDashboard() {
             </Box>
             <Box sx={{ flex: 1, overflowY: 'auto', p: 3 }}>
               <Stack direction="row" gap={2} alignItems="center" mb={3}>
-                <Avatar src={`https://www.gravatar.com/avatar/${selectedAppt.patient.id}?d=mp`}
-                  sx={{ width: 56, height: 56, border: `2px solid ${STITCH_BRAND}30` }} />
+                {/* NEW-CLDASH-018: initials fallback when Gravatar fails */}
+                <Avatar
+                  src={`https://www.gravatar.com/avatar/${selectedAppt.patient.id}?d=404`}
+                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                  sx={{ width: 56, height: 56, border: `2px solid ${STITCH_BRAND}30`, position: 'relative' }}
+                />
+                {/* Fallback initials avatar always rendered behind */}
+                <Avatar sx={{
+                  width: 56, height: 56,
+                  bgcolor: getStatusColor(selectedAppt.status),
+                  fontWeight: 800, fontSize: '1rem',
+                  position: 'absolute',
+                  zIndex: -1,
+                }}>{
+                  `${selectedAppt.patient.firstName[0]}${selectedAppt.patient.lastName[0]}`.toUpperCase()
+                }</Avatar>
                 <Box>
                   <Typography variant="subtitle1" fontWeight={800}>
                     {selectedAppt.patient.firstName} {selectedAppt.patient.lastName}

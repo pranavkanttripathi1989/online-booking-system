@@ -368,8 +368,42 @@ Service catalogue with a sticky left-sidebar category tree (supporting subcatego
 | E5 | Category ID in URL that doesn't exist | no matching category label shown; reverts to "Category" |
 | E6 | Very long description (200+ chars) | Clamped to 2 lines via `-webkit-box` |
 | E7 | Category list empty (no categories) | Sidebar shows only "All Services"; Category autocomplete empty |
-| E8 | Service with null price | `parseFloat(null) = NaN` → rendered as `£NaN`; Enhancement needed |
+| E8 | Service with null price | **TEST PLAN CORRECTED:** `parseFloat(null \|\| 0).toFixed(2)` = `£0.00` — NOT `£NaN` |
 | E9 | Saving a variable product with empty variation rows | Empty rows skipped in mutation loop (only rows with name+price saved) |
 | E10 | Rule added before product saved | Shows alert "Must save product first before adding rules." |
-| E11 | Duration entered as negative | `parseInt` keeps as-is; backend should validate |
-| E12 | Price entered as negative | Sent to backend; no frontend validation |
+| E11 | Duration entered as negative | **FIXED:** `inputProps={{ min: 1 }}` on Duration field in create + edit |
+| E12 | Price entered as negative | **FIXED:** `inputProps={{ min: 0, step: 0.01 }}` on Price field in create + edit |
+
+---
+
+## Session 1 Fix Test Cases
+
+### TC-MGR-SVC-43 — Create: Duration Negative Rejected (E11 Fix)
+**Steps:** On `/manager/services/new`, enter Duration = `-5`.
+**Expected:** Browser enforces `min=1`; value clamped or rejected. mutation input cannot include negative duration.
+
+---
+
+### TC-MGR-SVC-44 — Create: Price Negative Rejected (E12 Fix)
+**Steps:** On `/manager/services/new`, enter Price = `-1`.
+**Expected:** Browser enforces `min=0`; negative price rejected at input level.
+
+---
+
+### TC-MGR-SVC-45 — Edit: Duration Negative Rejected (E11 Fix)
+**Steps:** On edit page (after form loads), set Duration = `-5`.
+**Expected:** Browser enforces `min=1`; negative rejected.
+
+---
+
+### TC-MGR-SVC-46 — Edit: Back Button Visible in Skeleton State (BUG-SVC-003)
+**Steps:** Navigate to `/manager/services/any-id/edit` with backend offline.
+**Expected:**
+- Skeleton renders with back-button header: `ArrowBackRoundedIcon` + "Edit Service" text.
+- Clicking back arrow navigates to `/manager/services`.
+- Two skeletons appear below header.
+
+---
+
+## Total: 46 Test Cases + 12 Edge Cases
+

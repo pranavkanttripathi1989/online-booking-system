@@ -396,3 +396,54 @@ Products module with two tabs: **Products** and **Categories**. The Products tab
 | E12 | Very long product description (300+ chars) | Truncated via `-webkit-box` clamp (2 lines) |
 | E13 | Duplicate SKU | Backend should return userError; shown as form error alert |
 | E14 | Tab switch during delete confirm | Confirm dialog remains open; correct type/id still in `deleteTarget` |
+
+---
+
+## Session 2 Test Cases (SUG implementations)
+
+### TC-MGR-PRD-44 — Create Page: Negative Price Rejected (SUG-PRD-006)
+**Steps:** On `/manager/products/new`, enter Price = `-5`, click Save Product.
+**Expected:**
+- `validate()` catches `parseFloat(price) < 0`.
+- Red helperText "Price cannot be negative" shown under Price field.
+- No mutation fires.
+
+---
+
+### TC-MGR-PRD-45 — Create Page: Negative Stock Rejected (SUG-PRD-006)
+**Steps:** Enter Stock Qty = `-1`, valid Name; click Save Product.
+**Expected:**
+- Red helperText "Stock cannot be negative" under Stock Qty.
+- No mutation fires; form remains open.
+
+---
+
+### TC-MGR-PRD-46 — Subcategory Dropdown Empty State (SUG-PRD-007)
+**Steps:** In inline Add Product form, select a category that has no subcategories.
+**Expected:**
+- Subcategory dropdown opens (enabled because category_id is set).
+- Disabled item "No subcategories for this category" shown.
+- No selectable values; `subcategory_id` stays empty.
+
+---
+
+### TC-MGR-PRD-47 — ErrorBoundary Renders on Crash (SUG-PRD-009)
+**Steps:** Force a JS error inside ManagerProducts (e.g., set products to null).
+**Expected:**
+- `<ErrorBoundary>` catches the error.
+- Fallback UI shown (not a white blank screen).
+- No unhandled console error propagates to the root.
+
+---
+
+### TC-MGR-PRD-48 — Category Buttons Have aria-labels (SUG-PRD-010)
+**Steps:** Inspect DOM for category card edit/delete buttons.
+**Expected:**
+- Edit button: `aria-label="Edit category Supplements"` (or matching cat.name).
+- Delete button: `aria-label="Delete category Supplements"`.
+- Screen reader can distinguish each button.
+
+---
+
+## Total: 48 Test Cases + 14 Edge Cases
+

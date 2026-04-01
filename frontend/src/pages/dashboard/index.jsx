@@ -1,5 +1,7 @@
 import { useQuery } from '@apollo/client'
-import { Box, Grid, Card, CardContent, Skeleton, Alert, Typography, Button, alpha } from '@mui/material'
+import { useMemo } from 'react'
+import { Box, Grid, Card, CardContent, Skeleton, Alert, Typography, Button, Chip, alpha } from '@mui/material'
+import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import { Helmet } from 'react-helmet-async'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
@@ -64,9 +66,11 @@ const MOCK_DASHBOARD = {
     { name: 'Dr. Chen',  booked: 20, available: 28 }, { name: 'Dr. Patel', booked: 30, available: 32 },
   ],
   upcoming_appointments: [
-    { id: 'appt-1', patient: { full_name: 'John Doe'     }, clinician: { full_name: 'Dr. Sarah Mitchell' }, service: { name: 'Consultation' }, start_datetime: new Date(Date.now() + 3600000).toISOString(),  status: 'confirmed' },
-    { id: 'appt-2', patient: { full_name: 'Sarah Miller' }, clinician: { full_name: 'Dr. Raj Patel'      }, service: { name: 'Blood Test'   }, start_datetime: new Date(Date.now() + 7200000).toISOString(),  status: 'pending'   },
-    { id: 'appt-3', patient: { full_name: 'Mark Johnson' }, clinician: { full_name: 'Dr. Priya Sharma'   }, service: { name: 'MRI Scan'     }, start_datetime: new Date(Date.now() + 10800000).toISOString(), status: 'confirmed' },
+    { id: 'appt-1', patient: { full_name: 'John Doe'       }, clinician: { full_name: 'Dr. Sarah Mitchell' }, service: { name: 'Consultation'  }, start_datetime: new Date(Date.now() + 3600000).toISOString(),  status: 'confirmed' },
+    { id: 'appt-2', patient: { full_name: 'Sarah Miller'   }, clinician: { full_name: 'Dr. Raj Patel'      }, service: { name: 'Blood Test'    }, start_datetime: new Date(Date.now() + 7200000).toISOString(),  status: 'pending'   },
+    { id: 'appt-3', patient: { full_name: 'Mark Johnson'   }, clinician: { full_name: 'Dr. Priya Sharma'   }, service: { name: 'MRI Scan'      }, start_datetime: new Date(Date.now() + 10800000).toISOString(), status: 'confirmed' },
+    { id: 'appt-4', patient: { full_name: 'Lisa Park'      }, clinician: { full_name: 'Dr. Jane Smith'     }, service: { name: 'Physiotherapy' }, start_datetime: new Date(Date.now() + 14400000).toISOString(), status: 'pending'   },
+    { id: 'appt-5', patient: { full_name: 'David Thompson' }, clinician: { full_name: 'Dr. Carlos Vega'    }, service: { name: 'Cardiology'    }, start_datetime: new Date(Date.now() + 18000000).toISOString(), status: 'confirmed' },
   ],
 }
 
@@ -115,6 +119,17 @@ export default function DashboardPage() {
   const isLoading = loading && !data
 
   const firstName = user?.name?.split(' ')[0] ?? 'there'
+
+  // NEW-DASH-008: live "last refreshed" timestamp (computed once on mount)
+  const lastRefreshed = useMemo(() => new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }), [])
+
+  // NEW-DASH-009: confirmation rate from volume_by_day
+  const confirmationRate = useMemo(() => {
+    const vol = d?.volume_by_day ?? []
+    const totalConfirmed = vol.reduce((s, x) => s + (x.confirmed_count ?? 0), 0)
+    const totalAll = vol.reduce((s, x) => s + (x.confirmed_count ?? 0) + (x.cancelled_count ?? 0), 0)
+    return totalAll > 0 ? Math.round((totalConfirmed / totalAll) * 100) : null
+  }, [d])
 
   // SUG-DASH-004: each KPI card now has an href so clicking drills down
   const kpis = [
@@ -187,29 +202,38 @@ export default function DashboardPage() {
             {formatDate()}
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddRoundedIcon />}
-          onClick={() => navigate('/appointments/new')}
-          sx={{
-            borderRadius: 2,
-            textTransform: 'none',
-            fontWeight: 700,
-            px: 2.5,
-            py: 1,
-            whiteSpace: 'nowrap',
-            width: { xs: '100%', sm: 'auto' },
-            mt: { xs: 0.5, sm: 0 },
-            background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
-            boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
-            '&:hover': {
-              background: 'linear-gradient(135deg, #005A62 0%, #006D77 100%)',
-              boxShadow: '0 4px 14px rgba(0,109,119,0.45)',
-            },
-          }}
-        >
-          New Booking
-        </Button>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+          <Button
+            variant="contained"
+            startIcon={<AddRoundedIcon />}
+            onClick={() => navigate('/appointments/new')}
+            sx={{
+              borderRadius: 2,
+              textTransform: 'none',
+              fontWeight: 700,
+              px: 2.5,
+              py: 1,
+              whiteSpace: 'nowrap',
+              width: { xs: '100%', sm: 'auto' },
+              mt: { xs: 0.5, sm: 0 },
+              background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
+              boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
+              '&:hover': {
+                background: 'linear-gradient(135deg, #005A62 0%, #006D77 100%)',
+                boxShadow: '0 4px 14px rgba(0,109,119,0.45)',
+              },
+            }}
+          >
+            New Booking
+          </Button>
+          {/* NEW-DASH-008: last refreshed timestamp */}
+          <Chip
+            icon={<AccessTimeIcon sx={{ fontSize: 13 }} />}
+            label={`Refreshed ${lastRefreshed}`}
+            size="small"
+            sx={{ bgcolor: '#F8F9FA', color: '#5F6368', border: '1px solid #E8EAED', fontSize: '0.7rem', display: { xs: 'none', sm: 'flex' } }}
+          />
+        </Box>
       </Box>
 
       {/* ── Non-fatal GraphQL error banner ───────────────────────────────── */}
@@ -226,13 +250,20 @@ export default function DashboardPage() {
             {isLoading
               ? <KpiSkeleton />
               : (
+                {/* NEW-DASH-010: a11y role + aria-label for keyboard/screen-reader users */}
                 <Box
+                  role={kpi.href ? 'button' : undefined}
+                  tabIndex={kpi.href ? 0 : undefined}
+                  aria-label={kpi.href ? `Navigate to ${kpi.label}` : undefined}
+                  onKeyDown={(e) => kpi.href && (e.key === 'Enter' || e.key === ' ') && navigate(kpi.href)}
                   onClick={() => kpi.href && navigate(kpi.href)}
                   sx={{
                     cursor: kpi.href ? 'pointer' : 'default',
                     borderRadius: 3,
+                    outline: 'none',
                     transition: 'transform 0.15s, box-shadow 0.15s',
                     '&:hover': kpi.href ? { transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(0,0,0,0.10)' } : {},
+                    '&:focus-visible': kpi.href ? { boxShadow: '0 0 0 3px rgba(0,109,119,0.35)', borderRadius: 3 } : {},
                   }}
                 >
                   <KpiCard {...kpi} loading={false} />
@@ -242,6 +273,28 @@ export default function DashboardPage() {
           </Grid>
         ))}
       </Grid>
+
+      {/* NEW-DASH-009: confirmation rate insight strip */}
+      {confirmationRate !== null && !isLoading && (
+        <Box sx={{ mb: 2.5, px: 0.5, display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="caption" color="text.secondary" fontWeight={600}>
+            Confirmation rate this period:
+          </Typography>
+          <Chip
+            label={`${confirmationRate}%`}
+            size="small"
+            sx={{
+              bgcolor: confirmationRate >= 75 ? '#E6F4EA' : confirmationRate >= 50 ? '#FEF7E0' : '#FCE8E6',
+              color:   confirmationRate >= 75 ? '#137333' : confirmationRate >= 50 ? '#8A4700'  : '#A50E0E',
+              fontWeight: 700, fontSize: '0.72rem', height: 20,
+            }}
+          />
+          <Typography variant="caption" color="text.disabled">
+            ({d?.volume_by_day?.reduce((s, x) => s + (x.confirmed_count ?? 0), 0) ?? 0} confirmed
+            {' / '}{d?.volume_by_day?.reduce((s, x) => s + (x.confirmed_count ?? 0) + (x.cancelled_count ?? 0), 0) ?? 0} total)
+          </Typography>
+        </Box>
+      )}
 
       {/* ── Charts Row 1: Line chart + Pie chart ─────────────────────────── */}
       <Grid container spacing={2.5} mb={2.5}>

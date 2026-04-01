@@ -22,6 +22,7 @@ import {
   CircularProgress,
   InputAdornment,
   useMediaQuery,
+  Slide,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { DataGrid } from '@mui/x-data-grid'
@@ -38,6 +39,8 @@ import EventRepeatIcon from '@mui/icons-material/EventRepeat'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import UpcomingRoundedIcon from '@mui/icons-material/UpcomingRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
+import CancelScheduleSendRoundedIcon from '@mui/icons-material/CancelScheduleSendRounded'
+import DeselctRoundedIcon from '@mui/icons-material/DeselectRounded'
 
 import { APPOINTMENTS_QUERY, CLINICIANS_QUERY } from '../../graphql/queries'
 import { CANCEL_APPOINTMENT_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations'
@@ -139,6 +142,16 @@ export default function AppointmentsPage() {
   const [statusOverrides, setStatusOverrides] = useState({}) // { [id]: newStatus }
   const [statusMenuAnchor, setStatusMenuAnchor] = useState(null) // { el, rowId }
 
+  // SUG-APPT-006: Bulk row selection — always kept as plain string-ID array
+  const [rowSelectionModel, setRowSelectionModel] = useState([])
+  // Normalize MUI DataGrid v5 (array) and v6 ({type,ids:Set}) selection model forms
+  const handleRowSelectionChange = (model) => {
+    if (!model) { setRowSelectionModel([]); return }
+    if (Array.isArray(model)) { setRowSelectionModel(model.map(String)); return }
+    if (model.ids instanceof Set) { setRowSelectionModel([...model.ids].map(String)); return }
+    setRowSelectionModel([])
+  }
+
   // ── Build variables ───────────────────────────────────────────────────────
   const buildFilters = useCallback(() => {
     const f = {}
@@ -220,6 +233,61 @@ export default function AppointmentsPage() {
     setStatusMenuAnchor(null)
     updateAppointment({ variables: { id: rowId, input: { status: newStatus } } })
     enqueueSnackbar(`Status updated to "${STATUS_CFG[newStatus]?.label ?? newStatus}"`, { variant: 'success', autoHideDuration: 3000 })
+  }
+
+  // SUG-APPT-006: Bulk cancel — cancel all selected non-terminal rows
+  const handleBulkCancel = () => {
+    const cancelable = rowSelectionModel.filter(id => {
+      const row = displayRows.find(r => r.id === id)
+      return row && !['cancelled', 'completed', 'no_show'].includes(row.status)
+    })
+    if (cancelable.length === 0) {
+      enqueueSnackbar('No cancellable appointments in selection.', { variant: 'warning' })
+      return
+    }
+    cancelable.forEach(id => {
+      setOptimisticCancelled(prev => new Set([...prev, id]))
+      cancelAppointment({ variables: { id, reason: 'Bulk cancellation' } })
+    })
+    enqueueSnackbar(`${cancelable.length} appointment${cancelable.length > 1 ? 's' : ''} cancelled.`, { variant: 'warning' })
+    setRowSelectionModel([])
+  }
+
+  // SUG-APPT-006: Export selected rows as CSV
+  const handleExportSelected = () => {
+    const selected = displayRows.filter(r => rowSelectionModel.includes(r.id))
+    if (selected.length === 0) return
+    try {
+      const exportRows = [
+        ['ID', 'Patient', 'Email', 'Clinician', 'Service', 'Date & Time', 'Duration (min)', 'Status', 'Room', 'Clinic'],
+        ...selected.map(r => [
+          r.id,
+          r.patient?.full_name ?? '',
+          r.patient?.email ?? '',
+          r.clinician?.full_name ?? '',
+          r.service?.name ?? '',
+          r.start_datetime ? dayjs(r.start_datetime).format('DD MMM YYYY, h:mm A') : '',
+          r.duration_minutes ?? '',
+          r.status ?? '',
+          r.room?.name ?? '',
+          r.clinic?.name ?? '',
+        ]),
+      ]
+      const csv = exportRows.map(row =>
+        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
+      ).join('\n')
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+      const url  = URL.createObjectURL(blob)
+      const a    = document.createElement('a')
+      a.href = url
+      a.download = `appointments_selected_${dayjs().format('YYYY-MM-DD')}.csv`
+      document.body.appendChild(a); a.click()
+      document.body.removeChild(a); URL.revokeObjectURL(url)
+      enqueueSnackbar(`Exported ${selected.length} selected appointments as CSV`, { variant: 'success' })
+      setRowSelectionModel([])
+    } catch {
+      enqueueSnackbar('Export failed — please try again.', { variant: 'error' })
+    }
   }
 
   // SUG-APPT-009: Export CSV — now with Room + Clinic columns (NEW-APPT-002)
@@ -640,6 +708,38 @@ export default function AppointmentsPage() {
           </Grid>
         </Paper>
 
+        {/* SUG-APPT-006: Bulk selection action bar — CSS animated */}
+        <Box sx={{
+          overflow: 'hidden',
+          maxHeight: rowSelectionModel.length > 0 ? '80px' : '0px',
+          opacity: rowSelectionModel.length > 0 ? 1 : 0,
+          transition: 'max-height 0.25s ease, opacity 0.2s ease',
+          mb: rowSelectionModel.length > 0 ? 2 : 0,
+        }}>
+          <Paper elevation={2} sx={{
+            px: 3, py: 1.5, borderRadius: 3,
+            border: '1.5px solid #006D77', bgcolor: 'rgba(0,109,119,0.04)',
+            display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
+          }}>
+            <Typography variant="body2" fontWeight={700} sx={{ color: '#006D77', flex: 1 }}>
+              {rowSelectionModel.length} appointment{rowSelectionModel.length !== 1 ? 's' : ''} selected
+            </Typography>
+            <Button size="small" variant="outlined" startIcon={<FileDownloadRoundedIcon />}
+              onClick={handleExportSelected}
+              sx={{ borderRadius: 2, fontWeight: 700, borderColor: '#006D77', color: '#006D77', '&:hover': { bgcolor: 'rgba(0,109,119,0.08)' } }}
+            >Export Selected</Button>
+            <Button size="small" variant="outlined" color="error"
+              startIcon={<CancelScheduleSendRoundedIcon />} onClick={handleBulkCancel}
+              sx={{ borderRadius: 2, fontWeight: 700 }}
+            >Bulk Cancel</Button>
+            <Tooltip title="Clear selection">
+              <IconButton size="small" onClick={() => setRowSelectionModel([])} sx={{ color: '#5F6368' }}>
+                <DeselctRoundedIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          </Paper>
+        </Box>
+
         {/* Data Grid */}
         <Paper
           elevation={0}
@@ -661,7 +761,10 @@ export default function AppointmentsPage() {
             onPaginationModelChange={setPaginationModel}
             pageSizeOptions={[10, 20, 50]}
             getRowId={(r) => r.id}
+            checkboxSelection
             disableRowSelectionOnClick
+            rowSelectionModel={rowSelectionModel}
+            onRowSelectionModelChange={handleRowSelectionChange}
             autoHeight
             rowHeight={72}
             columnVisibilityModel={{
@@ -696,6 +799,10 @@ export default function AppointmentsPage() {
               },
               '& .MuiDataGrid-columnSeparator': { display: 'none' },
               '& .MuiDataGrid-row:hover': { backgroundColor: '#F1F3F4' },
+              '& .MuiDataGrid-row.Mui-selected': { backgroundColor: 'rgba(0,109,119,0.06)' },
+              '& .MuiDataGrid-row.Mui-selected:hover': { backgroundColor: 'rgba(0,109,119,0.10)' },
+              '& .MuiCheckbox-root.Mui-checked': { color: '#006D77' },
+              '& .MuiCheckbox-root.MuiCheckbox-indeterminate': { color: '#006D77' },
             }}
           />
         </Paper>

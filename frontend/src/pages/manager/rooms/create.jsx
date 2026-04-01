@@ -53,7 +53,7 @@ export default function CreateRoomPage() {
             <Typography variant="subtitle1" fontWeight={700} mb={2.5}>Room Details</Typography>
             <Grid container spacing={2.5}>
               <Grid item xs={12}><TextField fullWidth label="Room Name *" value={form.name} onChange={set('name')} error={!!errors.name} helperText={errors.name} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Capacity" type="number" value={form.capacity} onChange={set('capacity')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Capacity" type="number" value={form.capacity} onChange={set('capacity')} inputProps={{ min: 0 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}>
                 <TextField select fullWidth label="Clinic" value={form.clinic_id} onChange={set('clinic_id')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }}>
                   <MenuItem value="">No clinic</MenuItem>

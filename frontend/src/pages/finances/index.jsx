@@ -4,7 +4,7 @@ import {
   Box, Typography, Card, CardContent, Grid, Chip, Divider,
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
   Tabs, Tab, Button, Paper, Avatar, IconButton, Tooltip, Stack,
-  ToggleButton, ToggleButtonGroup,
+  ToggleButton, ToggleButtonGroup, Drawer, MenuItem, TextField,
 } from '@mui/material'
 import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
@@ -17,6 +17,8 @@ import CardGiftcardRoundedIcon           from '@mui/icons-material/CardGiftcardR
 import FileDownloadRoundedIcon           from '@mui/icons-material/FileDownloadRounded'
 import DeleteOutlineRoundedIcon          from '@mui/icons-material/DeleteOutlineRounded'
 import BarChartRoundedIcon               from '@mui/icons-material/BarChartRounded'
+import CloseRoundedIcon                  from '@mui/icons-material/CloseRounded'
+import PrintRoundedIcon                  from '@mui/icons-material/PrintRounded'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
   Legend, ResponsiveContainer,
@@ -41,8 +43,8 @@ const CARDS = [
   { last4: '7832', brand: 'Mastercard', expiry: '03/26', holder: 'Admin User', isDefault: false },
 ]
 
-// SUG-AF-005: Monthly Revenue data for finances chart
-const MONTHLY_REVENUE = [
+// FIX NEW-AF-003: Full 7-month revenue data for date range slicing
+const ALL_MONTHLY_REVENUE = [
   { month: 'Sep', revenue: 18400, expenses: 7200 },
   { month: 'Oct', revenue: 21200, expenses: 8100 },
   { month: 'Nov', revenue: 19900, expenses: 7800 },
@@ -51,6 +53,14 @@ const MONTHLY_REVENUE = [
   { month: 'Feb', revenue: 25400, expenses: 9400 },
   { month: 'Mar', revenue: 27800, expenses: 10100 },
 ]
+
+// Date range → months to slice (mirrors analytics page for SUG-AF-008)
+const DATE_RANGE_MONTHS = {
+  last1month:  1,
+  last3months: 3,
+  last7months: 7,
+  this_year:   7,
+}
 
 // Status display config including overdue
 const STATUS_CFG = {
@@ -89,12 +99,148 @@ function BalanceCard({ icon: Icon, label, value, prefix, color, trend, action })
   )
 }
 
+// ─── SUG-AF-007: Invoice Detail Drawer ────────────────────────────────────────
+function InvoiceDrawer({ tx, open, onClose }) {
+  if (!tx) return null
+  const sCfg = STATUS_CFG[tx.status] ?? STATUS_CFG.pending
+  return (
+    <Drawer
+      anchor="right"
+      open={open}
+      onClose={onClose}
+      PaperProps={{
+        sx: {
+          width: { xs: '100vw', sm: 420 },
+          borderRadius: { xs: 0, sm: '16px 0 0 16px' },
+          boxShadow: '-8px 0 40px rgba(0,0,0,0.12)',
+        },
+      }}
+    >
+      {/* Drawer Header */}
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2.5, borderBottom: '1px solid #E8EAED' }}>
+        <Box>
+          <Typography fontWeight={800} sx={{ color: '#202124' }}>Receipt Details</Typography>
+          <Typography variant="caption" sx={{ color: '#5F6368', fontFamily: 'monospace' }}>{tx.id}</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          <IconButton
+            aria-label="Print receipt"
+            size="small"
+            onClick={() => window.print()}
+            sx={{ color: '#5F6368', '&:hover': { color: '#1565C7', bgcolor: '#EEF4FF' } }}
+          >
+            <PrintRoundedIcon fontSize="small" />
+          </IconButton>
+          <IconButton
+            aria-label="Close drawer"
+            size="small"
+            onClick={onClose}
+            sx={{ color: '#5F6368', '&:hover': { color: '#D93025', bgcolor: '#FCE8E6' } }}
+          >
+            <CloseRoundedIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      </Box>
+
+      {/* Patient Info */}
+      <Box sx={{ p: 2.5, borderBottom: '1px solid #F1F3F4' }}>
+        <Stack direction="row" spacing={2} alignItems="center">
+          <Avatar sx={{ width: 48, height: 48, bgcolor: '#EEF4FF', color: '#1565C7', fontWeight: 700, fontSize: '0.85rem' }}>
+            {tx.patient.split(' ').map(n => n[0]).join('').slice(0, 2)}
+          </Avatar>
+          <Box>
+            <Typography fontWeight={700} sx={{ color: '#0D1B2E' }}>{tx.patient}</Typography>
+            <Typography variant="caption" sx={{ color: '#7A96AE' }}>{tx.service}</Typography>
+          </Box>
+        </Stack>
+      </Box>
+
+      {/* Details Grid */}
+      <Box sx={{ p: 2.5 }}>
+        {[
+          { label: 'Transaction ID', value: tx.id },
+          { label: 'Service', value: tx.service },
+          { label: 'Date', value: tx.date },
+          { label: 'Payment Method', value: tx.method },
+          { label: 'Type', value: tx.type.charAt(0).toUpperCase() + tx.type.slice(1) },
+        ].map(({ label, value }) => (
+          <Box key={label} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.25, borderBottom: '1px solid #F1F3F4' }}>
+            <Typography variant="body2" sx={{ color: '#5F6368', fontWeight: 600 }}>{label}</Typography>
+            <Typography variant="body2" fontWeight={700} sx={{ color: '#0D1B2E' }}>{value}</Typography>
+          </Box>
+        ))}
+
+        {/* Amount highlight */}
+        <Box sx={{ py: 1.75, borderBottom: '1px solid #F1F3F4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ color: '#5F6368', fontWeight: 600 }}>Amount</Typography>
+          <Typography fontWeight={800} sx={{ fontSize: '1.2rem', color: tx.type === 'income' ? '#0B7B5C' : '#E53535' }}>
+            {tx.type === 'income' ? '+' : '-'}${tx.amount.toLocaleString()}
+          </Typography>
+        </Box>
+
+        {/* Status */}
+        <Box sx={{ py: 1.25, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ color: '#5F6368', fontWeight: 600 }}>Status</Typography>
+          <Chip
+            label={sCfg.label}
+            size="small"
+            sx={{
+              bgcolor: sCfg.bg, color: sCfg.color,
+              border: `1px solid ${sCfg.border}`,
+              borderLeft: `3px solid ${sCfg.accent}`,
+              fontWeight: 700, borderRadius: '8px', height: 24,
+            }}
+          />
+        </Box>
+
+        {/* Overdue notice */}
+        {tx.status === 'overdue' && (
+          <Paper elevation={0} sx={{ mt: 2, p: 2, borderRadius: 2, bgcolor: '#FCE8E6', border: '1px solid #F5C6C2' }}>
+            <Typography variant="caption" fontWeight={700} sx={{ color: '#A50E0E', display: 'block', mb: 0.5 }}>⚠️ Overdue Payment</Typography>
+            <Typography variant="caption" sx={{ color: '#D93025' }}>
+              This payment is past due. Please follow up with the patient to resolve outstanding balance.
+            </Typography>
+          </Paper>
+        )}
+
+        {/* Actions */}
+        <Stack spacing={1.5} mt={3}>
+          <Button
+            fullWidth variant="contained"
+            onClick={() => {}}
+            sx={{ borderRadius: 2, fontWeight: 700, background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)', '&:hover': { boxShadow: '0 4px 14px rgba(26,115,232,0.35)' } }}
+          >
+            Download Receipt (PDF)
+          </Button>
+          <Button
+            fullWidth variant="outlined"
+            onClick={onClose}
+            sx={{ borderRadius: 2, fontWeight: 700, borderColor: '#DADCE0', color: '#5F6368' }}
+          >
+            Close
+          </Button>
+        </Stack>
+      </Box>
+    </Drawer>
+  )
+}
+
 // ─── FinancesPage ─────────────────────────────────────────────────────────────
 export default function FinancesPage() {
   const { enqueueSnackbar } = useSnackbar()
   const [tab, setTab]           = useState(0)
   const [txFilter, setTxFilter] = useState('all')        // income / expense / all
-  const [statusFilter, setStatusFilter] = useState('all') // paid / pending / overdue / all — SUG-AF-004
+  const [statusFilter, setStatusFilter] = useState('all') // paid / pending / overdue / all
+
+  // FIX NEW-AF-003 + SUG-AF-008: Date range for Revenue Chart tab (shared via localStorage)
+  const [revenueRange, setRevenueRange] = useState(() => {
+    try { return localStorage.getItem('medibook_dateRange') || 'last7months' } catch { return 'last7months' }
+  })
+
+  // SUG-AF-007: Invoice detail drawer state
+  const [drawerTx, setDrawerTx] = useState(null)
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
   const theme    = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
@@ -105,6 +251,19 @@ export default function FinancesPage() {
     if (statusFilter !== 'all') result = result.filter(t => t.status === statusFilter)
     return result
   }, [txFilter, statusFilter])
+
+  // FIX NEW-AF-003: Revenue chart data sliced by selected range
+  const revenueMonthCount = DATE_RANGE_MONTHS[revenueRange] ?? 7
+  const MONTHLY_REVENUE   = ALL_MONTHLY_REVENUE.slice(-revenueMonthCount)
+  const totalRevenue  = MONTHLY_REVENUE.reduce((s, r) => s + r.revenue, 0)
+  const totalExpenses = MONTHLY_REVENUE.reduce((s, r) => s + r.expenses, 0)
+  const netProfit     = totalRevenue - totalExpenses
+
+  const handleRevenueRangeChange = (newRange) => {
+    setRevenueRange(newRange)
+    // SUG-AF-008: persist so Analytics page can read it
+    try { localStorage.setItem('medibook_dateRange', newRange) } catch { /* ignore */ }
+  }
 
   const handleExport = () => {
     try {
@@ -125,9 +284,17 @@ export default function FinancesPage() {
     }
   }
 
+  const openDrawer = (tx) => {
+    setDrawerTx(tx)
+    setDrawerOpen(true)
+  }
+
   return (
     <Box className="page-enter" sx={{ pb: 4 }}>
       <Helmet><title>Finances — MediBook</title></Helmet>
+
+      {/* SUG-AF-007: Invoice drawer */}
+      <InvoiceDrawer tx={drawerTx} open={drawerOpen} onClose={() => setDrawerOpen(false)} />
 
       {/* Header */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 3, flexDirection: { xs: 'column', sm: 'row' }, gap: { xs: 1.5, sm: 0 } }}>
@@ -139,6 +306,7 @@ export default function FinancesPage() {
           variant="contained"
           startIcon={<FileDownloadRoundedIcon />}
           onClick={handleExport}
+          aria-label="Export transactions as CSV"
           sx={{ borderRadius: 2, fontWeight: 700, background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)', width: { xs: '100%', sm: 'auto' }, '&:hover': { boxShadow: '0 4px 14px rgba(26,115,232,0.35)' } }}
         >
           Export Report
@@ -168,6 +336,7 @@ export default function FinancesPage() {
           onChange={(_, v) => setTab(v)}
           variant={isMobile ? 'scrollable' : 'standard'}
           scrollButtons={isMobile ? 'auto' : false}
+          aria-label="Finances sections"
           sx={{
             px: 2, borderBottom: '1px solid #E8EAED',
             '& .MuiTab-root': { color: '#5F6368', fontWeight: 600 },
@@ -189,6 +358,7 @@ export default function FinancesPage() {
                 <Chip key={f}
                   label={f === 'all' ? 'All Types' : f.charAt(0).toUpperCase() + f.slice(1)}
                   onClick={() => setTxFilter(f)}
+                  aria-pressed={txFilter === f}
                   sx={{
                     fontWeight: 700, borderRadius: '8px', cursor: 'pointer', textTransform: 'capitalize', flexShrink: 0,
                     bgcolor: txFilter === f ? (f === 'expense' ? '#FCE8E6' : '#E8F0FE') : '#F8F9FA',
@@ -208,6 +378,7 @@ export default function FinancesPage() {
                 exclusive
                 onChange={(_, v) => { if (v) setStatusFilter(v) }}
                 size="small"
+                aria-label="Filter by status"
                 sx={{ '& .MuiToggleButton-root': { borderRadius: '8px !important', fontWeight: 700, fontSize: '0.75rem', px: 1.5, py: 0.5, textTransform: 'capitalize', border: '1.5px solid #E8EAED' } }}
               >
                 <ToggleButton value="all"     sx={{ '&.Mui-selected': { bgcolor: '#E8F0FE', color: '#1A73E8', borderColor: '#AECBFA' } }}>All</ToggleButton>
@@ -271,9 +442,15 @@ export default function FinancesPage() {
                             }}
                           />
                         </TableCell>
+                        {/* SUG-AF-007: Opens invoice detail drawer */}
                         <TableCell>
                           <Tooltip title="View Receipt">
-                            <IconButton size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7', bgcolor: '#EEF4FF' } }}>
+                            <IconButton
+                              size="small"
+                              aria-label={`View receipt for ${tx.id}`}
+                              onClick={() => openDrawer(tx)}
+                              sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7', bgcolor: '#EEF4FF' } }}
+                            >
                               <ReceiptLongRoundedIcon sx={{ fontSize: '0.95rem' }} />
                             </IconButton>
                           </Tooltip>
@@ -287,20 +464,37 @@ export default function FinancesPage() {
           </Box>
         )}
 
-        {/* Tab 1: Revenue Chart — SUG-AF-005 */}
+        {/* Tab 1: Revenue Chart — SUG-AF-005 + FIX NEW-AF-003 + SUG-AF-008 */}
         {tab === 1 && (
           <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Box sx={{ mb: 2.5 }}>
-              <Typography fontWeight={800} sx={{ color: '#202124', mb: 0.5 }}>Monthly Revenue vs Expenses</Typography>
-              <Typography variant="body2" sx={{ color: '#5F6368' }}>7-month financial overview with revenue, expenses, and net profit</Typography>
+            {/* FIX NEW-AF-003: Date range selector on Revenue Chart tab */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2.5, flexDirection: { xs: 'column', sm: 'row' }, gap: 1.5 }}>
+              <Box>
+                <Typography fontWeight={800} sx={{ color: '#202124', mb: 0.5 }}>Monthly Revenue vs Expenses</Typography>
+                <Typography variant="body2" sx={{ color: '#5F6368' }}>Financial overview — Revenue, expenses, and net profit</Typography>
+              </Box>
+              <TextField
+                select size="small"
+                value={revenueRange}
+                onChange={(e) => handleRevenueRangeChange(e.target.value)}
+                inputProps={{ 'aria-label': 'Revenue chart date range' }}
+                sx={{ minWidth: 160, '& .MuiOutlinedInput-root': { borderRadius: 2 }, flexShrink: 0 }}
+              >
+                {[
+                  ['last1month',  'Last 1 Month'],
+                  ['last3months', 'Last 3 Months'],
+                  ['last7months', 'Last 7 Months'],
+                  ['this_year',   'This Year'],
+                ].map(([v, l]) => <MenuItem key={v} value={v}>{l}</MenuItem>)}
+              </TextField>
             </Box>
 
-            {/* Summary row */}
+            {/* Summary row — FIX NEW-AF-003: updates with date range */}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={3}>
               {[
-                { label: 'Total Revenue', value: `$${MONTHLY_REVENUE.reduce((s, r) => s + r.revenue, 0).toLocaleString()}`, color: '#1A73E8' },
-                { label: 'Total Expenses', value: `$${MONTHLY_REVENUE.reduce((s, r) => s + r.expenses, 0).toLocaleString()}`, color: '#D93025' },
-                { label: 'Net Profit', value: `$${MONTHLY_REVENUE.reduce((s, r) => s + (r.revenue - r.expenses), 0).toLocaleString()}`, color: '#0F9D58' },
+                { label: 'Total Revenue', value: `$${totalRevenue.toLocaleString()}`, color: '#1A73E8' },
+                { label: 'Total Expenses', value: `$${totalExpenses.toLocaleString()}`, color: '#D93025' },
+                { label: 'Net Profit', value: `$${netProfit.toLocaleString()}`, color: '#0F9D58' },
               ].map(({ label, value, color }) => (
                 <Paper key={label} elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid #E8EAED', flex: 1 }}>
                   <Typography variant="body2" fontWeight={600} sx={{ color: '#5F6368', mb: 0.5 }}>{label}</Typography>
@@ -326,7 +520,7 @@ export default function FinancesPage() {
 
             <Divider sx={{ my: 3 }} />
             <Typography variant="caption" sx={{ color: 'text.disabled' }}>
-              Net profit = Revenue − Expenses. Data shown for Sep 2025 – Mar 2026. For full analytics, visit the{' '}
+              Net profit = Revenue − Expenses. For full analytics including patient growth, visit the{' '}
               <a href="/analytics" style={{ color: '#1A73E8', fontWeight: 700 }}>Analytics page</a>.
             </Typography>
           </Box>
@@ -358,7 +552,7 @@ export default function FinancesPage() {
                     {!card.isDefault && (
                       <Button size="small" sx={{ borderRadius: 2, fontWeight: 700, fontSize: '0.75rem', color: '#1565C7', bgcolor: '#EEF4FF', '&:hover': { bgcolor: '#C5D8FA' } }}>Set Default</Button>
                     )}
-                    <IconButton size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#E53535', bgcolor: '#FEF0F0' } }}>
+                    <IconButton size="small" aria-label={`Delete card ending in ${card.last4}`} sx={{ color: '#B8C6D4', '&:hover': { color: '#E53535', bgcolor: '#FEF0F0' } }}>
                       <DeleteOutlineRoundedIcon sx={{ fontSize: '1.1rem' }} />
                     </IconButton>
                   </Box>

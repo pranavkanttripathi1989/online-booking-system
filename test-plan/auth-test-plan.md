@@ -4,7 +4,8 @@
 **Routes tested:** `/login`, `/forbidden`, `/dashboard` (sidebar)  
 **Personas:** Admin, Manager, Clinician, Receptionist, Patient  
 **Updated:** 2026-03-18 Session 2 — Added TC-AUTH-020 to TC-AUTH-024 for NEW-AUTH-001/002/003, SUG-AUTH-003, SUG-AUTH-010.  
-**Updated:** 2026-03-19 Session 3 — Added TC-AUTH-025 to TC-AUTH-032 for NEW-AUTH-004 (OTP login) and NEW-AUTH-005 (mobile signup).
+**Updated:** 2026-03-19 Session 3 — Added TC-AUTH-025 to TC-AUTH-032 for NEW-AUTH-004 (OTP login) and NEW-AUTH-005 (mobile signup).  
+**Updated:** 2026-03-27 v4 — Added TC-AUTH-033 to TC-AUTH-035 for NEW-AUTH-006/007/008. **Total: 35 TCs.**
 
 ---
 
@@ -305,3 +306,38 @@
 - Step 2: OTP input + "Resend in Xs" + "Verify Number" button
 - Step 3: "Your Name" field + role selector + "Create Mobile Account" button
 - Success: "Mobile Account Ready!" with entered phone number displayed
+
+---
+
+## 10. v4 New Test Cases (NEW-AUTH-006, NEW-AUTH-007, NEW-AUTH-008)
+
+### TC-AUTH-033 — Session expired banner (NEW-AUTH-006)
+**Steps:** Navigate to `http://localhost:3001/login?reason=session_expired` (directly, or triggered by inactivity logout).  
+**Expected:**
+- Amber warning alert is visible above the HealthSync logo: "Your session expired due to inactivity. Please sign in again."
+- Alert has a × dismiss button (`onClose` prop).
+- If user logs in normally (not expired), no banner appears.
+
+---
+
+### TC-AUTH-034 — Caps Lock warning on password field (NEW-AUTH-007)
+**Steps:** On `/login` Sign In tab — enable Caps Lock on keyboard. Click into the password field. Type any character.  
+**Expected:**
+- A yellow/amber row appears immediately below the password field: ⚠ **"Caps Lock is on"**
+- Turn Caps Lock OFF, type again.
+- **Expected:** warning disappears immediately.
+
+**Note:** If testing via browser automation that cannot control Caps Lock state, verify by code inspection (`onKeyUp` + `getModifierState('CapsLock')` pattern).
+
+---
+
+### TC-AUTH-035 — Inline email format validation (NEW-AUTH-008)
+**Steps:**
+> On `/login` Sign In tab, click the email field. Type "notanemail" (no @). Click somewhere else (blur).
+> Assert: email field turns red. Helper text shows: "Please enter a valid email address".
+> Clear and type a valid email `admin@medibook.dev`.  
+> Assert: red border clears. No helper text.
+
+**Expected:** Validation triggers on `onBlur` and on `onChange` after first touch. Empty field shows no error. Valid email clears error immediately.
+
+**Edge case:** Partially valid emails like "a@b" should still fail. Only `user@domain.tld` patterns pass.

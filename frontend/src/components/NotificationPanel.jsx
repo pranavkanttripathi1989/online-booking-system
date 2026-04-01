@@ -15,6 +15,7 @@ import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded'
 import AnnouncementRoundedIcon from '@mui/icons-material/AnnouncementRounded'
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded'
 import { useNavigate } from 'react-router-dom'
+import ErrorBoundary from '../components/ErrorBoundary'
 
 // ─── Mock notifications ────────────────────────────────────────────────────────
 const INITIAL_NOTIFS = [
@@ -85,12 +86,12 @@ export default function NotificationPanel({ open, onClose }) {
         <Stack direction="row" spacing={0.5}>
           {unreadCount > 0 && (
             <Tooltip title="Mark all as read">
-              <IconButton size="small" onClick={markAllRead} sx={{ color: '#5F6368', '&:hover': { color: '#1A73E8', bgcolor: '#E8F0FE' } }}>
+              <IconButton aria-label="Mark all notifications as read" size="small" onClick={markAllRead} sx={{ color: '#5F6368', '&:hover': { color: '#1A73E8', bgcolor: '#E8F0FE' } }}>
                 <DoneAllRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
           )}
-          <IconButton size="small" onClick={onClose} sx={{ color: '#5F6368', '&:hover': { bgcolor: '#F1F3F4' } }}>
+          <IconButton aria-label="Close notifications panel" size="small" onClick={onClose} sx={{ color: '#5F6368', '&:hover': { bgcolor: '#F1F3F4' } }}>
             <CloseRoundedIcon fontSize="small" />
           </IconButton>
         </Stack>
@@ -159,7 +160,7 @@ export default function NotificationPanel({ open, onClose }) {
                         <Stack spacing={0.75} mt={0.5}>
                           <Typography variant="caption" sx={{ color: 'text.secondary', lineHeight: 1.6 }}>{n.body}</Typography>
                           {!n.unread ? null : (
-                            <Button size="small" variant="text" onClick={(e) => { e.stopPropagation(); markRead(n.id) }}
+                            <Button aria-label={`Mark as read: ${n.title}`} size="small" variant="text" onClick={(e) => { e.stopPropagation(); markRead(n.id) }}
                               startIcon={<CheckRoundedIcon sx={{ fontSize: '0.8rem !important' }} />}
                               sx={{ alignSelf: 'flex-start', textTransform: 'none', fontWeight: 700, fontSize: '0.72rem', color: 'primary.main', p: 0, minWidth: 0, '&:hover': { bgcolor: 'transparent', opacity: 0.75 } }}>
                               Mark as read
@@ -182,4 +183,9 @@ export default function NotificationPanel({ open, onClose }) {
       </Box>
     </Drawer>
   )
+}
+
+// ErrorBoundary wrapper
+export default function NotificationPanelWithBoundary(props) {
+  return <ErrorBoundary><NotificationPanel {...props} /></ErrorBoundary>
 }

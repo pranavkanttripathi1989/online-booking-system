@@ -6,7 +6,9 @@
 **Mock data:** `src/mocks/store.js` + `generateMockCalendarData()`  
 **Key features:** Month/Week/Day/List/Room views, filters (clinician, clinic, status, type), event popover, navigate to appointment detail, mobile FAB, status legend strip  
 **Updated:** 2026-03-16 — Original 16 TCs.  
-**Updated:** 2026-03-19 Session 2 — Fixed TC-009/010/013/016, added TC-017 to TC-020. **Total: 20 TCs.**
+**Updated:** 2026-03-19 Session 2 — Fixed TC-009/010/013/016, added TC-017 to TC-020. **Total: 20 TCs.**  
+**Updated:** 2026-03-28 v3 — Added TC-021 to TC-023 for NEW-CAL-011/012/013. **Total: 23 TCs.**  
+**Updated:** 2026-03-29 v4 — Added TC-024 to TC-026 for NEW-CAL-014/015/016. **Total: 26 TCs.**
 
 ---
 
@@ -207,3 +209,81 @@
 > Assert: navigates to `/appointments/new`.
 
 **Expected:** `onClick={() => navigate('/appointments/new')}` on FAB. Only visible on `xs`.
+
+---
+
+## 7. v3 New Test Cases (NEW-CAL-011, NEW-CAL-012, NEW-CAL-013)
+
+### TC-CAL-021 — Escape key closes event popover (NEW-CAL-011)
+**Prompt:**
+> On `/calendar`, click any appointment block to open the detail popover. Then press the `Escape` key.  
+> Assert: the popover closes without any mouse interaction.
+
+**Expected:** `useEffect` attaches `keydown` listener on `window` when `popoverEvent` is set. `Escape` → `setPopoverEvent(null)` + `setPopoverAnchor(null)`. Listener removed on cleanup.
+
+**Accessibility:** Meets WCAG 2.1 SC 1.4.13 — dismissible overlays must support Escape key.
+
+---
+
+### TC-CAL-022 — Appointment type icon shown in popover (NEW-CAL-012)
+**Prompt:**
+> Click a "Telehealth Check-up" (video) appointment. Open popover.  
+> Assert: a "Type" row is visible in the detail section with a video camera icon and label "Video / Telehealth".  
+> Then click a "Home Physio" appointment.  
+> Assert: a car icon and "Home Visit" label shown.
+
+**Expected:** 4th row in details grid: `VideocamRoundedIcon` for video, `DirectionsCarRoundedIcon` for home_visit, `PersonRoundedIcon` for in_person. Label from a map of type → readable string. Row hidden when `apptType` is undefined.
+
+---
+
+### TC-CAL-023 — Active filter count shown in Clear chip (NEW-CAL-013)
+**Steps:**
+> 1. Apply 1 filter (e.g. Status = Pending). Assert: Clear chip shows "Clear" (no count).  
+> 2. Apply 2 filters (Status + Type). Assert: Clear chip shows "Clear (2)".  
+> 3. Apply all 4 filters. Assert: Clear chip shows "Clear (4)".
+
+**Expected:** `activeFilterCount = [filterClinician, filterClinic, filterStatus, filterType].filter(Boolean).length`. Template `` `Clear${activeFilterCount > 1 ? ` (${activeFilterCount})` : ''}` `` on chip label.
+
+---
+
+## 8. v4 New Test Cases (NEW-CAL-014, NEW-CAL-015, NEW-CAL-016)
+
+> **Keyboard shortcut reference:** M=Month, W=Week, D=Day, L=List, R=Room  
+> Shortcuts activate only when focus is NOT inside an input/textarea/select/contentEditable.
+
+### TC-CAL-024 — Keyboard shortcuts switch calendar view (NEW-CAL-014)
+**Prompt:**
+> On `/calendar`, ensure no input or dropdown is focused. Press the key **M**.  
+> Assert: view switches to Month view. Press **W** → Week. Press **D** → Day. Press **L** → List. Press **R** → Room view.
+
+**Expected:** `SHORTCUT_MAP = { m: 'dayGridMonth', w: 'timeGridWeek', d: 'timeGridDay', l: 'listWeek', r: 'resourceDay' }` routes each keypress to `handleViewChange`. Guards prevent activation while filters are being typed.
+
+**Edge cases:**
+- Open "All Clinicians" dropdown, type a letter → view must NOT change (guard `e.target.tagName === 'SELECT'`)
+- Press Ctrl+W or Cmd+M → must NOT trigger shortcut (modifier guard)
+
+---
+
+### TC-CAL-025 — Jump to Date button navigates calendar (NEW-CAL-015)
+**Prompt:**
+> On `/calendar`, click the `EventAvailableRoundedIcon` button next to the Today's Schedule toggle (desktop only).  
+> Select `2026-04-15` (or any future date) from the native browser date picker.  
+> Assert: FullCalendar navigates to April 2026 (Month view) or the selected week (Week view).
+
+**Expected:** Button icon turns teal when active. `jumpInputRef.current?.showPicker()` opens native date picker. `onChange` validates date with `dayjs()`, then calls `calendarRef.getApi().gotoDate(target.toDate())`.
+
+**Room View:** Switch to Room view, click Jump to Date, pick a different day. Assert `roomViewDate` updates and Room View shows that day's appointments.
+
+**Mobile:** Button is hidden on `xs` (`!isMobile && ...`).
+
+---
+
+### TC-CAL-026 — apptType chip shown in Room View cards (NEW-CAL-016)
+**Prompt:**
+> Switch to Room view. Look for appointment cards in the room grid.  
+> Assert: "Telehealth Check-up" (video) appointments show a small teal chip with 🎥 icon and "Video" label.  
+> Assert: "Home Physio" (home visit) appointments show a 🚗 icon and "Home Visit" label.  
+> Assert: "General Consultation" (in_person) appointments show NO type chip (intentional — avoids clutter).
+
+**Expected:** `apptType && apptType !== 'in_person'` renders chip. Icon: `VideocamRoundedIcon` for video, `DirectionsCarRoundedIcon` for home_visit. Chip styled with `rgba(0,109,119,0.09)` teal background.
+

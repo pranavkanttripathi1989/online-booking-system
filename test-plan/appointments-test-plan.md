@@ -7,7 +7,8 @@
 **Mock data:** `src/mocks/store.js` (35 records)  
 **Updated:** 2026-03-18 — Added TC-APPT-020/021/022/023 for implemented suggestions; updated TC-APPT-001 to reflect tab strip.  
 **Updated:** 2026-03-19 Session 3 — Added TC-APPT-024 to TC-APPT-029 for NEW-APPT-001/002/003, SUG-APPT-005, SUG-APPT-007.  
-**Updated:** 2026-03-19 Session 4 — Added TC-APPT-030 to TC-APPT-034 (Print, Status Timeline, Teal Theme, Time Validation, Empty State). **Total: 34 TCs.**
+**Updated:** 2026-03-19 Session 4 — Added TC-APPT-030 to TC-APPT-034 (Print, Status Timeline, Teal Theme, Time Validation, Empty State).  
+**Updated:** 2026-03-27 v3 — Added TC-APPT-035 to TC-APPT-038 (Bulk Select, Reminder Channel, Reschedule Dialog, Service Checklist). **Total: 38 TCs.**
 
 ---
 
@@ -372,3 +373,89 @@
 > Assert: "← Back" button is present; clicking it returns to `/appointments`.
 
 **Expected:** `if (!apt)` guard renders empty state with navigation back.
+
+---
+
+## 4. v3 New Test Cases (SUG-APPT-006, NEW-APPT-004, SUG-APPT-010, SUG-APPT-012)
+
+### TC-APPT-035 — Bulk row selection + action bar (SUG-APPT-006)
+**Prompt:**
+> On `/appointments` → "All" tab, click 3 row checkboxes.
+> Assert: a teal action bar animates in above the DataGrid showing "3 appointments selected".
+> Assert: "Export Selected" and "Bulk Cancel" buttons are visible.
+> Assert: a deselect (×) icon button is visible.
+> Click the deselect icon. Assert: action bar hides (collapses).
+
+**Expected:** CSS `max-height`/`opacity` transition shows/hides the bar. `rowSelectionModel` drives the count.
+
+---
+
+### TC-APPT-036 — Bulk export selected (SUG-APPT-006)
+**Prompt:**
+> Select 3 rows, click "Export Selected".
+> Assert: green snackbar "Exported 3 selected appointments as CSV".
+> Assert: action bar disappears after export.
+> Assert: downloaded file is 10-column CSV.
+
+**Expected:** `handleExportSelected()` creates 10-column CSV blob, triggers download, clears `rowSelectionModel`.
+
+---
+
+### TC-APPT-037 — Bulk cancel (SUG-APPT-006)
+**Prompt:**
+> Select 2–3 rows with non-terminal statuses (Pending or Confirmed).
+> Click "Bulk Cancel".
+> Assert: warning snackbar "N appointments cancelled."
+> Assert: all selected rows immediately show red "Cancelled" chip.
+> Assert: action bar disappears.
+
+**Expected:** `handleBulkCancel()` filters non-terminal rows, applies `setOptimisticCancelled`, fires mutations.
+
+---
+
+### TC-APPT-038 — Send Reminder channel selection (NEW-APPT-004)
+**Prompt:**
+> Navigate to `/appointments/appt-1`.
+> Click "Send Reminder" button.
+> Assert: a dialog opens (not a direct snackbar).
+> Assert: dialog title is "Send Reminder".
+> Assert: Email and SMS radio options are shown with patient contact details.
+> If patient has no phone, SMS radio is disabled with "No phone on file" badge.
+> Select Email, click "Send via Email".
+> Assert: dialog closes.
+> Assert: after ~1.5s snackbar reads "Reminder sent via EMAIL to [email]".
+> Repeat: open dialog, select SMS, click "Send via SMS".
+> Assert: snackbar reads "Reminder sent via SMS to [phone]".
+
+**Expected:** `ReminderDialog` with controlled RadioGroup; `handleSendReminder(channel)` dispatches channel-aware snackbar.
+
+---
+
+### TC-APPT-039 — Reschedule dialog (SUG-APPT-010)
+**Prompt:**
+> Navigate to `/appointments/appt-1`.
+> Click the purple "Reschedule" button in the Actions panel.
+> Assert: dialog titled "Reschedule Appointment" opens.
+> Assert: current appointment datetime is shown in the subtitle.
+> Assert: two DateTimePickers: "New Start Date & Time" and "New End Date & Time".
+> Set end time BEFORE start time. Assert: error helperText appears, Confirm button disabled.
+> Set valid start and end (end after start).
+> Click "Confirm Reschedule".
+> Assert: dialog closes. Green snackbar "Appointment rescheduled successfully."
+> Assert: navigates back to `/appointments`.
+
+**Expected:** `RescheduleDialog` with `endBeforeStart` validation; `handleReschedule(start, end)` closes dialog + navigates.
+
+---
+
+### TC-APPT-040 — Service-specific pre-visit checklist (SUG-APPT-012)
+**Prompt:**
+> Navigate to `/appointments/appt-1` (GP Consultation service).
+> Scroll to "Pre-visit Checklist" card.
+> Assert: label "Specific to: GP Consultation" is visible above checklist items.
+> Assert: checklist contains GP-specific items (e.g., "Bring previous lab results", "Note any recent symptoms").
+> Assert: items are NOT the generic 4-item list.
+> Navigate to an appointment with a different service (e.g., Dental).
+> Assert: checklist shows Dental-specific items (e.g., "Brush and floss before your appointment").
+
+**Expected:** `getChecklist(serviceName)` exact/partial maps to `SERVICE_CHECKLISTS`; each service renders unique items.

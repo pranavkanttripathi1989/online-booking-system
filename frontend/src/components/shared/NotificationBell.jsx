@@ -121,7 +121,13 @@ export default function NotificationBell() {
 
         {/* Footer */}
         <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #D0E8EA', textAlign: 'center' }}>
-          <Button size="small" fullWidth>View All Notifications</Button>
+          <Button
+            size="small"
+            fullWidth
+            aria-label="View all notifications"
+            onClick={() => { setAnchorEl(null); window.location.href = '/notifications'; }}
+          >View All Notifications</Button>
+
         </Box>
       </Popover>
     </>

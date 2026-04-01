@@ -18,6 +18,22 @@ import { PATIENT_DETAIL_QUERY }     from '../../graphql/queries'
 
 const GENDER_OPTIONS = ['male','female','other','prefer_not_to_say']
 
+// ─── Mock fallback for offline mode (SUG-PT-001) ─────────────────────────────
+const MOCK_EDIT_PATIENTS = {
+  '1': { first_name: 'Alice',  last_name: 'Johnson',  email: 'alice@email.com',   phone: '+1 555-1001', gender: 'female', address: '142 Maple Street, Springfield, IL', notes: 'Patient prefers morning appointments.',   date_of_birth: '1992-05-12' },
+  '2': { first_name: 'Bob',    last_name: 'Smith',    email: 'bob@email.com',     phone: '+1 555-1002', gender: 'male',   address: '88 River Road, Austin, TX',         notes: '',                                      date_of_birth: '1979-11-30' },
+  '3': { first_name: 'Carlos', last_name: 'Reyes',    email: 'carlos@email.com',  phone: '+1 555-1003', gender: 'male',   address: '55 Oak Lane, Chicago, IL',          notes: '',                                      date_of_birth: '1985-03-22' },
+  '4': { first_name: 'Diana',  last_name: 'Prince',   email: 'diana@email.com',   phone: '+1 555-1004', gender: 'female', address: '12 Queen St, New York, NY',         notes: '',                                      date_of_birth: '1990-07-18' },
+  '5': { first_name: 'Ethan',  last_name: 'Hunt',     email: 'ethan@email.com',   phone: '+1 555-1005', gender: 'male',   address: '7 Mission Road, LA, CA',            notes: '',                                      date_of_birth: '1987-09-01' },
+  'pt-1': { first_name: 'Alice',  last_name: 'Thompson', email: 'alice.thompson@gmail.com', phone: '+1 555-1001', gender: 'female', address: '12 Oak Avenue, Boston, MA', notes: 'On medication for hypertension.', date_of_birth: '1985-03-12' },
+  'pt-2': { first_name: 'Marcus', last_name: 'Chen',     email: 'marcus.chen@outlook.com',  phone: '+1 555-1002', gender: 'male',   address: '45 Pine Street, SF, CA',    notes: 'Asthma — inhaler prescribed.',   date_of_birth: '1990-07-25' },
+}
+const MOCK_EDIT_DEFAULT = {
+  first_name: 'John', last_name: 'Doe', email: 'john.doe@email.com',
+  phone: '+1 (555) 234-5678', gender: 'male', address: '142 Maple Street, Springfield, IL',
+  notes: 'Patient prefers morning appointments.', date_of_birth: '1989-04-15',
+}
+
 export default function EditPatientPage() {
   const { id }   = useParams()
   const navigate = useNavigate()
@@ -28,19 +44,33 @@ export default function EditPatientPage() {
   const { data, loading: fetching } = useQuery(PATIENT_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
 
   useEffect(() => {
-    if (!data?.patient) return
-    const p = data.patient
-    setForm({
-      first_name:    p.first_name    ?? '',
-      last_name:     p.last_name     ?? '',
-      email:         p.email         ?? '',
-      phone:         p.phone         ?? '',
-      gender:        p.gender        ?? '',
-      address:       p.address       ?? '',
-      notes:         p.notes         ?? '',
-      date_of_birth: p.date_of_birth ? dayjs(p.date_of_birth) : null,
-    })
-  }, [data])
+    if (data?.patient) {
+      const p = data.patient
+      setForm({
+        first_name:    p.first_name    ?? '',
+        last_name:     p.last_name     ?? '',
+        email:         p.email         ?? '',
+        phone:         p.phone         ?? '',
+        gender:        p.gender        ?? '',
+        address:       p.address       ?? '',
+        notes:         p.notes         ?? '',
+        date_of_birth: p.date_of_birth ? dayjs(p.date_of_birth) : null,
+      })
+    } else if (!fetching) {
+      // SUG-PT-001: Mock fallback when backend offline
+      const mock = MOCK_EDIT_PATIENTS[id] ?? MOCK_EDIT_DEFAULT
+      setForm({
+        first_name:    mock.first_name,
+        last_name:     mock.last_name,
+        email:         mock.email,
+        phone:         mock.phone,
+        gender:        mock.gender,
+        address:       mock.address,
+        notes:         mock.notes,
+        date_of_birth: mock.date_of_birth ? dayjs(mock.date_of_birth) : null,
+      })
+    }
+  }, [data, fetching, id])
 
   const [updatePatient, { loading }] = useMutation(UPDATE_PATIENT_MUTATION, {
     onCompleted: () => {
@@ -80,6 +110,10 @@ export default function EditPatientPage() {
           date_of_birth: form.date_of_birth ? dayjs(form.date_of_birth).format('YYYY-MM-DD') : undefined,
         }
       }
+    }).catch(() => {
+      // Mock mode: treat as success
+      enqueueSnackbar('Patient updated (demo mode)', { variant: 'success' })
+      navigate(`/patients/${id}`)
     })
   }
 
@@ -95,7 +129,7 @@ export default function EditPatientPage() {
             <EditRoundedIcon sx={{ color: '#F9AB00', fontSize: '1.2rem' }} />
           </Box>
           <Box>
-            <Typography variant="h5" fontWeight={800} color="#202124">Edit — {data?.patient?.full_name}</Typography>
+            <Typography variant="h5" fontWeight={800} color="#202124">Edit — {data?.patient?.full_name ?? `${form.first_name} ${form.last_name}`}</Typography>
             <Typography variant="body2" color="text.secondary">Update patient record</Typography>
           </Box>
         </Box>

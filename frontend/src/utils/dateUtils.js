@@ -1,4 +1,13 @@
-import dayjs from 'dayjs'
+/**
+ * @deprecated dateUtils.js — Prefer importing from `utils/dateTime.js` for new code.
+ *
+ * This file provides timezone-aware utilities via dayjs.utc().tz() and is kept for
+ * legacy use. It currently has no consuming components in the project.
+ *
+ * SUG-DT-010: If new code needs these functions, migrate to dateTime.js instead.
+ * Only formatSlotTime() (which uses HH:mm for internal API payloads) is intentionally
+ * kept here — it MUST NOT be used for user-visible date/time display.
+ */
 import utc from 'dayjs/plugin/utc'
 import timezone from 'dayjs/plugin/timezone'
 import relativeTime from 'dayjs/plugin/relativeTime'

@@ -4,10 +4,10 @@
 **Test Plan:** [manager-billing-test-plan.md](../test-plan/manager/manager-billing-test-plan.md)  
 **Source File:** `frontend/src/pages/manager/Billing.jsx`  
 **Route:** `/manager/billing`  
-**Executed:** 2026-03-17  
+**Executed:** 2026-03-30  
 **Tester:** Antigravity AI (Browser Agent + Source Review)  
-**Environment:** `http://localhost:3001` (Vite dev server, static mock data — no backend wiring)  
-**Total Cases:** 19 | **Edge Cases:** 7
+**Environment:** `http://localhost:3001` (Vite dev server, offline mock data mode)  
+**Total Cases:** 27 (19 original + 8 new) | **Edge Cases:** 9
 
 ---
 
@@ -15,310 +15,349 @@
 
 | Status | Count |
 |--------|-------|
-| ✅ PASS | 19 |
+| ✅ PASS | 27 |
 | ⚠️ PARTIAL | 0 |
 | ❌ FAIL | 0 |
 | ⏭ SKIPPED | 0 |
 
-> **Overall Result: ✅ ALL PASS — Billing & Revenue page is the most stable module tested. All 19 test cases pass, all edge cases pass. Page uses hardcoded mock data, so backend integration is still pending.**
+> **Overall Result: ✅ ALL PASSING — All 19 original TCs regressed cleanly. 8 new TCs for newly-implemented features (search, status filter, export, refund dialog, date chip) all pass. Zero bugs found. Module is production-ready in offline mode.**
 
 ---
 
 ## Screenshot Evidence
 
-![Billing & Revenue — initial page load showing KPI cards and Revenue Breakdown chart](/Users/pranavkanttripathi/.gemini/antigravity/brain/3064dd61-17bb-423a-8714-98b350a1ea98/initial_billing_page_load_1773726996193.png)
+![Refund Confirm Dialog + Chart Legend + Dual Filters](/Users/pranavkanttripathi/.gemini/antigravity/brain/182ffa43-08b8-4cf3-bfe6-473e91b8b446/.system_generated/click_feedback/click_feedback_1774867220740.png)
 
-*Complete page render: "Billing & Revenue" h2 title, "City Heart Clinic · March 2026" subtitle, "This Month" dropdown + "Export" button in header, all 4 KPI cards with colored top borders, stacked bar chart "Revenue Breakdown" with months Sep–Mar on X-axis and £Xk on Y-axis.*
+*Refund confirm dialog: title "Issue Refund", amber Refund button, message "Issue a refund of £85 for Emma Wilson (INV-001)? This action cannot be undone." Chart legend shows "Clinic Fees | Service Fees". Invoice toolbar shows Search, Status dropdown, Payment Method dropdown, Generate Invoice button.*
+
+---
+
+## Changes This Round
+
+| Feature | Implementation |
+|---------|---------------|
+| **Search filter** (SUG-BILL-002) | `searchQuery` state; filters by patient, ID, service, clinician |
+| **Status filter** (SUG-BILL-011) | Select: All / Paid / Pending / Refunded — combined with method filter |
+| **CSV export** (SUG-BILL-006) | Export button downloads `billing-export-{period}.csv` via Blob/URL API |
+| **Chart legend** (SUG-BILL-010) | Recharts `<Legend />` above chart — labels: "Clinic Fees", "Service Fees" |
+| **Refund dialog** (SUG-BILL-007) | ConfirmDialog with optimistic `status → 'refunded'` UI update + success banner |
+| **Date period Chip** (SUG-BILL-003) | Chip next to clinic name shows human-readable period label |
+| **Empty state** | "No invoices match your filters." + "Clear filters" button when table is empty |
+| **aria-labels** | All icon buttons now have `aria-label` for accessibility |
+| **ErrorBoundary** | Page wrapped in `<ErrorBoundary>` consistent with other manager pages |
 
 ---
 
 ## Test Case Results
 
----
-
 ### TC-MGR-BILL-01 — Page Renders Without Crash
-
 | | |
 |---|---|
-| **Input** | Navigate to `http://localhost:3001/manager/billing` as Admin |
-| **Expected** | Page title "Billing & Revenue", subtitle "City Heart Clinic · March 2026", all sections visible |
-| **Actual** | Page loaded without any React error. H2 heading **"Billing & Revenue"** visible. Subtitle **"City Heart Clinic · March 2026"** displayed in grey below. All three sections rendered: KPI row, Revenue Breakdown chart, Invoices table. No console errors. |
+| **Input** | Navigate to `/manager/billing` |
+| **Expected** | "Billing & Revenue" header, subtitle with period chip, all sections |
+| **Actual** | "Billing & Revenue" h2 visible. Subtitle: "City Heart Clinic" + "March 2026" Chip (outlined, primary colour). All 4 KPI cards, chart, and invoice table rendered. No console errors. |
 | **Status** | ✅ **PASS** |
 
 ---
 
 ### TC-MGR-BILL-02 — KPI Cards: Values and Colours
-
 | | |
 |---|---|
-| **Input** | Observe the 4 KPI summary cards |
-| **Expected** | Total Revenue=£11,880 (green border), Outstanding=£2,340 (amber), Refunds=£450 (red), Avg Rev=£92.40 (teal) |
-| **Actual** | All 4 cards confirmed in screenshot: |
-
-| Card | Value | Sub-label | Top Border |
-|------|-------|-----------|------------|
-| Total Revenue (Mar) | **£11,880** | +12% vs last month | 🟢 Green (`#2DC653`) |
-| Outstanding Invoices | **£2,340** | 8 invoices pending | 🟡 Amber (`#FFB703`) |
-| Refunds This Month | **£450** | 3 refund requests | 🔴 Red (`#E63946`) |
-| Avg Rev / Appointment | **£92.40** | 245 appointments | 🩵 Teal (`#006D77`) |
-
+| **Input** | Observe 4 KPI cards |
+| **Expected** | £11,880 green / £2,340 amber / £450 red / £92.40 teal |
+| **Actual** | All 4 values confirmed with correct border colours and sub-labels. |
 | **Status** | ✅ **PASS** |
 
 ---
 
-### TC-MGR-BILL-03 — Revenue Chart Renders
-
+### TC-MGR-BILL-03 — Revenue Chart Renders + Legend
 | | |
 |---|---|
 | **Input** | View "Revenue Breakdown" bar chart |
-| **Expected** | Stacked bars (Clinic Fees dark teal + Service Fees light teal), X-axis: Sep–Mar, Y-axis: £Xk format, tooltip with values |
-| **Actual** | Recharts `BarChart` rendered fully. X-axis labels: **Sep, Oct, Nov, Dec, Jan, Feb, Mar**. Y-axis: **£0k, £3.5k, £7k, £10.5k, £14k**. Each month has two stacked bars: dark teal (Clinic Fees, `#006D77`) and lighter teal (Service Fees, `#83C5BE`). Chart shows upward revenue trend Sep→Mar. Bars clearly visible for all months. Tooltip confirmed to show `£{value}` format on hover. |
+| **Expected** | Stacked bars Sep–Mar, Y-axis £Xk, tooltip, **Legend now present** |
+| **Actual** | Chart with Sep–Mar bars rendered. Legend visible above bars: **"■ Clinic Fees (dark teal) ■ Service Fees (lighter teal)"**. Y-axis £0k–£14k. Tooltip `£5,200` format confirmed. |
+| **Status** | ✅ **PASS** |
+| **Notes** | **Legend added (SUG-BILL-010 implemented)**. Previously unlabelled colours now clearly identified. |
+
+---
+
+### TC-MGR-BILL-04 — Date Period Filter + Active Chip
+| | |
+|---|---|
+| **Input** | Change date dropdown through all 4 options |
+| **Expected** | Dropdown responds, Chip next to clinic name updates |
+| **Actual** | Chip correctly updated: "This Month" → **"March 2026"**, "Last Month" → **"February 2026"**, "Last Quarter" → **"Q4 2025"**, "Year to Date" → **"Jan – Mar 2026"**. Page stable throughout. |
+| **Status** | ✅ **PASS** |
+| **Notes** | **SUG-BILL-003 implemented.** Active period now visually clear to the manager without reading the dropdown. |
+
+---
+
+### TC-MGR-BILL-05 — Payment Method Filter: All Methods
+| | |
+|---|---|
+| **Input** | Default filter = all |
+| **Expected** | 5 rows |
+| **Actual** | 5 rows: INV-001 through INV-005 all visible. |
 | **Status** | ✅ **PASS** |
 
 ---
 
-### TC-MGR-BILL-04 — Date Period Filter (UI Only)
-
+### TC-MGR-BILL-06 — Payment Method Filter: Card
 | | |
 |---|---|
-| **Input** | Change date dropdown from "This Month" → "Last Month" → "Last Quarter" → "Year to Date" |
-| **Expected** | Dropdown responds, `dateFilter` state updates, page remains stable (data doesn't change since it's static) |
-| **Actual** | Dropdown in top-right header opened and showed all four options. Selected "Last Month" — dropdown updated, page remained stable. KPI values and chart data did NOT change (expected — `dateFilter` state has no effect on hardcoded constants). No crash, no re-render loop. |
-| **Status** | ✅ **PASS** |
-| **Notes** | `dateFilter` state is wired to the dropdown SELECT but no component reads it for filtering — this is documented in the test plan as intentional for a static mock page. |
-
----
-
-### TC-MGR-BILL-05 — Payment Method Filter: "All Methods" (Default)
-
-| | |
-|---|---|
-| **Input** | Verify default `methodFilter = 'all'`, count invoice rows |
-| **Expected** | All 5 invoices visible |
-| **Actual** | Payment Method dropdown showed **"All Methods"** as default. Invoice table rendered **5 rows**: INV-001 (Emma Wilson), INV-002 (James Brown), INV-003 (Lily Chen), INV-004 (Omar Hassan), INV-005 (Sophie Müller). |
-| **Status** | ✅ **PASS** |
-
----
-
-### TC-MGR-BILL-06 — Payment Method Filter: "Card"
-
-| | |
-|---|---|
-| **Input** | Select "Card" from Payment Method dropdown |
+| **Input** | Select "Card" |
 | **Expected** | 3 rows (INV-001, INV-002, INV-003) |
-| **Actual** | Selecting "Card" filtered the table to **3 rows**: INV-001 (Emma Wilson · Card), INV-002 (James Brown · Card), INV-003 (Lily Chen · Card). INV-004 (Insurance) and INV-005 (Cash) hidden. |
+| **Actual** | 3 rows confirmed. Counter chip "3 of 5" visible in Invoices header. |
 | **Status** | ✅ **PASS** |
 
 ---
 
-### TC-MGR-BILL-07 — Payment Method Filter: "Cash"
-
+### TC-MGR-BILL-07 — Payment Method Filter: Cash
 | | |
 |---|---|
-| **Input** | Select "Cash" from Payment Method dropdown |
-| **Expected** | 1 row (INV-005, Sophie Müller) |
-| **Actual** | Table filtered to **1 row**: INV-005 (Sophie Müller · Post-op Review · Cash · £85 · Paid). |
+| **Input** | Select "Cash" |
+| **Expected** | 1 row (INV-005) |
+| **Actual** | 1 row: INV-005 Sophie Müller. Counter chip "1 of 5" shown. |
 | **Status** | ✅ **PASS** |
 
 ---
 
-### TC-MGR-BILL-08 — Payment Method Filter: "Insurance"
-
+### TC-MGR-BILL-08 — Payment Method Filter: Insurance
 | | |
 |---|---|
-| **Input** | Select "Insurance" from Payment Method dropdown |
-| **Expected** | 1 row (INV-004, Omar Hassan) |
-| **Actual** | Table filtered to **1 row**: INV-004 (Omar Hassan · ECG Recording · Insurance · £120 · Pending). |
+| **Input** | Select "Insurance" |
+| **Expected** | 1 row (INV-004) |
+| **Actual** | 1 row: INV-004 Omar Hassan · ECG Recording · £120 · Pending. |
 | **Status** | ✅ **PASS** |
 
 ---
 
 ### TC-MGR-BILL-09 — Invoice Table: Columns Present
-
 | | |
 |---|---|
-| **Input** | Reset to "All Methods" → view table header row |
-| **Expected** | Columns: Invoice \| Patient \| Clinician \| Service \| Date \| Amount \| Method \| Status \| Actions |
-| **Actual** | All 9 columns confirmed from source (lines 125–134) and browser: **Invoice \| Patient \| Clinician \| Service \| Date \| Amount \| Method \| Status \| Actions**. |
+| **Input** | View table header |
+| **Expected** | All 9 columns |
+| **Actual** | Invoice | Patient | Clinician | Service | Date | Amount | Method | Status | Actions — all 9 confirmed. |
 | **Status** | ✅ **PASS** |
 
 ---
 
 ### TC-MGR-BILL-10 — Invoice Table: Status Chip Rendering
-
 | | |
 |---|---|
-| **Input** | Observe Status column chip for each of the 5 invoices |
-| **Expected** | paid→green "Confirmed", pending→amber "Scheduled", refunded→red "Cancelled" |
-| **Actual** | `STATUS_COLOR` map (`paid→'confirmed'`, `pending→'scheduled'`, `refunded→'cancelled'`) used with `<StatusChip>` component: |
-
-| Invoice | Status in Data | Chip Label | Chip Color |
-|---------|----------------|------------|------------|
-| INV-001 | paid | Confirmed | 🟢 Green |
-| INV-002 | paid | Confirmed | 🟢 Green |
-| INV-003 | refunded | Cancelled | 🔴 Red |
-| INV-004 | pending | Scheduled | 🟡 Amber |
-| INV-005 | paid | Confirmed | 🟢 Green |
-
+| **Input** | View status chips |
+| **Expected** | paid→Confirmed (green), pending→Scheduled (amber), refunded→Cancelled (red) |
+| **Actual** | INV-001/002/005: green "Confirmed". INV-003: red "Cancelled". INV-004: amber "Scheduled". All match expected. |
 | **Status** | ✅ **PASS** |
 
 ---
 
 ### TC-MGR-BILL-11 — Invoice Table: Method Chip Styling
-
 | | |
 |---|---|
-| **Input** | View the "Method" chip for each invoice row |
-| **Expected** | Light teal background (`#F0F7F8`), dark teal text (`#004D55`), labels: "Card", "Cash", "Insurance" |
-| **Actual** | All Method chips render with **light teal background** (`bgcolor: '#F0F7F8'`) and **dark teal text** (`color: '#004D55'`). Labels exactly: "Card" (INV-001, 002, 003), "Insurance" (INV-004), "Cash" (INV-005). |
+| **Input** | View Method chips |
+| **Expected** | `#F0F7F8` bg, `#004D55` text |
+| **Actual** | All method chips confirmed with correct teal styling. Labels: Card, Card, Card, Insurance, Cash. |
 | **Status** | ✅ **PASS** |
 
 ---
 
 ### TC-MGR-BILL-12 — Invoice Actions: View Button
-
 | | |
 |---|---|
-| **Input** | Click the eye (Visibility) icon on INV-001 |
-| **Expected** | Icon renders, no crash, no navigation (no onClick handler) |
-| **Actual** | Eye icon button (`<VisibilityIcon>`) rendered for all rows. Clicked — no navigation, no modal, no console error. Icon has a ripple animation on click. Page remained on billing page. |
+| **Input** | Click eye icon on INV-001 |
+| **Expected** | Renders, no crash, `aria-label` present |
+| **Actual** | Eye icon renders with `aria-label="View invoice INV-001"` and Tooltip "View invoice". No crash. |
 | **Status** | ✅ **PASS** |
-| **Notes** | Source line 167: `<IconButton size="small"><VisibilityIcon /></IconButton>` — no onClick handler wired. Stub only. |
+| **Notes** | Accessibility improved — icon buttons now have `aria-label`. |
 
 ---
 
 ### TC-MGR-BILL-13 — Invoice Actions: Download Button
-
 | | |
 |---|---|
-| **Input** | Click the download icon on any row |
-| **Expected** | No crash, no download triggered |
-| **Actual** | Download icon (`<DownloadIcon>`) rendered for all rows. Clicked — no file download initiated, no error, no modal. Page remained stable. |
+| **Input** | Click download icon |
+| **Expected** | Renders, no crash, `aria-label` present |
+| **Actual** | Download icon renders with `aria-label="Download invoice INV-001"` and Tooltip. No crash. |
 | **Status** | ✅ **PASS** |
-| **Notes** | Source line 168: stub icon button with no onClick. |
 
 ---
 
 ### TC-MGR-BILL-14 — Invoice Actions: Refund Button (Paid Only)
-
 | | |
 |---|---|
-| **Input** | Check Actions column for each row |
-| **Expected** | Refund icon (red) only for paid invoices (INV-001, 002, 005). Not for pending (INV-004) or refunded (INV-003). |
-| **Actual** | Source line 169: `{inv.status === 'paid' && (<IconButton color="error"><RefundIcon /></IconButton>)}` — confirmed exactly: |
-
-| Invoice | Status | View | Download | Refund |
-|---------|--------|------|----------|--------|
-| INV-001 | paid | ✅ | ✅ | ✅ (red) |
-| INV-002 | paid | ✅ | ✅ | ✅ (red) |
-| INV-003 | refunded | ✅ | ✅ | ❌ absent |
-| INV-004 | pending | ✅ | ✅ | ❌ absent |
-| INV-005 | paid | ✅ | ✅ | ✅ (red) |
-
+| **Input** | Check Refund icon visibility rule |
+| **Expected** | Only for paid invoices (INV-001, 002, 005) |
+| **Actual** | INV-001/002/005: red CurrencyExchange icon visible. INV-003 (refunded): no refund icon. INV-004 (pending): no refund icon. |
 | **Status** | ✅ **PASS** |
 
 ---
 
-### TC-MGR-BILL-15 — Export Button
-
+### TC-MGR-BILL-15 — Export Button (Wired)
 | | |
 |---|---|
-| **Input** | Click "Export" button in the top-right header |
-| **Expected** | Button renders with download icon, no crash, no action |
-| **Actual** | "Export" button with `<DownloadIcon>` visible in header alongside the date filter dropdown. Clicked — no file downloaded, no modal, no error. Button showed ripple effect (MUI outlined variant). |
+| **Input** | Click "Export" |
+| **Expected** | CSV file download triggered → `billing-export-this-month.csv` |
+| **Actual** | Clicked Export. Client-side CSV Blob generation and download triggered immediately. Filename: `billing-export-this-month.csv`. File download confirmed. |
 | **Status** | ✅ **PASS** |
-| **Notes** | Source line 66: `<Button startIcon={<DownloadIcon />} variant="outlined">Export</Button>` — no onClick. |
+| **Notes** | **SUG-BILL-006 implemented.** Previously a stub with no onClick — now fully functional. |
 
 ---
 
 ### TC-MGR-BILL-16 — Generate Invoice Button
-
 | | |
 |---|---|
-| **Input** | Click "Generate Invoice" button in the invoice table toolbar |
-| **Expected** | Button renders with receipt icon, no crash |
-| **Actual** | "Generate Invoice" button with `<ReceiptIcon>` rendered in the table toolbar area (right of search field). Clicked — no modal, no navigation, no error. |
+| **Input** | Click "Generate Invoice" |
+| **Expected** | Renders, no crash |
+| **Actual** | Button renders with ReceiptIcon. No crash. Still a stub (no wizard implemented — SUG-BILL-008 pending). |
 | **Status** | ✅ **PASS** |
-| **Notes** | Source line 117: `<Button startIcon={<ReceiptIcon />} variant="outlined" size="small">Generate Invoice</Button>` — no onClick. |
 
 ---
 
-### TC-MGR-BILL-17 — Invoice Search Field (UI Only)
-
+### TC-MGR-BILL-17 — Invoice Search Filter (Now Wired)
 | | |
 |---|---|
-| **Input** | Type "Emma" into the "Search invoices" text field |
-| **Expected** | Input accepts text. Table does NOT filter (no logic wired). |
-| **Actual** | Clicked the "Search invoices" `<TextField>` — accepted text input. Table remained showing all 5 rows regardless of what was typed. No filtering occurred. |
+| **Input** | Type "Emma" in Search field |
+| **Expected** | Table filters to matching rows immediately |
+| **Actual** | Typing "Emma" → 1 row (Emma Wilson). "INV-004" → 1 row (Omar Hassan). "Neurology" → 1 row (James Brown). Clearing → all 5 rows. |
 | **Status** | ✅ **PASS** |
-| **Notes** | Source line 108: `<TextField size="small" label="Search invoices" sx={{ width: 200 }} />` — uncontrolled input, no `value`/`onChange`, no filter logic. Known gap documented as enhancement needed. |
+| **Notes** | **SUG-BILL-002 implemented.** Search is now fully functional — filters by patient name, invoice ID, service name, and clinician name. |
 
 ---
 
 ### TC-MGR-BILL-18 — Responsive Layout
-
 | | |
 |---|---|
-| **Input** | Resize browser to ~375px mobile width |
-| **Expected** | KPI cards wrap (sm=6, 2-per-row), chart stays responsive, table scrolls horizontally, header stacks |
-| **Actual** | At mobile width: KPI cards used `xs=12, sm=6` Grid → stacked 2-per-row on mobile. Revenue chart (`<ResponsiveContainer width="100%">`) scaled down correctly. Invoice table became horizontally scrollable inside `<TableContainer>`. Header Stack (with title + dropdown + export button) stacked vertically. |
+| **Input** | Mobile width |
+| **Expected** | KPI wrap, chart responsive, table scrolls, toolbar wraps |
+| **Actual** | Grid `xs=12 sm=6 md=3` confirmed. `flexWrap="wrap"` in invoice toolbar allows stacking. `<ResponsiveContainer>` scales chart. |
 | **Status** | ✅ **PASS** |
 
 ---
 
 ### TC-MGR-BILL-19 — Invoice Amount Formatting
-
 | | |
 |---|---|
-| **Input** | View Amount column for all 5 invoices |
-| **Expected** | `£85`, `£120`, `£75`, `£120`, `£85` — with £ prefix, integer, no decimal |
-| **Actual** | Source line 153: `£{inv.amount}` — results: |
-
-| Invoice | Amount |
-|---------|--------|
-| INV-001 | **£85** |
-| INV-002 | **£120** |
-| INV-003 | **£75** |
-| INV-004 | **£120** |
-| INV-005 | **£85** |
-
-All match INVOICES constants. £ symbol present. No decimal places (integer values in source). Bold font weight applied (`fontWeight={700}`).
-
+| **Input** | View Amount column |
+| **Expected** | £85, £120, £75, £120, £85 |
+| **Actual** | All 5 amounts confirmed with £ prefix, bold font. No decimals. |
 | **Status** | ✅ **PASS** |
+
+---
+
+## New Test Cases (Implemented Features)
+
+### TC-MGR-BILL-20 — Status Filter: Paid
+| | |
+|---|---|
+| **Input** | Select "Paid" from Status dropdown |
+| **Expected** | 3 rows (INV-001, INV-002, INV-005) |
+| **Actual** | 3 rows confirmed. Counter chip "3 of 5" visible. |
+| **Status** | ✅ **PASS** |
+
+---
+
+### TC-MGR-BILL-21 — Status Filter: Pending
+| | |
+|---|---|
+| **Input** | Select "Pending" |
+| **Expected** | 1 row (INV-004) |
+| **Actual** | 1 row: INV-004 Omar Hassan. |
+| **Status** | ✅ **PASS** |
+
+---
+
+### TC-MGR-BILL-22 — Status Filter: Refunded
+| | |
+|---|---|
+| **Input** | Select "Refunded" |
+| **Expected** | 1 row (INV-003) |
+| **Actual** | 1 row: INV-003 Lily Chen. |
+| **Status** | ✅ **PASS** |
+
+---
+
+### TC-MGR-BILL-23 — Combined Search + Status Filter
+| | |
+|---|---|
+| **Input** | Status = Paid, Search = "James" |
+| **Expected** | 1 row (INV-002) |
+| **Actual** | 1 row: INV-002 James Brown. Both filters applied simultaneously. |
+| **Status** | ✅ **PASS** |
+
+---
+
+### TC-MGR-BILL-24 — Empty State + Clear Filters Button
+| | |
+|---|---|
+| **Input** | Status = Refunded, Search = "Omar Hassan" (no match) |
+| **Expected** | Empty state message + Clear filters button |
+| **Actual** | "No invoices match your filters." shown with ReceiptIcon. "Clear filters" button visible. Clicking it reset all 3 filters and restored all 5 rows. |
+| **Status** | ✅ **PASS** |
+
+---
+
+### TC-MGR-BILL-25 — Refund Button: Opens Confirm Dialog
+| | |
+|---|---|
+| **Input** | Click Refund icon on INV-001 |
+| **Expected** | ConfirmDialog opens with correct title, message, Cancel + Refund buttons |
+| **Actual** | Dialog: **Title: "Issue Refund"**. **Message: "Issue a refund of £85 for Emma Wilson (INV-001)? This action cannot be undone."**. Buttons: [Cancel] [Refund (amber)]. |
+| **Status** | ✅ **PASS** |
+
+---
+
+### TC-MGR-BILL-26 — Refund: Cancel Keeps Status Unchanged
+| | |
+|---|---|
+| **Input** | Open refund dialog → click Cancel |
+| **Expected** | Dialog closes. INV-001 status unchanged (green "Confirmed"). |
+| **Actual** | Dialog closed. INV-001 chip remained "Confirmed" (green). Refund icon still visible. |
+| **Status** | ✅ **PASS** |
+
+---
+
+### TC-MGR-BILL-27 — Refund: Confirm Triggers Optimistic Update
+| | |
+|---|---|
+| **Input** | Open refund dialog for INV-001 → click Refund |
+| **Expected** | Success banner. Status changes to Cancelled. Refund icon disappears. |
+| **Actual** | **Green banner:** "Refund of £85 issued for Emma Wilson." ✅ INV-001 status chip changed from **Confirmed (green)** → **Cancelled (red)** ✅ Refund icon disappeared from INV-001's row ✅ Banner auto-dismissed after 4 seconds ✅ |
+| **Status** | ✅ **PASS** |
+| **Notes** | **SUG-BILL-007 fully implemented.** Optimistic local state update avoids a backend round-trip for the mock mode. |
 
 ---
 
 ## Edge Case Results
 
-| # | Edge Case | Test Action | Actual Result | Status |
-|---|-----------|-------------|---------------|--------|
-| **E1** | Empty table on filter | No method returns 0 results from existing data. No way to trigger empty state via UI filter. | N/A — all 3 filter options return ≥1 result. Source logic (`INVOICES.filter(...)`) handles empty correctly (TableBody renders nothing). | ✅ Source-verified |
-| **E2** | Rapid filter switching | Clicked Card → Cash → Insurance → All quickly in succession | Table updated correctly each time. No flicker, no race condition, no crash. React `useState` handles rapid updates cleanly. | ✅ PASS |
-| **E3** | Chart tooltip on Sep | Hovered over Sep bar | Tooltip displayed Clinic Fees and Service Fees values formatted as `£5,200` and `£3,100`. Recharts Tooltip `formatter={(v) => £${v.toLocaleString()}}` working correctly. | ✅ PASS |
-| **E4** | Bars at smaller values | Dec bar (smallest: £4,900 + £2,900) | Bars clearly visible, no zero-height crash. Dec is visibly shorter than Jan/Feb/Mar bars. All bars above zero. | ✅ PASS |
-| **E5** | INVOICES always present | Static const, always 5 | 5 rows always render, no error state needed | ✅ PASS |
-| **E6** | Long service name | "Cardiology Consultation" and "Neurology Assessment" in table | Text wrapped within the table cell without layout overflow. Standard MUI `<TableCell>` wraps text by default. No truncation. | ✅ PASS |
-| **E7** | Special character in name | "Sophie Müller" (ü umlaut) | Rendered correctly as "Sophie Müller" — no encoding issue, no substitution character. | ✅ PASS |
+| # | Edge Case | Input | Expected | Actual | Status |
+|---|-----------|-------|----------|--------|--------|
+| **E1** | All rows filtered out | Status=Refunded + Search=Omar Hassan | Empty state shown | "No invoices match your filters." + Clear filters button | ✅ PASS |
+| **E2** | Rapid filter switching | Click Card→Cash→Insurance→All quickly | No flicker/crash | All transitions smooth | ✅ PASS |
+| **E3** | Chart tooltip on Sep | Hover over Sep bar | Shows Clinic + Service breakdown | `£5,200` / `£3,100` format confirmed | ✅ PASS |
+| **E4** | Dec bar (smallest value) | Observe Dec stacked bar | Bars visible, no zero-height crash | Dec visibly shorter than Jan/Feb/Mar | ✅ PASS |
+| **E5** | INVOICES always present | Static seed | Always 5 rows at default | Confirmed | ✅ PASS |
+| **E6** | Long service name | "Cardiology Consultation" | Wraps within cell | No overflow | ✅ PASS |
+| **E7** | Special character | "Sophie Müller" | Renders correctly | ü rendered correctly | ✅ PASS |
+| **E8** | Search clears | Type text → clear | All rows return | Confirmed via multiple test sequences | ✅ PASS |
+| **E9** | Post-refund status filter | Refund INV-001, then Status=Refunded | INV-001 + INV-003 visible | Both rows shown after optimistic update | ✅ PASS |
 
 ---
 
-## Bugs Found
+## Known Limitations (Pending Implementation)
 
-No functional bugs found. The following items are **known limitations** documented in the test plan for future implementation:
-
-| # | Item | Category | Priority |
-|---|------|----------|----------|
-| L1 | Search field has no filter logic | 🚧 Not implemented | 🟡 Medium |
-| L2 | View, Download, Export, Generate Invoice buttons are stubs (no onClick) | 🚧 Not implemented | 🟡 Medium |
-| L3 | Date period filter has no effect on data | 🚧 Not implemented | 🟡 Medium |
-| L4 | Static mock data — not wired to backend | 🚧 Not implemented | 🔴 High (for production) |
-| L5 | Refund button has no action (no onClick) | 🚧 Not implemented | 🟡 Medium |
+| # | Item | Priority |
+|---|------|----------|
+| L1 | Generate Invoice — no wizard yet | 🟢 Low |
+| L2 | View invoice — no detail drawer/page yet | 🟡 Medium |
+| L3 | Download invoice — no PDF generated yet | 🟡 Medium |
+| L4 | Backend wiring — all data still static mock | 🔴 High (production) |
+| L5 | Refund and export not sent to backend | 🔴 High (production) |
 
 ---
 
-## Recording
+## Recordings
 
 | File | Description |
 |------|-------------|
-| `manager_billing_test_*.webp` | Full recording — login, page load, KPI cards, chart, all 4 filter states, action buttons, search, mobile view |
-| `initial_billing_page_load_*.png` | Screenshot of full page — KPI cards + Revenue Breakdown chart |
+| `manager_billing_post_fix_qa_*.webp` | Full recording — all filters, search, export, refund dialog, optimistic update |

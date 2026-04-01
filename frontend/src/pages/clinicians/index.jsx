@@ -6,6 +6,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   Grid,
   InputAdornment,
   MenuItem,
@@ -15,10 +16,12 @@ import {
   TextField,
   ToggleButton,
   ToggleButtonGroup,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import AddIcon from '@mui/icons-material/Add'
+import FilterListOffIcon from '@mui/icons-material/FilterListOff'
 
 import { CLINICIANS_QUERY, CLINICS_QUERY } from '../../graphql/queries'
 import { useAuth } from '../../context/AuthContext'
@@ -222,6 +225,14 @@ export default function CliniciansPage() {
   const handleViewProfile = (clinician) => navigate(`/clinicians/${clinician.id}`)
   const handleAdd         = () => navigate('/clinicians/new')
 
+  // SUG-015: "Clear Filters" — true when any filter is non-default
+  const isFiltered = searchTerm.trim() !== '' || filterSpecialty !== '' || filterClinic !== '' || filterActive !== 'all'
+  const clearFilters = () => { setSearchTerm(''); setFilterSpecialty(''); setFilterClinic(''); setFilterActive('all'); }
+
+  // SUG-014: specialty + clinic option counts for dropdown badges
+  const specialtyCount = (sp) => allClinicians.filter(c => (c.specialty ?? c.clinician_type?.name) === sp).length
+  const clinicCount    = (clId) => allClinicians.filter(c => c.clinic?.id === clId || c.clinics?.some?.(cl => cl.id === clId)).length
+
   return (
     <Box className="page-enter">
       <Helmet><title>Clinicians — MediBook</title></Helmet>
@@ -258,18 +269,25 @@ export default function CliniciansPage() {
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchRoundedIcon sx={{ fontSize: '1rem', color: 'text.disabled' }} /></InputAdornment> }}
           />
 
-          {/* Specialty filter — BUG-CLIN-003 fix */}
+          {/* Specialty filter — BUG-CLIN-003 fix + SUG-014: count badge */}
           <TextField
-            select size="small" label="Specialization" value={filterSpecialty} sx={{ minWidth: 180 }}
+            select size="small" label="Specialization" value={filterSpecialty} sx={{ minWidth: 200 }}
             onChange={(e) => setFilterSpecialty(e.target.value)}
           >
             <MenuItem value="">All Specializations</MenuItem>
-            {specialties.map(s => (<MenuItem key={s} value={s}>{s}</MenuItem>))}
+            {specialties.map(s => (
+              <MenuItem key={s} value={s}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: 1 }}>
+                  <span>{s}</span>
+                  <Chip label={specialtyCount(s)} size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }} />
+                </Box>
+              </MenuItem>
+            ))}
           </TextField>
 
-          {/* Clinic filter */}
+          {/* Clinic filter — SUG-014: count badge */}
           <TextField
-            select size="small" label="Clinic" value={filterClinic} sx={{ minWidth: 160 }}
+            select size="small" label="Clinic" value={filterClinic} sx={{ minWidth: 180 }}
             onChange={(e) => setFilterClinic(e.target.value)}
           >
             <MenuItem value="">All Clinics</MenuItem>
@@ -278,11 +296,16 @@ export default function CliniciansPage() {
               { id: 'cl2', name: 'North Clinic' },
               { id: 'cl3', name: 'East Wing Radiology' },
             ]).map((c) => (
-              <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+              <MenuItem key={c.id} value={c.id}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', gap: 1 }}>
+                  <span>{c.name}</span>
+                  <Chip label={clinicCount(c.id)} size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }} />
+                </Box>
+              </MenuItem>
             ))}
           </TextField>
 
-          {/* Active toggle — BUG-CLIN-004 fix */}
+          {/* Active toggle */}
           <ToggleButtonGroup
             size="small" exclusive value={filterActive}
             onChange={(_, v) => { if (v) setFilterActive(v) }}
@@ -291,6 +314,20 @@ export default function CliniciansPage() {
             <ToggleButton value="active">Active</ToggleButton>
             <ToggleButton value="inactive">Inactive</ToggleButton>
           </ToggleButtonGroup>
+
+          {/* SUG-015: Clear All Filters — only shown when a filter is active */}
+          {isFiltered && (
+            <Tooltip title="Clear all filters">
+              <Button
+                size="small" variant="outlined" onClick={clearFilters}
+                startIcon={<FilterListOffIcon fontSize="small" />}
+                sx={{ color: '#D93025', borderColor: '#D93025', borderRadius: 2, fontWeight: 600, whiteSpace: 'nowrap',
+                  '&:hover': { bgcolor: '#FCE8E6', borderColor: '#A50E0E' } }}
+              >
+                Clear Filters
+              </Button>
+            </Tooltip>
+          )}
         </Stack>
       </Paper>
 
@@ -304,11 +341,14 @@ export default function CliniciansPage() {
             ))
           : clinicians.map((c) => (
               <Grid item xs={12} sm={6} md={4} lg={3} key={c.id}>
-                <ClinicianCard
-                  clinician={c}
-                  isAdmin={isAdmin}
-                  onViewProfile={handleViewProfile}
-                />
+                {/* SUG-013: dim inactive cards */}
+                <Box sx={c.is_active ? {} : { opacity: 0.70, filter: 'grayscale(30%)', transition: 'opacity 0.2s' }}>
+                  <ClinicianCard
+                    clinician={c}
+                    isAdmin={isAdmin}
+                    onViewProfile={handleViewProfile}
+                  />
+                </Box>
               </Grid>
             ))}
         {!loading && clinicians.length === 0 && (

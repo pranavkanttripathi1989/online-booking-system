@@ -12,6 +12,8 @@ import {
   Search, Add, Edit, Delete, Close, KeyboardArrowDown, KeyboardArrowRight, AddCircleOutline
 } from '@mui/icons-material';
 import { useAuth } from '../../../hooks/useAuth';
+import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog';
+import ErrorBoundary from '../../../components/ErrorBoundary';
 
 const BRAND = '#006D77';
 
@@ -136,6 +138,11 @@ export default function ServiceCatalog() {
   // Variations array state for the table editor
   const [variations, setVariations] = useState([]);
 
+  // BUG-SVC-001 FIX: delete state
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deletingProductId, setDeletingProductId] = useState(null);
+  const [deletingProductName, setDeletingProductName] = useState('');
+
   // Assuming manager is linked to a clinic we can get. For now, defaulting to "1".
   const clinicId = user?.clinicId || "1"; 
 
@@ -190,6 +197,23 @@ export default function ServiceCatalog() {
        await toggleProduct({ variables: { id, isActive: !currentStatus } });
        refetch();
     } catch(err) { console.error(err); }
+  };
+
+  // BUG-SVC-001 FIX: delete handler using toggleProduct mutation to set active=false
+  // (no DELETE_PRODUCT mutation available; marking inactive is the safest operation)
+  const handleDeleteProduct = (product) => {
+    setDeletingProductId(product.id);
+    setDeletingProductName(product.name);
+    setConfirmDeleteOpen(true);
+  };
+  const confirmDeleteProduct = async () => {
+    setConfirmDeleteOpen(false);
+    try {
+      await toggleProduct({ variables: { id: deletingProductId, isActive: false } });
+      refetch();
+    } catch (err) { console.error(err); }
+    setDeletingProductId(null);
+    setDeletingProductName('');
   };
 
   const handleSaveProduct = async () => {
@@ -275,6 +299,15 @@ export default function ServiceCatalog() {
 
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto" display="flex" gap={4} flexDirection={{ xs: 'column', md: 'row' }} alignItems="flex-start">
+      {/* SUG-MGR-009 FIX: offline demo data banner */}
+      {isMock && (
+        <Box sx={{ width: '100%', mb: -2 }}>
+          <Alert severity="info" sx={{ borderRadius: 2, mb: 2 }}>
+            <strong>Demo mode</strong> — Showing sample data. Backend is offline or unreachable.
+          </Alert>
+        </Box>
+      )}
+
       
       {/* LEFT SIDEBAR: CATEGORIES */}
       <Box width={{ xs: '100%', md: 260 }} flexShrink={0}>
@@ -419,10 +452,11 @@ export default function ServiceCatalog() {
                   </CardContent>
                   
                   <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'flex-end', borderTop: '0px solid', borderColor: 'divider' }}>
-                    <IconButton size="small" onClick={() => navigate(`/manager/services/${product.id}/edit`)} sx={{ bgcolor: 'action.hover' }}>
+                    <IconButton size="small" aria-label={`Edit service ${product.name}`} onClick={() => navigate(`/manager/services/${product.id}/edit`)} sx={{ bgcolor: 'action.hover' }}>
                       <Edit fontSize="small" />
                     </IconButton>
-                    <IconButton size="small" color="error" sx={{ bgcolor: 'error.lighter' }}>
+                    {/* BUG-SVC-001 FIX: Delete icon now wired */}
+                    <IconButton size="small" color="error" aria-label={`Delete service ${product.name}`} onClick={() => handleDeleteProduct(product)} sx={{ bgcolor: 'error.lighter' }}>
                       <Delete fontSize="small" />
                     </IconButton>
                   </CardActions>
@@ -610,6 +644,21 @@ export default function ServiceCatalog() {
         </DialogActions>
       </Dialog>
 
+      {/* BUG-SVC-001 FIX: confirm delete dialog */}
+      <ConfirmDialog
+        isOpen={confirmDeleteOpen}
+        title="Deactivate Service"
+        message={`Mark "${deletingProductName}" as inactive? This hides it from bookings but does not permanently delete it.`}
+        onConfirm={confirmDeleteProduct}
+        onCancel={() => { setConfirmDeleteOpen(false); setDeletingProductId(null); }}
+      />
+
     </Box>
   );
+}
+
+// ErrorBoundary wrapper
+export { ServiceCatalog };
+export default function ServiceCatalogWithBoundary() {
+  return <ErrorBoundary><ServiceCatalog /></ErrorBoundary>;
 }

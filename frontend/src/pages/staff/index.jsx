@@ -6,8 +6,9 @@ import {
   Box, Button, Avatar, Typography, Chip, Grid, Card, CardContent,
   Stack, Divider, Paper, Table, TableBody, TableCell, TableHead,
   TableRow, Rating, LinearProgress, Tabs, Tab, TextField, InputAdornment,
-  IconButton, Tooltip,
+  IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
 } from '@mui/material'
+import { useSnackbar } from 'notistack'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -51,9 +52,11 @@ const STATUS_MAP = {
 
 export default function StaffPage() {
   const navigate = useNavigate()
+  const { enqueueSnackbar } = useSnackbar()
   const [search, setSearch] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('All')
   const [tab, setTab] = useState(0)
+  const [deactivateTarget, setDeactivateTarget] = useState(null) // SUG-STAFF-005
 
   const departments = ['All', ...new Set(MOCK_STAFF.map(s => s.dept))]
 
@@ -161,7 +164,9 @@ export default function StaffPage() {
               const roleColor = ROLE_COLORS[s.role] || '#64748B'
               const status = STATUS_MAP[s.status] || { label: s.status, color: 'default' }
               return (
-                <TableRow key={s.id} hover sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}>
+                <TableRow key={s.id} hover
+                  onClick={() => navigate(`/staff/edit/${s.id}`)}
+                  sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}>
                   <TableCell>
                     <Stack direction="row" spacing={1.5} alignItems="center">
                       <Avatar sx={{ width: 36, height: 36, bgcolor: alpha(roleColor, 0.15), color: roleColor, fontSize: '0.875rem', fontWeight: 700 }}>{s.avatar}</Avatar>
@@ -195,7 +200,9 @@ export default function StaffPage() {
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Deactivate">
-                        <IconButton size="small" sx={{ color: 'error.main', '&:hover': { bgcolor: 'rgba(211,48,37,0.08)' } }}>
+                        <IconButton size="small"
+                          onClick={(e) => { e.stopPropagation(); setDeactivateTarget(s) }}
+                          sx={{ color: 'error.main', '&:hover': { bgcolor: 'rgba(211,48,37,0.08)' } }}>
                           <PersonOffRoundedIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
@@ -210,6 +217,31 @@ export default function StaffPage() {
           </TableBody>
         </Table>
       </Paper>
+
+      {/* SUG-STAFF-005: Deactivate confirmation dialog */}
+      <Dialog open={!!deactivateTarget} onClose={() => setDeactivateTarget(null)} maxWidth="xs" fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Deactivate Staff Member</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            Deactivate <strong>{deactivateTarget?.name}</strong>? They will lose system access immediately. You can reactivate them from the edit page.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 2.5, pb: 2, gap: 1 }}>
+          <Button onClick={() => setDeactivateTarget(null)} variant="outlined"
+            sx={{ borderRadius: 2, borderColor: '#E2E8F0', color: '#5F6368', '&:hover': { borderColor: '#CBD5E1' }, textTransform: 'none', fontWeight: 700 }}>
+            Cancel
+          </Button>
+          <Button variant="contained" color="error"
+            onClick={() => {
+              enqueueSnackbar(`${deactivateTarget?.name} has been deactivated`, { variant: 'warning' })
+              setDeactivateTarget(null)
+            }}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+            Yes, Deactivate
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

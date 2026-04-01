@@ -63,3 +63,33 @@ export const formatTimeRange = (start, end, isHHmm = false) => {
   const e = isHHmm && end ? formatTimeStr(end) : end ? formatTime(end) : '';
   return e ? `${s} – ${e}` : s;
 };
+
+/**
+ * NEW-DT-011: Relative time — "just now", "2 minutes ago", "3 days ago", etc.
+ * Uses dayjs native diff so no extra plugin is required.
+ * Matches the informal language used in Messages sidebar + Patient Dashboard notifications.
+ * @param {string|Date} value - ISO datetime or Date object
+ */
+export const formatRelativeTime = (value) => {
+  if (!value) return '—';
+  const now  = dayjs();
+  const then = dayjs(value);
+  const diffSec  = now.diff(then, 'second');
+  const diffMin  = now.diff(then, 'minute');
+  const diffHour = now.diff(then, 'hour');
+  const diffDay  = now.diff(then, 'day');
+  if (diffSec  < 60)  return 'just now';
+  if (diffMin  < 60)  return `${diffMin} min ago`;
+  if (diffHour < 24)  return `${diffHour} hour${diffHour > 1 ? 's' : ''} ago`;
+  if (diffDay  < 7)   return `${diffDay} day${diffDay > 1 ? 's' : ''} ago`;
+  return formatShortDate(value); // fall back to "19 Mar 2026" for older dates
+};
+
+/**
+ * NEW-DT-011: GBP currency formatter — mirrors formatCurrency in dateUtils.js.
+ * Centralised here so consumers can import from one place.
+ * @param {number} amount
+ * @param {string} currency - ISO 4217 code, default 'GBP'
+ */
+export const formatCurrency = (amount, currency = 'GBP') =>
+  new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount ?? 0);

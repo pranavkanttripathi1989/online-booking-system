@@ -375,6 +375,7 @@ export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout })
             {/* Mobile search icon */}
             <Tooltip title="Search (⌘K)">
               <IconButton size="small" onClick={() => setSearchOpen(true)}
+                aria-label="Open search"
                 sx={{ display: { sm: 'none' }, color: '#5F6368', '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}>
                 <SearchRounded fontSize="small" />
               </IconButton>
@@ -383,6 +384,7 @@ export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout })
             {/* Quick add new appointment */}
             <Tooltip title="New Appointment">
               <IconButton size="small" onClick={() => navigate('/appointments/new')}
+                aria-label="Create new appointment"
                 sx={{
                   display: { xs: 'none', sm: 'flex' },
                   color: '#fff', bgcolor: '#006D77', borderRadius: 1.5,

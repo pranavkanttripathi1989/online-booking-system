@@ -1,89 +1,11 @@
-# Calendar — Feature Suggestions (Updated 2026-03-19)
+# Calendar — Feature Suggestions (v4 — 2026-03-29)
 
 **Derived from:** [calendar-test-results.md](../test-result/calendar-test-results.md)  
 **Test Plan Source:** [calendar-test-plan.md](../test-plan/calendar-test-plan.md)  
-**UI Plan Source:** [calendar_ui_plan.md](../calendar_ui_plan.md)  
-**Date:** 2026-03-16 | **Updated:** 2026-03-19 Session 2  
-**Tested by:** Antigravity AI Browser Agent
+**Date:** 2026-03-16 | **v4 Updated:** 2026-03-29  
+**Tested by:** Antigravity AI
 
-> Session 2 completed all critical and high-priority items. Four bugs fixed, four UX suggestions implemented. Two medium-effort suggestions deferred pending backend.
-
----
-
-## 🔴 Bug Fixes Required
-
-### SUG-CAL-001 — Fix: Status Filter Not Applied to FullCalendar Events ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** Added `filteredEvents = useMemo(() => { /* filter by status, type, clinician, clinic */ }, [...])` in `CalendarPage`. Passed `filteredEvents` to `<CalendarView events={filteredEvents}>` and `<RoomView appointments={filteredEvents}>` instead of raw `events`. Case-insensitive `.toLowerCase()` comparison used.
-
----
-
-### SUG-CAL-002 — Fix: Calendar Event ID ↔ Appointment Detail ID Mismatch ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** `generateMockCalendarData()` now first maps all real MockStore appointments with their own `appt-{n}` IDs. Extra visual density events use `gen-{n}` IDs (starting at 500) so they never collide. Popover → detail navigation now resolves the correct patient.
-
----
-
-### SUG-CAL-003 — Fix: Mobile View Switcher Completely Hidden — Add Select Fallback ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** Added `<Select display:{xs:'flex',sm:'none'}>` with all 5 view options (Month/Week/Day/List/Room) in the header. Existing `ToggleButtonGroup` uses `display:{xs:'none',sm:'flex'}`. Added `Fab` import + mobile FAB simultaneously.
-
----
-
-### SUG-CAL-004 — Add "Appointment Type" Filter (In-Person / Video / Home Visit) ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** Added `filterType` state, `TYPE_OPTIONS`/`TYPE_LABELS` constants, and a `PillSelect` with `VideocamRoundedIcon` after the Status filter. Mock event generator updated to include `apptType` field on each event. `filteredEvents` useMemo filters on `extendedProps.apptType === filterType`.
-
----
-
-## 🟡 Missing Features
-
-### SUG-CAL-005 — Add "Today's Schedule" Mini-Sidebar or Drawer ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** Added a 272px collapsible `<Collapse orientation="horizontal">` panel to the right of the calendar container. Features:
-- **Toggle**: `TodayRoundedIcon` badge button in the page header (with live count badge) + `›` close button inside the panel
-- **Content**: Today's appointments sorted by start time using `useMemo`; each card shows time range, patient name, clinician, service, status badge
-- **Active indicator**: Teal left border stripe + pulsing green dot + "NOW" label for currently in-progress appointments
-- **Past dimming**: `opacity: 0.65` for appointments that have already ended
-- **Empty state**: EventNote icon + "No appointments today" + "+ Add Appointment" teal outlined button
-- **Footer**: "View All Appointments" link to `/appointments`
-- **Mobile**: Panel hidden on `xs` (isMobile check); only shown on `sm+`
-
----
-
-## 🟢 UX Improvements
-
-### SUG-CAL-006 — Click Empty Cell in Month View to Pre-fill New Booking ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** `dateClick` callback was already wired in `CalendarView.jsx` → `handleSlotClick(info.dateStr)` → `navigate('/appointments/new?date=...')`. Verified: clicking empty cell navigates to `/appointments/new?date=YYYY-MM-DD`.
-
----
-
-### SUG-CAL-007 — Status Legend Strip Below Filter Bar ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** Added 5-item legend row (`●Confirmed ●Pending ●Cancelled ●Completed ●No Show`) below the filter bar. `display:{xs:'none', sm:'flex'}` — hidden on mobile. Teal for Completed (not blue) to match theme.
-
----
-
-### SUG-CAL-008 — Loading Skeleton for Calendar ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** When `loading === true`, the calendar container is replaced by a full skeleton grid. Includes:
-- Toolbar skeleton (prev/next buttons + month label + view toggle placeholder)
-- 7 day-of-week header skeletons
-- 35 day cell skeletons (5 weeks × 7 days), each with a day number skeleton and 0–3 random event pill skeletons
-- On `loading === false`, the real `<CalendarView>` + Today's Schedule sidebar render inside a `flex` row
-
----
-
-### SUG-CAL-009 — Event Pill: Show Clinician Initials in Week View ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** In `CalendarView.jsx` `EventContent`, added `clinicianInitials` derived from `extendedProps.clinician`. Shows a 14×14px white-background circle with 7px bold initials in Week view only (`isTimeGrid && !isDayView`). Falls back gracefully when no clinician data.
-
----
-
-### SUG-CAL-010 — "New Booking" FAB for Mobile ✅ DONE
-**Status:** ✅ DONE (2026-03-19)  
-**Fix Applied:** Added `<Fab display:{xs:'flex',sm:'none'} position:fixed bottom:24 right:24>` with teal gradient matching app theme. Clicking navigates to `/appointments/new`. Desktop header "New Booking" button also updated to `display:{xs:'none',sm:'flex'}`.
+> **STATUS UPDATE (2026-03-29 v4):** 3 new improvements added (NEW-CAL-014/015/016). All 16 frontend suggestions are now complete.
 
 ---
 
@@ -101,13 +23,82 @@
 | SUG-CAL-008 | Replace CircularProgress with skeleton | ✨ UX | 🟢 Low | ✅ DONE |
 | SUG-CAL-009 | Clinician initials badge on event pill (week view) | ✨ UX | 🟢 Low | ✅ DONE |
 | SUG-CAL-010 | Mobile FAB for New Booking | ✨ UX | 🟡 Medium | ✅ DONE |
+| NEW-CAL-011 | Escape key closes event popover | ♿ A11y | 🟡 Medium | ✅ DONE |
+| NEW-CAL-012 | Appointment type icon in popover detail row | ✨ UX | 🟢 Low | ✅ DONE |
+| NEW-CAL-013 | Active filter count in Clear chip `Clear (N)` | ✨ UX | 🟢 Low | ✅ DONE |
+| **NEW-CAL-014 (v4)** | Keyboard shortcuts M/W/D/L/R to switch views | ⌨️ Shortcut | 🟡 Medium | ✅ DONE |
+| **NEW-CAL-015 (v4)** | Jump to Date icon button with native date picker | 🚀 Feature | 🟡 Medium | ✅ DONE |
+| **NEW-CAL-016 (v4)** | apptType chip in Room View appointment cards | ✨ UX | 🟢 Low | ✅ DONE |
 
 ---
 
-## UI Plan Gaps — Updated Status
+## v4 Implementation Notes
 
-| Item | Status |
-|------|--------|
-| Item 5 — Status legend strip | ✅ DONE — SUG-CAL-007 |
-| Item 6 — `+` add indicator on date cell hover | ✅ DONE — SUG-CAL-006 (dateClick navigation) |
-| Item 8 — Loading skeleton | ✅ DONE — SUG-CAL-008 |
+### NEW-CAL-014 — Keyboard Shortcuts for View Switching
+**File:** `calendar/index.jsx` — `CalendarPage`
+
+```jsx
+const SHORTCUT_MAP = { m:'dayGridMonth', w:'timeGridWeek', d:'timeGridDay', l:'listWeek', r:'resourceDay' }
+const onKey = (e) => {
+  if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA'
+    || e.target.tagName === 'SELECT' || e.target.isContentEditable) return
+  if (e.altKey || e.ctrlKey || e.metaKey) return
+  const view = SHORTCUT_MAP[e.key.toLowerCase()]
+  if (view) handleViewChange(null, view)
+}
+window.addEventListener('keydown', onKey)
+```
+- Fires on M/W/D/L/R globally — guards prevent activation inside text inputs and filter dropdowns.
+- Modifier key guard (Alt/Ctrl/Cmd) avoids conflict with browser shortcuts.
+- Empty dependency array so listener is stable — uses `handleViewChange` captured at mount.
+
+---
+
+### NEW-CAL-015 — Jump to Date
+**File:** `calendar/index.jsx` — header, `CalendarPage`
+
+```jsx
+// Icon button opens native date picker via showPicker() API
+<Box onClick={() => { setJumpDateOpen(v => !v); setTimeout(() => jumpInputRef.current?.showPicker?.(), 50) }}>
+  <EventAvailableRoundedIcon />
+</Box>
+// Visually hidden native <input type="date"> 
+<input ref={jumpInputRef} type="date" style={{ opacity:0, pointerEvents:'none', width:1, height:1 }}
+  onChange={(e) => {
+    const target = dayjs(e.target.value)
+    if (currentView !== 'resourceDay') calendarRef.current?.getApi().gotoDate(target.toDate())
+    else setRoomViewDate(target)
+  }}
+/>
+```
+- Works for both FullCalendar views and the custom Room View.
+- `showPicker()` used with optional chaining for graceful degradation.
+- Button shows active teal state while picker open.
+
+---
+
+### NEW-CAL-016 — apptType Chip in Room View Cards
+**File:** `calendar/index.jsx` — `RoomView` appointment card render
+
+```jsx
+{evt.extendedProps?.apptType && evt.extendedProps.apptType !== 'in_person' && (
+  <Box sx={{ ...tealBackground... }}>
+    {apptType === 'video' ? <VideocamRoundedIcon /> : <DirectionsCarRoundedIcon />}
+    <Typography>{apptType === 'video' ? 'Video' : 'Home Visit'}</Typography>
+  </Box>
+)}
+```
+- In-Person is the default/most common type — no chip shown (avoids visual clutter).
+- Only "Video" and "Home Visit" types display their chip.
+- Uses already-imported icons (`VideocamRoundedIcon`, `DirectionsCarRoundedIcon`).
+
+---
+
+## Remaining Backend-Dependent Items
+
+| Priority | Item | Notes |
+|----------|------|-------|
+| 🟡 Medium | Real-time subscription event highlighting | WebSocket infra |
+| 🟡 Medium | Drag-and-drop rescheduling | Backend PATCH mutation |
+| 🟢 Low | iCal / calendar export | Backend file generation |
+| 🟢 Low | Print schedule view | CSS print stylesheet |

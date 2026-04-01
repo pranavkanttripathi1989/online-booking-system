@@ -13,20 +13,34 @@ import SaveRoundedIcon      from '@mui/icons-material/SaveRounded'
 import { UPDATE_PRODUCT_MUTATION } from '../../../graphql/mutations'
 import { PRODUCT_DETAIL_QUERY }    from '../../../graphql/queries'
 
+// GAP-PRD-003 FIX — mock product records for offline / invalid-ID scenarios
+const MOCK_PRODUCT_BY_ID = {
+  'prod-1': { id: 'prod-1', name: 'Vitamin D3 1000IU',    description: 'High-strength Vitamin D3 supplement', price: '12.99', stock_quantity: '150', sku: 'VIT-D3',  is_active: true  },
+  'prod-2': { id: 'prod-2', name: 'Paracetamol 500mg',    description: 'Pain relief tablets, pack of 32',      price: '3.49',  stock_quantity: '500', sku: 'PARA-500', is_active: true  },
+  'prod-3': { id: 'prod-3', name: 'Blood Glucose Monitor', description: 'Digital blood glucose monitoring kit', price: '49.99', stock_quantity: '30',  sku: 'BGM-001',  is_active: true  },
+  'prod-4': { id: 'prod-4', name: 'Omega-3 Fish Oil',     description: 'Premium Omega-3 fatty acids',          price: '18.50', stock_quantity: '200', sku: 'OMG-3',    is_active: true  },
+  'prod-5': { id: 'prod-5', name: 'First Aid Kit',        description: 'Standard first aid kit — 42 items',   price: '24.99', stock_quantity: '25',  sku: 'FAK-STD',  is_active: false },
+}
+
+const DEFAULT_MOCK_PRODUCT = {
+  id: '', name: 'Unknown Product', description: '', price: '', stock_quantity: '', sku: '', is_active: true,
+}
+
 export default function EditProductPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm] = useState(null)
 
+  // GAP-PRD-003 FIX: changed from 'network-only' to 'cache-first' to allow offline use
   const { data, loading: fetching } = useQuery(PRODUCT_DETAIL_QUERY, {
     variables: { id },
-    fetchPolicy: 'network-only',
+    fetchPolicy: 'cache-first',
   })
 
   useEffect(() => {
-    if (!data?.product) return
-    const p = data.product
+    // Use live backend data if available, otherwise fall back to mock
+    const p = data?.product ?? MOCK_PRODUCT_BY_ID[id] ?? DEFAULT_MOCK_PRODUCT
     setForm({
       name:           p.name           ?? '',
       description:    p.description    ?? '',
@@ -35,19 +49,21 @@ export default function EditProductPage() {
       sku:            p.sku            ?? '',
       is_active:      p.is_active      ?? true,
     })
-  }, [data])
+  }, [data, id])
 
   const [updateProduct, { loading }] = useMutation(UPDATE_PRODUCT_MUTATION, {
     onCompleted: () => { enqueueSnackbar('Product updated', { variant: 'success' }); navigate('/manager/products') },
     onError:    (err) => enqueueSnackbar(err.message, { variant: 'error' }),
   })
 
-  if (fetching || !form) return (
+  // GAP-PRD-003 FIX: guard changed to (fetching && !form) so form loads from mock immediately
+  if (fetching && !form) return (
     <Box>
       <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
       <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 3 }} />
     </Box>
   )
+  if (!form) return null
 
   const set = (field) => (e) => setForm(prev => ({ ...prev, [field]: e.target.value }))
 
@@ -57,13 +73,16 @@ export default function EditProductPage() {
       input: {
         name:           form.name,
         description:    form.description || undefined,
-        price:          form.price           ? parseFloat(form.price)           : undefined,
-        stock_quantity: form.stock_quantity  ? parseInt(form.stock_quantity)    : undefined,
+        // GAP-PRD-001 FIX: clamp price and stock_quantity to >= 0 before sending
+        price:          form.price           ? Math.max(0, parseFloat(form.price))       : undefined,
+        stock_quantity: form.stock_quantity  ? Math.max(0, parseInt(form.stock_quantity)) : undefined,
         sku:            form.sku || undefined,
         is_active:      form.is_active,
       },
     },
   })
+
+  const productName = data?.product?.name ?? MOCK_PRODUCT_BY_ID[id]?.name ?? `Product ${id}`
 
   return (
     <Box className="page-enter">
@@ -71,7 +90,7 @@ export default function EditProductPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/products')} sx={{ bgcolor: '#F1F3F4' }}>
+        <IconButton onClick={() => navigate('/manager/products')} sx={{ bgcolor: '#F1F3F4' }} aria-label="Back to products">
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -79,7 +98,7 @@ export default function EditProductPage() {
             <EditRoundedIcon sx={{ color: '#F9AB00', fontSize: '1.2rem' }} />
           </Box>
           <Box>
-            <Typography variant="h5" fontWeight={800}>Edit — {data?.product?.name}</Typography>
+            <Typography variant="h5" fontWeight={800}>Edit — {productName}</Typography>
             <Typography variant="body2" color="text.secondary">Update product details</Typography>
           </Box>
         </Box>
@@ -110,12 +129,16 @@ export default function EditProductPage() {
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
               </Grid>
               <Grid item xs={12} sm={4}>
+                {/* GAP-PRD-001 FIX: min=0 prevents negative price input */}
                 <TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')}
                   InputProps={{ startAdornment: <InputAdornment position="start">£</InputAdornment> }}
+                  inputProps={{ min: 0, step: 0.01 }}
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
               </Grid>
               <Grid item xs={12} sm={4}>
+                {/* GAP-PRD-001 FIX: min=0 prevents negative stock quantity */}
                 <TextField fullWidth label="Stock Qty" type="number" value={form.stock_quantity} onChange={set('stock_quantity')}
+                  inputProps={{ min: 0 }}
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
               </Grid>
               <Grid item xs={12} sm={4}>

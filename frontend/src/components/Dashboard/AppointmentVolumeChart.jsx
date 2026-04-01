@@ -99,6 +99,9 @@ export default function AppointmentVolumeChart({ data }) {
 
   const TICK_STYLE = { fontSize: isMobile ? 10 : 11, fill: '#9AA0A6', fontFamily: 'Plus Jakarta Sans' }
 
+  // NEW-DASH-011: empty-state guard
+  const isEmpty = chartData.length === 0
+
   return (
     <Box>
       {/* Header row with period pills — BUG-DASH-001 fix: onClick → setChartRange */}
@@ -132,8 +135,14 @@ export default function AppointmentVolumeChart({ data }) {
         </Box>
       </Box>
 
-      {/* SUG-DASH-005: Stacked BarChart (was LineChart) */}
-      <ResponsiveContainer width="100%" height={isMobile ? 200 : 260}>
+      {/* NEW-DASH-011: empty state */}
+      {isEmpty ? (
+        <Box sx={{ height: isMobile ? 200 : 260, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Typography variant="body2" color="text.disabled">No data available for this period</Typography>
+        </Box>
+      ) : (
+        /* SUG-DASH-005: Stacked BarChart (was LineChart) */
+        <ResponsiveContainer width="100%" height={isMobile ? 200 : 260}>
         <BarChart data={chartData} margin={{ top: 4, right: 16, bottom: 0, left: -10 }}>
           <CartesianGrid strokeDasharray="4 4" stroke="#E8EAED" vertical={false} />
           <XAxis dataKey="date" tickFormatter={tickFormatter} tick={TICK_STYLE} axisLine={false} tickLine={false} />
@@ -146,7 +155,8 @@ export default function AppointmentVolumeChart({ data }) {
           <Bar dataKey="confirmed_count" name="confirmed_count" fill="#1A73E8" radius={[4, 4, 0, 0]} stackId="a" />
           <Bar dataKey="cancelled_count" name="cancelled_count" fill="#D93025" radius={[4, 4, 0, 0]} stackId="a" />
         </BarChart>
-      </ResponsiveContainer>
+        </ResponsiveContainer>
+      )}
     </Box>
   )
 }

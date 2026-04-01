@@ -24,13 +24,21 @@ export default function CreateProductPage() {
   })
 
   const set = (f) => (e) => setForm(p => ({...p,[f]:e.target.value}))
-  const validate = () => { const e={}; if(!form.name.trim()) e.name='Required'; setErrors(e); return !Object.keys(e).length }
+  const validate = () => {
+    const e = {}
+    if (!form.name.trim()) e.name = 'Required'
+    // SUG-PRD-006 FIX: reject negative price
+    if (form.price !== '' && parseFloat(form.price) < 0) e.price = 'Price cannot be negative'
+    if (form.stock_quantity !== '' && parseInt(form.stock_quantity) < 0) e.stock_quantity = 'Stock cannot be negative'
+    setErrors(e)
+    return !Object.keys(e).length
+  }
 
   return (
     <Box className="page-enter">
       <Helmet><title>New Product — MediBook</title></Helmet>
       <Box sx={{ display:'flex', alignItems:'center', gap:1.5, mb:3, flexWrap:'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/products')} sx={{ bgcolor:'#F1F3F4' }}><ArrowBackRoundedIcon /></IconButton>
+        <IconButton onClick={() => navigate('/manager/products')} sx={{ bgcolor:'#F1F3F4' }} aria-label="Back to products"><ArrowBackRoundedIcon /></IconButton>
         <Box sx={{ display:'flex', alignItems:'center', gap:1.5, flex:1 }}>
           <Box sx={{ width:40, height:40, borderRadius:2.5, background:'linear-gradient(135deg,#F3E8FD,#E1BBFA)', display:'flex', alignItems:'center', justifyContent:'center' }}><Inventory2RoundedIcon sx={{ color:'#8430CE', fontSize:'1.2rem' }} /></Box>
           <Box><Typography variant="h5" fontWeight={800}>New Product</Typography><Typography variant="body2" color="text.secondary">Add a product to the catalogue</Typography></Box>
@@ -51,8 +59,9 @@ export default function CreateProductPage() {
             <Grid container spacing={2.5}>
               <Grid item xs={12}><TextField fullWidth label="Product Name *" value={form.name} onChange={set('name')} error={!!errors.name} helperText={errors.name} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Description" value={form.description} onChange={set('description')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={4}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} InputProps={{ startAdornment:<InputAdornment position="start">£</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={4}><TextField fullWidth label="Stock Qty" type="number" value={form.stock_quantity} onChange={set('stock_quantity')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              {/* SUG-PRD-006 FIX: min=0 + error display on Price and Stock */}
+              <Grid item xs={12} sm={4}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} error={!!errors.price} helperText={errors.price} InputProps={{ startAdornment:<InputAdornment position="start">£</InputAdornment> }} inputProps={{ min:0, step:0.01 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={4}><TextField fullWidth label="Stock Qty" type="number" value={form.stock_quantity} onChange={set('stock_quantity')} error={!!errors.stock_quantity} helperText={errors.stock_quantity} inputProps={{ min:0 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={4}><TextField fullWidth label="SKU" value={form.sku} onChange={set('sku')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
             </Grid>
           </Paper>

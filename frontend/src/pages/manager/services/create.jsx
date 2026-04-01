@@ -30,7 +30,7 @@ export default function CreateServicePage() {
     <Box className="page-enter">
       <Helmet><title>New Service — MediBook</title></Helmet>
       <Box sx={{ display:'flex', alignItems:'center', gap:1.5, mb:3, flexWrap:'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor:'#F1F3F4' }}><ArrowBackRoundedIcon /></IconButton>
+        <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor:'#F1F3F4' }} aria-label="Back to services"><ArrowBackRoundedIcon /></IconButton>
         <Box sx={{ display:'flex', alignItems:'center', gap:1.5, flex:1 }}>
           <Box sx={{ width:40, height:40, borderRadius:2.5, background:'linear-gradient(135deg,#E6F4EA,#B7DFC1)', display:'flex', alignItems:'center', justifyContent:'center' }}><MedicalServicesRoundedIcon sx={{ color:'#137333', fontSize:'1.2rem' }} /></Box>
           <Box><Typography variant="h5" fontWeight={800}>New Service</Typography><Typography variant="body2" color="text.secondary">Add a clinical service to the catalogue</Typography></Box>
@@ -51,8 +51,8 @@ export default function CreateServicePage() {
             <Grid container spacing={2.5}>
               <Grid item xs={12}><TextField fullWidth label="Service Name *" value={form.name} onChange={set('name')} error={!!errors.name} helperText={errors.name} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Description" value={form.description} onChange={set('description')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Duration (minutes)" type="number" value={form.duration_minutes} onChange={set('duration_minutes')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} InputProps={{ startAdornment:<InputAdornment position="start">£</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Duration (minutes)" type="number" value={form.duration_minutes} onChange={set('duration_minutes')} inputProps={{ min: 1 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} inputProps={{ min: 0, step: 0.01 }} InputProps={{ startAdornment:<InputAdornment position="start">£</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField fullWidth label="Category" value={form.category} onChange={set('category')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
             </Grid>
           </Paper>

@@ -5,8 +5,8 @@
 **Libraries:** Recharts (Bar, Line, Pie charts), dayjs  
 **Mock data:** `MOCK_DASHBOARD` in dashboard/index.jsx  
 **Access:** Admin (demo: admin@medibook.dev / Admin1234!)  
-**Status:** ✅ 10/10 test cases completed — 9 PASS, 1 PARTIAL, 0 FAIL  
-**Completed:** 2026-03-20
+**Status:** ✅ 16/16 test cases completed — 16 PASS, 0 PARTIAL, 0 FAIL (3 new TCs Session 3)  
+**Completed:** 2026-03-30 (Session 3)
 
 ---
 
@@ -178,3 +178,49 @@
 > Assert: KPI Skeleton cards and Chart Skeleton placeholders show while loading.
 
 **Expected:** `isLoading = true` → `<KpiSkeleton />` and `<ChartSkeleton />` render.
+
+---
+
+## Session 2 Test Cases (TC-DASH-11 to TC-DASH-13)
+
+### TC-DASH-011 — Upcoming Appointments Shows 5 Rows (SUG-DASH-006)
+**Prompt:** Load `/dashboard` in mock mode.  
+**Expected:** 5 rows in the Upcoming Appointments table (John Doe, Sarah Miller, Mark Johnson, Lisa Park, David Thompson). All have Status badges; 3 confirmed, 2 pending.
+
+---
+
+### TC-DASH-012 — Last Refreshed Chip in Header (NEW-DASH-008)
+**Prompt:** Load `/dashboard` on a ≥ 600px viewport.  
+**Expected:** Clock chip "Refreshed HH:MM" visible next to the "New Booking" button. Hidden on mobile (`xs`).  
+**Edge:** Chip text computed once on mount; does not change during the session unless page is reloaded.
+
+---
+
+### TC-DASH-013 — Confirmation Rate Insight Strip (NEW-DASH-009)
+**Prompt:** Load `/dashboard` — observe area below the 4 KPI cards.  
+**Expected:** "Confirmation rate this period: XX% (NNN confirmed / NNN total)" row displayed.  
+- ≥75%: green chip. 50-74%: amber chip. <50%: red chip.  
+**Edge:** `volume_by_day = []` → strip hidden (`confirmationRate = null`).
+
+---
+
+## Session 3 Test Cases (TC-DASH-014 to TC-DASH-016)
+
+### TC-DASH-014 — KPI Cards Keyboard Navigation (NEW-DASH-010)
+**Prompt:** Tab to focus a KPI card → assert teal focus ring visible. Press Enter → assert navigation.  
+**Expected:** `role="button"`, `tabIndex=0`, `aria-label="Navigate to {label}"`. Enter/Space fires navigate(). `&:focus-visible` teal ring (#006D77, 3px).  
+**Edge:** KPI without `href` → no role/tabIndex/aria-label (not keyboard-interactive).
+
+---
+
+### TC-DASH-015 — AppointmentVolumeChart Empty State (NEW-DASH-011)
+**Prompt:** Render chart with `data=[]` (or API returns 0 days).  
+**Expected:** Centred grey text "No data available for this period" at the chart's normal height. No blank canvas or crash.  
+**Edge:** Mock data always generates 30 days so this triggers only on real API returning 0 entries.
+
+---
+
+### TC-DASH-016 — UtilisationChart Mobile Horizontal Scroll (NEW-DASH-012)
+**Prompt:** View `/dashboard` at 375px viewport. Observe Clinician Utilisation chart.  
+**Expected:** Chart scrolls horizontally; bars maintain min 52px each; not squished.  
+**Edge:** On desktop (≥600px) → `minWidth: '100%'` — standard responsive layout unchanged.

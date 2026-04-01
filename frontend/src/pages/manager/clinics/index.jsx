@@ -52,7 +52,7 @@ export default function ManagerClinics() {
         <Box>
           <Typography variant="h4" fontWeight={800}>Clinics &amp; Rooms</Typography>
           <Typography variant="body2" color="text.secondary">
-            {clinics.length} clinics · {ROOMS_DATA.length} rooms total
+            {clinics.length} clinics · {clinics.reduce((s, c) => s + c.rooms, 0)} rooms total
           </Typography>
         </Box>
         <Button
@@ -134,17 +134,17 @@ export default function ManagerClinics() {
                     </Box>
                     <Stack direction="row" spacing={0.5}>
                       <Tooltip title="View Clinic">
-                        <IconButton size="small" onClick={() => navigate(`/manager/clinics/${clinic.id}`)} sx={{ color: '#1A73E8' }}>
+                        <IconButton size="small" aria-label={`View ${clinic.name}`} onClick={() => navigate(`/manager/clinics/${clinic.id}`)} sx={{ color: '#1A73E8' }}>
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Edit Clinic">
-                        <IconButton size="small" onClick={() => navigate(`/manager/clinics/${clinic.id}/edit`)} sx={{ color: '#F9AB00' }}>
+                        <IconButton size="small" aria-label={`Edit ${clinic.name}`} onClick={() => navigate(`/manager/clinics/${clinic.id}/edit`)} sx={{ color: '#F9AB00' }}>
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete Clinic">
-                        <IconButton size="small" onClick={() => setDeleteId(clinic.id)} sx={{ color: '#D93025' }}>
+                        <IconButton size="small" aria-label={`Delete ${clinic.name}`} onClick={() => setDeleteId(clinic.id)} sx={{ color: '#D93025' }}>
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

@@ -323,4 +323,24 @@ A page **PASSES** if:
 | Messages | 2 |
 | Analytics | 2 |
 | Finances | 2 |
-| **Total** | **45** |
+| Session 7 Adoption Gaps | 2 |
+| **Total** | **47** |
+
+---
+
+### TP-DT-16 · Helper Adoption Audit (Session 7)
+
+| TC | Check | Expected | Status |
+|----|-------|----------|--------|
+| DT-25-01 | `formatRelativeTime` used in Messages sidebar | Import from `dateTime.js` + relative strings ("just now", "2 min ago") | ⏭ PENDING |
+| DT-25-02 | `formatCurrency` used in Billing/Finance components | Import from `dateTime.js` + £X,XXX.XX format | ⏭ PENDING |
+
+**Test Steps (DT-25-01):**
+1. Open `frontend/src/pages/messages/` (or Messages component)
+2. Search for `formatRelativeTime` import — must exist
+3. Thread list timestamps must show relative strings, not raw ISO
+
+**Test Steps (DT-25-02):**
+1. Open Billing/Finance page components
+2. Search for `formatCurrency` import — must exist
+3. All GBP amounts must render via `formatCurrency(amount)` → `£X,XXX.XX`

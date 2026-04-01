@@ -6,6 +6,7 @@ import {
 } from '@mui/material'
 import { Helmet } from 'react-helmet-async'
 import SearchRoundedIcon       from '@mui/icons-material/SearchRounded'
+import CloseRoundedIcon        from '@mui/icons-material/CloseRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import StarRoundedIcon          from '@mui/icons-material/StarRounded'
 import ReplyRoundedIcon         from '@mui/icons-material/ReplyRounded'
@@ -31,6 +32,7 @@ export default function ReviewsPage() {
   const [search,         setSearch]         = useState('')
   const [reviews,        setReviews]        = useState(() => MockStore.getReviews())
   const [replyDialog,    setReplyDialog]    = useState({ open: false, id: null, text: '' })
+  const [confirmDeleteId, setConfirmDeleteId] = useState(null) // SUG-REV-004: delete confirm dialog
 
   const filtered = reviews.filter(r => {
     if (filter !== 'all' && String(r.stars) !== filter) return false
@@ -51,8 +53,10 @@ export default function ReviewsPage() {
     setReplyDialog({ open: false, id: null, text: '' })
   }
   const handleDelete = (id) => {
-    // Local state only (mock) — BACKEND SWAP: call DELETE mutation
-    setReviews(prev => prev.filter(r => r.id !== id))
+    // SUG-REV-003: Persist delete to MockStore (consistent with respondToReview)
+    MockStore.deleteReview(id)
+    setReviews(MockStore.getReviews())
+    setConfirmDeleteId(null)
   }
 
   return (
@@ -123,7 +127,17 @@ export default function ReviewsPage() {
           ))}
         </Box>
         <TextField size="small" placeholder="Search by patient or clinician…" value={search} onChange={e => setSearch(e.target.value)}
-          InputProps={{ startAdornment: <InputAdornment position="start"><SearchRoundedIcon fontSize="small" sx={{ color: '#9AA0A6' }} /></InputAdornment> }}
+          InputProps={{
+            startAdornment: <InputAdornment position="start"><SearchRoundedIcon fontSize="small" sx={{ color: '#9AA0A6' }} /></InputAdornment>,
+            // SUG-REV-005: Clear button in search field
+            endAdornment: search ? (
+              <InputAdornment position="end">
+                <IconButton size="small" onClick={() => setSearch('')} aria-label="Clear search">
+                  <CloseRoundedIcon fontSize="small" sx={{ color: '#9AA0A6' }} />
+                </IconButton>
+              </InputAdornment>
+            ) : null,
+          }}
           sx={{ flex: 1, minWidth: { xs: '100%', sm: 220 }, '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: '#fff' } }} />
       </Box>
 
@@ -147,7 +161,10 @@ export default function ReviewsPage() {
                     <Typography variant="caption" sx={{ color: '#B8C6D4' }}>→</Typography>
                     <Typography variant="body2" sx={{ color: '#1565C7', fontWeight: 600 }}>{review.clinician_name}</Typography>
                     <Typography variant="caption" sx={{ color: '#B8C6D4', ml: 'auto' }}>
-                      {new Date(review.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })}
+                      {/* SUG-REV-002: Null guard for missing created_at */}
+                      {review.created_at
+                        ? new Date(review.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
+                        : 'Date unknown'}
                     </Typography>
                   </Box>
                   <Rating value={review.stars} readOnly size="small"
@@ -172,7 +189,9 @@ export default function ReviewsPage() {
                     </Tooltip>
                   )}
                   <Tooltip title="Delete">
-                    <IconButton size="small" onClick={() => handleDelete(review.id)}
+                    {/* SUG-REV-004: Open confirm dialog instead of instant delete */}
+                    <IconButton size="small" onClick={() => setConfirmDeleteId(review.id)}
+                      aria-label={`Delete review by ${review.patient_name}`}
                       sx={{ color: '#A50E0E', bgcolor: '#FCE8E6', borderRadius: '8px', '&:hover': { bgcolor: '#F5C6C2' } }}>
                       <DeleteOutlineRoundedIcon sx={{ fontSize: '1.05rem' }} />
                     </IconButton>
@@ -205,6 +224,20 @@ export default function ReviewsPage() {
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setReplyDialog({ open: false, id: null, text: '' })}>Cancel</Button>
           <Button variant="contained" disabled={!replyDialog.text.trim()} onClick={handleReply}>Submit Response</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* SUG-REV-004: Delete Confirmation Dialog */}
+      <Dialog open={Boolean(confirmDeleteId)} onClose={() => setConfirmDeleteId(null)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={700}>Delete Review?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: '#5F6368' }}>
+            Are you sure you want to delete this review? This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmDeleteId(null)}>Cancel</Button>
+          <Button variant="contained" color="error" onClick={() => handleDelete(confirmDeleteId)}>Delete</Button>
         </DialogActions>
       </Dialog>
     </Box>

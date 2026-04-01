@@ -123,7 +123,34 @@
 | Unread clear + badge sync | ✅ | TC-MSG-006 |
 | Mobile back button | ✅ | TC-MSG-007 |
 | Role labels (Patient/Clinician/Staff) | ✅ | TC-MSG-001 |
-| Delivery tick (Sue-MSG-006) | ✅ | TC-MSG-002, TC-MSG-003 |
+| Delivery tick (SUG-MSG-006) | ✅ | TC-MSG-002, TC-MSG-003 |
 | Empty input guard | ✅ | TC-MSG-009 |
+| aria-labels on icon buttons | ✅ | TC-MSG-010 |
+| ErrorBoundary wrapper | ✅ | TC-MSG-011 |
 | Attachment upload | ❌ Deferred | — |
 | Typing indicators | ❌ Deferred | — |
+
+---
+
+## Session QA TCs
+
+### TC-MSG-010 — aria-labels on Icon Buttons
+| Field | Value |
+|-------|-------|
+| **Objective** | Verify all icon buttons have accessible aria-label attributes |
+| **Steps** | Inspect DOM elements for compose, back, send, call, video, info, attach, emoji buttons. |
+| **Expected** | Each icon button has a descriptive `aria-label`: "New message", "Back to inbox", "Start voice call", "Start video call", "Conversation info", "Attach file", "Insert emoji". |
+
+---
+
+### TC-MSG-011 — ErrorBoundary Wrapper
+| Field | Value |
+|-------|-------|
+| **Objective** | Verify MessagesPage is wrapped in an ErrorBoundary for crash resilience |
+| **Steps** | Check that the default export is `MessagesPageWithBoundary` wrapping `<ErrorBoundary><MessagesPage /></ErrorBoundary>`. |
+| **Expected** | Any render crash in MessagesPage is caught and shows a fallback UI instead of white-screening the app. |
+
+---
+
+## Total: 11 Test Cases
+

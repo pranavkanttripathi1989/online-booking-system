@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useMemo } from 'react'
+import { useState, useCallback, useRef, useMemo, useEffect } from 'react'
 import { useQuery, useSubscription } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
@@ -42,6 +42,8 @@ import EventNoteRoundedIcon        from '@mui/icons-material/EventNoteRounded'
 import ChevronRightRoundedIcon     from '@mui/icons-material/ChevronRightRounded'
 import ChevronLeftRoundedIcon      from '@mui/icons-material/ChevronLeftRounded'
 import TodayRoundedIcon            from '@mui/icons-material/TodayRounded'
+import DirectionsCarRoundedIcon    from '@mui/icons-material/DirectionsCarRounded'
+import EventAvailableRoundedIcon   from '@mui/icons-material/EventAvailableRounded'
 
 import {
   APPOINTMENTS_QUERY,
@@ -336,6 +338,17 @@ function RoomView({ date, rooms, appointments, availability, onEventClick }) {
                             {evt.extendedProps.clinician}
                           </Typography>
                         )}
+                        {/* NEW-CAL-016: apptType chip in Room View card */}
+                        {evt.extendedProps?.apptType && evt.extendedProps.apptType !== 'in_person' && (
+                          <Box sx={{ mt: 0.2, display: 'inline-flex', alignItems: 'center', gap: 0.25, bgcolor: 'rgba(0,109,119,0.09)', borderRadius: 0.75, px: 0.5, py: '1px' }}>
+                            {evt.extendedProps.apptType === 'video'
+                              ? <VideocamRoundedIcon sx={{ fontSize: '0.58rem', color: '#006D77' }} />
+                              : <DirectionsCarRoundedIcon sx={{ fontSize: '0.58rem', color: '#006D77' }} />}
+                            <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: '#006D77' }}>
+                              {evt.extendedProps.apptType === 'video' ? 'Video' : 'Home Visit'}
+                            </Typography>
+                          </Box>
+                        )}
                         <Box sx={{ mt: 0.25, display: 'inline-block', bgcolor: `${c.border}22`, borderRadius: 0.75, px: 0.5 }}>
                           <Typography sx={{ fontSize: '0.6rem', fontWeight: 700, color: c.text, textTransform: 'capitalize' }}>
                             {s?.replace('_', ' ')}
@@ -383,6 +396,10 @@ export default function CalendarPage() {
 
   // ── SUG-CAL-005: Today's Schedule panel ──────────────────────────────────
   const [todayOpen, setTodayOpen] = useState(true)
+
+  // ── NEW-CAL-015: Jump to Date state ──────────────────────────────────────
+  const [jumpDateOpen, setJumpDateOpen] = useState(false)
+  const jumpInputRef                    = useRef(null)
 
   // ── Build GraphQL filters ─────────────────────────────────────────────────
   const buildFilters = useCallback(() => {
@@ -501,6 +518,41 @@ export default function CalendarPage() {
   const handleSlotClick    = (dateStr) => navigate(`/appointments/new?date=${encodeURIComponent(dateStr)}`)
   const handleClearFilters = () => { setFilterClinician(''); setFilterClinic(''); setFilterStatus(''); setFilterType('') }
   const anyFilterActive    = filterClinician || filterClinic || filterStatus || filterType
+  const activeFilterCount  = [filterClinician, filterClinic, filterStatus, filterType].filter(Boolean).length
+
+  // NEW-CAL-011: Escape key closes the event popover
+  useEffect(() => {
+    if (!popoverEvent) return
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        setPopoverAnchor(null)
+        setPopoverEvent(null)
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [popoverEvent])
+
+  // NEW-CAL-014: Keyboard shortcuts to switch views (M/W/D/L/R)
+  // Only fires when the user is NOT typing in an input/textarea/select
+  useEffect(() => {
+    const SHORTCUT_MAP = {
+      m: 'dayGridMonth',
+      w: 'timeGridWeek',
+      d: 'timeGridDay',
+      l: 'listWeek',
+      r: 'resourceDay',
+    }
+    const onKey = (e) => {
+      if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA' || e.target.tagName === 'SELECT' || e.target.isContentEditable) return
+      if (e.altKey || e.ctrlKey || e.metaKey) return
+      const view = SHORTCUT_MAP[e.key.toLowerCase()]
+      if (view) handleViewChange(null, view)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   // ── BUG-CAL-001 FIX: Filtered events ─────────────────────────────────────
   const filteredEvents = useMemo(() => {
@@ -567,6 +619,44 @@ export default function CalendarPage() {
                   <TodayRoundedIcon sx={{ fontSize: '1.1rem', color: todayOpen ? '#006D77' : '#9AA0A6' }} />
                 </Box>
               </Badge>
+            </Tooltip>
+          )}
+          {/* NEW-CAL-015: Jump to Date button */}
+          {!isMobile && (
+            <Tooltip title="Jump to date (click to pick)" placement="bottom">
+              <Box sx={{ position: 'relative' }}>
+                <Box
+                  onClick={() => { setJumpDateOpen(v => !v); setTimeout(() => jumpInputRef.current?.showPicker?.(), 50) }}
+                  sx={{
+                    width: 36, height: 36, borderRadius: 2, bgcolor: jumpDateOpen ? 'rgba(0,109,119,0.12)' : '#F1F3F4',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                    border: jumpDateOpen ? '1.5px solid rgba(0,109,119,0.3)' : '1.5px solid #E8EAED',
+                    transition: 'all 0.2s',
+                    '&:hover': { bgcolor: 'rgba(0,109,119,0.12)', borderColor: 'rgba(0,109,119,0.3)' },
+                  }}
+                >
+                  <EventAvailableRoundedIcon sx={{ fontSize: '1.1rem', color: jumpDateOpen ? '#006D77' : '#9AA0A6' }} />
+                </Box>
+                {/* Native date input — visually hidden, triggered via .showPicker() */}
+                <input
+                  ref={jumpInputRef}
+                  type="date"
+                  defaultValue={dayjs().format('YYYY-MM-DD')}
+                  style={{ position: 'absolute', opacity: 0, pointerEvents: 'none', width: 1, height: 1, top: 0, left: 0 }}
+                  onChange={(e) => {
+                    if (!e.target.value) return
+                    const target = dayjs(e.target.value)
+                    if (!target.isValid()) return
+                    // Navigate FullCalendar to the picked date
+                    if (currentView !== 'resourceDay') {
+                      calendarRef.current?.getApi().gotoDate(target.toDate())
+                    } else {
+                      setRoomViewDate(target)
+                    }
+                    setJumpDateOpen(false)
+                  }}
+                />
+              </Box>
             </Tooltip>
           )}
         </Box>
@@ -667,7 +757,9 @@ export default function CalendarPage() {
           </PillSelect>
 
           {anyFilterActive && (
-            <Chip label="Clear" size="small" icon={<ClearRoundedIcon sx={{ fontSize: '0.78rem !important' }} />}
+            <Chip
+              label={`Clear${activeFilterCount > 1 ? ` (${activeFilterCount})` : ''}`}
+              size="small" icon={<ClearRoundedIcon sx={{ fontSize: '0.78rem !important' }} />}
               onClick={handleClearFilters}
               sx={{ bgcolor: '#FCE8E6', color: '#D93025', fontWeight: 700, fontSize: '0.75rem', border: '1px solid rgba(217,48,37,0.20)', borderRadius: '20px', '&:hover': { bgcolor: '#F5C6C2' }, '& .MuiChip-icon': { color: '#D93025' } }}
             />
@@ -1042,6 +1134,17 @@ export default function CalendarPage() {
                   <MeetingRoomRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />,
                   'Room',
                   popoverEvent.extendedProps?.room,
+                ],[
+                  // NEW-CAL-012: appointment type icon in popover
+                  popoverEvent.extendedProps?.apptType === 'video'
+                    ? <VideocamRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />
+                    : popoverEvent.extendedProps?.apptType === 'home_visit'
+                    ? <DirectionsCarRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />
+                    : <PersonRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />,
+                  'Type',
+                  popoverEvent.extendedProps?.apptType
+                    ? ({ in_person: 'In-Person', video: 'Video / Telehealth', home_visit: 'Home Visit' }[popoverEvent.extendedProps.apptType] ?? popoverEvent.extendedProps.apptType)
+                    : null,
                 ]].filter(([,,v]) => v).map(([icon, label, value], i) => (
                   <Stack key={i} direction="row" spacing={1.5} alignItems="center">
                     <Box sx={{ width: 28, height: 28, borderRadius: 1.5, bgcolor: 'rgba(0,109,119,0.08)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>

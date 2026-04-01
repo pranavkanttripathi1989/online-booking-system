@@ -232,3 +232,34 @@
 | Session 1 (2026-03-16) | 15 | Initial baseline — 11 PASS, 3 PARTIAL |
 | Session 2 (2026-03-20) | +1 (TC-016) | 15 PASS, 1 PARTIAL |
 | Session 3 (2026-03-21) | +3 (TC-017/018/019) | **19 PASS, 0 PARTIAL, 0 FAIL** ✅ |
+| **Session 4 (2026-03-30)** | **+4 (TC-020/021/022/023)** | **23 PASS, 0 PARTIAL, 0 FAIL** ✅ |
+
+---
+
+## Session 4 Test Cases (TC-CLIN-020 to TC-CLIN-023)
+
+### TC-CLIN-020 — Inactive Card Visual Distinction (SUG-013)
+**Steps:** View /clinicians in All or Inactive filter.  
+**Expected:** Inactive card (Dr. Omar Hassan) has `opacity: 0.70` + `filter: grayscale(30%)` — visually distinct from active cards. Transition: 0.2s ease.
+
+---
+
+### TC-CLIN-021 — Filter Dropdown Count Badges (SUG-014)
+**Steps:** Open Specialization dropdown.  
+**Expected:** Each option shows a teal count chip (e.g. "Cardiologist" → "2"). Open Clinic dropdown — same.  
+**Edge:** Counts reflect full unfiltered list, not current filtered view.
+
+---
+
+### TC-CLIN-022 — Clear All Filters Button (SUG-015)
+**Steps:**
+1. Apply any filter (e.g. search "Mitchell") → assert red "Clear Filters" button appears.
+2. Click "Clear Filters" → assert all 4 filters reset to defaults (search='', specialty='', clinic='', active='all').
+3. No filter active → "Clear Filters" button hidden.
+
+---
+
+### TC-CLIN-023 — Availability Heatmap Full Day Tooltips (SUG-016)
+**Steps:** Hover each day chip in AvailabilityHeatmap.  
+**Expected:** Tooltip shows full name: "Mo" → "Monday", "Th" → "Thursday", "Sa" → "Saturday" etc.  
+**Edge:** Grey (inactive) chips also show full day name on hover.
