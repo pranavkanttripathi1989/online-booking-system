@@ -2,7 +2,8 @@ import { useState, useEffect } from 'react'
 import { useQuery, useMutation, gql } from '@apollo/client'
 import {
   Alert, Box, Button, Card, CardContent, Chip,
-  CircularProgress, IconButton, Stack, Tooltip, Typography,
+  CircularProgress, Dialog, DialogTitle, DialogActions,
+  IconButton, Stack, Tooltip, Typography,
 } from '@mui/material'
 import NotificationsIcon from '@mui/icons-material/Notifications'
 import CheckIcon from '@mui/icons-material/Check'
@@ -11,6 +12,7 @@ import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import CreditCardIcon from '@mui/icons-material/CreditCard'
 import AlertIcon from '@mui/icons-material/Error'
 import InfoIcon from '@mui/icons-material/Info'
+import { useAuth } from '../../context/AuthContext'
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 
@@ -25,6 +27,15 @@ const MARK_READ     = gql`mutation MarkNotificationRead($id:ID!)           { mar
 const MARK_ALL_READ = gql`mutation MarkAllNotificationsRead               { markAllNotificationsRead               { success } }`
 const DELETE_NOTIF  = gql`mutation DeleteNotification($id:ID!)             { deleteNotification(id:$id)             { success } }`
 
+// SUG-NOTIF-001: Mock fallback so the page shows data when the backend is offline —
+// the topbar bell (NotificationBell) already renders its own list; this keeps the
+// full page usable rather than showing an empty inbox while the GraphQL query fails.
+const MOCK_NOTIFICATIONS = [
+  { id: '1', title: 'Appointment Reminder', message: 'Emma Wilson at 09:00', type: 'appointment', priority: 'normal', is_read: false, created_at: new Date().toISOString() },
+  { id: '2', title: 'Payment Received', message: '$150 received from Omar Hassan', type: 'payment', priority: 'normal', is_read: false, created_at: new Date(Date.now() - 3600000).toISOString() },
+  { id: '3', title: 'System Alert', message: 'Backup completed', type: 'alert', priority: 'high', is_read: true, created_at: new Date(Date.now() - 86400000).toISOString() },
+]
+
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
 const typeIcon = (type) => {
@@ -36,6 +47,10 @@ const typeIcon = (type) => {
   }
 }
 
+// SUG-NOTIF-007: Priority intentionally wins over type — a high-priority notification
+// (of any type, e.g. an urgent appointment) is always shown in red so it stands out in
+// the list. This is deliberate, not a bug: severity should be scannable at a glance
+// regardless of category. See SUG-NOTIF-PLAN-006 for the documented test case.
 const iconColor = (priority, type) => {
   if (priority === 'high')        return { bg: '#FEE2E2', color: '#DC2626', border: '#FECACA' }
   if (type === 'payment')         return { bg: '#D1FAE5', color: '#059669', border: '#A7F3D0' }
@@ -57,26 +72,52 @@ const timeAgo = (dateStr) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
+  const { user } = useAuth()
   const [filter, setFilter] = useState('unread')
   const [actionError, setActionError] = useState(null)
+  const [deleteTarget, setDeleteTarget] = useState(null) // SUG-NOTIF-002: confirm before delete
+  const [pendingId, setPendingId] = useState(null)        // SUG-NOTIF-004: in-flight mutation guard
+  const [markingAll, setMarkingAll] = useState(false)     // SUG-NOTIF-005: Mark All Read loading state
 
-  const { data, loading, refetch } = useQuery(GET_NOTIFICATIONS, {
+  const { data, loading, error, refetch } = useQuery(GET_NOTIFICATIONS, {
     variables: { filter },
     fetchPolicy: 'cache-and-network',
     pollInterval: 30000,  // 30s real-time substitute
+    skip: !user?.id,      // SUG-NOTIF-003: don't fire for unauthenticated users
   })
 
   const [markRead]     = useMutation(MARK_READ)
   const [markAllRead]  = useMutation(MARK_ALL_READ)
   const [deleteNotif]  = useMutation(DELETE_NOTIF)
 
-  const notifications = data?.notifications || []
-  const hasUnread     = notifications.some(n => !n.is_read)
+  // SUG-NOTIF-001: fall back to mock data when the backend is unreachable (2s timeout)
+  // so the page doesn't show an empty inbox while the topbar bell shows unread items.
+  const notifications = data?.notifications || (error ? MOCK_NOTIFICATIONS : [])
+  const hasUnread      = notifications.some(n => !n.is_read)
+  const unreadCount    = notifications.filter(n => !n.is_read).length // SUG-NOTIF-006
 
+  // SUG-NOTIF-004: prevent concurrent mutations racing each other
   const run = async (fn, vars) => {
+    if (pendingId) return
+    setPendingId(vars?.id || 'all')
     setActionError(null)
     try { await fn({ variables: vars }); refetch() }
     catch (err) { setActionError(err.message) }
+    finally { setPendingId(null) }
+  }
+
+  // SUG-NOTIF-005: dedicated loading state + label for Mark All Read
+  const handleMarkAll = async () => {
+    setMarkingAll(true)
+    await run(markAllRead, {})
+    setMarkingAll(false)
+  }
+
+  // SUG-NOTIF-002: delete requires confirmation via dialog instead of firing immediately
+  const confirmDelete = async () => {
+    const id = deleteTarget
+    setDeleteTarget(null)
+    await run(deleteNotif, { id })
   }
 
   if (loading && !data) return (
@@ -110,7 +151,8 @@ export default function NotificationsPage() {
                   fontWeight: filter === f ? 700 : 400,
                 }}
               >
-                {f === 'unread' ? 'Unread' : 'All'}
+                {/* SUG-NOTIF-006: show notification counts on the filter chips */}
+                {f === 'unread' ? `Unread${unreadCount ? ` (${unreadCount})` : ''}` : `All (${notifications.length})`}
               </Button>
             ))}
           </Box>
@@ -119,10 +161,11 @@ export default function NotificationsPage() {
             <Button
               variant="contained"
               size="small"
-              startIcon={<CheckIcon />}
-              onClick={() => run(markAllRead, {})}
+              disabled={markingAll}
+              startIcon={markingAll ? <CircularProgress size={14} color="inherit" /> : <CheckIcon />}
+              onClick={handleMarkAll}
             >
-              Mark All Read
+              {markingAll ? 'Marking…' : 'Mark All Read'}
             </Button>
           )}
         </Stack>
@@ -186,13 +229,14 @@ export default function NotificationsPage() {
                       <Stack direction="row" spacing={0.5} flexShrink={0}>
                         {!notif.is_read && (
                           <Tooltip title="Mark as read">
-                            <IconButton size="small" color="primary" onClick={() => run(markRead, { id: notif.id })}>
+                            <IconButton size="small" color="primary" disabled={!!pendingId} onClick={() => run(markRead, { id: notif.id })}>
                               <CheckIcon fontSize="small" />
                             </IconButton>
                           </Tooltip>
                         )}
                         <Tooltip title="Delete">
-                          <IconButton size="small" color="error" onClick={() => run(deleteNotif, { id: notif.id })}>
+                          {/* SUG-NOTIF-002: open confirm dialog instead of deleting immediately */}
+                          <IconButton size="small" color="error" disabled={!!pendingId} onClick={() => setDeleteTarget(notif.id)}>
                             <DeleteIcon fontSize="small" />
                           </IconButton>
                         </Tooltip>
@@ -205,6 +249,15 @@ export default function NotificationsPage() {
           )
         })}
       </Stack>
+
+      {/* SUG-NOTIF-002: Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onClose={() => setDeleteTarget(null)}>
+        <DialogTitle>Delete Notification?</DialogTitle>
+        <DialogActions>
+          <Button onClick={() => setDeleteTarget(null)}>Cancel</Button>
+          <Button color="error" onClick={confirmDelete}>Delete</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

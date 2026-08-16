@@ -71,10 +71,11 @@ Files: staff/Dashboard.jsx
 
 ### SUG-STFDS-007 — Add "Undo Check In" Button
 ```
-Status: PENDING
-Notes: Once a patient is checked in, there is no way to revert. Staff may accidentally check in wrong patient.
-       Fix: show "Undo" small button next to "Checked In" chip (visible for 30s after check-in).
-Priority: Medium
+Status: COMPLETED
+Notes: Added recentCheckIns state, keyed by patient name, cleared via setTimeout after 30s.
+       handleCheckIn() marks the patient as "recent"; an "Undo" button renders next to the
+       "Checked In" chip while recent, calling handleUndoCheckIn() to revert to 'scheduled'.
+Files: staff/Dashboard.jsx
 ```
 
 ### SUG-STFDS-008 — Dynamic Greeting Based on Time of Day
@@ -105,6 +106,6 @@ Priority: Low
 | SUG-STFDS-004 | Dynamic timestamps (partial) | ✅ COMPLETED |
 | SUG-STFDS-005 | Clickable activity items | ✅ COMPLETED |
 | SUG-STFDS-006 | Empty queue state message | ✅ COMPLETED |
-| SUG-STFDS-007 | Undo Check In button | ⏳ PENDING (New) |
+| SUG-STFDS-007 | Undo Check In button | ✅ COMPLETED |
 | SUG-STFDS-008 | Dynamic greeting by time of day | ⏳ PENDING (New) |
 | SUG-STFDS-009 | Persist check-in to MockStore | ⏳ PENDING (New) |

@@ -43,6 +43,7 @@ const TYPE_COLOR = {
   clinician:   '#9334E6',
   appointment: '#006D77',
   page:        '#80868B',
+  recent:      '#80868B',
 }
 
 const TYPE_BG = {
@@ -50,16 +51,67 @@ const TYPE_BG = {
   clinician:   '#F3E8FD',
   appointment: 'rgba(0,109,119,0.10)',
   page:        '#F1F3F4',
+  recent:      '#F1F3F4',
+}
+
+const TYPE_GROUP_LABEL = {
+  page:   'Quick links',
+  recent: 'Recent',
+}
+
+// SUG-NAV-004: icon lookup by type so recent items (stored without a component
+// reference in localStorage) can still render the right icon.
+const TYPE_ICON = {
+  patient:     PersonRounded,
+  clinician:   MedicalServicesRounded,
+  appointment: EventNoteRounded,
+  page:        NavigateNextRounded,
+}
+
+// ─── SUG-NAV-004: Recent search history (localStorage) ────────────────────────
+const RECENT_SEARCH_KEY = 'medibook_recent_search'
+const MAX_RECENT = 5
+
+function getRecentSearches() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]')
+    return raw
+      .filter(r => r && r.path)
+      .map(r => ({ ...r, Icon: TYPE_ICON[r.type] || NavigateNextRounded }))
+  } catch {
+    return []
+  }
+}
+
+function pushRecentSearch(item) {
+  try {
+    const existing = JSON.parse(localStorage.getItem(RECENT_SEARCH_KEY) || '[]')
+    const { Icon, ...plain } = item
+    const next = [plain, ...existing.filter(r => r.path !== item.path)].slice(0, MAX_RECENT)
+    localStorage.setItem(RECENT_SEARCH_KEY, JSON.stringify(next))
+    return next.map(r => ({ ...r, Icon: TYPE_ICON[r.type] || NavigateNextRounded }))
+  } catch {
+    return []
+  }
+}
+
+function computeResults(query, recent) {
+  if (query.length >= 1) {
+    return SEARCH_DATA.filter(d =>
+      d.label.toLowerCase().includes(query.toLowerCase()) ||
+      d.sub.toLowerCase().includes(query.toLowerCase())
+    ).slice(0, 8)
+  }
+  // SUG-NAV-004: before typing, show recently visited items first;
+  // fall back to the hardcoded quick links when there's no history yet.
+  return recent.length
+    ? recent.map(r => ({ ...r, type: 'recent' }))
+    : SEARCH_DATA.filter(d => d.type === 'page').slice(0, 6)
 }
 
 // ─── Inline Search Dropdown ────────────────────────────────────────────────────
-function InlineSearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
-  const results = query.length >= 1
-    ? SEARCH_DATA.filter(d =>
-        d.label.toLowerCase().includes(query.toLowerCase()) ||
-        d.sub.toLowerCase().includes(query.toLowerCase())
-      ).slice(0, 8)
-    : SEARCH_DATA.filter(d => d.type === 'page').slice(0, 6)
+function InlineSearchDropdown({ query, recent, onSelect, activeIdx, setActiveIdx }) {
+  const results = computeResults(query, recent)
 
   if (!results.length) return null
 
@@ -83,7 +135,7 @@ function InlineSearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
         <Box key={type}>
           <Box sx={{ px: 2, pt: 1.25, pb: 0.25 }}>
             <Typography variant="caption" sx={{ color: '#9AA0A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '0.64rem' }}>
-              {type === 'page' ? 'Quick links' : type + 's'}
+              {TYPE_GROUP_LABEL[type] || type + 's'}
             </Typography>
           </Box>
           <List dense disablePadding>
@@ -136,7 +188,7 @@ function InlineSearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
 }
 
 // ─── Navbar ───────────────────────────────────────────────────────────────────
-export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout }) {
+export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout, sidebarWidth = DRAWER_WIDTH }) {
   const navigate = useNavigate()
   const client = useApolloClient()
   const { user, logout } = useAuth()
@@ -152,6 +204,7 @@ export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout })
   const [activeIdx,  setActiveIdx]  = useState(0)
   const [notifOpen,  setNotifOpen]  = useState(false)
   const [scrolled,   setScrolled]   = useState(false)
+  const [recent,     setRecent]     = useState(getRecentSearches) // SUG-NAV-004
   const inputRef = useRef(null)
   const searchBoxRef = useRef(null)
 
@@ -199,12 +252,13 @@ export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout })
 
   const handleSelect = useCallback((item) => {
     navigate(item.path); closeInline()
+    // SUG-NAV-004: remember this selection so it surfaces next time the
+    // search is opened before the user types anything.
+    setRecent(pushRecentSearch(item))
   }, [navigate])
 
   const handleInlineKey = (e) => {
-    const results = query.length >= 1
-      ? SEARCH_DATA.filter(d => d.label.toLowerCase().includes(query.toLowerCase()) || d.sub.toLowerCase().includes(query.toLowerCase())).slice(0, 8)
-      : SEARCH_DATA.filter(d => d.type === 'page').slice(0, 6)
+    const results = computeResults(query, recent)
     const resultCount = results.length
     if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIdx(i => Math.min(i + 1, resultCount - 1)) }
     if (e.key === 'ArrowUp')   { e.preventDefault(); setActiveIdx(i => Math.max(i - 1, 0)) }
@@ -223,8 +277,8 @@ export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout })
   return (
     <>
       <AppBar position="fixed" elevation={0} sx={{
-        width: !isTopNav ? { md: `calc(100% - ${DRAWER_WIDTH}px)` } : '100%',
-        ml:    !isTopNav ? { md: `${DRAWER_WIDTH}px` } : 0,
+        width: !isTopNav ? { md: `calc(100% - ${sidebarWidth}px)` } : '100%',
+        ml:    !isTopNav ? { md: `${sidebarWidth}px` } : 0,
         zIndex: (t) => t.zIndex.drawer - 1,
         bgcolor: isDark ? '#1C1C1E' : '#FFFFFF',
         borderBottom: `1px solid ${isDark ? 'rgba(255,255,255,0.08)' : '#E8EAED'}`,
@@ -362,6 +416,7 @@ export default function Navbar({ onMobileMenuClick, navLayout, onToggleLayout })
             {inlineOpen && (
               <InlineSearchDropdown
                 query={query}
+                recent={recent}
                 onSelect={handleSelect}
                 activeIdx={activeIdx}
                 setActiveIdx={setActiveIdx}

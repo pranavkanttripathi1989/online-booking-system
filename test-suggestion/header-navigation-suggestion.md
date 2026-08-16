@@ -15,8 +15,8 @@
 | **SUG-NAV-007** | Messages badge on mobile bottom nav | 🟡 | ✅ DONE (S2) |
 | **SUG-NAV-008** | Search available in TopNav mode | 🟡 | ✅ DONE (S2) |
 | SUG-NAV-003 | Search result count label | 🟢 | ⏭ DEFERRED |
-| SUG-NAV-004 | Search history (recent items) | 🟡 | ⏭ DEFERRED |
-| SUG-NAV-005 | Collapse sidebar to icon rail | 🟡 | ⏭ DEFERRED (larger feature) |
+| **SUG-NAV-004** | Search history (recent items) | 🟡 | ✅ DONE (S3) |
+| **SUG-NAV-005** | Collapse sidebar to icon rail | 🟡 | ✅ DONE (S3) |
 
 ---
 
@@ -47,10 +47,18 @@ TopNav already exposes `onOpenSearch` prop → `SearchRounded IconButton` at rig
 
 ---
 
+## Session 3 Implementation Notes
+
+### SUG-NAV-004 — Search History (Recent Items)
+**Implementation:** `Navbar.jsx` inline search now persists selections to `localStorage` (`medibook_recent_search`, capped at 5, most-recent-first). When the search box is opened with an empty query, the dropdown shows a "Recent" group built from that list instead of the hardcoded quick-links; falls back to the quick-links group when there's no history yet. Keyboard navigation (`handleInlineKey`) and the dropdown now share one `computeResults()` helper so both stay in sync.
+
+### SUG-NAV-005 — Collapse Sidebar to Icon Rail
+**Implementation:** Added a `collapsed` state to `Layout.jsx` (persisted to `localStorage` as `medibook_sidebar_collapsed`), passed into `Sidebar.jsx`/`Navbar.jsx`. Desktop permanent drawer now toggles between `DRAWER_WIDTH` (256px) and a new `COLLAPSED_DRAWER_WIDTH` (76px) icon rail via a chevron toggle next to the logo; labels, section headers, and footer text hide when collapsed, with `Tooltip`s on each icon showing the label. Expansion is click-based (not hover) for reliability. The mobile temporary drawer is unaffected — it always renders expanded.
+
+---
+
 ## Remaining
 
 | Item | Reason Deferred |
 |------|----------------|
 | SUG-NAV-003 | Low priority — "8 results" label is nice-to-have |
-| SUG-NAV-004 | Requires localStorage recent search history — medium effort |
-| SUG-NAV-005 | Icon rail sidebar — significant layout effort, post-backend |

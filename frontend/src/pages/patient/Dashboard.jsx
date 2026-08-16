@@ -109,6 +109,8 @@ export default function PatientDashboard() {
 
   // SUG-PTDASH-003: Cancel dialog state
   const [cancelId, setCancelId] = useState(null);
+  // SUG-PTDASH-012: Optimistic cancel in mock mode — locally hide cancelled ids
+  const [cancelledIds, setCancelledIds] = useState(() => new Set());
 
   const { data, loading, error } = useQuery(GET_PATIENT_DASHBOARD_DATA, {
     variables: { userId: user?.id },
@@ -118,7 +120,8 @@ export default function PatientDashboard() {
   if (!user) return <Alert severity="warning">Please log in to view your dashboard.</Alert>;
 
   // SUG-PTDASH-004: Mock fallbacks when backend offline
-  const upcomingAppointments = data?.getPatientAppointments || MOCK_UPCOMING;
+  // SUG-PTDASH-012: filter out optimistically-cancelled appointments
+  const upcomingAppointments = (data?.getPatientAppointments || MOCK_UPCOMING).filter(a => !cancelledIds.has(a.id));
   const notifications = data?.getNotifications || MOCK_NOTIFICATIONS;
   const kpis = data?.getPatientKpis || { ...MOCK_KPIS, upcoming: upcomingAppointments.length };
 
@@ -135,8 +138,8 @@ export default function PatientDashboard() {
   const handleReschedule = (apptId) => navigate(`/patient/appointments?reschedule=${apptId}`);
   const handleCancelConfirm = () => {
     // In production: call CANCEL_APPOINTMENT mutation
-    // For mock: visual-only (no state change — dashboard reads from Apollo fallback)
-    console.log('cancel appointment', cancelId);
+    // SUG-PTDASH-012: Mock mode — optimistically remove the card from the list
+    setCancelledIds(prev => new Set(prev).add(cancelId));
     setCancelId(null);
   };
 

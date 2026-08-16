@@ -561,8 +561,8 @@ function SignInTab({ onForgot }) {
     try {
       // ── Try real GraphQL login ──────────────────────────────────────────────
       const { data } = await loginMutation({ variables: { input: { email, password } } });
-      const { token, user } = data.login;
-      login(token, user, rememberMe);
+      const { access_token, user } = data.login;
+      login(access_token, user, rememberMe);
       navigate(getPostLoginRedirect(user));
     } catch {
       // ── Mock fallback (offline / demo) ─────────────────────────────────────

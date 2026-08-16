@@ -24,6 +24,8 @@ import VisibilityRoundedIcon    from '@mui/icons-material/VisibilityRounded'
 import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import InfoRoundedIcon          from '@mui/icons-material/InfoRounded'
 import { useSnackbar } from 'notistack'
+import { useMockData, useMockMutation } from '../../mocks/useMockData'
+import * as MockStore from '../../mocks/store'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TEAL = '#006D77'
@@ -35,18 +37,6 @@ const STATUSES = [
   { value: 'active',   label: 'Active',   color: '#0B7B5C', bg: '#E6F4EA', dot: '#0F9D58' },
   { value: 'on_leave', label: 'On Leave', color: '#8A4700', bg: '#FEF7E0', dot: '#F9AB00' },
   { value: 'inactive', label: 'Inactive', color: '#5F6368', bg: '#F8F9FA', dot: '#9AA0A6' },
-]
-
-// Mock lookup — in prod this would come from API
-const MOCK_STAFF = [
-  { id: '1', name: 'Sara Johnson',    role: 'Receptionist',      department: 'Front Desk',      phone: '+1 555-0101', email: 'sara@healthsync.dev',     status: 'active',    since: '2022-03-15', address: '12 Main St, NY', notes: 'Lead receptionist' },
-  { id: '2', name: 'Mark Thompson',   role: 'Admin',             department: 'Management',      phone: '+1 555-0102', email: 'mark@healthsync.dev',     status: 'active',    since: '2021-07-01', address: '', notes: '' },
-  { id: '3', name: 'Lisa Park',       role: 'Nurse',             department: 'General Practice',phone: '+1 555-0103', email: 'lisa@healthsync.dev',     status: 'active',    since: '2023-01-22', address: '', notes: '' },
-  { id: '4', name: 'James Wilson',    role: 'Lab Technician',    department: 'Laboratory',      phone: '+1 555-0104', email: 'james@healthsync.dev',    status: 'on_leave',  since: '2020-09-10', address: '', notes: 'On medical leave until April 30' },
-  { id: '5', name: 'Amy Chen',        role: 'Receptionist',      department: 'Front Desk',      phone: '+1 555-0105', email: 'amy@healthsync.dev',      status: 'active',    since: '2024-02-18', address: '', notes: '' },
-  { id: '6', name: 'Robert Davis',    role: 'IT Administrator',  department: 'IT & Systems',    phone: '+1 555-0106', email: 'robert@healthsync.dev',   status: 'active',    since: '2019-06-05', address: '', notes: '' },
-  { id: '7', name: 'Patricia Brown',  role: 'Billing Specialist',department: 'Finance',         phone: '+1 555-0107', email: 'patricia@healthsync.dev', status: 'inactive',  since: '2018-11-30', address: '', notes: '' },
-  { id: '8', name: 'Kevin Lee',       role: 'Security Officer',  department: 'Security',        phone: '+1 555-0108', email: 'kevin@healthsync.dev',    status: 'active',    since: '2023-08-14', address: '', notes: '' },
 ]
 
 function getInitials(name) {
@@ -81,22 +71,23 @@ export default function EditStaffPage() {
   const [form, setForm] = useState(null)
   const [original, setOriginal] = useState(null)
   const [errors, setErrors] = useState({})
-  const [saving, setSaving]   = useState(false)
   const [showPwd, setShowPwd] = useState(false)
   const [newPassword, setNewPassword] = useState('')
   const [deactivateOpen, setDeactivateOpen] = useState(false)
 
-  // Load staff member data
+  // SUG-STAFF-010: load staff member from the shared mock store (persists edits/new staff)
+  const { data: staffRecord } = useMockData(store => store.getStaffById(id))
+  const [saveStaffMutation, { loading: saving }] = useMockMutation((data) => MockStore.updateStaff(id, data))
+
   useEffect(() => {
-    const found = MOCK_STAFF.find(s => s.id === id)
-    if (found) {
-      setForm({ ...found })
-      setOriginal({ ...found })
-    } else {
+    if (staffRecord) {
+      setForm(prev => prev ?? { ...staffRecord })
+      setOriginal(prev => prev ?? { ...staffRecord })
+    } else if (staffRecord === null) {
       enqueueSnackbar('Staff member not found', { variant: 'error' })
       navigate('/staff')
     }
-  }, [id])
+  }, [id, staffRecord])
 
   if (!form) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
@@ -126,18 +117,19 @@ export default function EditStaffPage() {
   const handleSave = async () => {
     const e = validate()
     if (Object.keys(e).length) { setErrors(e); return }
-    setSaving(true)
-    await new Promise(r => setTimeout(r, 900))
-    setSaving(false)
+    // SUG-STAFF-010: persist edits to the shared mock store
+    await saveStaffMutation({
+      name: form.name, email: form.email, phone: form.phone,
+      role: form.role, department: form.department, status: form.status,
+      since: form.since, address: form.address, notes: form.notes,
+    })
     enqueueSnackbar(`${form.name}'s profile updated successfully!`, { variant: 'success' })
     navigate('/staff')
   }
 
   const handleDeactivate = async () => {
     setDeactivateOpen(false)
-    setSaving(true)
-    await new Promise(r => setTimeout(r, 600))
-    setSaving(false)
+    await saveStaffMutation({ status: 'inactive' })
     enqueueSnackbar(`${form.name} has been deactivated`, { variant: 'warning' })
     navigate('/staff')
   }

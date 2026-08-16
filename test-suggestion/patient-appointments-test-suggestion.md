@@ -4,6 +4,13 @@
 **Source File:** `frontend/src/pages/patient/Appointments.jsx`  
 **Date:** 2026-03-17
 
+> **STATUS UPDATE:** This file predates status tracking — see
+> `patient-appointment-test-suggestion.md` (singular) for the live per-item tracker on
+> this same source file. SUG-PTAPPT-001–007 were already implemented in prior sessions.
+> SUG-PTAPPT-008 (sort descending toggle) is now also DONE. SUG-PTAPPT-009 (backend
+> Apollo integration) remains PENDING — genuine backend milestone. See the Status
+> column added to the Summary Table below.
+
 ---
 
 ## 🔴 High Priority — Bug Fixes
@@ -259,18 +266,18 @@ query GetMyAppointments {
 
 ## Summary Table
 
-| ID | Suggestion | Category | Priority |
-|----|-----------|----------|----------|
-| SUG-PTAPPT-001 | Cancel with confirm dialog + state update | 🐛 Bug Fix | 🔴 High |
-| SUG-PTAPPT-002 | Implement sort dropdown logic | 🐛 Bug Fix | 🔴 High |
-| SUG-PTAPPT-003 | Receipt button handler | 🐛 Bug Fix | 🔴 High |
-| SUG-PTAPPT-004 | Clear search on tab switch | 🐛 Bug Fix | 🔴 High |
-| SUG-PTAPPT-005 | Null guard for price £undefined | 🛡 Guard | 🔴 High |
-| SUG-PTAPPT-006 | Doctor name text overflow | ✨ UX | 🟡 Medium |
-| SUG-PTAPPT-007 | Convert APPOINTMENTS to state | 🏗 Architecture | 🟡 Medium |
-| SUG-PTAPPT-008 | Sort direction toggle | ✨ UX | 🟡 Medium |
-| SUG-PTAPPT-009 | Backend Apollo integration | 🔗 Integration | 🟡 Medium |
-| SUG-PTAPPT-010 | Fix TC-05 plan wording | 📝 Plan Fix | 🟢 Low |
+| ID | Suggestion | Category | Priority | Status |
+|----|-----------|----------|----------|--------|
+| SUG-PTAPPT-001 | Cancel with confirm dialog + state update | 🐛 Bug Fix | 🔴 High | ✅ DONE |
+| SUG-PTAPPT-002 | Implement sort dropdown logic | 🐛 Bug Fix | 🔴 High | ✅ DONE |
+| SUG-PTAPPT-003 | Receipt button handler | 🐛 Bug Fix | 🔴 High | ✅ DONE |
+| SUG-PTAPPT-004 | Clear search on tab switch | 🐛 Bug Fix | 🔴 High | ✅ DONE |
+| SUG-PTAPPT-005 | Null guard for price £undefined | 🛡 Guard | 🔴 High | ✅ DONE |
+| SUG-PTAPPT-006 | Doctor name text overflow | ✨ UX | 🟡 Medium | ✅ DONE |
+| SUG-PTAPPT-007 | Convert APPOINTMENTS to state | 🏗 Architecture | 🟡 Medium | ✅ DONE |
+| SUG-PTAPPT-008 | Sort direction toggle | ✨ UX | 🟡 Medium | ✅ DONE |
+| SUG-PTAPPT-009 | Backend Apollo integration | 🔗 Integration | 🟡 Medium | ⏳ PENDING (backend milestone) |
+| SUG-PTAPPT-010 | Fix TC-05 plan wording | 📝 Plan Fix | 🟢 Low | ✅ COMPLETED |
 
 ### Quick Wins (1–2 lines):
 - **SUG-PTAPPT-004**: Add `setSearch('')` to Tabs onChange (1 line)

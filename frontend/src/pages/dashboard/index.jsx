@@ -250,7 +250,7 @@ export default function DashboardPage() {
             {isLoading
               ? <KpiSkeleton />
               : (
-                {/* NEW-DASH-010: a11y role + aria-label for keyboard/screen-reader users */}
+                // NEW-DASH-010: a11y role + aria-label for keyboard/screen-reader users
                 <Box
                   role={kpi.href ? 'button' : undefined}
                   tabIndex={kpi.href ? 0 : undefined}

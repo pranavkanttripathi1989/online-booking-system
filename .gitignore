@@ -33,6 +33,7 @@ pnpm-debug.log*
 
 # ── Frontend Build (Vite / React) ─────────────────────────────────────────────
 frontend/dist/
+backend/dist/
 frontend/build/
 frontend/.vite/
 frontend/.vite-temp/

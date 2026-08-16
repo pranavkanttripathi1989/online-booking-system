@@ -14,6 +14,7 @@ import PersonIcon from '@mui/icons-material/Person';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import { SearchField } from '../../../components/shared';
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog';
+import ErrorBoundary from '../../../components/ErrorBoundary';
 
 const CLINICS_DATA = [
   { id: '1', name: 'City Heart Clinic',        address: '14 Harley Street, London, W1G 9PJ',  phone: '+44 20 7946 0001', manager: 'Dr. Sarah Johnson', clinicians: 4, rooms: 5, status: 'active',   specialties: ['Cardiology','General Medicine'],               todayAppts: 24, monthlyAppts: 312 },
@@ -22,19 +23,34 @@ const CLINICS_DATA = [
   { id: '4', name: 'Westside Physio & Sports', address: "5 King's Road, London, SW3 4ND",     phone: '+44 20 7946 0044', manager: 'James Peters',       clinicians: 2, rooms: 3, status: 'inactive', specialties: ['Physiotherapy','Sports Medicine'],             todayAppts: 0,  monthlyAppts: 0   },
 ];
 
+// SUG-CLI-009 — rooms across ALL clinics (previously only 2 of 4 clinics had rooms represented)
 const ROOMS_DATA = [
-  { id: '1', name: 'Room 1A', clinic: 'City Heart Clinic',      capacity: 1, equipment: ['ECG', 'Blood pressure monitor'], status: 'in-use'   },
-  { id: '2', name: 'Room 2B', clinic: 'City Heart Clinic',      capacity: 1, equipment: ['Ultrasound'],                   status: 'available' },
-  { id: '3', name: 'Room 3C', clinic: 'City Heart Clinic',      capacity: 1, equipment: ['General'],                      status: 'available' },
-  { id: '4', name: 'Suite A', clinic: 'Central Medical Centre', capacity: 2, equipment: ['MRI lobby access', 'EEG'],      status: 'in-use'   },
+  { id: '1', name: 'Room 1A', clinic: 'City Heart Clinic',        capacity: 1, equipment: ['ECG', 'Blood pressure monitor'], status: 'in-use'   },
+  { id: '2', name: 'Room 2B', clinic: 'City Heart Clinic',        capacity: 1, equipment: ['Ultrasound'],                   status: 'available' },
+  { id: '3', name: 'Room 3C', clinic: 'City Heart Clinic',        capacity: 1, equipment: ['General'],                      status: 'available' },
+  { id: '4', name: 'Suite A', clinic: 'Central Medical Centre',   capacity: 2, equipment: ['MRI lobby access', 'EEG'],      status: 'in-use'   },
+  { id: '5', name: 'Room 1',  clinic: 'Central Medical Centre',   capacity: 1, equipment: ['General'],                      status: 'available' },
+  { id: '6', name: 'Room 1',  clinic: 'Family Health Hub',        capacity: 1, equipment: ['Paediatric scales'],            status: 'available' },
+  { id: '7', name: 'Room 2',  clinic: 'Family Health Hub',        capacity: 1, equipment: ['General'],                      status: 'in-use'   },
+  { id: '8', name: 'Gym 1',   clinic: 'Westside Physio & Sports', capacity: 4, equipment: ['Treadmill', 'Resistance bands'], status: 'available' },
 ];
 
-export default function ManagerClinics() {
+// SUG-CLI-008 / SUG-CLI-005 (older file) — persist deletes to localStorage so a deleted
+// clinic doesn't reappear on page refresh (there is no real backend to call a DELETE
+// mutation against, so localStorage is the closest available "persistence" layer).
+const DELETED_CLINICS_KEY = 'medibook_deleted_clinic_ids';
+const getDeletedClinicIds = () => {
+  try { return JSON.parse(localStorage.getItem(DELETED_CLINICS_KEY)) ?? []; } catch { return []; }
+};
+
+function ManagerClinicsInner() {
   const navigate = useNavigate();
   const [search, setSearch]           = useState('');
   const [tab, setTab]                 = useState(0);
   const [deleteId, setDeleteId]       = useState(null);
-  const [clinics, setClinics]         = useState(CLINICS_DATA);
+  const [clinics, setClinics]         = useState(() =>
+    CLINICS_DATA.filter(c => !getDeletedClinicIds().includes(c.id))
+  );
 
   const filtered = clinics.filter(
     (c) => !search || c.name.toLowerCase().includes(search.toLowerCase())
@@ -42,6 +58,10 @@ export default function ManagerClinics() {
 
   const confirmDelete = () => {
     setClinics(prev => prev.filter(c => c.id !== deleteId));
+    const deletedIds = getDeletedClinicIds();
+    if (!deletedIds.includes(deleteId)) {
+      localStorage.setItem(DELETED_CLINICS_KEY, JSON.stringify([...deletedIds, deleteId]));
+    }
     setDeleteId(null);
   };
 
@@ -249,5 +269,14 @@ export default function ManagerClinics() {
         onCancel={() => setDeleteId(null)}
       />
     </Box>
+  );
+}
+
+// SUG-CLI-012 — ErrorBoundary wrapper, consistent with Availability/Blocks/Billing modules
+export default function ManagerClinics() {
+  return (
+    <ErrorBoundary>
+      <ManagerClinicsInner />
+    </ErrorBoundary>
   );
 }

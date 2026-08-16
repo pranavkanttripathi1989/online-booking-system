@@ -15,6 +15,7 @@ import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, gql } from '@apollo/client';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import weekOfYear from 'dayjs/plugin/weekOfYear';
@@ -22,6 +23,17 @@ import { useAuth } from '../../hooks/useAuth';
 
 dayjs.extend(isSameOrBefore);
 dayjs.extend(weekOfYear);
+
+// ─── GraphQL (SUG-CLCAL-012) ───────────────────────────────────────────────────
+// Real query attempt; apollo/client.js aborts after 2s so the mock fallback below
+// renders immediately when there is no live backend (same pattern as clinician Dashboard).
+const GET_CLINICIAN_SCHEDULE = gql`
+  query GetClinicianSchedule($clinicianId: ID!, $weekStart: String!, $weekEnd: String!) {
+    getClinicianSchedule(clinicianId: $clinicianId, weekStart: $weekStart, weekEnd: $weekEnd) {
+      id day start end patient type status patientId service duration room color
+    }
+  }
+`;
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DAYS            = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
@@ -253,7 +265,19 @@ export default function ClinicianCalendar() {
 
   const clinicianName = user?.clinician?.full_name || user?.name || 'Dr. Sarah Mitchell';
   const clinicName    = user?.organisation?.name || user?.clinic?.name || 'Clinic';
-  const weekEvents    = MOCK_EVENTS.filter(e => e.week === weekOffset);
+
+  // SUG-CLCAL-012: attempt the real query first; fall back to MOCK_EVENTS (filtered
+  // by weekOffset, as before) whenever the backend is unreachable — same "real query
+  // + mock fallback" pattern already used on the clinician Dashboard page.
+  const { data } = useQuery(GET_CLINICIAN_SCHEDULE, {
+    variables: {
+      clinicianId: user?.id,
+      weekStart: monday.format('YYYY-MM-DD'),
+      weekEnd: monday.add(6, 'day').format('YYYY-MM-DD'),
+    },
+    skip: !user?.id,
+  });
+  const weekEvents = data?.getClinicianSchedule || MOCK_EVENTS.filter(e => e.week === weekOffset);
 
   const isPatientAppt = selected && selected.type !== 'break' && selected.type !== 'block';
   const statusCfg     = selected ? (STATUS_CFG[selected.status] ?? STATUS_CFG.confirmed) : null;

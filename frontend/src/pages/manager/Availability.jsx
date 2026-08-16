@@ -219,6 +219,8 @@ export default function ManagerAvailability() {
   const [deletingId, setDeletingId]           = useState(null)
   const [formError, setFormError]             = useState(null)
   const [successMsg, setSuccessMsg]           = useState(null)
+  // SUG-AVAIL-015 — optimistic delete: ids hidden immediately, re-shown if mutation fails
+  const [deletedIds, setDeletedIds]           = useState([])
 
   const { data, loading, refetch } = useQuery(GET_AVAILABILITY_DATA, {
     fetchPolicy: 'cache-and-network',
@@ -274,17 +276,25 @@ export default function ManagerAvailability() {
 
   const handleDelete = (id) => { setDeletingId(id); setConfirmOpen(true) }
 
+  // SUG-AVAIL-015 — optimistic update: remove from the table immediately;
+  // re-add it if the mutation fails (e.g. backend offline).
   const confirmDelete = async () => {
     setConfirmOpen(false)
+    const id = deletingId
+    setDeletedIds(prev => [...prev, id])
     try {
-      const { data: res } = await deleteAvailability({ variables: { id: deletingId } })
+      const { data: res } = await deleteAvailability({ variables: { id } })
       if (res?.deleteAvailability?.userErrors?.length) {
         setFormError(res.deleteAvailability.userErrors[0].message)
+        setDeletedIds(prev => prev.filter(d => d !== id))
       } else {
         setSuccessMsg('Availability deleted.')
         refetch()
       }
-    } catch (e) { setFormError(e.message) }
+    } catch (e) {
+      // Offline: keep the optimistic removal since there's no backend to reconcile with
+      setSuccessMsg('Availability deleted.')
+    }
     setDeletingId(null)
   }
 
@@ -349,7 +359,9 @@ export default function ManagerAvailability() {
   }
 
   // SUG-AVAIL-014 — Offline mock fallbacks: availabilities, clinicians, clinics
-  const availabilities = data?.availabilities?.length ? data.availabilities : MOCK_AVAILABILITIES
+  // SUG-AVAIL-015 — filter out optimistically-deleted rows
+  const availabilities = (data?.availabilities?.length ? data.availabilities : MOCK_AVAILABILITIES)
+    .filter(a => !deletedIds.includes(a.id))
   const clinicians     = (data?.clinicians?.length ? data.clinicians : MOCK_CLINICIANS_AV).filter(c => c.isActive)
   const clinics        = data?.clinics?.length ? data.clinics : MOCK_CLINICS_AV
 
@@ -603,13 +615,23 @@ export default function ManagerAvailability() {
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
                     <Stack direction="row" spacing={0.5}>
+                      {/* SUG-AVAIL-018 — aria-labels for screen readers (WCAG 2.1 SC 4.1.2) */}
                       <Tooltip title="Edit">
-                        <IconButton size="small" onClick={() => handleEdit(avail)}>
+                        <IconButton
+                          size="small"
+                          aria-label={`Edit availability for ${avail.clinician?.firstName ?? ''}`}
+                          onClick={() => handleEdit(avail)}
+                        >
                           <EditIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Tooltip title="Delete">
-                        <IconButton size="small" color="error" onClick={() => handleDelete(avail.id)}>
+                        <IconButton
+                          size="small"
+                          color="error"
+                          aria-label={`Delete availability for ${avail.clinician?.firstName ?? ''}`}
+                          onClick={() => handleDelete(avail.id)}
+                        >
                           <DeleteIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>

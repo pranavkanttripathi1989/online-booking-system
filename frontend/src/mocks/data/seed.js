@@ -51,9 +51,33 @@ export const ROOM_TYPES = [
 // Section 3.4 — Organisations
 // ─────────────────────────────────────────────────────────────────────────────
 export const ORGANISATIONS = [
-  { id: 'org-1', name: 'Meridian Health Group', slug: 'meridian',   plan: 'enterprise', active_clinics: 3, created_at: '2023-01-15T00:00:00Z' },
-  { id: 'org-2', name: 'CityCore Medical',       slug: 'citycore',   plan: 'pro',        active_clinics: 1, created_at: '2023-06-20T00:00:00Z' },
-  { id: 'org-3', name: 'Wellspring Clinic',      slug: 'wellspring', plan: 'starter',    active_clinics: 1, created_at: '2024-02-01T00:00:00Z' },
+  { id: 'org-1', name: 'Meridian Health Group', slug: 'meridian',   plan: 'enterprise', active_clinics: 3, created_at: '2023-01-15T00:00:00Z', contact_email: 'admin@meridianhealth.in',  onboarding_status: 'completed', onboarding_step: null, trial_ends_at: null, owner_user_id: 'usr-1' },
+  { id: 'org-2', name: 'CityCore Medical',       slug: 'citycore',   plan: 'pro',        active_clinics: 1, created_at: '2023-06-20T00:00:00Z', contact_email: 'admin@citycoremedical.in', onboarding_status: 'completed', onboarding_step: null, trial_ends_at: null, owner_user_id: 'usr-2' },
+  { id: 'org-3', name: 'Wellspring Clinic',      slug: 'wellspring', plan: 'starter',    active_clinics: 1, created_at: '2024-02-01T00:00:00Z', contact_email: 'admin@wellspringclinic.in',onboarding_status: 'completed', onboarding_step: null, trial_ends_at: null, owner_user_id: 'usr-3' },
+]
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Section 3.4b — Subscription Plans (INR, stored in paise like the backend schema)
+// ─────────────────────────────────────────────────────────────────────────────
+export const SUBSCRIPTION_PLANS = [
+  {
+    id: 'plan-starter', code: 'starter', name: 'Starter',
+    price_monthly: 249900, price_yearly: 2499000, // ₹2,499/mo, ₹24,990/yr
+    max_clinics: 1, max_clinicians: 5,
+    features: ['1 clinic location', 'Up to 5 clinicians', 'Online booking & calendar', 'Email reminders', 'Basic reporting'],
+  },
+  {
+    id: 'plan-pro', code: 'pro', name: 'Pro',
+    price_monthly: 699900, price_yearly: 6999000, // ₹6,999/mo, ₹69,990/yr
+    max_clinics: 5, max_clinicians: 25,
+    features: ['Up to 5 clinic locations', 'Up to 25 clinicians', 'SMS + email reminders', 'Patient reviews & messaging', 'Advanced analytics', 'Razorpay payment collection'],
+  },
+  {
+    id: 'plan-enterprise', code: 'enterprise', name: 'Enterprise',
+    price_monthly: null, price_yearly: null, // custom pricing — "Contact sales"
+    max_clinics: null, max_clinicians: null,
+    features: ['Unlimited clinics & clinicians', 'Dedicated account manager', 'Custom integrations', 'Priority support & SLA', 'GST-compliant multi-branch invoicing'],
+  },
 ]
 
 // ─────────────────────────────────────────────────────────────────────────────

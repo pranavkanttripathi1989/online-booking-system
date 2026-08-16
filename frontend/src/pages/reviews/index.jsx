@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Box, Typography, Card, CardContent, Grid, Chip, Avatar,
   Rating, TextField, InputAdornment, IconButton, Tooltip,
@@ -10,7 +10,10 @@ import CloseRoundedIcon        from '@mui/icons-material/CloseRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import StarRoundedIcon          from '@mui/icons-material/StarRounded'
 import ReplyRoundedIcon         from '@mui/icons-material/ReplyRounded'
+import EditRoundedIcon          from '@mui/icons-material/EditRounded'
 import * as MockStore from '../../mocks/store'
+
+const PAGE_SIZE = 10 // SUG-REV-007
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function computeBreakdown(reviews) {
@@ -31,8 +34,9 @@ export default function ReviewsPage() {
   const [filter,         setFilter]         = useState('all')
   const [search,         setSearch]         = useState('')
   const [reviews,        setReviews]        = useState(() => MockStore.getReviews())
-  const [replyDialog,    setReplyDialog]    = useState({ open: false, id: null, text: '' })
+  const [replyDialog,    setReplyDialog]    = useState({ open: false, id: null, text: '', editing: false })
   const [confirmDeleteId, setConfirmDeleteId] = useState(null) // SUG-REV-004: delete confirm dialog
+  const [page,           setPage]           = useState(1) // SUG-REV-007: pagination / load-more
 
   const filtered = reviews.filter(r => {
     if (filter !== 'all' && String(r.stars) !== filter) return false
@@ -43,6 +47,11 @@ export default function ReviewsPage() {
     return true
   })
 
+  // SUG-REV-007: reset to page 1 whenever the filter/search set changes so we
+  // don't strand the user on a page past the end of a newly-narrowed result set.
+  useEffect(() => { setPage(1) }, [filter, search])
+  const paged = filtered.slice(0, page * PAGE_SIZE)
+
   const avgRating   = reviews.length ? (reviews.reduce((s, r) => s + r.stars, 0) / reviews.length).toFixed(1) : '0.0'
   const totalReviews = reviews.length
   const breakdown    = useMemo(() => computeBreakdown(reviews), [reviews])
@@ -50,7 +59,7 @@ export default function ReviewsPage() {
   const handleReply = () => {
     MockStore.respondToReview(replyDialog.id, replyDialog.text)
     setReviews(MockStore.getReviews())
-    setReplyDialog({ open: false, id: null, text: '' })
+    setReplyDialog({ open: false, id: null, text: '', editing: false })
   }
   const handleDelete = (id) => {
     // SUG-REV-003: Persist delete to MockStore (consistent with respondToReview)
@@ -143,7 +152,7 @@ export default function ReviewsPage() {
 
       {/* Review Cards */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-        {filtered.map(review => (
+        {paged.map(review => (
           <Card key={review.id} sx={{
             borderRadius: 3,
             border: review.stars <= 2 ? '1.5px solid #F5C6C2' : review.stars === 3 ? '1.5px solid #FDD663' : '1px solid #E8EAED',
@@ -173,7 +182,17 @@ export default function ReviewsPage() {
                   <Typography variant="body2" sx={{ color: '#3D5A72', lineHeight: 1.7 }}>{review.comment}</Typography>
                   {review.response && (
                     <Box sx={{ mt: 1.5, pl: 2, borderLeft: '3px solid #1A73E8', bgcolor: '#F8F9FA', borderRadius: 1, p: 1.5 }}>
-                      <Typography variant="caption" fontWeight={700} sx={{ color: '#1A73E8' }}>Manager Response</Typography>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                        <Typography variant="caption" fontWeight={700} sx={{ color: '#1A73E8' }}>Manager Response</Typography>
+                        {/* SUG-REV-006: Edit existing response — reopens the reply dialog pre-filled */}
+                        <Tooltip title="Edit response">
+                          <IconButton size="small" aria-label={`Edit response to ${review.patient_name}`}
+                            onClick={() => setReplyDialog({ open: true, id: review.id, text: review.response, editing: true })}
+                            sx={{ color: '#1A73E8', p: 0.4, ml: 1 }}>
+                            <EditRoundedIcon sx={{ fontSize: '0.9rem' }} />
+                          </IconButton>
+                        </Tooltip>
+                      </Box>
                       <Typography variant="body2" sx={{ color: '#5F6368', mt: 0.5 }}>{review.response}</Typography>
                     </Box>
                   )}
@@ -182,7 +201,8 @@ export default function ReviewsPage() {
                 <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
                   {!review.response && (
                     <Tooltip title="Reply">
-                      <IconButton size="small" onClick={() => setReplyDialog({ open: true, id: review.id, text: '' })}
+                      <IconButton size="small"
+                        onClick={() => setReplyDialog({ open: true, id: review.id, text: '', editing: false })}
                         sx={{ color: '#1A73E8', bgcolor: '#E8F0FE', borderRadius: '8px', '&:hover': { bgcolor: '#AECBFA' } }}>
                         <ReplyRoundedIcon sx={{ fontSize: '1.05rem' }} />
                       </IconButton>
@@ -208,11 +228,19 @@ export default function ReviewsPage() {
             <Typography fontWeight={600} sx={{ color: '#7A96AE' }}>No reviews found</Typography>
           </Box>
         )}
+
+        {/* SUG-REV-007: Load more instead of rendering the full result set at once */}
+        {paged.length < filtered.length && (
+          <Button variant="outlined" onClick={() => setPage(p => p + 1)}
+            sx={{ alignSelf: 'center', mt: 1, borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>
+            Load more ({filtered.length - paged.length} remaining)
+          </Button>
+        )}
       </Box>
 
-      {/* Reply Dialog */}
-      <Dialog open={replyDialog.open} onClose={() => setReplyDialog({ open: false, id: null, text: '' })} maxWidth="sm" fullWidth>
-        <DialogTitle fontWeight={700}>Reply to Review</DialogTitle>
+      {/* Reply Dialog — also used to edit an existing response (SUG-REV-006) */}
+      <Dialog open={replyDialog.open} onClose={() => setReplyDialog({ open: false, id: null, text: '', editing: false })} maxWidth="sm" fullWidth>
+        <DialogTitle fontWeight={700}>{replyDialog.editing ? 'Edit Response' : 'Reply to Review'}</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth multiline rows={4} autoFocus
@@ -222,8 +250,10 @@ export default function ReviewsPage() {
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setReplyDialog({ open: false, id: null, text: '' })}>Cancel</Button>
-          <Button variant="contained" disabled={!replyDialog.text.trim()} onClick={handleReply}>Submit Response</Button>
+          <Button onClick={() => setReplyDialog({ open: false, id: null, text: '', editing: false })}>Cancel</Button>
+          <Button variant="contained" disabled={!replyDialog.text.trim()} onClick={handleReply}>
+            {replyDialog.editing ? 'Save Changes' : 'Submit Response'}
+          </Button>
         </DialogActions>
       </Dialog>
 

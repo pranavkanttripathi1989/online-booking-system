@@ -84,14 +84,15 @@ Files: staff/Appointments.jsx
 
 ---
 
-## 🟡 Medium Priority — Pending
+## 🟡 Medium Priority — COMPLETED (Session)
 
 ### SUG-STFAPPT-008 — Confirm Dialog Before Bulk Cancel
 ```
-Status: PENDING
-Notes: Bulk "Cancel Selected" immediately cancels without confirmation.
-       Fix: show Dialog: "Cancel {n} appointment(s)? All selected patients will be notified." before executing handleBulkCancel.
-Priority: Medium
+Status: COMPLETED
+Notes: Added bulkCancelConfirmOpen state. "Cancel Selected" now opens a ConfirmDialog
+       ("Cancel {n} appointment(s)? All selected patients will be notified.") instead of
+       cancelling immediately; handleBulkCancel only runs on confirm.
+Files: staff/Appointments.jsx
 ```
 
 ---
@@ -100,11 +101,11 @@ Priority: Medium
 
 ### SUG-STFAPPT-010 — Add Required Field Validation to Book Form
 ```
-Status: PENDING
-Notes: Book Appointment currently allows submitting with all fields empty, creating a "New Patient / — / scheduled" row.
-       Fix: disable submit button until Patient + Date + Time filled, or show validation errors.
-       Fix: disabled={!bookForm.patient || !bookForm.date || !bookForm.time}
-Priority: Medium
+Status: COMPLETED
+Notes: Submit button (Book Appointment / Save Changes) now has
+       disabled={!bookForm.patient || !bookForm.date || !bookForm.time}, matching the fix
+       suggested above. Prevents submitting a blank "New Patient / — / scheduled" row.
+Files: staff/Appointments.jsx
 ```
 
 ### SUG-STFAPPT-011 — Clear Selected When Filters Change
@@ -137,8 +138,8 @@ Priority: Low
 | SUG-STFAPPT-005 | Export CSV | ✅ COMPLETED |
 | SUG-STFAPPT-006 | Empty state message | ✅ COMPLETED |
 | SUG-STFAPPT-007 | "Active · Total" chip | ✅ COMPLETED |
-| SUG-STFAPPT-008 | Bulk cancel confirm dialog | ⏳ PENDING |
+| SUG-STFAPPT-008 | Bulk cancel confirm dialog | ✅ COMPLETED |
 | SUG-STFAPPT-009 | Clear Filters button | ✅ COMPLETED |
-| SUG-STFAPPT-010 | Book form validation | ⏳ PENDING (New) |
+| SUG-STFAPPT-010 | Book form validation | ✅ COMPLETED |
 | SUG-STFAPPT-011 | Clear selected on filter change | ⏳ PENDING (New) |
 | SUG-STFAPPT-012 | MockStore persistence for new appts | ⏳ PENDING (New) |

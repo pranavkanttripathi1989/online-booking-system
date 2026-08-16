@@ -102,10 +102,12 @@ Priority: Low
 
 ### SUG-STAFF-010 — Persist Staff State Across Pages
 ```
-Status: PENDING
-Notes: Newly added staff from /staff/new does not appear in MOCK_STAFF list after navigate('/staff') —
-       MOCK_STAFF is a constant, not global state. Fix: use Context or MockStore.addStaff().
-Priority: Medium
+Status: COMPLETED
+Notes: Added a `staff` collection + getStaff()/getStaffById()/createStaff()/updateStaff() to
+       mocks/store.js. index.jsx, new.jsx and edit.jsx now read via useMockData(store => store.getStaff())
+       and write via useMockMutation(MockStore.createStaff/updateStaff), so staff added on /staff/new
+       (and edits/deactivations from /staff/edit/:id) now persist and reflect immediately on /staff.
+Files: mocks/store.js, staff/index.jsx, staff/new.jsx, staff/edit.jsx
 ```
 
 ---
@@ -123,4 +125,4 @@ Priority: Medium
 | SUG-STAFF-007 | Read-only staff detail page | ⏳ PENDING |
 | SUG-STAFF-008 | Bulk status update | ⏳ PENDING |
 | SUG-STAFF-009 | Phone format validation | ⏳ PENDING (New) |
-| SUG-STAFF-010 | Persist new staff to MockStore | ⏳ PENDING (New) |
+| SUG-STAFF-010 | Persist new staff to MockStore | ✅ COMPLETED |

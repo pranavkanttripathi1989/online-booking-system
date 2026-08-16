@@ -1,10 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import { Helmet } from 'react-helmet-async'
 import {
   Box, Button, Typography, Chip, Grid, Card, CardContent, Stack, Paper,
   Table, TableBody, TableCell, TableHead, TableRow, TextField, InputAdornment,
   MenuItem, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
-  Divider, LinearProgress, Select, FormControl, InputLabel,
+  Divider, LinearProgress, Select, FormControl, InputLabel, TableSortLabel, Skeleton,
 } from '@mui/material'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded'
@@ -145,21 +145,64 @@ export default function TestResultsPage() {
   // SUG-TRES-002: Order Test dialog state
   const [orderOpen, setOrderOpen] = useState(false)
   const [orderForm, setOrderForm] = useState({ patient: '', testType: 'Blood Test' })
+  // SUG-TRES-008: results now live in component state so ordered tests can be appended
+  const [results, setResults] = useState(MOCK_RESULTS)
+  // SUG-TRES-006: simulate an initial network fetch so the loading-skeleton path is real
+  const [loading, setLoading] = useState(true)
+  // SUG-TRES-005: column sorting
+  const [sortField, setSortField] = useState('date_ordered')
+  const [sortDir, setSortDir] = useState('desc')
+
+  useEffect(() => {
+    const t = setTimeout(() => setLoading(false), 500)
+    return () => clearTimeout(t)
+  }, [])
 
   const handleOrderSubmit = () => {
+    // SUG-TRES-008: push the new order into the results list as a 'pending' record
+    const newResult = {
+      id: `TR-${String(results.length + 1).padStart(3, '0')}`,
+      patient: orderForm.patient.trim(),
+      test: orderForm.testType,
+      ordered_by: 'Current User',
+      date_ordered: new Date().toISOString().split('T')[0],
+      date_completed: null,
+      status: 'pending',
+      type: orderForm.testType,
+      values: [],
+    }
+    setResults(prev => [newResult, ...prev])
     setOrderOpen(false)
     setOrderForm({ patient: '', testType: 'Blood Test' })
   }
 
-  const types = ['All', ...new Set(MOCK_RESULTS.map(r => r.type))]
-  const filtered = MOCK_RESULTS.filter(r => {
-    const matchSearch = !search || r.patient.toLowerCase().includes(search.toLowerCase()) || r.test.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase())
-    const matchType = typeFilter === 'All' || r.type === typeFilter
-    const matchStatus = statusFilter === 'All' || r.status === statusFilter
-    return matchSearch && matchType && matchStatus
-  })
+  const handleSort = (field) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('asc') }
+  }
 
-  const counts = { completed: MOCK_RESULTS.filter(r => r.status === 'completed').length, processing: MOCK_RESULTS.filter(r => r.status === 'processing').length, pending: MOCK_RESULTS.filter(r => r.status === 'pending').length }
+  const types = useMemo(() => ['All', ...new Set(results.map(r => r.type))], [results])
+
+  const filtered = useMemo(() => {
+    const list = results.filter(r => {
+      const matchSearch = !search || r.patient.toLowerCase().includes(search.toLowerCase()) || r.test.toLowerCase().includes(search.toLowerCase()) || r.id.toLowerCase().includes(search.toLowerCase())
+      const matchType = typeFilter === 'All' || r.type === typeFilter
+      const matchStatus = statusFilter === 'All' || r.status === statusFilter
+      return matchSearch && matchType && matchStatus
+    })
+    // SUG-TRES-005: sort by the selected column
+    const dir = sortDir === 'asc' ? 1 : -1
+    return [...list].sort((a, b) => {
+      const av = a[sortField] ?? '', bv = b[sortField] ?? ''
+      return String(av).localeCompare(String(bv)) * dir
+    })
+  }, [results, search, typeFilter, statusFilter, sortField, sortDir])
+
+  const counts = useMemo(() => ({
+    completed:  results.filter(r => r.status === 'completed').length,
+    processing: results.filter(r => r.status === 'processing').length,
+    pending:    results.filter(r => r.status === 'pending').length,
+  }), [results])
 
   return (
     <Box className="page-enter" sx={{ pb: 4 }}>
@@ -169,7 +212,7 @@ export default function TestResultsPage() {
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4" fontWeight={800} sx={{ color: '#0D1B2E' }}>Medical Test Results</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{MOCK_RESULTS.length} total results · {counts.pending} pending</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{results.length} total results · {counts.pending} pending</Typography>
         </Box>
         {/* SUG-TRES-002: Order Test wired to dialog */}
         <Button variant="contained" startIcon={<ScienceRoundedIcon />}
@@ -179,8 +222,20 @@ export default function TestResultsPage() {
 
       {/* ── Status KPIs ─────────────────────────────────────────────────── */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
-        {[
-          { label: 'Total Tests', value: MOCK_RESULTS.length, color: '#1565C7', icon: ScienceRoundedIcon },
+        {loading ? (
+          // SUG-TRES-006: loading skeleton for KPI cards
+          [0, 1, 2, 3].map(i => (
+            <Grid item xs={6} md={3} key={i}>
+              <Card sx={{ borderRadius: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
+                <CardContent sx={{ p: '16px !important' }}>
+                  <Skeleton variant="text" width={50} height={40} />
+                  <Skeleton variant="text" width={80} height={18} />
+                </CardContent>
+              </Card>
+            </Grid>
+          ))
+        ) : [
+          { label: 'Total Tests', value: results.length, color: '#1565C7', icon: ScienceRoundedIcon },
           { label: 'Completed', value: counts.completed, color: '#0B7B5C', icon: CheckCircleRoundedIcon },
           { label: 'Processing', value: counts.processing, color: '#D97706', icon: HourglassEmptyRoundedIcon },
           { label: 'Pending', value: counts.pending, color: '#64748B', icon: AccessTimeRoundedIcon },
@@ -231,43 +286,61 @@ export default function TestResultsPage() {
             <TableRow sx={{ '& th': { fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', bgcolor: '#F8FAFC', py: 1.2 } }}>
               <TableCell>ID</TableCell>
               <TableCell>Test</TableCell>
-              <TableCell>Patient</TableCell>
+              {/* SUG-TRES-005: column sorting on Patient, Date Ordered, Status */}
+              <TableCell sortDirection={sortField === 'patient' ? sortDir : false}>
+                <TableSortLabel active={sortField === 'patient'} direction={sortField === 'patient' ? sortDir : 'asc'} onClick={() => handleSort('patient')}>Patient</TableSortLabel>
+              </TableCell>
               <TableCell>Ordered By</TableCell>
-              <TableCell>Date Ordered</TableCell>
+              <TableCell sortDirection={sortField === 'date_ordered' ? sortDir : false}>
+                <TableSortLabel active={sortField === 'date_ordered'} direction={sortField === 'date_ordered' ? sortDir : 'asc'} onClick={() => handleSort('date_ordered')}>Date Ordered</TableSortLabel>
+              </TableCell>
               <TableCell>Completed</TableCell>
-              <TableCell>Status</TableCell>
+              <TableCell sortDirection={sortField === 'status' ? sortDir : false}>
+                <TableSortLabel active={sortField === 'status'} direction={sortField === 'status' ? sortDir : 'asc'} onClick={() => handleSort('status')}>Status</TableSortLabel>
+              </TableCell>
               <TableCell align="right">Action</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {filtered.map((r) => {
-              const s = STATUS_PROPS[r.status] || STATUS_PROPS.pending
-              return (
-                <TableRow key={r.id} hover sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }} onClick={() => setViewResult(r)}>
-                  <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', color: 'primary.main' }}>{r.id}</TableCell>
-                  <TableCell>
-                    <Stack direction="row" spacing={1} alignItems="center">
-                      <Typography sx={{ fontSize: '1.1rem' }}>{TYPE_ICONS[r.type] || '🧪'}</Typography>
-                      <Box>
-                        <Typography variant="body2" fontWeight={700}>{r.test}</Typography>
-                        <Chip label={r.type} size="small" variant="outlined" sx={{ fontSize: '0.68rem', height: 18 }} />
-                      </Box>
-                    </Stack>
-                  </TableCell>
-                  <TableCell sx={{ fontSize: '0.82rem', fontWeight: 600 }}>{r.patient}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{r.ordered_by}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{r.date_ordered}</TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{r.date_completed ?? <Chip label="Pending" size="small" sx={{ fontSize: '0.68rem' }} />}</TableCell>
-                  <TableCell><Chip icon={<s.icon sx={{ fontSize: '0.85rem !important' }} />} label={s.label} color={s.color} size="small" sx={{ fontWeight: 700, fontSize: '0.72rem' }} /></TableCell>
-                  <TableCell align="right" onClick={(e) => { e.stopPropagation(); setViewResult(r) }}>
-                    <Tooltip title="View Result"><IconButton size="small" sx={{ color: 'primary.main' }}><VisibilityRoundedIcon fontSize="small" /></IconButton></Tooltip>
-                  </TableCell>
+            {loading ? (
+              // SUG-TRES-006: loading skeleton for table rows
+              [0, 1, 2, 3].map(i => (
+                <TableRow key={i}>
+                  {Array.from({ length: 8 }).map((_, c) => (
+                    <TableCell key={c}><Skeleton variant="text" /></TableCell>
+                  ))}
                 </TableRow>
-              )
-            })}
-            {filtered.length === 0 && (
-              <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>No test results found</TableCell></TableRow>
-            )}
+              ))
+            ) : <>
+              {filtered.map((r) => {
+                const s = STATUS_PROPS[r.status] || STATUS_PROPS.pending
+                return (
+                  <TableRow key={r.id} hover sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }} onClick={() => setViewResult(r)}>
+                    <TableCell sx={{ fontWeight: 700, fontSize: '0.78rem', color: 'primary.main' }}>{r.id}</TableCell>
+                    <TableCell>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <Typography sx={{ fontSize: '1.1rem' }}>{TYPE_ICONS[r.type] || '🧪'}</Typography>
+                        <Box>
+                          <Typography variant="body2" fontWeight={700}>{r.test}</Typography>
+                          <Chip label={r.type} size="small" variant="outlined" sx={{ fontSize: '0.68rem', height: 18 }} />
+                        </Box>
+                      </Stack>
+                    </TableCell>
+                    <TableCell sx={{ fontSize: '0.82rem', fontWeight: 600 }}>{r.patient}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{r.ordered_by}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{r.date_ordered}</TableCell>
+                    <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{r.date_completed ?? <Chip label="Pending" size="small" sx={{ fontSize: '0.68rem' }} />}</TableCell>
+                    <TableCell><Chip icon={<s.icon sx={{ fontSize: '0.85rem !important' }} />} label={s.label} color={s.color} size="small" sx={{ fontWeight: 700, fontSize: '0.72rem' }} /></TableCell>
+                    <TableCell align="right" onClick={(e) => { e.stopPropagation(); setViewResult(r) }}>
+                      <Tooltip title="View Result"><IconButton size="small" sx={{ color: 'primary.main' }}><VisibilityRoundedIcon fontSize="small" /></IconButton></Tooltip>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+              {filtered.length === 0 && (
+                <TableRow><TableCell colSpan={8} align="center" sx={{ py: 6, color: 'text.secondary' }}>No test results found</TableCell></TableRow>
+              )}
+            </>}
           </TableBody>
         </Table>
       </Paper>

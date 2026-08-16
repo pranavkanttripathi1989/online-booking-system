@@ -7,25 +7,18 @@ import {
 import { setContext } from '@apollo/client/link/context'
 import { onError } from '@apollo/client/link/error'
 
-const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:8000/graphql'
+const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql'
 
-// HTTP link with a 5-second request timeout so offline backends fail fast
-// instead of waiting for the browser's 60-second TCP timeout.
+// A real backend now exists for the Auth domain (see context/phase1-docker-auth-implementation-plan.md);
+// other domains still have no backend and fall back to mocks. 2s was tuned for
+// "no backend at all" and misread real (if slightly slow) network latency as
+// "offline" — 10s gives real requests room to complete while still failing
+// reasonably fast for domains that genuinely have nothing listening.
 const httpLink = createHttpLink({
   uri: GRAPHQL_URL,
-  fetchOptions: {
-    // AbortSignal with 5-second timeout — if backend doesn't respond in 5s,
-    // throw a network error and let the page render with its mock data fallback.
-    signal: (() => {
-      // We create a new AbortController per JS module load, but Apollo
-      // clones fetchOptions per request, so each fetch gets the correct signal.
-      return undefined; // overridden per-request below via fetch
-    })(),
-  },
-  // Custom fetch wrapper that injects a 5-second timeout per request
   fetch: (uri, options) => {
     const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2s max — fail fast so mock data shows immediately
+    const timeoutId = setTimeout(() => controller.abort(), 10000);
     return fetch(uri, { ...options, signal: controller.signal })
       .finally(() => clearTimeout(timeoutId));
   },

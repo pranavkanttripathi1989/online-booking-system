@@ -39,10 +39,23 @@ export default function StaffDashboard() {
 
   // SUG-STFDS-001: Queue as state to support Check In updates
   const [queue, setQueue] = useState(MOCK_QUEUE);
+  // SUG-STFDS-007: track recently-checked-in patients so "Undo" can be offered for 30s
+  const [recentCheckIns, setRecentCheckIns] = useState({});
 
   // SUG-STFDS-001: Check In handler
+  // SUG-STFDS-007: also mark the patient as "recent" so an Undo button appears for 30s
   const handleCheckIn = (name) => {
     setQueue(prev => prev.map(p => p.name === name ? { ...p, status: 'checked-in' } : p));
+    setRecentCheckIns(prev => ({ ...prev, [name]: true }));
+    setTimeout(() => {
+      setRecentCheckIns(prev => { const next = { ...prev }; delete next[name]; return next; });
+    }, 30000);
+  };
+
+  // SUG-STFDS-007: revert an accidental check-in back to "scheduled"
+  const handleUndoCheckIn = (name) => {
+    setQueue(prev => prev.map(p => p.name === name ? { ...p, status: 'scheduled' } : p));
+    setRecentCheckIns(prev => { const next = { ...prev }; delete next[name]; return next; });
   };
 
   // SUG-STFDS-002: Derive checked-in count from queue state
@@ -119,6 +132,10 @@ export default function StaffDashboard() {
                     {/* SUG-STFDS-001: Check In button wired to handleCheckIn */}
                     {p.status === 'scheduled' && (
                       <Button size="small" variant="outlined" onClick={() => handleCheckIn(p.name)}>Check In</Button>
+                    )}
+                    {/* SUG-STFDS-007: Undo Check In — available for 30s after check-in */}
+                    {p.status === 'checked-in' && recentCheckIns[p.name] && (
+                      <Button size="small" color="warning" onClick={() => handleUndoCheckIn(p.name)}>Undo</Button>
                     )}
                   </Paper>
                 ))}

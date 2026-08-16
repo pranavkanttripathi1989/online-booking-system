@@ -97,16 +97,23 @@ Priority: Low
 
 ### SUG-PTDASH-011 — Reschedule Query Param UI in Appointments
 ```
-Status: PENDING
-Notes: /patient/appointments?reschedule=:id has no handler in Appointments.jsx.
-       Full reschedule flow deferred to backend milestone.
+Status: DONE
+Notes: Appointments.jsx now reads the `reschedule` search param on mount (useSearchParams),
+       looks up the matching appointment, opens the new RescheduleDialog pre-filled with
+       its current date/time, highlights the card, and clears the param afterwards. Also
+       added a standalone "Reschedule" button on each upcoming AppointmentCard (companion
+       to SUG-PTAPPT-011) since the flow needed a dialog either way.
+Files: Appointments.jsx
 Priority: Medium
 ```
 
 ### SUG-PTDASH-012 — Optimistic Cancel in Mock Mode
 ```
-Status: PENDING
-Notes: Cancel logs id but doesn't remove card. Could filter MOCK_UPCOMING from useState.
+Status: DONE
+Notes: Dashboard.jsx: added cancelledIds Set state; handleCancelConfirm() adds the id
+       instead of just console.log-ing, and upcomingAppointments filters out cancelled
+       ids — the card disappears immediately in mock mode.
+Files: Dashboard.jsx
 Priority: Medium
 ```
 
@@ -132,8 +139,8 @@ Files: App.jsx
 | SUG-PTDASH-006 | Dynamic greeting | ✅ COMPLETED |
 | SUG-PTDASH-007 | Notification client slice | ✅ COMPLETED |
 | SUG-PTDASH-008 | Apollo error alert | ✅ COMPLETED |
-| SUG-PTDASH-009 | Email hash for Gravatar | ⏳ PENDING |
+| SUG-PTDASH-009 | Email hash for Gravatar | ⏳ PENDING (Low — out of scope) |
 | SUG-PTDASH-010 | View all sidebar links | ✅ COMPLETED |
-| SUG-PTDASH-011 | Reschedule param UI | ⏳ PENDING |
-| SUG-PTDASH-012 | Optimistic cancel mock | ⏳ PENDING |
+| SUG-PTDASH-011 | Reschedule param UI | ✅ DONE |
+| SUG-PTDASH-012 | Optimistic cancel mock | ✅ DONE |
 | SUG-PTDASH-013 | Receipt route redirect | ✅ COMPLETED |

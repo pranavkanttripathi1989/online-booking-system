@@ -117,7 +117,7 @@ function TabPanel(props) {
   );
 }
 
-export default function ServiceCatalog() {
+function ServiceCatalog() {
   const { user } = useAuth();
   const navigate = useNavigate();
   
@@ -142,6 +142,11 @@ export default function ServiceCatalog() {
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deletingProductId, setDeletingProductId] = useState(null);
   const [deletingProductName, setDeletingProductName] = useState('');
+
+  // SUG-SVC-002 / SUG-SVC-005 (older file) — "Add Category" dialog
+  const [categoryDialogOpen, setCategoryDialogOpen] = useState(false);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [localCategories, setLocalCategories] = useState([]); // categories added offline (no backend mutation available)
 
   // Assuming manager is linked to a clinic we can get. For now, defaulting to "1".
   const clinicId = user?.clinicId || "1"; 
@@ -251,6 +256,23 @@ export default function ServiceCatalog() {
     }
   };
 
+  // SUG-SVC-002 / SUG-SVC-005 (older file) — add a category (local only; no CREATE_CATEGORY mutation exists)
+  const handleAddCategory = () => {
+    const name = newCategoryName.trim();
+    if (!name) return;
+    setLocalCategories(prev => [...prev, { id: `local-cat-${Date.now()}`, name, products: [], subcategories: [] }]);
+    setNewCategoryName('');
+    setCategoryDialogOpen(false);
+  };
+
+  // SUG-SVC-006 (older file) — remove a cancellation rule from the local dialog state
+  const handleDeleteRule = (ruleId) => {
+    setEditProduct(prev => ({
+      ...prev,
+      cancellation_rules: (prev.cancellation_rules || []).filter(r => r.id !== ruleId),
+    }));
+  };
+
   const handleSaveVariantUI = (idx, field, value) => {
     const newVars = [...variations];
     newVars[idx][field] = value;
@@ -291,7 +313,8 @@ export default function ServiceCatalog() {
   const isMock = !!error || (!loading && !data);
 
   // override derived arrays when backend is offline
-  const displayCategories = isMock ? MOCK_CATEGORIES_DATA : categories;
+  // SUG-SVC-002 — locally-added categories (no CREATE_CATEGORY mutation exists yet) are appended either way
+  const displayCategories = [...(isMock ? MOCK_CATEGORIES_DATA : categories), ...localCategories];
   let displayProducts = isMock ? MOCK_SERVICES_DATA : products;
   if (searchQuery) {
     displayProducts = displayProducts.filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()) || (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase())));
@@ -369,7 +392,8 @@ export default function ServiceCatalog() {
             ))}
           </List>
 
-          <Button startIcon={<Add />} fullWidth size="small" variant="outlined" sx={{ mt: 3, borderStyle: 'dashed' }}>
+          {/* SUG-SVC-002 / SUG-SVC-005 (older file) — Add Category now opens a dialog */}
+          <Button startIcon={<Add />} fullWidth size="small" variant="outlined" sx={{ mt: 3, borderStyle: 'dashed' }} onClick={() => setCategoryDialogOpen(true)}>
             Add Category
           </Button>
         </Paper>
@@ -586,7 +610,8 @@ export default function ServiceCatalog() {
                     primary={<Typography fontWeight={600} textTransform="capitalize">{rule.ruleType} Rule</Typography>} 
                     secondary={`${rule.feeType === 'percentage' ? rule.feeAmount + '%' : '£'+rule.feeAmount} Fee if modified within ${rule.hoursBeforeAppointment} hours`} 
                   />
-                  <IconButton size="small" color="error"><Delete fontSize="small" /></IconButton>
+                  {/* SUG-SVC-006 (older file) — delete icon now wired */}
+                  <IconButton size="small" color="error" aria-label={`Delete ${rule.ruleType} rule`} onClick={() => handleDeleteRule(rule.id)}><Delete fontSize="small" /></IconButton>
                 </ListItemButton>
               )) : (
                 <Box p={3} textAlign="center"><Typography variant="body2" color="text.secondary">No rules defined. System defaults will apply.</Typography></Box>
@@ -641,6 +666,26 @@ export default function ServiceCatalog() {
         <DialogActions sx={{ p: 2, gap: 1 }}>
           <Button onClick={() => setRuleDialogOpen(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
           <Button variant="contained" onClick={handleSaveRule} disabled={!newRule.feeAmount || !newRule.hoursBeforeAppointment} sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>Add Rule</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* SUG-SVC-002 / SUG-SVC-005 (older file): Add Category dialog */}
+      <Dialog open={categoryDialogOpen} onClose={() => setCategoryDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Add Category</DialogTitle>
+        <DialogContent>
+          <TextField
+            autoFocus fullWidth margin="dense"
+            label="Category Name"
+            value={newCategoryName}
+            onChange={e => setNewCategoryName(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter') handleAddCategory(); }}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2, gap: 1 }}>
+          <Button onClick={() => setCategoryDialogOpen(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
+          <Button variant="contained" disabled={!newCategoryName.trim()} onClick={handleAddCategory} sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>
+            Add Category
+          </Button>
         </DialogActions>
       </Dialog>
 

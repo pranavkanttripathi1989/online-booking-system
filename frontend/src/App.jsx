@@ -13,6 +13,7 @@ import AuthLayout     from './layouts/AuthLayout'
 const Login              = lazy(() => import('./pages/auth/login'))
 const LoginPage          = lazy(() => import('./pages/auth/login-legacy'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password'))
+const OnboardingWizard   = lazy(() => import('./pages/onboarding/index'))
 
 // ─── Public ───────────────────────────────────────────────────────────────────
 const Landing       = lazy(() => import('./pages/public/landing'))
@@ -158,6 +159,9 @@ function App() {
         } />
         <Route path="/forgot-password" element={
           <Suspense fallback={<FullPageLoader />}><ForgotPasswordPage /></Suspense>
+        } />
+        <Route path="/get-started" element={
+          <Suspense fallback={<FullPageLoader />}><OnboardingWizard /></Suspense>
         } />
       </Route>
 

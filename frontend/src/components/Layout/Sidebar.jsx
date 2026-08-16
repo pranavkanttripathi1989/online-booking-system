@@ -10,6 +10,7 @@ import {
   MedicalServicesRounded, GroupRounded, SettingsRounded, LogoutRounded,
   LocalHospital, MessageRounded, StarRounded, AccountBalanceWalletRounded,
   WarningRounded, ScienceRounded, BadgeRounded, BarChartRounded, AccessTimeRounded,
+  ChevronLeftRounded, ChevronRightRounded,
 } from '@mui/icons-material'
 
 import { useAuth } from '../../context/AuthContext'
@@ -18,6 +19,8 @@ import * as MockStore from '../../mocks/store'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 export const DRAWER_WIDTH = 256
+// SUG-NAV-005: collapsed icon-rail width (desktop only)
+export const COLLAPSED_DRAWER_WIDTH = 76
 
 // NEW-AUTH-001: Format the stored login timestamp as a relative string
 function getLastLoginText() {
@@ -72,7 +75,9 @@ const NAV_SECTIONS = [
 ]
 
 // ─── Sidebar Content ──────────────────────────────────────────────────────────
-function SidebarContent({ onClose }) {
+// SUG-NAV-005: `collapsed` renders an icon-only rail (desktop permanent drawer
+// only — `onToggleCollapse` is omitted for the mobile temporary drawer).
+function SidebarContent({ onClose, collapsed = false, onToggleCollapse }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const client = useApolloClient()
@@ -98,7 +103,8 @@ function SidebarContent({ onClose }) {
 
       {/* ── Logo ─────────────────────────────────────────────────────────── */}
       <Box sx={{
-        px: 2.5, display: 'flex', alignItems: 'center', gap: 1.5,
+        px: collapsed ? 1.5 : 2.5, display: 'flex', alignItems: 'center', gap: 1.5,
+        justifyContent: collapsed ? 'center' : 'flex-start',
         borderBottom: '1px solid rgba(255,255,255,0.06)',
         minHeight: { xs: 68, md: 64 },
         py: 2,
@@ -111,35 +117,58 @@ function SidebarContent({ onClose }) {
         }}>
           <LocalHospital sx={{ color: '#fff', fontSize: 22 }} />
         </Box>
-        <Box>
-          <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#fff', lineHeight: 1.1, letterSpacing: '-0.4px' }}>
-            Medi<span style={{ color: '#00A8B5' }}>Book</span>
-          </Typography>
-          <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.35)', lineHeight: 1, display: 'block', fontSize: '0.68rem', fontWeight: 500 }}>
-            {user?.clinician?.clinician_type?.name ?? 'Medical Platform'}
-          </Typography>
-        </Box>
+        {!collapsed && (
+          <Box sx={{ minWidth: 0, flex: 1 }}>
+            <Typography variant="subtitle1" fontWeight={800} noWrap sx={{ color: '#fff', lineHeight: 1.1, letterSpacing: '-0.4px' }}>
+              Medi<span style={{ color: '#00A8B5' }}>Book</span>
+            </Typography>
+            <Typography variant="caption" noWrap sx={{ color: 'rgba(255,255,255,0.35)', lineHeight: 1, display: 'block', fontSize: '0.68rem', fontWeight: 500 }}>
+              {user?.clinician?.clinician_type?.name ?? 'Medical Platform'}
+            </Typography>
+          </Box>
+        )}
+        {/* SUG-NAV-005: collapse/expand trigger — desktop permanent drawer only */}
+        {onToggleCollapse && !collapsed && (
+          <Tooltip title="Collapse sidebar" placement="right">
+            <IconButton size="small" onClick={onToggleCollapse} sx={{ color: 'rgba(255,255,255,0.45)', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' } }}>
+              <ChevronLeftRounded fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        )}
       </Box>
 
-      {/* ── Emergency button ─────────────────────────────────────────────── */}
-      <Box sx={{ px: 2, pt: 2 }}>
-        <Box
-          component="a"
-          href="tel:911"
-          className="emergency-pulse"
-          sx={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
-            bgcolor: '#D93025', color: '#fff', borderRadius: 2.5,
-            py: 1, px: 2, textDecoration: 'none', cursor: 'pointer',
-            fontFamily: "'Plus Jakarta Sans', sans-serif",
-            fontWeight: 700, fontSize: '0.8rem',
-            transition: 'opacity 0.15s',
-            '&:hover': { opacity: 0.9 },
-          }}
-        >
-          <WarningRounded sx={{ fontSize: '1rem' }} />
-          Emergency — 911
+      {/* SUG-NAV-005: re-expand trigger, shown centered under the logo while collapsed */}
+      {onToggleCollapse && collapsed && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 1, borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
+          <Tooltip title="Expand sidebar" placement="right">
+            <IconButton size="small" onClick={onToggleCollapse} sx={{ color: 'rgba(255,255,255,0.45)', '&:hover': { color: '#fff', bgcolor: 'rgba(255,255,255,0.08)' } }}>
+              <ChevronRightRounded fontSize="small" />
+            </IconButton>
+          </Tooltip>
         </Box>
+      )}
+
+      {/* ── Emergency button ─────────────────────────────────────────────── */}
+      <Box sx={{ px: collapsed ? 1 : 2, pt: 2 }}>
+        <Tooltip title={collapsed ? 'Emergency — 911' : ''} placement="right">
+          <Box
+            component="a"
+            href="tel:911"
+            className="emergency-pulse"
+            sx={{
+              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1,
+              bgcolor: '#D93025', color: '#fff', borderRadius: 2.5,
+              py: 1, px: collapsed ? 1 : 2, textDecoration: 'none', cursor: 'pointer',
+              fontFamily: "'Plus Jakarta Sans', sans-serif",
+              fontWeight: 700, fontSize: '0.8rem',
+              transition: 'opacity 0.15s',
+              '&:hover': { opacity: 0.9 },
+            }}
+          >
+            <WarningRounded sx={{ fontSize: '1rem' }} />
+            {!collapsed && 'Emergency — 911'}
+          </Box>
+        </Tooltip>
       </Box>
 
       {/* ── Nav Sections ──────────────────────────────────────────────────── */}
@@ -149,17 +178,20 @@ function SidebarContent({ onClose }) {
           if (!visible.length) return null
           return (
             <Box key={section.label} sx={{ mb: 1 }}>
-              <Typography variant="overline" sx={{
-                px: 2.5, display: 'block', mb: 0.5,
-                color: 'rgba(255,255,255,0.28)',
-                fontSize: '0.62rem', letterSpacing: '0.14em',
-              }}>
-                {section.label}
-              </Typography>
+              {!collapsed && (
+                <Typography variant="overline" sx={{
+                  px: 2.5, display: 'block', mb: 0.5,
+                  color: 'rgba(255,255,255,0.28)',
+                  fontSize: '0.62rem', letterSpacing: '0.14em',
+                }}>
+                  {section.label}
+                </Typography>
+              )}
               <List disablePadding sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
                 {visible.map((item) => {
                   const active = isActive(item.path)
-                  return (
+                  const badgeVal = item.badge ?? (item.badgeDynamic === 'pending' ? (pendingCount > 0 ? pendingCount : null) : null)
+                  const button = (
                     <ListItemButton
                       key={item.path}
                       selected={active}
@@ -167,7 +199,8 @@ function SidebarContent({ onClose }) {
                       sx={{
                         borderRadius: '10px',
                         py: { xs: 1.4, md: 1.1 },
-                        px: { xs: 1.8, md: 1.5 },
+                        px: collapsed ? 0 : { xs: 1.8, md: 1.5 },
+                        justifyContent: collapsed ? 'center' : 'flex-start',
                         mx: 1,
                         position: 'relative',
                         color: active ? '#fff' : 'rgba(255,255,255,0.60)',
@@ -193,33 +226,40 @@ function SidebarContent({ onClose }) {
                       }}
                     >
                       <ListItemIcon sx={{
-                        minWidth: 36,
+                        minWidth: collapsed ? 'unset' : 36,
                         color: active ? '#fff' : 'rgba(255,255,255,0.40)',
                         '& .MuiSvgIcon-root': { fontSize: { xs: '1.3rem', md: '1.15rem' } },
                         transition: 'color 0.15s',
                       }}>
                         {item.icon}
                       </ListItemIcon>
-                      <ListItemText
-                        primary={item.label}
-                        primaryTypographyProps={{
-                          fontSize: { xs: '0.9rem', md: '0.865rem' },
-                          fontWeight: active ? 700 : 500,
-                          color: 'inherit',
-                        }}
-                      />
+                      {!collapsed && (
+                        <ListItemText
+                          primary={item.label}
+                          primaryTypographyProps={{
+                            fontSize: { xs: '0.9rem', md: '0.865rem' },
+                            fontWeight: active ? 700 : 500,
+                            color: 'inherit',
+                          }}
+                        />
+                      )}
                       {/* static badge or dynamic pending count (SUG-APPT-007) */}
-                      {(() => {
-                        const badgeVal = item.badge ?? (item.badgeDynamic === 'pending' ? (pendingCount > 0 ? pendingCount : null) : null)
-                        if (!badgeVal) return null
-                        return (
-                          <Box sx={{ bgcolor: '#F9AB00', color: '#000', borderRadius: '10px', px: 1, py: 0.2, fontSize: '0.6rem', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>
-                            {badgeVal}
-                          </Box>
-                        )
-                      })()}
+                      {badgeVal != null && !collapsed && (
+                        <Box sx={{ bgcolor: '#F9AB00', color: '#000', borderRadius: '10px', px: 1, py: 0.2, fontSize: '0.6rem', fontWeight: 700, minWidth: 20, textAlign: 'center' }}>
+                          {badgeVal}
+                        </Box>
+                      )}
+                      {/* collapsed: small dot badge instead of the full pill */}
+                      {badgeVal != null && collapsed && (
+                        <Box sx={{ position: 'absolute', top: 6, right: 14, width: 8, height: 8, borderRadius: '50%', bgcolor: '#F9AB00' }} />
+                      )}
                     </ListItemButton>
                   )
+                  return collapsed ? (
+                    <Tooltip key={item.path} title={item.label} placement="right">
+                      {button}
+                    </Tooltip>
+                  ) : button
                 })}
               </List>
             </Box>
@@ -230,39 +270,43 @@ function SidebarContent({ onClose }) {
       <Divider sx={{ borderColor: 'rgba(255,255,255,0.06)' }} />
 
       {/* ── User Footer ──────────────────────────────────────────────────── */}
-      <Box sx={{ px: 2, py: 2 }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-          <Box sx={{ position: 'relative', flexShrink: 0 }}>
-            <Avatar sx={{
-              width: 36, height: 36,
-              background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
-              fontSize: '0.8rem', fontWeight: 700,
-              boxShadow: '0 2px 10px rgba(0,109,119,0.30)',
-            }}>
-              {initials}
-            </Avatar>
-            <Box sx={{ position: 'absolute', bottom: 0, right: 0, width: 9, height: 9, borderRadius: '50%', bgcolor: '#0F9D58', border: '2px solid #202124' }} />
-          </Box>
-          <Box sx={{ flex: 1, minWidth: 0 }}>
-            <Typography variant="body2" fontWeight={700} sx={{ color: '#fff', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.83rem' }}>
-              {displayName}
-            </Typography>
-            <Chip
-              label={primaryRole.replace('_', ' ')}
-              size="small"
-              sx={{ mt: 0.3, height: 17, fontSize: '0.6rem', fontWeight: 700, bgcolor: alpha('#006D77', 0.20), color: '#7ECACA', textTransform: 'capitalize', border: 'none', '& .MuiChip-label': { px: 0.8 } }}
-            />
-            {/* NEW-AUTH-001: Last signed in */}
-            {getLastLoginText() && (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.4 }}>
-                <AccessTimeRounded sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)' }} />
-                <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.25)', lineHeight: 1 }}>
-                  {getLastLoginText()}
-                </Typography>
-              </Box>
-            )}
-          </Box>
-          <Tooltip title="Logout" placement="top">
+      <Box sx={{ px: collapsed ? 1 : 2, py: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexDirection: collapsed ? 'column' : 'row' }}>
+          <Tooltip title={collapsed ? displayName : ''} placement="right">
+            <Box sx={{ position: 'relative', flexShrink: 0 }}>
+              <Avatar sx={{
+                width: 36, height: 36,
+                background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
+                fontSize: '0.8rem', fontWeight: 700,
+                boxShadow: '0 2px 10px rgba(0,109,119,0.30)',
+              }}>
+                {initials}
+              </Avatar>
+              <Box sx={{ position: 'absolute', bottom: 0, right: 0, width: 9, height: 9, borderRadius: '50%', bgcolor: '#0F9D58', border: '2px solid #202124' }} />
+            </Box>
+          </Tooltip>
+          {!collapsed && (
+            <Box sx={{ flex: 1, minWidth: 0 }}>
+              <Typography variant="body2" fontWeight={700} sx={{ color: '#fff', lineHeight: 1.3, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontSize: '0.83rem' }}>
+                {displayName}
+              </Typography>
+              <Chip
+                label={primaryRole.replace('_', ' ')}
+                size="small"
+                sx={{ mt: 0.3, height: 17, fontSize: '0.6rem', fontWeight: 700, bgcolor: alpha('#006D77', 0.20), color: '#7ECACA', textTransform: 'capitalize', border: 'none', '& .MuiChip-label': { px: 0.8 } }}
+              />
+              {/* NEW-AUTH-001: Last signed in */}
+              {getLastLoginText() && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.4, mt: 0.4 }}>
+                  <AccessTimeRounded sx={{ fontSize: '0.65rem', color: 'rgba(255,255,255,0.25)' }} />
+                  <Typography variant="caption" sx={{ fontSize: '0.6rem', color: 'rgba(255,255,255,0.25)', lineHeight: 1 }}>
+                    {getLastLoginText()}
+                  </Typography>
+                </Box>
+              )}
+            </Box>
+          )}
+          <Tooltip title="Logout" placement="right">
             <IconButton size="small" onClick={handleLogout} sx={{ color: 'rgba(255,255,255,0.35)', width: 30, height: 30, '&:hover': { color: '#D93025', bgcolor: alpha('#D93025', 0.15) }, transition: 'all 0.15s ease' }}>
               <LogoutRounded sx={{ fontSize: '1rem' }} />
             </IconButton>
@@ -274,23 +318,39 @@ function SidebarContent({ onClose }) {
 }
 
 // ─── Sidebar ─────────────────────────────────────────────────────────────────
-export default function Sidebar({ mobileOpen, onMobileClose }) {
-  const drawerSx = {
+// SUG-NAV-005: `collapsed`/`onToggleCollapse` control the desktop icon-rail
+// mode. The mobile temporary drawer always renders expanded — collapsing a
+// full-screen overlay drawer isn't meaningful.
+export default function Sidebar({ mobileOpen, onMobileClose, collapsed = false, onToggleCollapse }) {
+  const mobileDrawerSx = {
     width: DRAWER_WIDTH, flexShrink: 0,
     '& .MuiDrawer-paper': {
-      width: { xs: 280, md: DRAWER_WIDTH },
+      width: 280,
       boxSizing: 'border-box',
       bgcolor: '#202124',
       borderRight: 'none',
     },
   }
+  const desktopWidth = collapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH
+  const desktopDrawerSx = {
+    width: desktopWidth, flexShrink: 0,
+    '& .MuiDrawer-paper': {
+      width: desktopWidth,
+      boxSizing: 'border-box',
+      bgcolor: '#202124',
+      borderRight: 'none',
+      overflowX: 'hidden',
+      transition: 'width 0.2s ease',
+    },
+    transition: 'width 0.2s ease',
+  }
   return (
     <>
-      <Drawer variant="temporary" open={mobileOpen} onClose={onMobileClose} ModalProps={{ keepMounted: true }} sx={{ display: { xs: 'block', md: 'none' }, ...drawerSx }}>
+      <Drawer variant="temporary" open={mobileOpen} onClose={onMobileClose} ModalProps={{ keepMounted: true }} sx={{ display: { xs: 'block', md: 'none' }, ...mobileDrawerSx }}>
         <SidebarContent onClose={onMobileClose} />
       </Drawer>
-      <Drawer variant="permanent" sx={{ display: { xs: 'none', md: 'block' }, ...drawerSx }} open>
-        <SidebarContent />
+      <Drawer variant="permanent" sx={{ display: { xs: 'none', md: 'block' }, ...desktopDrawerSx }} open>
+        <SidebarContent collapsed={collapsed} onToggleCollapse={onToggleCollapse} />
       </Drawer>
     </>
   )

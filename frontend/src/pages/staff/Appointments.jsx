@@ -32,6 +32,7 @@ export default function StaffAppointments() {
   const [bookOpen, setBookOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
   const [editTarget, setEditTarget] = useState(null); // SUG-STFAPPT-003
+  const [bulkCancelConfirmOpen, setBulkCancelConfirmOpen] = useState(false); // SUG-STFAPPT-008
 
   // SUG-STFAPPT-002: Book form controlled state
   const [bookForm, setBookForm] = useState({ patient: '', clinician: '', date: '', time: '', service: '', reason: '', clinic: '', room: '', duration: 30 });
@@ -62,9 +63,11 @@ export default function StaffAppointments() {
   };
 
   // SUG-STFAPPT-004: Bulk cancel handler
+  // SUG-STFAPPT-008: now invoked only after ConfirmDialog confirmation
   const handleBulkCancel = () => {
     setAppointments(prev => prev.map(a => selected.includes(a.id) ? { ...a, status: 'cancelled' } : a));
     setSelected([]);
+    setBulkCancelConfirmOpen(false);
   };
 
   // SUG-STFAPPT-005: CSV export
@@ -185,8 +188,8 @@ export default function StaffAppointments() {
       {selected.length > 0 && (
         <Paper sx={{ p: 1.5, mb: 2, bgcolor: '#E8F8F9', border: '1px solid #83C5BE', display: 'flex', alignItems: 'center', gap: 2 }}>
           <Typography variant="body2" fontWeight={700}>{selected.length} selected</Typography>
-          {/* SUG-STFAPPT-004: Bulk cancel wired */}
-          <Button size="small" color="error" variant="outlined" onClick={handleBulkCancel}>Cancel Selected</Button>
+          {/* SUG-STFAPPT-004/008: Bulk cancel now opens a confirmation dialog first */}
+          <Button size="small" color="error" variant="outlined" onClick={() => setBulkCancelConfirmOpen(true)}>Cancel Selected</Button>
           {/* SUG-STFAPPT-005: Bulk export wired */}
           <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={() => handleExportCSV(appointments.filter(a => selected.includes(a.id)))}>Export</Button>
         </Paper>
@@ -335,7 +338,14 @@ export default function StaffAppointments() {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => { setBookOpen(false); resetBook(); }}>Cancel</Button>
-          <Button variant="contained" onClick={handleBookSubmit}>{editTarget ? 'Save Changes' : 'Book Appointment'}</Button>
+          {/* SUG-STFAPPT-010: disabled until Patient + Date + Time are filled */}
+          <Button
+            variant="contained"
+            onClick={handleBookSubmit}
+            disabled={!bookForm.patient || !bookForm.date || !bookForm.time}
+          >
+            {editTarget ? 'Save Changes' : 'Book Appointment'}
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -347,6 +357,17 @@ export default function StaffAppointments() {
         title="Cancel Appointment"
         message="Are you sure you want to cancel this appointment? The patient will be notified."
         confirmLabel="Cancel Appointment"
+        confirmColor="error"
+      />
+
+      {/* SUG-STFAPPT-008: Bulk cancel confirmation */}
+      <ConfirmDialog
+        open={bulkCancelConfirmOpen}
+        onClose={() => setBulkCancelConfirmOpen(false)}
+        onConfirm={handleBulkCancel}
+        title="Cancel Appointments"
+        message={`Cancel ${selected.length} appointment(s)? All selected patients will be notified.`}
+        confirmLabel="Cancel Appointments"
         confirmColor="error"
       />
     </Box>

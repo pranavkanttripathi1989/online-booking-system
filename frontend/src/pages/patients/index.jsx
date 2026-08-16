@@ -148,7 +148,9 @@ export default function PatientsPage() {
   // Client-side filters for mock mode
   const patients = useMock
     ? allPatients.filter(p => {
-        const matchSearch = !debouncedSearch || p.full_name.toLowerCase().includes(debouncedSearch.toLowerCase()) || p.email.toLowerCase().includes(debouncedSearch.toLowerCase())
+        const q = debouncedSearch.toLowerCase()
+        // SUG-PAT-009: search also matches phone (name + email already matched)
+        const matchSearch = !debouncedSearch || p.full_name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || (p.phone ?? '').toLowerCase().replace(/[\s-]/g, '').includes(q.replace(/[\s-]/g, ''))
         const matchLetter = !activeLetter || p.full_name.toUpperCase().startsWith(activeLetter)
         const matchGender = genderFilter === 'all' || p.gender === genderFilter
         return matchSearch && matchLetter && matchGender
@@ -260,7 +262,21 @@ export default function PatientsPage() {
                     </TableRow>
                   ))
                 : patients.map((p) => (
-                    <TableRow key={p.id} hover onClick={() => navigate(`/patients/${p.id}`)} sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, '&:hover': { bgcolor: '#F1F3F4' } }}>
+                    <TableRow
+                      key={p.id} hover
+                      onClick={() => navigate(`/patients/${p.id}`)}
+                      // SUG-PT-012: keyboard navigation for rows
+                      tabIndex={0}
+                      role="button"
+                      aria-label={`View patient ${p.full_name}`}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          navigate(`/patients/${p.id}`)
+                        }
+                      }}
+                      sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, '&:hover': { bgcolor: '#F1F3F4' }, '&:focus-visible': { outline: '2px solid #1A73E8', outlineOffset: '-2px' } }}
+                    >
                       <TableCell>
                         <Stack direction="row" spacing={1.5} alignItems="center">
                           <Avatar sx={{ width: 34, height: 34, bgcolor: '#E8F0FE', color: '#1A73E8', fontSize: 14, fontWeight: 700 }}>{p.full_name?.[0] ?? 'P'}</Avatar>

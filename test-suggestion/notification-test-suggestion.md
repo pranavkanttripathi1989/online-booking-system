@@ -39,19 +39,26 @@ Files: NotificationPanel.jsx
 
 ### SUG-NOTIF-001 — Persist notifications across sessions
 ```
-Status: PENDING
-Notes: Both components use local useState with INITIAL_NOTIFS — resets on every page load/refresh.
-       Should sync with MockStore or backend to persist read/dismiss state.
-Priority: HIGH
+Status: COMPLETED
+Notes: Added _widgetNotifications store + getWidgetNotifications/markWidgetNotificationRead/
+       markAllWidgetNotificationsRead/dismissWidgetNotification to mocks/store.js. Both
+       components now read via useMockData(store => store.getWidgetNotifications()) and
+       mutate via useMockMutation, so read/dismiss state survives remounts for the session
+       instead of resetting from a local INITIAL_NOTIFS/INITIAL_NOTIFICATIONS array.
+Files: mocks/store.js, NotificationBell.jsx, NotificationPanel.jsx
 ```
 
 ### SUG-NOTIF-002 — Sync unread count between NotificationBell and NotificationPanel
 ```
-Status: PENDING
-Notes: NotificationBell and NotificationPanel maintain SEPARATE notification state arrays.
-       Marking read in the popover does not update the full-panel (and vice versa).
-       Should share a single source of truth (MockStore or React context).
-Priority: HIGH
+Status: COMPLETED
+Notes: Both widgets now subscribe to the same MockStore-backed list (see SUG-NOTIF-001),
+       so marking read/dismissing in one immediately reflects in the other via the store's
+       notify()/subscribe() mechanism. NotificationBell's icon taxonomy was aligned to
+       NotificationPanel's TYPE_CONFIG keys (appointment/patient/review/result/system) since
+       they now render the same underlying records. Also fixed a duplicate `export default`
+       in NotificationPanel.jsx (invalid JS — two default exports in one module) discovered
+       while wiring this up.
+Files: mocks/store.js, NotificationBell.jsx, NotificationPanel.jsx
 ```
 
 ### SUG-NOTIF-003 — NotificationPanel: "Notification Settings" should navigate to settings
@@ -94,8 +101,8 @@ Priority: LOW
 | BUG-NOTIF-001 | aria-labels on panel buttons | ✅ COMPLETED |
 | BUG-NOTIF-002 | View All Notifications onClick | ✅ COMPLETED |
 | BUG-NOTIF-003 | ErrorBoundary on panel | ✅ COMPLETED |
-| SUG-NOTIF-001 | Persist notifications across sessions | ⏳ PENDING |
-| SUG-NOTIF-002 | Sync state between Bell and Panel | ⏳ PENDING |
+| SUG-NOTIF-001 | Persist notifications across sessions | ✅ COMPLETED |
+| SUG-NOTIF-002 | Sync state between Bell and Panel | ✅ COMPLETED |
 | SUG-NOTIF-003 | Notification Settings navigation | ⏳ PENDING |
 | SUG-NOTIF-004 | Clear all button | ⏳ PENDING |
 | SUG-NOTIF-005 | Mobile swipe-to-dismiss | ⏳ PENDING |

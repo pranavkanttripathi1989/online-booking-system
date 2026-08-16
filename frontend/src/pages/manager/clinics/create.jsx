@@ -28,8 +28,11 @@ export default function CreateClinicPage() {
   })
 
   const set = (f) => (e) => setForm(p => ({ ...p, [f]: e.target.value }))
+  // SUG-CLI-006 / SUG-CLI-003 (older file) — email format validation
   const validate = () => {
-    const e = {}; if (!form.name.trim()) e.name = 'Required'
+    const e = {}
+    if (!form.name.trim()) e.name = 'Required'
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format'
     setErrors(e); return !Object.keys(e).length
   }
   const handleSubmit = () => {
@@ -71,7 +74,7 @@ export default function CreateClinicPage() {
               <Grid item xs={12} sm={6}><TextField fullWidth label="City" value={form.city} onChange={set('city')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Postcode" value={form.postcode} onChange={set('postcode')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Phone" value={form.phone} onChange={set('phone')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Email" type="email" value={form.email} onChange={set('email')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Email" type="email" value={form.email} onChange={set('email')} error={!!errors.email} helperText={errors.email} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}>
                 <TextField select fullWidth label="Timezone" value={form.timezone} onChange={set('timezone')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }}>
                   {TIMEZONES.map(tz => <MenuItem key={tz} value={tz}>{tz}</MenuItem>)}

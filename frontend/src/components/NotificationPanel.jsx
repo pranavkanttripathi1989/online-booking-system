@@ -16,17 +16,13 @@ import AnnouncementRoundedIcon from '@mui/icons-material/AnnouncementRounded'
 import NotificationsNoneRoundedIcon from '@mui/icons-material/NotificationsNoneRounded'
 import { useNavigate } from 'react-router-dom'
 import ErrorBoundary from '../components/ErrorBoundary'
+import { useMockData, useMockMutation } from '../mocks/useMockData'
+import * as MockStore from '../mocks/store'
 
-// ─── Mock notifications ────────────────────────────────────────────────────────
-const INITIAL_NOTIFS = [
-  { id: 1, type: 'appointment', unread: true,  title: 'New Appointment Booked',    body: 'Alice Johnson booked General Consultation for Mon 16 Mar at 09:00.',  time: '2 min ago',  action: '/appointments' },
-  { id: 2, type: 'patient',     unread: true,  title: 'New Patient Registered',     body: 'Frank Miller just signed up for a patient account.',                   time: '18 min ago', action: '/patients' },
-  { id: 3, type: 'review',      unread: true,  title: 'New Review Received',        body: 'Dr. Jane Smith received 5★ from Emily Chen: "Excellent care!"',        time: '1 hr ago',   action: '/reviews' },
-  { id: 4, type: 'result',      unread: false, title: 'Test Result Updated',        body: 'HbA1c result for Bob Smith is now available.',                         time: '3 hr ago',   action: '/test-results' },
-  { id: 5, type: 'appointment', unread: false, title: 'Appointment Cancelled',      body: 'Carlos Reyes cancelled his 14:00 appointment on Tue 11 Mar.',          time: '5 hr ago',   action: '/appointments' },
-  { id: 6, type: 'system',      unread: false, title: 'Scheduled Maintenance',      body: 'The system will be down Sun 15 Mar 02:00–04:00 UTC for maintenance.',   time: 'Yesterday',  action: null },
-  { id: 7, type: 'patient',     unread: false, title: 'Patient Profile Updated',    body: 'Diana Prince updated her contact information.',                         time: 'Yesterday',  action: '/patients/4' },
-]
+// ─── Notifications ──────────────────────────────────────────────────────────
+// SUG-NOTIF-001/002 (notification-test-suggestion.md): notifications now live
+// in the shared MockStore (see mocks/store.js `_widgetNotifications`) instead
+// of a local useState array, so read/dismiss state matches NotificationBell.
 
 const TYPE_CONFIG = {
   appointment: { Icon: EventNoteRoundedIcon,  color: '#1A73E8', bgcolor: '#E8F0FE' },
@@ -36,18 +32,23 @@ const TYPE_CONFIG = {
   system:      { Icon: AnnouncementRoundedIcon, color: '#D93025', bgcolor: '#FCE8E6' },
 }
 
-export default function NotificationPanel({ open, onClose }) {
+function NotificationPanel({ open, onClose }) {
   const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
-  const [notifs, setNotifs] = useState(INITIAL_NOTIFS)
+  // SUG-NOTIF-001/002: shared MockStore source (was local useState(INITIAL_NOTIFS))
+  const { data: notifsData } = useMockData(store => store.getWidgetNotifications())
+  const [markAllReadMut] = useMockMutation(() => MockStore.markAllWidgetNotificationsRead())
+  const [markReadMut]    = useMockMutation((id) => MockStore.markWidgetNotificationRead(id))
+  const [dismissMut]     = useMockMutation((id) => MockStore.dismissWidgetNotification(id))
   const [filter, setFilter] = useState('all')
 
+  const notifs = notifsData || []
   const unreadCount = notifs.filter(n => n.unread).length
 
-  const markAllRead = () => setNotifs(ns => ns.map(n => ({ ...n, unread: false })))
-  const markRead = (id) => setNotifs(ns => ns.map(n => n.id === id ? { ...n, unread: false } : n))
-  const dismiss  = (id) => setNotifs(ns => ns.filter(n => n.id !== id))
+  const markAllRead = () => markAllReadMut()
+  const markRead = (id) => markReadMut(id)
+  const dismiss  = (id) => dismissMut(id)
 
   const filtered = filter === 'unread' ? notifs.filter(n => n.unread) : notifs
 

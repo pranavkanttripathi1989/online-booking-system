@@ -22,6 +22,8 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import CheckCircleRoundedIcon   from '@mui/icons-material/CheckCircleRounded'
 import SaveRoundedIcon          from '@mui/icons-material/SaveRounded'
 import { useSnackbar } from 'notistack'
+import { useMockMutation } from '../../mocks/useMockData'
+import * as MockStore from '../../mocks/store'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TEAL = '#006D77'
@@ -74,7 +76,8 @@ export default function AddStaffPage() {
   const [errors, setErrors] = useState({})
   const [showPwd, setShowPwd]  = useState(false)
   const [showPwd2, setShowPwd2] = useState(false)
-  const [saving, setSaving]   = useState(false)
+  // SUG-STAFF-010: persist the new staff member to the shared mock store
+  const [createStaffMutation, { loading: saving }] = useMockMutation(MockStore.createStaff)
 
   const set = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }))
@@ -98,9 +101,13 @@ export default function AddStaffPage() {
   const handleSave = async () => {
     const e = validate()
     if (Object.keys(e).length) { setErrors(e); return }
-    setSaving(true)
-    await new Promise(r => setTimeout(r, 900))
-    setSaving(false)
+    // SUG-STAFF-010: MOCK_STAFF used to be a constant, so new staff never showed
+    // up on /staff after navigating back. Persist via MockStore.createStaff() instead.
+    await createStaffMutation({
+      name: form.name, email: form.email, phone: form.phone,
+      role: form.role, department: form.department, status: form.status,
+      since: form.since, address: form.address, notes: form.notes,
+    })
     enqueueSnackbar(`${form.name} added to staff successfully!`, { variant: 'success' })
     navigate('/staff')
   }

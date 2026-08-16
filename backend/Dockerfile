@@ -1,61 +1,30 @@
-FROM php:8.3-fpm-alpine
+FROM node:20-alpine AS base
+# Prisma's query engine needs OpenSSL — without it, Alpine's musl libc can't
+# be detected correctly and Prisma silently guesses a version, which has been
+# known to cause runtime PrismaClientInitializationError on some Alpine builds.
+RUN apk add --no-cache openssl
+WORKDIR /app
+COPY package*.json ./
 
-# Install system dependencies
-RUN apk add --no-cache \
-    bash \
-    curl \
-    git \
-    unzip \
-    libzip-dev \
-    libpng-dev \
-    libjpeg-turbo-dev \
-    freetype-dev \
-    oniguruma-dev \
-    icu-dev \
-    linux-headers \
-    $PHPIZE_DEPS
-
-# Install PHP extensions
-RUN docker-php-ext-configure gd --with-freetype --with-jpeg \
-    && docker-php-ext-install \
-        pdo \
-        pdo_mysql \
-        mbstring \
-        zip \
-        exif \
-        bcmath \
-        gd \
-        intl \
-        pcntl \
-        opcache \
-    && pecl install redis \
-    && docker-php-ext-enable redis
-
-# Install Composer
-COPY --from=composer:2.7 /usr/bin/composer /usr/bin/composer
-
-# Set working directory
-WORKDIR /var/www/html
-
-# Copy composer files first (for layer caching)
-COPY composer.json composer.lock* ./
-
-# Install PHP dependencies
-RUN composer install --no-scripts --no-autoloader --no-interaction --prefer-dist
-
-# Copy application source
+FROM base AS development
+RUN npm install
 COPY . .
+RUN npx prisma generate
+EXPOSE 4000
+CMD ["npm", "run", "start:dev"]
 
-# Generate optimised autoloader
-RUN composer dump-autoload --optimize
+FROM base AS build
+RUN npm ci
+COPY . .
+RUN npx prisma generate && npm run build
 
-# Set permissions
-RUN chown -R www-data:www-data /var/www/html/storage /var/www/html/bootstrap/cache \
-    && chmod -R 775 /var/www/html/storage /var/www/html/bootstrap/cache
-
-# Copy php.ini configuration
-COPY docker/php/php.ini /usr/local/etc/php/conf.d/custom.ini
-
-EXPOSE 9000
-
-CMD ["php-fpm"]
+FROM node:20-alpine AS production
+WORKDIR /app
+ENV NODE_ENV=production
+COPY package*.json ./
+RUN npm ci --omit=dev
+COPY --from=build /app/dist ./dist
+COPY --from=build /app/prisma ./prisma
+RUN npx prisma generate
+EXPOSE 4000
+CMD ["node", "dist/main.js"]

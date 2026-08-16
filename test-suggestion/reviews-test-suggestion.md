@@ -66,20 +66,23 @@ Files: reviews/index.jsx
 
 ### SUG-REV-006 — Allow editing/deleting an existing response
 ```
-Status: PENDING
-Notes: Once submitted, manager response has no edit/delete option.
-       Fix: Edit icon next to "Manager Response" → re-opens dialog pre-filled with current text.
-       On submit: MockStore.respondToReview(id, newText) updates in-place.
-Priority: Medium
+Status: COMPLETED
+Notes: Added Edit IconButton next to "Manager Response" that reopens the reply dialog
+       pre-filled with review.response (replyDialog.editing=true). Dialog title/submit label
+       switch to "Edit Response"/"Save Changes". handleReply still calls MockStore.respondToReview,
+       which overwrites in place — no separate edit path needed. Delete of an individual response
+       (as opposed to deleting the whole review) was not implemented — not described by the
+       original suggestion text, and there's no MockStore API for it.
+Files: reviews/index.jsx
 ```
 
 ### SUG-REV-007 — Add pagination or load-more for large datasets
 ```
-Status: PENDING
-Notes: All reviews render at once. 100+ reviews would cause jank.
-       Fix: const PAGE_SIZE = 10; const paged = filtered.slice(0, page * PAGE_SIZE)
-       "Load more" button when paged.length < filtered.length.
-Priority: Medium
+Status: COMPLETED
+Notes: Added PAGE_SIZE=10, page state (reset to 1 on filter/search change via useEffect),
+       and paged = filtered.slice(0, page * PAGE_SIZE) rendered instead of the full filtered list.
+       "Load more (N remaining)" button appears when paged.length < filtered.length.
+Files: reviews/index.jsx
 ```
 
 ---
@@ -130,8 +133,8 @@ Priority: Low (accessibility)
 | SUG-REV-003 | MockStore delete consistency | ✅ COMPLETED |
 | SUG-REV-004 | Confirm dialog before delete | ✅ COMPLETED |
 | SUG-REV-005 | Search clear × button | ✅ COMPLETED |
-| SUG-REV-006 | Edit/delete existing response | ⏳ PENDING |
-| SUG-REV-007 | Pagination/load-more | ⏳ PENDING |
+| SUG-REV-006 | Edit/delete existing response | ✅ COMPLETED |
+| SUG-REV-007 | Pagination/load-more | ✅ COMPLETED |
 | SUG-REV-008 | Date range filter | ⏳ PENDING |
 | SUG-REV-009 | Clinician dropdown filter | ⏳ PENDING |
 | SUG-REV-010 | aria-label on Reply button | ⏳ PENDING |

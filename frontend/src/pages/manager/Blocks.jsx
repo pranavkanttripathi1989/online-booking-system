@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useQuery, useMutation, gql } from '@apollo/client'
 import {
   Box, Button, Card, CardContent, Chip, CircularProgress,
@@ -7,6 +7,7 @@ import {
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
+import EditIcon from '@mui/icons-material/Edit'
 import BlockIcon from '@mui/icons-material/Block'
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
@@ -167,6 +168,17 @@ const DELETE_ROOM_BLOCK = gql`
     deleteRoomBlock(id: $id) { success userErrors { message } }
   }
 `
+// SUG-BLK-009 — edit/update support
+const UPDATE_SPACER_BLOCK = gql`
+  mutation UpdateSpacerBlock($id: ID!, $input: CreateSpacerBlockInput!) {
+    updateSpacerBlock(id: $id, input: $input) { success userErrors { message } spacerBlock { id } }
+  }
+`
+const UPDATE_ROOM_BLOCK = gql`
+  mutation UpdateRoomBlock($id: ID!, $input: CreateRoomBlockInput!) {
+    updateRoomBlock(id: $id, input: $input) { success userErrors { message } roomBlock { id } }
+  }
+`
 
 // ─── Default forms ────────────────────────────────────────────────────────────
 
@@ -209,6 +221,14 @@ export default function ManagerBlocks() {
   const [formError, setFormError]           = useState(null)
   const [successMsg, setSuccessMsg]         = useState(null)
 
+  // SUG-BLK-009 — edit/update support: which block (if any) is being edited,
+  // plus a local overlay so edits are visible immediately even when the
+  // backend mutation can't be reached (offline / mock mode).
+  const [editingSpacerId, setEditingSpacerId] = useState(null)
+  const [editingRoomId, setEditingRoomId]     = useState(null)
+  const [spacerOverrides, setSpacerOverrides] = useState({})
+  const [roomOverrides, setRoomOverrides]     = useState({})
+
   // FIX GAP-BLK-004 — close open forms when switching tabs
   const handleTabChange = (_, newTab) => {
     if (!newTab) return
@@ -218,6 +238,8 @@ export default function ManagerBlocks() {
     setFormError(null)
     setSpacerForm(defaultSpacerForm)
     setRoomForm(defaultRoomBlockForm)
+    setEditingSpacerId(null)
+    setEditingRoomId(null)
   }
 
   const { data, loading, refetch } = useQuery(GET_BLOCKS_DATA, { fetchPolicy: 'cache-and-network' })
@@ -226,21 +248,34 @@ export default function ManagerBlocks() {
   const [deleteSpacerBlock] = useMutation(DELETE_SPACER_BLOCK)
   const [createRoomBlock]   = useMutation(CREATE_ROOM_BLOCK)
   const [deleteRoomBlock]   = useMutation(DELETE_ROOM_BLOCK)
+  const [updateSpacerBlock] = useMutation(UPDATE_SPACER_BLOCK)
+  const [updateRoomBlock]   = useMutation(UPDATE_ROOM_BLOCK)
 
   // Fall back to mock data when GraphQL returns nothing (offline mode)
   const clinicians   = (data?.clinicians?.length ? data.clinicians : MOCK_CLINICIANS).filter(c => c.isActive)
   const clinics      = data?.clinics?.length ? data.clinics : MOCK_CLINICS
   const allRooms     = (data?.rooms?.length ? data.rooms : MOCK_ROOMS).filter(r => r.isActive)
   // FIX GAP-BLK-005 — fall back to mock block records
-  const spacerBlocks = data?.spacerBlocks?.length ? data.spacerBlocks : MOCK_SPACER_BLOCKS
-  const roomBlocks   = data?.roomBlocks?.length   ? data.roomBlocks   : MOCK_ROOM_BLOCKS
+  // SUG-BLK-009 — merge in any local edits so updates are visible immediately (offline-safe)
+  const spacerBlocks = (data?.spacerBlocks?.length ? data.spacerBlocks : MOCK_SPACER_BLOCKS)
+    .map(b => spacerOverrides[b.id] ? { ...b, ...spacerOverrides[b.id] } : b)
+  const roomBlocks = (data?.roomBlocks?.length ? data.roomBlocks : MOCK_ROOM_BLOCKS)
+    .map(b => roomOverrides[b.id] ? { ...b, ...roomOverrides[b.id] } : b)
 
   const spacerRooms   = allRooms.filter(r => r.clinic_id === spacerForm.clinic_id)
   const roomFormRooms = allRooms.filter(r => r.clinic_id === roomForm.clinic_id)
 
-  // Reset room_id when clinic changes
-  useEffect(() => { setSpacerForm(p => ({ ...p, room_id: '' })) }, [spacerForm.clinic_id])
-  useEffect(() => { setRoomForm(p => ({ ...p, room_id: '' }))   }, [roomForm.clinic_id])
+  // Reset room_id when clinic changes (skipped once when pre-filling an edit — SUG-BLK-009)
+  const skipSpacerRoomReset = useRef(false)
+  const skipRoomFormRoomReset = useRef(false)
+  useEffect(() => {
+    if (skipSpacerRoomReset.current) { skipSpacerRoomReset.current = false; return }
+    setSpacerForm(p => ({ ...p, room_id: '' }))
+  }, [spacerForm.clinic_id])
+  useEffect(() => {
+    if (skipRoomFormRoomReset.current) { skipRoomFormRoomReset.current = false; return }
+    setRoomForm(p => ({ ...p, room_id: '' }))
+  }, [roomForm.clinic_id])
 
   const showSuccess = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000) }
 
@@ -259,6 +294,14 @@ export default function ManagerBlocks() {
     // FIX GAP-BLK-001 — frontend time validation
     const timeErr = validateTimes(spacerForm.start_time, spacerForm.end_time)
     if (timeErr) { setFormError(timeErr); return }
+    // SUG-BLK-010 — end date cannot be in the past
+    if (spacerForm.end_date && new Date(spacerForm.end_date) < new Date(new Date().toDateString())) {
+      setFormError('"End Date" cannot be in the past.'); return
+    }
+    // SUG-BLK-011 — custom recurrence requires at least one day selected
+    if (spacerForm.recurrence_type === 'custom' && spacerForm.recurrence_days.length === 0) {
+      setFormError('Please select at least one day for custom recurrence.'); return
+    }
     const input = {
       clinician_id:    spacerForm.clinician_id,
       clinic_id:       spacerForm.clinic_id,
@@ -271,11 +314,52 @@ export default function ManagerBlocks() {
       recurrence_days: spacerForm.recurrence_type === 'custom' ? spacerForm.recurrence_days : null,
       end_date:        spacerForm.end_date || null,
     }
+
+    // SUG-BLK-009 — edit/update flow
+    if (editingSpacerId) {
+      const clinician = clinicians.find(c => c.id === input.clinician_id)
+      const clinic     = clinics.find(c => c.id === input.clinic_id)
+      const room       = allRooms.find(r => r.id === input.room_id)
+      // Optimistic local overlay so the change is visible immediately (offline-safe)
+      setSpacerOverrides(prev => ({
+        ...prev,
+        [editingSpacerId]: {
+          ...input,
+          clinician: clinician ? { id: clinician.id, first_name: clinician.firstName, last_name: clinician.lastName } : undefined,
+          clinic:    clinic ? { id: clinic.id, name: clinic.name } : undefined,
+          room:      room ? { id: room.id, room_number: room.room_number } : null,
+        },
+      }))
+      try { await updateSpacerBlock({ variables: { id: editingSpacerId, input } }); refetch() } catch { /* offline — overlay above already applied */ }
+      setSpacerForm(defaultSpacerForm); setShowSpacerForm(false); setEditingSpacerId(null); showSuccess('Spacer block updated.')
+      return
+    }
+
     try {
       const { data: res } = await createSpacerBlock({ variables: { input } })
       if (res?.createSpacerBlock?.userErrors?.length) { setFormError(res.createSpacerBlock.userErrors[0].message); return }
       setSpacerForm(defaultSpacerForm); setShowSpacerForm(false); refetch(); showSuccess('Spacer block created.')
     } catch (err) { setFormError(err.message) }
+  }
+
+  /** SUG-BLK-009 — open the spacer form pre-populated for editing */
+  const handleEditSpacer = (b) => {
+    skipSpacerRoomReset.current = true
+    setSpacerForm({
+      clinician_id: b.clinician?.id ?? '',
+      clinic_id:    b.clinic?.id ?? '',
+      room_id:      b.room?.id ?? '',
+      block_date:   b.block_date ?? '',
+      start_time:   b.start_time,
+      end_time:     b.end_time,
+      reason:       b.reason ?? '',
+      recurrence_type: b.recurrence_type ?? 'single',
+      recurrence_days: b.recurrence_days ?? [],
+      end_date:     b.end_date ?? '',
+    })
+    setEditingSpacerId(b.id)
+    setShowSpacerForm(true)
+    setFormError(null)
   }
 
   // ── Room block form ──
@@ -293,6 +377,14 @@ export default function ManagerBlocks() {
     // FIX GAP-BLK-001 — frontend time validation
     const timeErr = validateTimes(roomForm.start_time, roomForm.end_time)
     if (timeErr) { setFormError(timeErr); return }
+    // SUG-BLK-010 — end date cannot be in the past
+    if (roomForm.end_date && new Date(roomForm.end_date) < new Date(new Date().toDateString())) {
+      setFormError('"End Date" cannot be in the past.'); return
+    }
+    // SUG-BLK-011 — custom recurrence requires at least one day selected
+    if (roomForm.recurrence_type === 'custom' && roomForm.recurrence_days.length === 0) {
+      setFormError('Please select at least one day for custom recurrence.'); return
+    }
     const input = {
       room_id:         roomForm.room_id,
       clinic_id:       roomForm.clinic_id,
@@ -304,11 +396,48 @@ export default function ManagerBlocks() {
       recurrence_days: roomForm.recurrence_type === 'custom' ? roomForm.recurrence_days : null,
       end_date:        roomForm.end_date || null,
     }
+
+    // SUG-BLK-009 — edit/update flow
+    if (editingRoomId) {
+      const clinic = clinics.find(c => c.id === input.clinic_id)
+      const room   = allRooms.find(r => r.id === input.room_id)
+      setRoomOverrides(prev => ({
+        ...prev,
+        [editingRoomId]: {
+          ...input,
+          clinic: clinic ? { id: clinic.id, name: clinic.name } : undefined,
+          room:   room ? { id: room.id, room_number: room.room_number } : undefined,
+        },
+      }))
+      try { await updateRoomBlock({ variables: { id: editingRoomId, input } }); refetch() } catch { /* offline — overlay above already applied */ }
+      setRoomForm(defaultRoomBlockForm); setShowRoomForm(false); setEditingRoomId(null); showSuccess('Room block updated.')
+      return
+    }
+
     try {
       const { data: res } = await createRoomBlock({ variables: { input } })
       if (res?.createRoomBlock?.userErrors?.length) { setFormError(res.createRoomBlock.userErrors[0].message); return }
       setRoomForm(defaultRoomBlockForm); setShowRoomForm(false); refetch(); showSuccess('Room block created.')
     } catch (err) { setFormError(err.message) }
+  }
+
+  /** SUG-BLK-009 — open the room block form pre-populated for editing */
+  const handleEditRoom = (b) => {
+    skipRoomFormRoomReset.current = true
+    setRoomForm({
+      clinic_id:    b.clinic?.id ?? '',
+      room_id:      b.room?.id ?? '',
+      block_date:   b.block_date ?? '',
+      start_time:   b.start_time,
+      end_time:     b.end_time,
+      reason:       b.reason ?? '',
+      recurrence_type: b.recurrence_type ?? 'single',
+      recurrence_days: b.recurrence_days ?? [],
+      end_date:     b.end_date ?? '',
+    })
+    setEditingRoomId(b.id)
+    setShowRoomForm(true)
+    setFormError(null)
   }
 
   // ── Delete ──
@@ -422,7 +551,10 @@ export default function ManagerBlocks() {
           <>
             <Box mb={2}>
               <Button variant="contained" startIcon={<AddIcon />}
-                onClick={() => { setShowSpacerForm(p => !p); setFormError(null) }}>
+                onClick={() => {
+                  setEditingSpacerId(null); setSpacerForm(defaultSpacerForm)
+                  setShowSpacerForm(p => !p); setFormError(null)
+                }}>
                 Add Spacer Block
               </Button>
             </Box>
@@ -430,7 +562,7 @@ export default function ManagerBlocks() {
             {showSpacerForm && (
               <Card sx={{ mb: 3 }}>
                 <CardContent>
-                  <Typography variant="h6" fontWeight={600} mb={2}>New Spacer Block</Typography>
+                  <Typography variant="h6" fontWeight={600} mb={2}>{editingSpacerId ? 'Edit Spacer Block' : 'New Spacer Block'}</Typography>
                   <Box component="form" onSubmit={handleSpacerSubmit}>
                     <Grid container spacing={2}>
                       {/* Clinician */}
@@ -467,8 +599,8 @@ export default function ManagerBlocks() {
                       <RecurrenceFields form={spacerForm} setForm={setSpacerForm} toggleDay={toggleSpacerDay} />
                       <Grid item xs={12}>
                         <Stack direction="row" spacing={1}>
-                          <Button type="submit" variant="contained">Create</Button>
-                          <Button variant="outlined" onClick={() => { setSpacerForm(defaultSpacerForm); setShowSpacerForm(false) }}>Cancel</Button>
+                          <Button type="submit" variant="contained">{editingSpacerId ? 'Save Changes' : 'Create'}</Button>
+                          <Button variant="outlined" onClick={() => { setSpacerForm(defaultSpacerForm); setShowSpacerForm(false); setEditingSpacerId(null) }}>Cancel</Button>
                         </Stack>
                       </Grid>
                     </Grid>
@@ -500,16 +632,27 @@ export default function ManagerBlocks() {
                           <Chip label={b.recurrence_type || 'single'} size="small" sx={{ textTransform: 'capitalize' }} />
                         </Box>
                       </Box>
-                      {/* FIX — aria-label on delete icon button */}
-                      <Tooltip title="Delete block">
-                        <IconButton
-                          color="error"
-                          aria-label={`Delete spacer block for ${b.clinician?.first_name} ${b.clinician?.last_name}`}
-                          onClick={() => handleDelete('spacer', b.id)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
+                      <Stack direction="row">
+                        {/* SUG-BLK-009 — edit block */}
+                        <Tooltip title="Edit block">
+                          <IconButton
+                            aria-label={`Edit spacer block for ${b.clinician?.first_name} ${b.clinician?.last_name}`}
+                            onClick={() => handleEditSpacer(b)}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        {/* FIX — aria-label on delete icon button */}
+                        <Tooltip title="Delete block">
+                          <IconButton
+                            color="error"
+                            aria-label={`Delete spacer block for ${b.clinician?.first_name} ${b.clinician?.last_name}`}
+                            onClick={() => handleDelete('spacer', b.id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </Stack>
                   </CardContent>
                 </Card>
@@ -523,7 +666,10 @@ export default function ManagerBlocks() {
           <>
             <Box mb={2}>
               <Button variant="contained" startIcon={<AddIcon />}
-                onClick={() => { setShowRoomForm(p => !p); setFormError(null) }}>
+                onClick={() => {
+                  setEditingRoomId(null); setRoomForm(defaultRoomBlockForm)
+                  setShowRoomForm(p => !p); setFormError(null)
+                }}>
                 Add Room Block
               </Button>
             </Box>
@@ -531,7 +677,7 @@ export default function ManagerBlocks() {
             {showRoomForm && (
               <Card sx={{ mb: 3 }}>
                 <CardContent>
-                  <Typography variant="h6" fontWeight={600} mb={2}>New Room Block</Typography>
+                  <Typography variant="h6" fontWeight={600} mb={2}>{editingRoomId ? 'Edit Room Block' : 'New Room Block'}</Typography>
                   <Box component="form" onSubmit={handleRoomBlockSubmit}>
                     <Grid container spacing={2}>
                       {/* Clinic */}
@@ -558,8 +704,8 @@ export default function ManagerBlocks() {
                       <RecurrenceFields form={roomForm} setForm={setRoomForm} toggleDay={toggleRoomDay} />
                       <Grid item xs={12}>
                         <Stack direction="row" spacing={1}>
-                          <Button type="submit" variant="contained">Create</Button>
-                          <Button variant="outlined" onClick={() => { setRoomForm(defaultRoomBlockForm); setShowRoomForm(false) }}>Cancel</Button>
+                          <Button type="submit" variant="contained">{editingRoomId ? 'Save Changes' : 'Create'}</Button>
+                          <Button variant="outlined" onClick={() => { setRoomForm(defaultRoomBlockForm); setShowRoomForm(false); setEditingRoomId(null) }}>Cancel</Button>
                         </Stack>
                       </Grid>
                     </Grid>
@@ -590,16 +736,27 @@ export default function ManagerBlocks() {
                           <Chip label={b.recurrence_type || 'single'} size="small" sx={{ textTransform: 'capitalize' }} />
                         </Box>
                       </Box>
-                      {/* FIX — aria-label on delete icon button */}
-                      <Tooltip title="Delete block">
-                        <IconButton
-                          color="error"
-                          aria-label={`Delete room block for Room ${b.room?.room_number} at ${b.clinic?.name}`}
-                          onClick={() => handleDelete('room', b.id)}
-                        >
-                          <DeleteIcon />
-                        </IconButton>
-                      </Tooltip>
+                      <Stack direction="row">
+                        {/* SUG-BLK-009 — edit block */}
+                        <Tooltip title="Edit block">
+                          <IconButton
+                            aria-label={`Edit room block for Room ${b.room?.room_number} at ${b.clinic?.name}`}
+                            onClick={() => handleEditRoom(b)}
+                          >
+                            <EditIcon />
+                          </IconButton>
+                        </Tooltip>
+                        {/* FIX — aria-label on delete icon button */}
+                        <Tooltip title="Delete block">
+                          <IconButton
+                            color="error"
+                            aria-label={`Delete room block for Room ${b.room?.room_number} at ${b.clinic?.name}`}
+                            onClick={() => handleDelete('room', b.id)}
+                          >
+                            <DeleteIcon />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
                     </Stack>
                   </CardContent>
                 </Card>

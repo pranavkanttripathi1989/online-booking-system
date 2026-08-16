@@ -1,0 +1,91 @@
+# ------------------------------------------------------
+# THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
+# ------------------------------------------------------
+
+type AuthPayload {
+  access_token: String!
+  expires_in: Int!
+  refresh_token: String!
+  token_type: String!
+  user: User!
+}
+
+type ClinicianInfo {
+  avatar_url: String
+  clinician_type: ClinicianTypeInfo
+  full_name: String!
+  id: String!
+}
+
+type ClinicianTypeInfo {
+  id: String!
+  name: String!
+}
+
+input ForgotPasswordInput {
+  email: String!
+}
+
+type GenericResult {
+  message: String
+  success: Boolean!
+}
+
+input LoginInput {
+  email: String!
+  password: String!
+}
+
+type Mutation {
+  forgotPassword(input: ForgotPasswordInput!): GenericResult!
+  login(input: LoginInput!): AuthPayload!
+  logout: Boolean!
+  refresh(input: RefreshInput!): AuthPayload!
+  register(input: RegisterInput!): AuthPayload!
+  requestOtp(input: RequestOtpInput!): GenericResult!
+  resetPassword(input: ResetPasswordInput!): GenericResult!
+  verifyOtp(input: VerifyOtpInput!): AuthPayload!
+}
+
+type Query {
+  me: User!
+}
+
+input RefreshInput {
+  refresh_token: String!
+}
+
+input RegisterInput {
+  email: String!
+  first_name: String!
+  last_name: String!
+  password: String!
+  phone: String
+}
+
+input RequestOtpInput {
+  phone: String!
+}
+
+input ResetPasswordInput {
+  new_password: String!
+  token: String!
+}
+
+type Role {
+  name: String!
+}
+
+type User {
+  client_org_id: String
+  clinician: ClinicianInfo
+  email: String!
+  id: String!
+  name: String!
+  roles: [Role!]!
+}
+
+input VerifyOtpInput {
+  code: String!
+  phone: String!
+}

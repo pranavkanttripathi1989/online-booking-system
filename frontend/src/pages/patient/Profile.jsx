@@ -1,8 +1,8 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Avatar,
   Divider, TextField, Paper, IconButton, Alert, Switch, FormControlLabel,
-  InputAdornment,
+  InputAdornment, MenuItem,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
@@ -15,6 +15,12 @@ import CheckIcon from '@mui/icons-material/Check';
 import { useAuth } from '../../hooks/useAuth';
 
 // SUG-PTPROF-009: PatientAvatar unused import removed
+
+// SUG-PTPROF-011: Controlled dropdown options for Blood Type / Gender
+const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
+// SUG-PTPROF-013: Loose E.164-style phone validator (allows spaces/dashes/parens)
+const PHONE_RE = /^\+?[0-9()\- ]{7,20}$/;
 
 const INITIAL = {
   firstName: 'Emma',   lastName: 'Wilson',
@@ -54,12 +60,28 @@ export default function PatientProfile() {
   const [newCondition, setNewCondition]           = useState('');
   const [showConditionInput, setShowConditionInput] = useState(false);
 
+  // SUG-PTPROF-013: Phone format validation
+  const [phoneError, setPhoneError] = useState('');
+
   const handleSave = () => {
+    if (draft.phone && !PHONE_RE.test(draft.phone.trim())) {
+      setPhoneError('Enter a valid phone number (e.g. +44 7700 123456)');
+      return;
+    }
+    setPhoneError('');
     setProfile(draft);
     setEditing(false);
     setSaveOk(true);
     setTimeout(() => setSaveOk(false), 3000);
   };
+
+  // SUG-PTPROF-010: Unsaved changes guard — warn on tab close/refresh while editing
+  const isDirty = editing && JSON.stringify(draft) !== JSON.stringify(profile);
+  useEffect(() => {
+    const handler = (e) => { if (isDirty) { e.preventDefault(); e.returnValue = ''; } };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
 
   const handleDiscard = () => {
     setEditing(false);
@@ -68,6 +90,7 @@ export default function PatientProfile() {
     setShowConditionInput(false);
     setNewAllergy('');
     setNewCondition('');
+    setPhoneError('');
   };
 
   // SUG-PTPROF-001: Add allergy handler
@@ -89,11 +112,28 @@ export default function PatientProfile() {
   };
 
   // Personal info field helper
-  const field = (label, key, type = 'text') => (
+  // SUG-PTPROF-011: optional `options` param renders a controlled Select in edit mode
+  // SUG-PTPROF-013: optional `error`/`helperText` for inline validation (phone)
+  const field = (label, key, type = 'text', options = null, error = '') => (
     <Box>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>{label}</Typography>
       {editing
-        ? <TextField fullWidth size="small" type={type} value={draft[key] || ''} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })} />
+        ? options
+          ? (
+            <TextField
+              select fullWidth size="small" value={draft[key] || ''}
+              onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
+            >
+              {options.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
+            </TextField>
+          )
+          : (
+            <TextField
+              fullWidth size="small" type={type} value={draft[key] || ''}
+              onChange={(e) => { setDraft({ ...draft, [key]: e.target.value }); if (key === 'phone') setPhoneError(''); }}
+              error={!!error} helperText={error || ' '}
+            />
+          )
         : <Typography variant="body2" fontWeight={500}>{profile[key] || '—'}</Typography>
       }
     </Box>
@@ -170,9 +210,13 @@ export default function PatientProfile() {
                   <Grid item xs={12} sm={6}>{field('First Name', 'firstName')}</Grid>
                   <Grid item xs={12} sm={6}>{field('Last Name', 'lastName')}</Grid>
                   <Grid item xs={12} sm={6}>{field('Email Address', 'email', 'email')}</Grid>
-                  <Grid item xs={12} sm={6}>{field('Phone Number', 'phone', 'tel')}</Grid>
+                  {/* SUG-PTPROF-013: inline phone format validation */}
+                  <Grid item xs={12} sm={6}>{field('Phone Number', 'phone', 'tel', null, phoneError)}</Grid>
                   <Grid item xs={12} sm={6}>{field('Date of Birth', 'dob', 'date')}</Grid>
-                  <Grid item xs={12} sm={6}>{field('Gender', 'gender')}</Grid>
+                  {/* SUG-PTPROF-011: Gender as controlled Select */}
+                  <Grid item xs={12} sm={6}>{field('Gender', 'gender', 'text', GENDER_OPTIONS)}</Grid>
+                  {/* SUG-PTPROF-006 / SUG-PTPROF-011: Blood Type now editable here as a Select (mirrors avatar card) */}
+                  <Grid item xs={12} sm={6}>{field('Blood Type', 'bloodType', 'text', BLOOD_TYPES)}</Grid>
                   <Grid item xs={12}>{field('Home Address', 'address')}</Grid>
                 </Grid>
               </CardContent>

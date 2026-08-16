@@ -110,27 +110,26 @@ Priority: Low
 
 ### SUG-PROF-011 — Profile Save: Add .catch() Demo Handler
 ```
-Status: PENDING
-Notes: handleProfileSave catch sets setError(err.message) in offline mode — mutation visually fails.
-       Add .catch() mock success: catch(_err) { showSuccess('Profile updated (demo mode)'); setEditing(false); setPForm(seedForm(profile)) }
-Priority: Medium
+Status: COMPLETED
+Notes: handleProfileSave catch(_err) now: showSuccess('Profile updated (demo mode)'); setEditing(false);
+       setPForm(seedForm(profile)) — implemented exactly as suggested.
+Files: profile/index.jsx
 ```
 
 ### SUG-PROF-012 — Password Change: Add .catch() Demo Handler
 ```
-Status: PENDING
-Notes: handlePasswordSave catch sets setError(err.message) in offline mode.
-       Add mock success: catch(_err) { showSuccess('Password changed (demo mode)'); setPwForm(defaultPasswordForm); setTimeout(() => { setEditing(false); setEditTab(0) }, 2000) }
-Priority: Medium
+Status: COMPLETED
+Notes: handlePasswordSave catch(_err) now: showSuccess('Password changed (demo mode)'); setPwForm(defaultPasswordForm);
+       setTimeout(() => { setEditing(false); setEditTab(0) }, 2000) — implemented exactly as suggested.
+Files: profile/index.jsx
 ```
 
 ### SUG-PROF-013 — Image Upload: Add .catch() Demo Handler
 ```
-Status: PENDING
-Notes: handleFileChange reader.onload catch sets setError(err.message).
-       In offline/demo mode, the optimistic preview is already shown (setImageUrl(result)).
-       Add: catch(_err) { showSuccess('Photo uploaded (demo mode)') } — keeps the preview.
-Priority: Medium
+Status: COMPLETED
+Notes: handleFileChange reader.onload catch(_err) now calls showSuccess('Photo uploaded (demo mode)')
+       instead of setError — the optimistic preview set earlier in the handler is kept.
+Files: profile/index.jsx
 ```
 
 ### SUG-PROF-014 — Password Helper Text: Show Strength Requirements
@@ -157,7 +156,7 @@ Priority: Low
 | SUG-PROF-008 | Password strength check | ✅ COMPLETED |
 | SUG-PROF-009 | Phone maxLength | ⏳ PENDING |
 | SUG-PROF-010 | Live timeAgo | ⏳ PENDING |
-| SUG-PROF-011 | Profile save .catch() demo | ⏳ PENDING |
-| SUG-PROF-012 | Password .catch() demo | ⏳ PENDING |
-| SUG-PROF-013 | Upload image .catch() demo | ⏳ PENDING |
+| SUG-PROF-011 | Profile save .catch() demo | ✅ COMPLETED |
+| SUG-PROF-012 | Password .catch() demo | ✅ COMPLETED |
+| SUG-PROF-013 | Upload image .catch() demo | ✅ COMPLETED |
 | SUG-PROF-014 | Password helperText update | ⏳ PENDING |

@@ -1,11 +1,13 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import dayjs from 'dayjs'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
+import { useSnackbar } from 'notistack'
 import {
   Box, Button, Avatar, Typography, Chip, Tabs, Tab, Grid, Card, CardContent,
   Stack, Divider, IconButton, Tooltip, Paper, Table, TableBody, TableCell,
-  TableHead, TableRow, LinearProgress, Badge,
+  TableHead, TableRow, LinearProgress, Badge, Dialog, DialogTitle, DialogContent,
+  DialogActions, List, ListItem, ListItemIcon, ListItemText,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -21,6 +23,8 @@ import FolderRoundedIcon from '@mui/icons-material/FolderRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
+import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded'
+import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded'
 
 // ─── Mock patients (BUG-004 fix: keyed by id so URL param resolves correctly) ─
 // Supports both 'pt-1'..'pt-5' (clinician patients list) and '1'..'5' (admin list)
@@ -106,8 +110,29 @@ function TabPanel({ value, index, children }) {
 export default function PatientDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
+  const { enqueueSnackbar } = useSnackbar()
   const [tab, setTab] = useState(0)
   const p = MOCK_PATIENTS_DETAIL[id] ?? MOCK_PATIENT_DEFAULT  // BUG-004 fix: look up by URL id
+
+  // SUG-PT-003 / SUG-PAT-013: "View Result" dialog state
+  const [viewResult, setViewResult] = useState(null)
+
+  // SUG-PT-004 / SUG-PAT-014: Upload Document — hidden file input + local doc list
+  const fileInputRef = useRef(null)
+  const [uploadedDocs, setUploadedDocs] = useState([])
+  const handleFileSelected = (e) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      setUploadedDocs((prev) => [...prev, { id: `doc-${Date.now()}`, name: file.name, size: file.size, uploadedAt: new Date().toISOString() }])
+      enqueueSnackbar(`"${file.name}" uploaded (demo mode)`, { variant: 'success' })
+    }
+    e.target.value = '' // allow re-selecting the same file
+  }
+
+  // SUG-PT-006 / SUG-PAT-012: Derive clinician initials instead of hardcoded "JS"
+  const clinicianInitials = p.primary_clinician
+    ? p.primary_clinician.replace(/^Dr\.?\s*/i, '').split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    : '—'
 
   const age = Math.floor((new Date() - new Date(p.date_of_birth)) / (365.25 * 24 * 3600 * 1000))
 
@@ -207,7 +232,7 @@ export default function PatientDetailPage() {
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem', mb: 1.5 }}>Primary Clinician</Typography>
                 <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar sx={{ width: 40, height: 40, bgcolor: '#0B7B5C', fontSize: '1rem', fontWeight: 700 }}>JS</Avatar>
+                  <Avatar sx={{ width: 40, height: 40, bgcolor: '#0B7B5C', fontSize: '1rem', fontWeight: 700 }}>{clinicianInitials}</Avatar>
                   <Box>
                     <Typography variant="body2" fontWeight={700}>{p.primary_clinician}</Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary' }}>General Practitioner</Typography>
@@ -280,7 +305,15 @@ export default function PatientDetailPage() {
                       </Stack>
                       <Stack direction="row" spacing={1} alignItems="center">
                         <Chip label={t.status} color={STATUS_COLORS[t.status] || 'default'} size="small" sx={{ fontWeight: 700, textTransform: 'capitalize' }} />
-                        {t.status === 'completed' && <Button size="small" variant="outlined" sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}>View Result</Button>}
+                        {t.status === 'completed' && (
+                          <Button
+                            size="small" variant="outlined"
+                            onClick={() => setViewResult(t)}
+                            sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}
+                          >
+                            View Result
+                          </Button>
+                        )}
                       </Stack>
                     </Stack>
                   </CardContent>
@@ -291,16 +324,74 @@ export default function PatientDetailPage() {
 
           {/* ── Documents ───────────────────────────────────────────────── */}
           <TabPanel value={tab} index={4}>
-            <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-              <FolderRoundedIcon sx={{ fontSize: '3rem', mb: 1.5, opacity: 0.3 }} />
-              <Typography variant="body1" fontWeight={600} sx={{ mb: 0.5 }}>No documents yet</Typography>
-              <Typography variant="body2">Upload patient documents, prescriptions, and reports</Typography>
-              <Button variant="outlined" sx={{ mt: 2.5, borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Upload Document</Button>
-            </Box>
+            <input
+              ref={fileInputRef}
+              type="file"
+              hidden
+              onChange={handleFileSelected}
+              data-testid="document-upload-input"
+            />
+            {uploadedDocs.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+                <FolderRoundedIcon sx={{ fontSize: '3rem', mb: 1.5, opacity: 0.3 }} />
+                <Typography variant="body1" fontWeight={600} sx={{ mb: 0.5 }}>No documents yet</Typography>
+                <Typography variant="body2">Upload patient documents, prescriptions, and reports</Typography>
+                <Button
+                  variant="outlined"
+                  startIcon={<CloudUploadRoundedIcon />}
+                  onClick={() => fileInputRef.current?.click()}
+                  sx={{ mt: 2.5, borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Upload Document
+                </Button>
+              </Box>
+            ) : (
+              <Stack spacing={2}>
+                <Stack direction="row" justifyContent="flex-end">
+                  <Button
+                    variant="outlined"
+                    startIcon={<CloudUploadRoundedIcon />}
+                    onClick={() => fileInputRef.current?.click()}
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Upload Document
+                  </Button>
+                </Stack>
+                <List sx={{ border: '1px solid #E2E8F0', borderRadius: 2, p: 0 }}>
+                  {uploadedDocs.map((d, i) => (
+                    <ListItem key={d.id} divider={i !== uploadedDocs.length - 1}>
+                      <ListItemIcon><InsertDriveFileRoundedIcon sx={{ color: 'primary.main' }} /></ListItemIcon>
+                      <ListItemText
+                        primary={d.name}
+                        secondary={`${(d.size / 1024).toFixed(1)} KB · Uploaded ${dayjs(d.uploadedAt).format('DD/MM/YYYY HH:mm')}`}
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              </Stack>
+            )}
           </TabPanel>
 
         </Box>
       </Paper>
+
+      {/* ── View Result Dialog (SUG-PT-003 / SUG-PAT-013) ────────────────── */}
+      <Dialog open={Boolean(viewResult)} onClose={() => setViewResult(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>{viewResult?.name}</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1.5}>
+            <InfoRow label="Status" value={viewResult?.status} icon={CheckCircleRoundedIcon} />
+            <InfoRow label="Ordered By" value={viewResult?.ordered_by} icon={PersonRoundedIcon} />
+            <InfoRow label="Date" value={viewResult ? dayjs(viewResult.date).format('DD/MM/YYYY') : ''} icon={AccessTimeRoundedIcon} />
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+              Full result document is not yet available in this demo environment.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setViewResult(null)} sx={{ textTransform: 'none', fontWeight: 700 }}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

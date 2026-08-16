@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useMutation, useQuery } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
@@ -40,13 +40,17 @@ export default function EditPatientPage() {
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm]     = useState(null)
   const [errors, setErrors] = useState({})
+  const initialFormRef = useRef(null) // SUG-PT-013: snapshot for dirty-check
 
   const { data, loading: fetching } = useQuery(PATIENT_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
+
+  // SUG-PT-013: serialize form (date -> plain string) for stable dirty comparison
+  const serializeForm = (f) => f && JSON.stringify({ ...f, date_of_birth: f.date_of_birth ? dayjs(f.date_of_birth).format('YYYY-MM-DD') : null })
 
   useEffect(() => {
     if (data?.patient) {
       const p = data.patient
-      setForm({
+      const seeded = {
         first_name:    p.first_name    ?? '',
         last_name:     p.last_name     ?? '',
         email:         p.email         ?? '',
@@ -55,11 +59,13 @@ export default function EditPatientPage() {
         address:       p.address       ?? '',
         notes:         p.notes         ?? '',
         date_of_birth: p.date_of_birth ? dayjs(p.date_of_birth) : null,
-      })
+      }
+      setForm(seeded)
+      if (initialFormRef.current === null) initialFormRef.current = serializeForm(seeded)
     } else if (!fetching) {
       // SUG-PT-001: Mock fallback when backend offline
       const mock = MOCK_EDIT_PATIENTS[id] ?? MOCK_EDIT_DEFAULT
-      setForm({
+      const seeded = {
         first_name:    mock.first_name,
         last_name:     mock.last_name,
         email:         mock.email,
@@ -68,7 +74,9 @@ export default function EditPatientPage() {
         address:       mock.address,
         notes:         mock.notes,
         date_of_birth: mock.date_of_birth ? dayjs(mock.date_of_birth) : null,
-      })
+      }
+      setForm(seeded)
+      if (initialFormRef.current === null) initialFormRef.current = serializeForm(seeded)
     }
   }, [data, fetching, id])
 
@@ -79,6 +87,19 @@ export default function EditPatientPage() {
     },
     onError: (err) => enqueueSnackbar(err.message, { variant: 'error' }),
   })
+
+  // SUG-PT-013: Unsaved changes guard — must run unconditionally (before the loading early-return)
+  const isDirty = form ? serializeForm(form) !== initialFormRef.current : false
+  useEffect(() => {
+    const handler = (e) => { if (isDirty) { e.preventDefault(); e.returnValue = '' } }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
+  const handleCancel = () => {
+    if (isDirty && !window.confirm('You have unsaved changes. Discard them and leave this page?')) return
+    navigate(`/patients/${id}`)
+  }
 
   if (fetching || !form) return (
     <Box><Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
@@ -121,7 +142,7 @@ export default function EditPatientPage() {
     <Box className="page-enter">
       <Helmet><title>Edit Patient — MediBook</title></Helmet>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate(`/patients/${id}`)} sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}>
+        <IconButton onClick={handleCancel} sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}>
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -134,7 +155,7 @@ export default function EditPatientPage() {
           </Box>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" onClick={() => navigate(`/patients/${id}`)} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+          <Button variant="outlined" onClick={handleCancel} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
           <Button variant="contained" startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
             onClick={handleSubmit} disabled={loading}
             sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, bgcolor: '#0F9D58', '&:hover': { bgcolor: '#0B8043' } }}>

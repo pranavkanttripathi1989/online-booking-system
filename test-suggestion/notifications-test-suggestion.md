@@ -6,7 +6,7 @@
 
 ---
 
-## 🔴 High Priority — Bugs & Critical Gaps
+## 🔴 High Priority — Bugs & Critical Gaps — COMPLETED (Session)
 
 ### SUG-NOTIF-001 — Data Inconsistency: Topbar Badge vs Page Query (OBS-1)
 
@@ -28,6 +28,8 @@ const notifications = data?.notifications || (error ? MOCK_NOTIFICATIONS : []);
 ```
 
 **Priority:** 🔴 High
+
+**Status:** ✅ COMPLETED — Added `MOCK_NOTIFICATIONS` (3 records) and `const notifications = data?.notifications || (error ? MOCK_NOTIFICATIONS : [])`, matching the fix exactly as proposed. Also destructured `error` from `useQuery`. This does not unify the topbar popover and page onto one data source (they are different components — NotificationBell reads MockStore, this page reads GraphQL) but ensures the page is never an empty inbox when the backend is offline. Files: `pages/notifications/index.jsx`.
 
 ---
 
@@ -54,6 +56,8 @@ onClick={() => setDeleteTarget(notif.id)}
 
 **Priority:** 🔴 High | **Effort:** ~20 lines
 
+**Status:** ✅ COMPLETED — Added `deleteTarget` state, `<Dialog>` confirmation with Cancel/Delete actions, and `confirmDelete()` that runs the mutation only after confirming, exactly as proposed. Delete `IconButton` now calls `setDeleteTarget(notif.id)` instead of firing the mutation directly. Files: `pages/notifications/index.jsx`.
+
 ---
 
 ### SUG-NOTIF-003 — Add `skip: !user?.id` Auth Guard (OBS-2)
@@ -73,9 +77,11 @@ const { data, loading, refetch } = useQuery(GET_NOTIFICATIONS, {
 
 **Priority:** 🔴 High | **Effort:** 1 line
 
+**Status:** ✅ COMPLETED — Imported `useAuth` and added `skip: !user?.id` to the `useQuery(GET_NOTIFICATIONS, ...)` options. Files: `pages/notifications/index.jsx`.
+
 ---
 
-## 🟡 Medium Priority — UX & Validation
+## 🟡 Medium Priority — UX & Validation — COMPLETED (Session)
 
 ### SUG-NOTIF-004 — Prevent Race Condition on Concurrent Mutations (E6)
 
@@ -100,6 +106,8 @@ const run = async (fn, vars) => {
 
 **Priority:** 🟡 Medium | **Effort:** ~10 lines
 
+**Status:** ✅ COMPLETED — Added `pendingId` state; `run()` returns early if a mutation is already in flight and clears `pendingId` in a `finally` block. Mark-as-read and delete `IconButton`s are `disabled={!!pendingId}` while a mutation is pending. Files: `pages/notifications/index.jsx`.
+
 ---
 
 ### SUG-NOTIF-005 — Add Loading State to "Mark All Read" Button
@@ -123,6 +131,8 @@ const handleMarkAll = async () => {
 
 **Priority:** 🟡 Medium | **Effort:** ~8 lines
 
+**Status:** ✅ COMPLETED — Added `markingAll` state, `handleMarkAll()` wrapper around `run(markAllRead, {})`, and the button now shows a `CircularProgress` + "Marking…" label while pending, matching the proposed fix. Files: `pages/notifications/index.jsx`.
+
 ---
 
 ### SUG-NOTIF-006 — Add Notification Count to Filter Chips
@@ -141,6 +151,8 @@ const unreadCount = notifications.filter(n => !n.is_read).length;
 
 **Priority:** 🟡 Medium
 
+**Status:** ✅ COMPLETED — Added `unreadCount` derived from `notifications`. Filter buttons now render `Unread (N)` / `All (N)` instead of plain labels. Files: `pages/notifications/index.jsx`.
+
 ---
 
 ### SUG-NOTIF-007 — Show Relative Time for iconColor Priority vs Type
@@ -158,6 +170,8 @@ iconColor('high', 'appointment') → { bg: '#FEE2E2', color: '#DC2626' }  // RED
 Either document this is intentional, or allow type to influence icon even for high-priority (e.g., keep icon type but change icon background to red).
 
 **Priority:** 🟡 Medium
+
+**Status:** ✅ COMPLETED (documented) — Chose the "document this is intentional" option rather than changing the visible behavior, since changing which color wins is a product/design call this session can't make safely. Added a code comment above `iconColor()` explaining priority intentionally overrides type so severity stays scannable at a glance. Files: `pages/notifications/index.jsx`.
 
 ---
 
@@ -272,18 +286,18 @@ setTimeout(() => setSuccessMsg(null), 3000);
 
 ## Summary Table
 
-| ID | Suggestion | Category | Priority |
-|----|-----------|----------|----------|
-| SUG-NOTIF-001 | Fix topbar/page data inconsistency | 🐛 Bug | 🔴 High |
-| SUG-NOTIF-002 | Confirm before delete | 🐛 UX Safety | 🔴 High |
-| SUG-NOTIF-003 | Add `skip: !user?.id` auth guard | 🛡 Security | 🔴 High |
-| SUG-NOTIF-004 | Prevent concurrent mutation race | 🐛 Race Condition | 🟡 Medium |
-| SUG-NOTIF-005 | Loading state for Mark All Read | ✨ UX | 🟡 Medium |
-| SUG-NOTIF-006 | Show notification counts in filter | ✨ UX | 🟡 Medium |
-| SUG-NOTIF-007 | Document priority-vs-type icon logic | 📋 Docs | 🟡 Medium |
-| SUG-NOTIF-008 | Pause polling on hidden tab | ⚡ Performance | 🟢 Low |
-| SUG-NOTIF-009 | Mark as Unread option | ✨ Feature | 🟢 Low |
-| SUG-NOTIF-010 | Success toast on actions | ✨ UX | 🟢 Low |
+| ID | Suggestion | Category | Priority | Status |
+|----|-----------|----------|----------|--------|
+| SUG-NOTIF-001 | Fix topbar/page data inconsistency | 🐛 Bug | 🔴 High | ✅ COMPLETED |
+| SUG-NOTIF-002 | Confirm before delete | 🐛 UX Safety | 🔴 High | ✅ COMPLETED |
+| SUG-NOTIF-003 | Add `skip: !user?.id` auth guard | 🛡 Security | 🔴 High | ✅ COMPLETED |
+| SUG-NOTIF-004 | Prevent concurrent mutation race | 🐛 Race Condition | 🟡 Medium | ✅ COMPLETED |
+| SUG-NOTIF-005 | Loading state for Mark All Read | ✨ UX | 🟡 Medium | ✅ COMPLETED |
+| SUG-NOTIF-006 | Show notification counts in filter | ✨ UX | 🟡 Medium | ✅ COMPLETED |
+| SUG-NOTIF-007 | Document priority-vs-type icon logic | 📋 Docs | 🟡 Medium | ✅ COMPLETED |
+| SUG-NOTIF-008 | Pause polling on hidden tab | ⚡ Performance | 🟢 Low | ⏳ PENDING (out of scope) |
+| SUG-NOTIF-009 | Mark as Unread option | ✨ Feature | 🟢 Low | ⏳ PENDING (out of scope) |
+| SUG-NOTIF-010 | Success toast on actions | ✨ UX | 🟢 Low | ⏳ PENDING (out of scope) |
 
 ### Quick Wins (< 5 min):
 - **SUG-NOTIF-003**: Add `skip: !user?.id` (1 line)

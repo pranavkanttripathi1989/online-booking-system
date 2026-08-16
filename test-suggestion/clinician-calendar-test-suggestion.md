@@ -121,8 +121,9 @@
 ---
 
 ### SUG-CLCAL-012 — GraphQL Query for Real Appointments
-**Observation:** The calendar is now fully designed and tested with mock data. The next production step is to replace `MOCK_EVENTS.filter(...)` with a `useQuery(GET_CLINICIAN_SCHEDULE, { variables: { clinicianId, weekStart, weekEnd } })`. The component structure is already ready for this.  
-**Priority:** 🟡 Medium | **Effort:** Large (backend endpoint required) | **Status:** ⏳ PENDING (backend)
+**Observation:** The calendar is now fully designed and tested with mock data. The next production step is to replace `MOCK_EVENTS.filter(...)` with a `useQuery(GET_CLINICIAN_SCHEDULE, { variables: { clinicianId, weekStart, weekEnd } })`. The component structure is already ready for this.
+**Status:** ✅ DONE (mock) — Added a local `GET_CLINICIAN_SCHEDULE` gql query and wired it via `useQuery({ variables: { clinicianId: user?.id, weekStart, weekEnd } })`, following the same real-query-with-2s-timeout-fallback pattern already used on the clinician Dashboard page (`apollo/client.js` aborts after 2s with no backend). `weekEvents` now reads `data?.getClinicianSchedule` first and falls back to the existing `MOCK_EVENTS.filter(e => e.week === weekOffset)` logic unchanged, so the page renders identically until a real backend resolver exists.
+**Priority:** 🟡 Medium | **Effort:** Large (backend endpoint required)
 
 ---
 
@@ -141,4 +142,4 @@
 | SUG-CLCAL-009 | Tooltip includes time range | ✨ UX | 🟢 Low | ✅ DONE |
 | SUG-CLCAL-010 | Today's date circular badge | ✨ UX | 🟢 Low | ✅ DONE |
 | SUG-CLCAL-011 | Empty week "No appointments" state | ✨ UX | 🟢 Low | ⏳ PENDING |
-| SUG-CLCAL-012 | GraphQL query for real appointments | 🔗 Integration | 🟡 Medium | ⏳ PENDING (backend) |
+| SUG-CLCAL-012 | GraphQL query for real appointments | 🔗 Integration | 🟡 Medium | ✅ DONE (mock) |

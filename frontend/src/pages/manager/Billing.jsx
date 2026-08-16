@@ -3,7 +3,7 @@ import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   IconButton, Select, MenuItem, FormControl, InputLabel, TextField,
-  Tooltip, Alert,
+  Tooltip, Alert, Drawer, Divider, CircularProgress,
 } from '@mui/material';
 import { StatusChip } from '../../components/shared';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
@@ -16,6 +16,8 @@ import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip,
   ResponsiveContainer, Legend,
 } from 'recharts';
+// SUG-DT-S7-002: canonical currency formatter (handles null, commas, GBP symbol)
+import { formatCurrency } from '../../utils/dateTime';
 
 // ─── Mock data (VITE_USE_MOCK_API=true or backend offline → same effect) ──────
 const REVENUE_DATA = [
@@ -65,6 +67,11 @@ export default function ManagerBilling() {
 
   // ── Refund confirm dialog state (SUG-BILL-007) ─────────────────────────────
   const [refundTarget, setRefundTarget] = useState(null);
+  // SUG-BILL-017 — loading state while refund "mutation" is in flight
+  const [refundingId, setRefundingId] = useState(null);
+
+  // SUG-BILL-004 — invoice detail drawer state
+  const [viewTarget, setViewTarget] = useState(null);
 
   // ── Derived filtered list (SUG-BILL-002 + SUG-BILL-011) ───────────────────
   const filtered = invoices.filter((inv) => {
@@ -85,7 +92,7 @@ export default function ManagerBilling() {
   const handleExport = () => {
     const headers = ['Invoice', 'Patient', 'Clinician', 'Service', 'Date', 'Amount', 'Method', 'Status'];
     const rows = filtered.map(inv =>
-      [inv.id, inv.patient, inv.clinician, inv.service, inv.date, `£${inv.amount}`, inv.method, inv.status]
+      [inv.id, inv.patient, inv.clinician, inv.service, inv.date, formatCurrency(inv.amount), inv.method, inv.status]
     );
     const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -100,15 +107,47 @@ export default function ManagerBilling() {
   /** SUG-BILL-007 — Confirm refund: opens dialog */
   const handleRefundClick = (inv) => setRefundTarget(inv);
 
-  /** SUG-BILL-007 — Execute refund after confirmation (optimistic update) */
+  /** SUG-BILL-007 + SUG-BILL-017 — Execute refund after confirmation (optimistic update + loading state) */
   const confirmRefund = () => {
     if (!refundTarget) return;
-    setInvoices(prev =>
-      prev.map(inv => inv.id === refundTarget.id ? { ...inv, status: 'refunded' } : inv)
-    );
-    setSuccessMsg(`Refund of £${refundTarget.amount} issued for ${refundTarget.patient}.`);
-    setTimeout(() => setSuccessMsg(null), 4000);
+    const target = refundTarget;
+    setRefundingId(target.id);
     setRefundTarget(null);
+    // Simulate mutation latency so the loading spinner is visible/testable
+    setTimeout(() => {
+      setInvoices(prev =>
+        prev.map(inv => inv.id === target.id ? { ...inv, status: 'refunded' } : inv)
+      );
+      setRefundingId(null);
+      setSuccessMsg(`Refund of ${formatCurrency(target.amount)} issued for ${target.patient}.`);
+      setTimeout(() => setSuccessMsg(null), 4000);
+    }, 600);
+  };
+
+  /** SUG-BILL-004 — open invoice detail drawer */
+  const handleViewInvoice = (inv) => setViewTarget(inv);
+
+  /** SUG-BILL-005 — "download" a printable invoice receipt (no PDF lib available; text receipt) */
+  const handleDownloadInvoice = (inv) => {
+    const lines = [
+      `INVOICE ${inv.id}`,
+      `Patient:   ${inv.patient}`,
+      `Clinician: ${inv.clinician}`,
+      `Service:   ${inv.service}`,
+      `Date:      ${inv.date}`,
+      `Method:    ${inv.method}`,
+      `Status:    ${inv.status}`,
+      `Amount:    ${formatCurrency(inv.amount)}`,
+      '',
+      'City Heart Clinic — thank you for your visit.',
+    ];
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${inv.id}-receipt.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   return (
@@ -279,7 +318,7 @@ export default function ManagerBilling() {
                           <Typography variant="body2">{inv.date}</Typography>
                         </TableCell>
                         <TableCell>
-                          <Typography variant="body2" fontWeight={700}>£{inv.amount}</Typography>
+                          <Typography variant="body2" fontWeight={700}>{formatCurrency(inv.amount)}</Typography>
                         </TableCell>
                         <TableCell>
                           <Chip label={inv.method} size="small" sx={{ bgcolor: '#F0F7F8', color: '#004D55' }} />
@@ -289,27 +328,32 @@ export default function ManagerBilling() {
                         </TableCell>
                         <TableCell>
                           <Stack direction="row" spacing={0.5}>
+                            {/* SUG-BILL-004 — View opens invoice detail drawer */}
                             <Tooltip title="View invoice">
-                              <IconButton size="small" aria-label={`View invoice ${inv.id}`}>
+                              <IconButton size="small" aria-label={`View invoice ${inv.id}`} onClick={() => handleViewInvoice(inv)}>
                                 <VisibilityIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
+                            {/* SUG-BILL-005 — Download invoice receipt */}
                             <Tooltip title="Download invoice">
-                              <IconButton size="small" aria-label={`Download invoice ${inv.id}`}>
+                              <IconButton size="small" aria-label={`Download invoice ${inv.id}`} onClick={() => handleDownloadInvoice(inv)}>
                                 <DownloadIcon fontSize="small" />
                               </IconButton>
                             </Tooltip>
-                            {/* SUG-BILL-007 — Refund with confirm dialog */}
+                            {/* SUG-BILL-007 — Refund with confirm dialog; SUG-BILL-017 — loading state */}
                             {inv.status === 'paid' && (
                               <Tooltip title="Issue refund">
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  aria-label={`Refund invoice ${inv.id}`}
-                                  onClick={() => handleRefundClick(inv)}
-                                >
-                                  <RefundIcon fontSize="small" />
-                                </IconButton>
+                                <span>
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    aria-label={`Refund invoice ${inv.id}`}
+                                    disabled={refundingId === inv.id}
+                                    onClick={() => handleRefundClick(inv)}
+                                  >
+                                    {refundingId === inv.id ? <CircularProgress size={16} color="inherit" /> : <RefundIcon fontSize="small" />}
+                                  </IconButton>
+                                </span>
                               </Tooltip>
                             )}
                           </Stack>
@@ -329,7 +373,7 @@ export default function ManagerBilling() {
           title="Issue Refund"
           message={
             refundTarget
-              ? `Issue a refund of £${refundTarget.amount} for ${refundTarget.patient} (${refundTarget.id})? This action cannot be undone.`
+              ? `Issue a refund of ${formatCurrency(refundTarget.amount)} for ${refundTarget.patient} (${refundTarget.id})? This action cannot be undone.`
               : ''
           }
           onConfirm={confirmRefund}
@@ -337,6 +381,54 @@ export default function ManagerBilling() {
           confirmLabel="Refund"
           confirmColor="warning"
         />
+
+        {/* ── SUG-BILL-004: Invoice Detail Drawer ──────────────────────────── */}
+        <Drawer anchor="right" open={!!viewTarget} onClose={() => setViewTarget(null)}>
+          <Box sx={{ width: 360, p: 3 }}>
+            {viewTarget && (
+              <>
+                <Typography variant="h5" fontWeight={700} sx={{ mb: 0.5 }}>{viewTarget.id}</Typography>
+                <StatusChip status={STATUS_COLOR[viewTarget.status] || viewTarget.status} />
+                <Divider sx={{ my: 2 }} />
+                <Stack spacing={1.5}>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Patient</Typography>
+                    <Typography variant="body1" fontWeight={600}>{viewTarget.patient}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Clinician</Typography>
+                    <Typography variant="body1">{viewTarget.clinician}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Service</Typography>
+                    <Typography variant="body1">{viewTarget.service}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Date</Typography>
+                    <Typography variant="body1">{viewTarget.date}</Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Payment Method</Typography>
+                    <Typography variant="body1">{viewTarget.method}</Typography>
+                  </Box>
+                  <Divider />
+                  <Box>
+                    <Typography variant="caption" color="text.secondary">Amount</Typography>
+                    <Typography variant="h4" fontWeight={800} sx={{ color: '#006D77' }}>{formatCurrency(viewTarget.amount)}</Typography>
+                  </Box>
+                </Stack>
+                <Stack direction="row" spacing={1} sx={{ mt: 3 }}>
+                  <Button fullWidth variant="outlined" startIcon={<DownloadIcon />} onClick={() => handleDownloadInvoice(viewTarget)}>
+                    Download
+                  </Button>
+                  <Button fullWidth variant="contained" onClick={() => setViewTarget(null)}>
+                    Close
+                  </Button>
+                </Stack>
+              </>
+            )}
+          </Box>
+        </Drawer>
 
       </Box>
     </ErrorBoundary>

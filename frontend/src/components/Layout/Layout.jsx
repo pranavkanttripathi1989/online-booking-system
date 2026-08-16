@@ -5,7 +5,7 @@ import { PersonOutlineRounded, SettingsOutlined, LogoutRounded, DarkModeRounded,
 import { useNavigate } from 'react-router-dom'
 import { useApolloClient } from '@apollo/client'
 
-import Sidebar, { DRAWER_WIDTH } from './Sidebar'
+import Sidebar, { DRAWER_WIDTH, COLLAPSED_DRAWER_WIDTH } from './Sidebar'
 import Navbar from './Navbar'
 import TopNav from './TopNav'
 import AppBreadcrumbs from './AppBreadcrumbs'
@@ -28,6 +28,18 @@ export default function Layout() {
           ?? 'left'
     } catch { return 'left' }
   })
+
+  // SUG-NAV-005: collapse the left sidebar to a 60px-ish icon rail (desktop only)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
+    try { return localStorage.getItem('medibook_sidebar_collapsed') === '1' } catch { return false }
+  })
+  const toggleSidebarCollapsed = useCallback(() => {
+    setSidebarCollapsed(prev => {
+      const next = !prev
+      try { localStorage.setItem('medibook_sidebar_collapsed', next ? '1' : '0') } catch {}
+      return next
+    })
+  }, [])
 
   // Shared state hoisted here so TopNav and Navbar can trigger the same panels
   const [searchOpen, setSearchOpen] = useState(false)
@@ -52,6 +64,7 @@ export default function Layout() {
   }, [])
 
   const isTopNav = navLayout === 'top'
+  const effectiveSidebarWidth = sidebarCollapsed ? COLLAPSED_DRAWER_WIDTH : DRAWER_WIDTH
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -61,6 +74,8 @@ export default function Layout() {
         <Sidebar
           mobileOpen={mobileOpen}
           onMobileClose={() => setMobileOpen(false)}
+          collapsed={sidebarCollapsed}
+          onToggleCollapse={toggleSidebarCollapsed}
         />
       )}
 
@@ -79,8 +94,8 @@ export default function Layout() {
         component="main"
         sx={{
           flexGrow: 1,
-          width: isTopNav ? '100%' : { md: `calc(100% - ${DRAWER_WIDTH}px)` },
-          ml:    isTopNav ? 0       : { md: `${DRAWER_WIDTH}px` },
+          width: isTopNav ? '100%' : { md: `calc(100% - ${effectiveSidebarWidth}px)` },
+          ml:    isTopNav ? 0       : { md: `${effectiveSidebarWidth}px` },
           minHeight: '100vh',
           display: 'flex',
           flexDirection: 'column',
@@ -94,6 +109,7 @@ export default function Layout() {
             onMobileMenuClick={() => setMobileOpen(v => !v)}
             navLayout={navLayout}
             onToggleLayout={toggleLayout}
+            sidebarWidth={effectiveSidebarWidth}
           />
         )}
 

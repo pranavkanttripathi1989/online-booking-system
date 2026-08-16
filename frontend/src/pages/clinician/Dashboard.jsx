@@ -15,6 +15,7 @@ import dayjs from 'dayjs';
 import StitchKpiCard from '../../components/shared/StitchKpiCard';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { useAuth } from '../../hooks/useAuth';
+import { useMockMutation } from '../../mocks/useMockData';
 
 dayjs.extend(isSameOrBefore);
 
@@ -150,6 +151,20 @@ export default function ClinicianDashboard() {
   const [localSpacers, setLocalSpacers]       = useState([]);      // locally added blocks
   const [snackbar, setSnackbar]               = useState({ open: false, message: '', severity: 'success' });
   const [lastRefresh, setLastRefresh]         = useState(dayjs()); // SUG-CLDASH-010
+  const [localStatusOverrides, setLocalStatusOverrides] = useState({}); // SUG-CLDASH-011: id -> status
+
+  // SUG-CLDASH-013: Block form now goes through a mock "mutation" (async, has a
+  // loading state) instead of writing straight to state — same createSpacerBlock
+  // shape the real mutation would have once a backend endpoint exists.
+  const [createSpacerBlockMutation, { loading: savingBlock }] = useMockMutation(
+    async (block) => ({ id: `local-${Date.now()}`, ...block })
+  );
+
+  // SUG-CLDASH-011: "Mark Complete" mutation — simulated locally since the mock
+  // appointment data isn't backed by MockStore.appointments (different id scheme).
+  const [markCompleteMutation, { loading: markingComplete }] = useMockMutation(
+    async (id) => ({ id, status: 'completed' })
+  );
 
   const { data, loading, error, refetch } = useQuery(GET_CLINICIAN_DASHBOARD_DATA, {
     variables: { clinicianId: user?.id, today: todayStr },
@@ -195,7 +210,11 @@ export default function ClinicianDashboard() {
   // permanently blank dashboard. Now: if `data` is absent for any reason
   // (error, timeout, offline, auth mismatch) we fall back to mock data.
   const isMock         = !data;
-  const allAppointments = data?.getAppointments || (isMock ? MOCK_APPOINTMENTS : []);
+  const baseAppointments = data?.getAppointments || (isMock ? MOCK_APPOINTMENTS : []);
+  // SUG-CLDASH-011: apply any locally-completed statuses on top of the base data
+  const allAppointments = baseAppointments.map(a =>
+    localStatusOverrides[a.id] ? { ...a, status: localStatusOverrides[a.id] } : a
+  );
   const baseSpacers     = data?.getSpacerBlocks  || (isMock ? MOCK_SPACERS    : []);
   const spacerBlocks    = [...baseSpacers, ...localSpacers]; // merge locally-added blocks
   const lunchBreaks     = data?.getLunchBreaks   || (isMock ? MOCK_LUNCH      : []);
@@ -246,29 +265,39 @@ export default function ClinicianDashboard() {
     return errs;
   };
 
-  const handleSaveBlock = () => {
+  // SUG-CLDASH-013: goes through createSpacerBlockMutation (mock) instead of writing
+  // directly to state — mirrors what a real createSpacerBlock GraphQL mutation would do.
+  const handleSaveBlock = async () => {
     const errs = validateBlockForm();
     if (Object.keys(errs).length > 0) {
       setBlockErrors(errs);
       return; // stop — don't close drawer
     }
-    // Build a local spacer block and add to state (production: fire mutation)
-    const newBlock = {
-      id: `local-${Date.now()}`,
+    const duration = (() => {
+      const [sh, sm] = blockForm.startTime.split(':').map(Number);
+      const [eh, em] = blockForm.endTime.split(':').map(Number);
+      return (eh * 60 + em) - (sh * 60 + sm);
+    })();
+    const { data: newBlock } = await createSpacerBlockMutation({
       startTime: blockForm.startTime,
       endTime:   blockForm.endTime,
-      duration:  (() => {
-        const [sh, sm] = blockForm.startTime.split(':').map(Number);
-        const [eh, em] = blockForm.endTime.split(':').map(Number);
-        return (eh * 60 + em) - (sh * 60 + sm);
-      })(),
+      duration,
       reason: blockForm.reason || '',
-    };
+    });
     setLocalSpacers(prev => [...prev, newBlock]);
     setBlockErrors({});
     setBlockDrawerOpen(false);
     setBlockForm({ startTime: '', endTime: '', reason: '' });
     setSnackbar({ open: true, message: `Block ${dayjs(`2000-01-01T${blockForm.startTime}`).format('h:mm A')}–${dayjs(`2000-01-01T${blockForm.endTime}`).format('h:mm A')} added to schedule.`, severity: 'success' });
+  };
+
+  // SUG-CLDASH-011: mark the selected appointment as completed
+  const handleMarkComplete = async (id) => {
+    const { data: result } = await markCompleteMutation(id);
+    if (!result) return;
+    setLocalStatusOverrides(prev => ({ ...prev, [id]: result.status }));
+    setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, status: result.status } : prev));
+    setSnackbar({ open: true, message: 'Appointment marked as complete.', severity: 'success' });
   };
 
   const handleBlockFieldChange = (field, value) => {
@@ -639,9 +668,9 @@ export default function ClinicianDashboard() {
             <Button variant="outlined" fullWidth onClick={() => { setBlockDrawerOpen(false); setBlockErrors({}); }} sx={{ borderRadius: 2 }}>
               Cancel
             </Button>
-            <Button variant="contained" fullWidth onClick={handleSaveBlock}
+            <Button variant="contained" fullWidth onClick={handleSaveBlock} disabled={savingBlock}
               sx={{ bgcolor: STITCH_BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>
-              Save Block
+              {savingBlock ? 'Saving…' : 'Save Block'}
             </Button>
           </Stack>
         </Box>
@@ -695,6 +724,14 @@ export default function ClinicianDashboard() {
             </Box>
             <Box sx={{ p: 3, borderTop: '1px solid #E2E8F0', flexShrink: 0 }}>
               <Stack spacing={1.5}>
+                {/* SUG-CLDASH-011: Mark Complete — only offered for still-scheduled appointments */}
+                {selectedAppt.status === 'scheduled' && (
+                  <Button variant="contained" fullWidth startIcon={<CheckCircle />}
+                    onClick={() => handleMarkComplete(selectedAppt.id)} disabled={markingComplete}
+                    sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2, fontWeight: 700 }}>
+                    {markingComplete ? 'Saving…' : 'Mark Complete'}
+                  </Button>
+                )}
                 <Button variant="outlined" fullWidth onClick={() => navigate(`/patients/${selectedAppt.patient.id}`)}
                   sx={{ borderRadius: 2, fontWeight: 600 }}>
                   View Patient

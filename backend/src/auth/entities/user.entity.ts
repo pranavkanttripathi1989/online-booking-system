@@ -1,0 +1,61 @@
+import { ObjectType, Field } from '@nestjs/graphql';
+
+@ObjectType('Role')
+export class RoleType {
+  @Field()
+  name: string;
+}
+
+@ObjectType('ClinicianTypeInfo')
+export class ClinicianTypeInfoType {
+  @Field()
+  id: string;
+
+  @Field()
+  name: string;
+}
+
+@ObjectType('ClinicianInfo')
+export class ClinicianInfoType {
+  @Field()
+  id: string;
+
+  @Field()
+  full_name: string;
+
+  @Field({ nullable: true })
+  avatar_url?: string;
+
+  // Clinicians.clinician_type is a plain string in the schema today (no FK to
+  // ClinicianTypeModel yet — that relation belongs to the Clinicians domain
+  // increment, not this one), so id/name are both synthesized from that string.
+  @Field(() => ClinicianTypeInfoType, { nullable: true })
+  clinician_type?: ClinicianTypeInfoType;
+}
+
+// Named 'User' (not 'AuthUser') deliberately — frontend/src/graphql/queries.js's
+// USER_FIELDS fragment is declared as `fragment UserFields on User`, and a
+// fragment's type condition must match the GraphQL type name exactly.
+@ObjectType('User')
+export class AuthUserType {
+  @Field()
+  id: string;
+
+  @Field()
+  email: string;
+
+  @Field()
+  name: string;
+
+  // Data model currently supports one role per user (UserProfiles.role_id);
+  // wrapped as an array to match the frontend's existing user.roles[].name
+  // contract (AuthContext.jsx hasRole) — see phase1-docker-auth-implementation-plan.md.
+  @Field(() => [RoleType])
+  roles: RoleType[];
+
+  @Field(() => ClinicianInfoType, { nullable: true })
+  clinician?: ClinicianInfoType | null;
+
+  @Field({ nullable: true })
+  client_org_id?: string;
+}

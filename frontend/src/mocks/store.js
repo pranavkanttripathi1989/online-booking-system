@@ -9,7 +9,7 @@
  *   The data shapes here intentionally mirror the GraphQL fragment shapes.
  */
 
-import { CLINICIANS, CLINICS, ROOMS, SERVICES, ORGANISATIONS, LANGUAGES, CLINICIAN_TYPES, ROOM_TYPES } from './data/seed'
+import { CLINICIANS, CLINICS, ROOMS, SERVICES, ORGANISATIONS, SUBSCRIPTION_PLANS, LANGUAGES, CLINICIAN_TYPES, ROOM_TYPES } from './data/seed'
 import { PATIENTS } from './data/patients'
 import { APPOINTMENTS } from './data/appointments'
 import { MESSAGE_THREADS, NOTIFICATIONS } from './data/messages'
@@ -30,6 +30,7 @@ let store = {
   services:              clone(SERVICES),
   products:              clone(PRODUCTS),
   organisations:         clone(ORGANISATIONS),
+  subscription_plans:    clone(SUBSCRIPTION_PLANS),
   languages:             clone(LANGUAGES),
   clinician_types:       clone(CLINICIAN_TYPES),
   room_types:            clone(ROOM_TYPES),
@@ -416,6 +417,41 @@ export function deleteReview(id) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// UI WIDGET NOTIFICATIONS (NotificationBell + NotificationPanel shared source)
+// SUG-NOTIF-001/002 (notification-test-suggestion.md): both widgets previously
+// held separate local useState arrays, so read/dismiss state never matched and
+// reset on every remount. They now both read/write this single in-memory list
+// via useMockData(), so state stays in sync for the life of the session.
+// ─────────────────────────────────────────────────────────────────────────────
+const WIDGET_NOTIFICATIONS_SEED = [
+  { id: 1, type: 'appointment', unread: true,  title: 'New Appointment Booked',  body: 'Alice Johnson booked General Consultation for Mon 16 Mar at 09:00.', time: '2 min ago',  action: '/appointments' },
+  { id: 2, type: 'patient',     unread: true,  title: 'New Patient Registered',  body: 'Frank Miller just signed up for a patient account.',                  time: '18 min ago', action: '/patients' },
+  { id: 3, type: 'review',      unread: true,  title: 'New Review Received',     body: 'Dr. Jane Smith received 5★ from Emily Chen: "Excellent care!"',       time: '1 hr ago',   action: '/reviews' },
+  { id: 4, type: 'result',      unread: false, title: 'Test Result Updated',     body: 'HbA1c result for Bob Smith is now available.',                        time: '3 hr ago',   action: '/test-results' },
+  { id: 5, type: 'appointment', unread: false, title: 'Appointment Cancelled',   body: 'Carlos Reyes cancelled his 14:00 appointment on Tue 11 Mar.',         time: '5 hr ago',   action: '/appointments' },
+  { id: 6, type: 'system',      unread: false, title: 'Scheduled Maintenance',   body: 'The system will be down Sun 15 Mar 02:00–04:00 UTC for maintenance.', time: 'Yesterday',  action: null },
+  { id: 7, type: 'patient',     unread: false, title: 'Patient Profile Updated', body: 'Diana Prince updated her contact information.',                       time: 'Yesterday',  action: '/patients/4' },
+]
+let _widgetNotifications = clone(WIDGET_NOTIFICATIONS_SEED)
+
+export function getWidgetNotifications() { return _widgetNotifications }
+
+export function markWidgetNotificationRead(id) {
+  _widgetNotifications = _widgetNotifications.map(n => n.id === id ? { ...n, unread: false } : n)
+  notify()
+}
+
+export function markAllWidgetNotificationsRead() {
+  _widgetNotifications = _widgetNotifications.map(n => ({ ...n, unread: false }))
+  notify()
+}
+
+export function dismissWidgetNotification(id) {
+  _widgetNotifications = _widgetNotifications.filter(n => n.id !== id)
+  notify()
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // AVAILABILITY / BLOCKS
 // ─────────────────────────────────────────────────────────────────────────────
 export function getAvailabilityTemplate(clinicianId) {
@@ -464,6 +500,90 @@ export const getRolesPermissions     = () => store.roles_permissions
 export const getEmailTemplates       = () => store.email_templates
 export const getPolicies             = () => store.policies
 export const getOrganisations        = () => store.organisations
+export const getSubscriptionPlans    = () => store.subscription_plans
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORGANIZATION ONBOARDING (SaaS tenant signup wizard)
+// ─────────────────────────────────────────────────────────────────────────────
+export function startOrganizationOnboarding({ orgName, slug, contactEmail, ownerName, ownerPassword }) {
+  const org = {
+    id: nextId('org'),
+    name: orgName,
+    slug,
+    contact_email: contactEmail,
+    plan: null,
+    active_clinics: 0,
+    created_at: new Date().toISOString(),
+    onboarding_status: 'in_progress',
+    onboarding_step: 'org_details',
+    trial_ends_at: null,
+    owner_user_id: nextId('usr'),
+    owner_name: ownerName,
+  }
+  store.organisations.push(org)
+  notify()
+  return org
+}
+
+export function selectOnboardingPlan(orgId, planCode) {
+  const org = store.organisations.find(o => o.id === orgId)
+  if (!org) return null
+  const plan = store.subscription_plans.find(p => p.code === planCode)
+  org.plan = planCode
+  org.onboarding_step = 'plan_selected'
+  org.trial_ends_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14-day trial
+  notify()
+  return { org, plan }
+}
+
+export function addOnboardingFirstClinic(orgId, clinicDetails) {
+  const org = store.organisations.find(o => o.id === orgId)
+  if (!org) return null
+  const clinic = {
+    id: nextId('cli'),
+    name: clinicDetails.name,
+    organisation: { id: org.id, name: org.name },
+    city: clinicDetails.city,
+    address: clinicDetails.address,
+    state: clinicDetails.state,
+    postcode: clinicDetails.pincode, // field name kept as `postcode` to match manager/clinics pages; label is "PIN Code" in the UI
+    phone: clinicDetails.phone,
+    timezone: 'Asia/Kolkata',
+    total_rooms: 0, total_clinicians: 0, total_services: 0,
+    appointments_month: 0, revenue_month: 0,
+  }
+  store.clinics.push(clinic)
+  org.active_clinics = (org.active_clinics || 0) + 1
+  org.onboarding_step = 'first_clinic_added'
+  notify()
+  return clinic
+}
+
+export function completeOrganizationOnboarding(orgId) {
+  const org = store.organisations.find(o => o.id === orgId)
+  if (!org) return null
+  org.onboarding_status = 'completed'
+  org.onboarding_step = null
+  notify()
+  return org
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// ORGANIZATION BRANDING (logo + color scheme — see requirements/organization-branding-and-management-requirements.md)
+// ─────────────────────────────────────────────────────────────────────────────
+export function getOrganizationBranding(orgId) {
+  const org = store.organisations.find(o => o.id === orgId)
+  return org?.branding ?? { logo_url: null, primary_color: '#006D77', secondary_color: '#00858F' }
+}
+
+export function updateOrganizationBranding(orgId, { logo_url, primary_color, secondary_color }) {
+  const org = store.organisations.find(o => o.id === orgId)
+  if (!org) return null
+  org.branding = { ...(org.branding ?? {}), logo_url, primary_color, secondary_color }
+  notify()
+  return org.branding
+}
+
 export const getLanguages            = () => store.languages
 export const getClinicianTypes       = () => store.clinician_types
 export const getRoomTypes            = () => store.room_types
@@ -608,4 +728,62 @@ export function deleteMockLunchBreak(id) {
   _lunchBreaks = _lunchBreaks.filter(lb => lb.id !== id)
   notify()
   return true
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// STAFF (SUG-STAFF-010: persisted in-memory so /staff/new and edits survive navigation)
+// ─────────────────────────────────────────────────────────────────────────────
+const STAFF_SEED = [
+  { id: 'stf-1', name: 'Sara Johnson',    role: 'Receptionist',       department: 'Front Desk',       phone: '+1 555-0101', email: 'sara@medibook.dev',     status: 'active',   since: '2022-03-15', address: '12 Main St, NY', notes: 'Lead receptionist' },
+  { id: 'stf-2', name: 'Mark Thompson',   role: 'Admin',              department: 'Management',       phone: '+1 555-0102', email: 'mark@medibook.dev',     status: 'active',   since: '2021-07-01', address: '', notes: '' },
+  { id: 'stf-3', name: 'Lisa Park',       role: 'Nurse',              department: 'General Practice',  phone: '+1 555-0103', email: 'lisa@medibook.dev',     status: 'active',   since: '2023-01-22', address: '', notes: '' },
+  { id: 'stf-4', name: 'James Wilson',    role: 'Lab Technician',     department: 'Laboratory',        phone: '+1 555-0104', email: 'james@medibook.dev',    status: 'on_leave', since: '2020-09-10', address: '', notes: 'On medical leave until April 30' },
+  { id: 'stf-5', name: 'Amy Chen',        role: 'Receptionist',       department: 'Front Desk',       phone: '+1 555-0105', email: 'amy@medibook.dev',      status: 'active',   since: '2024-02-18', address: '', notes: '' },
+  { id: 'stf-6', name: 'Robert Davis',    role: 'IT Administrator',   department: 'IT & Systems',      phone: '+1 555-0106', email: 'robert@medibook.dev',   status: 'active',   since: '2019-06-05', address: '', notes: '' },
+  { id: 'stf-7', name: 'Patricia Brown',  role: 'Billing Specialist', department: 'Finance',           phone: '+1 555-0107', email: 'patricia@medibook.dev', status: 'inactive', since: '2018-11-30', address: '', notes: '' },
+  { id: 'stf-8', name: 'Kevin Lee',       role: 'Security Officer',   department: 'Security',          phone: '+1 555-0108', email: 'kevin@medibook.dev',    status: 'active',   since: '2023-08-14', address: '', notes: '' },
+]
+
+let _staff = clone(STAFF_SEED)
+
+/** Read all staff, optionally filtered by search term. */
+export function getStaff({ search } = {}) {
+  let result = _staff
+  if (search) {
+    const q = search.toLowerCase()
+    result = result.filter(s =>
+      s.name?.toLowerCase().includes(q) ||
+      s.role?.toLowerCase().includes(q) ||
+      s.department?.toLowerCase().includes(q)
+    )
+  }
+  return result
+}
+
+export function getStaffById(id) {
+  return _staff.find(s => s.id === id) ?? null
+}
+
+/** Create a new staff member and persist it in the in-memory store. */
+export function createStaff(data) {
+  const member = {
+    id: nextId('stf'),
+    name: data.name, email: data.email, phone: data.phone,
+    role: data.role, department: data.department,
+    status: data.status || 'active',
+    since: data.since || new Date().toISOString().split('T')[0],
+    address: data.address ?? '', notes: data.notes ?? '',
+  }
+  _staff.push(member)
+  notify()
+  return member
+}
+
+/** Update an existing staff member (used by edit page + deactivate actions). */
+export function updateStaff(id, data) {
+  const idx = _staff.findIndex(s => s.id === id)
+  if (idx === -1) return null
+  _staff[idx] = { ..._staff[idx], ...data }
+  notify()
+  return _staff[idx]
 }

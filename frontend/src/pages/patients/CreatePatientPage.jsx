@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useMutation } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
@@ -34,6 +34,19 @@ export default function CreatePatientPage() {
     },
     onError: (err) => enqueueSnackbar(err.message, { variant: 'error' }),
   })
+
+  // SUG-PT-013: Unsaved changes guard — warn on tab close/refresh while form is dirty
+  const isDirty = Object.keys(INITIAL).some((k) => (form[k] ?? '') !== (INITIAL[k] ?? ''))
+  useEffect(() => {
+    const handler = (e) => { if (isDirty) { e.preventDefault(); e.returnValue = '' } }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  }, [isDirty])
+
+  const handleCancel = () => {
+    if (isDirty && !window.confirm('You have unsaved changes. Discard them and leave this page?')) return
+    navigate('/patients')
+  }
 
   const set = (field) => (e) => setForm(f => ({ ...f, [field]: e.target.value }))
 
@@ -82,7 +95,7 @@ export default function CreatePatientPage() {
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/patients')} sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}>
+        <IconButton onClick={handleCancel} sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}>
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -95,7 +108,7 @@ export default function CreatePatientPage() {
           </Box>
         </Box>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" onClick={() => navigate('/patients')} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+          <Button variant="outlined" onClick={handleCancel} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
           <Button variant="contained" startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
             onClick={handleSubmit} disabled={loading}
             sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, bgcolor: '#0F9D58', '&:hover': { bgcolor: '#0B8043' } }}

@@ -227,7 +227,7 @@ export default function AdminUsers() {
 
   const getInitials = (first, last) => `${first?.[0] || ''}${last?.[0] || ''}`.toUpperCase();
   const getAvatarColor = (str = '') => {
-    const colors = ['#6366F1', '#EC4899', '#F59E0B', '#10B981', '#3B82F6', '#EF4444'];
+    const colors = ['#006D77', '#0E9F9F', '#14B8A6', '#0D9488', '#1CBFBF', '#047857'];
     let hash = 0;
     for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0;
     return colors[hash % colors.length];

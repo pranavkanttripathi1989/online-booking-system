@@ -20,6 +20,7 @@ import {
 import { useAuth } from '../../hooks/useAuth';
 import StitchKpiCard from '../../components/shared/StitchKpiCard';
 import StitchStatusChip from '../../components/shared/StitchStatusChip';
+import ErrorBoundary from '../../components/ErrorBoundary';
 
 // --- GraphQL ---
 
@@ -117,7 +118,14 @@ const MOCK_PIE = [
   { name: 'No-Show', value: 50 },
 ];
 
-export default function ManagerDashboard() {
+// SUG-DASH-002: mock clinic dropdown options for when getClinics returns [] offline
+const MOCK_CLINICS = [
+  { id: 'cli-1', name: 'London Central' },
+  { id: 'cli-2', name: 'Manchester North' },
+  { id: 'cli-3', name: 'Birmingham' },
+];
+
+function ManagerDashboardInner() {
   const { user } = useAuth();
   
   // Filters state
@@ -168,7 +176,8 @@ export default function ManagerDashboard() {
   };
 
   // Safe data access
-  const clinics = data?.getClinics || [];
+  // SUG-DASH-002: fall back to mock clinics so the dropdown isn't empty offline
+  const clinics = data?.getClinics?.length ? data.getClinics : MOCK_CLINICS;
   const stats = data?.getAppointmentStats || {
     totalAppointments: 1245, revenue: 145200, activePatients: 840, utilization: 78, cancellationRate: 12,
     trends: { totalAppointments: 12, revenue: 15, activePatients: 5, utilization: 3, cancellationRate: -2 },
@@ -182,10 +191,15 @@ export default function ManagerDashboard() {
     ]
   };
   
+  // SUG-DASH-003/SUG-DASH-005 (older file): expanded to 6 rows (incl. a 'failed' one)
+  // so pagination "Next Page" and the red "Failed" chip are both browser-testable offline.
   const transactions = data?.getTransactionsByDate || [
     { id: 'TRX_1', createdAt: new Date().toISOString(), amount: 150.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Sarah Jenkins' }, patient: { id: 1, firstName: 'John', lastName: 'Doe' }, product: { name: 'Initial Consultation' } } },
     { id: 'TRX_2', createdAt: new Date().toISOString(), amount: 85.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Michael Chen' }, patient: { id: 2, firstName: 'Jane', lastName: 'Smith' }, product: { name: 'Follow-up' } } },
     { id: 'TRX_3', createdAt: new Date().toISOString(), amount: 200.00, status: 'pending', appointment: { clinician: { name: 'Dr. Emily Blunt' }, patient: { id: 3, firstName: 'Robert', lastName: 'Johnson' }, product: { name: 'Specialist Review' } } },
+    { id: 'TRX_4', createdAt: new Date().toISOString(), amount: 45.00, status: 'failed', appointment: { clinician: { name: 'Dr. Emily Blunt' }, patient: { id: 4, firstName: 'Alice', lastName: 'Wong' }, product: { name: 'Blood Test' } } },
+    { id: 'TRX_5', createdAt: new Date().toISOString(), amount: 95.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Sarah Jenkins' }, patient: { id: 5, firstName: 'Priya', lastName: 'Patel' }, product: { name: 'Physiotherapy' } } },
+    { id: 'TRX_6', createdAt: new Date().toISOString(), amount: 120.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Michael Chen' }, patient: { id: 6, firstName: 'Tom', lastName: 'Lee' }, product: { name: 'Consultation' } } },
   ];
 
   return (
@@ -253,7 +267,12 @@ export default function ManagerDashboard() {
           <Card elevation={0} sx={{ p: 3, border: '1px solid #E2E8F0', borderRadius: 3, height: '100%' }}>
             <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>Appointments Over Time</Typography>
             <Typography variant="caption" color="text.secondary" display="block" mb={2}>Scheduled vs Completed vs Cancelled</Typography>
-            {loading ? <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 2 }} /> : (
+            {loading ? <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 2 }} /> : stats.timeSeriesData.length === 0 ? (
+              /* SUG-DASH-003 (older file): empty state when filtered data has no rows */
+              <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
+                <Typography>No appointment data for this period.</Typography>
+              </Box>
+            ) : (
               <Box height={300} mt={1}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.timeSeriesData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
@@ -338,7 +357,9 @@ export default function ManagerDashboard() {
         <Grid item xs={12} md={6}>
           <Card elevation={0} sx={{ p: 3, border: '1px solid #E2E8F0', borderRadius: 3, height: '100%' }}>
             <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>Top Performing Clinicians</Typography>
-            {loading ? <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 2 }} /> : (
+            {loading ? <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 2 }} /> : stats.topClinicians.length === 0 ? (
+              <Typography color="text.secondary" textAlign="center" py={4}>No clinician data available.</Typography>
+            ) : (
               <TableContainer sx={{ mt: 2 }}>
                 <Table size="small">
                   <TableHead>
@@ -439,5 +460,14 @@ export default function ManagerDashboard() {
       </Card>
 
     </Box>
+  );
+}
+
+// SUG-DASH-004: wrap page in ErrorBoundary, consistent with Availability/Blocks/Billing modules
+export default function ManagerDashboard() {
+  return (
+    <ErrorBoundary>
+      <ManagerDashboardInner />
+    </ErrorBoundary>
   );
 }

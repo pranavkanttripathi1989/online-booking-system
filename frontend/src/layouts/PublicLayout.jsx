@@ -61,7 +61,8 @@ export default function PublicLayout() {
           <Box sx={{ flex: 1 }} />
 
           {!isMobile ? (
-            <Stack direction="row" spacing={1.5}>
+            <Stack direction="row" spacing={1.5} alignItems="center">
+              <Button onClick={() => navigate('/get-started')} sx={{ fontWeight: 700 }}>For Clinics</Button>
               <Button variant="outlined" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>Sign In</Button>
               <Button variant="contained" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>Book Now</Button>
             </Stack>
@@ -90,6 +91,9 @@ export default function PublicLayout() {
           ))}
           <ListItem sx={{ pt: 2 }}>
             <Button fullWidth variant="contained" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>Sign In / Book</Button>
+          </ListItem>
+          <ListItem>
+            <Button fullWidth variant="outlined" onClick={() => navigate('/get-started')} sx={{ fontWeight: 700 }}>Run a clinic? Get started</Button>
           </ListItem>
         </List>
       </Drawer>

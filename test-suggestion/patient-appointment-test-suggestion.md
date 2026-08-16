@@ -70,10 +70,13 @@ Files: Appointments.jsx
 
 ### SUG-PTAPPT-008 — Sort Descending Toggle
 ```
-Status: PENDING
-Notes: Once ascending sort is confirmed stable, add sortDir state toggle (asc/desc).
-       Low UX value for now; revisit after user testing.
-Priority: Low
+Status: DONE
+Notes: Added sortDir state ('asc'/'desc') + IconButton toggle next to the Sort by
+       Select (ArrowUpward/ArrowDownward icon). Applied via .reverse() on the already-
+       sorted array in the useMemo. Listed under this file's "Medium Priority — Pending"
+       section, so implemented despite the inline note calling it Low.
+Files: Appointments.jsx
+Priority: Medium
 ```
 
 ### SUG-PTAPPT-009 — Backend Apollo Integration
@@ -101,17 +104,22 @@ Files: patient-appointment-test-plan.md
 
 ### SUG-PTAPPT-011 — Reschedule Button for Upcoming Appointments
 ```
-Status: PENDING
-Notes: Currently there is no way to reschedule. Adding a "Reschedule" button next to Cancel
-       would be a valuable UX improvement for patients.
+Status: DONE
+Notes: Added a "Reschedule" button (EventRepeat icon) next to Cancel on each upcoming
+       AppointmentCard, opening a new RescheduleDialog (date + time fields) that updates
+       the appointment in local state and shows a confirmation snackbar. Also wired to
+       the ?reschedule=:id query param from the Dashboard (SUG-PTDASH-011).
+Files: Appointments.jsx
 Priority: Medium
 ```
 
 ### SUG-PTAPPT-012 — Add Appointment Detail Drawer/Page
 ```
-Status: PENDING
-Notes: Clicking on a card reveals no additional information. A detail drawer or link to
-       /patient/appointments/:id would improve appointment transparency.
+Status: DONE
+Notes: Clicking anywhere on an appointment card (outside the action buttons) now opens
+       a detail Dialog showing doctor, specialty, service, date, time, location, price
+       and status. Action buttons stopPropagation so they don't also trigger it.
+Files: Appointments.jsx
 Priority: Medium
 ```
 
@@ -135,9 +143,9 @@ Priority: Low
 | SUG-PTAPPT-005 | Price null guard (£TBD) | ✅ COMPLETED |
 | SUG-PTAPPT-006 | Doctor name noWrap + maxWidth | ✅ COMPLETED |
 | SUG-PTAPPT-007 | Convert APPOINTMENTS to state | ✅ COMPLETED |
-| SUG-PTAPPT-008 | Sort descending toggle | ⏳ PENDING |
-| SUG-PTAPPT-009 | Backend Apollo integration | ⏳ PENDING |
+| SUG-PTAPPT-008 | Sort descending toggle | ✅ DONE |
+| SUG-PTAPPT-009 | Backend Apollo integration | ⏳ PENDING (backend milestone) |
 | SUG-PTAPPT-010 | Fix TC-05 plan wording | ✅ COMPLETED |
-| SUG-PTAPPT-011 | Reschedule button | ⏳ PENDING |
-| SUG-PTAPPT-012 | Appointment detail drawer | ⏳ PENDING |
-| SUG-PTAPPT-013 | ErrorBoundary wrapper | ⏳ PENDING |
+| SUG-PTAPPT-011 | Reschedule button | ✅ DONE |
+| SUG-PTAPPT-012 | Appointment detail drawer | ✅ DONE |
+| SUG-PTAPPT-013 | ErrorBoundary wrapper | ⏳ PENDING (Low — out of scope) |

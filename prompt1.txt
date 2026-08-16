@@ -10,10 +10,10 @@ Follow every step exactly. Do not skip, reorder, or approximate any instruction.
 
 Replace the placeholders below before execution:
 
-* RESULTS_FILE: `manager-products-test-results.md`
-* TEST_PLAN_FILE: `manager-products-test-plan.md`
-* SUGGESTION_FILE: `manager-products-suggestion.md`
-* UPDATED_TEST_PLAN_FILE: `manager-products-test-plan.md`
+* RESULTS_FILE: `test-results-page-test-results.md`
+* TEST_PLAN_FILE: `test-results-page-test-plan.md`
+* SUGGESTION_FILE: `test-results-page-test-suggestion.md`
+* UPDATED_TEST_PLAN_FILE: `test-results-page-test-plan.md`
 
 ---
 

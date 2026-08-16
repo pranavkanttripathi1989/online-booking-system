@@ -1,0 +1,713 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+//
+// ENUMS
+//
+
+enum TemplateType {
+  confirmation
+  reschedule
+  cancellation
+  welcome
+  password_reset
+  otp
+  invoice_receipt
+  review_request
+}
+
+enum NotificationType {
+  appointment
+  system
+  payment
+  alert
+}
+
+enum NotificationPriority {
+  low
+  medium
+  high
+}
+
+enum ProductType {
+  simple
+  variable
+}
+
+enum RuleType {
+  cancellation
+  reschedule
+}
+
+enum FeeType {
+  fixed
+  percentage
+}
+
+enum SubscriptionStatus {
+  active
+  cancelled
+  expired
+  trial
+}
+
+enum OnboardingStatus {
+  pending       // org row created, wizard not yet started or abandoned mid-way
+  in_progress   // wizard started, not all required steps done
+  completed     // owner finished onboarding — org is fully usable
+}
+
+enum BillingCycle {
+  monthly
+  yearly
+}
+
+enum RecurrenceType {
+  single
+  daily
+  weekly
+  monthly
+  custom
+}
+
+//
+// MODELS
+//
+
+model ClinicianTypeModel {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+
+  @@map("clinician_types")
+}
+
+model RoomTypeModel {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  is_active   Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @default(now())
+
+  @@map("room_types")
+}
+
+model Appointments {
+  id                  String   @id @default(uuid())
+  clinic_id           String
+  room_id             String
+  clinician_id        String
+  patient_id          String
+  appointment_date    DateTime
+  appointment_time    DateTime
+  duration_minutes    Int      @default(30)
+  status              String   @default("scheduled")
+  reason              String
+  notes               String   @default("")
+  is_deleted          Boolean  @default(false)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @default(now())
+  product_id          String?
+  product_variation_id String?
+
+  clinic              Clinics               @relation(fields: [clinic_id], references: [id])
+  room                Rooms                 @relation(fields: [room_id], references: [id])
+  clinician           Clinicians            @relation(fields: [clinician_id], references: [id])
+  patient             Patients              @relation(fields: [patient_id], references: [id])
+  product             Products?             @relation(fields: [product_id], references: [id])
+  product_variation   ProductVariations?    @relation(fields: [product_variation_id], references: [id])
+  reviews             Reviews[]
+}
+
+model AuditLogs {
+  id         String   @id @default(uuid())
+  user_id    String?
+  action     String
+  resource   String
+  resource_id String?
+  details    Json     @default("{}")
+  ip_address String?
+  is_deleted Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  user Users? @relation(fields: [user_id], references: [id])
+}
+
+model ClientOrganizations {
+  id            String   @id @default(uuid())
+  name          String
+  code          String   @unique
+  contact_email String
+  contact_phone String?
+  address       String?
+  is_active     Boolean  @default(true)
+  is_deleted    Boolean  @default(false)
+  settings      Json     @default("{}")
+  // Self-serve SaaS onboarding
+  owner_user_id     String?          // the user who signed up / owns billing for this tenant
+  onboarding_status OnboardingStatus @default(pending)
+  onboarding_step   String?          // e.g. "org_details" | "plan_selected" | "first_clinic_added" | "team_invited" — resumable wizard
+  trial_ends_at     DateTime?
+  onboarded_at      DateTime?
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now())
+
+  owner                  Users?    @relation("OrganizationOwner", fields: [owner_user_id], references: [id])
+  clinics                Clinics[]
+  organizationSubs       OrganizationSubscriptions[]
+  user_profiles          UserProfiles[]
+  stripe_configurations  StripeConfigurations?
+  paymentTransactions    PaymentTransactions[]
+  messageThreads         MessageThreads[]
+}
+
+model ClinicianAvailability {
+  id                String   @id @default(uuid())
+  clinician_id      String
+  clinic_id         String
+  day_of_week       Int?     // 0-6 (Sunday-Saturday) for weekly recurring
+  start_time        String   // HH:MM format
+  end_time          String   // HH:MM format
+  recurrence_type   String   @default("weekly") // daily, weekly, monthly, custom
+  custom_dates      String?  // JSON array of dates for custom recurrence
+  exclude_weekends  Boolean  @default(false)
+  exclude_saturday  Boolean  @default(false)
+  exclude_sunday    Boolean  @default(false)
+  excluded_days     String?  // JSON array of day numbers (0-6) to exclude
+  valid_from        DateTime @default(now())
+  valid_until       DateTime?
+  is_active         Boolean  @default(true)
+  is_deleted        Boolean  @default(false)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @default(now()) @updatedAt
+  room_id           String?
+
+  clinician Clinicians @relation(fields: [clinician_id], references: [id])
+  clinic    Clinics    @relation(fields: [clinic_id], references: [id])
+  room      Rooms?     @relation(fields: [room_id], references: [id])
+}
+
+
+model Clinicians {
+  id             String   @id @default(uuid())
+  clinic_id      String
+  first_name     String
+  last_name      String
+  clinician_type String
+  gender         String?
+  email          String   @unique
+  phone          String
+  is_active      Boolean  @default(true)
+  is_deleted     Boolean  @default(false)
+  created_at     DateTime @default(now())
+
+  clinic Clinics @relation(fields: [clinic_id], references: [id])
+
+  availability        ClinicianAvailability[]
+  appointments        Appointments[]
+  lunchBreaks         LunchBreaks[]
+  spacerBlocks        SpacerBlocks[]
+  userProfiles        UserProfiles[]
+  clinicianLanguages  ClinicianLanguages[]
+  reviews             Reviews[]
+}
+
+model Clinics {
+  id           String   @id @default(uuid())
+  name         String
+  address      String
+  phone        String
+  email        String
+  is_primary   Boolean  @default(false)
+  is_active    Boolean  @default(true)
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now())
+  client_org_id String?
+
+  client_organization ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+
+  clinicians         Clinicians[]
+  rooms              Rooms[]
+  availability       ClinicianAvailability[]
+  lunchBreaks        LunchBreaks[]
+  spacerBlocks       SpacerBlocks[]
+  blocks             RoomBlocks[]
+  appointments       Appointments[]
+  userProfiles       UserProfiles[]
+  products           Products[]
+  productCategories  ProductCategories[]
+  productSubcategories ProductSubcategories[]
+  reviews            Reviews[]
+}
+
+model EmailTemplates {
+  id            String       @id @default(uuid())
+  name          String
+  template_type TemplateType
+  subject       String
+  body          String
+  is_active     Boolean      @default(true)
+  is_deleted    Boolean      @default(false)
+  created_at    DateTime     @default(now())
+  updated_at    DateTime     @default(now())
+}
+
+model LunchBreaks {
+  id             String        @id @default(uuid())
+  clinician_id   String
+  clinic_id      String
+  day_of_week    Int?
+  start_time     DateTime
+  end_time       DateTime
+  is_recurring   Boolean       @default(true)
+  specific_date  DateTime?
+  is_deleted     Boolean       @default(false)
+  created_at     DateTime      @default(now())
+  recurrence_type RecurrenceType @default(single)
+  recurrence_days Json?
+  end_date       DateTime?
+
+  clinician Clinicians @relation(fields: [clinician_id], references: [id])
+  clinic    Clinics    @relation(fields: [clinic_id], references: [id])
+}
+
+model Notifications {
+  id         String              @id @default(uuid())
+  user_id    String
+  title      String
+  message    String
+  type       NotificationType
+  priority   NotificationPriority @default(medium)
+  is_read    Boolean             @default(false)
+  is_deleted Boolean             @default(false)
+  action_url String?
+  metadata   Json                @default("{}")
+  created_at DateTime            @default(now())
+
+  user Users @relation(fields: [user_id], references: [id])
+}
+
+model OrganizationSubscriptions {
+  id                   String              @id @default(uuid())
+  client_org_id        String
+  plan_id              String
+  status               SubscriptionStatus
+  billing_cycle        BillingCycle
+  current_period_start DateTime @default(now())
+  current_period_end   DateTime
+  is_deleted           Boolean  @default(false)
+  stripe_customer_id   String?
+  stripe_subscription_id String?
+  created_at           DateTime @default(now())
+  updated_at           DateTime @default(now())
+
+  client_org          ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  plan                SubscriptionPlans   @relation(fields: [plan_id], references: [id])
+  paymentTransactions PaymentTransactions[] @relation("SubscriptionTransactions")
+}
+
+model Patients {
+  id                    String   @id @default(uuid())
+  first_name            String
+  last_name             String
+  date_of_birth         DateTime
+  email                 String
+  phone                 String
+  phone_country_code    String?
+  address               String
+  medical_notes         String   @default("")
+  title                 String?
+  status                String?
+  birth_surname         String?
+  birth_name            String?
+  birth_names           String?
+  social_security_number String?
+  gender                String?
+  sex                   String?
+  google_client_id      String?
+  payment_reference     String?
+  occupation            String?
+  place_of_birth        Json?    // JSON: { city, country }
+  phones                Json?    // JSON array: [{ countryCode, number }]
+  address_structured    Json?    // JSON: { line1, line2, city, state, pincode, country } — India address format
+  is_deleted            Boolean  @default(false)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  appointments Appointments[]
+  userProfiles UserProfiles[]
+  reviews      Reviews[]
+}
+
+model PaymentTransactions {
+  id             String   @id @default(uuid())
+  client_org_id  String
+  subscription_id String?
+  amount         Int      // stored in paise (smallest INR unit) to avoid float rounding
+  currency       String   @default("INR")
+  status         String
+  is_deleted     Boolean  @default(false)
+  stripe_payment_intent_id String?
+  stripe_invoice_id String?
+  razorpay_order_id   String?
+  razorpay_payment_id String?
+  razorpay_signature  String?
+  // GST invoicing fields (India)
+  gstin          String?
+  hsn_sac_code   String?
+  gst_rate       Float?   // e.g. 18.0 for 18%
+  cgst_amount    Int?     // paise
+  sgst_amount    Int?     // paise
+  igst_amount    Int?     // paise
+  transaction_date DateTime @default(now())
+  metadata       Json     @default("{}")
+  created_at     DateTime @default(now())
+
+  client_org    ClientOrganizations        @relation(fields: [client_org_id], references: [id])
+  subscription  OrganizationSubscriptions? @relation("SubscriptionTransactions", fields: [subscription_id], references: [id])
+}
+
+model Reviews {
+  id             String   @id @default(uuid())
+  appointment_id String
+  patient_id     String
+  clinician_id   String?
+  clinic_id      String?
+  stars          Int      // 1-5
+  comment        String
+  response       String?
+  responded_at   DateTime?
+  is_deleted     Boolean  @default(false)
+  created_at     DateTime @default(now())
+
+  appointment Appointments @relation(fields: [appointment_id], references: [id])
+  patient     Patients     @relation(fields: [patient_id], references: [id])
+  clinician   Clinicians?  @relation(fields: [clinician_id], references: [id])
+  clinic      Clinics?     @relation(fields: [clinic_id], references: [id])
+}
+
+model MessageThreads {
+  id            String   @id @default(uuid())
+  client_org_id String
+  last_message  String?
+  last_activity DateTime @default(now())
+  created_at    DateTime @default(now())
+
+  client_org   ClientOrganizations   @relation(fields: [client_org_id], references: [id])
+  participants MessageParticipants[]
+  messages     Messages[]
+}
+
+model MessageParticipants {
+  id         String   @id @default(uuid())
+  thread_id  String
+  user_id    String
+  unread_count Int    @default(0)
+
+  thread MessageThreads @relation(fields: [thread_id], references: [id])
+  user   Users          @relation(fields: [user_id], references: [id])
+
+  @@unique([thread_id, user_id])
+}
+
+model Messages {
+  id         String   @id @default(uuid())
+  thread_id  String
+  from_id    String
+  body       String
+  read_at    DateTime?
+  sent_at    DateTime @default(now())
+
+  thread MessageThreads @relation(fields: [thread_id], references: [id])
+  from   Users          @relation(fields: [from_id], references: [id])
+}
+
+model Permissions {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String   @default("")
+  resource    String
+  action      String
+  created_at  DateTime @default(now())
+
+  rolePermissions RolePermissions[]
+}
+
+model ProductCancellationRules {
+  id                     String      @id @default(uuid())
+  product_id             String
+  rule_type              RuleType
+  hours_before_appointment Int      @default(24)
+  fee_type               FeeType
+  fee_amount             Int      // paise
+  is_active              Boolean    @default(true)
+  is_deleted             Boolean    @default(false)
+  created_at             DateTime   @default(now())
+  updated_at             DateTime   @default(now())
+
+  product Products @relation(fields: [product_id], references: [id])
+}
+
+model ProductCategories {
+  id           String   @id @default(uuid())
+  clinic_id    String?
+  name         String
+  description  String   @default("")
+  is_active    Boolean  @default(true)
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  clinic            Clinics? @relation(fields: [clinic_id], references: [id])
+  subcategories     ProductSubcategories[]
+  products          Products[]
+}
+
+model ProductSubcategories {
+  id           String   @id @default(uuid())
+  clinic_id    String?
+  category_id  String
+  name         String
+  description  String   @default("")
+  is_active    Boolean  @default(true)
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  clinic    Clinics? @relation(fields: [clinic_id], references: [id])
+  category  ProductCategories @relation(fields: [category_id], references: [id])
+  products  Products[]
+}
+
+model ProductVariations {
+  id              String   @id @default(uuid())
+  product_id      String
+  variation_name  String
+  sku             String   @unique
+  price           Int      // paise
+  duration_minutes Int?    // overrides the parent Product's duration for this variation (e.g. "30 min" vs "60 min" session)
+  stock_quantity  Int      @default(0)
+  is_active       Boolean  @default(true)
+  is_deleted      Boolean  @default(false)
+  created_at      DateTime @default(now())
+
+  product Products @relation(fields: [product_id], references: [id])
+  appointments Appointments[]
+}
+
+model Products {
+  id                String   @id @default(uuid())
+  clinic_id         String?
+  category_id       String?
+  subcategory_id    String?
+  name              String
+  description       String   @default("")
+  product_type      ProductType
+  sku               String   @unique
+  price             Int?     // paise
+  duration_minutes  Int?     // required for a bookable service (test-cases/08-products-services flagged this as missing — a clinical service needs a duration to generate slots)
+  order_by          Int      @default(0)
+  is_active         Boolean  @default(true)
+  is_deleted        Boolean  @default(false)
+  created_at        DateTime @default(now())
+
+  clinic            Clinics? @relation(fields: [clinic_id], references: [id])
+  category          ProductCategories? @relation(fields: [category_id], references: [id])
+  subcategory       ProductSubcategories? @relation(fields: [subcategory_id], references: [id])
+  variations        ProductVariations[]
+  appointments      Appointments[]
+  cancellationRules ProductCancellationRules[]
+}
+
+model RolePermissions {
+  id            String   @id @default(uuid())
+  role_id       String
+  permission_id String
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  role       UserRoles   @relation(fields: [role_id], references: [id])
+  permission Permissions @relation(fields: [permission_id], references: [id])
+}
+
+model RoomBlocks {
+  id          String   @id @default(uuid())
+  room_id     String
+  clinic_id   String
+  block_date  DateTime
+  start_time  DateTime
+  end_time    DateTime
+  reason      String   @default("")
+  is_recurring Boolean @default(false)
+  is_deleted  Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  room   Rooms   @relation(fields: [room_id], references: [id])
+  clinic Clinics @relation(fields: [clinic_id], references: [id])
+}
+
+model Rooms {
+  id          String   @id @default(uuid())
+  clinic_id   String
+  room_number String
+  room_type   String   @default("consultation")
+  clinician_type String?
+  capacity    Int?     // frontend Create/Edit Room forms require this (test-cases/07-clinics-rooms) — was missing from schema
+  is_active   Boolean  @default(true)
+  is_deleted  Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  clinic Clinics @relation(fields: [clinic_id], references: [id])
+  availability ClinicianAvailability[]
+  appointments Appointments[]
+  roomBlocks   RoomBlocks[]
+  spacerBlocks SpacerBlocks[]
+}
+
+model SpacerBlocks {
+  id             String        @id @default(uuid())
+  clinician_id   String
+  clinic_id      String
+  room_id        String?
+  block_date     DateTime?
+  start_time     DateTime
+  end_time       DateTime
+  reason         String         @default("")
+  is_deleted     Boolean        @default(false)
+  created_at     DateTime       @default(now())
+  recurrence_type RecurrenceType @default(single)
+  recurrence_days Json?
+  end_date       DateTime?
+
+  clinician Clinicians @relation(fields: [clinician_id], references: [id])
+  clinic    Clinics    @relation(fields: [clinic_id], references: [id])
+  room      Rooms?     @relation(fields: [room_id], references: [id])
+}
+
+model StripeConfigurations {
+  id                 String   @id @default(uuid())
+  client_org_id      String   @unique
+  stripe_account_id  String?
+  stripe_publishable_key String?
+  stripe_webhook_secret String?
+  is_active          Boolean  @default(true)
+  is_deleted         Boolean  @default(false)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+}
+
+model SubscriptionPlans {
+  id            String   @id @default(uuid())
+  name          String   @unique
+  description   String
+  price_monthly Int      @default(0) // paise
+  price_yearly  Int      @default(0) // paise
+  max_clinics   Int      @default(1)
+  max_users     Int      @default(5)
+  features      Json     @default("{}")
+  is_active     Boolean  @default(true)
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  subscriptions OrganizationSubscriptions[]
+}
+
+//
+// USERS FROM auth.users TABLE
+//
+
+model Users {
+  id String @id @default(uuid())
+
+  auditLogs    AuditLogs[]
+  notifications Notifications[]
+  userProfiles  UserProfiles?
+  messageParticipants MessageParticipants[]
+  messages      Messages[]
+  ownedOrganizations ClientOrganizations[] @relation("OrganizationOwner")
+}
+
+model UserProfiles {
+  id            String   @id
+  role_id       String
+  first_name    String
+  last_name     String
+  email         String   @unique
+  password      String
+  phone         String?  @unique // OTP login requires an unambiguous phone→account lookup
+  phone_country_code String?
+  address_line1 String?
+  address_line2 String?
+  city          String?
+  postal_code   String?
+  country       String?
+  user_image    String?
+  clinic_id     String?
+  clinician_id  String?
+  patient_id    String?
+  is_active     Boolean  @default(true)
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+  updated_at    DateTime @default(now())
+  client_org_id String?
+
+  // add these for forgot-password
+  password_reset_token   String?
+  password_reset_expires DateTime?
+
+  email_verified           Boolean   @default(false)
+  email_verification_token String?
+  email_verification_expires DateTime?
+
+  user        Users                @relation(fields: [id], references: [id])
+  role        UserRoles            @relation(fields: [role_id], references: [id])
+  clinic      Clinics?             @relation(fields: [clinic_id], references: [id])
+  clinician   Clinicians?          @relation(fields: [clinician_id], references: [id])
+  patient     Patients?            @relation(fields: [patient_id], references: [id])
+  client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+}
+
+model UserRoles {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String   @default("")
+  is_deleted  Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  rolePermissions RolePermissions[]
+  userProfiles   UserProfiles[]
+}
+
+model Languages {
+  id         String   @id @default(uuid())
+  name       String   @unique
+  code       String   @unique
+  is_active  Boolean  @default(true)
+  is_deleted Boolean  @default(false)
+  created_at DateTime @default(now())
+
+  clinicianLanguages ClinicianLanguages[]
+}
+
+model ClinicianLanguages {
+  id            String   @id @default(uuid())
+  clinician_id  String
+  language_id   String
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  clinician Clinicians @relation(fields: [clinician_id], references: [id], onDelete: Cascade)
+  language  Languages  @relation(fields: [language_id], references: [id], onDelete: Cascade)
+
+  @@unique([clinician_id, language_id])
+}

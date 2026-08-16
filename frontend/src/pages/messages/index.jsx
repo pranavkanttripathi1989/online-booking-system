@@ -23,6 +23,7 @@ import BadgeRoundedIcon            from '@mui/icons-material/BadgeRounded'
 import * as MockStore from '../../mocks/store'
 import { useAuth } from '../../context/AuthContext'
 import ErrorBoundary from '../../components/ErrorBoundary'
+import { formatRelativeTime } from '../../utils/dateTime'
 
 // ─── Role colour map (SUG-MSG-005) ───────────────────────────────────────────
 const ROLE_STYLE = {
@@ -66,7 +67,8 @@ function ContactItem({ thread, active, currentUserId, onClick }) {
             {other?.name ?? 'Unknown'}
           </Typography>
           <Typography variant="caption" sx={{ color: '#9AA0A6', flexShrink: 0, ml: 1 }}>
-            {thread.last_activity ? new Date(thread.last_activity).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}
+            {/* SUG-DT-S7-001: relative time ("2 min ago", "3 days ago", etc.) instead of a raw clock time */}
+            {thread.last_activity ? formatRelativeTime(thread.last_activity) : ''}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

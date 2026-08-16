@@ -71,19 +71,21 @@ Files: pages/test-results/index.jsx
 
 ### SUG-TRES-005 — Add Column Sorting
 ```
-Status: PENDING
-Notes: Add sortField/sortDir state. TableSortLabel on column headers (Date Ordered, Patient, Status).
-       [...filtered].sort() with localeCompare for string fields.
-       Default sort: Date Ordered desc (newest first).
-Priority: Medium
+Status: COMPLETED
+Notes: Added sortField/sortDir state (default date_ordered/desc) and TableSortLabel on the
+       Patient, Date Ordered, and Status headers. Sorting done via [...list].sort() with
+       localeCompare, memoized alongside the filter computation.
+Files: pages/test-results/index.jsx
 ```
 
 ### SUG-TRES-006 — Add Loading Skeleton for Backend Integration
 ```
-Status: PENDING
-Notes: When useQuery loading=true, render Skeleton placeholders for KPI cards + table rows.
-       Add useMemo for filter computations (performance).
-Priority: Medium (future-proofing)
+Status: COMPLETED
+Notes: This page has no useQuery (pure local mock data), so added a `loading` state that's
+       true for 500ms on mount to simulate a fetch, matching useMockMutation's async-delay
+       convention used elsewhere. Renders <Skeleton> placeholders for the 4 KPI cards and 4
+       table rows while loading. Also wrapped types/filtered/counts in useMemo as suggested.
+Files: pages/test-results/index.jsx
 ```
 
 ---
@@ -92,10 +94,12 @@ Priority: Medium (future-proofing)
 
 ### SUG-TRES-008 — Order Test: Add to Mock Data on Submit
 ```
-Status: PENDING
-Notes: handleOrderSubmit currently only closes dialog. It should push new record to a mock state array
-       (useState([...MOCK_RESULTS])) so the new order appears in the table as 'pending'.
-Priority: Medium
+Status: COMPLETED
+Notes: Converted MOCK_RESULTS into results state (useState(MOCK_RESULTS)). handleOrderSubmit
+       now builds a new record (id TR-0NN, status:'pending', ordered_by:'Current User', today's
+       date, empty values) and prepends it via setResults, so it appears in the table and KPI
+       counts immediately.
+Files: pages/test-results/index.jsx
 ```
 
 ### SUG-TRES-009 — Add "Share Result" Action in Dialog
@@ -116,8 +120,8 @@ Priority: Low
 | SUG-TRES-002 | Order Test dialog | ✅ COMPLETED |
 | SUG-TRES-003 | Unknown flag chip fallback | ✅ COMPLETED |
 | SUG-TRES-004 | Clear Filters button | ✅ COMPLETED |
-| SUG-TRES-005 | Column sorting | ⏳ PENDING |
-| SUG-TRES-006 | Loading skeleton | ⏳ PENDING |
+| SUG-TRES-005 | Column sorting | ✅ COMPLETED |
+| SUG-TRES-006 | Loading skeleton | ✅ COMPLETED |
 | SUG-TRES-007 | "low" flag mock data | ✅ COMPLETED |
-| SUG-TRES-008 | Order pushes to mock state | ⏳ PENDING (New) |
+| SUG-TRES-008 | Order pushes to mock state | ✅ COMPLETED |
 | SUG-TRES-009 | Share result to clipboard | ⏳ PENDING (New) |

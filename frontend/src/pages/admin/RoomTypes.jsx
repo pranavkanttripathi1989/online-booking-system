@@ -15,6 +15,8 @@ const CREATE_RT = gql`mutation CreateRoomType($input: CreateRoomTypeInput!) { cr
 const UPDATE_RT = gql`mutation UpdateRoomType($id:ID!,$input: UpdateRoomTypeInput!) { updateRoomType(id:$id,input:$input) { success userErrors{message} } }`
 const DELETE_RT = gql`mutation DeleteRoomType($id:ID!) { deleteRoomType(id:$id) { success userErrors{message} } }`
 
+const defaultForm = { name: '', description: '', is_active: true }
+
 // ─── Mock fallback (NEW-ADMIN-001) ─────────────────────────────────────────
 const MOCK_ROOM_TYPES = [
   { id: 'rt-1', name: 'Consultation Room',   description: 'Standard GP / specialist consultation', is_active: true },

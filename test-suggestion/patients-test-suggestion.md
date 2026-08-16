@@ -86,10 +86,11 @@ Priority: Low
 
 ### SUG-PAT-009 — Search Also Matches Email and Phone
 ```
-Status: PENDING
-Notes: index.jsx search already matches email (line 151: p.email.toLowerCase().includes()).
-       Additionally add phone match. Update placeholder text to mention all 3 fields.
-       Partial — email already done; phone match not yet implemented.
+Status: DONE
+Notes: index.jsx: search filter now also matches p.phone (digits/spaces/dashes stripped
+       for a loose match), in addition to the existing name/email match. Placeholder
+       text already read "Search by name, email or phone…" — no change needed there.
+Files: index.jsx
 Priority: Medium
 ```
 
@@ -113,25 +114,28 @@ Priority: Low — High effort
 
 ### SUG-PAT-012 — Primary Clinician Avatar Hardcoded "JS"
 ```
-Status: PENDING
-Notes: detail.jsx line 197: Avatar initials hardcoded "JS". Should derive from p.primary_clinician:
-       p.primary_clinician?.split(' ').map(n=>n[0]).join('').slice(0,2)
+Status: DONE
+Notes: detail.jsx: added clinicianInitials derived from p.primary_clinician (same fix
+       as SUG-PT-006 in patient-test-suggestion.md — these two files track the same page).
+Files: detail.jsx
 Priority: Medium
 ```
 
 ### SUG-PAT-013 — "View Result" Button in Test Results Tab Has No onClick
 ```
-Status: PENDING
-Notes: detail.jsx line 270: "View Result" button has no onClick — dead button.
-       Should navigate to /test-results/:id or open a drawer.
+Status: DONE
+Notes: detail.jsx: onClick={() => setViewResult(t)} opens a Dialog with result status/
+       ordered-by/date (same fix as SUG-PT-003).
+Files: detail.jsx
 Priority: Medium
 ```
 
 ### SUG-PAT-014 — "Upload Document" Button Has No onClick
 ```
-Status: PENDING
-Notes: detail.jsx line 285: "Upload Document" button in Documents tab has no onClick.
-       Should open a file picker or upload dialog.
+Status: DONE
+Notes: detail.jsx: button now triggers a hidden file input; selected file is added to a
+       local uploadedDocs list shown in the Documents tab (same fix as SUG-PT-004).
+Files: detail.jsx
 Priority: Medium
 ```
 
@@ -158,10 +162,10 @@ Priority: Low (cleanup)
 | SUG-PAT-006 | Archive patient | ⏳ PENDING |
 | SUG-PAT-007 | Appointment sort/filter | ⏳ PENDING |
 | SUG-PAT-008 | Medical info on create form | ⏳ PENDING |
-| SUG-PAT-009 | Search by phone | ⏳ PENDING |
-| SUG-PAT-010 | Jump to page | ⏳ PENDING |
-| SUG-PAT-011 | Profile photo upload | ⏳ PENDING |
-| SUG-PAT-012 | Clinician avatar initials | ⏳ PENDING |
-| SUG-PAT-013 | View Result onClick | ⏳ PENDING |
-| SUG-PAT-014 | Upload Document onClick | ⏳ PENDING |
-| SUG-PAT-015 | Dead AddPatientDialog code | ⏳ PENDING |
+| SUG-PAT-009 | Search by phone | ✅ DONE |
+| SUG-PAT-010 | Jump to page | ⏳ PENDING (Low — out of scope) |
+| SUG-PAT-011 | Profile photo upload | ⏳ PENDING (Low — out of scope) |
+| SUG-PAT-012 | Clinician avatar initials | ✅ DONE |
+| SUG-PAT-013 | View Result onClick | ✅ DONE |
+| SUG-PAT-014 | Upload Document onClick | ✅ DONE |
+| SUG-PAT-015 | Dead AddPatientDialog code | ⏳ PENDING (Low — out of scope) |

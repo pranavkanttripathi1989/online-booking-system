@@ -9,37 +9,38 @@ import {
 } from '@mui/material';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import NotificationsNoneIcon from '@mui/icons-material/NotificationsNone';
-import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
-import PaymentIcon from '@mui/icons-material/Payment';
-import VideocamIcon from '@mui/icons-material/Videocam';
+import EventNoteRoundedIcon from '@mui/icons-material/EventNoteRounded';
+import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded';
+import StarRoundedIcon from '@mui/icons-material/StarRounded';
+import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded';
+import AnnouncementRoundedIcon from '@mui/icons-material/AnnouncementRounded';
 import DoneAllIcon from '@mui/icons-material/DoneAll';
+import { useMockData, useMockMutation } from '../../mocks/useMockData';
+import * as MockStore from '../../mocks/store';
 
+// SUG-NOTIF-001/002 (notification-test-suggestion.md): icon taxonomy matches
+// NotificationPanel's TYPE_CONFIG so both widgets render the same shared
+// MockStore-backed notification list consistently.
 const ICONS = {
-  booking:    <CalendarMonthIcon sx={{ color: '#006D77', fontSize: 18 }} />,
-  confirmed:  <CheckCircleIcon  sx={{ color: '#2DC653', fontSize: 18 }} />,
-  cancelled:  <CancelIcon       sx={{ color: '#E63946', fontSize: 18 }} />,
-  payment:    <PaymentIcon      sx={{ color: '#7C3AED', fontSize: 18 }} />,
-  video:      <VideocamIcon     sx={{ color: '#3A86FF', fontSize: 18 }} />,
+  appointment: <EventNoteRoundedIcon     sx={{ color: '#1A73E8', fontSize: 18 }} />,
+  patient:     <PersonAddRoundedIcon     sx={{ color: '#0F9D58', fontSize: 18 }} />,
+  review:      <StarRoundedIcon          sx={{ color: '#F9AB00', fontSize: 18 }} />,
+  result:      <ScienceRoundedIcon       sx={{ color: '#9334E6', fontSize: 18 }} />,
+  system:      <AnnouncementRoundedIcon  sx={{ color: '#D93025', fontSize: 18 }} />,
 };
-
-const INITIAL_NOTIFICATIONS = [
-  { id: 1, type: 'confirmed', title: 'Appointment Confirmed',      body: 'Dr. Sarah Johnson · Thu 20 Mar, 10:00 AM',   time: '2m ago',   read: false },
-  { id: 2, type: 'payment',   title: 'Payment Successful',         body: '£85 charged for Cardiology Consultation',    time: '5m ago',   read: false },
-  { id: 3, type: 'video',     title: 'Video Call Starting Soon',   body: 'Your call with Dr. Osei starts in 15 min',   time: '15m ago',  read: false },
-  { id: 4, type: 'booking',   title: 'New Appointment Request',    body: 'Emma Wilson — Cardiology (Fri 21 Mar)',       time: '1h ago',   read: true  },
-  { id: 5, type: 'cancelled', title: 'Appointment Cancelled',      body: 'Omar Hassan cancelled his 14:00 slot',       time: '3h ago',   read: true  },
-];
 
 export default function NotificationBell() {
   const [anchorEl, setAnchorEl]     = useState(null);
-  const [notifications, setNotifs]  = useState(INITIAL_NOTIFICATIONS);
+  // SUG-NOTIF-001/002: shared MockStore source (was local useState(INITIAL_NOTIFICATIONS))
+  const { data: notifications } = useMockData(store => store.getWidgetNotifications());
+  const [markAllReadMut] = useMockMutation(() => MockStore.markAllWidgetNotificationsRead());
+  const [markReadMut]    = useMockMutation((id) => MockStore.markWidgetNotificationRead(id));
 
-  const unread = notifications.filter((n) => !n.read).length;
+  const list = notifications || [];
+  const unread = list.filter((n) => n.unread).length;
 
-  const markAllRead = () => setNotifs((prev) => prev.map((n) => ({ ...n, read: true })));
-  const markRead    = (id) => setNotifs((prev) => prev.map((n) => n.id === id ? { ...n, read: true } : n));
+  const markAllRead = () => markAllReadMut();
+  const markRead    = (id) => markReadMut(id);
 
   const open = Boolean(anchorEl);
 
@@ -81,14 +82,14 @@ export default function NotificationBell() {
 
         {/* Notification List */}
         <List sx={{ overflow: 'auto', flex: 1, py: 0 }}>
-          {notifications.map((notif, i) => (
+          {list.map((notif, i) => (
             <React.Fragment key={notif.id}>
               <ListItem
                 alignItems="flex-start"
                 onClick={() => markRead(notif.id)}
                 sx={{
                   py: 1.5, cursor: 'pointer',
-                  bgcolor: notif.read ? 'transparent' : '#F0F7F8',
+                  bgcolor: notif.unread ? '#F0F7F8' : 'transparent',
                   '&:hover': { bgcolor: '#E8F8F9' },
                   transition: 'background 0.15s',
                 }}
@@ -101,8 +102,8 @@ export default function NotificationBell() {
                 <ListItemText
                   primary={
                     <Stack direction="row" justifyContent="space-between" alignItems="center">
-                      <Typography variant="body2" fontWeight={notif.read ? 500 : 700}>{notif.title}</Typography>
-                      {!notif.read && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#006D77', flexShrink: 0, ml: 1 }} />}
+                      <Typography variant="body2" fontWeight={notif.unread ? 700 : 500}>{notif.title}</Typography>
+                      {notif.unread && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#006D77', flexShrink: 0, ml: 1 }} />}
                     </Stack>
                   }
                   secondary={
@@ -114,7 +115,7 @@ export default function NotificationBell() {
                   }
                 />
               </ListItem>
-              {i < notifications.length - 1 && <Divider component="li" sx={{ borderColor: '#F0F7F8' }} />}
+              {i < list.length - 1 && <Divider component="li" sx={{ borderColor: '#F0F7F8' }} />}
             </React.Fragment>
           ))}
         </List>

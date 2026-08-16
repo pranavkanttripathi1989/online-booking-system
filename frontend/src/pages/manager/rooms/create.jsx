@@ -15,14 +15,27 @@ import { CLINICS_QUERY }        from '../../../graphql/queries'
 
 export default function CreateRoomPage() {
   const navigate = useNavigate()
-  const { enqueueSnackbar } = useSnackbar()
+  const { enqueueSnackbar, closeSnackbar } = useSnackbar()
   const [form, setForm] = useState({ name:'', capacity:'', clinic_id:'', is_active:true })
   const [errors, setErrors] = useState({})
   const { data: clinicsData } = useQuery(CLINICS_QUERY)
   const clinics = (clinicsData?.clinics ?? []).filter(c => c.is_active)
 
   const [createRoom, { loading }] = useMutation(CREATE_ROOM_MUTATION, {
-    onCompleted: (d) => { enqueueSnackbar('Room created', { variant:'success' }); navigate(`/manager/rooms/${d.createRoom.id}/edit`) },
+    onCompleted: (d) => {
+      // SUG-RM-005 — after create we navigate to edit (so details can be added right away),
+      // but offer a "View List" action for managers who'd rather go straight back to the list.
+      enqueueSnackbar('Room created', {
+        variant: 'success',
+        action: (key) => (
+          <Button size="small" sx={{ color: 'inherit', fontWeight: 700 }}
+            onClick={() => { closeSnackbar(key); navigate('/manager/rooms') }}>
+            View List
+          </Button>
+        ),
+      })
+      navigate(`/manager/rooms/${d.createRoom.id}/edit`)
+    },
     onError: (err) => enqueueSnackbar(err.message, { variant:'error' }),
   })
 

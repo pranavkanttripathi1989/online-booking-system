@@ -35,6 +35,7 @@ export default function EditClinicPage() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm] = useState(null)
+  const [errors, setErrors] = useState({}) // SUG-CLI-006 / SUG-CLI-003 (older file) — email validation
 
   // fetchPolicy: cache-first allows offline fallback via Apollo InMemoryCache
   // FIX BUG-CLI-002: changed from 'network-only' to 'cache-first' + mock data fallback
@@ -68,6 +69,15 @@ export default function EditClinicPage() {
 
   const set = (f) => (e) => setForm(p => ({ ...p, [f]: e.target.value }))
 
+  // SUG-CLI-006 / SUG-CLI-003 (older file) — email format validation before save
+  const handleSave = () => {
+    const e = {}
+    if (form.email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) e.email = 'Invalid email format'
+    setErrors(e)
+    if (Object.keys(e).length) return
+    updateClinic({ variables: { id, input: form } })
+  }
+
   // Determine display name (live data → mock → id)
   const clinicName = data?.clinic?.name ?? MOCK_CLINIC_BY_ID[id]?.name ?? `Clinic ${id}`
 
@@ -88,7 +98,7 @@ export default function EditClinicPage() {
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" onClick={() => navigate(`/manager/clinics/${id}`)} sx={{ borderRadius:2.5, textTransform:'none', fontWeight:700 }}>Cancel</Button>
           <Button variant="contained" startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
-            onClick={() => updateClinic({ variables: { id, input: form } })} disabled={loading}
+            onClick={handleSave} disabled={loading}
             sx={{ borderRadius:2.5, textTransform:'none', fontWeight:700, background:'linear-gradient(135deg,#4285F4,#1A73E8)' }}>
             {loading ? 'Saving…' : 'Save Changes'}
           </Button>
@@ -104,7 +114,7 @@ export default function EditClinicPage() {
               <Grid item xs={12} sm={6}><TextField fullWidth label="City" value={form.city} onChange={set('city')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Postcode" value={form.postcode} onChange={set('postcode')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Phone" value={form.phone} onChange={set('phone')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Email" value={form.email} onChange={set('email')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Email" value={form.email} onChange={set('email')} error={!!errors.email} helperText={errors.email} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField select fullWidth label="Timezone" value={form.timezone} onChange={set('timezone')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }}>{TIMEZONES.map(tz => <MenuItem key={tz} value={tz}>{tz}</MenuItem>)}</TextField></Grid>
             </Grid>
           </Paper>

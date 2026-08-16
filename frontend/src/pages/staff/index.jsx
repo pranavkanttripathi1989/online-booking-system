@@ -2,6 +2,8 @@ import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import { useTheme, useMediaQuery, alpha } from '@mui/material'
+import { useMockData, useMockMutation } from '../../mocks/useMockData'
+import * as MockStore from '../../mocks/store'
 import {
   Box, Button, Avatar, Typography, Chip, Grid, Card, CardContent,
   Stack, Divider, Paper, Table, TableBody, TableCell, TableHead,
@@ -22,17 +24,9 @@ import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded'
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded'
 import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded'
 
-// ─── Mock data ────────────────────────────────────────────────────────────────
-const MOCK_STAFF = [
-  { id: '1', name: 'Sara Johnson',    role: 'Receptionist',       dept: 'Front Desk',       phone: '+1 555-0101', email: 'sara@medibook.dev',    status: 'active',    since: '2022-03-15', avatar: 'SJ' },
-  { id: '2', name: 'Mark Thompson',   role: 'Admin',               dept: 'Management',       phone: '+1 555-0102', email: 'mark@medibook.dev',    status: 'active',    since: '2021-07-01', avatar: 'MT' },
-  { id: '3', name: 'Lisa Park',       role: 'Nurse',               dept: 'General Practice', phone: '+1 555-0103', email: 'lisa@medibook.dev',    status: 'active',    since: '2023-01-22', avatar: 'LP' },
-  { id: '4', name: 'James Wilson',    role: 'Lab Technician',      dept: 'Laboratory',       phone: '+1 555-0104', email: 'james@medibook.dev',   status: 'on_leave',  since: '2020-09-10', avatar: 'JW' },
-  { id: '5', name: 'Amy Chen',        role: 'Receptionist',        dept: 'Front Desk',       phone: '+1 555-0105', email: 'amy@medibook.dev',     status: 'active',    since: '2024-02-18', avatar: 'AC' },
-  { id: '6', name: 'Robert Davis',    role: 'IT Administrator',    dept: 'IT & Systems',     phone: '+1 555-0106', email: 'robert@medibook.dev',  status: 'active',    since: '2019-06-05', avatar: 'RD' },
-  { id: '7', name: 'Patricia Brown',  role: 'Billing Specialist',  dept: 'Finance',          phone: '+1 555-0107', email: 'patricia@medibook.dev', status: 'inactive',  since: '2018-11-30', avatar: 'PB' },
-  { id: '8', name: 'Kevin Lee',       role: 'Security Officer',    dept: 'Security',         phone: '+1 555-0108', email: 'kevin@medibook.dev',   status: 'active',    since: '2023-08-14', avatar: 'KL' },
-]
+function getInitials(name) {
+  return name.trim().split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) || '?'
+}
 
 const ROLE_COLORS = {
   Receptionist:       '#1A73E8',
@@ -58,11 +52,17 @@ export default function StaffPage() {
   const [tab, setTab] = useState(0)
   const [deactivateTarget, setDeactivateTarget] = useState(null) // SUG-STAFF-005
 
-  const departments = ['All', ...new Set(MOCK_STAFF.map(s => s.dept))]
+  // SUG-STAFF-010: read staff from the shared mock store so newly-added staff
+  // (via /staff/new) persist across navigation instead of resetting to a hardcoded list.
+  const { data: staffData } = useMockData(store => store.getStaff())
+  const [deactivateStaff] = useMockMutation((id) => MockStore.updateStaff(id, { status: 'inactive' }))
+  const MOCK_STAFF = staffData || []
+
+  const departments = ['All', ...new Set(MOCK_STAFF.map(s => s.department))]
 
   const filtered = MOCK_STAFF.filter(s => {
-    const matchSearch = !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.role.toLowerCase().includes(search.toLowerCase()) || s.dept.toLowerCase().includes(search.toLowerCase())
-    const matchDept = departmentFilter === 'All' || s.dept === departmentFilter
+    const matchSearch = !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.role.toLowerCase().includes(search.toLowerCase()) || s.department.toLowerCase().includes(search.toLowerCase())
+    const matchDept = departmentFilter === 'All' || s.department === departmentFilter
     const matchStatus = tab === 0 || (tab === 1 && s.status === 'active') || (tab === 2 && s.status !== 'active')
     return matchSearch && matchDept && matchStatus
   })
@@ -97,7 +97,7 @@ export default function StaffPage() {
           { label: 'Total Staff', value: MOCK_STAFF.length, icon: PersonRoundedIcon, color: '#1565C7' },
           { label: 'Active', value: MOCK_STAFF.filter(s => s.status === 'active').length, icon: CheckCircleRoundedIcon, color: '#0B7B5C' },
           { label: 'On Leave', value: MOCK_STAFF.filter(s => s.status === 'on_leave').length, icon: PersonOffRoundedIcon, color: '#D97706' },
-          { label: 'Departments', value: new Set(MOCK_STAFF.map(s => s.dept)).size, icon: WorkRoundedIcon, color: '#7C3AED' },
+          { label: 'Departments', value: new Set(MOCK_STAFF.map(s => s.department)).size, icon: WorkRoundedIcon, color: '#7C3AED' },
         ].map((kpi) => (
           <Grid item xs={6} md={3} key={kpi.label}>
             <Card sx={{ borderRadius: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
@@ -169,7 +169,7 @@ export default function StaffPage() {
                   sx={{ '&:last-child td': { border: 0 }, cursor: 'pointer' }}>
                   <TableCell>
                     <Stack direction="row" spacing={1.5} alignItems="center">
-                      <Avatar sx={{ width: 36, height: 36, bgcolor: alpha(roleColor, 0.15), color: roleColor, fontSize: '0.875rem', fontWeight: 700 }}>{s.avatar}</Avatar>
+                      <Avatar sx={{ width: 36, height: 36, bgcolor: alpha(roleColor, 0.15), color: roleColor, fontSize: '0.875rem', fontWeight: 700 }}>{getInitials(s.name)}</Avatar>
                       <Box>
                         <Typography variant="body2" fontWeight={700}>{s.name}</Typography>
                         <Typography variant="caption" sx={{ color: 'text.secondary' }}>Since {s.since}</Typography>
@@ -179,7 +179,7 @@ export default function StaffPage() {
                   <TableCell>
                     <Chip label={s.role} size="small" sx={{ bgcolor: `${roleColor}18`, color: roleColor, fontWeight: 700, fontSize: '0.72rem', borderRadius: 1.5 }} />
                   </TableCell>
-                  <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{s.dept}</TableCell>
+                  <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{s.department}</TableCell>
                   <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{s.phone}</TableCell>
                   <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{s.email}</TableCell>
                   <TableCell>
@@ -233,7 +233,9 @@ export default function StaffPage() {
             Cancel
           </Button>
           <Button variant="contained" color="error"
-            onClick={() => {
+            onClick={async () => {
+              // SUG-STAFF-010: persist the status change to the mock store
+              await deactivateStaff(deactivateTarget?.id)
               enqueueSnackbar(`${deactivateTarget?.name} has been deactivated`, { variant: 'warning' })
               setDeactivateTarget(null)
             }}

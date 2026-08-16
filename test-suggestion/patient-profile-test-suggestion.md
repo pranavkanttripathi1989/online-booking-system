@@ -68,9 +68,13 @@ Files: Profile.jsx
 
 ### SUG-PTPROF-006 — Make Avatar Health Fields Editable
 ```
-Status: PENDING
-Notes: Blood Type, DOB, Gender in left avatar card are static Typography in all modes.
-       Could be moved to Personal Info grid or added conditionally in avatar card.
+Status: DONE
+Notes: Implemented via the "moved to Personal Info grid" option: added a Blood Type
+       field (Select) to the Personal Information card, editable in edit mode. Avatar
+       card's Blood Type/DOB/Gender read-only display already reads from `profile`, so
+       it now reflects the edited values (DOB and Gender were already editable in the
+       Personal Info grid; Blood Type was the only gap).
+Files: Profile.jsx
 Priority: Medium
 ```
 
@@ -83,8 +87,10 @@ Priority: Backend milestone
 
 ### SUG-PTPROF-010 — Unsaved Changes Guard on Navigation
 ```
-Status: PENDING
-Notes: useBeforeUnload(editing) — browser dialog when navigating away with unsaved changes.
+Status: DONE
+Notes: Added isDirty (draft vs profile, only while editing) + window.beforeunload
+       listener that warns before leaving the tab/refreshing with unsaved changes.
+Files: Profile.jsx
 Priority: Medium
 ```
 
@@ -105,10 +111,12 @@ Priority: Low
 
 ### SUG-PTPROF-011 — Blood Type / Gender as Select Dropdowns
 ```
-Status: PENDING
-Notes: Blood Type should be a controlled dropdown (A+/A-/B+/B-/O+/O-/AB+/AB-).
-       Gender should be a Select (Male/Female/Non-binary/Prefer not to say).
-       Currently both are free-text TextField fields.
+Status: DONE
+Notes: field() helper extended with an `options` param that renders a controlled
+       MUI Select. Gender now uses GENDER_OPTIONS (Male/Female/Non-binary/Prefer not
+       to say); the new Blood Type field (added per SUG-PTPROF-006) uses BLOOD_TYPES
+       (A+/A-/B+/B-/O+/O-/AB+/AB-).
+Files: Profile.jsx
 Priority: Medium
 ```
 
@@ -122,9 +130,11 @@ Priority: Low
 
 ### SUG-PTPROF-013 — Phone Format Validation
 ```
-Status: PENDING
-Notes: type="tel" accepts any string — no format enforcement. A regex validator
-       (e.g., E.164 format +44XXXXXXXXXX) would prevent invalid entries.
+Status: DONE
+Notes: Added PHONE_RE (/^\+?[0-9()\- ]{7,20}$/) validation in handleSave(); invalid
+       phone numbers block save and show inline error/helperText under the Phone field.
+       Error clears as soon as the user edits the field again.
+Files: Profile.jsx
 Priority: Medium
 ```
 
@@ -139,11 +149,11 @@ Priority: Medium
 | SUG-PTPROF-003 | Editable insurance fields | ✅ COMPLETED |
 | SUG-PTPROF-004 | Auth context seed | ✅ COMPLETED |
 | SUG-PTPROF-005 | Delete chip in edit mode | ✅ COMPLETED |
-| SUG-PTPROF-006 | Avatar health fields editable | ⏳ PENDING |
-| SUG-PTPROF-007 | Apollo query integration | ⏳ PENDING |
-| SUG-PTPROF-008 | Page title via Helmet | ⏳ PENDING |
+| SUG-PTPROF-006 | Avatar health fields editable | ✅ DONE |
+| SUG-PTPROF-007 | Apollo query integration | ⏳ PENDING (backend milestone) |
+| SUG-PTPROF-008 | Page title via Helmet | ⏳ PENDING (Low — out of scope) |
 | SUG-PTPROF-009 | Remove unused import | ✅ COMPLETED |
-| SUG-PTPROF-010 | Unsaved changes guard | ⏳ PENDING |
-| SUG-PTPROF-011 | Blood Type / Gender dropdowns | ⏳ PENDING |
-| SUG-PTPROF-012 | Address autocomplete | ⏳ PENDING |
-| SUG-PTPROF-013 | Phone format validation | ⏳ PENDING |
+| SUG-PTPROF-010 | Unsaved changes guard | ✅ DONE |
+| SUG-PTPROF-011 | Blood Type / Gender dropdowns | ✅ DONE |
+| SUG-PTPROF-012 | Address autocomplete | ⏳ PENDING (Low — out of scope) |
+| SUG-PTPROF-013 | Phone format validation | ✅ DONE |

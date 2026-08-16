@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { Helmet } from 'react-helmet-async'
 import {
   Box, Button, Typography, Tabs, Tab, Grid, Card, CardContent, Stack, Divider,
@@ -18,6 +18,8 @@ import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import DevicesRoundedIcon from '@mui/icons-material/DevicesRounded'
 import { useAuth } from '../../context/AuthContext'
+import { useMockData, useMockMutation } from '../../mocks/useMockData'
+import * as MockStore from '../../mocks/store'
 
 function TabPanel({ value, index, children }) {
   return value === index ? <Box>{children}</Box> : null
@@ -73,6 +75,40 @@ export default function SettingsPage() {
 
   // Notifications state
   const [notifs, setNotifs] = useState(NOTIF_ROWS)
+
+  // Organization branding state (logo + color scheme — requirements/organization-branding-and-management-requirements.md)
+  // NOTE: must never fall back to a hardcoded real org id here — a user with no
+  // organisation (e.g. platform admin, patient) would otherwise silently read/write
+  // another tenant's real branding data (found in test-cases/14-settings/test-cases.md).
+  const orgId = user?.organisation?.id ?? null
+  const { data: branding } = useMockData((store) => orgId ? store.getOrganizationBranding(orgId) : null)
+  const [logoPreview, setLogoPreview]           = useState(null)
+  const [primaryColor, setPrimaryColor]         = useState(branding?.primary_color ?? '#006D77')
+  const [secondaryColor, setSecondaryColor]     = useState(branding?.secondary_color ?? '#00858F')
+  const logoInputRef = useRef(null)
+  const [saveBranding, { loading: savingBranding }] = useMockMutation(MockStore.updateOrganizationBranding)
+
+  useEffect(() => {
+    if (branding) {
+      setPrimaryColor(branding.primary_color ?? '#006D77')
+      setSecondaryColor(branding.secondary_color ?? '#00858F')
+      setLogoPreview(branding.logo_url ?? null)
+    }
+  }, [branding])
+
+  const handleLogoSelect = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    const reader = new FileReader()
+    reader.onload = () => setLogoPreview(reader.result)
+    reader.readAsDataURL(file)
+  }
+
+  const handleSaveBranding = async () => {
+    if (!orgId) return
+    await saveBranding(orgId, { logo_url: logoPreview, primary_color: primaryColor, secondary_color: secondaryColor })
+    handleSave('Branding')
+  }
 
   // Appearance state
   const [fontSize, setFontSize]   = useState(2)  // 0=sm, 1=md, 2=lg, 3=xl
@@ -370,6 +406,54 @@ export default function SettingsPage() {
                     background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
                     '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
                   }}>Save Clinic Settings</Button>
+              </Grid>
+
+              {/* ── Organization Branding — see requirements/organization-branding-and-management-requirements.md ── */}
+              <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
+              <Grid item xs={12}>
+                <Typography variant="subtitle1" fontWeight={800}>Branding</Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Your logo and colors appear on the patient booking page, confirmation emails, and invoices.
+                </Typography>
+              </Grid>
+              {!orgId && (
+                <Grid item xs={12}>
+                  <Alert severity="info" sx={{ borderRadius: 2 }}>Your account isn't associated with an organization, so branding can't be edited here.</Alert>
+                </Grid>
+              )}
+              <Grid item xs={12} sm={6} sx={{ opacity: orgId ? 1 : 0.5, pointerEvents: orgId ? 'auto' : 'none' }}>
+                <Stack direction="row" spacing={2} alignItems="center">
+                  <Avatar variant="rounded" src={logoPreview} sx={{ width: 64, height: 64, bgcolor: '#F0F7F8', border: '1px solid #E8EAED' }}>
+                    <BusinessRoundedIcon sx={{ color: '#006D77' }} />
+                  </Avatar>
+                  <Box>
+                    <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml" hidden onChange={handleLogoSelect} />
+                    <Button size="small" variant="outlined" onClick={() => logoInputRef.current?.click()} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                      Upload logo
+                    </Button>
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>SVG or PNG, square, at least 256×256px</Typography>
+                  </Box>
+                </Stack>
+              </Grid>
+              <Grid item xs={12} sm={3} sx={{ opacity: orgId ? 1 : 0.5, pointerEvents: orgId ? 'auto' : 'none' }}>
+                <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>Primary color</Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer' }} />
+                  <TextField size="small" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                </Stack>
+              </Grid>
+              <Grid item xs={12} sm={3} sx={{ opacity: orgId ? 1 : 0.5, pointerEvents: orgId ? 'auto' : 'none' }}>
+                <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>Secondary color</Typography>
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer' }} />
+                  <TextField size="small" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                </Stack>
+              </Grid>
+              <Grid item xs={12}>
+                <Button variant="contained" disabled={savingBranding || !orgId} startIcon={<SaveRoundedIcon />} onClick={handleSaveBranding}
+                  sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
+                    background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
+                  }}>{savingBranding ? 'Saving…' : 'Save Branding'}</Button>
               </Grid>
             </Grid>
           </TabPanel>

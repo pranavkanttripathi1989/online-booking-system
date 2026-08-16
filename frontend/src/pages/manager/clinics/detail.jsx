@@ -12,13 +12,23 @@ import EmailRoundedIcon     from '@mui/icons-material/EmailRounded'
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded'
 import ScheduleRoundedIcon  from '@mui/icons-material/ScheduleRounded'
 import { CLINIC_DETAIL_QUERY, ROOMS_QUERY } from '../../../graphql/queries'
+import ErrorBoundary from '../../../components/ErrorBoundary'
 
-export default function ClinicDetailPage() {
+// SUG-CLI-005 — mock clinic detail records for offline mode (mirrors edit.jsx MOCK_CLINIC_BY_ID)
+const MOCK_CLINIC_BY_ID = {
+  '1': { id: '1', name: 'City Heart Clinic',        address: '14 Harley Street', city: 'London', postcode: 'W1G 9PJ', phone: '+44 20 7946 0001', email: 'info@cityheartclinic.co.uk', timezone: 'Europe/London', is_active: true  },
+  '2': { id: '2', name: 'Central Medical Centre',   address: '22 Brook Street',  city: 'London', postcode: 'W1K 5DF', phone: '+44 20 7946 0022', email: 'admin@centralmedical.co.uk',  timezone: 'Europe/London', is_active: true  },
+  '3': { id: '3', name: 'Family Health Hub',        address: '8 Baker Street',   city: 'London', postcode: 'NW1 6XE', phone: '+44 20 7946 0033', email: 'hello@familyhealthhub.co.uk', timezone: 'Europe/London', is_active: true  },
+  '4': { id: '4', name: 'Westside Physio & Sports', address: "5 King's Road",    city: 'London', postcode: 'SW3 4ND', phone: '+44 20 7946 0044', email: 'info@westsidephysio.co.uk',   timezone: 'Europe/London', is_active: false },
+}
+
+function ClinicDetailPageInner() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { data, loading } = useQuery(CLINIC_DETAIL_QUERY, { variables: { id } })
   const { data: roomsData } = useQuery(ROOMS_QUERY, { variables: { clinic_id: id } })
-  const clinic = data?.clinic
+  // SUG-CLI-005 — fall back to mock data when backend is offline/unreachable
+  const clinic = data?.clinic ?? MOCK_CLINIC_BY_ID[id]
   const rooms  = (roomsData?.rooms ?? []).filter(r => r.clinic?.id === id)
 
   if (loading) return (
@@ -27,6 +37,17 @@ export default function ClinicDetailPage() {
       <Grid container spacing={3}>
         {[...Array(3)].map((_,i) => <Grid item xs={12} md={4} key={i}><Skeleton variant="rectangular" height={200} sx={{ borderRadius:3 }} /></Grid>)}
       </Grid>
+    </Box>
+  )
+
+  // SUG-CLI-004 (older file) / SUG-CLI-011 — 404 guard for an unknown clinic ID
+  if (!loading && !clinic) return (
+    <Box sx={{ textAlign: 'center', py: 6 }}>
+      <Typography variant="h5" fontWeight={700} mb={1}>Clinic not found</Typography>
+      <Typography variant="body2" color="text.secondary" mb={2}>We couldn't find a clinic with that ID.</Typography>
+      <Button variant="contained" onClick={() => navigate('/manager/clinics')} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>
+        Back to Clinics
+      </Button>
     </Box>
   )
 
@@ -111,5 +132,14 @@ export default function ClinicDetailPage() {
         </Grid>
       </Grid>
     </Box>
+  )
+}
+
+// SUG-CLI-012 — ErrorBoundary wrapper, consistent with Availability/Blocks/Billing modules
+export default function ClinicDetailPage() {
+  return (
+    <ErrorBoundary>
+      <ClinicDetailPageInner />
+    </ErrorBoundary>
   )
 }

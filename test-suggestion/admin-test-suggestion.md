@@ -50,7 +50,8 @@
 ### NEW-ADMIN-006 — Users List: Avatar Colors Should Use Teal Palette
 **Observation:** `getAvatarColor()` in `users/index.jsx` (line 225) still uses old `['#6366F1', '#EC4899', '#F59E0B', ...]` palette — same issue as was fixed in ClinicianCard.  
 **Recommendation:** Replace with teal-family colours: `['#006D77', '#0E9F9F', '#14B8A6', '#0D9488', '#1CBFBF', '#047857']`.  
-**Priority:** 🟡 Medium | **Status:** ⏳ PENDING
+**Priority:** 🟡 Medium | **Status:** ✅ **DONE**
+**Implementation:** Replaced the indigo/pink/amber palette array in `getAvatarColor()` with the teal-family colours exactly as recommended — used for both the users-table avatars and the Audit Log actor avatars, which share the same helper.
 
 ### NEW-ADMIN-007 — Admin breadcrumbs on edit pages
 **Observation:** `/admin/users/:id/edit` has a back arrow but no breadcrumb. Long-standing observation from NEW-ADMIN-004.  
@@ -62,6 +63,6 @@
 
 | Priority | Item | Effort |
 |----------|------|--------|
-| 🟡 Medium | NEW-ADMIN-006: Fix avatar colors in users table | Very Low (5 min) |
+| 🟡 Medium | ~~NEW-ADMIN-006: Fix avatar colors in users table~~ | ✅ DONE |
 | 🟢 Low | NEW-ADMIN-005: Room Types in-memory CRUD mock | Low (30 min) |
 | 🟢 Low | NEW-ADMIN-007: Breadcrumbs on edit pages | Medium (1 hr) |
