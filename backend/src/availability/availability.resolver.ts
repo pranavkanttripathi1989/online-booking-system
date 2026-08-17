@@ -6,7 +6,6 @@ import {
   ClinicianAvailabilitySlotType,
   LunchBreakSlotType,
   SavedIdResultType,
-  AvailabilityClinicianWithClinicType,
   AvailabilityRoomOptionType,
 } from './entities/availability.entity';
 import { CreateAvailabilityInput, UpdateAvailabilityInput, ClinicianAvailabilityInput, LunchBreakInput, SearchInput } from './dto/availability.input';
@@ -54,10 +53,10 @@ export class AvailabilityResolver {
     return this.availabilityService.getLunchBreaks(clinicianId);
   }
 
-  @Query(() => AvailabilityClinicianWithClinicType)
-  getClinician(@Args('id', { type: () => ID }) id: string) {
-    return this.availabilityService.getClinician(id);
-  }
+  // getClinician moved to PublicModule (public.resolver.ts) — that domain
+  // grew a much richer shape (booking.jsx/doctor-profile.jsx need
+  // name/email/bio/languages/products/education), and GraphQL only allows
+  // one resolver per field name, so this file no longer owns it.
 
   @Query(() => [AvailabilityRoomOptionType])
   getRooms(@Args('clinicId', { type: () => ID }) clinicId: string) {

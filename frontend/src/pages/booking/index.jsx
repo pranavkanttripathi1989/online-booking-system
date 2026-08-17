@@ -71,9 +71,17 @@ const GET_APPOINTMENTS = gql`
   }
 `;
 
-const CREATE_APPOINTMENT = gql`
-  mutation CreateAppointment($input: AppointmentInput!) {
-    createAppointment(input: $input) {
+// Named bookPatientAppointment (not createAppointment) deliberately -- this
+// page's camelCase input shape (clinicianId/productId/variationId/patientDetails)
+// collides with the canonical snake_case createAppointment/AppointmentInput
+// used by appointments/create.jsx's BookingWizard, which already has real
+// production callers. GraphQL can't have two resolvers/input types sharing
+// one name, so this page (which had zero backend before) got the new name
+// instead of the already-live canonical mutation
+// (context/backend-api-requirements-master-plan.md Phase P8).
+const BOOK_PATIENT_APPOINTMENT = gql`
+  mutation BookPatientAppointment($input: BookPatientAppointmentInput!) {
+    bookPatientAppointment(input: $input) {
       id
     }
   }
@@ -114,7 +122,7 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
-  const [createAppointment] = useMutation(CREATE_APPOINTMENT);
+  const [bookPatientAppointment] = useMutation(BOOK_PATIENT_APPOINTMENT);
   const [createPaymentTransaction] = useMutation(CREATE_PAYMENT_TRANSACTION);
 
   const handlePayAndBook = async () => {
@@ -133,8 +141,8 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
         throw new Error(error.message);
       }
 
-      // 1. Create Appointment
-      const apptRes = await createAppointment({
+      // 1. Book Appointment
+      const apptRes = await bookPatientAppointment({
         variables: {
           input: {
             clinicianId: clinician.id,
@@ -149,14 +157,14 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
         }
       });
 
-      // 2. Create Payment Transaction
+      // 2. Create Payment Transaction (India market — INR, not GBP; CLAUDE.md)
       await createPaymentTransaction({
         variables: {
           input: {
-            appointmentId: apptRes.data.createAppointment.id,
+            appointmentId: apptRes.data.bookPatientAppointment.id,
             paymentMethodId: paymentMethod.id,
             amount: price,
-            currency: 'GBP',
+            currency: 'INR',
           }
         }
       });
@@ -195,7 +203,7 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
             <Divider sx={{ my: 1 }} />
             <Box display="flex" justifyContent="space-between" alignItems="center" mt={1}>
               <Typography variant="subtitle1" fontWeight={600}>Total Due</Typography>
-              <Typography variant="h5" color="primary.main" fontWeight={700}>£{price}</Typography>
+              <Typography variant="h5" color="primary.main" fontWeight={700}>₹{price}</Typography>
             </Box>
           </Grid>
         </Grid>
@@ -231,7 +239,7 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
           onClick={handlePayAndBook} 
           disabled={!stripe || !acceptedPolicy || loading}
         >
-          {loading ? <CircularProgress size={24} color="inherit" /> : `Confirm and Pay £${price}`}
+          {loading ? <CircularProgress size={24} color="inherit" /> : `Confirm and Pay ₹${price}`}
         </Button>
       </Box>
     </Box>
@@ -503,7 +511,7 @@ export default function BookingWizard() {
                   <CardContent sx={{ p: 3, '&:last-child': { pb: 3 } }}>
                     <Box display="flex" justifyContent="space-between" alignItems="flex-start" mb={2}>
                       <Chip label={prod.product_type} size="small" color={prod.product_type === 'variable' ? 'secondary' : 'default'} />
-                      <Typography variant="h5" color="primary.main" fontWeight={800}>£{prod.price}</Typography>
+                      <Typography variant="h5" color="primary.main" fontWeight={800}>₹{prod.price}</Typography>
                     </Box>
                     <Typography variant="h6" gutterBottom fontWeight={700}>{prod.name}</Typography>
                     <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{prod.description}</Typography>
@@ -520,7 +528,7 @@ export default function BookingWizard() {
                           }}
                         >
                           {prod.variations.map(vari => (
-                            <MenuItem key={vari.id} value={vari.id}>{vari.name} — £{vari.price}</MenuItem>
+                            <MenuItem key={vari.id} value={vari.id}>{vari.name} — ₹{vari.price}</MenuItem>
                           ))}
                         </Select>
                       </FormControl>
@@ -649,7 +657,7 @@ export default function BookingWizard() {
               <Box display="flex" justifyContent="space-between" alignItems="center" mt={3}>
                 <Typography variant="subtitle1" fontWeight={700}>Total Due</Typography>
                 <Typography variant="h5" color="primary.main" fontWeight={800}>
-                  £{activePrice}
+                  ₹{activePrice}
                 </Typography>
               </Box>
             </Paper>

@@ -134,6 +134,10 @@ model Appointments {
   cancellation_reason String?
   reminder_sent_at    DateTime?
   booked_by_user_id   String?
+  // calendar/index.jsx's type filter and video/index.jsx's getAppointment
+  // both expect an appointment "type" (in_person/video/home_visit) — no
+  // column existed for it (a pre-existing gap flagged in the master plan).
+  type                String?  @default("in_person")
 
   clinic              Clinics               @relation(fields: [clinic_id], references: [id])
   room                Rooms                 @relation(fields: [room_id], references: [id])

@@ -126,12 +126,6 @@ export class AvailabilityService {
     }));
   }
 
-  async getClinician(id: string) {
-    const clinician = await this.prisma.clinicians.findUnique({ where: { id } });
-    if (!clinician) throw new NotFoundException('Clinician not found');
-    return { id: clinician.id, clinic: { id: clinician.clinic_id } };
-  }
-
   async getRooms(clinicId: string) {
     const rooms = await this.prisma.rooms.findMany({ where: { clinic_id: clinicId, is_deleted: false, is_active: true } });
     return rooms.map((r) => ({ id: r.id, name: r.room_number, roomNumber: r.room_number }));

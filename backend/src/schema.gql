@@ -224,11 +224,6 @@ type AvailabilityClinician {
   lastName: String!
 }
 
-type AvailabilityClinicianWithClinic {
-  clinic: AvailabilityClinicRef
-  id: ID!
-}
-
 type AvailabilityMutationResult {
   availability: Availability
   success: Boolean!
@@ -282,6 +277,22 @@ type BlockRoom {
 
 type BlockUserError {
   message: String!
+}
+
+input BookPatientAppointmentInput {
+  clinicianId: String!
+  date: String!
+  endTime: String
+  patientDetails: PatientDetailsInput
+  patientId: String
+  productId: String!
+  startTime: String!
+  type: String
+  variationId: String
+}
+
+type BookedAppointmentResult {
+  id: ID!
 }
 
 type Clinic {
@@ -560,6 +571,7 @@ type MessageThread {
 }
 
 type Mutation {
+  bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
   cancelAppointment(id: ID!, reason: String): Appointment!
   completeAppointment(id: ID!): Appointment!
   createAppointment(input: AppointmentInput!): Appointment!
@@ -570,6 +582,7 @@ type Mutation {
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
+  createPaymentTransaction(input: PaymentTransactionInput!): PaymentTransactionResult!
   createRole(input: AppRoleInput!): AppRole!
   createRoom(input: RoomInput!): Room!
   createRoomBlock(input: CreateRoomBlockInput!): RoomBlockMutationResult!
@@ -760,6 +773,13 @@ type PatientAppointmentsPaginated {
   paginatorInfo: PatientAppointmentPaginatorInfo!
 }
 
+input PatientDetailsInput {
+  email: String!
+  firstName: String!
+  lastName: String!
+  phone: String!
+}
+
 input PatientInput {
   address: String
   date_of_birth: String!
@@ -785,11 +805,122 @@ type PatientPaginatorInfo {
   total: Int!
 }
 
+input PaymentTransactionInput {
+  amount: Float!
+  appointmentId: String!
+  currency: String
+  paymentMethodId: String
+}
+
+type PaymentTransactionResult {
+  id: ID!
+}
+
 type Permission {
   action: String!
   description: String
   id: ID!
   resource: String!
+}
+
+type PublicAppointmentClinician {
+  clinicianType: String
+  id: ID!
+  name: String!
+}
+
+type PublicAppointmentDetail {
+  clinician: PublicAppointmentClinician!
+  endTime: DateTime!
+  id: ID!
+  patient: PublicAppointmentPatient!
+  startTime: DateTime!
+  status: String!
+  type: String!
+}
+
+type PublicAppointmentPatient {
+  firstName: String!
+  id: ID!
+  lastName: String!
+}
+
+type PublicAppointmentSlot {
+  endTime: DateTime!
+  id: ID!
+  startTime: DateTime!
+}
+
+type PublicCancellationRule {
+  hoursNoticeRequired: Int!
+  id: ID!
+}
+
+type PublicClinic {
+  address: String
+  id: ID!
+  name: String!
+}
+
+type PublicClinician {
+  bio: String
+  clinic: PublicClinic
+  clinicianType: String
+  education: [PublicEducation!]!
+  email: String
+  id: ID!
+  languages: [PublicLanguage!]!
+  name: String!
+  products: [PublicProduct!]!
+}
+
+input PublicClinicianSearchInput {
+  city: String
+  language: String
+  specialty: String
+}
+
+type PublicClinicianSummary {
+  bio: String
+  clinic: String
+  id: ID!
+  initials: String!
+  languages: [String!]!
+  name: String!
+  price: Float
+  rating: Float
+  reviews: Int!
+  specialty: String
+  verified: Boolean!
+  videoEnabled: Boolean!
+}
+
+type PublicEducation {
+  degree: String!
+  id: ID!
+  institution: String!
+  year: Int!
+}
+
+type PublicLanguage {
+  id: ID!
+  name: String!
+}
+
+type PublicProduct {
+  cancellation_rules: [PublicCancellationRule!]!
+  description: String
+  id: ID!
+  name: String!
+  price: Float
+  product_type: String
+  variations: [PublicProductVariation!]!
+}
+
+type PublicProductVariation {
+  id: ID!
+  name: String!
+  price: Float!
 }
 
 type Query {
@@ -803,11 +934,15 @@ type Query {
   clinicians(clinic_id: ID, first: Int = 20, is_active: Boolean, page: Int): ClinicianPaginated!
   clinics: [Clinic!]!
   emailTemplates: [EmailTemplate!]!
+  getAppointment(id: ID!): PublicAppointmentDetail!
+  getAppointments(clinicianId: ID!, date: String!): [PublicAppointmentSlot!]!
   getAuditLogs(action: String, limit: Int, offset: Int, resource: String): [AuditLog!]!
-  getClinician(id: ID!): AvailabilityClinicianWithClinic!
+  getClinician(id: ID!): PublicClinician!
   getClinicianAvailability(clinicianId: ID!): [ClinicianAvailabilitySlot!]!
+  getClinicians(search: PublicClinicianSearchInput): [PublicClinicianSummary!]!
   getLunchBreaks(clinicianId: ID!): [LunchBreakSlot!]!
   getPermissions: [Permission!]!
+  getProducts(clinicianId: ID!): [PublicProduct!]!
   getRolePermissions(roleId: ID!): [RolePermission!]!
   getRooms(clinicId: ID!): [AvailabilityRoomOption!]!
   getSpacerBlocks(clinicianId: ID!, date: String!): [ClinicianSpacerBlock!]!
