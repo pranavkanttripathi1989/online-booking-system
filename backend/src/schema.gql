@@ -127,6 +127,81 @@ type AuthPayload {
   user: User!
 }
 
+type Availability {
+  clinic: AvailabilityClinic!
+  clinicId: ID!
+  clinician: AvailabilityClinician!
+  clinicianId: ID!
+  dayOfWeek: Int
+  endTime: String!
+  excludeSaturday: Boolean!
+  excludeSunday: Boolean!
+  excludeWeekends: Boolean!
+  id: ID!
+  isActive: Boolean!
+  recurrenceType: String!
+  room: AvailabilityRoom
+  roomId: ID
+  startTime: String!
+  validFrom: DateTime!
+  validUntil: DateTime
+}
+
+type AvailabilityClinic {
+  id: ID!
+  name: String!
+}
+
+type AvailabilityClinicRef {
+  id: ID!
+}
+
+type AvailabilityClinician {
+  firstName: String!
+  id: ID!
+  lastName: String!
+}
+
+type AvailabilityClinicianWithClinic {
+  clinic: AvailabilityClinicRef
+  id: ID!
+}
+
+type AvailabilityMutationResult {
+  availability: Availability
+  success: Boolean!
+  userErrors: [AvailabilityUserError!]!
+}
+
+type AvailabilityRoom {
+  id: ID!
+  roomNumber: String!
+}
+
+type AvailabilityRoomOption {
+  id: ID!
+  name: String!
+  roomNumber: String!
+}
+
+type AvailabilityUserError {
+  message: String!
+}
+
+type AvailableSlot {
+  clinician: AvailableSlotClinician!
+  duration_minutes: Int!
+  end_datetime: DateTime!
+  id: ID!
+  is_available: Boolean!
+  start_datetime: DateTime!
+}
+
+type AvailableSlotClinician {
+  full_name: String!
+  id: ID!
+}
+
 type Clinic {
   address: String!
   city: String
@@ -164,6 +239,29 @@ type Clinician {
   languages: [String!]!
   last_name: String!
   services: [ClinicianServiceItem!]!
+}
+
+input ClinicianAvailabilityInput {
+  clinicianId: String!
+  dayOfWeek: String
+  endTime: String!
+  id: String
+  recurrenceType: String!
+  roomId: String
+  startTime: String!
+  validFrom: String
+  validUntil: String
+}
+
+type ClinicianAvailabilitySlot {
+  dayOfWeek: Int
+  endTime: String!
+  id: ID!
+  recurrenceType: String!
+  roomId: ID
+  startTime: String!
+  validFrom: DateTime
+  validUntil: DateTime
 }
 
 type ClinicianInfo {
@@ -220,6 +318,23 @@ type ClinicianTypeInfo {
   description: String
   id: String!
   name: String!
+}
+
+input CreateAvailabilityInput {
+  clinic_id: String!
+  clinician_id: String!
+  custom_dates: String
+  day_of_week: Int
+  end_time: String!
+  exclude_saturday: Boolean
+  exclude_sunday: Boolean
+  exclude_weekends: Boolean
+  is_active: Boolean
+  recurrence_type: String!
+  room_id: String
+  start_time: String!
+  valid_from: String
+  valid_until: String
 }
 
 input CreateClinicianTypeInput {
@@ -289,10 +404,26 @@ type LookupMutationResult {
   userErrors: [UserError!]!
 }
 
+input LunchBreakInput {
+  clinicianId: String!
+  dayOfWeek: String!
+  endTime: String!
+  id: String
+  startTime: String!
+}
+
+type LunchBreakSlot {
+  dayOfWeek: Int
+  endTime: String!
+  id: ID!
+  startTime: String!
+}
+
 type Mutation {
   cancelAppointment(id: ID!, reason: String): Appointment!
   completeAppointment(id: ID!): Appointment!
   createAppointment(input: AppointmentInput!): Appointment!
+  createAvailability(input: CreateAvailabilityInput!): AvailabilityMutationResult!
   createClinic(input: ClinicInput!): Clinic!
   createClinician(input: ClinicianInput!): Clinician!
   createClinicianType(input: CreateClinicianTypeInput!): LookupMutationResult!
@@ -302,8 +433,11 @@ type Mutation {
   createRoom(input: RoomInput!): Room!
   createRoomType(input: CreateRoomTypeInput!): LookupMutationResult!
   createService(input: ServiceInput!): Service!
+  deleteAvailability(id: ID!): AvailabilityMutationResult!
+  deleteClinicianAvailability(id: ID!): Boolean!
   deleteClinicianType(id: ID!): LookupMutationResult!
   deleteLanguage(id: ID!): LookupMutationResult!
+  deleteLunchBreak(id: ID!): Boolean!
   deleteOrganization(id: ID!): OrganizationMutationResult!
   deleteRoomType(id: ID!): LookupMutationResult!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
@@ -315,7 +449,10 @@ type Mutation {
   register(input: RegisterInput!): AuthPayload!
   requestOtp(input: RequestOtpInput!): GenericResult!
   resetPassword(input: ResetPasswordInput!): GenericResult!
+  saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
+  saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
+  updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
   updateClinic(id: ID!, input: ClinicInput!): Clinic!
   updateClinician(id: ID!, input: ClinicianInput!): Clinician!
   updateClinicianType(id: ID!, input: UpdateClinicianTypeInput!): LookupMutationResult!
@@ -474,12 +611,18 @@ type PatientPaginatorInfo {
 type Query {
   appointment(id: ID!): Appointment
   appointments(filters: AppointmentFilters, first: Int! = 20, page: Int! = 1): AppointmentPaginated!
+  availabilities(search: SearchInput): [Availability!]!
+  availableSlots(clinician_id: ID!, date: String!, service_id: ID): [AvailableSlot!]!
   clinic(id: ID!): Clinic
   clinician(id: ID!): Clinician
   clinicianTypes: [ClinicianType!]!
   clinicians(clinic_id: ID, first: Int = 20, is_active: Boolean, page: Int): ClinicianPaginated!
   clinics: [Clinic!]!
   emailTemplates: [EmailTemplate!]!
+  getClinician(id: ID!): AvailabilityClinicianWithClinic!
+  getClinicianAvailability(clinicianId: ID!): [ClinicianAvailabilitySlot!]!
+  getLunchBreaks(clinicianId: ID!): [LunchBreakSlot!]!
+  getRooms(clinicId: ID!): [AvailabilityRoomOption!]!
   languages: [Language!]!
   me: User!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
@@ -541,6 +684,14 @@ type RoomType {
   name: String!
 }
 
+type SavedIdResult {
+  id: ID!
+}
+
+input SearchInput {
+  limit: Int
+}
+
 type Service {
   category: ServiceCategory
   clinicians: [ServiceClinician!]!
@@ -570,6 +721,10 @@ input ServiceInput {
   price: Float
 }
 
+type Subscription {
+  appointmentUpdated(clinician_id: ID): Appointment!
+}
+
 type TestResult {
   date_completed: String
   date_ordered: String!
@@ -587,6 +742,23 @@ type TestResultValue {
   name: String!
   ref: String!
   value: String!
+}
+
+input UpdateAvailabilityInput {
+  clinic_id: String!
+  clinician_id: String!
+  custom_dates: String
+  day_of_week: Int
+  end_time: String!
+  exclude_saturday: Boolean
+  exclude_sunday: Boolean
+  exclude_weekends: Boolean
+  is_active: Boolean
+  recurrence_type: String!
+  room_id: String
+  start_time: String!
+  valid_from: String
+  valid_until: String
 }
 
 input UpdateClinicianTypeInput {

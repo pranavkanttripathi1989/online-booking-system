@@ -19,9 +19,11 @@ import { CliniciansModule } from './clinicians/clinicians.module';
 import { TestResultsModule } from './test-results/test-results.module';
 import { PatientsModule } from './patients/patients.module';
 import { AppointmentsModule } from './appointments/appointments.module';
+import { AvailabilityModule } from './availability/availability.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { GqlAuthGuard } from './common/guards/gql-auth.guard';
+import { PubSubModule } from './common/pubsub.module';
 
 @Module({
   imports: [
@@ -32,7 +34,27 @@ import { GqlAuthGuard } from './common/guards/gql-auth.guard';
       autoSchemaFile: join(process.cwd(), 'src/schema.gql'),
       sortSchema: true,
       introspection: process.env.NODE_ENV !== 'production',
-      context: ({ req }: { req: Express.Request }) => ({ req }),
+      // Subscriptions (appointmentUpdated, messageReceived — next-10-features-
+      // implementation-plan.md #2/#10) run over graphql-ws, a separate
+      // transport from the HTTP query/mutation path. The context factory
+      // below is called for both: HTTP requests arrive as { req, res } and
+      // already carry req.user (populated by GqlAuthGuard's passport-jwt
+      // flow reading req.headers.authorization); WS connections arrive as a
+      // graphql-ws Context with no req at all, so one is synthesized here
+      // from connectionParams, carrying the client's token in the same
+      // header shape passport-jwt already knows how to extract — this lets
+      // every existing @Auth()/@Public() guard work unchanged for
+      // subscriptions, with no separate WS-specific auth path to maintain.
+      context: (ctxOrReq: any) => {
+        if (ctxOrReq?.req) {
+          return { req: ctxOrReq.req };
+        }
+        const token = ctxOrReq?.connectionParams?.authorization ?? ctxOrReq?.connectionParams?.Authorization;
+        return { req: { headers: { authorization: token } } };
+      },
+      subscriptions: {
+        'graphql-ws': true,
+      },
       // context/backend-hard-rules.md Rule 4: strip stack traces / raw Prisma
       // internals from GraphQL responses in production — added at the point
       // Phase 4 ships the first non-Auth resolvers, per that rule's own note.
@@ -47,6 +69,7 @@ import { GqlAuthGuard } from './common/guards/gql-auth.guard';
     }),
     PrismaModule,
     RedisModule,
+    PubSubModule,
     AuthModule,
     ClinicsModule,
     RoomsModule,
@@ -59,6 +82,7 @@ import { GqlAuthGuard } from './common/guards/gql-auth.guard';
     TestResultsModule,
     PatientsModule,
     AppointmentsModule,
+    AvailabilityModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

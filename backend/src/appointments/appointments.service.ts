@@ -1,8 +1,12 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PubSub } from 'graphql-subscriptions';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput } from './dto/appointment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { PUB_SUB } from '../common/pubsub.provider';
+
+export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
@@ -17,7 +21,10 @@ const INCLUDE = {
 
 @Injectable()
 export class AppointmentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    @Inject(PUB_SUB) private readonly pubSub: PubSub,
+  ) {}
 
   private toGraphQL(a: any, statusLogs: any[] = []) {
     const start = a.appointment_time as Date;
@@ -227,7 +234,9 @@ export class AppointmentsService {
       });
       return row;
     });
-    return this.toGraphQL(updated);
+    const result = this.toGraphQL(updated);
+    await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
+    return result;
   }
 
   cancel(id: string, reason: string | undefined, user: JwtPayload) {
@@ -275,6 +284,8 @@ export class AppointmentsService {
       }
       return row;
     });
-    return this.toGraphQL(updated);
+    const result = this.toGraphQL(updated);
+    await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
+    return result;
   }
 }

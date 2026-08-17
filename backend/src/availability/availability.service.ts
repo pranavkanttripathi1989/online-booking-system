@@ -1,0 +1,283 @@
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { CreateAvailabilityInput, ClinicianAvailabilityInput, LunchBreakInput } from './dto/availability.input';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+const INCLUDE = { clinician: true, clinic: true, room: true };
+
+@Injectable()
+export class AvailabilityService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  private toGraphQL(a: any) {
+    return {
+      id: a.id,
+      clinicianId: a.clinician_id,
+      clinicId: a.clinic_id,
+      roomId: a.room_id ?? undefined,
+      dayOfWeek: a.day_of_week ?? undefined,
+      startTime: a.start_time,
+      endTime: a.end_time,
+      recurrenceType: a.recurrence_type,
+      excludeWeekends: a.exclude_weekends,
+      excludeSaturday: a.exclude_saturday,
+      excludeSunday: a.exclude_sunday,
+      validFrom: a.valid_from,
+      validUntil: a.valid_until ?? undefined,
+      isActive: a.is_active,
+      clinician: { id: a.clinician.id, firstName: a.clinician.first_name, lastName: a.clinician.last_name },
+      clinic: { id: a.clinic.id, name: a.clinic.name },
+      room: a.room ? { id: a.room.id, roomNumber: a.room.room_number } : undefined,
+    };
+  }
+
+  async findAll(limit: number | undefined, user: JwtPayload) {
+    const rows = await this.prisma.clinicianAvailability.findMany({
+      where: { is_deleted: false, clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined },
+      include: INCLUDE,
+      take: limit,
+      orderBy: { created_at: 'desc' },
+    });
+    return rows.map((r) => this.toGraphQL(r));
+  }
+
+  private mapCreateData(input: CreateAvailabilityInput) {
+    return {
+      clinician_id: input.clinician_id,
+      clinic_id: input.clinic_id,
+      room_id: input.room_id || null,
+      day_of_week: input.day_of_week ?? null,
+      start_time: input.start_time,
+      end_time: input.end_time,
+      recurrence_type: input.recurrence_type,
+      custom_dates: input.custom_dates ?? null,
+      exclude_weekends: input.exclude_weekends ?? false,
+      exclude_saturday: input.exclude_saturday ?? false,
+      exclude_sunday: input.exclude_sunday ?? false,
+      valid_from: input.valid_from ? new Date(input.valid_from) : new Date(),
+      valid_until: input.valid_until ? new Date(input.valid_until) : null,
+      is_active: input.is_active ?? true,
+    };
+  }
+
+  async create(input: CreateAvailabilityInput) {
+    try {
+      const row = await this.prisma.clinicianAvailability.create({ data: this.mapCreateData(input), include: INCLUDE });
+      return { success: true, userErrors: [], availability: this.toGraphQL(row) };
+    } catch (e: any) {
+      return { success: false, userErrors: [{ message: e.message ?? 'Failed to create availability' }] };
+    }
+  }
+
+  async update(id: string, input: CreateAvailabilityInput, user: JwtPayload) {
+    const existing = await this.prisma.clinicianAvailability.findUnique({ where: { id }, include: { clinic: true } });
+    if (!existing || existing.is_deleted) {
+      return { success: false, userErrors: [{ message: 'Availability not found' }] };
+    }
+    if (user.client_org_id && existing.clinic.client_org_id !== user.client_org_id) {
+      return { success: false, userErrors: [{ message: 'Availability not found' }] };
+    }
+    try {
+      const row = await this.prisma.clinicianAvailability.update({ where: { id }, data: this.mapCreateData(input), include: INCLUDE });
+      return { success: true, userErrors: [], availability: this.toGraphQL(row) };
+    } catch (e: any) {
+      return { success: false, userErrors: [{ message: e.message ?? 'Failed to update availability' }] };
+    }
+  }
+
+  async remove(id: string, user: JwtPayload) {
+    const existing = await this.prisma.clinicianAvailability.findUnique({ where: { id }, include: { clinic: true } });
+    if (!existing || existing.is_deleted) {
+      return { success: false, userErrors: [{ message: 'Availability not found' }] };
+    }
+    if (user.client_org_id && existing.clinic.client_org_id !== user.client_org_id) {
+      return { success: false, userErrors: [{ message: 'Availability not found' }] };
+    }
+    await this.prisma.clinicianAvailability.update({ where: { id }, data: { is_deleted: true } });
+    return { success: true, userErrors: [] };
+  }
+
+  // ── clinician/Availability.jsx self-service surface ──────────────────────
+
+  async getClinicianAvailability(clinicianId: string) {
+    const rows = await this.prisma.clinicianAvailability.findMany({
+      where: { clinician_id: clinicianId, is_deleted: false },
+      orderBy: { created_at: 'desc' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      dayOfWeek: r.day_of_week ?? undefined,
+      startTime: r.start_time,
+      endTime: r.end_time,
+      recurrenceType: r.recurrence_type,
+      validFrom: r.valid_from ?? undefined,
+      validUntil: r.valid_until ?? undefined,
+      roomId: r.room_id ?? undefined,
+    }));
+  }
+
+  async getLunchBreaks(clinicianId: string) {
+    const rows = await this.prisma.lunchBreaks.findMany({ where: { clinician_id: clinicianId, is_deleted: false } });
+    return rows.map((r) => ({
+      id: r.id,
+      dayOfWeek: r.day_of_week ?? undefined,
+      startTime: r.start_time.toISOString().substring(11, 16),
+      endTime: r.end_time.toISOString().substring(11, 16),
+    }));
+  }
+
+  async getClinician(id: string) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id } });
+    if (!clinician) throw new NotFoundException('Clinician not found');
+    return { id: clinician.id, clinic: { id: clinician.clinic_id } };
+  }
+
+  async getRooms(clinicId: string) {
+    const rooms = await this.prisma.rooms.findMany({ where: { clinic_id: clinicId, is_deleted: false, is_active: true } });
+    return rooms.map((r) => ({ id: r.id, name: r.room_number, roomNumber: r.room_number }));
+  }
+
+  async saveClinicianAvailability(input: ClinicianAvailabilityInput) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: input.clinicianId } });
+    if (!clinician) throw new BadRequestException('Clinician not found');
+    const data = {
+      clinician_id: input.clinicianId,
+      clinic_id: clinician.clinic_id,
+      room_id: input.roomId || null,
+      day_of_week: input.dayOfWeek != null ? parseInt(input.dayOfWeek, 10) : null,
+      start_time: input.startTime,
+      end_time: input.endTime,
+      recurrence_type: input.recurrenceType,
+      valid_from: input.validFrom ? new Date(input.validFrom) : new Date(),
+      valid_until: input.validUntil ? new Date(input.validUntil) : null,
+      is_active: true,
+    };
+    const row = input.id
+      ? await this.prisma.clinicianAvailability.update({ where: { id: input.id }, data })
+      : await this.prisma.clinicianAvailability.create({ data });
+    return { id: row.id };
+  }
+
+  async deleteClinicianAvailability(id: string) {
+    await this.prisma.clinicianAvailability.update({ where: { id }, data: { is_deleted: true } });
+    return true;
+  }
+
+  private toTimeOfDay(hhmm: string) {
+    return new Date(`1970-01-01T${hhmm}:00.000Z`);
+  }
+
+  async saveLunchBreak(input: LunchBreakInput) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: input.clinicianId } });
+    if (!clinician) throw new BadRequestException('Clinician not found');
+    const isDaily = input.dayOfWeek === 'daily';
+    const data = {
+      clinician_id: input.clinicianId,
+      clinic_id: clinician.clinic_id,
+      day_of_week: isDaily ? null : parseInt(input.dayOfWeek, 10),
+      start_time: this.toTimeOfDay(input.startTime),
+      end_time: this.toTimeOfDay(input.endTime),
+      is_recurring: true,
+      recurrence_type: (isDaily ? 'daily' : 'weekly') as any,
+    };
+    const row = input.id
+      ? await this.prisma.lunchBreaks.update({ where: { id: input.id }, data })
+      : await this.prisma.lunchBreaks.create({ data });
+    return { id: row.id };
+  }
+
+  async deleteLunchBreak(id: string) {
+    await this.prisma.lunchBreaks.update({ where: { id }, data: { is_deleted: true } });
+    return true;
+  }
+
+  // ── AVAILABLE_SLOTS_QUERY — genuinely algorithmic, next-10-features §3 ────
+
+  async availableSlots(clinicianId: string, date: string, serviceId: string | undefined) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: clinicianId } });
+    if (!clinician) throw new BadRequestException('Clinician not found');
+
+    const durationMinutes = serviceId
+      ? (await this.prisma.products.findUnique({ where: { id: serviceId } }))?.duration_minutes ?? 30
+      : 30;
+
+    const dayStart = new Date(`${date}T00:00:00.000Z`);
+    const dayEnd = new Date(`${date}T23:59:59.999Z`);
+    const dow = dayStart.getUTCDay();
+
+    const [availabilityRows, lunchBreaks, spacerBlocks, appointments] = await Promise.all([
+      this.prisma.clinicianAvailability.findMany({
+        where: {
+          clinician_id: clinicianId,
+          is_deleted: false,
+          is_active: true,
+          OR: [{ day_of_week: dow }, { recurrence_type: 'daily' }],
+          valid_from: { lte: dayEnd },
+        },
+      }),
+      this.prisma.lunchBreaks.findMany({
+        where: { clinician_id: clinicianId, is_deleted: false, OR: [{ day_of_week: dow }, { recurrence_type: 'daily' }] },
+      }),
+      this.prisma.spacerBlocks.findMany({
+        where: { clinician_id: clinicianId, is_deleted: false, block_date: { gte: dayStart, lte: dayEnd } },
+      }),
+      this.prisma.appointments.findMany({
+        where: {
+          clinician_id: clinicianId,
+          is_deleted: false,
+          status: { notIn: ['cancelled', 'no_show'] },
+          appointment_time: { gte: dayStart, lte: dayEnd },
+        },
+      }),
+    ]);
+
+    const validAvailability = availabilityRows.filter((a) => !a.valid_until || a.valid_until >= dayStart);
+
+    const busy: Array<{ start: number; end: number }> = [
+      ...lunchBreaks.map((l) => ({
+        start: this.timeOfDayToMinutes(l.start_time),
+        end: this.timeOfDayToMinutes(l.end_time),
+      })),
+      ...spacerBlocks.map((s) => ({
+        start: this.timeOfDayToMinutes(s.start_time),
+        end: this.timeOfDayToMinutes(s.end_time),
+      })),
+      ...appointments.map((a) => {
+        const startMin = a.appointment_time.getUTCHours() * 60 + a.appointment_time.getUTCMinutes();
+        return { start: startMin, end: startMin + a.duration_minutes };
+      }),
+    ];
+
+    const slots: any[] = [];
+    for (const window of validAvailability) {
+      const winStart = this.hhmmToMinutes(window.start_time);
+      const winEnd = this.hhmmToMinutes(window.end_time);
+      for (let t = winStart; t + durationMinutes <= winEnd; t += durationMinutes) {
+        const overlaps = busy.some((b) => t < b.end && t + durationMinutes > b.start);
+        if (overlaps) continue;
+        const start = new Date(dayStart.getTime() + t * 60000);
+        const end = new Date(start.getTime() + durationMinutes * 60000);
+        const hh = String(Math.floor(t / 60)).padStart(2, '0');
+        const mm = String(t % 60).padStart(2, '0');
+        slots.push({
+          id: `${clinicianId}-${date}-${hh}:${mm}`,
+          start_datetime: start,
+          end_datetime: end,
+          duration_minutes: durationMinutes,
+          is_available: true,
+          clinician: { id: clinician.id, full_name: `${clinician.first_name} ${clinician.last_name}` },
+        });
+      }
+    }
+    return slots;
+  }
+
+  private hhmmToMinutes(hhmm: string) {
+    const [h, m] = hhmm.split(':').map(Number);
+    return h * 60 + m;
+  }
+
+  private timeOfDayToMinutes(d: Date) {
+    return d.getUTCHours() * 60 + d.getUTCMinutes();
+  }
+}

@@ -1,15 +1,34 @@
-import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
-import { AppointmentsService } from './appointments.service';
+import { Resolver, Query, Mutation, Subscription, Args, ID, Int } from '@nestjs/graphql';
+import { Inject } from '@nestjs/common';
+import { PubSub } from 'graphql-subscriptions';
+import { AppointmentsService, APPOINTMENT_UPDATED_EVENT } from './appointments.service';
 import { AppointmentType, AppointmentPaginatedType } from './entities/appointment.entity';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput } from './dto/appointment.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { PUB_SUB } from '../common/pubsub.provider';
 
 @Resolver(() => AppointmentType)
 export class AppointmentsResolver {
-  constructor(private readonly appointmentsService: AppointmentsService) {}
+  constructor(
+    private readonly appointmentsService: AppointmentsService,
+    @Inject(PUB_SUB) private readonly pubSub: PubSub,
+  ) {}
+
+  // Matches graphql/subscriptions.js's APPOINTMENT_UPDATED_SUBSCRIPTION(clinician_id: ID)
+  // exactly, consumed live by calendar/index.jsx's client.cache.modify patch.
+  // clinician_id is an optional server-side filter, not a required argument —
+  // omitting it (e.g. an admin viewing all clinicians) receives every update.
+  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')
+  @Subscription(() => AppointmentType, {
+    filter: (payload, variables) =>
+      !variables.clinician_id || payload.appointmentUpdated.clinician.id === variables.clinician_id,
+  })
+  appointmentUpdated(@Args('clinician_id', { type: () => ID, nullable: true }) _clinicianId?: string) {
+    return this.pubSub.asyncIterableIterator(APPOINTMENT_UPDATED_EVENT);
+  }
 
   @Query(() => AppointmentPaginatedType)
   appointments(
