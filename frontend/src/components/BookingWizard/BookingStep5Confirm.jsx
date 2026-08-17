@@ -194,9 +194,9 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
       : '—'
 
   const estimatedFee = service?.price
-    ? `£${Number(service.price).toFixed(2)}`
+    ? `₹${Number(service.price).toFixed(2)}`
     : clinician?.consultation_fee
-      ? `£${Number(clinician.consultation_fee).toFixed(2)}`
+      ? `₹${Number(clinician.consultation_fee).toFixed(2)}`
       : 'To be confirmed'
 
   return (

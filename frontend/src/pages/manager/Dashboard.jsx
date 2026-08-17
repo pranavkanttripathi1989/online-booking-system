@@ -255,7 +255,7 @@ function ManagerDashboardInner() {
       {/* KPI ROW — Stitch KPI cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, overflowX: 'auto', pb: 1 }}>
         <StitchKpiCard title="Total Appointments" value={loading ? '...' : stats.totalAppointments.toLocaleString()} icon={<EventNote />} color="#3B82F6" trend={stats.trends.totalAppointments} />
-        <StitchKpiCard title="Gross Revenue" value={loading ? '...' : `£${stats.revenue.toLocaleString()}`} icon={<AttachMoney />} color="#10B981" trend={stats.trends.revenue} />
+        <StitchKpiCard title="Gross Revenue" value={loading ? '...' : `₹${stats.revenue.toLocaleString()}`} icon={<AttachMoney />} color="#10B981" trend={stats.trends.revenue} />
         <StitchKpiCard title="Active Patients" value={loading ? '...' : stats.activePatients.toLocaleString()} icon={<PeopleAlt />} color={BRAND} trend={stats.trends.activePatients} />
         <StitchKpiCard title="Clinician Utilization" value={loading ? '...' : `${stats.utilization}%`} icon={<Speed />} color="#7C3AED" trend={stats.trends.utilization} />
         <StitchKpiCard title="Cancellation Rate" value={loading ? '...' : `${stats.cancellationRate}%`} icon={<Cancel />} color="#EF4444" trend={stats.trends.cancellationRate} />
@@ -343,9 +343,9 @@ function ManagerDashboardInner() {
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.revenueByClinic} margin={{ top: 10, right: 10, left: -10, bottom: 5 }} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E0E0E0" />
-                    <XAxis type="number" tick={{ fill: '#6B7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(value) => `£${value/1000}k`} />
+                    <XAxis type="number" tick={{ fill: '#6B7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value/1000}k`} />
                     <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 13, fontWeight: 500 }} axisLine={false} tickLine={false} width={120} />
-                    <RechartsTooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value) => `£${value.toLocaleString()}`} />
+                    <RechartsTooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value) => `₹${value.toLocaleString()}`} />
                     <Bar dataKey="revenue" fill="#006D77" radius={[0, 4, 4, 0]} barSize={28} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -383,7 +383,7 @@ function ManagerDashboardInner() {
                             </Stack>
                           </TableCell>
                           <TableCell align="right"><Typography variant="body2" fontWeight={500}>{clinician.appointments}</Typography></TableCell>
-                          <TableCell align="right"><Typography variant="subtitle2" sx={{ color: BRAND }} fontWeight={700}>£{clinician.revenue.toLocaleString()}</Typography></TableCell>
+                          <TableCell align="right"><Typography variant="subtitle2" sx={{ color: BRAND }} fontWeight={700}>₹{clinician.revenue.toLocaleString()}</Typography></TableCell>
                         </TableRow>
                       );
                     })}
@@ -435,7 +435,7 @@ function ManagerDashboardInner() {
                   <TableCell><Typography variant="body2" color="text.secondary">{trx.appointment?.product.name}</Typography></TableCell>
                   <TableCell align="right">
                     <Typography variant="subtitle2" fontWeight={800} sx={{ color: (trx.status === 'succeeded' || trx.status === 'paid') ? BRAND : 'text.primary' }}>
-                      £{trx.amount.toFixed(2)}
+                      ₹{trx.amount.toFixed(2)}
                     </Typography>
                   </TableCell>
                   <TableCell align="right">

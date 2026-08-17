@@ -75,7 +75,7 @@ function ServiceRow({ service, onSave, onDelete, onToggle }) {
         <>
           <TextField size="small" value={vals.name} onChange={set('name')} label="Name" sx={{ flex: 2 }} />
           <TextField size="small" value={vals.duration_minutes} onChange={set('duration_minutes')} label="Duration (min)" type="number" sx={{ width: 130 }} />
-          <TextField size="small" value={vals.price} onChange={set('price')} label="Price (£)" type="number" sx={{ width: 110 }} />
+          <TextField size="small" value={vals.price} onChange={set('price')} label="Price (₹)" type="number" sx={{ width: 110 }} />
           <Stack direction="row" spacing={0.5}>
             <IconButton size="small" color="primary" onClick={handleSave}><CheckIcon fontSize="small" /></IconButton>
             <IconButton size="small" onClick={() => setEditing(false)}><CloseIcon fontSize="small" /></IconButton>
@@ -86,7 +86,7 @@ function ServiceRow({ service, onSave, onDelete, onToggle }) {
           <Typography variant="body2" fontWeight={600} flex={2}>{service.name}</Typography>
           <Typography variant="caption" color="text.secondary" sx={{ minWidth: 80 }}>⏱ {service.duration_minutes} min</Typography>
           {service.price && (
-            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60 }}>£{Number(service.price).toFixed(2)}</Typography>
+            <Typography variant="caption" color="text.secondary" sx={{ minWidth: 60 }}>₹{Number(service.price).toFixed(2)}</Typography>
           )}
           <FormControlLabel
             sx={{ m: 0 }}
@@ -123,7 +123,7 @@ function AddServiceRow({ categoryId, onAdd, onCancel }) {
     <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'center' }} sx={{ py: 1, px: 1.5 }}>
       <TextField size="small" value={vals.name} onChange={set('name')} label="Service name *" autoFocus sx={{ flex: 2 }} />
       <TextField size="small" value={vals.duration_minutes} onChange={set('duration_minutes')} label="Duration (min)" type="number" sx={{ width: 130 }} />
-      <TextField size="small" value={vals.price} onChange={set('price')} label="Price (£)" type="number" sx={{ width: 110 }} />
+      <TextField size="small" value={vals.price} onChange={set('price')} label="Price (₹)" type="number" sx={{ width: 110 }} />
       <Stack direction="row" spacing={0.5}>
         <IconButton size="small" color="primary" disabled={!vals.name} onClick={() => onAdd({ ...vals, category_id: categoryId })}>
           <CheckIcon fontSize="small" />

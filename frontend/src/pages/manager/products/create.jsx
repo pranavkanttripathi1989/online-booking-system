@@ -19,7 +19,13 @@ export default function CreateProductPage() {
   const [errors, setErrors] = useState({})
 
   const [createProduct, { loading }] = useMutation(CREATE_PRODUCT_MUTATION, {
-    onCompleted: () => { enqueueSnackbar('Product created', { variant:'success' }); navigate('/manager/products') },
+    onCompleted: (data) => {
+      if (!data?.createProduct?.success) {
+        enqueueSnackbar(data?.createProduct?.userErrors?.[0]?.message || 'Failed to create product', { variant: 'error' })
+        return
+      }
+      enqueueSnackbar('Product created', { variant:'success' }); navigate('/manager/products')
+    },
     onError: (err) => enqueueSnackbar(err.message, { variant:'error' }),
   })
 
@@ -60,7 +66,7 @@ export default function CreateProductPage() {
               <Grid item xs={12}><TextField fullWidth label="Product Name *" value={form.name} onChange={set('name')} error={!!errors.name} helperText={errors.name} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Description" value={form.description} onChange={set('description')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               {/* SUG-PRD-006 FIX: min=0 + error display on Price and Stock */}
-              <Grid item xs={12} sm={4}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} error={!!errors.price} helperText={errors.price} InputProps={{ startAdornment:<InputAdornment position="start">£</InputAdornment> }} inputProps={{ min:0, step:0.01 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={4}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} error={!!errors.price} helperText={errors.price} InputProps={{ startAdornment:<InputAdornment position="start">₹</InputAdornment> }} inputProps={{ min:0, step:0.01 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={4}><TextField fullWidth label="Stock Qty" type="number" value={form.stock_quantity} onChange={set('stock_quantity')} error={!!errors.stock_quantity} helperText={errors.stock_quantity} inputProps={{ min:0 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={4}><TextField fullWidth label="SKU" value={form.sku} onChange={set('sku')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
             </Grid>

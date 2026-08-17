@@ -167,7 +167,7 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
             </Typography>
           </Stack>
           <Typography variant="h6" fontWeight={800} sx={{ color: '#006D77' }}>
-            £{doctor.price}
+            ₹{doctor.price}
           </Typography>
         </Stack>
 
@@ -451,12 +451,12 @@ export default function Landing() {
                 max={200}
                 step={5}
                 valueLabelDisplay="auto"
-                valueLabelFormat={(v) => `£${v}`}
+                valueLabelFormat={(v) => `₹${v}`}
                 sx={{ color: '#006D77' }}
               />
               <Stack direction="row" justifyContent="space-between">
-                <Typography variant="caption">£{priceRange[0]}</Typography>
-                <Typography variant="caption">£{priceRange[1]}</Typography>
+                <Typography variant="caption">₹{priceRange[0]}</Typography>
+                <Typography variant="caption">₹{priceRange[1]}</Typography>
               </Stack>
 
               <Divider sx={{ my: 2 }} />

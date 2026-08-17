@@ -34,8 +34,8 @@ const defaultRule = { name:'', description:'', hours_before:24, fee_type:'percen
 
 const POLICIES = [
   { id: 1, key: 'cancellation',   label: 'Cancellation Policy',   value: '24',    unit: 'hours',   description: 'Patients can cancel for free up to this many hours before their appointment.' },
-  { id: 2, key: 'lateFee',        label: 'Late Cancellation Fee',  value: '25',    unit: '£',       description: 'Fee charged when a patient cancels inside the cancellation window.' },
-  { id: 3, key: 'noShow',         label: 'No-Show Fee',            value: '85',    unit: '£',       description: 'Fee charged when a patient does not attend without cancelling.' },
+  { id: 2, key: 'lateFee',        label: 'Late Cancellation Fee',  value: '25',    unit: '₹',       description: 'Fee charged when a patient cancels inside the cancellation window.' },
+  { id: 3, key: 'noShow',         label: 'No-Show Fee',            value: '85',    unit: '₹',       description: 'Fee charged when a patient does not attend without cancelling.' },
   { id: 4, key: 'slotBuffer',     label: 'Slot Buffer Time',       value: '10',    unit: 'minutes', description: 'Gap automatically added between consecutive appointments.' },
   { id: 5, key: 'maxReschedule',  label: 'Max Reschedules/Month',  value: '3',     unit: 'times',   description: 'Maximum number of times a patient can reschedule per calendar month.' },
   { id: 6, key: 'retention',      label: 'Data Retention Period',  value: '7',     unit: 'years',   description: 'Patient records are retained for this period per UK GDPR requirements.' },
@@ -248,11 +248,11 @@ export default function AdminPolicies() {
                     <FormControl fullWidth size="small"><InputLabel>Fee Type</InputLabel>
                       <Select label="Fee Type" value={ruleForm.fee_type} onChange={e => setRF('fee_type', e.target.value)}>
                         <MenuItem value="percentage">Percentage (%)</MenuItem>
-                        <MenuItem value="fixed">Fixed Amount (£)</MenuItem>
+                        <MenuItem value="fixed">Fixed Amount (₹)</MenuItem>
                       </Select>
                     </FormControl>
                   </Grid>
-                  <Grid item xs={6} sm={4}><TextField fullWidth required size="small" type="number" label={ruleForm.fee_type === 'percentage' ? 'Fee (%)' : 'Fee (£)'} value={ruleForm.fee_amount} onChange={e => setRF('fee_amount', e.target.value)} /></Grid>
+                  <Grid item xs={6} sm={4}><TextField fullWidth required size="small" type="number" label={ruleForm.fee_type === 'percentage' ? 'Fee (%)' : 'Fee (₹)'} value={ruleForm.fee_amount} onChange={e => setRF('fee_amount', e.target.value)} /></Grid>
                   <Grid item xs={12} sm={4}>
                     <FormControl fullWidth size="small"><InputLabel>Clinic (leave blank = global)</InputLabel>
                       <Select label="Clinic (leave blank = global)" value={ruleForm.clinic_id} onChange={e => setRF('clinic_id', e.target.value)}>
@@ -285,7 +285,7 @@ export default function AdminPolicies() {
                         <Chip label={rule.is_active ? 'Active' : 'Inactive'} size="small" color={rule.is_active ? 'success' : 'default'} />
                       </Stack>
                       <Typography variant="body2" color="text.secondary">
-                        Cancel within {rule.hours_before}h → {rule.fee_type === 'percentage' ? `${rule.fee_amount}%` : `£${rule.fee_amount}`} fee · {rule.clinic?.name || 'All clinics'}
+                        Cancel within {rule.hours_before}h → {rule.fee_type === 'percentage' ? `${rule.fee_amount}%` : `₹${rule.fee_amount}`} fee · {rule.clinic?.name || 'All clinics'}
                       </Typography>
                       {rule.description && <Typography variant="caption" color="text.secondary">{rule.description}</Typography>}
                     </Box>

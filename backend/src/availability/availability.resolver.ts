@@ -10,6 +10,7 @@ import {
 } from './entities/availability.entity';
 import { CreateAvailabilityInput, UpdateAvailabilityInput, ClinicianAvailabilityInput, LunchBreakInput, SearchInput } from './dto/availability.input';
 import { AvailableSlotType } from './entities/available-slot.entity';
+import { DateOnlyMarker } from '../common/scalars/date.scalar';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -90,7 +91,7 @@ export class AvailabilityResolver {
   @Query(() => [AvailableSlotType])
   availableSlots(
     @Args('clinician_id', { type: () => ID }) clinicianId: string,
-    @Args('date') date: string,
+    @Args('date', { type: () => DateOnlyMarker }) date: string,
     @Args('service_id', { type: () => ID, nullable: true }) serviceId?: string,
   ) {
     return this.availabilityService.availableSlots(clinicianId, date, serviceId);

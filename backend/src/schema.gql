@@ -451,6 +451,29 @@ input CreateLanguageInput {
   name: String!
 }
 
+input CreateProductCategoryInput {
+  description: String
+  name: String!
+}
+
+input CreateProductInput {
+  category_id: String
+  description: String
+  is_active: Boolean
+  name: String!
+  price: Float
+  product_type: String
+  sku: String!
+  stock_quantity: Int
+  subcategory_id: String
+}
+
+input CreateProductSubcategoryInput {
+  category_id: String!
+  description: String
+  name: String!
+}
+
 input CreateRoomBlockInput {
   block_date: String
   clinic_id: String!
@@ -497,6 +520,11 @@ input CreateThreadInput {
   first_message: String!
   participant_ids: [ID!]!
 }
+
+"""
+Date-only scalar (YYYY-MM-DD), distinct from the DateTime scalar used elsewhere
+"""
+scalar Date
 
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
@@ -583,6 +611,9 @@ type Mutation {
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
   createPaymentTransaction(input: PaymentTransactionInput!): PaymentTransactionResult!
+  createProduct(input: CreateProductInput!): ProductMutationResult!
+  createProductCategory(input: CreateProductCategoryInput!): ProductCategoryMutationResult!
+  createProductSubcategory(input: CreateProductSubcategoryInput!): ProductSubcategoryMutationResult!
   createRole(input: AppRoleInput!): AppRole!
   createRoom(input: RoomInput!): Room!
   createRoomBlock(input: CreateRoomBlockInput!): RoomBlockMutationResult!
@@ -600,6 +631,9 @@ type Mutation {
   deleteLunchBreak(id: ID!): Boolean!
   deleteNotification(id: ID!): NotificationMutationResult!
   deleteOrganization(id: ID!): OrganizationMutationResult!
+  deleteProduct(id: ID!): ProductMutationResult!
+  deleteProductCategory(id: ID!): ProductCategoryMutationResult!
+  deleteProductSubcategory(id: ID!): ProductSubcategoryMutationResult!
   deleteReview(id: ID!): ReviewMutationResult!
   deleteRole(id: ID!): Boolean!
   deleteRoomBlock(id: ID!): RoomBlockMutationResult!
@@ -630,6 +664,9 @@ type Mutation {
   updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
+  updateProduct(id: ID!, input: UpdateProductInput!): ProductMutationResult!
+  updateProductCategory(id: ID!, input: UpdateProductCategoryInput!): ProductCategoryMutationResult!
+  updateProductSubcategory(id: ID!, input: UpdateProductSubcategoryInput!): ProductSubcategoryMutationResult!
   updateRole(id: ID!, input: AppRoleInput!): AppRole!
   updateRolePermissions(permissionIds: [ID!]!, roleId: ID!): Boolean!
   updateRoom(id: ID!, input: RoomInput!): Room!
@@ -823,6 +860,61 @@ type Permission {
   resource: String!
 }
 
+type Product {
+  category: ProductCategory
+  category_id: ID
+  clinic_id: ID
+  description: String
+  id: ID!
+  is_active: Boolean!
+  name: String!
+  price: Float
+  product_type: String!
+  sku: String!
+  stock_quantity: Int
+  subcategory: ProductSubcategory
+  subcategory_id: ID
+}
+
+type ProductCategory {
+  description: String
+  id: ID!
+  is_active: Boolean!
+  name: String!
+}
+
+type ProductCategoryMutationResult {
+  success: Boolean!
+  userErrors: [ProductUserError!]!
+}
+
+type ProductMutationResult {
+  product: ProductRef
+  success: Boolean!
+  userErrors: [ProductUserError!]!
+}
+
+type ProductRef {
+  id: ID!
+}
+
+type ProductSubcategory {
+  category_id: ID!
+  description: String
+  id: ID!
+  is_active: Boolean!
+  name: String!
+}
+
+type ProductSubcategoryMutationResult {
+  success: Boolean!
+  userErrors: [ProductUserError!]!
+}
+
+type ProductUserError {
+  message: String!
+}
+
 type PublicAppointmentClinician {
   clinicianType: String
   id: ID!
@@ -927,7 +1019,7 @@ type Query {
   appointment(id: ID!): Appointment
   appointments(filters: AppointmentFilters, first: Int! = 20, page: Int! = 1): AppointmentPaginated!
   availabilities(search: SearchInput): [Availability!]!
-  availableSlots(clinician_id: ID!, date: String!, service_id: ID): [AvailableSlot!]!
+  availableSlots(clinician_id: ID!, date: Date!, service_id: ID): [AvailableSlot!]!
   clinic(id: ID!): Clinic
   clinician(id: ID!): Clinician
   clinicianTypes: [ClinicianType!]!
@@ -955,6 +1047,10 @@ type Query {
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
+  product(id: ID!): Product
+  productCategories: [ProductCategory!]!
+  productSubcategories: [ProductSubcategory!]!
+  products(category_id: ID, clinic_id: ID): [Product!]!
   reviews(filter: ReviewFilterInput): [Review!]!
   roles: [AppRole!]!
   room(id: ID!): Room
@@ -1211,6 +1307,29 @@ input UpdateLanguageInput {
   code: String
   is_active: Boolean
   is_default: Boolean
+  name: String
+}
+
+input UpdateProductCategoryInput {
+  description: String
+  name: String
+}
+
+input UpdateProductInput {
+  category_id: String
+  description: String
+  is_active: Boolean
+  name: String!
+  price: Float
+  product_type: String
+  sku: String!
+  stock_quantity: Int
+  subcategory_id: String
+}
+
+input UpdateProductSubcategoryInput {
+  category_id: String
+  description: String
   name: String
 }
 

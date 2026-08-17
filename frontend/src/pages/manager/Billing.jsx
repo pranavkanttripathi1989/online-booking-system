@@ -39,10 +39,10 @@ const INVOICES_SEED = [
 ];
 
 const SUMMARY = [
-  { label: 'Total Revenue (Mar)',    value: '£11,880', sub: '+12% vs last month', color: '#2DC653' },
-  { label: 'Outstanding Invoices',  value: '£2,340',  sub: '8 invoices pending',  color: '#FFB703' },
-  { label: 'Refunds This Month',    value: '£450',    sub: '3 refund requests',   color: '#E63946' },
-  { label: 'Avg Rev / Appointment', value: '£92.40',  sub: '245 appointments',    color: '#006D77' },
+  { label: 'Total Revenue (Mar)',    value: '₹11,880', sub: '+12% vs last month', color: '#2DC653' },
+  { label: 'Outstanding Invoices',  value: '₹2,340',  sub: '8 invoices pending',  color: '#FFB703' },
+  { label: 'Refunds This Month',    value: '₹450',    sub: '3 refund requests',   color: '#E63946' },
+  { label: 'Avg Rev / Appointment', value: '₹92.40',  sub: '245 appointments',    color: '#006D77' },
 ];
 
 const STATUS_COLOR = { paid: 'confirmed', pending: 'scheduled', refunded: 'cancelled' };
@@ -218,8 +218,8 @@ export default function ManagerBilling() {
               <BarChart data={REVENUE_DATA} margin={{ top: 0, right: 16, left: 0, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#E8F0F2" />
                 <XAxis dataKey="name" tick={{ fontSize: 12 }} />
-                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `£${v / 1000}k`} />
-                <RechartsTooltip formatter={(v) => `£${v.toLocaleString()}`} />
+                <YAxis tick={{ fontSize: 12 }} tickFormatter={(v) => `₹${v / 1000}k`} />
+                <RechartsTooltip formatter={(v) => `₹${v.toLocaleString()}`} />
                 {/* SUG-BILL-010 — Legend so users know which colour is which */}
                 <Legend verticalAlign="top" height={32} />
                 <Bar dataKey="clinics"  fill="#006D77" radius={[4, 4, 0, 0]} name="Clinic Fees"   stackId="a" />

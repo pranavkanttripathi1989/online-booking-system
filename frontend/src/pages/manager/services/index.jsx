@@ -470,7 +470,7 @@ function ServiceCatalog() {
                         {product.sku || 'NO-SKU'}
                       </Typography>
                       <Typography variant="h5" sx={{ color: BRAND }} fontWeight={800}>
-                        £{parseFloat(product.price || 0).toFixed(2)}
+                        ₹{parseFloat(product.price || 0).toFixed(2)}
                       </Typography>
                     </Stack>
                   </CardContent>
@@ -553,14 +553,14 @@ function ServiceCatalog() {
               <Grid item xs={12} sm={6}>
                  <TextField 
                   fullWidth 
-                  label="Base Price (£)" 
+                  label="Base Price (₹)" 
                   type="number" 
                   value={editProduct?.price || ''} 
                   onChange={e => handleProductChange('price', e.target.value)} 
-                  InputProps={{ startAdornment: <InputAdornment position="start">£</InputAdornment> }}
+                  InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                   required={editProduct?.product_type === 'simple'}
                  />
-                 {editProduct?.product_type === 'variable' && <Typography variant="caption" color="text.secondary">Base price shown as "From £X" if variable.</Typography>}
+                 {editProduct?.product_type === 'variable' && <Typography variant="caption" color="text.secondary">Base price shown as "From ₹X" if variable.</Typography>}
               </Grid>
             </Grid>
           </TabPanel>
@@ -577,7 +577,7 @@ function ServiceCatalog() {
                   <TableRow>
                     <TableCell sx={{ fontWeight: 600 }}>Option Name</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>SKU</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>Price (£)</TableCell>
+                    <TableCell sx={{ fontWeight: 600 }}>Price (₹)</TableCell>
                     <TableCell sx={{ fontWeight: 600 }}>Stock (Opt)</TableCell>
                   </TableRow>
                 </TableHead>
@@ -608,7 +608,7 @@ function ServiceCatalog() {
                 <ListItemButton key={rule.id} divider>
                   <ListItemText 
                     primary={<Typography fontWeight={600} textTransform="capitalize">{rule.ruleType} Rule</Typography>} 
-                    secondary={`${rule.feeType === 'percentage' ? rule.feeAmount + '%' : '£'+rule.feeAmount} Fee if modified within ${rule.hoursBeforeAppointment} hours`} 
+                    secondary={`${rule.feeType === 'percentage' ? rule.feeAmount + '%' : '₹'+rule.feeAmount} Fee if modified within ${rule.hoursBeforeAppointment} hours`} 
                   />
                   {/* SUG-SVC-006 (older file) — delete icon now wired */}
                   <IconButton size="small" color="error" aria-label={`Delete ${rule.ruleType} rule`} onClick={() => handleDeleteRule(rule.id)}><Delete fontSize="small" /></IconButton>
@@ -644,12 +644,12 @@ function ServiceCatalog() {
             <FormControl>
               <Typography variant="subtitle2" mb={1}>Fee Structure</Typography>
               <RadioGroup row value={newRule.feeType} onChange={e => setNewRule({...newRule, feeType: e.target.value})}>
-                <FormControlLabel value="fixed" control={<Radio size="small"/>} label="Fixed Amount (£)" />
+                <FormControlLabel value="fixed" control={<Radio size="small"/>} label="Fixed Amount (₹)" />
                 <FormControlLabel value="percentage" control={<Radio size="small"/>} label="Percentage (%)" />
               </RadioGroup>
             </FormControl>
             <TextField 
-              label={`Fee ${newRule.feeType === 'percentage' ? '%' : '£'}`} 
+              label={`Fee ${newRule.feeType === 'percentage' ? '%' : '₹'}`} 
               type="number" 
               value={newRule.feeAmount} 
               onChange={e => setNewRule({...newRule, feeAmount: e.target.value})} 

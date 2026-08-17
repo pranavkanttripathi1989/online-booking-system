@@ -73,7 +73,7 @@ export default function StaffAppointments() {
   // SUG-STFAPPT-005: CSV export
   const handleExportCSV = (rows) => {
     const cols = ['ID', 'Date', 'Time', 'Patient', 'Clinician', 'Service', 'Status', 'Price'];
-    const data = rows.map(a => [a.id, a.dateTime.split(' ')[0], a.dateTime.split(' ')[1], a.patient.name, a.clinician.name, a.service, a.status, `£${a.price}`]);
+    const data = rows.map(a => [a.id, a.dateTime.split(' ')[0], a.dateTime.split(' ')[1], a.patient.name, a.clinician.name, a.service, a.status, `₹${a.price}`]);
     const csv = [cols, ...data].map(row => row.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -264,7 +264,7 @@ export default function StaffAppointments() {
                 </TableCell>
                 <TableCell>
                   <Typography variant="body2">{appt.service}</Typography>
-                  <Typography variant="caption" color="primary" fontWeight={700}>£{appt.price}</Typography>
+                  <Typography variant="caption" color="primary" fontWeight={700}>₹{appt.price}</Typography>
                 </TableCell>
                 <TableCell><StatusChip status={appt.status} /></TableCell>
                 <TableCell>

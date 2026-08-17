@@ -270,18 +270,26 @@ export const UPDATE_SERVICE_MUTATION = gql`
 
 // ─── Products ─────────────────────────────────────────────────────────────────
 
+// {success, userErrors, product{id}} wrapper -- matches the real backend
+// (backend/src/products/products.resolver.ts), unified with
+// manager/products/index.jsx's own contract for the same mutation names
+// (context/frontend-integration-audit.md #17-19).
 export const CREATE_PRODUCT_MUTATION = gql`
-  mutation CreateProduct($input: ProductInput!) {
+  mutation CreateProduct($input: CreateProductInput!) {
     createProduct(input: $input) {
-      id name description price stock_quantity sku is_active
+      success
+      userErrors { message }
+      product { id }
     }
   }
 `
 
 export const UPDATE_PRODUCT_MUTATION = gql`
-  mutation UpdateProduct($id: ID!, $input: ProductInput!) {
+  mutation UpdateProduct($id: ID!, $input: UpdateProductInput!) {
     updateProduct(id: $id, input: $input) {
-      id name description price stock_quantity sku is_active
+      success
+      userErrors { message }
+      product { id }
     }
   }
 `

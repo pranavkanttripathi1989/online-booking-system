@@ -116,7 +116,7 @@ export default function ServiceDetailPage() {
                 <Typography variant="caption" color="text.secondary" fontWeight={700} letterSpacing={0.5} textTransform="uppercase">Price</Typography>
                 <Stack direction="row" alignItems="center" spacing={0.25} mt={0.5}>
                   <Typography variant="body1" fontWeight={700} color="success.main">
-                    £{Number(s.price ?? 0).toFixed(2)}
+                    ₹{Number(s.price ?? 0).toFixed(2)}
                   </Typography>
                 </Stack>
               </Box>

@@ -65,7 +65,7 @@ const MOCK_UPCOMING = [
 ];
 const MOCK_NOTIFICATIONS = [
   { id: 'n1', title: 'Appointment Confirmed', message: 'Your video appointment with Dr. Sarah Johnson is confirmed for 10 Apr at 10:00 AM.', type: 'appointment', createdAt: new Date(Date.now() - 2 * 60000).toISOString() },
-  { id: 'n2', title: 'Payment Successful', message: '£85 has been charged for your Cardiology consultation.', type: 'payment', createdAt: new Date(Date.now() - 30 * 60000).toISOString() },
+  { id: 'n2', title: 'Payment Successful', message: '₹85 has been charged for your Cardiology consultation.', type: 'payment', createdAt: new Date(Date.now() - 30 * 60000).toISOString() },
 ];
 const MOCK_KPIS = { total: 12, completed: 9, upcoming: 2, cancelled: 1 };
 

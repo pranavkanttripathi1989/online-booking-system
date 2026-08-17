@@ -151,7 +151,7 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
           <Stack direction="row" spacing={0.5} alignItems="center" mb={1}>
             <AttachMoneyIcon sx={{ fontSize: 14, color: 'text.secondary' }} />
             <Typography variant="caption" color="text.secondary">
-              £{Number(clinician.consultation_fee).toFixed(2)} per consultation
+              ₹{Number(clinician.consultation_fee).toFixed(2)} per consultation
             </Typography>
           </Stack>
         )}

@@ -155,7 +155,7 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
               <InfoRow icon={<TranslateIcon fontSize="small" />} text={detail?.languages?.join(', ')} />
               {detail?.consultation_fee && (
                 <Typography variant="body2" color="text.secondary">
-                  💷 £{Number(detail.consultation_fee).toFixed(2)} per consultation
+                  💷 ₹{Number(detail.consultation_fee).toFixed(2)} per consultation
                 </Typography>
               )}
               {detail?.gender && (
@@ -257,7 +257,7 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
                       <Typography variant="caption" color="text.secondary">⏱ {s.duration_minutes} min</Typography>
                     </Box>
                     {s.price && (
-                      <Typography variant="body2" fontWeight={700} color="primary">£{Number(s.price).toFixed(2)}</Typography>
+                      <Typography variant="body2" fontWeight={700} color="primary">₹{Number(s.price).toFixed(2)}</Typography>
                     )}
                   </Stack>
                 </Paper>

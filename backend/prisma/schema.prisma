@@ -615,6 +615,9 @@ model Products {
   product_type      ProductType
   sku               String   @unique
   price             Int?     // paise
+  // manager/products/{create,edit}.jsx's real "Stock Qty" field — no column
+  // existed for it at all before (context/frontend-integration-audit.md #17-19).
+  stock_quantity    Int?     @default(0)
   duration_minutes  Int?     // required for a bookable service (test-cases/08-products-services flagged this as missing — a clinical service needs a duration to generate slots)
   order_by          Int      @default(0)
   is_active         Boolean  @default(true)

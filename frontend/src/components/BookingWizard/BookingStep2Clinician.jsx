@@ -93,7 +93,7 @@ function ClinicianCard({ clinician, selected, onSelect }) {
             <Stack direction="row" spacing={0.5} alignItems="center">
               <AttachMoneyIcon fontSize="small" sx={{ color: 'text.secondary', fontSize: 14 }} />
               <Typography variant="caption" color="text.secondary">
-                £{Number(clinician.consultation_fee).toFixed(2)} consultation fee
+                ₹{Number(clinician.consultation_fee).toFixed(2)} consultation fee
               </Typography>
             </Stack>
           )}
@@ -150,7 +150,7 @@ function ServiceCard({ service, selected, onSelect }) {
           </Typography>
           {service.price && (
             <Typography variant="caption" color="text.secondary">
-              £{Number(service.price).toFixed(2)}
+              ₹{Number(service.price).toFixed(2)}
             </Typography>
           )}
         </Stack>

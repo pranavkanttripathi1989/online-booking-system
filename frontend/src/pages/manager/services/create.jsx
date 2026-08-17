@@ -52,7 +52,7 @@ export default function CreateServicePage() {
               <Grid item xs={12}><TextField fullWidth label="Service Name *" value={form.name} onChange={set('name')} error={!!errors.name} helperText={errors.name} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Description" value={form.description} onChange={set('description')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Duration (minutes)" type="number" value={form.duration_minutes} onChange={set('duration_minutes')} inputProps={{ min: 1 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
-              <Grid item xs={12} sm={6}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} inputProps={{ min: 0, step: 0.01 }} InputProps={{ startAdornment:<InputAdornment position="start">£</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} inputProps={{ min: 0, step: 0.01 }} InputProps={{ startAdornment:<InputAdornment position="start">₹</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField fullWidth label="Category" value={form.category} onChange={set('category')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
             </Grid>
           </Paper>

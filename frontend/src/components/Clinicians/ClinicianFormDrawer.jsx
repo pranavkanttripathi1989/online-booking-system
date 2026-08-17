@@ -160,7 +160,7 @@ export default function ClinicianFormDrawer({ open, clinician, onClose, onSucces
 
           {/* Fee */}
           <Controller name="consultation_fee" control={control} render={({ field }) => (
-            <TextField {...field} label="Consultation Fee (£)" type="number" fullWidth
+            <TextField {...field} label="Consultation Fee (₹)" type="number" fullWidth
               InputProps={{ inputProps: { min: 0, step: 0.01 } }}
             />
           )} />

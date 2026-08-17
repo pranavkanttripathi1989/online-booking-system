@@ -298,7 +298,7 @@ function ManagerProducts() {
                       <Grid item xs={12} sm={6}>
                         {/* GAP-PRD-001 FIX: min=0 prevents negative price */}
                         <TextField fullWidth required size="small" type="number" label="Price"
-                          InputProps={{ startAdornment: <InputAdornment position="start">£</InputAdornment> }}
+                          InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                           inputProps={{ min: 0, step: 0.01 }}
                           value={pForm.price} onChange={e => setFieldP('price', e.target.value)} />
                       </Grid>
@@ -372,7 +372,7 @@ function ManagerProducts() {
                       {p.category && <Chip label={p.category.name} size="small" variant="outlined" />}
                     </Box>
                     {p.product_type === 'simple' && (
-                      <Typography variant="h6" color="success.main" mt={1}>£{Number(p.price).toFixed(2)}</Typography>
+                      <Typography variant="h6" color="success.main" mt={1}>₹{Number(p.price).toFixed(2)}</Typography>
                     )}
                     {p.description && <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', mt: 0.5 }}>{p.description}</Typography>}
                   </CardContent>

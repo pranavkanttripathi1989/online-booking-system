@@ -83,7 +83,7 @@ export default function DoctorCard({
         {/* Price + next available */}
         <Stack direction="row" justifyContent="space-between" alignItems="center">
           <Box>
-            <Typography variant="h5" color="primary" fontWeight={800}>£{price}</Typography>
+            <Typography variant="h5" color="primary" fontWeight={800}>₹{price}</Typography>
             <Typography variant="caption" color="text.secondary">per session</Typography>
           </Box>
           <Stack direction="row" alignItems="center" spacing={0.5}>

@@ -52,7 +52,13 @@ export default function EditProductPage() {
   }, [data, id])
 
   const [updateProduct, { loading }] = useMutation(UPDATE_PRODUCT_MUTATION, {
-    onCompleted: () => { enqueueSnackbar('Product updated', { variant: 'success' }); navigate('/manager/products') },
+    onCompleted: (data) => {
+      if (!data?.updateProduct?.success) {
+        enqueueSnackbar(data?.updateProduct?.userErrors?.[0]?.message || 'Failed to update product', { variant: 'error' })
+        return
+      }
+      enqueueSnackbar('Product updated', { variant: 'success' }); navigate('/manager/products')
+    },
     onError:    (err) => enqueueSnackbar(err.message, { variant: 'error' }),
   })
 
@@ -131,7 +137,7 @@ export default function EditProductPage() {
               <Grid item xs={12} sm={4}>
                 {/* GAP-PRD-001 FIX: min=0 prevents negative price input */}
                 <TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')}
-                  InputProps={{ startAdornment: <InputAdornment position="start">£</InputAdornment> }}
+                  InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
                   inputProps={{ min: 0, step: 0.01 }}
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
               </Grid>

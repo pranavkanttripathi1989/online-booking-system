@@ -96,7 +96,7 @@ function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt, onReschedule,
             </Stack>
             {/* SUG-PTAPPT-005: Null guard for missing price */}
             <Typography variant="body2" color="primary" fontWeight={700}>
-              {appt.price != null ? `£${appt.price}` : 'Price TBD'}
+              {appt.price != null ? `₹${appt.price}` : 'Price TBD'}
             </Typography>
           </Stack>
         </Grid>
@@ -387,7 +387,7 @@ export default function PatientAppointments() {
               <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Date</Typography><Typography variant="body2" fontWeight={600}>{detailAppt.date}</Typography></Stack>
               <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Time</Typography><Typography variant="body2" fontWeight={600}>{detailAppt.time}</Typography></Stack>
               <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Location</Typography><Typography variant="body2" fontWeight={600}>{detailAppt.type === 'video' ? 'Video Consultation' : detailAppt.clinic}</Typography></Stack>
-              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Price</Typography><Typography variant="body2" fontWeight={600}>{detailAppt.price != null ? `£${detailAppt.price}` : 'Price TBD'}</Typography></Stack>
+              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Price</Typography><Typography variant="body2" fontWeight={600}>{detailAppt.price != null ? `₹${detailAppt.price}` : 'Price TBD'}</Typography></Stack>
               <Stack direction="row" justifyContent="space-between" alignItems="center"><Typography variant="body2" color="text.secondary">Status</Typography><StatusChip status={detailAppt.status} /></Stack>
             </Stack>
           )}
