@@ -768,6 +768,14 @@ model UserProfiles {
   // neither existed before the Users/RBAC increment.
   last_login_at DateTime?
   avatar_url    String?
+  // staff/{index,edit,new}.jsx — Staff is UserProfiles scoped to non-clinician,
+  // non-patient roles, reusing the Users/RBAC module rather than a dedicated
+  // Staff table (next-10-features-implementation-plan.md #7). department/
+  // job_title/notes/staff_status have no other home in the existing schema.
+  department    String?
+  job_title     String?
+  notes         String?
+  staff_status  String?  @default("active")
 
   // add these for forgot-password
   password_reset_token   String?

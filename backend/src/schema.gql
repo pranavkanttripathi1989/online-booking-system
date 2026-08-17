@@ -471,6 +471,17 @@ input CreateSpacerBlockInput {
   start_time: String!
 }
 
+input CreateStaffInput {
+  address: String
+  department: String
+  email: String!
+  name: String!
+  notes: String
+  password: String!
+  phone: String
+  role: String!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -551,12 +562,15 @@ type Mutation {
   createRoomType(input: CreateRoomTypeInput!): LookupMutationResult!
   createService(input: ServiceInput!): Service!
   createSpacerBlock(input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
+  createStaff(input: CreateStaffInput!): Staff!
   createUser(input: UserInput!): User!
+  deactivateStaff(id: ID!): Staff!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteClinicianAvailability(id: ID!): Boolean!
   deleteClinicianType(id: ID!): LookupMutationResult!
   deleteLanguage(id: ID!): LookupMutationResult!
   deleteLunchBreak(id: ID!): Boolean!
+  deleteNotification(id: ID!): NotificationMutationResult!
   deleteOrganization(id: ID!): OrganizationMutationResult!
   deleteRole(id: ID!): Boolean!
   deleteRoomBlock(id: ID!): RoomBlockMutationResult!
@@ -565,7 +579,9 @@ type Mutation {
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
+  markAllNotificationsRead: NotificationMutationResult!
   markNoShow(id: ID!): Appointment!
+  markNotificationRead(id: ID!): NotificationMutationResult!
   orderTest(input: OrderTestInput!): TestResult!
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
@@ -589,8 +605,23 @@ type Mutation {
   updateRoomType(id: ID!, input: UpdateRoomTypeInput!): LookupMutationResult!
   updateService(id: ID!, input: ServiceInput!): Service!
   updateSpacerBlock(id: ID!, input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
+  updateStaff(id: ID!, input: UpdateStaffInput!): Staff!
   updateUser(id: ID!, input: UserUpdateInput!): User!
   verifyOtp(input: VerifyOtpInput!): AuthPayload!
+}
+
+type Notification {
+  created_at: DateTime!
+  id: ID!
+  is_read: Boolean!
+  message: String!
+  priority: String!
+  title: String!
+  type: String!
+}
+
+type NotificationMutationResult {
+  success: Boolean!
 }
 
 input OrderTestInput {
@@ -766,6 +797,7 @@ type Query {
   getUsers(limit: Int, offset: Int, role: String, search: String): [AdminUser!]!
   languages: [Language!]!
   me: User!
+  notifications(filter: String): [Notification!]!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
@@ -777,6 +809,8 @@ type Query {
   service(id: ID!): Service
   services(clinic_id: ID, is_active: Boolean): [Service!]!
   spacerBlocks(search: SearchInput): [SpacerBlock!]!
+  staff(department: String, search: String, status: String): [Staff!]!
+  staffMember(id: ID!): Staff!
   testResult(id: ID!): TestResult
   testResults(search: String, status: String, type: String): [TestResult!]!
 }
@@ -916,6 +950,19 @@ type SpacerBlockMutationResult {
   userErrors: [BlockUserError!]!
 }
 
+type Staff {
+  address: String
+  department: String
+  email: String!
+  id: ID!
+  name: String!
+  notes: String
+  phone: String
+  role: String!
+  since: DateTime!
+  status: String!
+}
+
 type Subscription {
   appointmentUpdated(clinician_id: ID): Appointment!
 }
@@ -978,6 +1025,17 @@ input UpdateRoomTypeInput {
   description: String
   is_active: Boolean
   name: String
+}
+
+input UpdateStaffInput {
+  address: String
+  department: String
+  email: String
+  name: String
+  notes: String
+  phone: String
+  role: String
+  status: String
 }
 
 type User {
