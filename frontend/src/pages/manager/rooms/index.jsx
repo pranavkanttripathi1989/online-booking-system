@@ -34,14 +34,20 @@ const GET_METADATA = gql`
     roomTypes        { id name }
   }
 `
+// Rewired to the canonical RoomInput/direct-return shape that
+// rooms/create.jsx and rooms/edit.jsx already use successfully — this
+// page's own CreateRoomInput/UpdateRoomInput/{success,userErrors,room}
+// wrapper never existed on the backend (context/frontend-integration-audit.md
+// #20); room_type/clinician_type were added to the real RoomInput instead of
+// inventing a second contract for the same mutation names.
 const CREATE_ROOM = gql`
-  mutation CreateRoom($input: CreateRoomInput!) {
-    createRoom(input: $input) { success userErrors { message } room { id } }
+  mutation CreateRoom($input: RoomInput!) {
+    createRoom(input: $input) { id }
   }
 `
 const UPDATE_ROOM = gql`
-  mutation UpdateRoom($id: ID!, $input: UpdateRoomInput!) {
-    updateRoom(id: $id, input: $input) { success userErrors { message } room { id } }
+  mutation UpdateRoom($id: ID!, $input: RoomInput!) {
+    updateRoom(id: $id, input: $input) { id }
   }
 `
 const DELETE_ROOM = gql`
@@ -151,16 +157,25 @@ function ManagerRooms() {
     setFormError(null)
   }
 
+  // form's own field names (clinicId/roomNumber/roomType/clinicianType) stay
+  // as local UI state — only the wire payload maps onto the real RoomInput
+  // shape (name/clinic_id/room_type/clinician_type), avoiding an otherwise
+  // unnecessary rename of every field binding below.
+  const toRoomInput = (f) => ({
+    name: f.roomNumber,
+    clinic_id: f.clinicId,
+    room_type: f.roomType || undefined,
+    clinician_type: f.clinicianType || undefined,
+  })
+
   const handleSubmit = async (e) => {
     e.preventDefault(); setSubmitting(true); setFormError(null)
     try {
       if (editingRoom) {
-        const { data: res } = await client.mutate({ mutation: UPDATE_ROOM, variables: { id: editingRoom.id, input: form } })
-        if (!res?.updateRoom?.success) { setFormError(res?.updateRoom?.userErrors?.[0]?.message || 'Update failed'); return }
+        await client.mutate({ mutation: UPDATE_ROOM, variables: { id: editingRoom.id, input: toRoomInput(form) } })
         showSuccess('Room updated.')
       } else {
-        const { data: res } = await client.mutate({ mutation: CREATE_ROOM, variables: { input: form } })
-        if (!res?.createRoom?.success) { setFormError(res?.createRoom?.userErrors?.[0]?.message || 'Create failed'); return }
+        await client.mutate({ mutation: CREATE_ROOM, variables: { input: toRoomInput(form) } })
         showSuccess('Room created.')
       }
       resetForm(); loadData(0)

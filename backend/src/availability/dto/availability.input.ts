@@ -1,11 +1,16 @@
 import { InputType, Field, Int } from '@nestjs/graphql';
 import { IsNotEmpty, IsOptional, IsInt, IsBoolean, IsString, IsIn, Min, Max } from 'class-validator';
 
-// Shared { limit } shape for manager/Availability.jsx's/manager/Blocks.jsx's
-// availabilities(search)/spacerBlocks(search)/roomBlocks(search) queries.
+// Shared search-args shape reused across availabilities(search)/
+// spacerBlocks(search)/roomBlocks(search)/roomsPaginated(search) — search/
+// offset added additively for manager/rooms/index.jsx's real contract
+// (context/frontend-integration-audit.md #20); Availability/Blocks only
+// ever send { limit }, so this stays backward-compatible with them.
 @InputType('SearchInput')
 export class SearchInput {
   @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() limit?: number;
+  @Field({ nullable: true }) @IsOptional() @IsString() search?: string;
+  @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() offset?: number;
 }
 
 // Matches manager/Availability.jsx's actual submitted mutation input exactly
