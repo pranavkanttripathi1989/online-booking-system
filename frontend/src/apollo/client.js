@@ -37,10 +37,22 @@ const authLink = setContext((_, { headers }) => {
 })
 
 // Error link — auto-logout on 401, suppress console noise when offline
+//
+// Found via a real e2e login test (frontend/e2e/auth-login.spec.js): this
+// used to fire window.location.href = '/login' on ANY UNAUTHENTICATED
+// GraphQL error, including the LOGIN mutation's own failure response for a
+// wrong password. A failed login attempt was never authenticated in the
+// first place — it isn't a session to log out of — but the unconditional
+// full-page reload wiped SignInTab's in-flight `error` state (login.jsx's
+// catch block) before the "Invalid email or password"/demo-hint message
+// ever rendered, so a wrong-password attempt silently bounced back to a
+// blank /login with no visible feedback. Now only auto-logs-out when a
+// token was actually present (i.e. an established session's token was
+// rejected mid-use) — a pre-auth failure has no token to invalidate.
 const errorLink = onError(({ graphQLErrors, networkError }) => {
   if (graphQLErrors) {
     graphQLErrors.forEach(({ extensions }) => {
-      if (extensions?.code === 'UNAUTHENTICATED') {
+      if (extensions?.code === 'UNAUTHENTICATED' && localStorage.getItem('medibook_token')) {
         localStorage.removeItem('medibook_token')
         localStorage.removeItem('medibook_user')
         window.location.href = '/login'
