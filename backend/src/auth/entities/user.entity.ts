@@ -1,9 +1,19 @@
-import { ObjectType, Field } from '@nestjs/graphql';
+import { ObjectType, Field, ID } from '@nestjs/graphql';
 
 @ObjectType('Role')
 export class RoleType {
+  // Optional — login/me only ever populate `name` (their real, live contract);
+  // the Users/RBAC module (users.service.ts) populates all three when
+  // resolving getUserRoles, reusing this same registered 'Role' type rather
+  // than a second GraphQL type with an unavoidably colliding name.
+  @Field(() => ID, { nullable: true })
+  id?: string;
+
   @Field()
   name: string;
+
+  @Field({ nullable: true })
+  description?: string;
 }
 
 @ObjectType('ClinicianTypeInfo')

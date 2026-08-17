@@ -2,6 +2,50 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AdminUser {
+  clinic: AdminUserClinic
+  email: String!
+  firstName: String!
+  id: ID!
+  isActive: Boolean!
+  lastLoginAt: DateTime
+  lastName: String!
+  profile: AdminUserProfile
+  roles: [AdminUserRole!]!
+}
+
+type AdminUserClinic {
+  id: ID!
+  name: String!
+}
+
+type AdminUserProfile {
+  avatarUrl: String
+  id: ID!
+}
+
+type AdminUserRole {
+  code: String
+  id: ID!
+  name: String!
+}
+
+type AppRole {
+  description: String
+  id: ID!
+  is_active: Boolean!
+  is_system: Boolean!
+  name: String!
+  permission_ids: [ID!]!
+}
+
+input AppRoleInput {
+  description: String
+  is_active: Boolean
+  name: String!
+  permission_ids: [ID!]
+}
+
 type Appointment {
   booked_by_user: AppointmentBookedByUser
   cancellation_reason: String
@@ -117,6 +161,24 @@ input AppointmentUpdateInput {
   room_id: String
   start_datetime: String
   status: String
+}
+
+type AuditLog {
+  action: String!
+  createdAt: DateTime!
+  details: String
+  id: ID!
+  ipAddress: String
+  resource: String!
+  resourceId: String
+  user: AuditLogUser
+}
+
+type AuditLogUser {
+  email: String!
+  firstName: String!
+  id: ID!
+  lastName: String!
 }
 
 type AuthPayload {
@@ -483,17 +545,20 @@ type Mutation {
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
+  createRole(input: AppRoleInput!): AppRole!
   createRoom(input: RoomInput!): Room!
   createRoomBlock(input: CreateRoomBlockInput!): RoomBlockMutationResult!
   createRoomType(input: CreateRoomTypeInput!): LookupMutationResult!
   createService(input: ServiceInput!): Service!
   createSpacerBlock(input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
+  createUser(input: UserInput!): User!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteClinicianAvailability(id: ID!): Boolean!
   deleteClinicianType(id: ID!): LookupMutationResult!
   deleteLanguage(id: ID!): LookupMutationResult!
   deleteLunchBreak(id: ID!): Boolean!
   deleteOrganization(id: ID!): OrganizationMutationResult!
+  deleteRole(id: ID!): Boolean!
   deleteRoomBlock(id: ID!): RoomBlockMutationResult!
   deleteRoomType(id: ID!): LookupMutationResult!
   deleteSpacerBlock(id: ID!): SpacerBlockMutationResult!
@@ -517,11 +582,14 @@ type Mutation {
   updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
+  updateRole(id: ID!, input: AppRoleInput!): AppRole!
+  updateRolePermissions(permissionIds: [ID!]!, roleId: ID!): Boolean!
   updateRoom(id: ID!, input: RoomInput!): Room!
   updateRoomBlock(id: ID!, input: CreateRoomBlockInput!): RoomBlockMutationResult!
   updateRoomType(id: ID!, input: UpdateRoomTypeInput!): LookupMutationResult!
   updateService(id: ID!, input: ServiceInput!): Service!
   updateSpacerBlock(id: ID!, input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
+  updateUser(id: ID!, input: UserUpdateInput!): User!
   verifyOtp(input: VerifyOtpInput!): AuthPayload!
 }
 
@@ -667,6 +735,13 @@ type PatientPaginatorInfo {
   total: Int!
 }
 
+type Permission {
+  action: String!
+  description: String
+  id: ID!
+  resource: String!
+}
+
 type Query {
   appointment(id: ID!): Appointment
   appointments(filters: AppointmentFilters, first: Int! = 20, page: Int! = 1): AppointmentPaginated!
@@ -678,16 +753,23 @@ type Query {
   clinicians(clinic_id: ID, first: Int = 20, is_active: Boolean, page: Int): ClinicianPaginated!
   clinics: [Clinic!]!
   emailTemplates: [EmailTemplate!]!
+  getAuditLogs(action: String, limit: Int, offset: Int, resource: String): [AuditLog!]!
   getClinician(id: ID!): AvailabilityClinicianWithClinic!
   getClinicianAvailability(clinicianId: ID!): [ClinicianAvailabilitySlot!]!
   getLunchBreaks(clinicianId: ID!): [LunchBreakSlot!]!
+  getPermissions: [Permission!]!
+  getRolePermissions(roleId: ID!): [RolePermission!]!
   getRooms(clinicId: ID!): [AvailabilityRoomOption!]!
   getSpacerBlocks(clinicianId: ID!, date: String!): [ClinicianSpacerBlock!]!
+  getUser(id: ID!): AdminUser!
+  getUserRoles: [Role!]!
+  getUsers(limit: Int, offset: Int, role: String, search: String): [AdminUser!]!
   languages: [Language!]!
   me: User!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
+  roles: [AppRole!]!
   room(id: ID!): Room
   roomBlocks(search: SearchInput): [RoomBlock!]!
   roomTypes: [RoomType!]!
@@ -721,7 +803,14 @@ input ResetPasswordInput {
 }
 
 type Role {
+  description: String
+  id: ID
   name: String!
+}
+
+type RolePermission {
+  id: ID!
+  permission: Permission!
 }
 
 type Room {
@@ -903,6 +992,21 @@ type User {
 type UserError {
   field: String
   message: String!
+}
+
+input UserInput {
+  email: String!
+  name: String!
+  password: String!
+  role_ids: [ID!]!
+}
+
+input UserUpdateInput {
+  email: String
+  isActive: Boolean
+  name: String
+  password: String
+  role_ids: [ID!]
 }
 
 input VerifyOtpInput {

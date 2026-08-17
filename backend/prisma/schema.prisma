@@ -764,6 +764,10 @@ model UserProfiles {
   created_at    DateTime @default(now())
   updated_at    DateTime @default(now())
   client_org_id String?
+  // admin/users/index.jsx's getUsers requests lastLoginAt/profile{avatarUrl} —
+  // neither existed before the Users/RBAC increment.
+  last_login_at DateTime?
+  avatar_url    String?
 
   // add these for forgot-password
   password_reset_token   String?
@@ -799,6 +803,11 @@ model UserRoles {
   is_system   Boolean  @default(false) // system roles can't be renamed/deleted by an org admin
   is_deleted  Boolean  @default(false)
   created_at  DateTime @default(now())
+  // admin/users/index.jsx's getUserRoles/getUsers request roles{code} — a
+  // short slug ('system_admin', 'clinic_manager', ...) distinct from the
+  // display `name`, used client-side to key ROLE_STYLES. Nullable: falls back
+  // to a slugified `name` at the resolver boundary when unset (users.service.ts).
+  code        String?
 
   client_org      ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   rolePermissions RolePermissions[]
