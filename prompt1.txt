@@ -1,6 +1,6 @@
-**Prompt: STRICT Frontend QA, Fix, Re-test & Optimization clinician dashboard **
+# Prompt: STRICT Frontend QA, Fix, Re-test & Optimization (Real API Integration)
 
-You are required to perform a **complete, deterministic frontend QA and improvement cycle** for the **[MODULE_NAME]** module.
+You are required to perform a **complete, deterministic frontend QA and improvement cycle** for the **[MODULE_NAME]** module, integrated against the **real backend API** (no mocks).
 
 Follow every step exactly. Do not skip, reorder, or approximate any instruction.
 
@@ -14,6 +14,9 @@ Replace the placeholders below before execution:
 * TEST_PLAN_FILE: `test-results-page-test-plan.md`
 * SUGGESTION_FILE: `test-results-page-test-suggestion.md`
 * UPDATED_TEST_PLAN_FILE: `test-results-page-test-plan.md`
+* API_BASE_URL: `<insert real backend base URL, e.g. https://api.example.com/v1>`
+* API_AUTH_METHOD: `<e.g. Bearer token / cookie session / API key header>`
+* API_ENV: `<staging / production / local backend>`
 
 ---
 
@@ -25,20 +28,20 @@ Replace the placeholders below before execution:
 
 ---
 
-## STEP 2: Analyze and Fix Issues (Frontend Only)
+## STEP 2: Analyze and Fix Issues (Frontend Only, Real API Behavior)
 
 For **each issue**, you MUST:
 
-1. Identify root cause strictly from frontend perspective:
+1. Identify root cause strictly from a frontend perspective, informed by **actual API responses** (status codes, payload shape, latency, error format) rather than assumed/mocked behavior:
 
    * UI rendering issue
    * State management bug
-   * API handling / mock issue
-   * Validation issue
+   * API request/response handling (auth headers, payload shape, status codes, timeouts, retries)
+   * Validation issue (client-side + server-side error surfacing)
    * UX flaw
-   * Edge-case handling gap
+   * Edge-case handling gap (network failure, slow response, partial data, 4xx/5xx)
 
-2. Apply a **production-ready fix**
+2. Apply a **production-ready fix**, verified against the live API_BASE_URL
 
 3. Document in this exact format:
 
@@ -49,27 +52,30 @@ Root Cause:
 Fix Implemented:
 Code-Level Explanation:
 Impacted Files:
+API Endpoint(s) Involved:
+Verified Against Real API: YES/NO
 ```
 
 Rules:
 
 * Do not combine issues
 * Do not skip any issue
+* Do not assume backend behavior — confirm it by making the real call
 
 ---
 
-## STEP 3: Re-test Using Test Plan
+## STEP 3: Re-test Using Test Plan (Against Real API)
 
 * Load **TEST_PLAN_FILE**
-* Execute **100% of test cases**
+* Execute **100% of test cases** against the real API_BASE_URL (no stubbing)
 * No skipping allowed
 
 For each test case, validate:
 
-* Form input + validation
-* UI states (loading, success, error)
-* API OR mock behavior
-* Error handling
+* Form input + validation (client-side and server-validation-error rendering)
+* UI states (loading, success, error) driven by actual request lifecycle
+* Real API request/response cycle (headers, auth, payload, status codes)
+* Error handling for real failure modes: 4xx, 5xx, timeouts, network drops, malformed responses
 
 ---
 
@@ -86,24 +92,27 @@ Title:
 Input:
 <user actions / form data>
 
+API Call:
+<endpoint, method, key request params>
+
 Expected Output:
 <expected UI behavior>
 
 Actual Output:
-<actual UI behavior>
+<actual UI behavior, based on real API response>
 
 Status:
 PASS / FAIL
 
 Observations:
-<detailed notes: UI bugs, delays, inconsistencies>
+<detailed notes: UI bugs, delays, inconsistencies, latency, unexpected payloads>
 ```
 
 Rules:
 
 * No missing test cases
 * No empty fields
-* Must reflect latest behavior after fixes
+* Must reflect latest behavior after fixes, observed against the real API
 
 ---
 
@@ -111,7 +120,7 @@ Rules:
 
 * Read **SUGGESTION_FILE**
 * Apply **all frontend-related suggestions**
-* Validate each implementation via testing
+* Validate each implementation via testing against the real API
 
 ---
 
@@ -133,9 +142,10 @@ Additionally:
 * Focus on:
 
   * UX
-  * Performance
+  * Performance (real network latency, request waterfalls, caching)
   * Accessibility
   * Responsiveness
+  * API resiliency (retry/backoff, error messaging, stale-data handling)
 
 ---
 
@@ -148,37 +158,45 @@ You MUST:
 * Add new test cases for:
 
   * Edge cases
-  * Validation failures
-  * Loading states
-  * Error states
-  * Empty states
+  * Validation failures (client + server-returned validation errors)
+  * Loading states (including slow/real-latency conditions)
+  * Error states (4xx, 5xx, timeout, network offline)
+  * Empty states (real API returning no data)
+  * Auth expiry / token refresh mid-session
 * Improve clarity of existing test cases
 
 ---
 
-## STEP 8: Implement Mock Data Layer (MANDATORY)
+## STEP 8: Real API Integration Layer (MANDATORY)
 
-Frontend MUST support mock mode.
+Frontend MUST be fully wired to the real backend — no mock/stub layer in the shipped build.
 
 Requirements:
 
-* Create mock handling for:
+* Implement a single API client/service layer covering:
 
-  * Fetch
-  * Create / Update / Delete
-  * Error scenarios
+  * Fetch (GET)
+  * Create / Update / Delete (POST/PUT/PATCH/DELETE)
+  * Centralized error handling (network errors, non-2xx responses, timeouts)
 
-* Add toggle mechanism:
+* Configuration:
 
-  * Environment variable OR config flag
-
-Example:
+  * Base URL, auth method, and environment driven by config/env vars, e.g.:
 
 ```
-USE_MOCK_API=true
+API_BASE_URL=<real backend URL>
+API_AUTH_METHOD=bearer
+API_ENV=staging
 ```
 
-* Ensure app runs **without backend**
+* Include:
+
+  * Request/response interceptors for auth token attachment and refresh
+  * Consistent error normalization surfaced to the UI layer
+  * Timeout and retry policy for transient failures
+  * Loading/success/error state wiring tied to actual request lifecycle
+
+* Confirm the app runs correctly end-to-end **against the live/staging backend**, with no residual mock/stub code paths left active by default
 
 ---
 
@@ -186,10 +204,10 @@ USE_MOCK_API=true
 
 You MUST confirm:
 
-* All issues are fixed
-* All test cases executed
+* All issues are fixed and verified against the real API
+* All test cases executed against the real API
 * All failing tests are now passing
-* Mock mode works correctly
+* Real API integration works correctly across success, error, and edge-case scenarios
 * No UI inconsistencies remain
 
 ---
@@ -209,6 +227,7 @@ Fixed Issues:
 New Issues Found:
 Test Cases Passed:
 Test Cases Failed:
+API Endpoints Verified:
 ```
 
 ---
@@ -216,7 +235,8 @@ Test Cases Failed:
 ## HARD RULES
 
 * Do NOT skip any step
-* Do NOT assume backend fixes
+* Do NOT use mocked/stubbed API responses in the final validation — real API only
+* Do NOT assume backend behavior without confirming via a real call
 * Do NOT leave placeholders
 * Do NOT produce partial output
 * Ensure production-level quality

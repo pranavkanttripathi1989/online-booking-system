@@ -1,0 +1,80 @@
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { OrderTestInput } from './dto/order-test.input';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+@Injectable()
+export class TestResultsService {
+  constructor(private readonly prisma: PrismaService) {}
+
+  // TC-PAT-API-010: values withheld until status === 'completed', regardless
+  // of caller role — enforced here, not left to the frontend to hide.
+  private toGraphQL(row: any) {
+    return {
+      id: row.id,
+      patient: row.patient_name,
+      test: row.test_name,
+      ordered_by: row.ordered_by_name,
+      date_ordered: row.date_ordered.toISOString().split('T')[0],
+      date_completed: row.date_completed ? row.date_completed.toISOString().split('T')[0] : undefined,
+      status: row.status,
+      type: row.test_type,
+      values: row.status === 'completed' ? (row.values as any[]) : [],
+    };
+  }
+
+  async findAll(search: string | undefined, type: string | undefined, status: string | undefined, user: JwtPayload) {
+    const rows = await this.prisma.testResults.findMany({
+      where: {
+        is_deleted: false,
+        ...(type && type !== 'All' ? { test_type: type } : {}),
+        ...(status && status !== 'All' ? { status: status as any } : {}),
+        ...(search
+          ? {
+              OR: [
+                { patient_name: { contains: search, mode: 'insensitive' as const } },
+                { test_name: { contains: search, mode: 'insensitive' as const } },
+                { id: { contains: search, mode: 'insensitive' as const } },
+              ],
+            }
+          : {}),
+        // Indirect tenant scoping via the ordering user's org, same pattern as
+        // every other domain — a legacy/seeded result with no ordering user
+        // is visible to any authenticated staff role rather than hidden.
+        ordered_by: user.client_org_id ? { client_org_id: user.client_org_id } : undefined,
+      },
+      orderBy: { date_ordered: 'desc' },
+    });
+    return rows.map((r) => this.toGraphQL(r));
+  }
+
+  async findOne(id: string, user: JwtPayload) {
+    const row = await this.prisma.testResults.findUnique({ where: { id }, include: { ordered_by: true } });
+    if (!row || row.is_deleted) {
+      throw new NotFoundException('Test result not found');
+    }
+    if (user.client_org_id && row.ordered_by && row.ordered_by.client_org_id !== user.client_org_id) {
+      throw new NotFoundException('Test result not found');
+    }
+    return this.toGraphQL(row);
+  }
+
+  async orderTest(input: OrderTestInput, user: JwtPayload) {
+    const orderingUser = await this.prisma.userProfiles.findUnique({ where: { id: user.sub } });
+    const row = await this.prisma.testResults.create({
+      data: {
+        patient_name: input.patient,
+        // The Order dialog only collects one "test type" field and uses it as
+        // both the display test name and the type/icon category — mirrors
+        // pages/test-results/index.jsx's own handleOrderSubmit exactly
+        // ({ test: orderForm.testType, type: orderForm.testType }).
+        test_name: input.testType,
+        test_type: input.testType,
+        ordered_by_name: orderingUser ? `${orderingUser.first_name} ${orderingUser.last_name}` : 'Unknown',
+        ordered_by_user_id: user.sub,
+        status: 'pending',
+      },
+    });
+    return this.toGraphQL(row);
+  }
+}

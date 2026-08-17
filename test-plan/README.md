@@ -77,6 +77,7 @@ test-plan/
 | **Shared — Test Results** | shared/test-results-page-test-plan-not-done.md | ⚠️ Not Tested |
 | **Shared — Reviews** | shared/reviews-page-test-plan-not-done.md | ⚠️ Not Tested |
 | **Phase 4 Backend Integration** (Auth, Clinics, Rooms, Reference Data, Organizations — real backend, not mock) | `phase4-backend-integration-test-plan.md` (top-level, new domain group) | ✅ Tested — see `test-result/phase4-backend-integration-test-results.md` |
+| **Phase 4/5 Increment 3** (Languages, EmailTemplates, Clinicians, Services — real backend) | `phase4-5-increment3-test-plan.md` (top-level) | ✅ Tested — see `test-result/phase4-5-increment3-test-results.md` |
 
 ---
 

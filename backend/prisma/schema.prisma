@@ -11,15 +11,19 @@ datasource db {
 // ENUMS
 //
 
+// Realigned to admin/EmailTemplates.jsx's actual values (context/backend-hard-rules.md
+// Rule 9) — zero code anywhere referenced the previous placeholder values, confirmed
+// via grep before renaming. otp/review_request from earlier planning aren't dropped
+// from the roadmap, just not modeled here until something real needs them this way.
 enum TemplateType {
-  confirmation
-  reschedule
-  cancellation
-  welcome
+  appointment_confirmation
+  appointment_reminder
+  appointment_cancellation
+  appointment_rescheduled
   password_reset
-  otp
-  invoice_receipt
-  review_request
+  welcome
+  invoice
+  cancellation_fee
 }
 
 enum NotificationType {
@@ -55,6 +59,12 @@ enum SubscriptionStatus {
   cancelled
   expired
   trial
+}
+
+enum TestResultStatus {
+  pending
+  processing
+  completed
 }
 
 enum OnboardingStatus {
@@ -119,6 +129,11 @@ model Appointments {
   updated_at          DateTime @default(now())
   product_id          String?
   product_variation_id String?
+  // AppointmentFields fragment (frontend/src/graphql/queries.js) requests these
+  // three — none existed before the Appointments-domain increment (backend-hard-rules.md Rule 9).
+  cancellation_reason String?
+  reminder_sent_at    DateTime?
+  booked_by_user_id   String?
 
   clinic              Clinics               @relation(fields: [clinic_id], references: [id])
   room                Rooms                 @relation(fields: [room_id], references: [id])
@@ -126,7 +141,24 @@ model Appointments {
   patient             Patients              @relation(fields: [patient_id], references: [id])
   product             Products?             @relation(fields: [product_id], references: [id])
   product_variation   ProductVariations?    @relation(fields: [product_variation_id], references: [id])
+  booked_by_user      UserProfiles?         @relation("AppointmentBookedBy", fields: [booked_by_user_id], references: [id])
   reviews             Reviews[]
+  status_logs         AppointmentStatusLogs[]
+}
+
+// APPOINTMENT_DETAIL_QUERY (frontend/src/graphql/queries.js) requests
+// appointment.status_logs{...} — append-only, written inside every
+// status-changing resolver via $transaction (backend-hard-rules.md Rule 5).
+model AppointmentStatusLogs {
+  id                String   @id @default(uuid())
+  appointment_id    String
+  status            String
+  reason            String?
+  changed_by_user_id String?
+  created_at        DateTime @default(now())
+
+  appointment     Appointments  @relation(fields: [appointment_id], references: [id])
+  changed_by_user UserProfiles? @relation("StatusLogChangedBy", fields: [changed_by_user_id], references: [id])
 }
 
 model AuditLogs {
@@ -213,6 +245,11 @@ model Clinicians {
   gender         String?
   email          String   @unique
   phone          String
+  // frontend/src/graphql/queries.js CLINICIAN_FIELDS fragment — none of these
+  // three existed on this model before this increment (context/backend-hard-rules.md Rule 9).
+  bio               String?
+  avatar_url        String?
+  consultation_fee  Int?     // paise — GraphQL exposes this as rupees, converted at the resolver
   is_active      Boolean  @default(true)
   is_deleted     Boolean  @default(false)
   created_at     DateTime @default(now())
@@ -225,7 +262,24 @@ model Clinicians {
   spacerBlocks        SpacerBlocks[]
   userProfiles        UserProfiles[]
   clinicianLanguages  ClinicianLanguages[]
+  clinicianServices   ClinicianServices[]
   reviews             Reviews[]
+}
+
+// CLINICIAN_FIELDS wants `services{id name duration_minutes price}` per clinician
+// and SERVICES_QUERY wants `clinicians{id full_name}` per service — no join
+// existed between Clinicians and Products before this increment.
+model ClinicianServices {
+  id           String   @id @default(uuid())
+  clinician_id String
+  product_id   String
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  clinician Clinicians @relation(fields: [clinician_id], references: [id], onDelete: Cascade)
+  product   Products   @relation(fields: [product_id], references: [id], onDelete: Cascade)
+
+  @@unique([clinician_id, product_id])
 }
 
 model Clinics {
@@ -270,6 +324,10 @@ model EmailTemplates {
   template_type TemplateType
   subject       String
   body          String
+  // admin/EmailTemplates.jsx — the allowed {{variable}} tokens for this template;
+  // updateEmailTemplate rejects a subject/body using a token outside this list
+  // (TC-ADMIN-UNIT-004/API-009). Didn't exist on this model before this increment.
+  variables     String[]     @default([])
   is_active     Boolean      @default(true)
   is_deleted    Boolean      @default(false)
   created_at    DateTime     @default(now())
@@ -361,6 +419,32 @@ model Patients {
   appointments Appointments[]
   userProfiles UserProfiles[]
   reviews      Reviews[]
+  testResults  TestResults[]
+}
+
+// pages/test-results/index.jsx — built from scratch (zero pre-existing GraphQL
+// contract, unlike every other module this session). patient_name/ordered_by_name
+// are denormalized because the current Order-Test dialog is a free-text field,
+// not a real patient picker; patient_id/ordered_by_user_id are optional FKs added
+// for forward compatibility once a Patients module (Phase 6) and a real picker
+// exist — see context/test-results-backend-implementation-plan.md.
+model TestResults {
+  id               String            @id @default(uuid())
+  patient_name     String
+  patient_id       String?
+  test_name        String
+  test_type        String
+  ordered_by_name  String
+  ordered_by_user_id String?
+  date_ordered     DateTime          @default(now())
+  date_completed   DateTime?
+  status           TestResultStatus  @default(pending)
+  values           Json              @default("[]") // [{name, value, ref, flag}]
+  is_deleted       Boolean           @default(false)
+  created_at       DateTime          @default(now())
+
+  patient       Patients?     @relation(fields: [patient_id], references: [id])
+  ordered_by    UserProfiles? @relation(fields: [ordered_by_user_id], references: [id])
 }
 
 model PaymentTransactions {
@@ -539,6 +623,7 @@ model Products {
   variations        ProductVariations[]
   appointments      Appointments[]
   cancellationRules ProductCancellationRules[]
+  clinicianServices ClinicianServices[]
 }
 
 model RolePermissions {
@@ -689,6 +774,9 @@ model UserProfiles {
   clinician   Clinicians?          @relation(fields: [clinician_id], references: [id])
   patient     Patients?            @relation(fields: [patient_id], references: [id])
   client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  orderedTestResults TestResults[]
+  bookedAppointments Appointments[] @relation("AppointmentBookedBy")
+  appointmentStatusLogs AppointmentStatusLogs[] @relation("StatusLogChangedBy")
 }
 
 model UserRoles {
@@ -719,6 +807,9 @@ model Languages {
   name       String   @unique
   code       String   @unique
   is_active  Boolean  @default(true)
+  // admin/Languages.jsx (TC-ADMIN-UNIT-010/API-014): exactly one language is
+  // ever the default — enforced in the service via a $transaction, not a DB constraint.
+  is_default Boolean  @default(false)
   is_deleted Boolean  @default(false)
   created_at DateTime @default(now())
 

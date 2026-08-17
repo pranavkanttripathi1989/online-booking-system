@@ -12,6 +12,13 @@ import { ClinicsModule } from './clinics/clinics.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { LookupsModule } from './lookups/lookups.module';
 import { OrganizationsModule } from './organizations/organizations.module';
+import { LanguagesModule } from './languages/languages.module';
+import { EmailTemplatesModule } from './email-templates/email-templates.module';
+import { ServicesModule } from './services/services.module';
+import { CliniciansModule } from './clinicians/clinicians.module';
+import { TestResultsModule } from './test-results/test-results.module';
+import { PatientsModule } from './patients/patients.module';
+import { AppointmentsModule } from './appointments/appointments.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { GqlAuthGuard } from './common/guards/gql-auth.guard';
@@ -45,6 +52,13 @@ import { GqlAuthGuard } from './common/guards/gql-auth.guard';
     RoomsModule,
     LookupsModule,
     OrganizationsModule,
+    LanguagesModule,
+    EmailTemplatesModule,
+    ServicesModule,
+    CliniciansModule,
+    TestResultsModule,
+    PatientsModule,
+    AppointmentsModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

@@ -1,9 +1,32 @@
-# Test Results Page — Test Suggestions (v2.0)
+# Test Results Page — Test Suggestions (v3.0)
 
-**Module:** Test Results (`/test-results`) — `pages/test-results/index.jsx`
-**Updated:** 2026-03-31 (Session QA v2.0)
+**Module:** Test Results (`/test-results`) — `pages/test-results/index.jsx`, `backend/src/test-results/**`
+**Updated:** 2026-08-17 (Session QA v3.0 — real backend added, see `context/test-results-backend-implementation-plan.md`)
 
 ---
+
+## 🔴 High Priority — New this pass
+
+### SUG-TRES-010 — `patient` is free text, not a real Patients link — real risk of typos creating duplicate/unmatched records
+**Status:** ⏳ PENDING
+**Notes:** The Order Test dialog's "Patient Name" field has always been (and still is, post-backend) a plain `TextField` with no autocomplete against real patient data — confirmed by reading both the pre-existing frontend code and the new backend, which stores `patient_name` as denormalized free text rather than a `patient_id` FK (an optional, nullable `patient_id` was added to the schema for forward compatibility, but nothing populates it yet). A clinician typing "Priya Sharma" vs "Priya sharma" vs "P. Sharma" creates results that can never be reliably grouped under one real patient record. This was a pre-existing frontend gap, not introduced this pass, but it's now a real backend data-quality risk rather than a mock-data curiosity.
+**Recommendation:** Block on Phase 6 (Patients module). Once a real `patients`/`patient` query exists, replace the free-text field with an autocomplete against real patients, and start populating `TestResults.patient_id` (already in the schema) instead of only `patient_name`.
+
+### SUG-TRES-011 — `test-results-page-test-plan.md`'s mock-specific assertions (TC-TRES-01–07/28) are now environment-fragile
+**Status:** ⏳ PENDING (documented in the test plan itself, `TC-TRES-01`'s header note — flagged here too since it affects how this suite should be run in CI/repeatable testing)
+**Notes:** These cases pass only against an empty `TestResults` table (mock fallback active) and silently stop applying the moment any real order exists — there's no test-only "reset to empty" mechanism, so a developer running this suite twice in a row without a DB reset will see confusing, environment-dependent results.
+**Recommendation:** Either seed a small set of deterministic `TestResults` rows (matching `MOCK_RESULTS`' exact shape) in `prisma/seed.ts` so the "real" and "mock" expected data converge, or add a documented `docker exec ... psql -c "DELETE FROM \"TestResults\""` reset step before re-running this specific test file.
+
+## 🟡 Medium Priority — New this pass
+
+### SUG-TRES-012 — `date_ordered`/`date_completed` lose time-of-day precision
+**Status:** ⏳ PENDING
+**Notes:** The backend stores full `DateTime` but the resolver formats both fields down to `YYYY-MM-DD` (`.toISOString().split('T')[0]`) to match the mock's date-only string format exactly (Rule 9). This is a deliberate match to the current UI, not an oversight — but if a future "ordered 2 hours ago" style relative-time display is wanted, the backend already has the precision, only the resolver's formatting would need to change.
+**Recommendation:** No action needed unless a real feature request for time-of-day display emerges — noting only so a future engineer doesn't assume the precision was lost at the database level.
+
+---
+
+## v2.0 History (unchanged, still accurate)
 
 ## 🔴 High Priority — COMPLETED
 
@@ -125,3 +148,6 @@ Priority: Low
 | SUG-TRES-007 | "low" flag mock data | ✅ COMPLETED |
 | SUG-TRES-008 | Order pushes to mock state | ✅ COMPLETED |
 | SUG-TRES-009 | Share result to clipboard | ⏳ PENDING (New) |
+| SUG-TRES-010 | Patient field is free text, not a real Patients link | ⏳ PENDING (blocked on Phase 6) |
+| SUG-TRES-011 | Mock-specific test assertions are environment-fragile now that a real backend exists | ⏳ PENDING |
+| SUG-TRES-012 | date_ordered/date_completed lose time-of-day precision in the resolver | ⏳ PENDING (no action needed yet) |

@@ -1,14 +1,16 @@
-# Test Results Page — Test Plan (v2.0)
+# Test Results Page — Test Plan (v3.0 — Real API)
 
 **Module:** Test Results (`/test-results`)
-**Source:** `pages/test-results/index.jsx`
-**Updated:** 2026-03-31 (Session QA v2.0)
+**Source:** `pages/test-results/index.jsx`, `backend/src/test-results/**`
+**Updated:** 2026-08-17 (Session QA v3.0 — real backend added, see `context/test-results-backend-implementation-plan.md`)
 
 ---
 
 ## Feature Overview
 
-Read-only test results view for clinical staff. 6 mock results across 4 types (Blood Test, X-Ray, MRI, Urine Test). Searchable/filterable table with row-click detail dialog. Dialog shows parameter values with color-coded flag chips. Download PDF and Order Test are now functional (mock mode).
+Test results view for clinical staff, now backed by a real `TestResults` model (previously 100% mock). Searchable/filterable table with row-click detail dialog. Dialog shows parameter values with color-coded flag chips. Download PDF and Order Test are fully functional against the real backend, with a `MOCK_RESULTS` fallback when the API is unreachable or genuinely empty.
+
+**⚠️ Environment-dependence note (v3.0):** TC-TRES-01 through TC-TRES-07 and TC-TRES-28 assert specific mock values (`TR-001`..`TR-006`, "6 total results", etc.). Those hold **only when the real `TestResults` table is empty** (mock fallback active). The moment any real order exists, the table shows real data instead and these specific assertions no longer apply — run these against a freshly-migrated, unseeded database, or treat them as documentation of mock-mode behavior rather than a live acceptance gate once real usage begins.
 
 ---
 
@@ -175,4 +177,32 @@ Read-only test results view for clinical staff. 6 mock results across 4 types (B
 
 ---
 
-## Total: 30 Test Cases + 8 Edge Cases
+## 8. Real API Integration (new — v3.0)
+
+### TC-TRES-31 — Clinical values are withheld until status is completed, enforced server-side
+**Steps:** Query `testResults` for a `pending` or `processing` row directly via the API (not just the UI).
+**Expected:** `values: []` regardless of what's actually stored in the row — this must hold even for a caller who bypasses the UI entirely, since the UI hiding it is not the real enforcement point.
+
+### TC-TRES-32 — `orderTest`'s `ordered_by` cannot be spoofed by the client
+**Steps:** Call `orderTest` as a specific logged-in user; inspect the created row's `ordered_by`.
+**Expected:** Matches the authenticated user's real name, derived server-side from the JWT — the mutation input has no `ordered_by` field at all for a client to supply.
+
+### TC-TRES-33 — RBAC: only clinical/admin/staff roles can order a test
+**Steps:** Attempt `orderTest` as `patient`, then as `clinician`.
+**Expected:** Patient → `FORBIDDEN`. Clinician → succeeds.
+
+### TC-TRES-34 — Auth expiry mid-session redirects cleanly, no crash
+**Steps:** Let the 15-minute access token expire while on `/test-results`, then interact with the page (e.g. click a row).
+**Expected:** Redirected to `/login`, no console error, no blank page — same behavior already confirmed on other real-backed pages this session (Clinics, Clinicians).
+
+### TC-TRES-35 — Backend unreachable falls back to mock data with a visible warning
+**Steps:** Stop the backend container, load `/test-results`.
+**Expected:** An "Backend unavailable — showing sample data" alert renders (matches the pattern on `manager/clinics/index.jsx`/`admin/Organizations.jsx`), `MOCK_RESULTS`' 6 rows display, page remains fully usable (search/filter/dialog all still work against the mock data).
+
+### TC-TRES-36 — Ordering a test while offline still succeeds locally (documented fallback, not a real order)
+**Steps:** With the backend unreachable, submit "Order New Test".
+**Expected:** New row appears in the local table (matches the pre-existing `SUG-TRES-008` mock-mode behavior), but no real `TestResults` row is created server-side — this is intentional offline-demo behavior, the same pattern used by `patients/index.jsx`'s `AddPatientDialog`, not a bug.
+
+---
+
+## Total: 30 Original Cases + 8 Edge Cases + 6 Real-API Cases (v3.0) = 36 + 8 Edge

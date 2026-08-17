@@ -1,11 +1,14 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import {
-  Box, Button, Typography, Chip, Grid, Card, CardContent, Stack, Paper,
+  Alert, Box, Button, Typography, Chip, Grid, Card, CardContent, Stack, Paper,
   Table, TableBody, TableCell, TableHead, TableRow, TextField, InputAdornment,
   MenuItem, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
   Divider, LinearProgress, Select, FormControl, InputLabel, TableSortLabel, Skeleton,
 } from '@mui/material'
+import { TEST_RESULTS_QUERY } from '../../graphql/queries'
+import { ORDER_TEST_MUTATION } from '../../graphql/mutations'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
@@ -145,33 +148,41 @@ export default function TestResultsPage() {
   // SUG-TRES-002: Order Test dialog state
   const [orderOpen, setOrderOpen] = useState(false)
   const [orderForm, setOrderForm] = useState({ patient: '', testType: 'Blood Test' })
-  // SUG-TRES-008: results now live in component state so ordered tests can be appended
-  const [results, setResults] = useState(MOCK_RESULTS)
-  // SUG-TRES-006: simulate an initial network fetch so the loading-skeleton path is real
-  const [loading, setLoading] = useState(true)
   // SUG-TRES-005: column sorting
   const [sortField, setSortField] = useState('date_ordered')
   const [sortDir, setSortDir] = useState('desc')
 
-  useEffect(() => {
-    const t = setTimeout(() => setLoading(false), 500)
-    return () => clearTimeout(t)
-  }, [])
+  // Real backend as of this increment (context/test-results-backend-implementation-plan.md)
+  // — same useMock fallback pattern already applied to manager/clinics/index.jsx.
+  const { data, loading, error, refetch } = useQuery(TEST_RESULTS_QUERY, { fetchPolicy: 'cache-and-network', errorPolicy: 'all' })
+  const apiResults = data?.testResults ?? []
+  const useMock = apiResults.length === 0 && !loading
+  const [localResults, setLocalResults] = useState([])
+  const results = useMock ? [...localResults, ...MOCK_RESULTS] : apiResults
 
-  const handleOrderSubmit = () => {
-    // SUG-TRES-008: push the new order into the results list as a 'pending' record
-    const newResult = {
-      id: `TR-${String(results.length + 1).padStart(3, '0')}`,
-      patient: orderForm.patient.trim(),
-      test: orderForm.testType,
-      ordered_by: 'Current User',
-      date_ordered: new Date().toISOString().split('T')[0],
-      date_completed: null,
-      status: 'pending',
-      type: orderForm.testType,
-      values: [],
+  const [orderTest, { loading: ordering }] = useMutation(ORDER_TEST_MUTATION, {
+    onCompleted: () => refetch(),
+  })
+
+  const handleOrderSubmit = async () => {
+    try {
+      await orderTest({ variables: { input: { patient: orderForm.patient.trim(), testType: orderForm.testType } } })
+    } catch (_) {
+      // SUG-TRES-008: backend unreachable — same offline-success pattern used
+      // elsewhere in this codebase (e.g. patients/index.jsx's AddPatientDialog).
+      const newResult = {
+        id: `TR-${String(results.length + 1).padStart(3, '0')}`,
+        patient: orderForm.patient.trim(),
+        test: orderForm.testType,
+        ordered_by: 'Current User',
+        date_ordered: new Date().toISOString().split('T')[0],
+        date_completed: null,
+        status: 'pending',
+        type: orderForm.testType,
+        values: [],
+      }
+      setLocalResults(prev => [newResult, ...prev])
     }
-    setResults(prev => [newResult, ...prev])
     setOrderOpen(false)
     setOrderForm({ patient: '', testType: 'Blood Test' })
   }
@@ -219,6 +230,12 @@ export default function TestResultsPage() {
           onClick={() => setOrderOpen(true)}
           sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>Order Test</Button>
       </Box>
+
+      {error && (
+        <Alert severity="warning" sx={{ mb: 2, borderRadius: 2.5 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+          Backend unavailable — showing sample data
+        </Alert>
+      )}
 
       {/* ── Status KPIs ─────────────────────────────────────────────────── */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>

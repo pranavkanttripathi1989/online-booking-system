@@ -317,3 +317,21 @@ export const UPDATE_APPOINTMENT_MUTATION = gql`
     }
   }
 `
+
+// ─── Test Results ─────────────────────────────────────────────────────────────
+
+export const ORDER_TEST_MUTATION = gql`
+  mutation OrderTest($input: OrderTestInput!) {
+    orderTest(input: $input) {
+      id
+      patient
+      test
+      ordered_by
+      date_ordered
+      date_completed
+      status
+      type
+      values { name value ref flag }
+    }
+  }
+`

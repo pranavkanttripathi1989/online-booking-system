@@ -509,3 +509,29 @@ export const PRODUCT_DETAIL_QUERY = gql`
     }
   }
 `
+
+// ─── Test Results ─────────────────────────────────────────────────────────────
+// New this increment — pages/test-results/index.jsx was 100% mock before;
+// field names match its MOCK_RESULTS shape exactly so the rewrite is a
+// drop-in swap. See context/test-results-backend-implementation-plan.md.
+
+export const TEST_RESULTS_QUERY = gql`
+  query TestResults($search: String, $type: String, $status: String) {
+    testResults(search: $search, type: $type, status: $status) {
+      id
+      patient
+      test
+      ordered_by
+      date_ordered
+      date_completed
+      status
+      type
+      values {
+        name
+        value
+        ref
+        flag
+      }
+    }
+  }
+`

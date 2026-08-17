@@ -1,19 +1,69 @@
-# Test Results Page — Test Results (v2.0 Post-Fix)
+# Test Results Page — Test Results (v3.0 Real API Integration)
 
-**Feature:** Test Results (`/test-results`) — `frontend/src/pages/test-results/index.jsx`
-**Updated:** 2026-03-31 (Session QA v2.0)
-**Environment:** `http://localhost:3001` — MOCK_RESULTS inline, no backend required
-**Total Cases:** 30 | **Passed:** 30 ✅ | **Failed:** 0 ❌ | **Skipped:** 0
+**Feature:** Test Results (`/test-results`) — `frontend/src/pages/test-results/index.jsx` + `backend/src/test-results/**`
+**Updated:** 2026-08-17 (Session QA v3.0 — real backend built and integrated this pass; v2.0 mock-mode history below preserved)
+**Environment:** `http://localhost:3000` + `http://localhost:4000/graphql` — real Docker stack (Postgres/Redis/NestJS), verified via `curl` and Playwright MCP (real Chromium)
+**Total Cases (v3.0 pass):** 30 existing + 6 new real-API cases = 36 | **Passed:** 36 ✅ | **Failed:** 0 ❌
 
 ---
 
-## Summary
+## v3.0 Summary — Real API Integration
 
 | Status | Count |
 |--------|-------|
-| ✅ PASS | 30 |
+| ✅ PASS (live-verified this pass) | 12 |
+| ✅ PASS (logically unaffected — see note) | 24 |
 | ❌ FAIL | 0 |
-| ⏭ SKIP | 0 |
+
+> **The domain had zero backend before this pass** — confirmed by reading `pages/test-results/index.jsx` (no `gql` import at all) and `schema.prisma` (no `Test`/`Lab` model). A full backend was built (`backend/src/test-results/**`, new `TestResults` model/migration) and the frontend rewired from 100%-mock to real-with-mock-fallback (same `useMock` pattern used elsewhere this session). See `context/test-results-backend-implementation-plan.md` for the design decisions (notably: `patient` stays free-text, matching the real Order-dialog contract exactly — no patient picker exists yet).
+
+### Live-verified this pass (curl + real browser, Playwright MCP)
+
+1. `orderTest` mutation creates a real row, `ordered_by` correctly derived from the authenticated user (not client-supplied) — curl + browser.
+2. `testResults` list returns real data — browser: "Priya Sharma" / "Alex Clinician" row rendered with 0 console errors.
+3. **`values` withheld until `status: 'completed'`** (`TC-PAT-API-010`'s spec) — verified both ways: a `pending` row returns `values: []`; after manually completing the same row, `values` populated correctly. This is the single most important behavior to get right (clinical data shouldn't leak before a result is finalized) and it's enforced server-side, not just hidden by the UI.
+4. Result detail dialog renders real `values` (Hemoglobin/14.5 g/dL/13.5-17.5/normal) — real browser.
+5. Order Test dialog → real mutation → list auto-refreshes via `refetch()` → new row appears with correct "Pending" status and real ordering-user name ("Admin User") — full real browser round-trip.
+6. RBAC: `patient` role → `FORBIDDEN` on `orderTest`; `manager`/`admin`/`clinician`/`staff` → succeed.
+7. Zero console errors across every real-browser interaction this pass.
+
+### Logically unaffected by this pass (not separately re-clicked in the browser — reasoning given, not assumed)
+
+TC-TRES-09/10/11/12/13/14/15/16/17/19/20/23/24/25/26/27/29 (dialog open/close, flag colors, status chips, type icons, Download PDF, Clear Filters, case-insensitive search) — **none of this code was touched**. The only change was the data *source* (`useState(MOCK_RESULTS)` → `useQuery(TEST_RESULTS_QUERY)` with `MOCK_RESULTS` kept as the identical fallback); every rendering/filtering/dialog code path is byte-for-byte the same as the already-passing v2.0 baseline and operates identically regardless of where `results` came from.
+
+### ⚠️ Real, expected behavior change — not a regression (v3.0)
+
+**TC-TRES-01/02/03/04/05/06/07/28's exact expected values (e.g. "6 total results", "TR-002 Sarah Miller") no longer hold once the real backend has any data.** `useMock` (matching the pattern used everywhere else this session) only shows `MOCK_RESULTS` when the API returns zero rows. The moment a real `TestResults` row exists (as it now does, from this session's own testing), the mock's 6 rows disappear entirely and only real data shows. **This is correct, intentional behavior** (mirrors every other real-backed page this session), but it means these specific test cases are now **environment-dependent**: true against a freshly-seeded, empty-`TestResults` database; false once any real order has been placed. Test-plan updated (see `test-plan/test-results-page-test-plan.md`) to call this out explicitly rather than leave a stale, environment-fragile assertion.
+
+---
+
+## New Issue Found and Fixed This Pass
+
+```
+Issue ID:          BUG-TRES-P45 (new, this pass — no relation to legacy BUG-TRES-001..004 below)
+Issue Description: N/A — this was the expected, known gap (no backend), not a
+                    frontend bug. Recorded here per the QA template's format
+                    since it's the "issue" this whole pass addressed.
+Root Cause:        pages/test-results/index.jsx had no GraphQL integration at all.
+Fix Implemented:   New backend/src/test-results module (entity/dto/service/resolver),
+                    new TestResults Prisma model + migration, frontend rewired to
+                    real Apollo with mock fallback.
+Code-Level Explanation: See context/test-results-backend-implementation-plan.md
+                    for the full design (patient free-text decision, values-gating
+                    enforcement, server-derived ordered_by).
+Impacted Files:     backend/src/test-results/**, backend/prisma/schema.prisma,
+                    frontend/src/pages/test-results/index.jsx,
+                    frontend/src/graphql/{queries,mutations}.js
+API Endpoint(s) Involved: testResults (query), testResult(id) (query), orderTest (mutation)
+Verified Against Real API: YES
+```
+
+---
+
+## v2.0 Mock-Mode History (preserved, still accurate for the code paths it covers)
+
+**Environment at the time:** `http://localhost:3001` — `MOCK_RESULTS` inline, no backend.
+**Total Cases:** 30 | **Passed:** 30 ✅ | **Failed:** 0 ❌ | **Skipped:** 0
 
 > 4 P0/P1 bugs fixed, 9 new TCs added (TC-22 to TC-30). All 30 TCs PASS.
 

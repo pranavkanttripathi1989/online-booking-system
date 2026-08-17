@@ -2,6 +2,123 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type Appointment {
+  booked_by_user: AppointmentBookedByUser
+  cancellation_reason: String
+  clinic: AppointmentClinic!
+  clinician: AppointmentClinician!
+  created_at: DateTime!
+  duration_minutes: Int!
+  end_datetime: DateTime!
+  id: ID!
+  notes: String
+  patient: AppointmentPatient!
+  reminder_sent_at: DateTime
+  room: AppointmentRoom
+  service: AppointmentService
+  start_datetime: DateTime!
+  status: String!
+  status_logs: [AppointmentStatusLog!]!
+  tenant_id: String
+  updated_at: DateTime!
+}
+
+type AppointmentBookedByUser {
+  id: ID!
+  name: String!
+}
+
+type AppointmentClinic {
+  address: String
+  city: String
+  id: ID!
+  name: String!
+  timezone: String
+}
+
+type AppointmentClinician {
+  avatar_url: String
+  clinician_type: ClinicianTypeInfo
+  first_name: String!
+  full_name: String!
+  id: ID!
+  last_name: String!
+}
+
+input AppointmentFilters {
+  clinician_id: String
+  date_from: String
+  date_to: String
+  patient_name: String
+  status: String
+}
+
+input AppointmentInput {
+  clinic_id: String!
+  clinician_id: String!
+  notes: String
+  patient_id: String!
+  service_id: String!
+  slot_id: String
+  start_datetime: String!
+}
+
+type AppointmentPaginated {
+  data: [Appointment!]!
+  paginatorInfo: AppointmentPaginatorInfo!
+}
+
+type AppointmentPaginatorInfo {
+  count: Int!
+  currentPage: Int!
+  firstItem: Int!
+  hasMorePages: Boolean!
+  lastItem: Int!
+  lastPage: Int!
+  perPage: Int!
+  total: Int!
+}
+
+type AppointmentPatient {
+  date_of_birth: DateTime!
+  email: String!
+  first_name: String!
+  full_name: String!
+  gender: String
+  id: ID!
+  last_name: String!
+  phone: String!
+}
+
+type AppointmentRoom {
+  id: ID!
+  name: String!
+}
+
+type AppointmentService {
+  duration_minutes: Int
+  id: ID!
+  name: String!
+  price: Float
+}
+
+type AppointmentStatusLog {
+  changed_by_user: AppointmentBookedByUser
+  created_at: DateTime!
+  id: ID!
+  reason: String
+  status: String!
+}
+
+input AppointmentUpdateInput {
+  cancellation_reason: String
+  clinician_id: String
+  notes: String
+  room_id: String
+  start_datetime: String
+  status: String
+}
+
 type AuthPayload {
   access_token: String!
   expires_in: Int!
@@ -33,11 +150,63 @@ input ClinicInput {
   timezone: String
 }
 
+type Clinician {
+  avatar_url: String
+  bio: String
+  clinician_type: ClinicianTypeInfo
+  clinics: [Clinic!]!
+  consultation_fee: Float
+  first_name: String!
+  full_name: String!
+  gender: String
+  id: ID!
+  is_active: Boolean!
+  languages: [String!]!
+  last_name: String!
+  services: [ClinicianServiceItem!]!
+}
+
 type ClinicianInfo {
   avatar_url: String
   clinician_type: ClinicianTypeInfo
   full_name: String!
   id: String!
+}
+
+input ClinicianInput {
+  bio: String
+  clinic_ids: [ID!]
+  clinician_type_id: ID
+  consultation_fee: Float
+  email: String!
+  first_name: String!
+  gender: String
+  is_active: Boolean
+  languages: [String!]
+  last_name: String!
+  phone: String
+  service_ids: [ID!]
+}
+
+type ClinicianPaginated {
+  data: [Clinician!]!
+  paginatorInfo: ClinicianPaginatorInfo!
+}
+
+type ClinicianPaginatorInfo {
+  count: Int!
+  currentPage: Int!
+  hasMorePages: Boolean!
+  lastPage: Int!
+  perPage: Int!
+  total: Int!
+}
+
+type ClinicianServiceItem {
+  duration_minutes: Int
+  id: ID!
+  name: String!
+  price: Float
 }
 
 type ClinicianType {
@@ -48,6 +217,7 @@ type ClinicianType {
 }
 
 type ClinicianTypeInfo {
+  description: String
   id: String!
   name: String!
 }
@@ -58,10 +228,38 @@ input CreateClinicianTypeInput {
   name: String!
 }
 
+input CreateLanguageInput {
+  code: String!
+  is_active: Boolean
+  is_default: Boolean
+  name: String!
+}
+
 input CreateRoomTypeInput {
   description: String
   is_active: Boolean
   name: String!
+}
+
+"""
+A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
+"""
+scalar DateTime
+
+type EmailTemplate {
+  body: String!
+  id: ID!
+  is_active: Boolean!
+  name: String!
+  subject: String!
+  type: String!
+  variables: [String!]!
+}
+
+type EmailTemplateMutationResult {
+  success: Boolean!
+  template: EmailTemplate
+  userErrors: [UserError!]!
 }
 
 input ForgotPasswordInput {
@@ -71,6 +269,14 @@ input ForgotPasswordInput {
 type GenericResult {
   message: String
   success: Boolean!
+}
+
+type Language {
+  code: String!
+  id: ID!
+  is_active: Boolean!
+  is_default: Boolean!
+  name: String!
 }
 
 input LoginInput {
@@ -84,27 +290,48 @@ type LookupMutationResult {
 }
 
 type Mutation {
+  cancelAppointment(id: ID!, reason: String): Appointment!
+  completeAppointment(id: ID!): Appointment!
+  createAppointment(input: AppointmentInput!): Appointment!
   createClinic(input: ClinicInput!): Clinic!
+  createClinician(input: ClinicianInput!): Clinician!
   createClinicianType(input: CreateClinicianTypeInput!): LookupMutationResult!
+  createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
+  createPatient(input: PatientInput!): Patient!
   createRoom(input: RoomInput!): Room!
   createRoomType(input: CreateRoomTypeInput!): LookupMutationResult!
+  createService(input: ServiceInput!): Service!
   deleteClinicianType(id: ID!): LookupMutationResult!
+  deleteLanguage(id: ID!): LookupMutationResult!
   deleteOrganization(id: ID!): OrganizationMutationResult!
   deleteRoomType(id: ID!): LookupMutationResult!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
+  markNoShow(id: ID!): Appointment!
+  orderTest(input: OrderTestInput!): TestResult!
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
   requestOtp(input: RequestOtpInput!): GenericResult!
   resetPassword(input: ResetPasswordInput!): GenericResult!
+  updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   updateClinic(id: ID!, input: ClinicInput!): Clinic!
+  updateClinician(id: ID!, input: ClinicianInput!): Clinician!
   updateClinicianType(id: ID!, input: UpdateClinicianTypeInput!): LookupMutationResult!
+  updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
+  updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
+  updatePatient(id: ID!, input: PatientInput!): Patient!
   updateRoom(id: ID!, input: RoomInput!): Room!
   updateRoomType(id: ID!, input: UpdateRoomTypeInput!): LookupMutationResult!
+  updateService(id: ID!, input: ServiceInput!): Service!
   verifyOtp(input: VerifyOtpInput!): AuthPayload!
+}
+
+input OrderTestInput {
+  patient: String!
+  testType: String!
 }
 
 type Organization {
@@ -169,15 +396,102 @@ type OrganizationsPaginated {
   pageInfo: OrganizationPageInfo!
 }
 
+type Patient {
+  address: String
+  appointments(first: Int! = 20, page: Int! = 1): PatientAppointmentsPaginated!
+  created_at: DateTime!
+  date_of_birth: DateTime!
+  email: String!
+  first_name: String!
+  full_name: String!
+  gender: String
+  id: ID!
+  last_name: String!
+  notes: String
+  phone: String!
+}
+
+type PatientAppointmentClinic {
+  id: ID!
+  name: String!
+}
+
+type PatientAppointmentClinician {
+  full_name: String!
+  id: ID!
+}
+
+type PatientAppointmentItem {
+  clinic: PatientAppointmentClinic!
+  clinician: PatientAppointmentClinician!
+  end_datetime: DateTime!
+  id: ID!
+  service: PatientAppointmentService
+  start_datetime: DateTime!
+  status: String!
+}
+
+type PatientAppointmentPaginatorInfo {
+  hasMorePages: Boolean!
+  total: Int!
+}
+
+type PatientAppointmentService {
+  id: ID!
+  name: String!
+}
+
+type PatientAppointmentsPaginated {
+  data: [PatientAppointmentItem!]!
+  paginatorInfo: PatientAppointmentPaginatorInfo!
+}
+
+input PatientInput {
+  address: String
+  date_of_birth: String!
+  email: String!
+  first_name: String!
+  gender: String
+  last_name: String!
+  notes: String
+  phone: String!
+}
+
+type PatientPaginated {
+  data: [Patient!]!
+  paginatorInfo: PatientPaginatorInfo!
+}
+
+type PatientPaginatorInfo {
+  count: Int!
+  currentPage: Int!
+  hasMorePages: Boolean!
+  lastPage: Int!
+  perPage: Int!
+  total: Int!
+}
+
 type Query {
+  appointment(id: ID!): Appointment
+  appointments(filters: AppointmentFilters, first: Int! = 20, page: Int! = 1): AppointmentPaginated!
   clinic(id: ID!): Clinic
+  clinician(id: ID!): Clinician
   clinicianTypes: [ClinicianType!]!
+  clinicians(clinic_id: ID, first: Int = 20, is_active: Boolean, page: Int): ClinicianPaginated!
   clinics: [Clinic!]!
+  emailTemplates: [EmailTemplate!]!
+  languages: [Language!]!
   me: User!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
+  patient(id: ID!): Patient
+  patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
   room(id: ID!): Room
   roomTypes: [RoomType!]!
   rooms(clinic_id: ID): [Room!]!
+  service(id: ID!): Service
+  services(clinic_id: ID, is_active: Boolean): [Service!]!
+  testResult(id: ID!): TestResult
+  testResults(search: String, status: String, type: String): [TestResult!]!
 }
 
 input RefreshInput {
@@ -227,9 +541,69 @@ type RoomType {
   name: String!
 }
 
+type Service {
+  category: ServiceCategory
+  clinicians: [ServiceClinician!]!
+  description: String
+  duration_minutes: Int
+  id: ID!
+  is_active: Boolean!
+  name: String!
+  price: Float
+}
+
+type ServiceCategory {
+  id: ID!
+  name: String!
+}
+
+type ServiceClinician {
+  full_name: String!
+  id: ID!
+}
+
+input ServiceInput {
+  description: String
+  duration_minutes: Int
+  is_active: Boolean
+  name: String!
+  price: Float
+}
+
+type TestResult {
+  date_completed: String
+  date_ordered: String!
+  id: ID!
+  ordered_by: String!
+  patient: String!
+  status: String!
+  test: String!
+  type: String!
+  values: [TestResultValue!]!
+}
+
+type TestResultValue {
+  flag: String!
+  name: String!
+  ref: String!
+  value: String!
+}
+
 input UpdateClinicianTypeInput {
   description: String
   is_active: Boolean
+  name: String
+}
+
+input UpdateEmailTemplateInput {
+  body: String!
+  subject: String!
+}
+
+input UpdateLanguageInput {
+  code: String
+  is_active: Boolean
+  is_default: Boolean
   name: String
 }
 

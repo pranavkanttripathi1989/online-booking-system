@@ -13,6 +13,12 @@ export class ClinicianTypeInfoType {
 
   @Field()
   name: string;
+
+  // Added for the Clinicians domain increment (CLINICIAN_FIELDS fragment wants
+  // clinician_type { id name description }) — optional so auth's own usage,
+  // which never sets this, stays unaffected.
+  @Field({ nullable: true })
+  description?: string;
 }
 
 @ObjectType('ClinicianInfo')
