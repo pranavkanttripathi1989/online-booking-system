@@ -70,12 +70,13 @@ test-plan/
 | **Manager — Availability** | manager/manager-availability-test-plan.md | ⚠️ Not Tested |
 | **Manager — Blocks** | manager/manager-blocks-test-plan.md | ⚠️ Not Tested |
 | **Manager — Billing** | manager/manager-billing-test-plan.md | ⚠️ Not Tested |
-| **Manager — Clinics** | manager/manager-clinics-test-plan.md | ⚠️ Not Tested |
-| **Manager — Rooms** | manager/manager-rooms-test-plan.md | ⚠️ Not Tested |
+| **Manager — Clinics** | manager/manager-clinics-test-plan.md | ⚠️ Not Tested (mock-mode UI plan; real backend integration now covered separately — see below) |
+| **Manager — Rooms** | manager/manager-rooms-test-plan.md | ⚠️ Not Tested (mock-mode UI plan; real backend integration now covered separately — see below) |
 | **Manager — Services** | manager/manager-services-test-plan.md | ⚠️ Not Tested |
 | **Manager — Products** | manager/manager-products-test-plan.md | ⚠️ Not Tested |
 | **Shared — Test Results** | shared/test-results-page-test-plan-not-done.md | ⚠️ Not Tested |
 | **Shared — Reviews** | shared/reviews-page-test-plan-not-done.md | ⚠️ Not Tested |
+| **Phase 4 Backend Integration** (Auth, Clinics, Rooms, Reference Data, Organizations — real backend, not mock) | `phase4-backend-integration-test-plan.md` (top-level, new domain group) | ✅ Tested — see `test-result/phase4-backend-integration-test-results.md` |
 
 ---
 

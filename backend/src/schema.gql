@@ -10,6 +10,29 @@ type AuthPayload {
   user: User!
 }
 
+type Clinic {
+  address: String!
+  city: String
+  email: String!
+  id: ID!
+  is_active: Boolean!
+  name: String!
+  phone: String!
+  postcode: String
+  timezone: String
+}
+
+input ClinicInput {
+  address: String!
+  city: String
+  email: String!
+  is_active: Boolean
+  name: String!
+  phone: String!
+  postcode: String
+  timezone: String
+}
+
 type ClinicianInfo {
   avatar_url: String
   clinician_type: ClinicianTypeInfo
@@ -17,8 +40,27 @@ type ClinicianInfo {
   id: String!
 }
 
+type ClinicianType {
+  description: String
+  id: ID!
+  is_active: Boolean!
+  name: String!
+}
+
 type ClinicianTypeInfo {
   id: String!
+  name: String!
+}
+
+input CreateClinicianTypeInput {
+  description: String
+  is_active: Boolean
+  name: String!
+}
+
+input CreateRoomTypeInput {
+  description: String
+  is_active: Boolean
   name: String!
 }
 
@@ -36,7 +78,20 @@ input LoginInput {
   password: String!
 }
 
+type LookupMutationResult {
+  success: Boolean!
+  userErrors: [UserError!]!
+}
+
 type Mutation {
+  createClinic(input: ClinicInput!): Clinic!
+  createClinicianType(input: CreateClinicianTypeInput!): LookupMutationResult!
+  createOrganization(input: OrganizationInput!): OrganizationMutationResult!
+  createRoom(input: RoomInput!): Room!
+  createRoomType(input: CreateRoomTypeInput!): LookupMutationResult!
+  deleteClinicianType(id: ID!): LookupMutationResult!
+  deleteOrganization(id: ID!): OrganizationMutationResult!
+  deleteRoomType(id: ID!): LookupMutationResult!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
@@ -44,11 +99,85 @@ type Mutation {
   register(input: RegisterInput!): AuthPayload!
   requestOtp(input: RequestOtpInput!): GenericResult!
   resetPassword(input: ResetPasswordInput!): GenericResult!
+  updateClinic(id: ID!, input: ClinicInput!): Clinic!
+  updateClinicianType(id: ID!, input: UpdateClinicianTypeInput!): LookupMutationResult!
+  updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
+  updateRoom(id: ID!, input: RoomInput!): Room!
+  updateRoomType(id: ID!, input: UpdateRoomTypeInput!): LookupMutationResult!
   verifyOtp(input: VerifyOtpInput!): AuthPayload!
 }
 
+type Organization {
+  address: OrganizationAddress
+  code: String!
+  contactEmail: String!
+  contactPhone: String
+  id: ID!
+  is_active: Boolean!
+  name: String!
+}
+
+type OrganizationAddress {
+  city: String!
+  country: String!
+  line1: String!
+  line2: String
+  pincode: String!
+  state: String!
+}
+
+input OrganizationAddressInput {
+  city: String!
+  country: String
+  line1: String!
+  line2: String
+  pincode: String!
+  state: String!
+}
+
+input OrganizationInput {
+  address: OrganizationAddressInput
+  code: String!
+  contactEmail: String!
+  contactPhone: String
+  is_active: Boolean
+  name: String!
+}
+
+type OrganizationMutationResult {
+  organization: Organization
+  success: Boolean!
+  userErrors: [UserError!]!
+}
+
+type OrganizationPageInfo {
+  hasNextPage: Boolean!
+  hasPreviousPage: Boolean!
+  limit: Float!
+  offset: Float!
+  total: Float!
+}
+
+input OrganizationSearchInput {
+  limit: Float
+  offset: Float
+  search: String
+}
+
+type OrganizationsPaginated {
+  data: [Organization!]!
+  pageInfo: OrganizationPageInfo!
+}
+
 type Query {
+  clinic(id: ID!): Clinic
+  clinicianTypes: [ClinicianType!]!
+  clinics: [Clinic!]!
   me: User!
+  organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
+  room(id: ID!): Room
+  roomTypes: [RoomType!]!
+  rooms(clinic_id: ID): [Room!]!
 }
 
 input RefreshInput {
@@ -76,6 +205,40 @@ type Role {
   name: String!
 }
 
+type Room {
+  capacity: Int
+  clinic: Clinic
+  id: ID!
+  is_active: Boolean!
+  name: String!
+}
+
+input RoomInput {
+  capacity: Int
+  clinic_id: ID
+  is_active: Boolean
+  name: String!
+}
+
+type RoomType {
+  description: String
+  id: ID!
+  is_active: Boolean!
+  name: String!
+}
+
+input UpdateClinicianTypeInput {
+  description: String
+  is_active: Boolean
+  name: String
+}
+
+input UpdateRoomTypeInput {
+  description: String
+  is_active: Boolean
+  name: String
+}
+
 type User {
   client_org_id: String
   clinician: ClinicianInfo
@@ -83,6 +246,11 @@ type User {
   id: String!
   name: String!
   roles: [Role!]!
+}
+
+type UserError {
+  field: String
+  message: String!
 }
 
 input VerifyOtpInput {

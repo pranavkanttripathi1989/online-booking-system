@@ -7,8 +7,17 @@ import {
   Box, Button, Avatar, Typography, Chip, Tabs, Tab, Grid, Card, CardContent,
   Stack, Divider, IconButton, Tooltip, Paper, Table, TableBody, TableCell,
   TableHead, TableRow, LinearProgress, Badge, Dialog, DialogTitle, DialogContent,
-  DialogActions, List, ListItem, ListItemIcon, ListItemText,
+  DialogActions, List, ListItem, ListItemIcon, ListItemText, Switch,
+  FormControlLabel, TextField, MenuItem, RadioGroup, Radio, FormControl, FormLabel,
 } from '@mui/material'
+import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
+import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
+import AssignmentRoundedIcon from '@mui/icons-material/AssignmentRounded'
+import DescriptionRoundedIcon from '@mui/icons-material/DescriptionRounded'
+import SendRoundedIcon from '@mui/icons-material/SendRounded'
+import CardMembershipRoundedIcon from '@mui/icons-material/CardMembershipRounded'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import MessageRoundedIcon from '@mui/icons-material/MessageRounded'
@@ -25,6 +34,10 @@ import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded'
 import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded'
+import ForumRoundedIcon from '@mui/icons-material/ForumRounded'
+import MarkEmailReadRoundedIcon from '@mui/icons-material/MarkEmailReadRounded'
+import SmsRoundedIcon from '@mui/icons-material/SmsRounded'
+import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 
 // ─── Mock patients (BUG-004 fix: keyed by id so URL param resolves correctly) ─
 // Supports both 'pt-1'..'pt-5' (clinician patients list) and '1'..'5' (admin list)
@@ -87,6 +100,64 @@ const MOCK_TESTS = [
   { id: 'T4', name: 'Allergy Panel', date: '2026-02-28', status: 'pending', ordered_by: 'Dr. Jane Smith' },
 ]
 
+// Communication preferences + related accounts (family linking) —
+// requirements/semble-competitive-gap-analysis-requirements.md Phase 1
+const DEFAULT_COMM_PREFS = { email: true, sms: true, whatsapp: false }
+const RELATIONSHIP_TYPES = ['Parent/Guardian', 'Spouse', 'Child', 'Emergency Contact', 'Other']
+const MOCK_RELATED_ACCOUNTS = {
+  'pt-3': [{ id: 'rel-1', name: 'Omar Al-Hassan', relationship: 'Emergency Contact', phone: '+1 555-2003' }],
+}
+
+// Communication log — a sent-message HISTORY, distinct from the preference
+// toggles above (Semble's `patientCommunication`/`patientCommunications` query
+// is a separate object from communication preferences). requirements/semble-competitive-gap-analysis-requirements.md Patients table.
+const COMM_CHANNELS = ['email', 'sms', 'whatsapp']
+const COMM_TYPES = ['Appointment confirmation', 'Reminder', 'Marketing', 'Custom']
+const DEFAULT_COMM_LOG = [
+  { id: 'comm-1', channel: 'email', type: 'Appointment confirmation', subject: 'Your appointment is confirmed', sent_at: '2026-03-04T09:15:00Z', status: 'Delivered' },
+  { id: 'comm-2', channel: 'sms',   type: 'Reminder',                 subject: 'Reminder: appointment tomorrow at 10:00 AM', sent_at: '2026-03-04T18:00:00Z', status: 'Delivered' },
+]
+
+// Structured allergy records — requirements/semble-competitive-gap-analysis-requirements.md
+// Phase 2 flags this as a distinct clinical-safety record type (Semble's
+// createAllergyRecord), not folded into generic free-text notes.
+const SEVERITY_LEVELS = ['Mild', 'Moderate', 'Severe']
+const SEVERITY_COLOR = { Mild: 'default', Moderate: 'warning', Severe: 'error' }
+const ENCOUNTER_TYPES = ['Consultation', 'Follow-up', 'Telehealth', 'Procedure', 'Blood Test', 'Imaging']
+// Document folders — a scoped-down version of Semble's PatientDocument folder
+// hierarchy (parent-based nesting); flat categories here, not true nesting,
+// per the sequencing note in requirements/semble-competitive-gap-analysis-requirements.md.
+const DOCUMENT_FOLDERS = ['General', 'Lab Reports', 'Prescriptions', 'Imaging', 'Consent Forms']
+
+// Minimal intake questionnaire — a scoped-down version of Semble's Questionnaire
+// (title/sections/questions with styling/conditional logic); this is a single
+// fixed section of common intake questions, not a form builder.
+// requirements/semble-competitive-gap-analysis-requirements.md Phase 2
+// Letters with a review/approval workflow before sharing — Semble's Letter
+// object has an explicit reviewStatus gate, not a fire-and-send model.
+// requirements/semble-competitive-gap-analysis-requirements.md Phase 3
+const LETTER_REVIEW_STATUSES = ['Draft', 'Pending Review', 'Approved']
+const LETTER_STATUS_COLOR = { Draft: 'default', 'Pending Review': 'warning', Approved: 'success' }
+
+// Patient membership plans — distinct from the tenant's own SubscriptionPlans
+// (that's MediBook's SaaS plan; this is the *patient's* recurring plan with
+// the clinic, e.g. a monthly wellness membership). A real monetization lever,
+// not just parity. requirements/semble-competitive-gap-analysis-requirements.md Phase 4
+const MEMBERSHIP_PLANS = [
+  { id: 'none', name: 'No membership', price_monthly: 0 },
+  { id: 'basic', name: 'Wellness Basic', price_monthly: 49900 }, // paise
+  { id: 'premium', name: 'Wellness Premium', price_monthly: 149900 },
+]
+
+const INTAKE_QUESTIONS = [
+  { id: 'q_conditions', label: 'Do you have any pre-existing medical conditions?', type: 'yesno' },
+  { id: 'q_conditions_detail', label: 'If yes, please describe', type: 'text' },
+  { id: 'q_medications', label: 'Are you currently taking any medications?', type: 'yesno' },
+  { id: 'q_medications_detail', label: 'If yes, please list them', type: 'text' },
+  { id: 'q_surgeries', label: 'Have you had any surgeries in the past 5 years?', type: 'yesno' },
+  { id: 'q_smoker', label: 'Do you currently smoke?', type: 'yesno' },
+]
+
 const STATUS_COLORS = { confirmed: 'success', completed: 'info', cancelled: 'error', pending: 'warning' }
 const STATUS_ICONS = { confirmed: CheckCircleRoundedIcon, completed: CheckCircleRoundedIcon, cancelled: CancelRoundedIcon, pending: AccessTimeRoundedIcon }
 
@@ -120,13 +191,141 @@ export default function PatientDetailPage() {
   // SUG-PT-004 / SUG-PAT-014: Upload Document — hidden file input + local doc list
   const fileInputRef = useRef(null)
   const [uploadedDocs, setUploadedDocs] = useState([])
+  const [uploadFolder, setUploadFolder] = useState(DOCUMENT_FOLDERS[0])
+  const [docFolderFilter, setDocFolderFilter] = useState('All')
   const handleFileSelected = (e) => {
     const file = e.target.files?.[0]
     if (file) {
-      setUploadedDocs((prev) => [...prev, { id: `doc-${Date.now()}`, name: file.name, size: file.size, uploadedAt: new Date().toISOString() }])
-      enqueueSnackbar(`"${file.name}" uploaded (demo mode)`, { variant: 'success' })
+      setUploadedDocs((prev) => [...prev, { id: `doc-${Date.now()}`, name: file.name, size: file.size, uploadedAt: new Date().toISOString(), folder: uploadFolder }])
+      enqueueSnackbar(`"${file.name}" uploaded to ${uploadFolder} (demo mode)`, { variant: 'success' })
     }
     e.target.value = '' // allow re-selecting the same file
+  }
+  const visibleDocs = docFolderFilter === 'All' ? uploadedDocs : uploadedDocs.filter((d) => d.folder === docFolderFilter)
+
+  // Communication preferences (email/SMS/WhatsApp consent — also a DPDP Act
+  // consent-tracking requirement, not just UX; requirements/semble-competitive-gap-analysis-requirements.md Phase 1)
+  const [commPrefs, setCommPrefs] = useState(DEFAULT_COMM_PREFS)
+  const toggleCommPref = (channel) => setCommPrefs((prev) => ({ ...prev, [channel]: !prev[channel] }))
+
+  // Communication log — sent-message history (Semble patientCommunication(s) parity)
+  const [commLog, setCommLog] = useState(DEFAULT_COMM_LOG)
+  const [sendMessageOpen, setSendMessageOpen] = useState(false)
+  const [newMessage, setNewMessage] = useState({ channel: 'email', type: COMM_TYPES[3], subject: '' })
+  const sendCommunication = () => {
+    if (!newMessage.subject.trim()) return
+    setCommLog((prev) => [
+      { id: `comm-${Date.now()}`, ...newMessage, sent_at: new Date().toISOString(), status: 'Sent' },
+      ...prev,
+    ])
+    setNewMessage({ channel: 'email', type: COMM_TYPES[3], subject: '' })
+    setSendMessageOpen(false)
+    enqueueSnackbar('Message sent (demo mode)', { variant: 'success' })
+  }
+
+  // Related accounts (family/guardian linking)
+  const [relatedAccounts, setRelatedAccounts] = useState(MOCK_RELATED_ACCOUNTS[id] ?? [])
+  const [addRelatedOpen, setAddRelatedOpen] = useState(false)
+  const [newRelated, setNewRelated] = useState({ name: '', relationship: RELATIONSHIP_TYPES[0], phone: '' })
+  const addRelatedAccount = () => {
+    if (!newRelated.name.trim()) return
+    setRelatedAccounts((prev) => [...prev, { id: `rel-${Date.now()}`, ...newRelated }])
+    setNewRelated({ name: '', relationship: RELATIONSHIP_TYPES[0], phone: '' })
+    setAddRelatedOpen(false)
+    enqueueSnackbar('Related account added', { variant: 'success' })
+  }
+  const removeRelatedAccount = (relId) => setRelatedAccounts((prev) => prev.filter((r) => r.id !== relId))
+
+  // Structured allergy records (distinct from generic clinical notes — see
+  // requirements/semble-competitive-gap-analysis-requirements.md Phase 2)
+  const [allergyRecords, setAllergyRecords] = useState(() =>
+    (p.allergies ?? []).filter((a) => a && a.toLowerCase() !== 'none').map((allergen, i) => ({
+      id: `allergy-${i}`, allergen, severity: 'Moderate', reaction: '', recorded_at: p.last_visit ?? null,
+    }))
+  )
+  const [addAllergyOpen, setAddAllergyOpen] = useState(false)
+  const [newAllergy, setNewAllergy] = useState({ allergen: '', severity: 'Moderate', reaction: '' })
+  const addAllergyRecord = () => {
+    if (!newAllergy.allergen.trim()) return
+    setAllergyRecords((prev) => [...prev, { id: `allergy-${Date.now()}`, ...newAllergy, recorded_at: new Date().toISOString() }])
+    setNewAllergy({ allergen: '', severity: 'Moderate', reaction: '' })
+    setAddAllergyOpen(false)
+    enqueueSnackbar('Allergy record added', { variant: 'success' })
+  }
+  const removeAllergyRecord = (allergyId) => setAllergyRecords((prev) => prev.filter((a) => a.id !== allergyId))
+
+  // Diagnoses — ongoing-condition tracking, distinct from a single
+  // consultation's notes; requirements/semble-competitive-gap-analysis-requirements.md Phase 2
+  const [diagnoses, setDiagnoses] = useState([])
+  const [addDiagnosisOpen, setAddDiagnosisOpen] = useState(false)
+  const [newDiagnosis, setNewDiagnosis] = useState({ condition: '', status: 'Active', diagnosed_date: '' })
+  const addDiagnosis = () => {
+    if (!newDiagnosis.condition.trim()) return
+    setDiagnoses((prev) => [...prev, { id: `dx-${Date.now()}`, ...newDiagnosis, diagnosed_date: newDiagnosis.diagnosed_date || new Date().toISOString() }])
+    setNewDiagnosis({ condition: '', status: 'Active', diagnosed_date: '' })
+    setAddDiagnosisOpen(false)
+    enqueueSnackbar('Diagnosis added', { variant: 'success' })
+  }
+  const removeDiagnosis = (dxId) => setDiagnoses((prev) => prev.filter((d) => d.id !== dxId))
+
+  // Intake questionnaire — local state only, submitted once
+  const [intakeAnswers, setIntakeAnswers] = useState({})
+  const [intakeSubmitted, setIntakeSubmitted] = useState(false)
+  const [intakeSubmittedAt, setIntakeSubmittedAt] = useState(null)
+  const setIntakeAnswer = (qId, value) => setIntakeAnswers((prev) => ({ ...prev, [qId]: value }))
+  const submitIntake = () => {
+    setIntakeSubmitted(true)
+    setIntakeSubmittedAt(new Date().toISOString())
+    enqueueSnackbar('Intake questionnaire submitted', { variant: 'success' })
+  }
+  const resetIntake = () => { setIntakeSubmitted(false); setIntakeAnswers({}) }
+
+  // Letters with review/approval workflow
+  const [letters, setLetters] = useState([])
+  const [addLetterOpen, setAddLetterOpen] = useState(false)
+  const [newLetter, setNewLetter] = useState({ title: '', body: '' })
+  const addLetter = () => {
+    if (!newLetter.title.trim()) return
+    setLetters((prev) => [
+      { id: `letter-${Date.now()}`, ...newLetter, review_status: 'Draft', date: new Date().toISOString(), dateShared: null },
+      ...prev,
+    ])
+    setNewLetter({ title: '', body: '' })
+    setAddLetterOpen(false)
+    enqueueSnackbar('Letter drafted', { variant: 'success' })
+  }
+  const advanceLetterStatus = (letterId) => {
+    setLetters((prev) => prev.map((l) => {
+      if (l.id !== letterId) return l
+      const idx = LETTER_REVIEW_STATUSES.indexOf(l.review_status)
+      return { ...l, review_status: LETTER_REVIEW_STATUSES[Math.min(idx + 1, LETTER_REVIEW_STATUSES.length - 1)] }
+    }))
+  }
+  const shareLetter = (letterId) => {
+    setLetters((prev) => prev.map((l) => l.id === letterId ? { ...l, dateShared: new Date().toISOString() } : l))
+    enqueueSnackbar('Letter shared with patient', { variant: 'success' })
+  }
+
+  // Patient membership
+  const [membershipId, setMembershipId] = useState('none')
+  const [membershipDialogOpen, setMembershipDialogOpen] = useState(false)
+  const membership = MEMBERSHIP_PLANS.find((m) => m.id === membershipId)
+  const formatInr = (paise) => `₹${(paise / 100).toLocaleString('en-IN')}`
+
+  // Consultation records — requirements/semble-competitive-gap-analysis-requirements.md
+  // Phase 2 (mirrors Semble's Consultation: id/patient/date/encounterType/doctorName/records)
+  const [consultations, setConsultations] = useState(MOCK_HISTORY)
+  const [addConsultationOpen, setAddConsultationOpen] = useState(false)
+  const [newConsultation, setNewConsultation] = useState({ encounter_type: ENCOUNTER_TYPES[0], diagnosis: '', notes: '' })
+  const addConsultation = () => {
+    if (!newConsultation.diagnosis.trim()) return
+    setConsultations((prev) => [
+      { date: new Date().toISOString(), clinician: p.primary_clinician, service: newConsultation.encounter_type, diagnosis: newConsultation.diagnosis, notes: newConsultation.notes },
+      ...prev,
+    ])
+    setNewConsultation({ encounter_type: ENCOUNTER_TYPES[0], diagnosis: '', notes: '' })
+    setAddConsultationOpen(false)
+    enqueueSnackbar('Consultation record added', { variant: 'success' })
   }
 
   // SUG-PT-006 / SUG-PAT-012: Derive clinician initials instead of hardcoded "JS"
@@ -176,6 +375,14 @@ export default function PatientDetailPage() {
                 <Chip icon={<CalendarMonthRoundedIcon />} label={`${p.total_visits} Visits`} size="small" variant="outlined" />
                 <Chip icon={<AccessTimeRoundedIcon />} label={`Last: ${dayjs(p.last_visit).format('DD/MM/YYYY')}`} size="small" variant="outlined" />
                 {p.outstanding_balance > 0 && <Chip label={`$${p.outstanding_balance} Balance`} size="small" color="warning" />}
+                <Chip
+                  icon={<CardMembershipRoundedIcon />}
+                  label={membership.id === 'none' ? 'No membership' : `${membership.name} · ${formatInr(membership.price_monthly)}/mo`}
+                  size="small" variant={membership.id === 'none' ? 'outlined' : 'filled'}
+                  color={membership.id === 'none' ? 'default' : 'primary'}
+                  onClick={() => setMembershipDialogOpen(true)}
+                  sx={{ cursor: 'pointer', fontWeight: 700 }}
+                />
               </Stack>
             </Grid>
             <Grid item xs={12} sm="auto">
@@ -204,6 +411,9 @@ export default function PatientDetailPage() {
           <Tab icon={<CalendarMonthRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Appointments (${MOCK_APPOINTMENTS.length})`} />
           <Tab icon={<ScienceRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Test Results" />
           <Tab icon={<FolderRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Documents" />
+          <Tab icon={<AssignmentRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Intake Form" />
+          <Tab icon={<DescriptionRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Letters (${letters.length})`} />
+          <Tab icon={<ForumRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Communication Log (${commLog.length})`} />
         </Tabs>
 
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
@@ -216,19 +426,101 @@ export default function PatientDetailPage() {
                 <InfoRow label="Date of Birth" value={`${dayjs(p.date_of_birth).format('DD/MM/YYYY')} (${age} years old)`} icon={AccessTimeRoundedIcon} />
                 <InfoRow label="Gender" value={p.gender} icon={PersonRoundedIcon} />
                 <InfoRow label="Blood Type" value={p.blood_type} icon={MedicalServicesRoundedIcon} />
-                <InfoRow label="Allergies" value={p.allergies.join(', ')} icon={ScienceRoundedIcon} />
+                <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1, mb: 0.75 }}>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.06em', fontSize: '0.68rem' }}>Allergies</Typography>
+                  <Button size="small" startIcon={<AddRoundedIcon />} onClick={() => setAddAllergyOpen(true)} sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.72rem', minWidth: 0, py: 0 }}>Add</Button>
+                </Stack>
+                {allergyRecords.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>No known allergies recorded.</Typography>
+                ) : (
+                  <Stack spacing={0.75} sx={{ mb: 1 }}>
+                    {allergyRecords.map((a) => (
+                      <Stack key={a.id} direction="row" alignItems="center" spacing={1} sx={{ bgcolor: a.severity === 'Severe' ? '#FEF2F2' : '#F8FAFC', border: '1px solid', borderColor: a.severity === 'Severe' ? '#FCA5A5' : '#E2E8F0', borderRadius: 2, p: 1 }}>
+                        {a.severity === 'Severe' && <WarningAmberRoundedIcon sx={{ color: 'error.main', fontSize: '1rem' }} aria-label="Severe allergy" />}
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" fontWeight={700}>{a.allergen}</Typography>
+                          {a.reaction && <Typography variant="caption" color="text.secondary">{a.reaction}</Typography>}
+                        </Box>
+                        <Chip label={a.severity} size="small" color={SEVERITY_COLOR[a.severity]} sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }} />
+                        <IconButton size="small" onClick={() => removeAllergyRecord(a.id)} aria-label={`Remove ${a.allergen} allergy record`}>
+                          <DeleteRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    ))}
+                  </Stack>
+                )}
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem', mb: 1.5 }}>Contact</Typography>
                 <InfoRow label="Phone" value={p.phone} icon={PhoneRoundedIcon} />
                 <InfoRow label="Email" value={p.email} icon={EmailRoundedIcon} />
                 <InfoRow label="Address" value={p.address} icon={LocationOnRoundedIcon} />
                 <InfoRow label="Emergency Contact" value={p.emergency_contact} icon={PersonRoundedIcon} />
+                <Divider sx={{ my: 2 }} />
+                <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem', mb: 1.5 }}>Communication Preferences</Typography>
+                <Stack spacing={0.5}>
+                  <FormControlLabel control={<Switch size="small" checked={commPrefs.email} onChange={() => toggleCommPref('email')} />} label={<Typography variant="body2">Email reminders & updates</Typography>} />
+                  <FormControlLabel control={<Switch size="small" checked={commPrefs.sms} onChange={() => toggleCommPref('sms')} />} label={<Typography variant="body2">SMS reminders</Typography>} />
+                  <FormControlLabel control={<Switch size="small" checked={commPrefs.whatsapp} onChange={() => toggleCommPref('whatsapp')} />} label={<Typography variant="body2">WhatsApp messages</Typography>} />
+                </Stack>
+                <Divider sx={{ my: 2 }} />
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem' }}>Related Accounts</Typography>
+                  <Button size="small" startIcon={<AddRoundedIcon />} onClick={() => setAddRelatedOpen(true)} sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}>Add</Button>
+                </Stack>
+                {relatedAccounts.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">No related accounts (e.g. parent, guardian, emergency contact) linked yet.</Typography>
+                ) : (
+                  <Stack spacing={1}>
+                    {relatedAccounts.map((rel) => (
+                      <Stack key={rel.id} direction="row" alignItems="center" spacing={1.5} sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 1.25 }}>
+                        <GroupRoundedIcon sx={{ color: 'text.disabled', fontSize: '1.1rem' }} />
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" fontWeight={700}>{rel.name}</Typography>
+                          <Typography variant="caption" color="text.secondary">{rel.relationship}{rel.phone ? ` · ${rel.phone}` : ''}</Typography>
+                        </Box>
+                        <IconButton size="small" onClick={() => removeRelatedAccount(rel.id)} aria-label={`Remove related account ${rel.name}`}>
+                          <DeleteRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    ))}
+                  </Stack>
+                )}
               </Grid>
               <Grid item xs={12} md={6}>
                 <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem', mb: 1.5 }}>Clinical Notes</Typography>
                 <Box sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 2 }}>
                   <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.8 }}>{p.notes}</Typography>
                 </Box>
+                <Divider sx={{ my: 2 }} />
+
+                {/* Diagnoses — distinct, ongoing-condition tracking, not folded
+                    into a single consultation's notes (Semble's WorkingDiagnosis
+                    concept); requirements/semble-competitive-gap-analysis-requirements.md Phase 2 */}
+                <Stack direction="row" justifyContent="space-between" alignItems="center" mb={1.5}>
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem' }}>Diagnoses</Typography>
+                  <Button size="small" startIcon={<AddRoundedIcon />} onClick={() => setAddDiagnosisOpen(true)} sx={{ textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}>Add</Button>
+                </Stack>
+                {diagnoses.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">No diagnoses recorded.</Typography>
+                ) : (
+                  <Stack spacing={1} sx={{ mb: 1 }}>
+                    {diagnoses.map((dx) => (
+                      <Stack key={dx.id} direction="row" alignItems="center" spacing={1.5} sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 1.25 }}>
+                        <MedicalServicesRoundedIcon sx={{ color: 'text.disabled', fontSize: '1.1rem' }} />
+                        <Box sx={{ flex: 1 }}>
+                          <Typography variant="body2" fontWeight={700}>{dx.condition}</Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            Diagnosed {dx.diagnosed_date ? dayjs(dx.diagnosed_date).format('DD/MM/YYYY') : '—'}
+                          </Typography>
+                        </Box>
+                        <Chip label={dx.status} size="small" color={dx.status === 'Active' ? 'warning' : 'success'} sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20, textTransform: 'capitalize' }} />
+                        <IconButton size="small" onClick={() => removeDiagnosis(dx.id)} aria-label={`Remove ${dx.condition} diagnosis`}>
+                          <DeleteRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    ))}
+                  </Stack>
+                )}
                 <Divider sx={{ my: 2 }} />
                 <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem', mb: 1.5 }}>Primary Clinician</Typography>
                 <Stack direction="row" spacing={1.5} alignItems="center">
@@ -244,8 +536,13 @@ export default function PatientDetailPage() {
 
           {/* ── Medical History ───────────────────────────────────────────── */}
           <TabPanel value={tab} index={1}>
+            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+              <Button size="small" variant="outlined" startIcon={<AddRoundedIcon />} onClick={() => setAddConsultationOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                Add Consultation Record
+              </Button>
+            </Stack>
             <Stack spacing={2}>
-              {MOCK_HISTORY.map((h, i) => (
+              {consultations.map((h, i) => (
                 <Box key={i} sx={{ borderLeft: '3px solid #1565C7', pl: 2.5, py: 0.5 }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
                     <Box>
@@ -331,43 +628,178 @@ export default function PatientDetailPage() {
               onChange={handleFileSelected}
               data-testid="document-upload-input"
             />
-            {uploadedDocs.length === 0 ? (
-              <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
-                <FolderRoundedIcon sx={{ fontSize: '3rem', mb: 1.5, opacity: 0.3 }} />
-                <Typography variant="body1" fontWeight={600} sx={{ mb: 0.5 }}>No documents yet</Typography>
-                <Typography variant="body2">Upload patient documents, prescriptions, and reports</Typography>
+            <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }} spacing={1.5} sx={{ mb: 2 }}>
+              <TextField
+                select size="small" label="Filter by folder" value={docFolderFilter}
+                onChange={(e) => setDocFolderFilter(e.target.value)}
+                sx={{ minWidth: 180 }}
+              >
+                <MenuItem value="All">All folders</MenuItem>
+                {DOCUMENT_FOLDERS.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+              </TextField>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <TextField
+                  select size="small" label="Upload to" value={uploadFolder}
+                  onChange={(e) => setUploadFolder(e.target.value)}
+                  sx={{ minWidth: 160 }}
+                >
+                  {DOCUMENT_FOLDERS.map((f) => <MenuItem key={f} value={f}>{f}</MenuItem>)}
+                </TextField>
                 <Button
                   variant="outlined"
                   startIcon={<CloudUploadRoundedIcon />}
                   onClick={() => fileInputRef.current?.click()}
-                  sx={{ mt: 2.5, borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
                 >
                   Upload Document
                 </Button>
+              </Stack>
+            </Stack>
+
+            {visibleDocs.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+                <FolderRoundedIcon sx={{ fontSize: '3rem', mb: 1.5, opacity: 0.3 }} />
+                <Typography variant="body1" fontWeight={600} sx={{ mb: 0.5 }}>
+                  {docFolderFilter === 'All' ? 'No documents yet' : `No documents in ${docFolderFilter}`}
+                </Typography>
+                <Typography variant="body2">Upload patient documents, prescriptions, and reports</Typography>
+              </Box>
+            ) : (
+              <List sx={{ border: '1px solid #E2E8F0', borderRadius: 2, p: 0 }}>
+                {visibleDocs.map((d, i) => (
+                  <ListItem key={d.id} divider={i !== visibleDocs.length - 1}>
+                    <ListItemIcon><InsertDriveFileRoundedIcon sx={{ color: 'primary.main' }} /></ListItemIcon>
+                    <ListItemText
+                      primary={d.name}
+                      secondary={`${d.folder ?? 'General'} · ${(d.size / 1024).toFixed(1)} KB · Uploaded ${dayjs(d.uploadedAt).format('DD/MM/YYYY HH:mm')}`}
+                    />
+                  </ListItem>
+                ))}
+              </List>
+            )}
+          </TabPanel>
+
+          {/* ── Intake Form ─────────────────────────────────────────────── */}
+          <TabPanel value={tab} index={5}>
+            {intakeSubmitted ? (
+              <Box sx={{ textAlign: 'center', py: 6 }}>
+                <CheckCircleRoundedIcon sx={{ fontSize: '3rem', color: 'success.main', mb: 1.5 }} />
+                <Typography variant="body1" fontWeight={700} sx={{ mb: 0.5 }}>Intake form submitted</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2.5 }}>
+                  {intakeSubmittedAt ? dayjs(intakeSubmittedAt).format('DD/MM/YYYY HH:mm') : ''}
+                </Typography>
+                <Button variant="outlined" onClick={resetIntake} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                  Edit responses
+                </Button>
+              </Box>
+            ) : (
+              <Stack spacing={3} sx={{ maxWidth: 520 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Standard pre-consultation intake questions. Responses are saved to the patient record.
+                </Typography>
+                {INTAKE_QUESTIONS.map((q) => (
+                  <Box key={q.id}>
+                    {q.type === 'yesno' ? (
+                      <FormControl>
+                        <FormLabel sx={{ fontSize: '0.875rem', fontWeight: 600, color: 'text.primary' }}>{q.label}</FormLabel>
+                        <RadioGroup row value={intakeAnswers[q.id] ?? ''} onChange={(e) => setIntakeAnswer(q.id, e.target.value)}>
+                          <FormControlLabel value="yes" control={<Radio size="small" />} label="Yes" />
+                          <FormControlLabel value="no" control={<Radio size="small" />} label="No" />
+                        </RadioGroup>
+                      </FormControl>
+                    ) : (
+                      <TextField
+                        label={q.label} fullWidth size="small" multiline rows={2}
+                        value={intakeAnswers[q.id] ?? ''}
+                        onChange={(e) => setIntakeAnswer(q.id, e.target.value)}
+                      />
+                    )}
+                  </Box>
+                ))}
+                <Button variant="contained" onClick={submitIntake} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, alignSelf: 'flex-start' }}>
+                  Submit Intake Form
+                </Button>
+              </Stack>
+            )}
+          </TabPanel>
+
+          {/* ── Letters ──────────────────────────────────────────────────── */}
+          <TabPanel value={tab} index={6}>
+            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+              <Button size="small" variant="outlined" startIcon={<AddRoundedIcon />} onClick={() => setAddLetterOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                Draft Letter
+              </Button>
+            </Stack>
+            {letters.length === 0 ? (
+              <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
+                <DescriptionRoundedIcon sx={{ fontSize: '3rem', mb: 1.5, opacity: 0.3 }} />
+                <Typography variant="body1" fontWeight={600} sx={{ mb: 0.5 }}>No letters yet</Typography>
+                <Typography variant="body2">Referral letters and clinical correspondence go through Draft → Pending Review → Approved before they can be shared.</Typography>
               </Box>
             ) : (
               <Stack spacing={2}>
-                <Stack direction="row" justifyContent="flex-end">
-                  <Button
-                    variant="outlined"
-                    startIcon={<CloudUploadRoundedIcon />}
-                    onClick={() => fileInputRef.current?.click()}
-                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
-                  >
-                    Upload Document
-                  </Button>
-                </Stack>
-                <List sx={{ border: '1px solid #E2E8F0', borderRadius: 2, p: 0 }}>
-                  {uploadedDocs.map((d, i) => (
-                    <ListItem key={d.id} divider={i !== uploadedDocs.length - 1}>
-                      <ListItemIcon><InsertDriveFileRoundedIcon sx={{ color: 'primary.main' }} /></ListItemIcon>
-                      <ListItemText
-                        primary={d.name}
-                        secondary={`${(d.size / 1024).toFixed(1)} KB · Uploaded ${dayjs(d.uploadedAt).format('DD/MM/YYYY HH:mm')}`}
-                      />
-                    </ListItem>
-                  ))}
-                </List>
+                {letters.map((l) => (
+                  <Card key={l.id} variant="outlined" sx={{ borderRadius: 2, border: '1px solid #E2E8F0' }}>
+                    <CardContent>
+                      <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
+                        <Box>
+                          <Typography fontWeight={700}>{l.title}</Typography>
+                          <Typography variant="caption" color="text.secondary">{dayjs(l.date).format('DD/MM/YYYY')}</Typography>
+                        </Box>
+                        <Chip label={l.review_status} size="small" color={LETTER_STATUS_COLOR[l.review_status]} sx={{ fontWeight: 700 }} />
+                      </Stack>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1, mb: 1.5, whiteSpace: 'pre-wrap' }}>{l.body || '—'}</Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        {l.review_status !== 'Approved' && (
+                          <Button size="small" onClick={() => advanceLetterStatus(l.id)} sx={{ textTransform: 'none', fontWeight: 700 }}>
+                            Move to {LETTER_REVIEW_STATUSES[LETTER_REVIEW_STATUSES.indexOf(l.review_status) + 1]}
+                          </Button>
+                        )}
+                        {l.review_status === 'Approved' && !l.dateShared && (
+                          <Button size="small" variant="contained" startIcon={<SendRoundedIcon />} onClick={() => shareLetter(l.id)} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>
+                            Share with Patient
+                          </Button>
+                        )}
+                        {l.dateShared && (
+                          <Typography variant="caption" color="success.main" fontWeight={700}>
+                            Shared {dayjs(l.dateShared).format('DD/MM/YYYY HH:mm')}
+                          </Typography>
+                        )}
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            )}
+          </TabPanel>
+
+          {/* ── Communication Log — sent-message history, distinct from the
+               Communication Preferences settings on the Overview tab; mirrors
+               Semble's patientCommunication(s) query. ─────────────────────── */}
+          <TabPanel value={tab} index={7}>
+            <Stack direction="row" justifyContent="flex-end" sx={{ mb: 2 }}>
+              <Button size="small" variant="outlined" startIcon={<SendRoundedIcon />} onClick={() => setSendMessageOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                Send Message
+              </Button>
+            </Stack>
+            {commLog.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No messages sent to this patient yet.</Typography>
+            ) : (
+              <Stack spacing={1.25}>
+                {commLog.map((c) => (
+                  <Stack key={c.id} direction="row" alignItems="center" spacing={1.5} sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 1.5 }}>
+                    {c.channel === 'email' && <MarkEmailReadRoundedIcon sx={{ color: '#1565C7' }} />}
+                    {c.channel === 'sms' && <SmsRoundedIcon sx={{ color: '#7B3FE4' }} />}
+                    {c.channel === 'whatsapp' && <WhatsAppIcon sx={{ color: '#25D366' }} />}
+                    <Box sx={{ flex: 1, minWidth: 0 }}>
+                      <Typography variant="body2" fontWeight={700} noWrap>{c.subject}</Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        {c.type} · {c.channel.toUpperCase()} · {dayjs(c.sent_at).format('DD/MM/YYYY HH:mm')}
+                      </Typography>
+                    </Box>
+                    <Chip label={c.status} size="small" color={c.status === 'Failed' ? 'error' : c.status === 'Sent' ? 'default' : 'success'} sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }} />
+                  </Stack>
+                ))}
               </Stack>
             )}
           </TabPanel>
@@ -390,6 +822,190 @@ export default function PatientDetailPage() {
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button onClick={() => setViewResult(null)} sx={{ textTransform: 'none', fontWeight: 700 }}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Add Related Account Dialog ───────────────────────────────────── */}
+      <Dialog open={addRelatedOpen} onClose={() => setAddRelatedOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Add Related Account</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} pt={0.5}>
+            <TextField
+              label="Full Name *" fullWidth size="small" value={newRelated.name}
+              onChange={(e) => setNewRelated((prev) => ({ ...prev, name: e.target.value }))}
+            />
+            <TextField
+              select label="Relationship" fullWidth size="small" value={newRelated.relationship}
+              onChange={(e) => setNewRelated((prev) => ({ ...prev, relationship: e.target.value }))}
+            >
+              {RELATIONSHIP_TYPES.map((r) => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+            </TextField>
+            <TextField
+              label="Phone" fullWidth size="small" value={newRelated.phone}
+              onChange={(e) => setNewRelated((prev) => ({ ...prev, phone: e.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAddRelatedOpen(false)} sx={{ textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+          <Button variant="contained" onClick={addRelatedAccount} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Add</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Add Allergy Record Dialog ────────────────────────────────────── */}
+      <Dialog open={addAllergyOpen} onClose={() => setAddAllergyOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Add Allergy Record</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} pt={0.5}>
+            <TextField
+              label="Allergen *" fullWidth size="small" placeholder="Penicillin, Peanuts, Latex…" value={newAllergy.allergen}
+              onChange={(e) => setNewAllergy((prev) => ({ ...prev, allergen: e.target.value }))}
+            />
+            <TextField
+              select label="Severity" fullWidth size="small" value={newAllergy.severity}
+              onChange={(e) => setNewAllergy((prev) => ({ ...prev, severity: e.target.value }))}
+            >
+              {SEVERITY_LEVELS.map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+            </TextField>
+            <TextField
+              label="Reaction" fullWidth size="small" multiline rows={2} placeholder="Rash, anaphylaxis, nausea…" value={newAllergy.reaction}
+              onChange={(e) => setNewAllergy((prev) => ({ ...prev, reaction: e.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAddAllergyOpen(false)} sx={{ textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+          <Button variant="contained" onClick={addAllergyRecord} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Add</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Add Consultation Record Dialog ───────────────────────────────── */}
+      <Dialog open={addConsultationOpen} onClose={() => setAddConsultationOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Add Consultation Record</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} pt={0.5}>
+            <TextField
+              select label="Encounter Type" fullWidth size="small" value={newConsultation.encounter_type}
+              onChange={(e) => setNewConsultation((prev) => ({ ...prev, encounter_type: e.target.value }))}
+            >
+              {ENCOUNTER_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </TextField>
+            <TextField
+              label="Diagnosis / Summary *" fullWidth size="small" value={newConsultation.diagnosis}
+              onChange={(e) => setNewConsultation((prev) => ({ ...prev, diagnosis: e.target.value }))}
+            />
+            <TextField
+              label="Notes" fullWidth size="small" multiline rows={3} value={newConsultation.notes}
+              onChange={(e) => setNewConsultation((prev) => ({ ...prev, notes: e.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAddConsultationOpen(false)} sx={{ textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+          <Button variant="contained" onClick={addConsultation} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Add</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Add Diagnosis Dialog ─────────────────────────────────────────── */}
+      <Dialog open={addDiagnosisOpen} onClose={() => setAddDiagnosisOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Add Diagnosis</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} pt={0.5}>
+            <TextField
+              label="Condition *" fullWidth size="small" placeholder="Type 2 Diabetes, Hypertension…" value={newDiagnosis.condition}
+              onChange={(e) => setNewDiagnosis((prev) => ({ ...prev, condition: e.target.value }))}
+            />
+            <TextField
+              select label="Status" fullWidth size="small" value={newDiagnosis.status}
+              onChange={(e) => setNewDiagnosis((prev) => ({ ...prev, status: e.target.value }))}
+            >
+              {['Active', 'Resolved'].map((s) => <MenuItem key={s} value={s}>{s}</MenuItem>)}
+            </TextField>
+            <TextField
+              label="Diagnosed date" fullWidth size="small" type="date" InputLabelProps={{ shrink: true }} value={newDiagnosis.diagnosed_date}
+              onChange={(e) => setNewDiagnosis((prev) => ({ ...prev, diagnosed_date: e.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAddDiagnosisOpen(false)} sx={{ textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+          <Button variant="contained" onClick={addDiagnosis} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Add</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Send Message Dialog (Communication Log) ─────────────────────── */}
+      <Dialog open={sendMessageOpen} onClose={() => setSendMessageOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Send Message</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} pt={0.5}>
+            <TextField
+              select label="Channel" fullWidth size="small" value={newMessage.channel}
+              onChange={(e) => setNewMessage((prev) => ({ ...prev, channel: e.target.value }))}
+            >
+              {COMM_CHANNELS.map((c) => <MenuItem key={c} value={c} sx={{ textTransform: 'capitalize' }}>{c}</MenuItem>)}
+            </TextField>
+            <TextField
+              select label="Type" fullWidth size="small" value={newMessage.type}
+              onChange={(e) => setNewMessage((prev) => ({ ...prev, type: e.target.value }))}
+            >
+              {COMM_TYPES.map((t) => <MenuItem key={t} value={t}>{t}</MenuItem>)}
+            </TextField>
+            <TextField
+              label="Subject / message *" fullWidth size="small" multiline rows={3} value={newMessage.subject}
+              onChange={(e) => setNewMessage((prev) => ({ ...prev, subject: e.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setSendMessageOpen(false)} sx={{ textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+          <Button variant="contained" startIcon={<SendRoundedIcon />} onClick={sendCommunication} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Send</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Draft Letter Dialog ──────────────────────────────────────────── */}
+      <Dialog open={addLetterOpen} onClose={() => setAddLetterOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Draft Letter</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={2} pt={0.5}>
+            <TextField
+              label="Title *" fullWidth size="small" placeholder="Referral to Cardiology" value={newLetter.title}
+              onChange={(e) => setNewLetter((prev) => ({ ...prev, title: e.target.value }))}
+            />
+            <TextField
+              label="Body" fullWidth size="small" multiline rows={6} value={newLetter.body}
+              onChange={(e) => setNewLetter((prev) => ({ ...prev, body: e.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAddLetterOpen(false)} sx={{ textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+          <Button variant="contained" onClick={addLetter} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Save Draft</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* ── Membership Dialog ────────────────────────────────────────────── */}
+      <Dialog open={membershipDialogOpen} onClose={() => setMembershipDialogOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Patient Membership</DialogTitle>
+        <DialogContent dividers>
+          <Stack spacing={1.5} pt={0.5}>
+            {MEMBERSHIP_PLANS.map((plan) => (
+              <Card
+                key={plan.id} variant="outlined"
+                onClick={() => setMembershipId(plan.id)}
+                sx={{ cursor: 'pointer', borderRadius: 2, borderColor: membershipId === plan.id ? 'primary.main' : 'divider', borderWidth: membershipId === plan.id ? 2 : 1 }}
+              >
+                <CardContent sx={{ py: '10px !important', px: 2 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                    <Typography fontWeight={700} variant="body2">{plan.name}</Typography>
+                    <Typography variant="body2" color="text.secondary">{plan.price_monthly === 0 ? '' : `${formatInr(plan.price_monthly)}/mo`}</Typography>
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button variant="contained" onClick={() => { setMembershipDialogOpen(false); enqueueSnackbar('Membership updated', { variant: 'success' }) }} sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Done</Button>
         </DialogActions>
       </Dialog>
     </Box>

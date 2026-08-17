@@ -1,5 +1,7 @@
-import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider } from '@mui/material'
+import { useState } from 'react'
+import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, IconButton, Stack } from '@mui/material'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
+import MenuRoundedIcon        from '@mui/icons-material/MenuRounded'
 import PeopleAltIcon        from '@mui/icons-material/PeopleAlt'
 import BusinessIcon          from '@mui/icons-material/Business'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
@@ -45,18 +47,109 @@ const NAV_SECTIONS = [
 export default function AdminLayout() {
   const location = useLocation()
   const navigate = useNavigate()
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
   const isActive = (path) => {
     const base = path.split('?')[0]
     return location.pathname === base || location.pathname.startsWith(base + '/')
   }
 
+  const navContent = (onNavigate) => (
+    <>
+      <Box sx={{ px: 2, py: 1.5, mb: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{ fontWeight: 800, fontSize: '0.65rem', letterSpacing: 1.2, textTransform: 'uppercase', color: BRAND }}
+        >
+          Admin Console
+        </Typography>
+      </Box>
+
+      {NAV_SECTIONS.map((section, si) => (
+        <Box key={section.label}>
+          {si > 0 && <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />}
+          <Typography
+            variant="caption"
+            sx={{ px: 2, display: 'block', mb: 0.5, fontWeight: 700, fontSize: '0.62rem', letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled' }}
+          >
+            {section.label}
+          </Typography>
+          <List dense disablePadding>
+            {section.items.map((item) => {
+              const active = isActive(item.path)
+              return (
+                <ListItemButton
+                  key={item.path}
+                  onClick={() => { navigate(item.path); onNavigate?.() }}
+                  sx={{
+                    mx: 1,
+                    px: 1.5,
+                    py: 0.8,
+                    borderRadius: 1.5,
+                    mb: 0.25,
+                    bgcolor: active ? `${BRAND}14` : 'transparent',
+                    '&:hover': { bgcolor: active ? `${BRAND}20` : 'rgba(0,0,0,0.04)' },
+                  }}
+                >
+                  <ListItemIcon sx={{ minWidth: 32, color: active ? BRAND : '#94A3B8' }}>
+                    {item.icon.type ? (
+                      <item.icon.type sx={{ fontSize: 18, color: active ? BRAND : '#94A3B8' }} />
+                    ) : item.icon}
+                  </ListItemIcon>
+                  <ListItemText
+                    primary={item.label}
+                    primaryTypographyProps={{
+                      variant: 'body2',
+                      fontWeight: active ? 700 : 500,
+                      fontSize: '0.8rem',
+                      color: active ? BRAND : 'text.secondary',
+                      noWrap: true,
+                    }}
+                  />
+                  {active && (
+                    <Box sx={{ width: 3, height: 24, borderRadius: 4, bgcolor: BRAND, ml: 0.5, flexShrink: 0 }} />
+                  )}
+                </ListItemButton>
+              )
+            })}
+          </List>
+        </Box>
+      ))}
+    </>
+  )
+
   return (
-    <Box sx={{ display: 'flex', minHeight: '100%' }}>
-      {/* ── Admin Sidebar ─────────────────────────────────────────────── */}
+    <Box sx={{ display: 'flex', minHeight: '100%', flexDirection: { xs: 'column', md: 'row' } }}>
+      {/* ── Mobile admin-nav toggle (context/frontend-hard-rules.md §1.3 — drawer pattern, not a fixed permanent panel) ── */}
+      <Stack
+        direction="row" alignItems="center" spacing={1}
+        sx={{ display: { xs: 'flex', md: 'none' }, px: 2, py: 1, borderBottom: '1px solid #E2E8F0', bgcolor: '#F8FAFC' }}
+      >
+        <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open admin console menu" size="small">
+          <MenuRoundedIcon />
+        </IconButton>
+        <Typography variant="body2" fontWeight={700} sx={{ color: BRAND }}>Admin Console</Typography>
+      </Stack>
+
+      {/* ── Mobile admin sub-nav (temporary drawer) ── */}
+      <Drawer
+        variant="temporary"
+        open={mobileNavOpen}
+        onClose={() => setMobileNavOpen(false)}
+        ModalProps={{ keepMounted: true }}
+        sx={{
+          display: { xs: 'block', md: 'none' },
+          '& .MuiDrawer-paper': { width: 260, bgcolor: '#F8FAFC', pt: 1, pb: 2 },
+        }}
+      >
+        {navContent(() => setMobileNavOpen(false))}
+      </Drawer>
+
+      {/* ── Desktop admin sub-nav (permanent drawer) ── */}
       <Drawer
         variant="permanent"
         sx={{
+          display: { xs: 'none', md: 'block' },
           width: SIDEBAR_WIDTH,
           flexShrink: 0,
           '& .MuiDrawer-paper': {
@@ -72,76 +165,7 @@ export default function AdminLayout() {
           },
         }}
       >
-        {/* Sidebar Header */}
-        <Box sx={{ px: 2, py: 1.5, mb: 0.5 }}>
-          <Typography
-            variant="caption"
-            sx={{ fontWeight: 800, fontSize: '0.65rem', letterSpacing: 1.2, textTransform: 'uppercase', color: BRAND }}
-          >
-            Admin Console
-          </Typography>
-        </Box>
-
-        {NAV_SECTIONS.map((section, si) => (
-          <Box key={section.label}>
-            {si > 0 && <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />}
-            <Typography
-              variant="caption"
-              sx={{ px: 2, display: 'block', mb: 0.5, fontWeight: 700, fontSize: '0.62rem', letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled' }}
-            >
-              {section.label}
-            </Typography>
-            <List dense disablePadding>
-              {section.items.map((item) => {
-                const active = isActive(item.path)
-                return (
-                  <ListItemButton
-                    key={item.path}
-                    onClick={() => navigate(item.path)}
-                    sx={{
-                      mx: 1,
-                      px: 1.5,
-                      py: 0.8,
-                      borderRadius: 1.5,
-                      mb: 0.25,
-                      bgcolor: active ? `${BRAND}14` : 'transparent',
-                      '&:hover': { bgcolor: active ? `${BRAND}20` : 'rgba(0,0,0,0.04)' },
-                    }}
-                  >
-                    <ListItemIcon sx={{ minWidth: 32, color: active ? BRAND : '#94A3B8' }}>
-                      {/* Clone icon with size */}
-                      {item.icon.type ? (
-                        <item.icon.type sx={{ fontSize: 18, color: active ? BRAND : '#94A3B8' }} />
-                      ) : item.icon}
-                    </ListItemIcon>
-                    <ListItemText
-                      primary={item.label}
-                      primaryTypographyProps={{
-                        variant: 'body2',
-                        fontWeight: active ? 700 : 500,
-                        fontSize: '0.8rem',
-                        color: active ? BRAND : 'text.secondary',
-                        noWrap: true,
-                      }}
-                    />
-                    {active && (
-                      <Box
-                        sx={{
-                          width: 3,
-                          height: 24,
-                          borderRadius: 4,
-                          bgcolor: BRAND,
-                          ml: 0.5,
-                          flexShrink: 0,
-                        }}
-                      />
-                    )}
-                  </ListItemButton>
-                )
-              })}
-            </List>
-          </Box>
-        ))}
+        {navContent()}
       </Drawer>
 
       {/* ── Main Content ──────────────────────────────────────────────── */}

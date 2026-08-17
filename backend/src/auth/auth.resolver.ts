@@ -1,5 +1,4 @@
 import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
-import { UseGuards } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
@@ -9,26 +8,33 @@ import { RequestOtpInput, VerifyOtpInput } from './dto/otp.input';
 import { ForgotPasswordInput, ResetPasswordInput } from './dto/password-reset.input';
 import { AuthPayloadType, GenericResultType } from './entities/auth-payload.entity';
 import { AuthUserType } from './entities/user.entity';
-import { GqlAuthGuard } from '../common/guards/gql-auth.guard';
+import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from './strategies/jwt.strategy';
 
+// GqlAuthGuard is global (app.module.ts) — every resolver requires a valid JWT
+// by default now. Every mutation below that must work for a not-yet-logged-in
+// caller is explicitly marked @Public(); everything else needs no annotation
+// at all to be protected (fail-closed by default, not fail-open).
 @Resolver()
 export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
   // TC-AUTH-API-012: rate-limited independent of the per-account lockout in the service.
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => AuthPayloadType)
   login(@Args('input') input: LoginInput) {
     return this.authService.login(input);
   }
 
+  @Public()
   @Mutation(() => AuthPayloadType)
   register(@Args('input') input: RegisterInput) {
     return this.authService.register(input);
   }
 
+  @Public()
   @Mutation(() => AuthPayloadType)
   refresh(@Args('input') input: RefreshInput) {
     return this.authService.refresh(input);
@@ -36,36 +42,38 @@ export class AuthResolver {
 
   // LOGOUT_MUTATION (frontend/src/graphql/mutations.js) has no sub-selection
   // ("{ logout }"), so this field must resolve to a scalar, not an object type.
-  @UseGuards(GqlAuthGuard)
   @Mutation(() => Boolean)
   async logout(@CurrentUser() user: JwtPayload) {
     const result = await this.authService.logout(user.sub);
     return result.success;
   }
 
-  @UseGuards(GqlAuthGuard)
   @Query(() => AuthUserType)
   me(@CurrentUser() user: JwtPayload) {
     return this.authService.me(user.sub);
   }
 
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => GenericResultType)
   requestOtp(@Args('input') input: RequestOtpInput) {
     return this.authService.requestOtp(input.phone);
   }
 
+  @Public()
   @Mutation(() => AuthPayloadType)
   verifyOtp(@Args('input') input: VerifyOtpInput) {
     return this.authService.verifyOtp(input.phone, input.code);
   }
 
+  @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => GenericResultType)
   forgotPassword(@Args('input') input: ForgotPasswordInput) {
     return this.authService.forgotPassword(input.email);
   }
 
+  @Public()
   @Mutation(() => GenericResultType)
   resetPassword(@Args('input') input: ResetPasswordInput) {
     return this.authService.resetPassword(input.token, input.new_password);

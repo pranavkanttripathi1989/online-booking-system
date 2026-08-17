@@ -163,3 +163,7 @@ frontend/*.tsbuildinfo
 *.p12
 *.pfx
 *.jks
+
+# ── Local tool state / test-run artifacts ─────────────────────────────────────
+.claude/settings.local.json
+.playwright-mcp/

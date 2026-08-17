@@ -150,6 +150,11 @@ model ClientOrganizations {
   contact_email String
   contact_phone String?
   address       String?
+  // Structured India address ({line1, line2, city, state, pincode, country}) —
+  // same shape as Patients.address_structured. TC-ADMIN-UNIT-013/API-011 spec
+  // this explicitly; the legacy flat `address` column above is kept unused
+  // rather than dropped, since nothing else in the schema reads it.
+  address_structured Json?
   is_active     Boolean  @default(true)
   is_deleted    Boolean  @default(false)
   settings      Json     @default("{}")
@@ -169,6 +174,7 @@ model ClientOrganizations {
   stripe_configurations  StripeConfigurations?
   paymentTransactions    PaymentTransactions[]
   messageThreads         MessageThreads[]
+  customRoles            UserRoles[]
 }
 
 model ClinicianAvailability {
@@ -226,6 +232,14 @@ model Clinics {
   id           String   @id @default(uuid())
   name         String
   address      String
+  // frontend/src/graphql/queries.js CLINICS_QUERY requests these as flat scalar
+  // fields (not a structured JSON blob like Patients.address_structured) — matched
+  // exactly per context/backend-hard-rules.md Rule 9. `postcode` naming and the
+  // frontend form's 'Europe/London' timezone default are flagged as a follow-up
+  // fix, not silently changed here (see context/phase4-catalog-modules-implementation-plan.md).
+  city         String?
+  postcode     String?
+  timezone     String?  @default("Asia/Kolkata")
   phone        String
   email        String
   is_primary   Boolean  @default(false)
@@ -679,13 +693,25 @@ model UserProfiles {
 
 model UserRoles {
   id          String   @id @default(uuid())
-  name        String   @unique
+  name        String
   description String   @default("")
+  // null = platform-wide system role (admin/super_admin/manager/clinician/staff/patient,
+  // seeded once, never org-specific); set = an org admin's own custom role
+  // (requirements/custom-role-permission-management-requirements.md). Global
+  // uniqueness among system roles (client_org_id IS NULL) is enforced at the
+  // application layer, not this constraint — Postgres treats NULLs as distinct
+  // in a composite unique index, so it wouldn't catch a duplicate among them;
+  // in practice only the seed script creates those rows, via upsert.
+  client_org_id String?
+  is_system   Boolean  @default(false) // system roles can't be renamed/deleted by an org admin
   is_deleted  Boolean  @default(false)
   created_at  DateTime @default(now())
 
+  client_org      ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   rolePermissions RolePermissions[]
   userProfiles   UserProfiles[]
+
+  @@unique([client_org_id, name], name: "org_role_name", map: "org_role_name")
 }
 
 model Languages {

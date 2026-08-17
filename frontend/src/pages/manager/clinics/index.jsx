@@ -1,8 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery } from '@apollo/client';
 import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip,
-  IconButton, Divider, Tooltip,
+  IconButton, Divider, Tooltip, Alert,
 } from '@mui/material';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
@@ -15,6 +16,7 @@ import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
 import { SearchField } from '../../../components/shared';
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog';
 import ErrorBoundary from '../../../components/ErrorBoundary';
+import { CLINICS_QUERY, ROOMS_QUERY } from '../../../graphql/queries';
 
 const CLINICS_DATA = [
   { id: '1', name: 'City Heart Clinic',        address: '14 Harley Street, London, W1G 9PJ',  phone: '+44 20 7946 0001', manager: 'Dr. Sarah Johnson', clinicians: 4, rooms: 5, status: 'active',   specialties: ['Cardiology','General Medicine'],               todayAppts: 24, monthlyAppts: 312 },
@@ -43,24 +45,69 @@ const getDeletedClinicIds = () => {
   try { return JSON.parse(localStorage.getItem(DELETED_CLINICS_KEY)) ?? []; } catch { return []; }
 };
 
+// Backend/schema.prisma's Clinics/Rooms models don't yet carry clinician
+// counts, today's/monthly appointment volume, or a manager/specialties list
+// (those depend on Phase 5 Clinicians and Phase 7 Appointments existing) —
+// real-backend rows render with honest placeholders for those fields rather
+// than fabricated numbers. See context/phase4-catalog-modules-implementation-plan.md.
+const toCardClinic = (c) => ({
+  id: c.id,
+  name: c.name,
+  address: [c.address, c.city, c.postcode].filter(Boolean).join(', '),
+  phone: c.phone,
+  manager: '—',
+  clinicians: 0,
+  rooms: 0,
+  status: c.is_active ? 'active' : 'inactive',
+  specialties: [],
+  todayAppts: 0,
+  monthlyAppts: 0,
+});
+
+const toCardRoom = (r) => ({
+  id: r.id,
+  name: r.name,
+  clinic: r.clinic?.name ?? '—',
+  capacity: r.capacity ?? 1,
+  equipment: [],
+  status: r.is_active ? 'available' : 'inactive',
+});
+
 function ManagerClinicsInner() {
   const navigate = useNavigate();
   const [search, setSearch]           = useState('');
   const [tab, setTab]                 = useState(0);
   const [deleteId, setDeleteId]       = useState(null);
-  const [clinics, setClinics]         = useState(() =>
-    CLINICS_DATA.filter(c => !getDeletedClinicIds().includes(c.id))
-  );
+
+  const { data: clinicsData, loading: clinicsLoading, error: clinicsError, refetch } = useQuery(CLINICS_QUERY, { errorPolicy: 'all' });
+  const { data: roomsData } = useQuery(ROOMS_QUERY, { errorPolicy: 'all' });
+
+  const apiClinics = clinicsData?.clinics ?? [];
+  const useMock = apiClinics.length === 0 && !clinicsLoading;
+
+  const [deletedMockIds] = useState(getDeletedClinicIds);
+  const [locallyRemovedIds, setLocallyRemovedIds] = useState([]);
+
+  const clinics = useMock
+    ? CLINICS_DATA.filter(c => !deletedMockIds.includes(c.id) && !locallyRemovedIds.includes(c.id))
+    : apiClinics.map(toCardClinic).filter(c => !locallyRemovedIds.includes(c.id));
+
+  const rooms = useMock ? ROOMS_DATA : (roomsData?.rooms ?? []).map(toCardRoom);
 
   const filtered = clinics.filter(
     (c) => !search || c.name.toLowerCase().includes(search.toLowerCase())
   );
 
   const confirmDelete = () => {
-    setClinics(prev => prev.filter(c => c.id !== deleteId));
-    const deletedIds = getDeletedClinicIds();
-    if (!deletedIds.includes(deleteId)) {
-      localStorage.setItem(DELETED_CLINICS_KEY, JSON.stringify([...deletedIds, deleteId]));
+    // No real deleteClinic mutation exists on the backend yet — same
+    // "hide locally" behavior as before for mock rows; real rows are
+    // removed from view only for this session, not actually deleted server-side.
+    setLocallyRemovedIds(prev => [...prev, deleteId]);
+    if (useMock) {
+      const deletedIds = getDeletedClinicIds();
+      if (!deletedIds.includes(deleteId)) {
+        localStorage.setItem(DELETED_CLINICS_KEY, JSON.stringify([...deletedIds, deleteId]));
+      }
     }
     setDeleteId(null);
   };
@@ -88,6 +135,12 @@ function ManagerClinicsInner() {
           Add Clinic
         </Button>
       </Stack>
+
+      {clinicsError && (
+        <Alert severity="warning" sx={{ mb: 2, borderRadius: 2.5 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+          Backend unavailable — showing sample data
+        </Alert>
+      )}
 
       {/* KPI row */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
@@ -215,7 +268,7 @@ function ManagerClinicsInner() {
       ) : (
         /* Rooms tab */
         <Grid container spacing={2}>
-          {ROOMS_DATA.map(room => (
+          {rooms.map(room => (
             <Grid item xs={12} sm={6} md={3} key={room.id}>
               <Card
                 elevation={0}

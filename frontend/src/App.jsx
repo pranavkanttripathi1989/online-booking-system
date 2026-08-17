@@ -33,6 +33,8 @@ const NotificationsPage = lazy(() => import('./pages/notifications/index'))
 const AnalyticsPage    = lazy(() => import('./pages/analytics/index'))
 const FinancesPage     = lazy(() => import('./pages/finances/index'))
 const ReviewsPage      = lazy(() => import('./pages/reviews/index'))
+const TasksPage        = lazy(() => import('./pages/tasks/index'))
+const WaitingRoomPage  = lazy(() => import('./pages/waiting-room/index'))
 const TestResultsPage  = lazy(() => import('./pages/test-results/index'))
 const VideoConsultation = lazy(() => import('./pages/video/index'))
 
@@ -256,6 +258,8 @@ function App() {
             <Route path="/manager/products/new"      element={<Suspense fallback={<ShellPageLoader />}><CreateProductPage /></Suspense>} />
             <Route path="/manager/products/:id/edit" element={<Suspense fallback={<ShellPageLoader />}><EditProductPage /></Suspense>} />
             {/* Shared manager/admin pages */}
+            <Route path="/tasks"               element={<Suspense fallback={<ShellPageLoader />}><TasksPage /></Suspense>} />
+            <Route path="/waiting-room"        element={<Suspense fallback={<ShellPageLoader />}><WaitingRoomPage /></Suspense>} />
             <Route path="/staff"               element={<Suspense fallback={<ShellPageLoader />}><StaffPage /></Suspense>} />
             <Route path="/staff/new"            element={<Suspense fallback={<ShellPageLoader />}><StaffNew /></Suspense>} />
             <Route path="/staff/edit/:id"       element={<Suspense fallback={<ShellPageLoader />}><StaffEdit /></Suspense>} />

@@ -10,7 +10,7 @@ import {
   MedicalServicesRounded, GroupRounded, SettingsRounded, LogoutRounded,
   LocalHospital, MessageRounded, StarRounded, AccountBalanceWalletRounded,
   WarningRounded, ScienceRounded, BadgeRounded, BarChartRounded, AccessTimeRounded,
-  ChevronLeftRounded, ChevronRightRounded,
+  ChevronLeftRounded, ChevronRightRounded, AssignmentRounded, HourglassTopRounded,
 } from '@mui/icons-material'
 
 import { useAuth } from '../../context/AuthContext'
@@ -45,6 +45,7 @@ const NAV_SECTIONS = [
       { label: 'Calendar',      path: '/calendar',         icon: <CalendarMonthRounded />, roles: null },
       { label: 'Appointments',  path: '/appointments',     icon: <EventNoteRounded />,     roles: null, badgeDynamic: 'pending' },
       { label: 'New Booking',   path: '/appointments/new', icon: <PersonAddRounded />,     roles: null },
+      { label: 'Waiting Room',  path: '/waiting-room',     icon: <HourglassTopRounded />,  roles: ['admin', 'super_admin', 'receptionist', 'clinician'] },
     ],
   },
   {
@@ -58,6 +59,7 @@ const NAV_SECTIONS = [
     label: 'Management',
     items: [
       { label: 'Messages',      path: '/messages',         icon: <MessageRounded />,            roles: null, badge: 3 },
+      { label: 'Tasks',         path: '/tasks',            icon: <AssignmentRounded />,         roles: null },
       { label: 'Reviews',       path: '/reviews',          icon: <StarRounded />,               roles: ['admin', 'super_admin'] },
       { label: 'Finances',      path: '/finances',         icon: <AccountBalanceWalletRounded />, roles: ['admin', 'super_admin'] },
       { label: 'Analytics',     path: '/analytics',        icon: <BarChartRounded />,           roles: ['admin', 'super_admin'] },

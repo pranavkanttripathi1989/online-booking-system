@@ -16,6 +16,8 @@ import { MESSAGE_THREADS, NOTIFICATIONS } from './data/messages'
 import { REVIEWS, INVOICES, PRODUCTS, AVAILABILITY_TEMPLATES, LEAVE_BLOCKS, CLINIC_BLOCKS,
          DASHBOARD_KPIS, VOLUME_BY_DAY, UTILISATION_BY_CLINICIAN, BOOKINGS_BY_SERVICE,
          MONTHLY_REVENUE, REVENUE_BY_CLINICIAN, ROLES_PERMISSIONS, EMAIL_TEMPLATES, POLICIES } from './data/analytics'
+import { PERMISSIONS, ROLES, ROLE_PERMISSIONS } from './data/permissions'
+import { TASKS } from './data/tasks'
 
 // ─── Deep clone helper ────────────────────────────────────────────────────────
 const clone = (data) => JSON.parse(JSON.stringify(data))
@@ -42,6 +44,10 @@ let store = {
   leave_blocks:          clone(LEAVE_BLOCKS),
   clinic_blocks:         clone(CLINIC_BLOCKS),
   roles_permissions:     clone(ROLES_PERMISSIONS),
+  permissions:           clone(PERMISSIONS),
+  roles:                 clone(ROLES),
+  role_permissions:      clone(ROLE_PERMISSIONS),
+  tasks:                 clone(TASKS),
   email_templates:       clone(EMAIL_TEMPLATES),
   policies:              clone(POLICIES),
 }
@@ -106,6 +112,50 @@ export function updateAppointmentStatus(id, status, reason = null) {
   return appt
 }
 
+// ─── Patient Journey / waiting-room tracking ──────────────────────────────────
+// Mirrors Semble's `Journey` object nested on Booking (arrived/consultation/departed/dna) —
+// requirements/semble-competitive-gap-analysis-requirements.md Scheduling table + Phase 3.
+// `dna` (did-not-attend) is a distinct terminal state from a cancelled/rescheduled appointment.
+export function checkInPatient(id) {
+  const appt = store.appointments.find(a => a.id === id)
+  if (!appt) return null
+  appt.journey = { ...(appt.journey ?? {}), arrived: new Date().toISOString() }
+  notify()
+  return appt
+}
+
+export function markConsultationStarted(id) {
+  const appt = store.appointments.find(a => a.id === id)
+  if (!appt) return null
+  appt.journey = { ...(appt.journey ?? {}), consultation: new Date().toISOString() }
+  notify()
+  return appt
+}
+
+export function checkOutPatient(id) {
+  const appt = store.appointments.find(a => a.id === id)
+  if (!appt) return null
+  appt.journey = { ...(appt.journey ?? {}), departed: new Date().toISOString() }
+  notify()
+  return appt
+}
+
+export function markPatientDidNotAttend(id) {
+  const appt = store.appointments.find(a => a.id === id)
+  if (!appt) return null
+  appt.journey = { ...(appt.journey ?? {}), dna: new Date().toISOString() }
+  notify()
+  return appt
+}
+
+export function resetPatientJourney(id) {
+  const appt = store.appointments.find(a => a.id === id)
+  if (!appt) return null
+  appt.journey = null
+  notify()
+  return appt
+}
+
 export function createAppointment(data) {
   const { patientId, clinicianId, serviceId, clinicId, roomId, startDatetime, endDatetime, notes } = data
   const service   = store.services.find(s => s.id === serviceId)
@@ -163,8 +213,54 @@ export function createPatient(data) {
     address: data.address ?? null,
     notes: data.notes ?? null,
     registered_at: new Date().toISOString(),
+    // Patient safety states — requirements/semble-competitive-gap-analysis-requirements.md Phase 1
+    on_hold: false, on_hold_reason: null,
+    archived: false,
+    labels: data.labels ?? [],
   }
   store.patients.push(patient)
+  notify()
+  return patient
+}
+
+// ─── Patient safety states (on_hold/archived/labels) ─────────────────────────
+export function togglePatientOnHold(id, reason) {
+  const patient = store.patients.find((p) => p.id === id)
+  if (!patient) return null
+  patient.on_hold = !patient.on_hold
+  patient.on_hold_reason = patient.on_hold ? (reason ?? null) : null
+  notify()
+  return patient
+}
+
+export function archivePatient(id) {
+  const patient = store.patients.find((p) => p.id === id)
+  if (!patient) return null
+  patient.archived = true
+  notify()
+  return patient
+}
+
+export function unarchivePatient(id) {
+  const patient = store.patients.find((p) => p.id === id)
+  if (!patient) return null
+  patient.archived = false
+  notify()
+  return patient
+}
+
+export function addPatientLabel(id, label) {
+  const patient = store.patients.find((p) => p.id === id)
+  if (!patient) return null
+  patient.labels = [...(patient.labels ?? []), label]
+  notify()
+  return patient
+}
+
+export function removePatientLabel(id, labelIndex) {
+  const patient = store.patients.find((p) => p.id === id)
+  if (!patient) return null
+  patient.labels = (patient.labels ?? []).filter((_, i) => i !== labelIndex)
   notify()
   return patient
 }
@@ -214,6 +310,14 @@ export function createClinician(data) {
     joined_at: new Date().toISOString(),
     avg_rating: null, total_reviews: 0, total_patients: 0, appointments_done: 0,
     bio: data.bio ?? '', services: [],
+    // Professional fields — requirements/semble-competitive-gap-analysis-requirements.md Phase 1
+    qualifications: data.qualifications ?? '',
+    registration_number: data.registration_number ?? '',
+    specialties: data.specialties ?? [],
+    is_locum: data.is_locum ?? false,
+    locum_for: data.is_locum ? (data.locum_for ?? null) : null,
+    locum_start_date: data.is_locum ? (data.locum_start_date ?? null) : null,
+    locum_end_date: data.is_locum ? (data.locum_end_date ?? null) : null,
   }
   store.clinicians.push(clinician)
   notify()
@@ -497,6 +601,56 @@ export const getRevenueByClinicianData = () => REVENUE_BY_CLINICIAN
 export const getInvoices             = () => store.invoices
 export const getNotifications        = () => store.notifications
 export const getRolesPermissions     = () => store.roles_permissions
+
+// ─────────────────────────────────────────────────────────────────────────────
+// CUSTOM ROLES & ACCESS GROUPS (test-cases/12-admin-rbac, requirements/semble-competitive-gap-analysis-requirements.md)
+// ─────────────────────────────────────────────────────────────────────────────
+export const getPermissionCatalog = () => store.permissions
+
+export const getRoles = () => store.roles
+
+export const getRolePermissionIds = (roleId) => store.role_permissions[roleId] ?? []
+
+export function createRole({ name, description, permission_ids }) {
+  const role = {
+    id: nextId('role'), name, description: description ?? '',
+    is_active: true, is_system: false, created_at: new Date().toISOString(),
+  }
+  store.roles.push(role)
+  store.role_permissions[role.id] = permission_ids ?? []
+  notify()
+  return role
+}
+
+export function updateRole(id, { name, description, is_active, permission_ids }) {
+  const role = store.roles.find((r) => r.id === id)
+  if (!role) return null
+  if (role.is_system) throw new Error('System roles cannot be edited.')
+  if (name !== undefined) role.name = name
+  if (description !== undefined) role.description = description
+  if (is_active !== undefined) role.is_active = is_active
+  if (permission_ids !== undefined) store.role_permissions[id] = permission_ids
+  notify()
+  return role
+}
+
+export function toggleRoleActive(id) {
+  const role = store.roles.find((r) => r.id === id)
+  if (!role) return null
+  role.is_active = !role.is_active
+  notify()
+  return role
+}
+
+export function deleteRole(id) {
+  const role = store.roles.find((r) => r.id === id)
+  if (!role) return { success: false, message: 'Role not found.' }
+  if (role.is_system) return { success: false, message: 'System roles cannot be deleted.' }
+  store.roles = store.roles.filter((r) => r.id !== id)
+  delete store.role_permissions[id]
+  notify()
+  return { success: true }
+}
 export const getEmailTemplates       = () => store.email_templates
 export const getPolicies             = () => store.policies
 export const getOrganisations        = () => store.organisations
@@ -582,6 +736,50 @@ export function updateOrganizationBranding(orgId, { logo_url, primary_color, sec
   org.branding = { ...(org.branding ?? {}), logo_url, primary_color, secondary_color }
   notify()
   return org.branding
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// TASKS — internal staff follow-ups (Semble Task object)
+// requirements/semble-competitive-gap-analysis-requirements.md Phase 3
+// ─────────────────────────────────────────────────────────────────────────────
+export function getTasks({ status, priority, assignedTo } = {}) {
+  let result = store.tasks
+  if (status) result = result.filter((t) => t.status === status)
+  if (priority) result = result.filter((t) => t.priority === priority)
+  if (assignedTo) result = result.filter((t) => t.assigned_to_name === assignedTo)
+  return [...result].sort((a, b) => (a.due_date ?? '').localeCompare(b.due_date ?? ''))
+}
+
+export function createTask(data) {
+  const task = {
+    id: nextId('task'),
+    subject: data.subject,
+    task_type: data.task_type ?? 'General',
+    priority: data.priority ?? 'Medium',
+    status: 'Open',
+    due_date: data.due_date ?? null,
+    assigned_to_name: data.assigned_to_name ?? null,
+    patient_name: data.patient_name ?? null,
+    patient_id: data.patient_id ?? null,
+    created_at: new Date().toISOString(),
+  }
+  store.tasks.push(task)
+  notify()
+  return task
+}
+
+export function updateTaskStatus(id, status) {
+  const task = store.tasks.find((t) => t.id === id)
+  if (!task) return null
+  task.status = status
+  notify()
+  return task
+}
+
+export function deleteTask(id) {
+  store.tasks = store.tasks.filter((t) => t.id !== id)
+  notify()
+  return { success: true }
 }
 
 export const getLanguages            = () => store.languages

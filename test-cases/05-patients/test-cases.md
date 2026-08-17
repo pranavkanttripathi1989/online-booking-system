@@ -66,6 +66,26 @@
 - **Steps:** Compute the balance-chip visibility for a patient with `outstanding_balance = 120` and one with `outstanding_balance = 0`.
 - **Expected Result:** First returns "show warning chip", second returns "no chip" — matches `test-plan/patient-test-plan.md` TC-PT-29 (Sophie Turner, `balance=0`, shows no chip).
 
+### TC-PAT-UNIT-012 — `on_hold` status blocks new-booking eligibility independently of `archived`
+- **Priority:** High
+- **Steps:** Compute booking eligibility for `{on_hold: true, archived: false}`, `{on_hold: false, archived: true}`, `{on_hold: false, archived: false}`.
+- **Expected Result:** First two both return "not bookable" (with distinct reasons — "on hold: <reason>" vs "archived"); third returns "bookable". Confirms `on_hold` and `archived` are independent booleans with independent booking-eligibility consequences, not a single collapsed status — grounded in `requirements/semble-competitive-gap-analysis-requirements.md` Patients table (Semble's `onHold` "blocks new bookings... without being a full archive") and `frontend/src/mocks/store.js`'s `togglePatientOnHold`/`archivePatient` (currently two separate mutations, never merged into one field).
+
+### TC-PAT-UNIT-013 — Duplicate-merge label union is deduplicated and order-independent
+- **Priority:** Medium
+- **Steps:** Compute the merged label set for a primary record with `labels: ['VIP', 'Referral']` and a secondary record with `labels: ['Referral', 'Follow-up']`.
+- **Expected Result:** Returns `['VIP', 'Referral', 'Follow-up']` (each label exactly once, primary's own order preserved first) — matches `frontend/src/pages/patients/index.jsx`'s `handleConfirmMerge` (`Array.from(new Set([...primary.labels, ...secondary.labels]))`).
+
+### TC-PAT-UNIT-014 — Patient Journey stage is derived by terminal-state precedence, not by which field is truthy first
+- **Priority:** High
+- **Steps:** Derive journey stage for `{dna: <ts>, arrived: <ts>}` (both set — a data-entry mistake) and for `{arrived: <ts>, consultation: <ts>, departed: null}`.
+- **Expected Result:** First returns `'dna'` (a terminal did-not-attend state wins over an earlier `arrived` timestamp that shouldn't coexist with it in practice, but the derivation must not crash or return an ambiguous state); second returns `'in_consultation'` — matches the precedence order in `frontend/src/pages/waiting-room/index.jsx`'s `journeyStage()` (`dna` → `departed` → `consultation` → `arrived` → `not_arrived`), mirroring Semble's `Journey` object (`arrived`/`consultation`/`departed`/`dna`).
+
+### TC-PAT-UNIT-015 — Membership plan price formats paise as INR correctly
+- **Priority:** Medium
+- **Steps:** Format `price_paise: 149900` for display.
+- **Expected Result:** Renders `"₹1,499.00"` (or the project's established paise→rupee formatting) — per CLAUDE.md's "money stored as paise (`Int`), not float rupees" rule, applied to the new Patient Membership feature (`frontend/src/pages/patients/detail.jsx` `MEMBERSHIP_PLANS`), not just the existing `PaymentTransactions`.
+
 ---
 
 ## 2. Backend/API Test Cases
@@ -140,6 +160,52 @@
 - **Steps:** Fetch page 1 of `patients` (page size 10), then create a new patient, then fetch page 2.
 - **Expected Result:** Page 2 does not duplicate or skip a record relative to page 1's boundary — validates the pagination contract the frontend's `TablePagination` (`"1–10 of 15"` style counts, per `TC-PAT-008`) depends on.
 
+### New in this increment — Phase 1/3/6 features (`requirements/semble-competitive-gap-analysis-requirements.md`)
+
+*The cases below have no backend today (everything is `frontend/src/mocks/store.js` local state) — they define the contract the real resolvers must satisfy once built, the same way TC-PAT-API-007/011 above were written ahead of any backend.*
+
+### TC-PAT-API-013 — `togglePatientOnHold`/`archivePatient` are audited (who, when, why) not just boolean flips
+- **Priority:** High
+- **Steps:** Call the on-hold mutation with a `reason` string, then query the patient's audit trail.
+- **Expected Result:** An `AuditLogs` entry (or equivalent) records the actor, timestamp, and reason — an on-hold/archive action on a health record is exactly the kind of event `context/backend-implementation-plan.md` Phase 14 (audit logging) exists for; the mock (`togglePatientOnHold` in `store.js`) only stores the reason on the patient row itself, with no actor/timestamp trail — the backend must do better.
+
+### TC-PAT-API-014 — `mergePatientRecords` repoints Appointments, Invoices, and Tasks to the surviving record, not just labels
+- **Priority:** Critical
+- **Preconditions:** Patient A (survivor) and Patient B (duplicate) each have appointment and task history.
+- **Steps:** Call `mergePatientRecords(survivorId: A, duplicateId: B)`, then query Patient A's appointments/tasks.
+- **Expected Result:** All of Patient B's appointments/tasks/invoices now reference Patient A; Patient B is archived with `merged_into: A` and is excluded from default patient lists but still resolvable by direct ID (same non-hard-delete principle as `TC-PAT-API-009`). **This is explicitly the harder scope the frontend mockup deferred** — `pages/patients/index.jsx`'s `MergePatientsDialog` warns "a real merge would repoint them to the primary record" rather than doing it, and Semble's own `MergeRecord` field-level semantics couldn't be retrieved via docs (see requirements doc §2.1) — this test case is the concrete spec the backend must define from first principles, not copy from a competitor's documented behavior.
+
+### TC-PAT-API-015 — `mergePatientRecords` is rejected across tenant boundaries
+- **Priority:** Critical
+- **Preconditions:** Patient A belongs to Org 1, Patient B to Org 2.
+- **Steps:** Log in as an Org 1 manager, call `mergePatientRecords(survivorId: <A>, duplicateId: <B>)`.
+- **Expected Result:** Rejected — merging is a same-tenant-only operation; this is the merge-specific instance of Rule 1 in `context/backend-hard-rules.md` (`client_org_id` scoping), worth its own explicit test since a missed check here doesn't just leak a read, it destructively reassigns another org's data.
+
+### TC-PAT-API-016 — Patient Journey (`checkInPatient`/`markConsultationStarted`/`checkOutPatient`/`markPatientDidNotAttend`) writes to the correct `Appointments` row and cannot skip states out of order at the API layer
+- **Priority:** High
+- **Steps:** Call `markConsultationStarted` on an appointment that was never checked in (no `arrived` timestamp).
+- **Expected Result:** Either rejected with a clear error, or accepted but the response/audit makes the skipped state explicit — decide and document the rule explicitly rather than leaving it implicit; the frontend mockup (`pages/waiting-room/index.jsx`) only *hides* the "Start Consultation" button for a not-arrived patient, it doesn't stop the mutation from being called directly, so the backend is the actual enforcement point.
+
+### TC-PAT-API-017 — `communicationPreferences` update is itself an auditable consent event (DPDP Act)
+- **Priority:** High
+- **Steps:** Toggle `sms: false` via the communication-preferences mutation, then check the audit trail.
+- **Expected Result:** The change is recorded with a timestamp — per `requirements/semble-competitive-gap-analysis-requirements.md` Phase 1 ("doubles as a DPDP Act consent-tracking requirement, not just UX"), a preference toggle needs to be provable later (e.g. "the patient opted out of SMS on this date"), not just reflected in current state.
+
+### TC-PAT-API-018 — `patientCommunication`-log entries are system-written, never directly client-createable with an arbitrary `status`
+- **Priority:** Medium
+- **Steps:** Attempt to call a hypothetical `logPatientCommunication` mutation directly with `status: 'Delivered'` from a client that never actually sent anything.
+- **Expected Result:** Rejected, or `status` is server-controlled (starts `Sent`, transitions to `Delivered`/`Failed` only via an internal webhook/callback from the actual SMS/email provider) — the communication log is a record of what really happened, and a client-settable `status` field would make it trivially falsifiable. Mirrors Semble's `patientCommunication`/`patientCommunications` being a read query with no corresponding create-with-arbitrary-status mutation in its public surface.
+
+### TC-PAT-API-019 — `createAllergyRecord`/`addDiagnosis`/`createConsultation` are all scoped to the same patient-clinician appointment relationship as `TC-PAT-API-007`
+- **Priority:** Critical
+- **Steps:** As Clinician C1 (who has never seen Patient B), attempt `createAllergyRecord(patientId: B, ...)`.
+- **Expected Result:** Rejected — writing a new clinical-safety record (allergy) or diagnosis must be gated by the same appointment-relationship check as *reading* the patient, not a looser rule; a write-side gap here would be worse than the read-side gap it mirrors, since it lets an unrelated clinician fabricate clinical history.
+
+### TC-PAT-API-020 — Letters cannot be shared with a patient before `reviewStatus` reaches `Approved`
+- **Priority:** High
+- **Steps:** Call the "share with patient" mutation on a letter with `reviewStatus: 'Draft'`.
+- **Expected Result:** Rejected — matches `frontend/src/pages/patients/detail.jsx`'s Letters tab, which gates the "Share with Patient" button on `l.reviewStatus === 'Approved'` client-side only today; the backend must enforce the same gate server-side, since a client-only gate is trivially bypassable by calling the mutation directly.
+
 ---
 
 ## 3. Functional / E2E Test Cases
@@ -203,6 +269,31 @@
 - **Preconditions:** Patient A is logged in; Patient B's ID is known/guessable.
 - **Steps:** As Patient A, manually navigate the browser to a patient-detail-equivalent route for Patient B (if patients have any self-service detail route beyond `/patient/profile`, e.g. a shared appointment detail).
 - **Expected Result:** Forbidden/redirected — never renders Patient B's data, even momentarily.
+
+### TC-PAT-E2E-012 — Merging two duplicate patients leaves exactly one bookable record with the combined history
+- **Priority:** Critical
+- **Steps:** As a manager, on `/patients` click "Merge Duplicates", select two records for the same real person, review the comparison, confirm the merge, then navigate to the survivor's detail page and to the archived record's detail page directly.
+- **Expected Result:** Survivor's detail page shows the union of both records' appointment/task history and labels; the archived record's detail page (if reachable) shows a clear "merged into <survivor>" banner rather than presenting as a normal active patient — real-backend acceptance bar for the mockup built in `pages/patients/index.jsx`, which today only unions labels and leaves history unmoved (see `TC-PAT-API-014`).
+
+### TC-PAT-E2E-013 — Front-desk staff take a patient from check-in through to checkout in the Waiting Room
+- **Priority:** High
+- **Steps:** As staff, open `/waiting-room`, click "Check In" on a scheduled patient, then "Start Consultation", then "Check Out".
+- **Expected Result:** The stage chip and available actions update at each step without a page reload (real subscription/refetch, not just local state); the same appointment's entry on `/staff/appointments` or the clinician's calendar reflects the same journey stage — proves the Journey data is a shared, backend-persisted fact, not a page-local mock (today's mockup, `pages/waiting-room/index.jsx`, is wired through the shared `mocks/store.js` already, so this is the direct real-backend equivalent of that same reactivity).
+
+### TC-PAT-E2E-014 — Marking a patient did-not-attend from the Waiting Room updates their no-show history on the patient record
+- **Priority:** Medium
+- **Steps:** As staff, click "No-show" on a not-yet-arrived patient in the Waiting Room.
+- **Expected Result:** The appointment shows a distinct `dna` state (not `cancelled`); the patient's detail page reflects an incremented no-show count/history entry — a `dna` and a staff-cancelled appointment must remain distinguishable everywhere downstream (e.g. a future no-show-rate KPI), not collapsed into one "didn't happen" bucket.
+
+### TC-PAT-E2E-015 — A clinician adds a consultation record and it's immediately visible on the patient's Medical History tab
+- **Priority:** High
+- **Steps:** As a clinician with an appointment relationship to the patient, add a consultation record (encounter type, diagnosis, notes) from `/patients/:id`'s Medical History tab.
+- **Expected Result:** The new record appears without reload, timestamped and attributed to that clinician — real-backend equivalent of the Phase 2 mockup (`consultations` local state in `patients/detail.jsx`).
+
+### TC-PAT-E2E-016 — Drafting, approving, then sharing a Letter follows the review gate end-to-end
+- **Priority:** High
+- **Steps:** As a clinician, draft a letter (starts `Draft`); as an authorized reviewer, approve it (`Approved`); as staff, click "Share with Patient".
+- **Expected Result:** "Share with Patient" is disabled/absent until the letter reaches `Approved`, and becomes available immediately after — proves the governance workflow is enforced by real state transitions, not just a UI-computed label (backend acceptance bar for `TC-PAT-API-020`).
 
 ---
 
@@ -374,3 +465,64 @@
 - **Priority:** Low
 - **Steps:** Load `/test-results` with no filters set, observe the filter bar; then set a search term and observe again.
 - **Expected Result:** No "Clear Filters" button in the first case; it appears once any of search/type/status is non-default, and clicking it resets all three together — per `UX-TRES-004`.
+
+### Duplicate Patient Merging (`/patients` — new this increment)
+
+### TC-PAT-FE-032 — "Merge Duplicates" caps selection at 2 and disables "Review & Merge" below that
+- **Priority:** High
+- **Steps:** Click "Merge Duplicates" to enter merge mode, select 1 patient row, observe the action bar; select a 2nd row; attempt to select a 3rd.
+- **Expected Result:** "Review & Merge" stays disabled with 0 or 1 selected and the helper text updates ("Select two…" → "Select one more…" → "2 records selected"); selecting a 3rd row is a no-op (selection stays at 2) — matches `MergePatientsDialog`'s pairwise-only design in `pages/patients/index.jsx`.
+
+### TC-PAT-FE-033 — Merge dialog's radio selection swaps which record's fields are labeled "Keeping" vs "Archiving" live
+- **Priority:** Medium
+- **Steps:** Open the merge dialog for two selected patients, toggle the primary-record radio button between the two.
+- **Expected Result:** The comparison table's "Keeping (primary)"/"Archiving" columns swap to match the newly-selected primary — no stale labeling.
+
+### TC-PAT-FE-034 — Confirming a merge archives the non-primary record and shows a "Merged →" chip on the list
+- **Priority:** High
+- **Steps:** Complete a merge, return to the patient list (without filtering out archived), locate the now-archived duplicate.
+- **Expected Result:** The duplicate shows a distinct "Merged → <primary name>" chip (not the generic "Archived" chip used for a manually archived patient), and the primary record shows an "N merged" chip with a tooltip naming the absorbed record(s) — visually distinguishes "archived because merged" from "archived for other reasons," per `pages/patients/index.jsx`'s row-chip logic.
+
+### TC-PAT-FE-035 — Archived patients cannot be selected as a merge target
+- **Priority:** Medium
+- **Steps:** In merge mode, attempt to click/check an already-archived patient row.
+- **Expected Result:** The checkbox is disabled and the row click is a no-op — merging into or out of an already-archived record isn't a supported flow from this dialog.
+
+### Waiting Room / Patient Journey (`/waiting-room` — new this increment)
+
+### TC-PAT-FE-036 — Stage-appropriate action buttons render for each Journey state
+- **Priority:** High
+- **Steps:** Load `/waiting-room` with appointments in each of the 5 journey states (not-arrived, arrived, in-consultation, departed, dna).
+- **Expected Result:** Not-arrived shows "Check In"/"No-show"; arrived shows only "Start Consultation"; in-consultation shows only "Check Out"; departed/dna show a status chip + "Undo", with no forward-progress action available — matches `journeyStage()`'s state machine in `pages/waiting-room/index.jsx`.
+
+### TC-PAT-FE-037 — Date picker switches the displayed queue without a full page reload
+- **Priority:** Medium
+- **Steps:** Change the date field to a date with a different set of seeded appointments.
+- **Expected Result:** The card list and the 5 stage-count summary chips both update to match the new date's appointments.
+
+### TC-PAT-FE-038 — Stage summary counts always sum to the total visible appointment count
+- **Priority:** Low
+- **Steps:** On any date with appointments, sum the 5 stage-count chips and compare to the number of appointment cards rendered.
+- **Expected Result:** They match exactly — every appointment falls into exactly one stage bucket, confirming `journeyStage()` is exhaustive (no appointment silently uncategorized).
+
+### TC-PAT-FE-039 — "Undo" resets a completed/no-show appointment back to the not-arrived state
+- **Priority:** Medium
+- **Steps:** On a `departed` or `dna` appointment card, click "Undo".
+- **Expected Result:** The card returns to the not-arrived state with "Check In"/"No-show" actions available again — matches `resetPatientJourney` in `mocks/store.js`; exists specifically to correct front-desk data-entry mistakes without needing developer intervention.
+
+### Communication Log (`/patients/:id` Communication Log tab — new this increment)
+
+### TC-PAT-FE-040 — Communication Log is a distinct tab from Communication Preferences, not merged into it
+- **Priority:** Medium
+- **Steps:** On a patient's detail page, compare the Overview tab's "Communication Preferences" section against the new "Communication Log" tab.
+- **Expected Result:** Preferences shows only the 3 channel toggle switches (no history); the log tab shows only past sent messages (no toggles) — confirms the two Semble-derived concepts (settings vs. history) weren't conflated into one UI section, per `requirements/semble-competitive-gap-analysis-requirements.md`'s Patients table finding.
+
+### TC-PAT-FE-041 — "Send Message" appends a new entry to the top of the log immediately
+- **Priority:** Medium
+- **Steps:** Open the Communication Log tab, click "Send Message", fill channel/type/subject, submit.
+- **Expected Result:** A new entry with `status: 'Sent'` appears at the top of the list immediately, and the tab's count badge (`Communication Log (N)`) increments — matches `sendCommunication()` in `patients/detail.jsx`.
+
+### TC-PAT-FE-042 — Channel icon matches the selected channel for every log entry
+- **Priority:** Low
+- **Steps:** View log entries seeded with `email`, `sms`, and `whatsapp` channels.
+- **Expected Result:** Each renders its corresponding icon (mail/SMS/WhatsApp) — a wrong icon here would misrepresent how a message was actually sent, which matters for a compliance-adjacent log.

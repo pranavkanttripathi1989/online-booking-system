@@ -6,6 +6,8 @@
 
 Why this stack: see prior conversation — the existing `schema.prisma`/`schema.ts` represent the majority of backend domain design already done, for a Node+Prisma+Apollo stack, not Laravel. This plan reuses that work rather than re-deriving it in PHP.
 
+**Current status:** Phases 1-3 complete and verified end-to-end (Docker + Postgres + Redis + the Auth module). **Phase 4 (Core catalog modules) is in progress** — Increment 1 (`Clinics`, `Rooms`, `ClinicianTypes`/`RoomTypes` lookups) and Increment 2 (`Organizations` admin CRUD) both done and live-verified against the running Docker stack (see `context/phase4-catalog-modules-implementation-plan.md` for full detail). Increment 1 hit and fixed the exact landmine flagged here previously — `@Roles()` alone doesn't work even paired with `@UseGuards(GqlAuthGuard)`, because NestJS runs global guards before handler-level ones regardless of decorator order; the real fix (global `GqlAuthGuard` + `@Public()` opt-out) is now in place and `context/backend-hard-rules.md` Rule 2 was corrected to match. **Still open in Phase 4**: `Products`+variants, `Languages`, `EmailTemplates` CRUD. Two real frontend integration gaps were found this phase: `manager/clinics/index.jsx` had zero backend wiring (now fixed); `manager/rooms/index.jsx` uses an incompatible GraphQL contract vs. the rest of the Rooms pages and needs an explicit decision before anyone touches it. Increment 2 also rebuilt `ClientOrganizations`' address as the proper India structured shape and updated `admin/Organizations.jsx` to match, since nothing else depended on its old Western shape.
+
 ---
 
 ## 🇮🇳 India-specific decisions (apply across phases below)

@@ -86,6 +86,16 @@
 - **Steps:** Validate an organization payload with `address: {line1: "12 MG Road", line2: "", city: "Bengaluru", state: "Karnataka", pincode: "560001", country: "India"}` and a second payload using the legacy flat shape `{addressLine1, city, postalCode, country}` (no `state`/`pincode`).
 - **Expected Result:** The first payload passes; the second is rejected for missing `state`/`pincode` — enforces CLAUDE.md's India address format uniformly, closing the gap where `Organizations.jsx`'s current form fields (Address Line 1/2, City, Postal Code, Country) match neither the flat `ClientOrganizations.address String?` column nor the structured India format used on `Patients.address_structured`.
 
+### TC-ADMIN-UNIT-014 — Clone-from-role pre-fill copies the source role's exact grant set, not a subset
+- **Priority:** Medium
+- **Steps:** Compute the pre-filled permission-matrix state when cloning from a role that has 7 of 60 possible grants.
+- **Expected Result:** All 7 (and only those 7) start checked — matches `admin/Roles.jsx`'s "Clone from existing role" dropdown (Zendesk-pattern, per `requirements/semble-competitive-gap-analysis-requirements.md` Part 1).
+
+### TC-ADMIN-UNIT-015 — Empty-permission-grant save produces a warning, not a hard block
+- **Priority:** Low
+- **Steps:** Validate a role-save with zero permission checkboxes selected.
+- **Expected Result:** Passes validation but flags a non-blocking warning — matches the build spec's guardrail ("a role can't be saved with zero permissions granted (empty-role warning, not a hard block — some roles legitimately start empty)").
+
 ---
 
 ## 2. Backend/API Test Cases
@@ -162,6 +172,36 @@
 - **Preconditions:** `ClinicianTypeModel` has `"Cardiologist"`.
 - **Steps:** Call `createClinicianType({name: "CARDIOLOGIST"})`, `createRoomType` and `createLanguage` with analogous case-variant duplicates of existing rows.
 - **Expected Result:** All three rejected with a validation error, confirming the unique-name business rule holds at the API layer for all three entity types identically.
+
+### TC-ADMIN-API-015 — `createRole` scopes uniqueness to `(client_org_id, name)`, not name alone
+- **Priority:** Critical
+- **STATUS: Schema already migrated** — `UserRoles` was extended with `client_org_id String?`/`is_system Boolean` and its unique constraint changed from `name @unique` to `@@unique([client_org_id, name], name: "org_role_name")` (`backend/prisma/migrations/20260817021500_add_role_org_scoping/`), specifically so two different tenants can each have their own custom role named e.g. `"front_desk_lead"` without colliding. **No resolver exists yet to exercise this** — Phase 4+ is where `createRole`/`updateRole` mutations actually get built; this case is the concrete acceptance test for that resolver once written.
+- **Preconditions:** Org 1 and Org 2 both attempt to create a custom role named `"front_desk_lead"`.
+- **Steps:** As Org 1's admin, `createRole(name: "front_desk_lead", ...)`. As Org 2's admin, `createRole(name: "front_desk_lead", ...)`.
+- **Expected Result:** Both succeed — the unique constraint is per-org, not global. A third attempt by Org 1's admin to create a second `"front_desk_lead"` (same org) is rejected.
+
+### TC-ADMIN-API-016 — System roles (`is_system: true`) cannot be edited or deleted via `updateRole`/`deleteRole`
+- **Priority:** Critical
+- **Preconditions:** The 6 seeded system roles (`admin`, `super_admin`, `manager`, `clinician`, `staff`, `patient` — `backend/prisma/seed.ts`) all have `is_system: true` and `client_org_id: null`.
+- **Steps:** As a super_admin, attempt `updateRole(id: <admin-role-id>, name: "renamed_admin")` and `deleteRole(id: <admin-role-id>)`.
+- **Expected Result:** Both rejected with a clear "system roles cannot be modified" error — the frontend's `admin/Roles.jsx` already renders system roles read-only with a lock icon/tooltip client-side; the backend must enforce the same rule server-side, since a client-only guard is bypassable by calling the mutation directly (same principle as `TC-PAT-API-020`'s letter-approval gate).
+
+### TC-ADMIN-API-018 — `createRoomType`/`createClinicianType` return `{success, userErrors}`, never a bare entity
+- **Priority:** High
+- **STATUS: Confirmed live** — `admin/RoomTypes.jsx`/`admin/ClinicianTypes.jsx` (the only real consumers) call these mutations expecting `{success: Boolean!, userErrors: [UserError!]!}` back, with distinctly-named `CreateRoomTypeInput`/`CreateClinicianTypeInput` GraphQL input types — not the entity directly. This was actually broken (wrong input type name + wrong return shape) until fixed live during a browser-testing pass on 2026-08-17; see `test-result/phase4-backend-integration-test-results.md` `BUG-P4-001`.
+- **Steps:** Call `createRoomType(input: {name: "Therapy Room"})`, inspect the response shape.
+- **Expected Result:** `{success: true, userErrors: []}` — no `id`/`name`/etc. fields requestable on the mutation response itself.
+
+### TC-ADMIN-API-019 — `deleteRoomType`/`deleteClinicianType` are hard deletes, not soft
+- **Priority:** Medium
+- **Steps:** Call `deleteRoomType(id)` on an existing row, then query `roomTypes`.
+- **Expected Result:** The row is gone entirely, not flagged `is_deleted` — deliberately different from most other domains in this schema (`TC-PAT-API-009`'s soft-delete pattern), because `RoomTypeModel`/`ClinicianTypeModel` carry no `is_deleted` column and nothing references them via a real foreign key (`Rooms.room_type`/`Clinicians.clinician_type` are plain strings), so there's no historical-integrity reason to keep a deleted lookup row around.
+
+### TC-ADMIN-API-017 — A tenant admin cannot see or clone another tenant's custom roles
+- **Priority:** Critical
+- **Preconditions:** Org 1 has a custom role `"billing_only"` (`client_org_id: <org1>`); Org 2 has no such role.
+- **Steps:** As Org 2's admin, call `roles` (list query) and separately attempt `createRole` with a "clone from" reference to Org 1's `"billing_only"` role ID.
+- **Expected Result:** Org 1's custom role never appears in Org 2's `roles` list; the clone attempt is rejected (NOT_FOUND, not "permission denied," to avoid confirming the role's existence to an unrelated org) — system roles (`client_org_id: null`) remain visible/clonable by every org, only tenant-custom roles are isolated.
 
 ### TC-ADMIN-API-014 — Setting a language default is atomic across the previous default
 - **Priority:** High
@@ -244,6 +284,16 @@
 - **Steps:** In the Users Directory, search `"clinician"`. Note the result count. Navigate to page 2 if available.
 - **Expected Result:** Only users whose name/email/role name/role code contains "clinician" (case-insensitive) appear on every page; the search term is not lost on pagination.
 
+### TC-ADMIN-E2E-014 — Creating a custom role, cloning permissions from an existing role, then assigning it to a user works end-to-end
+- **Priority:** High
+- **Steps:** As admin, create a new role, use "Clone from existing role" to pre-fill from `receptionist`, adjust a couple of grants, save. Assign the new role to a test user. Log in as that user and attempt one newly-granted and one newly-revoked action.
+- **Expected Result:** The newly-granted action succeeds, the revoked one is `FORBIDDEN` — real-backend acceptance bar for `admin/Roles.jsx`'s Feature #1 build, now that `UserRoles.client_org_id` scoping exists in the schema (`TC-ADMIN-API-015`).
+
+### TC-ADMIN-E2E-015 — Attempting to edit or delete a system role shows a clear, non-generic explanation
+- **Priority:** Medium
+- **Steps:** As admin, open the `admin` system role and attempt to change its name or click delete.
+- **Expected Result:** Fields render read-only with a lock icon/tooltip explaining why (client-side, already built); if the mutation is somehow still triggered, the server rejects it with the same `TC-ADMIN-API-016` error, surfaced as a real error toast, not a silent no-op.
+
 ---
 
 ## 4. Frontend Test Cases
@@ -252,9 +302,10 @@
 
 ### TC-ADMIN-FE-001 — `/admin/room-types` currently crashes on load
 - **Priority:** Critical
-- **Preconditions:** Grounded in direct source inspection: `RoomTypes.jsx` line 33 (`useState(defaultForm)`) and line 60 (`reset()`) reference `defaultForm`, which is never declared or imported anywhere in the file — unlike `ClinicianTypes.jsx:18` and `Languages.jsx:19`, which both declare it. This contradicts `test-result/admin-test-results.md`'s TC-ADMIN-018/025, both marked "PASS (source-verified)" for this exact page.
-- **Steps:** Navigate to `/admin/room-types` in the current committed frontend.
-- **Expected Result (current, failing):** Page throws `ReferenceError: defaultForm is not defined` on first render. This test should FAIL today and is the acceptance criterion for the fix (see TC-ADMIN-E2E-012 for the post-fix version).
+- **STATUS: FIXED, confirmed via live browser test** — `RoomTypes.jsx` now declares `defaultForm` correctly (`const defaultForm = { name: '', description: '', is_active: true }`); the original `ReferenceError` no longer reproduces. Live-verified 2026-08-17 via Playwright MCP against the running stack: page loads, and full create→delete cycle works (see `test-result/phase4-backend-integration-test-results.md` TC-P4-REF-02/03/04) — a genuinely different, deeper bug was found in the same pass (the mutations' GraphQL contract didn't match the backend at all, `BUG-P4-001`), now also fixed. Keeping this case as a **regression guard**, not an open bug.
+- **Preconditions:** Originally grounded in direct source inspection: `RoomTypes.jsx` line 33 (`useState(defaultForm)`) and line 60 (`reset()`) referenced `defaultForm`, which was undeclared — unlike `ClinicianTypes.jsx`/`Languages.jsx`, which both declared it.
+- **Steps:** Navigate to `/admin/room-types`.
+- **Expected Result:** Page renders (table + "Add Room Type" button), no `ReferenceError`, no blank page.
 
 ### TC-ADMIN-FE-002 — "Permissions Defined" stat card is hardcoded
 - **Priority:** Medium
@@ -275,9 +326,10 @@
 
 ### TC-ADMIN-FE-005 — Permissions Matrix "Save Changes" looks successful but does not persist in mock mode
 - **Priority:** High
-- **Preconditions:** Offline/mock mode (Apollo backend unreachable); the fallback resource×action checkboxes render with `defaultChecked` only, no `onChange` wired to `localSelections`.
-- **Steps:** Toggle several fallback checkboxes in the matrix, click "Save Changes", then reload the page.
-- **Expected Result (current behavior):** No error is shown on save, but the toggled state is lost on reload — the mock-mode UI is misleadingly silent about not actually persisting anything.
+- **STATUS: FIXED** — `admin/Roles.jsx` was fully rewritten (Semble gap-analysis Feature #1, Phase 1) to read/write through `mocks/store.js`'s `createRole`/`updateRole`, with real persistence, and was live-browser-verified (created a role, checked permissions, confirmed persistence across reload, confirmed responsive behavior at 375/768/1024/1440px) per `context/phase1-frontend-missing-features-implementation-plan.md`. Keeping this case as a **regression guard**, not an open bug — re-run it whenever `Roles.jsx` or `store.js`'s role functions change.
+- **Preconditions:** Any mode (mock store, since no real backend exists yet for this domain).
+- **Steps:** Toggle several checkboxes in the `PermissionMatrix`, click "Save Changes", then reload the page and re-open the same role.
+- **Expected Result:** The toggled state is still shown after reload — persistence is real, not just silently-lost as it was before the rewrite.
 
 ### TC-ADMIN-FE-006 — Audit log row expansion is not defensive against malformed JSON
 - **Priority:** Medium
@@ -334,3 +386,26 @@
 - **Preconditions:** `form.jsx`'s create-user submit handler catches `err.networkError` specifically and shows a snackbar reading `User "${form.name}" created (mock mode — backend offline)` before navigating to `/admin/users` — no user was actually created.
 - **Steps:** With the backend unreachable, submit "New User" with valid data.
 - **Expected Result (current behavior):** A green-styled success snackbar appears and the page navigates away as if the operation succeeded, even though nothing was persisted — this is intentional mock-mode UX today, but must be clearly distinguished from a real success once a backend exists (see TC-ADMIN-E2E-001, which is the real-backend counterpart that must show an actual persisted, loginable account).
+
+### Custom Roles & Access Groups (`admin/Roles.jsx` — rebuilt this increment, Semble gap-analysis Feature #1)
+
+### TC-ADMIN-FE-016 — Every permission checkbox has a specific, unambiguous `aria-label`
+- **Priority:** Medium
+- **Steps:** Inspect the accessible name of a checkbox in the `PermissionMatrix` (e.g. the "Appointments" row × "Create" column cell) via a screen reader or the accessibility tree.
+- **Expected Result:** Reads as `"Grant Appointments — Create"` (or equivalent, naming both resource and action) — never a bare "checkbox" with no label, per `context/frontend-hard-rules.md` Rule 3 (accessibility) and this feature's own build spec.
+
+### TC-ADMIN-FE-017 — The permission matrix scrolls horizontally on narrow viewports instead of clipping
+- **Priority:** Medium
+- **Steps:** Load `/admin/roles` at 375px width, open a role's permission matrix.
+- **Expected Result:** The matrix is horizontally scrollable within its own container (no page-level horizontal scroll, no clipped/cut-off columns) — verified via actual Playwright screenshots at 375/768/1024/1440px per `context/frontend-hard-rules.md` Rule 1.4, not assumed.
+
+### TC-ADMIN-FE-018 — `AdminLayout`'s mobile navigation actually works (regression guard for a real bug found this session)
+- **Priority:** High
+- **STATUS:** Regression guard for a genuine pre-existing bug found and fixed while building Feature #1 — `AdminLayout.jsx` was a fixed 224px permanent `Drawer` with zero mobile responsiveness before this session; a mobile temporary `Drawer` + toggle `IconButton` were added.
+- **Steps:** Load any `/admin/*` page at 375px width.
+- **Expected Result:** The admin sub-navigation is reachable via a visible toggle (not permanently hidden or permanently occupying the viewport width) — this exact case is why Hard Rule 1.4's "verify responsiveness live, don't assume" exists; this bug would not have been caught by code review alone.
+
+### TC-ADMIN-FE-019 — Saving a role with zero permissions shows a warning but does not block the save
+- **Priority:** Low
+- **Steps:** Create a new role, name it, grant no permissions, click Save.
+- **Expected Result:** A non-blocking warning is shown (e.g. "This role has no permissions granted") and the save still succeeds — matches the build spec's deliberate choice not to hard-block, since some roles legitimately start empty pending later configuration.

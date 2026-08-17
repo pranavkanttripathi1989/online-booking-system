@@ -19,11 +19,12 @@ async function main() {
   console.log('Seeding roles...');
   const roleRecords: Record<string, { id: string; name: string }> = {};
   for (const name of ROLES) {
-    roleRecords[name] = await prisma.userRoles.upsert({
-      where: { name },
-      update: {},
-      create: { name, description: `${name} role` },
-    });
+    // Prisma's compound-unique `where` doesn't accept `null` for a nullable
+    // field in this version, so this is a manual findFirst+create instead of upsert.
+    const existingRole = await prisma.userRoles.findFirst({ where: { client_org_id: null, name } });
+    roleRecords[name] =
+      existingRole ??
+      (await prisma.userRoles.create({ data: { name, description: `${name} role`, is_system: true } }));
   }
 
   console.log('Seeding demo accounts...');

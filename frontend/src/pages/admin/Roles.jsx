@@ -1,151 +1,195 @@
-import { useState, useEffect } from 'react'
-import { useApolloClient, gql } from '@apollo/client'
+import { useState } from 'react'
+import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { z } from 'zod'
 import {
-  Alert, Box, Button, Card, CardContent, Chip, CircularProgress,
-  Grid, IconButton, Stack, Switch, TextField, Typography, Tooltip,
+  Alert, Box, Button, Card, CardContent, Chip, Grid, IconButton, MenuItem,
+  Stack, Switch, TextField, Tooltip, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
-import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
+import LockRoundedIcon from '@mui/icons-material/LockRounded'
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
+import ErrorBoundary from '../../components/ErrorBoundary'
+import EmptyState from '../../components/shared/EmptyState'
+import PermissionMatrix from '../../components/Roles/PermissionMatrix'
+import { useMockData, useMockMutation } from '../../mocks/useMockData'
+import * as MockStore from '../../mocks/store'
+import { PERMISSION_RESOURCES, PERMISSION_ACTIONS } from '../../mocks/data/permissions'
 
-// ─── GraphQL ─────────────────────────────────────────────────────────────────
+// ─── Validation (context/frontend-hard-rules.md §2.1) ─────────────────────────
+const roleSchema = z.object({
+  name: z.string().trim().min(2, 'Role name must be at least 2 characters'),
+  description: z.string().optional(),
+  is_active: z.boolean(),
+})
 
-const GET_ROLES = gql`
-  query GetRoles {
-    roles { id name description is_active created_at }
-  }
-`
-const CREATE_ROLE = gql`
-  mutation CreateRole($input: CreateRoleInput!) {
-    createRole(input: $input) { success userErrors { message } role { id } }
-  }
-`
-const UPDATE_ROLE = gql`
-  mutation UpdateRole($id: ID!, $input: UpdateRoleInput!) {
-    updateRole(id: $id, input: $input) { success userErrors { message } }
-  }
-`
-const DELETE_ROLE = gql`
-  mutation DeleteRole($id: ID!) {
-    deleteRole(id: $id) { success userErrors { message } }
-  }
-`
+function RolesPageContent() {
+  const { data: roles } = useMockData((store) => store.getRoles())
+  const { data: permissions } = useMockData((store) => store.getPermissionCatalog())
 
-// ─── Component ────────────────────────────────────────────────────────────────
-
-const defaultForm = { name: '', description: '', is_active: true }
-
-// ─── Mock fallback data ───────────────────────────────────────────────────────
-const MOCK_ROLES = [
-  { id: 'r1', name: 'System Admin',   description: 'Full platform access',          is_active: true,  created_at: '2024-01-01T00:00:00Z' },
-  { id: 'r2', name: 'Admin',          description: 'Clinic administration access',  is_active: true,  created_at: '2024-01-01T00:00:00Z' },
-  { id: 'r3', name: 'Manager',        description: 'Clinic manager access',         is_active: true,  created_at: '2024-01-01T00:00:00Z' },
-  { id: 'r4', name: 'Clinician',      description: 'Clinical staff access',         is_active: true,  created_at: '2024-01-01T00:00:00Z' },
-  { id: 'r5', name: 'Receptionist',   description: 'Front-desk staff access',       is_active: true,  created_at: '2024-01-01T00:00:00Z' },
-  { id: 'r6', name: 'Patient',        description: 'Patient portal access',         is_active: true,  created_at: '2024-01-01T00:00:00Z' },
-]
-
-export default function AdminRoles() {
-  const client = useApolloClient()
-  const [roles, setRoles]             = useState([])
-  const [loading, setLoading]         = useState(true)
-  const [showForm, setShowForm]       = useState(false)
-  const [editRole, setEditRole]       = useState(null)
-  const [form, setForm]               = useState(defaultForm)
+  const [showForm, setShowForm] = useState(false)
+  const [editRole, setEditRole] = useState(null)
+  const [selectedPermissionIds, setSelectedPermissionIds] = useState([])
+  const [cloneFromId, setCloneFromId] = useState('')
   const [confirmOpen, setConfirmOpen] = useState(false)
-  const [deletingId, setDeletingId]   = useState(null)
-  const [formError, setFormError]     = useState(null)
-  const [successMsg, setSuccessMsg]   = useState(null)
-  const [submitting, setSubmitting]   = useState(false)
+  const [deletingId, setDeletingId] = useState(null)
+  const [formError, setFormError] = useState(null)
+  const [successMsg, setSuccessMsg] = useState(null)
 
-  const loadRoles = async () => {
-    setLoading(true)
-    try {
-      const { data } = await client.query({ query: GET_ROLES, fetchPolicy: 'network-only' })
-      setRoles(data?.roles || [])
-    } catch (err) {
-      // Backend offline — use mock data so page is usable in dev/demo mode
-      setRoles(MOCK_ROLES)
-    }
-    finally { setLoading(false) }
-  }
+  const [createRole, { loading: creating }] = useMockMutation(MockStore.createRole)
+  const [updateRole, { loading: updating }] = useMockMutation(MockStore.updateRole)
+  const [deleteRoleMutation] = useMockMutation(MockStore.deleteRole)
 
-  useEffect(() => { loadRoles() }, []) // eslint-disable-line
+  const { control, handleSubmit, reset, formState: { errors } } = useForm({
+    resolver: zodResolver(roleSchema),
+    defaultValues: { name: '', description: '', is_active: true },
+  })
 
   const showSuccess = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000) }
-  const setField = (k, v) => setForm(p => ({ ...p, [k]: v }))
-  const resetForm = () => { setForm(defaultForm); setEditRole(null); setShowForm(false); setFormError(null) }
 
-  const handleSubmit = async (e) => {
-    e.preventDefault(); setSubmitting(true); setFormError(null)
+  const openCreate = () => {
+    setEditRole(null); setSelectedPermissionIds([]); setCloneFromId('')
+    reset({ name: '', description: '', is_active: true })
+    setFormError(null); setShowForm(true)
+  }
+
+  const openEdit = (role) => {
+    setEditRole(role)
+    setSelectedPermissionIds(MockStore.getRolePermissionIds(role.id))
+    setCloneFromId('')
+    reset({ name: role.name, description: role.description || '', is_active: role.is_active })
+    setFormError(null); setShowForm(true)
+  }
+
+  const closeForm = () => { setShowForm(false); setEditRole(null); setFormError(null) }
+
+  const handleCloneFrom = (roleId) => {
+    setCloneFromId(roleId)
+    if (roleId) setSelectedPermissionIds(MockStore.getRolePermissionIds(roleId))
+  }
+
+  const togglePermission = (permId) => {
+    setSelectedPermissionIds((prev) =>
+      prev.includes(permId) ? prev.filter((id) => id !== permId) : [...prev, permId]
+    )
+  }
+
+  const onSubmit = async (values) => {
+    setFormError(null)
     try {
       if (editRole) {
-        const { data: r } = await client.mutate({ mutation: UPDATE_ROLE, variables: { id: editRole.id, input: form } })
-        if (!r?.updateRole?.success) throw new Error(r?.updateRole?.userErrors?.[0]?.message)
+        await updateRole(editRole.id, { ...values, permission_ids: selectedPermissionIds })
         showSuccess('Role updated.')
       } else {
-        const { data: r } = await client.mutate({ mutation: CREATE_ROLE, variables: { input: form } })
-        if (!r?.createRole?.success) throw new Error(r?.createRole?.userErrors?.[0]?.message)
+        await createRole({ ...values, permission_ids: selectedPermissionIds })
         showSuccess('Role created.')
       }
-      resetForm(); loadRoles()
+      closeForm()
     } catch (err) { setFormError(err.message) }
-    finally { setSubmitting(false) }
   }
 
   const handleToggleActive = async (role) => {
-    try {
-      await client.mutate({ mutation: UPDATE_ROLE, variables: { id: role.id, input: { is_active: !role.is_active } } })
-      loadRoles()
-    } catch (err) { setFormError(err.message) }
+    try { await MockStore.toggleRoleActive(role.id) }
+    catch (err) { setFormError(err.message) }
   }
 
   const confirmDelete = async () => {
     setConfirmOpen(false)
     try {
-      const { data: r } = await client.mutate({ mutation: DELETE_ROLE, variables: { id: deletingId } })
-      if (!r?.deleteRole?.success) throw new Error(r?.deleteRole?.userErrors?.[0]?.message)
-      showSuccess('Role deleted.'); loadRoles()
+      const result = await deleteRoleMutation(deletingId)
+      if (!result?.success) throw new Error(result?.message || 'Could not delete role.')
+      showSuccess('Role deleted.')
     } catch (err) { setFormError(err.message) }
     setDeletingId(null)
   }
 
-  if (loading) return <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>
+  const roleList = roles ?? []
+  const submitting = creating || updating
+  const noPermissionsSelected = selectedPermissionIds.length === 0
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+      <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} spacing={1.5} mb={3}>
         <Box>
           <Typography variant="h5" fontWeight={700}>Role Management</Typography>
-          <Typography variant="body2" color="text.secondary">Define user roles and their access levels</Typography>
+          <Typography variant="body2" color="text.secondary">Define custom roles and their permissions</Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => { resetForm(); setShowForm(p => !p) }}>Add Role</Button>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={openCreate} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          Add Role
+        </Button>
       </Stack>
 
       {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
-      {formError   && <Alert severity="error"   sx={{ mb: 2 }} onClose={() => setFormError(null)}>{formError}</Alert>}
+      {formError && !showForm && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setFormError(null)}>{formError}</Alert>}
 
-      {/* Form */}
       {showForm && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
             <Typography variant="h6" fontWeight={600} mb={2}>{editRole ? 'Edit Role' : 'New Role'}</Typography>
-            <Box component="form" onSubmit={handleSubmit}>
+            {editRole?.is_system && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                This is a system role. Name and description can't be changed, but you can review its permissions below.
+              </Alert>
+            )}
+            {formError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setFormError(null)}>{formError}</Alert>}
+
+            <Box component="form" onSubmit={handleSubmit(onSubmit)} noValidate>
               <Grid container spacing={2}>
                 <Grid item xs={12} sm={6}>
-                  <TextField fullWidth required size="small" label="Role Name"
-                    value={form.name} onChange={e => setField('name', e.target.value)} />
+                  <Controller
+                    name="name" control={control}
+                    render={({ field }) => (
+                      <TextField {...field} fullWidth required size="small" label="Role Name"
+                        disabled={!!editRole?.is_system}
+                        error={!!errors.name} helperText={errors.name?.message} />
+                    )}
+                  />
                 </Grid>
+                {!editRole && (
+                  <Grid item xs={12} sm={6}>
+                    <TextField select fullWidth size="small" label="Clone permissions from…"
+                      value={cloneFromId} onChange={(e) => handleCloneFrom(e.target.value)}>
+                      <MenuItem value="">Start from scratch</MenuItem>
+                      {roleList.map((r) => (
+                        <MenuItem key={r.id} value={r.id}>{r.name}</MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                )}
                 <Grid item xs={12}>
-                  <TextField fullWidth size="small" label="Description" multiline rows={2}
-                    value={form.description} onChange={e => setField('description', e.target.value)} />
+                  <Controller
+                    name="description" control={control}
+                    render={({ field }) => (
+                      <TextField {...field} fullWidth size="small" label="Description" multiline rows={2}
+                        disabled={!!editRole?.is_system} />
+                    )}
+                  />
                 </Grid>
+
                 <Grid item xs={12}>
-                  <Stack direction="row" spacing={1}>
-                    <Button type="submit" variant="contained" disabled={submitting}>{submitting ? 'Saving…' : editRole ? 'Update' : 'Create'}</Button>
-                    <Button variant="outlined" onClick={resetForm}>Cancel</Button>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>Permissions</Typography>
+                  {noPermissionsSelected && (
+                    <Alert severity="warning" sx={{ mb: 1.5 }}>
+                      No permissions selected — this role won't be able to do anything until at least one is granted.
+                    </Alert>
+                  )}
+                  <PermissionMatrix
+                    resources={PERMISSION_RESOURCES}
+                    actions={PERMISSION_ACTIONS}
+                    selectedIds={selectedPermissionIds}
+                    onToggle={togglePermission}
+                    disabled={!!editRole?.is_system}
+                  />
+                </Grid>
+
+                <Grid item xs={12}>
+                  <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                    <Button type="submit" variant="contained" disabled={submitting}>
+                      {submitting ? 'Saving…' : editRole ? 'Update' : 'Create'}
+                    </Button>
+                    <Button variant="outlined" onClick={closeForm}>Cancel</Button>
                   </Stack>
                 </Grid>
               </Grid>
@@ -154,57 +198,55 @@ export default function AdminRoles() {
         </Card>
       )}
 
-      {/* Roles table */}
-      <Card>
-        <Box sx={{ overflowX: 'auto' }}>
-          <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
-            <Box component="thead">
-              <Box component="tr" sx={{ bgcolor: 'grey.50' }}>
-                {['Role Name', 'Description', 'Status', 'Created', 'Actions'].map(h => (
-                  <Box key={h} component="th" sx={{ px: 2, py: 1.5, textAlign: 'left', typography: 'caption', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid', borderColor: 'divider' }}>{h}</Box>
-                ))}
-              </Box>
-            </Box>
-            <Box component="tbody">
-              {roles.length === 0 && (
-                <Box component="tr">
-                  <Box component="td" colSpan={5} sx={{ textAlign: 'center', py: 6 }}>
-                    <AdminPanelSettingsIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1, display: 'block', mx: 'auto' }} />
-                    <Typography color="text.secondary">No roles defined yet</Typography>
-                  </Box>
-                </Box>
-              )}
-              {roles.map(role => (
-                <Box component="tr" key={role.id} sx={{ '&:hover': { bgcolor: 'grey.50' }, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
-                    <Typography fontWeight={600}>{role.name}</Typography>
-                  </Box>
-                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
-                    <Typography variant="body2" color="text.secondary">{role.description || '—'}</Typography>
-                  </Box>
-                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
-                    <Stack direction="row" alignItems="center" spacing={1}>
-                      <Switch size="small" checked={!!role.is_active} onChange={() => handleToggleActive(role)} />
-                      <Chip label={role.is_active ? 'Active' : 'Inactive'} size="small" color={role.is_active ? 'success' : 'default'} />
+      {roleList.length === 0 ? (
+        <EmptyState title="No roles defined yet" subtitle="Create your first role to get started." actionLabel="Add Role" onAction={openCreate} />
+      ) : (
+        <Grid container spacing={2}>
+          {roleList.map((role) => {
+            const grantCount = MockStore.getRolePermissionIds(role.id).length
+            return (
+              <Grid item xs={12} sm={6} md={4} key={role.id}>
+                <Card variant="outlined" sx={{ height: '100%' }}>
+                  <CardContent>
+                    <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                      <Box>
+                        <Stack direction="row" alignItems="center" spacing={0.75}>
+                          <Typography fontWeight={700}>{role.name}</Typography>
+                          {role.is_system && (
+                            <Tooltip title="System role — protected from editing/deletion">
+                              <LockRoundedIcon sx={{ fontSize: 16, color: 'text.disabled' }} aria-label="System role" />
+                            </Tooltip>
+                          )}
+                        </Stack>
+                        <Typography variant="body2" color="text.secondary">{role.description || '—'}</Typography>
+                      </Box>
+                      <Switch
+                        size="small" checked={!!role.is_active} onChange={() => handleToggleActive(role)}
+                        inputProps={{ 'aria-label': `${role.is_active ? 'Deactivate' : 'Activate'} ${role.name} role` }}
+                      />
                     </Stack>
-                  </Box>
-                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
-                    <Typography variant="caption" color="text.secondary">
-                      {role.created_at ? new Date(role.created_at).toLocaleDateString() : '—'}
-                    </Typography>
-                  </Box>
-                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Chip label={`${grantCount} permission${grantCount === 1 ? '' : 's'}`} size="small" sx={{ mt: 1.5, mb: 1.5 }} />
                     <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="Edit"><IconButton size="small" onClick={() => { setEditRole(role); setForm({ name: role.name, description: role.description || '', is_active: role.is_active }); setShowForm(true) }}><EditIcon fontSize="small" /></IconButton></Tooltip>
-                      <Tooltip title="Delete"><IconButton size="small" color="error" onClick={() => { setDeletingId(role.id); setConfirmOpen(true) }}><DeleteIcon fontSize="small" /></IconButton></Tooltip>
+                      <Tooltip title={role.is_system ? 'View permissions' : 'Edit role'}>
+                        <IconButton size="small" onClick={() => openEdit(role)} aria-label={`Edit ${role.name} role`}>
+                          <EditIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {!role.is_system && (
+                        <Tooltip title="Delete role">
+                          <IconButton size="small" color="error" onClick={() => { setDeletingId(role.id); setConfirmOpen(true) }} aria-label={`Delete ${role.name} role`}>
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </Stack>
-                  </Box>
-                </Box>
-              ))}
-            </Box>
-          </Box>
-        </Box>
-      </Card>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )
+          })}
+        </Grid>
+      )}
 
       <ConfirmDialog
         isOpen={confirmOpen}
@@ -214,5 +256,13 @@ export default function AdminRoles() {
         onCancel={() => { setConfirmOpen(false); setDeletingId(null) }}
       />
     </Box>
+  )
+}
+
+export default function AdminRoles() {
+  return (
+    <ErrorBoundary>
+      <RolesPageContent />
+    </ErrorBoundary>
   )
 }

@@ -7,8 +7,9 @@ import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
-  Alert, Avatar, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
-  DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Stack,
+  Alert, Avatar, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions,
+  DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Radio,
+  RadioGroup, FormControlLabel, Snackbar, Stack,
   Table, TableBody, TableCell, TableContainer, TableHead, TablePagination,
   TableRow, TextField, Tooltip, Typography, ToggleButton, ToggleButtonGroup,
 } from '@mui/material'
@@ -16,27 +17,33 @@ import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import PauseCircleFilledRoundedIcon from '@mui/icons-material/PauseCircleFilledRounded'
+import ArchiveRoundedIcon from '@mui/icons-material/ArchiveRounded'
+import UnarchiveRoundedIcon from '@mui/icons-material/UnarchiveRounded'
+import MergeTypeRoundedIcon from '@mui/icons-material/MergeTypeRounded'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 
 import { PATIENTS_QUERY } from '../../graphql/queries'
 import { CREATE_PATIENT_MUTATION } from '../../graphql/mutations'
 
 // ─── Mock patients fallback ───────────────────────────────────────────────────
+// Patient safety states (on_hold/archived/labels) — requirements/semble-competitive-gap-analysis-requirements.md Phase 1
 const MOCK_PATIENTS = [
-  { id:'1', full_name:'Alice Johnson',    email:'alice@email.com',    phone:'+1 555-1001', date_of_birth:'1992-05-12', gender:'female' },
-  { id:'2', full_name:'Bob Smith',        email:'bob@email.com',      phone:'+1 555-1002', date_of_birth:'1979-11-30', gender:'male' },
-  { id:'3', full_name:'Carlos Reyes',     email:'carlos@email.com',   phone:'+1 555-1003', date_of_birth:'1985-03-22', gender:'male' },
-  { id:'4', full_name:'Diana Prince',     email:'diana@email.com',    phone:'+1 555-1004', date_of_birth:'1990-07-18', gender:'female' },
-  { id:'5', full_name:'Ethan Hunt',       email:'ethan@email.com',    phone:'+1 555-1005', date_of_birth:'1987-09-01', gender:'male' },
-  { id:'6', full_name:'Fiona Green',      email:'fiona@email.com',    phone:'+1 555-1006', date_of_birth:'1995-01-14', gender:'female' },
-  { id:'7', full_name:'George Miller',    email:'george@email.com',   phone:'+1 555-1007', date_of_birth:'1968-04-09', gender:'male' },
-  { id:'8', full_name:'Hannah Brown',     email:'hannah@email.com',   phone:'+1 555-1008', date_of_birth:'2001-12-25', gender:'female' },
-  { id:'9', full_name:'Ivan Petrov',      email:'ivan@email.com',     phone:'+1 555-1009', date_of_birth:'1983-06-30', gender:'male' },
-  { id:'10',full_name:'Julia Roberts',    email:'julia@email.com',    phone:'+1 555-1010', date_of_birth:'1993-02-17', gender:'female' },
-  { id:'11',full_name:'Kevin Chen',       email:'kevin@email.com',    phone:'+1 555-1011', date_of_birth:'1977-08-05', gender:'male' },
-  { id:'12',full_name:'Laura Martinez',   email:'laura@email.com',    phone:'+1 555-1012', date_of_birth:'1998-10-20', gender:'female' },
-  { id:'13',full_name:'Michael Wang',     email:'michael@email.com',  phone:'+1 555-1013', date_of_birth:'1972-03-15', gender:'male' },
-  { id:'14',full_name:'Nina Patel',       email:'nina@email.com',     phone:'+1 555-1014', date_of_birth:'1989-07-28', gender:'female' },
-  { id:'15',full_name:'Oscar Kim',        email:'oscar@email.com',    phone:'+1 555-1015', date_of_birth:'1994-11-11', gender:'male' },
+  { id:'1', full_name:'Alice Johnson',    email:'alice@email.com',    phone:'+1 555-1001', date_of_birth:'1992-05-12', gender:'female', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'2', full_name:'Bob Smith',        email:'bob@email.com',      phone:'+1 555-1002', date_of_birth:'1979-11-30', gender:'male', on_hold:true, on_hold_reason:'Outstanding balance', archived:false, labels:['VIP'] },
+  { id:'3', full_name:'Carlos Reyes',     email:'carlos@email.com',   phone:'+1 555-1003', date_of_birth:'1985-03-22', gender:'male', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'4', full_name:'Diana Prince',     email:'diana@email.com',    phone:'+1 555-1004', date_of_birth:'1990-07-18', gender:'female', on_hold:false, on_hold_reason:null, archived:false, labels:['Referral'] },
+  { id:'5', full_name:'Ethan Hunt',       email:'ethan@email.com',    phone:'+1 555-1005', date_of_birth:'1987-09-01', gender:'male', on_hold:false, on_hold_reason:null, archived:true, labels:[] },
+  { id:'6', full_name:'Fiona Green',      email:'fiona@email.com',    phone:'+1 555-1006', date_of_birth:'1995-01-14', gender:'female', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'7', full_name:'George Miller',    email:'george@email.com',   phone:'+1 555-1007', date_of_birth:'1968-04-09', gender:'male', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'8', full_name:'Hannah Brown',     email:'hannah@email.com',   phone:'+1 555-1008', date_of_birth:'2001-12-25', gender:'female', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'9', full_name:'Ivan Petrov',      email:'ivan@email.com',     phone:'+1 555-1009', date_of_birth:'1983-06-30', gender:'male', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'10',full_name:'Julia Roberts',    email:'julia@email.com',    phone:'+1 555-1010', date_of_birth:'1993-02-17', gender:'female', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'11',full_name:'Kevin Chen',       email:'kevin@email.com',    phone:'+1 555-1011', date_of_birth:'1977-08-05', gender:'male', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'12',full_name:'Laura Martinez',   email:'laura@email.com',    phone:'+1 555-1012', date_of_birth:'1998-10-20', gender:'female', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'13',full_name:'Michael Wang',     email:'michael@email.com',  phone:'+1 555-1013', date_of_birth:'1972-03-15', gender:'male', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'14',full_name:'Nina Patel',       email:'nina@email.com',     phone:'+1 555-1014', date_of_birth:'1989-07-28', gender:'female', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
+  { id:'15',full_name:'Oscar Kim',        email:'oscar@email.com',    phone:'+1 555-1015', date_of_birth:'1994-11-11', gender:'male', on_hold:false, on_hold_reason:null, archived:false, labels:[] },
 ]
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
@@ -115,6 +122,95 @@ function AddPatientDialog({ open, onClose, onSuccess }) {
   )
 }
 
+// ─── Merge Duplicate Patients Dialog ───────────────────────────────────────────
+// Mirrors Semble's createMergeRecord/updateMergeRecord mutations (patient/contact
+// deduplication) — requirements/semble-competitive-gap-analysis-requirements.md Patients
+// table + Phase 1. Field-level merge semantics on Semble's own object weren't retrievable
+// via automated fetch, so this scopes the merge to: pick a survivor, union labels onto it,
+// archive the other with a `merged_into` pointer, and record an audit trail on the survivor.
+function MergePatientsDialog({ open, patientA, patientB, onClose, onConfirm }) {
+  const [primaryId, setPrimaryId] = useState(patientA?.id)
+
+  useEffect(() => { setPrimaryId(patientA?.id) }, [patientA])
+
+  if (!patientA || !patientB) return null
+  const primary = primaryId === patientA.id ? patientA : patientB
+  const secondary = primaryId === patientA.id ? patientB : patientA
+
+  const rows = [
+    ['Email', primary.email, secondary.email],
+    ['Phone', primary.phone, secondary.phone],
+    ['Date of birth', primary.date_of_birth ?? '—', secondary.date_of_birth ?? '—'],
+    ['Labels', (primary.labels ?? []).join(', ') || '—', (secondary.labels ?? []).join(', ') || '—'],
+  ]
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 800 }}>Merge Duplicate Patients</DialogTitle>
+      <DialogContent dividers>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          Choose which record to keep as the primary. The other record's labels will be merged in,
+          and it will be archived with a link back to the surviving record — it won't be deleted.
+        </Typography>
+
+        <RadioGroup value={primaryId} onChange={(e) => setPrimaryId(e.target.value)}>
+          <Stack spacing={1.5} sx={{ mb: 2 }}>
+            {[patientA, patientB].map((p) => (
+              <Paper key={p.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: primaryId === p.id ? '#1A73E8' : '#E8EAED' }}>
+                <FormControlLabel
+                  value={p.id}
+                  control={<Radio size="small" />}
+                  label={
+                    <Stack>
+                      <Typography variant="body2" fontWeight={700}>{p.full_name}</Typography>
+                      <Typography variant="caption" color="text.secondary">{p.email} · {p.phone}</Typography>
+                    </Stack>
+                  }
+                  sx={{ width: '100%', m: 0 }}
+                />
+              </Paper>
+            ))}
+          </Stack>
+        </RadioGroup>
+
+        <Table size="small">
+          <TableHead>
+            <TableRow>
+              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#9AA0A6' }}>Field</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#188038' }}>Keeping (primary)</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#9AA0A6' }}>Archiving</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {rows.map(([label, primaryVal, secondaryVal]) => (
+              <TableRow key={label}>
+                <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>{label}</TableCell>
+                <TableCell sx={{ fontSize: 12 }}>{primaryVal}</TableCell>
+                <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>{secondaryVal}</TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+
+        <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+          Appointments, tasks and history tied to the archived record stay associated with it for
+          audit purposes in this mockup — a real merge would repoint them to the primary record.
+        </Alert>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} sx={{ textTransform: 'none' }}>Cancel</Button>
+        <Button
+          variant="contained" color="error" startIcon={<MergeTypeRoundedIcon />}
+          onClick={() => onConfirm(primary.id, secondary.id)}
+          sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+        >
+          Merge Patients
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 // ─── PatientsPage ─────────────────────────────────────────────────────────────
 export default function PatientsPage() {
   const navigate = useNavigate()
@@ -125,6 +221,61 @@ export default function PatientsPage() {
   const [activeLetter, setActiveLetter] = useState(null)
   const [genderFilter, setGenderFilter] = useState('all')
   const [addOpen, setAddOpen] = useState(false)
+  const [mockPatients, setMockPatients] = useState(MOCK_PATIENTS)
+  const [showArchived, setShowArchived] = useState(false)
+
+  // ─── Duplicate patient merging (Semble createMergeRecord/updateMergeRecord parity) ───
+  const [mergeMode, setMergeMode] = useState(false)
+  const [mergeSelection, setMergeSelection] = useState([])
+  const [mergeDialogOpen, setMergeDialogOpen] = useState(false)
+  const [mergeSnackbar, setMergeSnackbar] = useState(null)
+
+  const toggleOnHold = (id) => {
+    setMockPatients((prev) => prev.map((p) => p.id === id
+      ? { ...p, on_hold: !p.on_hold, on_hold_reason: !p.on_hold ? 'Manually placed on hold' : null }
+      : p))
+  }
+  const toggleArchived = (id) => {
+    setMockPatients((prev) => prev.map((p) => p.id === id ? { ...p, archived: !p.archived } : p))
+  }
+
+  const toggleMergeMode = () => {
+    setMergeMode((v) => !v)
+    setMergeSelection([])
+  }
+
+  const toggleMergeSelection = (id) => {
+    setMergeSelection((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id)
+      if (prev.length >= 2) return prev // cap at 2 — merge is pairwise
+      return [...prev, id]
+    })
+  }
+
+  const handleConfirmMerge = (primaryId, secondaryId) => {
+    const primary = mockPatients.find((p) => p.id === primaryId)
+    const secondary = mockPatients.find((p) => p.id === secondaryId)
+    const mergedLabels = Array.from(new Set([...(primary.labels ?? []), ...(secondary.labels ?? [])]))
+
+    setMockPatients((prev) => prev.map((p) => {
+      if (p.id === primaryId) {
+        return {
+          ...p,
+          labels: mergedLabels,
+          merge_history: [...(p.merge_history ?? []), { merged_patient_id: secondary.id, merged_patient_name: secondary.full_name, merged_at: new Date().toISOString() }],
+        }
+      }
+      if (p.id === secondaryId) {
+        return { ...p, archived: true, merged_into: primaryId, merged_into_name: primary.full_name }
+      }
+      return p
+    }))
+
+    setMergeSnackbar(`${secondary.full_name} merged into ${primary.full_name}`)
+    setMergeDialogOpen(false)
+    setMergeMode(false)
+    setMergeSelection([])
+  }
 
   useEffect(() => {
     const t = setTimeout(() => { setDebouncedSearch(search); setPage(0) }, 300)
@@ -142,8 +293,8 @@ export default function PatientsPage() {
 
   // Fall back to mock if backend unavailable
   const useMock = apiPatients.length === 0 && !loading
-  const allPatients = useMock ? MOCK_PATIENTS : apiPatients
-  const total = useMock ? MOCK_PATIENTS.length : apiTotal
+  const allPatients = useMock ? mockPatients : apiPatients
+  const total = useMock ? mockPatients.filter((p) => showArchived || !p.archived).length : apiTotal
 
   // Client-side filters for mock mode
   const patients = useMock
@@ -153,7 +304,8 @@ export default function PatientsPage() {
         const matchSearch = !debouncedSearch || p.full_name.toLowerCase().includes(q) || p.email.toLowerCase().includes(q) || (p.phone ?? '').toLowerCase().replace(/[\s-]/g, '').includes(q.replace(/[\s-]/g, ''))
         const matchLetter = !activeLetter || p.full_name.toUpperCase().startsWith(activeLetter)
         const matchGender = genderFilter === 'all' || p.gender === genderFilter
-        return matchSearch && matchLetter && matchGender
+        const matchArchived = showArchived || !p.archived
+        return matchSearch && matchLetter && matchGender && matchArchived
       })
     : allPatients
 
@@ -178,19 +330,49 @@ export default function PatientsPage() {
             {loading ? 'Loading…' : `${useMock ? patients.length : total} patient${total !== 1 ? 's' : ''}`}
           </Typography>
         </Box>
-        <Button
-          variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/patients/new')}
-          sx={{
-            borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
-            width: { xs: '100%', sm: 'auto' },
-            background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-            boxShadow: '0 2px 8px rgba(26,115,232,0.30)',
-            '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)', boxShadow: '0 4px 14px rgba(26,115,232,0.40)' },
-          }}
-        >
-          Add Patient
-        </Button>
+        <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+          {useMock && (
+            <Button
+              variant={mergeMode ? 'contained' : 'outlined'}
+              color={mergeMode ? 'error' : 'inherit'}
+              startIcon={mergeMode ? <CloseRoundedIcon /> : <MergeTypeRoundedIcon />}
+              onClick={toggleMergeMode}
+              sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, flexShrink: 0 }}
+            >
+              {mergeMode ? 'Cancel Merge' : 'Merge Duplicates'}
+            </Button>
+          )}
+          <Button
+            variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/patients/new')}
+            sx={{
+              borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
+              flex: { xs: 1, sm: 'initial' },
+              background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
+              boxShadow: '0 2px 8px rgba(26,115,232,0.30)',
+              '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)', boxShadow: '0 4px 14px rgba(26,115,232,0.40)' },
+            }}
+          >
+            Add Patient
+          </Button>
+        </Stack>
       </Box>
+
+      {mergeMode && (
+        <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: '1px solid #FBBC04', borderRadius: 3, bgcolor: '#FEF7E0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+          <Typography variant="body2" fontWeight={600}>
+            {mergeSelection.length === 0 && 'Select two patient records to merge.'}
+            {mergeSelection.length === 1 && 'Select one more record to compare and merge.'}
+            {mergeSelection.length === 2 && '2 records selected — ready to review and merge.'}
+          </Typography>
+          <Button
+            size="small" variant="contained" disabled={mergeSelection.length !== 2}
+            onClick={() => setMergeDialogOpen(true)}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            Review & Merge
+          </Button>
+        </Paper>
+      )}
 
       {/* ── Search + Gender filters ──────────────────────────────────── */}
       <Paper elevation={0} sx={{ p: 2, mb: 2, border: '1px solid #E8EAED', borderRadius: 3, bgcolor: '#FFFFFF' }}>
@@ -212,6 +394,12 @@ export default function PatientsPage() {
               <ToggleButton key={v} value={v} sx={{ textTransform: 'none', fontWeight: 700, px: 2, '&.Mui-selected': { bgcolor: '#E8F0FE', color: '#1A73E8', borderColor: '#AECBFA' } }}>{l}</ToggleButton>
             ))}
           </ToggleButtonGroup>
+          <Chip
+            label={showArchived ? 'Showing archived' : 'Show archived'}
+            size="small" variant={showArchived ? 'filled' : 'outlined'}
+            onClick={() => setShowArchived((v) => !v)}
+            sx={{ flexShrink: 0, cursor: 'pointer', fontWeight: 700 }}
+          />
         </Stack>
       </Paper>
 
@@ -244,6 +432,7 @@ export default function PatientsPage() {
           <Table>
             <TableHead>
               <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: '#F8F9FA', color: '#9AA0A6', fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.10em', py: 1.5 } }}>
+                {mergeMode && <TableCell padding="checkbox" />}
                 <TableCell>Patient</TableCell>
                 <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Email</TableCell>
                 <TableCell>Phone</TableCell>
@@ -264,23 +453,65 @@ export default function PatientsPage() {
                 : patients.map((p) => (
                     <TableRow
                       key={p.id} hover
-                      onClick={() => navigate(`/patients/${p.id}`)}
+                      onClick={() => mergeMode ? (p.archived || toggleMergeSelection(p.id)) : navigate(`/patients/${p.id}`)}
                       // SUG-PT-012: keyboard navigation for rows
                       tabIndex={0}
                       role="button"
-                      aria-label={`View patient ${p.full_name}`}
+                      aria-label={mergeMode ? `${mergeSelection.includes(p.id) ? 'Deselect' : 'Select'} ${p.full_name} for merge` : `View patient ${p.full_name}`}
                       onKeyDown={(e) => {
                         if (e.key === 'Enter' || e.key === ' ') {
                           e.preventDefault()
-                          navigate(`/patients/${p.id}`)
+                          if (mergeMode) { if (!p.archived) toggleMergeSelection(p.id) } else navigate(`/patients/${p.id}`)
                         }
                       }}
-                      sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, '&:hover': { bgcolor: '#F1F3F4' }, '&:focus-visible': { outline: '2px solid #1A73E8', outlineOffset: '-2px' } }}
+                      sx={{
+                        cursor: mergeMode && p.archived ? 'not-allowed' : 'pointer',
+                        opacity: p.archived ? 0.6 : 1,
+                        bgcolor: mergeSelection.includes(p.id) ? '#E8F0FE' : undefined,
+                        '&:last-child td': { border: 0 }, '&:hover': { bgcolor: mergeSelection.includes(p.id) ? '#E8F0FE' : '#F1F3F4' },
+                        '&:focus-visible': { outline: '2px solid #1A73E8', outlineOffset: '-2px' },
+                      }}
                     >
+                      {mergeMode && (
+                        <TableCell padding="checkbox" onClick={(e) => e.stopPropagation()}>
+                          <Checkbox
+                            size="small" disabled={p.archived}
+                            checked={mergeSelection.includes(p.id)}
+                            onChange={() => toggleMergeSelection(p.id)}
+                            inputProps={{ 'aria-label': `Select ${p.full_name} for merge` }}
+                          />
+                        </TableCell>
+                      )}
                       <TableCell>
-                        <Stack direction="row" spacing={1.5} alignItems="center">
+                        <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
                           <Avatar sx={{ width: 34, height: 34, bgcolor: '#E8F0FE', color: '#1A73E8', fontSize: 14, fontWeight: 700 }}>{p.full_name?.[0] ?? 'P'}</Avatar>
-                          <Typography variant="body2" fontWeight={600} sx={{ color: '#202124' }}>{p.full_name}</Typography>
+                          <Box>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: '#202124' }}>{p.full_name}</Typography>
+                            {(p.on_hold || p.archived || p.merge_history?.length > 0 || p.labels?.length > 0) && (
+                              <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.25 }}>
+                                {p.on_hold && (
+                                  <Tooltip title={p.on_hold_reason || 'On hold'}>
+                                    <Chip size="small" color="warning" label="On hold" sx={{ height: 18, fontSize: 10, fontWeight: 700 }} />
+                                  </Tooltip>
+                                )}
+                                {p.merged_into ? (
+                                  <Tooltip title={`Duplicate — merged into ${p.merged_into_name}`}>
+                                    <Chip size="small" icon={<MergeTypeRoundedIcon sx={{ fontSize: 12 }} />} label={`Merged → ${p.merged_into_name}`} sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#FCE8E6', color: '#B3261E' }} />
+                                  </Tooltip>
+                                ) : p.archived && (
+                                  <Chip size="small" label="Archived" sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#F1F3F4' }} />
+                                )}
+                                {p.merge_history?.length > 0 && (
+                                  <Tooltip title={`Absorbed ${p.merge_history.length} duplicate record(s): ${p.merge_history.map(h => h.merged_patient_name).join(', ')}`}>
+                                    <Chip size="small" icon={<MergeTypeRoundedIcon sx={{ fontSize: 12 }} />} label={`${p.merge_history.length} merged`} variant="outlined" sx={{ height: 18, fontSize: 10, fontWeight: 700, color: '#188038', borderColor: '#188038' }} />
+                                  </Tooltip>
+                                )}
+                                {p.labels?.map((label) => (
+                                  <Chip key={label} size="small" label={label} variant="outlined" sx={{ height: 18, fontSize: 10, fontWeight: 700 }} />
+                                ))}
+                              </Stack>
+                            )}
+                          </Box>
                         </Stack>
                       </TableCell>
                       <TableCell sx={{ fontSize: 13, color: '#5F6368', display: { xs: 'none', sm: 'table-cell' } }}>{p.email ?? '—'}</TableCell>
@@ -310,13 +541,27 @@ export default function PatientsPage() {
                             <span style={{ fontSize: '14px', lineHeight: 1 }}>✎</span>
                           </IconButton>
                         </Tooltip>
+                        {useMock && (
+                          <>
+                            <Tooltip title={p.on_hold ? 'Remove hold' : 'Place on hold'}>
+                              <IconButton size="small" onClick={() => toggleOnHold(p.id)} aria-label={`${p.on_hold ? 'Remove hold from' : 'Place'} ${p.full_name} ${p.on_hold ? '' : 'on hold'}`} sx={{ color: p.on_hold ? 'warning.main' : 'text.disabled' }}>
+                                <PauseCircleFilledRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                            <Tooltip title={p.archived ? 'Unarchive' : 'Archive'}>
+                              <IconButton size="small" onClick={() => toggleArchived(p.id)} aria-label={`${p.archived ? 'Unarchive' : 'Archive'} ${p.full_name}`} sx={{ color: 'text.disabled' }}>
+                                {p.archived ? <UnarchiveRoundedIcon fontSize="small" /> : <ArchiveRoundedIcon fontSize="small" />}
+                              </IconButton>
+                            </Tooltip>
+                          </>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))
               }
               {!loading && patients.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 8 }}>
+                  <TableCell colSpan={mergeMode ? 7 : 6} align="center" sx={{ py: 8 }}>
                     <Typography color="text.secondary">
                       {debouncedSearch ? `No patients match "${debouncedSearch}"` : activeLetter ? `No patients starting with "${activeLetter}"` : 'No patients found'}
                     </Typography>
@@ -333,6 +578,20 @@ export default function PatientsPage() {
           onRowsPerPageChange={(e) => { setRowsPerPage(+e.target.value); setPage(0) }}
         />
       </Paper>
+
+      <MergePatientsDialog
+        open={mergeDialogOpen}
+        patientA={mockPatients.find((p) => p.id === mergeSelection[0])}
+        patientB={mockPatients.find((p) => p.id === mergeSelection[1])}
+        onClose={() => setMergeDialogOpen(false)}
+        onConfirm={handleConfirmMerge}
+      />
+
+      <Snackbar
+        open={!!mergeSnackbar} autoHideDuration={4000} onClose={() => setMergeSnackbar(null)}
+        message={mergeSnackbar}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
 
     </Box>
   )

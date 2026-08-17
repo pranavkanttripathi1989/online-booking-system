@@ -189,11 +189,16 @@ export class AuthService {
       throw new ConflictException('Unable to create account with these details');
     }
 
-    const patientRole = await this.prisma.userRoles.upsert({
-      where: { name: 'patient' },
-      update: {},
-      create: { name: 'patient', description: 'Self-registered patient account' },
+    // Prisma's compound-unique `where` doesn't accept `null` for a nullable
+    // field in this version, so this is a manual findFirst+create instead of upsert.
+    const existingPatientRole = await this.prisma.userRoles.findFirst({
+      where: { client_org_id: null, name: 'patient' },
     });
+    const patientRole =
+      existingPatientRole ??
+      (await this.prisma.userRoles.create({
+        data: { name: 'patient', description: 'Self-registered patient account', is_system: true },
+      }));
 
     const hashed = await bcrypt.hash(input.password, BCRYPT_COST);
 

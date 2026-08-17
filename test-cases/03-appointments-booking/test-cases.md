@@ -67,6 +67,11 @@
 - **Steps:** Call the duration-resolution function for one service with `apptType: 'in_person'` then `apptType: 'video'`.
 - **Expected Result:** Returns different durations if the service defines type-specific durations (TC-BOOK-012) — video and in-person must not silently share a duration value that was only ever validated for one of them.
 
+### TC-APPT-UNIT-012 — Journey-stage derivation is exhaustive and precedence-ordered (mirrors `TC-PAT-UNIT-014`)
+- **Priority:** High
+- **Steps:** Derive journey stage for all 5 combinations of `{arrived, consultation, departed, dna}` presence/absence that are reachable via the Waiting Room's own action buttons (not-arrived; arrived-only; arrived+consultation; arrived+consultation+departed; dna-only).
+- **Expected Result:** Each maps to exactly one of `not_arrived`/`arrived`/`in_consultation`/`departed`/`dna`, matching `frontend/src/pages/waiting-room/index.jsx`'s `journeyStage()` — grounded here (appointments domain) as well as in `05-patients` since `Journey` is a first-class Appointment concept in the requirements doc (mirrors Semble's `Journey` object nested on `Booking`, not on `Patient`).
+
 ---
 
 ## 2. Backend/API Test Cases
@@ -144,6 +149,21 @@
 - **Steps:** Log in as a manager of Org 1, query a specific `appointment(id: <Org2Appointment.id>)`.
 - **Expected Result:** Rejected or null — mirrors `TC-AUTH-API-010`'s multi-tenancy guarantee applied to this domain.
 
+### TC-APPT-API-014 — Journey mutations (`checkInPatient`/`markConsultationStarted`/`checkOutPatient`/`markPatientDidNotAttend`) are role-gated to front-desk/clinical staff, not patients
+- **Priority:** Critical
+- **Steps:** Log in as the patient on the appointment itself, attempt `checkInPatient(id: <ownAppointment>)`.
+- **Expected Result:** Rejected — a patient self-checking-in via a direct API call (bypassing the front-desk Waiting Room UI entirely) must not be possible; only `receptionist`/`clinician`/`admin`/`super_admin` roles may write Journey state, mirroring `TC-ADMIN-API-012`'s admin-only-mutation pattern applied to this domain. Reference implementation: `context/backend-hard-rules.md` Rule 2 (`@Roles()` paired with `@UseGuards(GqlAuthGuard)`).
+
+### TC-APPT-API-015 — `checkOutPatient` cannot be called before `markConsultationStarted` on the same appointment
+- **Priority:** Medium
+- **Steps:** Call `checkOutPatient(id)` on an appointment with no `journey.consultation` timestamp set.
+- **Expected Result:** Rejected (or the API's documented, deliberate ordering rule is enforced consistently) — this is the concrete backend spec for the ambiguity flagged in `TC-PAT-API-016`; decide the rule once, here, rather than leaving it to whichever resolver gets written first.
+
+### TC-APPT-API-016 — `markPatientDidNotAttend` is mutually exclusive with an already-`departed` appointment
+- **Priority:** Medium
+- **Steps:** Call `markPatientDidNotAttend(id)` on an appointment that already has `journey.departed` set (patient already completed their visit).
+- **Expected Result:** Rejected — a completed visit can't retroactively become a no-show; prevents a data-entry mistake from corrupting a no-show-rate report that a future analytics phase (Phase 13) might build on this data.
+
 ---
 
 ## 3. Functional / E2E Test Cases
@@ -212,6 +232,11 @@
 - **Preconditions:** Grounded in `backend-implementation-plan.md`'s India table — Telemedicine Practice Guidelines 2020 require a captured consent record before a video consult proceeds.
 - **Steps:** Click "Join Call" on an upcoming video appointment that has no prior consent record.
 - **Expected Result:** A consent step is required before the video UI renders, and a `consent_given_at` timestamp (or dedicated `ConsentRecords` row) is persisted — this feature must not ship without it per the stated compliance requirement.
+
+### TC-APPT-E2E-012 — A patient checked in via the Waiting Room shows as "Checked In" on the clinician's own calendar/dashboard
+- **Priority:** High
+- **Steps:** As staff, check in a patient from `/waiting-room`. As the appointment's clinician, load their dashboard/calendar for the same day.
+- **Expected Result:** The clinician sees the same journey state without any manual refresh (real subscription-backed data, per Phase 10) — proves Journey is shared cross-role state, not a Waiting-Room-page-local concept; this is the real-backend equivalent of the mockup's shared `mocks/store.js` reactivity (`TC-PAT-E2E-013`).
 
 ---
 
@@ -302,3 +327,21 @@
 - **Preconditions:** Regression guard for NEW-APPT-004.
 - **Steps:** Open the "Send Reminder" dialog for a patient record with no `phone` value.
 - **Expected Result:** The SMS radio option is disabled with a "No phone on file" badge; Email remains selectable and functional.
+
+### Waiting Room / Patient Journey (`/waiting-room` — new this increment)
+
+### TC-APPT-FE-015 — Default date auto-selects the busiest seeded date, not the real "today"
+- **Priority:** Medium
+- **Preconditions:** Seed appointment dates cluster around March 2026, unrelated to the actual system date.
+- **Steps:** Load `/waiting-room` with no date interaction.
+- **Expected Result:** The date field defaults to whichever seeded date has the most appointments (computed, not hardcoded) so the page never opens to an empty queue by default — regression guard for the deliberate design choice documented inline in `pages/waiting-room/index.jsx`.
+
+### TC-APPT-FE-016 — Cancelled appointments never appear in the Waiting Room queue
+- **Priority:** Medium
+- **Steps:** Load `/waiting-room` for a date that includes at least one `cancelled` appointment.
+- **Expected Result:** The cancelled appointment is excluded from the card list and from all 5 stage-count chips — a cancelled appointment was never going to have a patient physically arrive, so it shouldn't occupy a "not arrived" slot in the queue.
+
+### TC-APPT-FE-017 — Clicking a patient's name in the Waiting Room navigates to their detail page
+- **Priority:** Low
+- **Steps:** Click a patient's name on any Waiting Room card.
+- **Expected Result:** Navigates to `/patients/:id` for that exact patient — quick cross-navigation from an operational view to the clinical record, consistent with how other list pages in this codebase link patient names to their detail page.
