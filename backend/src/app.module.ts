@@ -24,6 +24,8 @@ import { BlocksModule } from './blocks/blocks.module';
 import { UsersModule } from './users/users.module';
 import { StaffModule } from './staff/staff.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { ReviewsModule } from './reviews/reviews.module';
+import { MessagesModule } from './messages/messages.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { GqlAuthGuard } from './common/guards/gql-auth.guard';
@@ -91,6 +93,8 @@ import { PubSubModule } from './common/pubsub.module';
     UsersModule,
     StaffModule,
     NotificationsModule,
+    ReviewsModule,
+    MessagesModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

@@ -1,0 +1,30 @@
+import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { ReviewsService } from './reviews.service';
+import { ReviewType, ReviewMutationResultType } from './entities/review.entity';
+import { ReviewFilterInput } from './dto/review-filter.input';
+import { Auth } from '../common/decorators/auth.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+@Resolver(() => ReviewType)
+export class ReviewsResolver {
+  constructor(private readonly reviewsService: ReviewsService) {}
+
+  @Auth('admin', 'super_admin', 'manager')
+  @Query(() => [ReviewType])
+  reviews(@Args('filter', { nullable: true }) filter: ReviewFilterInput, @CurrentUser() user: JwtPayload) {
+    return this.reviewsService.findAll(filter, user);
+  }
+
+  @Auth('admin', 'super_admin', 'manager')
+  @Mutation(() => ReviewMutationResultType)
+  respondToReview(@Args('id', { type: () => ID }) id: string, @Args('response') response: string, @CurrentUser() user: JwtPayload) {
+    return this.reviewsService.respondToReview(id, response, user);
+  }
+
+  @Auth('admin', 'super_admin', 'manager')
+  @Mutation(() => ReviewMutationResultType)
+  deleteReview(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.reviewsService.remove(id, user);
+  }
+}

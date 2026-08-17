@@ -1,5 +1,12 @@
 # Next 10 Features — Backend Implementation Plan
 
+## Status: all 10 built, migrated, and live-verified via curl (2026-08-17)
+
+`backend/src/{patients,appointments,availability,blocks,users,staff,notifications,reviews,messages}` — a Patients module (feature 0, an unplanned but required prerequisite discovered mid-build: Appointments has a hard, non-nullable FK to Patients, which had zero backend despite a live canonical frontend contract) plus all ten planned domains. Real-time transport added along the way: `graphql-ws` subscriptions (`appointmentUpdated`, `messageReceived`) over a single-process `graphql-subscriptions` PubSub, with JWT auth reused from the existing passport-jwt guard (no separate WS auth path) and the HTTP-shaped throttler guard exempted for subscriptions. Four additive migrations along the way (`AppointmentStatusLogs` + 3 `Appointments` columns; `RoomBlocks` recurrence fields; `UserRoles.code`/`UserProfiles.last_login_at`/`avatar_url`; `UserProfiles.department`/`job_title`/`notes`/`staff_status`) — no destructive schema changes, every existing live contract from Phase 4/4.5 continues to work unchanged.
+
+Not yet done: unit/integration tests per `backend-hard-rules.md` Rule 7 (curl + live-data verification only, no `.spec.ts` files written this pass — same gap flagged for every prior increment), a live Playwright-MCP browser pass against the actual frontend pages (curl-verified against the schema/resolvers directly, not yet clicked through in a browser), and Reviews' `avg_rating`/`total_reviews` computed fields on `Clinician` (flagged as additive/optional in the plan, deferred). Public/patient-self-serve booking (`getClinicians` et al., the camelCase dialect) remains the next natural batch, as planned.
+
+
 Ten domains, in dependency order, selected from `backend-api-requirements-master-plan.md`'s phase-grouped requirements. Written before any code, per the standing session convention. Every domain below already has a fully-relational Prisma model with zero resolvers (confirmed via `grep -n "^model "` + reading each model's fields directly) — this is resolver-writing against an already-correct schema, not schema design, except Staff (#7) which needs two additive nullable columns.
 
 ## Build order and why

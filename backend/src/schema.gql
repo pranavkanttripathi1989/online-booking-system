@@ -482,6 +482,11 @@ input CreateStaffInput {
   role: String!
 }
 
+input CreateThreadInput {
+  first_message: String!
+  participant_ids: [ID!]!
+}
+
 """
 A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date-time format.
 """
@@ -545,6 +550,15 @@ type LunchBreakSlot {
   startTime: String!
 }
 
+type MessageThread {
+  id: ID!
+  last_activity: DateTime!
+  last_message: String
+  messages: [ThreadMessage!]
+  participants: [ThreadParticipant!]!
+  unread_count: Int!
+}
+
 type Mutation {
   cancelAppointment(id: ID!, reason: String): Appointment!
   completeAppointment(id: ID!): Appointment!
@@ -563,6 +577,7 @@ type Mutation {
   createService(input: ServiceInput!): Service!
   createSpacerBlock(input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
   createStaff(input: CreateStaffInput!): Staff!
+  createThread(input: CreateThreadInput!): MessageThread!
   createUser(input: UserInput!): User!
   deactivateStaff(id: ID!): Staff!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
@@ -572,6 +587,7 @@ type Mutation {
   deleteLunchBreak(id: ID!): Boolean!
   deleteNotification(id: ID!): NotificationMutationResult!
   deleteOrganization(id: ID!): OrganizationMutationResult!
+  deleteReview(id: ID!): ReviewMutationResult!
   deleteRole(id: ID!): Boolean!
   deleteRoomBlock(id: ID!): RoomBlockMutationResult!
   deleteRoomType(id: ID!): LookupMutationResult!
@@ -582,13 +598,16 @@ type Mutation {
   markAllNotificationsRead: NotificationMutationResult!
   markNoShow(id: ID!): Appointment!
   markNotificationRead(id: ID!): NotificationMutationResult!
+  markThreadRead(threadId: ID!): Boolean!
   orderTest(input: OrderTestInput!): TestResult!
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
   requestOtp(input: RequestOtpInput!): GenericResult!
   resetPassword(input: ResetPasswordInput!): GenericResult!
+  respondToReview(id: ID!, response: String!): ReviewMutationResult!
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
+  sendMessage(body: String!, threadId: ID!): MessageThread!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
   updateClinic(id: ID!, input: ClinicInput!): Clinic!
@@ -801,6 +820,7 @@ type Query {
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
+  reviews(filter: ReviewFilterInput): [Review!]!
   roles: [AppRole!]!
   room(id: ID!): Room
   roomBlocks(search: SearchInput): [RoomBlock!]!
@@ -813,6 +833,8 @@ type Query {
   staffMember(id: ID!): Staff!
   testResult(id: ID!): TestResult
   testResults(search: String, status: String, type: String): [TestResult!]!
+  thread(id: ID!): MessageThread!
+  threads: [MessageThread!]!
 }
 
 input RefreshInput {
@@ -834,6 +856,26 @@ input RequestOtpInput {
 input ResetPasswordInput {
   new_password: String!
   token: String!
+}
+
+type Review {
+  clinician_name: String
+  comment: String!
+  created_at: DateTime!
+  id: ID!
+  patient_name: String!
+  response: String
+  stars: Int!
+}
+
+input ReviewFilterInput {
+  search: String
+  stars: Int
+}
+
+type ReviewMutationResult {
+  review: Review
+  success: Boolean!
 }
 
 type Role {
@@ -965,6 +1007,7 @@ type Staff {
 
 type Subscription {
   appointmentUpdated(clinician_id: ID): Appointment!
+  messageReceived(userId: ID!): MessageThread!
 }
 
 type TestResult {
@@ -984,6 +1027,21 @@ type TestResultValue {
   name: String!
   ref: String!
   value: String!
+}
+
+type ThreadMessage {
+  body: String!
+  from_id: ID!
+  from_name: String!
+  id: ID!
+  read: Boolean!
+  sent_at: DateTime!
+}
+
+type ThreadParticipant {
+  id: ID!
+  name: String!
+  role: String!
 }
 
 input UpdateAvailabilityInput {
