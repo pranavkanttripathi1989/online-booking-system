@@ -20,6 +20,7 @@ import { TestResultsModule } from './test-results/test-results.module';
 import { PatientsModule } from './patients/patients.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { AvailabilityModule } from './availability/availability.module';
+import { BlocksModule } from './blocks/blocks.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { GqlAuthGuard } from './common/guards/gql-auth.guard';
@@ -83,6 +84,7 @@ import { PubSubModule } from './common/pubsub.module';
     PatientsModule,
     AppointmentsModule,
     AvailabilityModule,
+    BlocksModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

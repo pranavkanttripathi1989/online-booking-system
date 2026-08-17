@@ -648,6 +648,11 @@ model RoomBlocks {
   is_recurring Boolean @default(false)
   is_deleted  Boolean  @default(false)
   created_at  DateTime @default(now())
+  // manager/Blocks.jsx's roomBlocks query requests these three — mirrors
+  // SpacerBlocks' already-existing fields exactly (backend-hard-rules.md Rule 9).
+  recurrence_type RecurrenceType @default(single)
+  recurrence_days Json?
+  end_date        DateTime?
 
   room   Rooms   @relation(fields: [room_id], references: [id])
   clinic Clinics @relation(fields: [clinic_id], references: [id])

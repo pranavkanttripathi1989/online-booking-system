@@ -202,6 +202,26 @@ type AvailableSlotClinician {
   id: ID!
 }
 
+type BlockClinic {
+  id: ID!
+  name: String!
+}
+
+type BlockClinician {
+  first_name: String!
+  id: ID!
+  last_name: String!
+}
+
+type BlockRoom {
+  id: ID!
+  room_number: String!
+}
+
+type BlockUserError {
+  message: String!
+}
+
 type Clinic {
   address: String!
   city: String
@@ -307,6 +327,14 @@ type ClinicianServiceItem {
   price: Float
 }
 
+type ClinicianSpacerBlock {
+  duration: Float!
+  endTime: String!
+  id: ID!
+  reason: String!
+  startTime: String!
+}
+
 type ClinicianType {
   description: String
   id: ID!
@@ -350,10 +378,35 @@ input CreateLanguageInput {
   name: String!
 }
 
+input CreateRoomBlockInput {
+  block_date: String
+  clinic_id: String!
+  end_date: String
+  end_time: String!
+  reason: String
+  recurrence_days: [Int!]
+  recurrence_type: String!
+  room_id: String!
+  start_time: String!
+}
+
 input CreateRoomTypeInput {
   description: String
   is_active: Boolean
   name: String!
+}
+
+input CreateSpacerBlockInput {
+  block_date: String
+  clinic_id: String!
+  clinician_id: String!
+  end_date: String
+  end_time: String!
+  reason: String
+  recurrence_days: [Int!]
+  recurrence_type: String!
+  room_id: String
+  start_time: String!
 }
 
 """
@@ -431,15 +484,19 @@ type Mutation {
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
   createRoom(input: RoomInput!): Room!
+  createRoomBlock(input: CreateRoomBlockInput!): RoomBlockMutationResult!
   createRoomType(input: CreateRoomTypeInput!): LookupMutationResult!
   createService(input: ServiceInput!): Service!
+  createSpacerBlock(input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteClinicianAvailability(id: ID!): Boolean!
   deleteClinicianType(id: ID!): LookupMutationResult!
   deleteLanguage(id: ID!): LookupMutationResult!
   deleteLunchBreak(id: ID!): Boolean!
   deleteOrganization(id: ID!): OrganizationMutationResult!
+  deleteRoomBlock(id: ID!): RoomBlockMutationResult!
   deleteRoomType(id: ID!): LookupMutationResult!
+  deleteSpacerBlock(id: ID!): SpacerBlockMutationResult!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   login(input: LoginInput!): AuthPayload!
   logout: Boolean!
@@ -461,8 +518,10 @@ type Mutation {
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
   updateRoom(id: ID!, input: RoomInput!): Room!
+  updateRoomBlock(id: ID!, input: CreateRoomBlockInput!): RoomBlockMutationResult!
   updateRoomType(id: ID!, input: UpdateRoomTypeInput!): LookupMutationResult!
   updateService(id: ID!, input: ServiceInput!): Service!
+  updateSpacerBlock(id: ID!, input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
   verifyOtp(input: VerifyOtpInput!): AuthPayload!
 }
 
@@ -623,16 +682,19 @@ type Query {
   getClinicianAvailability(clinicianId: ID!): [ClinicianAvailabilitySlot!]!
   getLunchBreaks(clinicianId: ID!): [LunchBreakSlot!]!
   getRooms(clinicId: ID!): [AvailabilityRoomOption!]!
+  getSpacerBlocks(clinicianId: ID!, date: String!): [ClinicianSpacerBlock!]!
   languages: [Language!]!
   me: User!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
   room(id: ID!): Room
+  roomBlocks(search: SearchInput): [RoomBlock!]!
   roomTypes: [RoomType!]!
   rooms(clinic_id: ID): [Room!]!
   service(id: ID!): Service
   services(clinic_id: ID, is_active: Boolean): [Service!]!
+  spacerBlocks(search: SearchInput): [SpacerBlock!]!
   testResult(id: ID!): TestResult
   testResults(search: String, status: String, type: String): [TestResult!]!
 }
@@ -668,6 +730,27 @@ type Room {
   id: ID!
   is_active: Boolean!
   name: String!
+}
+
+type RoomBlock {
+  block_date: DateTime!
+  clinic: BlockClinic!
+  clinic_id: ID!
+  end_date: DateTime
+  end_time: String!
+  id: ID!
+  reason: String!
+  recurrence_days: [Int!]
+  recurrence_type: String!
+  room: BlockRoom!
+  room_id: ID!
+  start_time: String!
+}
+
+type RoomBlockMutationResult {
+  roomBlock: RoomBlock
+  success: Boolean!
+  userErrors: [BlockUserError!]!
 }
 
 input RoomInput {
@@ -719,6 +802,29 @@ input ServiceInput {
   is_active: Boolean
   name: String!
   price: Float
+}
+
+type SpacerBlock {
+  block_date: DateTime
+  clinic: BlockClinic!
+  clinic_id: ID!
+  clinician: BlockClinician!
+  clinician_id: ID!
+  end_date: DateTime
+  end_time: String!
+  id: ID!
+  reason: String!
+  recurrence_days: [Int!]
+  recurrence_type: String!
+  room: BlockRoom
+  room_id: ID
+  start_time: String!
+}
+
+type SpacerBlockMutationResult {
+  spacerBlock: SpacerBlock
+  success: Boolean!
+  userErrors: [BlockUserError!]!
 }
 
 type Subscription {
