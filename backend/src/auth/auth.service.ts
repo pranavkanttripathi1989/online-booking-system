@@ -110,6 +110,7 @@ export class AuthService {
       roles: [userProfile.role.name],
       client_org_id: userProfile.client_org_id,
       patient_id: userProfile.patient_id ?? null,
+      clinician_id: userProfile.clinician_id ?? null,
     };
     const access_token = this.jwt.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET,

@@ -11,6 +11,9 @@ export interface JwtPayload {
   // (same pattern as client_org_id) so every resolver/service can scope a
   // patient caller to their own records without an extra DB round-trip.
   patient_id?: string | null;
+  // Same pattern, for the 'clinician' role (TC-APPT-API-010: a clinician's
+  // appointments query must default to their own schedule, not the whole org's).
+  clinician_id?: string | null;
 }
 
 @Injectable()

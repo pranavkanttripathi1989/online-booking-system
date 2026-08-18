@@ -96,9 +96,16 @@ export class AppointmentsService {
   // (reason, notes, clinician, other patients' names) within the org. See
   // the identical fix in patients.service.ts's selfScope for the same
   // patient_id-embedded-in-JWT pattern.
+  //
+  // Also applies the TC-APPT-API-010 requirement: a clinician's default
+  // appointments query returns their own schedule, not every clinician's in
+  // the org. Deliberately NOT applied to manager/admin/super_admin/staff --
+  // front-desk staff need the whole clinic's schedule, matching TC-APPT-API-014's
+  // role list for Journey mutations.
   private selfScope(user: JwtPayload) {
-    if (!user.roles.includes('patient')) return {};
-    return { patient_id: user.patient_id ?? '__no_patient_link__' };
+    if (user.roles.includes('patient')) return { patient_id: user.patient_id ?? '__no_patient_link__' };
+    if (user.roles.includes('clinician')) return { clinician_id: user.clinician_id ?? '__no_clinician_link__' };
+    return {};
   }
 
   async findAll(filters: AppointmentFiltersInput | undefined, first: number, page: number, user: JwtPayload) {
@@ -154,6 +161,9 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found');
     }
     if (user.roles.includes('patient') && appointment.patient_id !== user.patient_id) {
+      throw new NotFoundException('Appointment not found');
+    }
+    if (user.roles.includes('clinician') && appointment.clinician_id !== user.clinician_id) {
       throw new NotFoundException('Appointment not found');
     }
     return appointment;

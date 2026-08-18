@@ -19,6 +19,8 @@ describe('AppointmentsService — access scoping', () => {
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
   const unlinkedPatientUser: JwtPayload = { sub: 'user-2', roles: ['patient'], client_org_id: 'org-1', patient_id: null } as JwtPayload;
+  const clinicianUser: JwtPayload = { sub: 'user-3', roles: ['clinician'], client_org_id: 'org-1', clinician_id: 'cln-1' } as JwtPayload;
+  const unlinkedClinicianUser: JwtPayload = { sub: 'user-4', roles: ['clinician'], client_org_id: 'org-1', clinician_id: null } as JwtPayload;
 
   beforeEach(async () => {
     prisma = {
@@ -54,6 +56,18 @@ describe('AppointmentsService — access scoping', () => {
       const where = prisma.appointments.findMany.mock.calls[0][0].where;
       expect(where.patient_id).toBe('__no_patient_link__');
     });
+
+    it('restricts a clinician caller to only their own linked clinician_id (TC-APPT-API-010)', async () => {
+      await service.findAll(undefined, 20, 1, clinicianUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.clinician_id).toBe('cln-1');
+    });
+
+    it('an unlinked clinician account (no clinician_id) sees nothing, never falls through to "everyone"', async () => {
+      await service.findAll(undefined, 20, 1, unlinkedClinicianUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.clinician_id).toBe('__no_clinician_link__');
+    });
   });
 
   describe('findOne', () => {
@@ -61,6 +75,7 @@ describe('AppointmentsService — access scoping', () => {
       id: 'appt-1',
       is_deleted: false,
       patient_id: 'pat-1',
+      clinician_id: 'cln-1',
       clinic: { client_org_id: 'org-1' },
       patient: { id: 'pat-1', first_name: 'A', last_name: 'B', date_of_birth: new Date() },
       clinician: { id: 'cln-1', first_name: 'X', last_name: 'Y' },
@@ -79,6 +94,16 @@ describe('AppointmentsService — access scoping', () => {
     it('a patient caller is rejected loading another patient\'s appointment', async () => {
       prisma.appointments.findUnique.mockResolvedValue(baseAppointment({ patient_id: 'pat-2' }));
       await expect(service.findOne('appt-1', patientUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('a clinician caller can load their own appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointment());
+      await expect(service.findOne('appt-1', clinicianUser)).resolves.toBeDefined();
+    });
+
+    it('a clinician caller is rejected loading another clinician\'s appointment (TC-APPT-API-010)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointment({ clinician_id: 'cln-2' }));
+      await expect(service.findOne('appt-1', clinicianUser)).rejects.toThrow(NotFoundException);
     });
   });
 });
