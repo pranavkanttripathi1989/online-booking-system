@@ -6,6 +6,11 @@ export interface JwtPayload {
   sub: string;
   roles: string[];
   client_org_id: string | null;
+  // Self-scoping for the 'patient' role: null for every other role, and for
+  // a patient account not yet linked to a Patients row. Embedded in the JWT
+  // (same pattern as client_org_id) so every resolver/service can scope a
+  // patient caller to their own records without an extra DB round-trip.
+  patient_id?: string | null;
 }
 
 @Injectable()

@@ -91,8 +91,18 @@ export class AppointmentsService {
     return user.client_org_id ? { clinic: { client_org_id: user.client_org_id } } : {};
   }
 
+  // SECURITY: appointments() previously only org-scoped, never self-scoped --
+  // any authenticated 'patient' role account could read every appointment
+  // (reason, notes, clinician, other patients' names) within the org. See
+  // the identical fix in patients.service.ts's selfScope for the same
+  // patient_id-embedded-in-JWT pattern.
+  private selfScope(user: JwtPayload) {
+    if (!user.roles.includes('patient')) return {};
+    return { patient_id: user.patient_id ?? '__no_patient_link__' };
+  }
+
   async findAll(filters: AppointmentFiltersInput | undefined, first: number, page: number, user: JwtPayload) {
-    const where: any = { is_deleted: false, ...this.orgScope(user) };
+    const where: any = { is_deleted: false, ...this.orgScope(user), ...this.selfScope(user) };
     if (filters?.status) where.status = filters.status;
     if (filters?.clinician_id) where.clinician_id = filters.clinician_id;
     if (filters?.date_from || filters?.date_to) {
@@ -141,6 +151,9 @@ export class AppointmentsService {
       throw new NotFoundException('Appointment not found');
     }
     if (user.client_org_id && appointment.clinic.client_org_id !== user.client_org_id) {
+      throw new NotFoundException('Appointment not found');
+    }
+    if (user.roles.includes('patient') && appointment.patient_id !== user.patient_id) {
       throw new NotFoundException('Appointment not found');
     }
     return appointment;

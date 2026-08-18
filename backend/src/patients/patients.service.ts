@@ -32,10 +32,22 @@ export class PatientsService {
     };
   }
 
+  // SECURITY: patients() previously only org-scoped, never self-scoped --
+  // any authenticated 'patient' role account could read every patient's
+  // PHI (name, DOB, medical notes) within the org. A patient caller is now
+  // restricted to their own record via the patient_id embedded in their JWT
+  // (auth/strategies/jwt.strategy.ts); an unlinked patient account (no
+  // patient_id yet) sees nothing rather than falling through to "everyone".
+  private selfScope(user: JwtPayload) {
+    if (!user.roles.includes('patient')) return undefined;
+    return { id: user.patient_id ?? '__no_patient_link__' };
+  }
+
   async findAll(search: string | undefined, first: number, page: number, user: JwtPayload) {
     const where = {
       is_deleted: false,
       ...this.orgScope(user),
+      ...this.selfScope(user),
       ...(search
         ? {
             OR: [
@@ -73,6 +85,9 @@ export class PatientsService {
   async findOne(id: string, user: JwtPayload) {
     const patient = await this.prisma.patients.findUnique({ where: { id } });
     if (!patient || patient.is_deleted) {
+      throw new NotFoundException('Patient not found');
+    }
+    if (user.roles.includes('patient') && id !== user.patient_id) {
       throw new NotFoundException('Patient not found');
     }
     if (user.client_org_id) {

@@ -103,11 +103,13 @@ export class AuthService {
     role: { name: string };
     clinician_id: string | null;
     client_org_id: string | null;
+    patient_id?: string | null;
   }): Promise<AuthPayloadType> {
     const payload = {
       sub: userProfile.id,
       roles: [userProfile.role.name],
       client_org_id: userProfile.client_org_id,
+      patient_id: userProfile.patient_id ?? null,
     };
     const access_token = this.jwt.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET,

@@ -42,6 +42,12 @@ export class TestResultsService {
         // every other domain — a legacy/seeded result with no ordering user
         // is visible to any authenticated staff role rather than hidden.
         ordered_by: user.client_org_id ? { client_org_id: user.client_org_id } : undefined,
+        // SECURITY: this query had no @Auth() role gate and no per-patient
+        // scoping -- any authenticated 'patient' role account could read
+        // every patient's lab values within the org. Restrict to the
+        // caller's own linked patient_id (see patients.service.ts's
+        // selfScope for the identical JWT-embedded pattern).
+        ...(user.roles.includes('patient') ? { patient_id: user.patient_id ?? '__no_patient_link__' } : {}),
       },
       orderBy: { date_ordered: 'desc' },
     });
@@ -54,6 +60,9 @@ export class TestResultsService {
       throw new NotFoundException('Test result not found');
     }
     if (user.client_org_id && row.ordered_by && row.ordered_by.client_org_id !== user.client_org_id) {
+      throw new NotFoundException('Test result not found');
+    }
+    if (user.roles.includes('patient') && row.patient_id !== user.patient_id) {
       throw new NotFoundException('Test result not found');
     }
     return this.toGraphQL(row);
