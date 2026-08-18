@@ -66,26 +66,26 @@ export class AvailabilityResolver {
 
   @Auth('manager', 'admin', 'super_admin', 'clinician')
   @Mutation(() => SavedIdResultType)
-  saveClinicianAvailability(@Args('input') input: ClinicianAvailabilityInput) {
-    return this.availabilityService.saveClinicianAvailability(input);
+  saveClinicianAvailability(@Args('input') input: ClinicianAvailabilityInput, @CurrentUser() user: JwtPayload) {
+    return this.availabilityService.saveClinicianAvailability(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin', 'clinician')
   @Mutation(() => Boolean)
-  deleteClinicianAvailability(@Args('id', { type: () => ID }) id: string) {
-    return this.availabilityService.deleteClinicianAvailability(id);
+  deleteClinicianAvailability(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.availabilityService.deleteClinicianAvailability(id, user);
   }
 
   @Auth('manager', 'admin', 'super_admin', 'clinician')
   @Mutation(() => SavedIdResultType)
-  saveLunchBreak(@Args('input') input: LunchBreakInput) {
-    return this.availabilityService.saveLunchBreak(input);
+  saveLunchBreak(@Args('input') input: LunchBreakInput, @CurrentUser() user: JwtPayload) {
+    return this.availabilityService.saveLunchBreak(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin', 'clinician')
   @Mutation(() => Boolean)
-  deleteLunchBreak(@Args('id', { type: () => ID }) id: string) {
-    return this.availabilityService.deleteLunchBreak(id);
+  deleteLunchBreak(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.availabilityService.deleteLunchBreak(id, user);
   }
 
   @Query(() => [AvailableSlotType])

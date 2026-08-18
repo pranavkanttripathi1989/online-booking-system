@@ -131,9 +131,35 @@ export class AvailabilityService {
     return rooms.map((r) => ({ id: r.id, name: r.room_number, roomNumber: r.room_number }));
   }
 
-  async saveClinicianAvailability(input: ClinicianAvailabilityInput) {
-    const clinician = await this.prisma.clinicians.findUnique({ where: { id: input.clinicianId } });
+  // SECURITY: saveClinicianAvailability/deleteClinicianAvailability/
+  // saveLunchBreak/deleteLunchBreak (the clinician/Availability.jsx
+  // self-service surface) previously had NO ownership or tenant check at
+  // all -- the resolver didn't even receive @CurrentUser(), so any
+  // authenticated clinician (or manager from any org) could create, edit,
+  // or delete ANY OTHER clinician's availability template or lunch break,
+  // across organizations, just by passing a different clinicianId/id. Unlike
+  // the read-only PHI leaks fixed elsewhere this pass, this was an
+  // unrestricted cross-tenant WRITE/DELETE path. Mirrors the same
+  // patient_id/clinician_id-from-JWT pattern used throughout this session's
+  // security fixes; also applies org-scoping (missing here even for
+  // manager/admin callers, unlike the canonical create/update/remove above).
+  private assertClinicianAccess(targetClinicianId: string, clinicClientOrgId: string | null, user: JwtPayload) {
+    if (user.roles.includes('clinician') && targetClinicianId !== user.clinician_id) {
+      throw new NotFoundException('Clinician not found');
+    }
+    if (user.client_org_id && clinicClientOrgId !== user.client_org_id) {
+      throw new NotFoundException('Clinician not found');
+    }
+  }
+
+  async saveClinicianAvailability(input: ClinicianAvailabilityInput, user: JwtPayload) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: input.clinicianId }, include: { clinic: true } });
     if (!clinician) throw new BadRequestException('Clinician not found');
+    this.assertClinicianAccess(clinician.id, clinician.clinic?.client_org_id ?? null, user);
+    if (input.id) {
+      const existing = await this.prisma.clinicianAvailability.findUnique({ where: { id: input.id }, include: { clinic: true } });
+      if (existing) this.assertClinicianAccess(existing.clinician_id, existing.clinic?.client_org_id ?? null, user);
+    }
     const data = {
       clinician_id: input.clinicianId,
       clinic_id: clinician.clinic_id,
@@ -152,7 +178,10 @@ export class AvailabilityService {
     return { id: row.id };
   }
 
-  async deleteClinicianAvailability(id: string) {
+  async deleteClinicianAvailability(id: string, user: JwtPayload) {
+    const existing = await this.prisma.clinicianAvailability.findUnique({ where: { id }, include: { clinic: true } });
+    if (!existing || existing.is_deleted) return true; // already gone — nothing to leak or protect
+    this.assertClinicianAccess(existing.clinician_id, existing.clinic?.client_org_id ?? null, user);
     await this.prisma.clinicianAvailability.update({ where: { id }, data: { is_deleted: true } });
     return true;
   }
@@ -161,9 +190,14 @@ export class AvailabilityService {
     return new Date(`1970-01-01T${hhmm}:00.000Z`);
   }
 
-  async saveLunchBreak(input: LunchBreakInput) {
-    const clinician = await this.prisma.clinicians.findUnique({ where: { id: input.clinicianId } });
+  async saveLunchBreak(input: LunchBreakInput, user: JwtPayload) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: input.clinicianId }, include: { clinic: true } });
     if (!clinician) throw new BadRequestException('Clinician not found');
+    this.assertClinicianAccess(clinician.id, clinician.clinic?.client_org_id ?? null, user);
+    if (input.id) {
+      const existing = await this.prisma.lunchBreaks.findUnique({ where: { id: input.id }, include: { clinic: true } });
+      if (existing) this.assertClinicianAccess(existing.clinician_id, existing.clinic?.client_org_id ?? null, user);
+    }
     const isDaily = input.dayOfWeek === 'daily';
     const data = {
       clinician_id: input.clinicianId,
@@ -180,7 +214,10 @@ export class AvailabilityService {
     return { id: row.id };
   }
 
-  async deleteLunchBreak(id: string) {
+  async deleteLunchBreak(id: string, user: JwtPayload) {
+    const existing = await this.prisma.lunchBreaks.findUnique({ where: { id }, include: { clinic: true } });
+    if (!existing || existing.is_deleted) return true;
+    this.assertClinicianAccess(existing.clinician_id, existing.clinic?.client_org_id ?? null, user);
     await this.prisma.lunchBreaks.update({ where: { id }, data: { is_deleted: true } });
     return true;
   }
