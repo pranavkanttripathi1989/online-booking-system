@@ -61,7 +61,7 @@ export class UsersService {
       where: { is_deleted: false, OR: [{ client_org_id: null }, { client_org_id: user.client_org_id ?? undefined }] },
       orderBy: { name: 'asc' },
     });
-    return rows.map((r) => ({ id: r.id, name: r.name, description: r.description || undefined }));
+    return rows.map((r) => ({ id: r.id, name: r.name, description: r.description || undefined, code: r.code ?? slugify(r.name) }));
   }
 
   async getPermissions() {

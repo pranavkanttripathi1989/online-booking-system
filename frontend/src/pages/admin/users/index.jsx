@@ -31,6 +31,7 @@ const GET_ADMIN_DATA = gql`
       clinic { id name }
     }
     getUserRoles { id name code description }
+    getPermissions { id }
   }
 `;
 const GET_RBAC_DATA = gql`
@@ -197,26 +198,16 @@ export default function AdminUsers() {
   const users = adminData?.getUsers || [];
   const auditLogs = auditData?.getAuditLogs || [];
 
-  // Mock fallback data for visual demo
-  const mockUsers = [
-    { id: '1', firstName: 'Dr. Sarah', lastName: 'Chen', email: 's.chen@healthsync.com', isActive: true, lastLoginAt: new Date(Date.now() - 300000).toISOString(), roles: [{ id: 1, name: 'Clinician', code: 'clinician' }], clinic: { name: 'London Central' }, profile: {} },
-    { id: '2', firstName: 'Marcus', lastName: 'Wright', email: 'm.wright@healthsync.com', isActive: true, lastLoginAt: new Date(Date.now() - 1800000).toISOString(), roles: [{ id: 2, name: 'Receptionist', code: 'receptionist' }], clinic: { name: 'Manchester North' }, profile: {} },
-    { id: '3', firstName: 'Elena', lastName: 'Rodriguez', email: 'e.rod@healthsync.com', isActive: false, lastLoginAt: new Date(Date.now() - 86400000).toISOString(), roles: [{ id: 3, name: 'Clinic Manager', code: 'clinic_manager' }], clinic: { name: 'Birmingham HQ' }, profile: {} },
-    { id: '4', firstName: 'James', lastName: 'Wilson', email: 'j.wilson@healthsync.com', isActive: true, lastLoginAt: new Date(Date.now() - 3600000).toISOString(), roles: [{ id: 4, name: 'System Admin', code: 'system_admin' }], clinic: null, profile: {} },
-  ];
-
-  const displayedUsers = users.length > 0 ? users : mockUsers;
-
   // FIX-3: Wire search to filter the displayed list
   const filteredUsers = useMemo(() => {
-    if (!userSearch.trim()) return displayedUsers;
+    if (!userSearch.trim()) return users;
     const q = userSearch.toLowerCase();
-    return displayedUsers.filter(u =>
+    return users.filter(u =>
       `${u.firstName} ${u.lastName}`.toLowerCase().includes(q) ||
       u.email?.toLowerCase().includes(q) ||
       u.roles?.some(r => r.name?.toLowerCase().includes(q) || r.code?.toLowerCase().includes(q))
     );
-  }, [displayedUsers, userSearch]);
+  }, [users, userSearch]);
 
   const handleToggleUserStatus = async (id, currentStatus) => {
     try {
@@ -254,10 +245,10 @@ export default function AdminUsers() {
 
       {/* SUMMARY STATS */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-        <StatCard icon={<PeopleAlt />} value={displayedUsers.length} label="Total Users" color="#6366F1" />
-        <StatCard icon={<CheckCircle />} value={displayedUsers.filter(u => u.isActive).length} label="Active Users" color="#10B981" />
-        <StatCard icon={<Shield />} value={rolesList.length || 5} label="System Roles" color={BRAND} />
-        <StatCard icon={<VerifiedUser />} value="24" label="Permissions Defined" color="#F59E0B" />
+        <StatCard icon={<PeopleAlt />} value={users.length} label="Total Users" color="#6366F1" />
+        <StatCard icon={<CheckCircle />} value={users.filter(u => u.isActive).length} label="Active Users" color="#10B981" />
+        <StatCard icon={<Shield />} value={rolesList.length} label="System Roles" color={BRAND} />
+        <StatCard icon={<VerifiedUser />} value={adminData?.getPermissions?.length ?? 0} label="Permissions Defined" color="#F59E0B" />
       </Box>
 
       {/* TABS — Stitch styled */}

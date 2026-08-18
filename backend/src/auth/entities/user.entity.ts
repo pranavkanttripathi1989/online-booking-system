@@ -14,6 +14,12 @@ export class RoleType {
 
   @Field({ nullable: true })
   description?: string;
+
+  // admin/users/index.jsx's getUserRoles requests roles{code} — same short
+  // slug already exposed on the admin-facing AdminUserRoleType (user-admin.entity.ts);
+  // added here too since getUserRoles reuses this canonical 'Role' type.
+  @Field({ nullable: true })
+  code?: string;
 }
 
 @ObjectType('ClinicianTypeInfo')
@@ -74,4 +80,9 @@ export class AuthUserType {
 
   @Field({ nullable: true })
   client_org_id?: string;
+
+  // admin/users/index.jsx's ToggleUser mutation requests updateUser(...){isActive} —
+  // optional so login/me (which never sets it) stay unaffected.
+  @Field({ nullable: true })
+  isActive?: boolean;
 }
