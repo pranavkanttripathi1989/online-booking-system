@@ -24,20 +24,27 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 
 // --- GraphQL ---
 
+// Split into two queries deliberately: getClinics/getAppointmentStats are
+// real (backend/src/analytics/**), but getTransactionsByDate has no backend
+// yet (context/open-questions.md #1, Finances/Billing deferred to Priority 2).
+// A single combined query document fails GraphQL validation as a whole the
+// moment ONE field doesn't exist on the schema -- found via live Chrome MCP
+// verification: the entire dashboard silently zeroed out (KPIs, charts, all
+// of it) even though getClinics/getAppointmentStats work correctly, because
+// they were bundled with the not-yet-buildable field in one request.
 const GET_MANAGER_DASHBOARD_DATA = gql`
   query GetManagerDashboardData($clinicId: ID, $startDate: String!, $endDate: String!) {
     getClinics {
       id
       name
     }
-    # These would be complex resolvers on the backend aggregating data
     getAppointmentStats(clinicId: $clinicId, startDate: $startDate, endDate: $endDate) {
       totalAppointments
       revenue
       activePatients
       utilization
       cancellationRate
-      
+
       trends {
         totalAppointments
         revenue
@@ -70,6 +77,13 @@ const GET_MANAGER_DASHBOARD_DATA = gql`
         revenue
       }
     }
+  }
+`;
+
+// Isolated in its own query/useQuery call so its failure (no backend yet)
+// doesn't take down GET_MANAGER_DASHBOARD_DATA above.
+const GET_MANAGER_TRANSACTIONS = gql`
+  query GetManagerTransactions($startDate: String!, $endDate: String!) {
     getTransactionsByDate(startDate: $startDate, endDate: $endDate, limit: 10, offset: 0) {
       id
       createdAt
@@ -147,12 +161,22 @@ function ManagerDashboardInner() {
 
   // Query Data
   const { data, loading, error } = useQuery(GET_MANAGER_DASHBOARD_DATA, {
-    variables: { 
+    variables: {
       clinicId: clinicFilter === 'all' ? null : clinicFilter,
       startDate: startStr,
       endDate: endStr
     },
     skip: !user || !!dateRangeError // BUG-DASH-001: skip query when dates are inverted
+  });
+
+  // Separate query (see GET_MANAGER_TRANSACTIONS comment above) — no
+  // getTransactionsByDate backend exists yet, so this one is expected to
+  // always error until the Finances/Billing domain is built; errorPolicy
+  // 'all' + ignoring the error here is deliberate, not a missed check.
+  const { data: txData, loading: txLoading } = useQuery(GET_MANAGER_TRANSACTIONS, {
+    variables: { startDate: startStr, endDate: endStr },
+    skip: !user || !!dateRangeError,
+    errorPolicy: 'all',
   });
 
   const handleDateToggle = (e, newFilter) => {
@@ -181,11 +205,11 @@ function ManagerDashboardInner() {
   // Finances/Billing/Razorpay domain (CLAUDE.md Priority 2). Flagged loudly per
   // CLAUDE.md Priority-3 point 3 ("visible in dev, not silent") rather than left
   // as a silent fallback — see context/open-questions.md #1.
-  if (!data?.getTransactionsByDate && !loading) {
+  if (!txData?.getTransactionsByDate && !txLoading) {
     // eslint-disable-next-line no-console
     console.warn('[Dashboard] "Recent Transactions" is showing mock data — no Finances/Billing backend exists yet. See context/open-questions.md #1.');
   }
-  const transactions = data?.getTransactionsByDate || [
+  const transactions = txData?.getTransactionsByDate || [
     { id: 'TRX_1', createdAt: new Date().toISOString(), amount: 150.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Sarah Jenkins' }, patient: { id: 1, firstName: 'John', lastName: 'Doe' }, product: { name: 'Initial Consultation' } } },
     { id: 'TRX_2', createdAt: new Date().toISOString(), amount: 85.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Michael Chen' }, patient: { id: 2, firstName: 'Jane', lastName: 'Smith' }, product: { name: 'Follow-up' } } },
     { id: 'TRX_3', createdAt: new Date().toISOString(), amount: 200.00, status: 'pending', appointment: { clinician: { name: 'Dr. Emily Blunt' }, patient: { id: 3, firstName: 'Robert', lastName: 'Johnson' }, product: { name: 'Specialist Review' } } },
