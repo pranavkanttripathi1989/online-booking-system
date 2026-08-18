@@ -1,9 +1,10 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
+import { useQuery, useMutation, useSubscription, gql } from '@apollo/client'
 import { useTheme, useMediaQuery } from '@mui/material'
 import {
   Box, Typography, Avatar, Badge, IconButton, InputBase, Chip,
   List, ListItemButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Autocomplete, Tooltip,
+  Button, TextField, Autocomplete, Tooltip, CircularProgress,
 } from '@mui/material'
 import { Helmet } from 'react-helmet-async'
 import DoneAllRoundedIcon         from '@mui/icons-material/DoneAllRounded'
@@ -20,10 +21,73 @@ import EditRoundedIcon             from '@mui/icons-material/EditRounded'
 import PersonRoundedIcon           from '@mui/icons-material/PersonRounded'
 import LocalHospitalRoundedIcon    from '@mui/icons-material/LocalHospitalRounded'
 import BadgeRoundedIcon            from '@mui/icons-material/BadgeRounded'
-import * as MockStore from '../../mocks/store'
 import { useAuth } from '../../context/AuthContext'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { formatRelativeTime } from '../../utils/dateTime'
+
+// backend/src/messages/** was built from scratch to match this page's exact
+// shape (participants/last_message/last_activity/unread_count/messages) --
+// see messages/entities/message.entity.ts. Was never wired up; this page ran
+// on mocks/store.js exclusively until now (context/frontend-integration-audit.md).
+const THREAD_FIELDS = gql`
+  fragment ThreadSummaryFields on MessageThread {
+    id
+    participants { id name role }
+    last_message
+    last_activity
+    unread_count
+  }
+`
+const THREAD_DETAIL_FIELDS = gql`
+  fragment ThreadDetailFields on MessageThread {
+    id
+    participants { id name role }
+    last_message
+    last_activity
+    unread_count
+    messages { id from_id from_name body sent_at read }
+  }
+`
+const GET_THREADS = gql`
+  query GetThreads {
+    threads { ...ThreadSummaryFields }
+  }
+  ${THREAD_FIELDS}
+`
+const GET_THREAD = gql`
+  query GetThread($id: ID!) {
+    thread(id: $id) { ...ThreadDetailFields }
+  }
+  ${THREAD_DETAIL_FIELDS}
+`
+const GET_MESSAGEABLE_CONTACTS = gql`
+  query GetMessageableContacts {
+    messageableContacts { id name role }
+  }
+`
+const SEND_MESSAGE = gql`
+  mutation SendMessage($threadId: ID!, $body: String!) {
+    sendMessage(threadId: $threadId, body: $body) { ...ThreadDetailFields }
+  }
+  ${THREAD_DETAIL_FIELDS}
+`
+const MARK_THREAD_READ = gql`
+  mutation MarkThreadRead($threadId: ID!) {
+    markThreadRead(threadId: $threadId)
+  }
+`
+const CREATE_THREAD = gql`
+  mutation CreateThread($input: CreateThreadInput!) {
+    createThread(input: $input) { ...ThreadDetailFields }
+  }
+  ${THREAD_DETAIL_FIELDS}
+`
+const MESSAGE_RECEIVED = gql`
+  subscription MessageReceived($userId: ID!) {
+    messageReceived(userId: $userId) { ...ThreadSummaryFields }
+  }
+  ${THREAD_FIELDS}
+`
 
 // ─── Role colour map (SUG-MSG-005) ───────────────────────────────────────────
 const ROLE_STYLE = {
@@ -157,10 +221,9 @@ function RoleChip({ role }) {
 // ─── MessagesPage ─────────────────────────────────────────────────────────────
 function MessagesPage() {
   const { user } = useAuth()
-  const currentUserId = user?.id ?? user?.clinician?.id ?? 'u-3'
+  const currentUserId = user?.id ?? user?.clinician?.id
 
-  const [threads,      setThreads]      = useState(() => MockStore.getStore().message_threads)
-  const [activeThread, setActiveThread] = useState(null)
+  const [activeThreadId, setActiveThreadId] = useState(null)
   const [input,        setInput]        = useState('')
   const [searchQ,      setSearchQ]      = useState('')
 
@@ -173,21 +236,33 @@ function MessagesPage() {
   const isMobile  = useMediaQuery(theme.breakpoints.down('sm'))
   const bottomRef = useRef(null)
 
-  // Keep latest activeThread in a ref so the subscription callback can read it without being a dep
-  const activeThreadRef = useRef(null)
-  activeThreadRef.current = activeThread
+  const { data: threadsData, refetch: refetchThreads } = useQuery(GET_THREADS, { fetchPolicy: 'cache-and-network' })
+  const threads = threadsData?.threads ?? []
 
-  // Reload threads when store updates — subscribe once with [] dep to avoid re-subscribing on every click
-  useEffect(() => {
-    const unsub = MockStore.subscribe(() => {
-      setThreads([...MockStore.getStore().message_threads])
-      if (activeThreadRef.current) {
-        const updated = MockStore.getThreadById(activeThreadRef.current.id)
-        if (updated) setActiveThread({ ...updated })
-      }
-    })
-    return unsub
-  }, []) // eslint-disable-line
+  const { data: activeThreadData } = useQuery(GET_THREAD, {
+    variables: { id: activeThreadId },
+    skip: !activeThreadId,
+    fetchPolicy: 'cache-and-network',
+  })
+  const activeThread = activeThreadData?.thread ?? null
+
+  const { data: contactsData } = useQuery(GET_MESSAGEABLE_CONTACTS)
+  const composeContacts = contactsData?.messageableContacts ?? []
+
+  const [sendMessageMutation]    = useMutation(SEND_MESSAGE)
+  const [markThreadReadMutation] = useMutation(MARK_THREAD_READ)
+  const [createThreadMutation]   = useMutation(CREATE_THREAD)
+
+  // Real-time: replaces MockStore.subscribe's fake local pub-sub with the
+  // real graphql-ws subscription (next-10-features-implementation-plan.md #10).
+  useSubscription(MESSAGE_RECEIVED, {
+    variables: { userId: currentUserId },
+    skip: !currentUserId,
+    onData: ({ data }) => {
+      refetchThreads()
+      if (data?.data?.messageReceived?.id === activeThreadId) refetchThreads()
+    },
+  })
 
   // Scroll to bottom of messages when thread changes
   useEffect(() => {
@@ -196,8 +271,8 @@ function MessagesPage() {
 
   // Set first thread as active on load (desktop only)
   useEffect(() => {
-    if (!activeThread && threads.length > 0 && !isMobile) {
-      setActiveThread(threads[0])
+    if (!activeThreadId && threads.length > 0 && !isMobile) {
+      setActiveThreadId(threads[0].id)
     }
   }, [threads]) // eslint-disable-line
 
@@ -214,55 +289,47 @@ function MessagesPage() {
 
   // BUG-MSG-001 fix: mark thread as read when selected
   const handleSelectThread = (thread) => {
-    setActiveThread(thread)
+    setActiveThreadId(thread.id)
     if ((thread.unread_count ?? 0) > 0) {
-      MockStore.markThreadAsRead(thread.id, currentUserId)
+      markThreadReadMutation({ variables: { threadId: thread.id } }).then(() => refetchThreads())
     }
   }
 
-  const handleSend = () => {
-    if (!input.trim() || !activeThread) return
-    MockStore.sendMessage(activeThread.id, currentUserId, input.trim())
+  const handleSend = async () => {
+    if (!input.trim() || !activeThreadId) return
     setInput('')
+    await sendMessageMutation({ variables: { threadId: activeThreadId, body: input.trim() } })
+    refetchThreads()
   }
 
   // BUG-MSG-002: handle compose new message
-  const handleComposeSend = () => {
+  const handleComposeSend = async () => {
     if (!composeRecip || !composeMsg.trim()) return
     const existingThread = threads.find(t =>
       t.participants.some(p => p.id === composeRecip.id) &&
       t.participants.some(p => p.id === currentUserId)
     )
     if (existingThread) {
-      MockStore.sendMessage(existingThread.id, currentUserId, composeMsg.trim())
-      setActiveThread(MockStore.getThreadById(existingThread.id))
+      await sendMessageMutation({ variables: { threadId: existingThread.id, body: composeMsg.trim() } })
+      setActiveThreadId(existingThread.id)
     } else {
-      const newThread = MockStore.createThread(
-        [currentUserId, composeRecip.id],
-        composeMsg.trim(),
-        currentUserId
-      )
-      setActiveThread(MockStore.getThreadById(newThread.id))
+      const { data } = await createThreadMutation({
+        variables: { input: { participant_ids: [composeRecip.id], first_message: composeMsg.trim() } },
+      })
+      setActiveThreadId(data.createThread.id)
     }
+    refetchThreads()
     setComposeOpen(false)
     setComposeRecip(null)
     setComposeMsg('')
   }
 
-  // Contact list for compose autocomplete (patients + clinicians)
-  const composeContacts = useMemo(() => {
-    const store = MockStore.getStore()
-    const patients   = store.patients.map(p => ({ id: p.id, name: p.full_name, role: 'patient' }))
-    const clinicians = store.clinicians.map(c => ({ id: c.id, name: c.full_name, role: 'clinician' }))
-    return [...patients, ...clinicians].filter(c => c.id !== currentUserId)
-  }, [currentUserId])
-
   const activeMessages     = activeThread?.messages ?? []
   const otherParticipant   = activeThread?.participants?.find(p => p.id !== currentUserId) ?? activeThread?.participants?.[0]
 
   // BUG-MSG-003: mobile view — show conversation list OR thread
-  const showList   = !isMobile || !activeThread
-  const showThread = !isMobile || !!activeThread
+  const showList   = !isMobile || !activeThreadId
+  const showThread = !isMobile || !!activeThreadId
 
   return (
     <Box className="page-enter" sx={{
@@ -324,7 +391,7 @@ function MessagesPage() {
                 <ContactItem
                   key={t.id}
                   thread={t}
-                  active={activeThread?.id === t.id}
+                  active={activeThreadId === t.id}
                   currentUserId={currentUserId}
                   onClick={() => handleSelectThread(t)}  // BUG-MSG-001 fix
                 />
@@ -344,7 +411,9 @@ function MessagesPage() {
       {/* ── Active Conversation Pane ───────────────────────────────────────── */}
       {showThread && (
         <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: '#FFFFFF', borderRadius: 3, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
-          {activeThread ? (
+          {activeThreadId && !activeThread ? (
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>
+          ) : activeThread ? (
             <>
               {/* Thread Header */}
               <Box sx={{ px: { xs: 2, sm: 3 }, py: 2, borderBottom: '1px solid #F8F9FA', display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, bgcolor: '#fff' }}>
@@ -354,7 +423,7 @@ function MessagesPage() {
                     id="back-to-inbox-btn"
                     aria-label="Back to inbox"
                     size="small"
-                    onClick={() => setActiveThread(null)}
+                    onClick={() => setActiveThreadId(null)}
                     sx={{ color: '#5F6368', mr: 0.5 }}
                   >
                     <ArrowBackRoundedIcon sx={{ fontSize: '1.2rem' }} />

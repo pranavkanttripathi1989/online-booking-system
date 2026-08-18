@@ -13,6 +13,17 @@ export class ThreadParticipantType {
   @Field() role: string;
 }
 
+// messages/index.jsx's "New Message" compose contact picker -- needs a
+// Users.id (MessageParticipants.user_id's FK target), not a Patients.id/
+// Clinicians.id, so it can't reuse the existing patients()/clinicians()
+// queries directly (see messages.service.ts's messageableContacts).
+@ObjectType('MessageableContact')
+export class MessageableContactType {
+  @Field(() => ID) id: string;
+  @Field() name: string;
+  @Field() role: string;
+}
+
 @ObjectType('ThreadMessage')
 export class ThreadMessageType {
   @Field(() => ID) id: string;

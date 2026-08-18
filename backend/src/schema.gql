@@ -644,6 +644,12 @@ type MessageThread {
   unread_count: Int!
 }
 
+type MessageableContact {
+  id: ID!
+  name: String!
+  role: String!
+}
+
 type Mutation {
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
   cancelAppointment(id: ID!, reason: String): Appointment!
@@ -1093,6 +1099,7 @@ type Query {
   getUsers(limit: Int, offset: Int, role: String, search: String): [AdminUser!]!
   languages: [Language!]!
   me: User!
+  messageableContacts: [MessageableContact!]!
   notifications(filter: String): [Notification!]!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient

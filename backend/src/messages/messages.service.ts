@@ -58,6 +58,25 @@ export class MessagesService {
     return result;
   }
 
+  // Backs the "New Message" compose contact picker -- returns real Users.id
+  // (via UserProfiles, the shared-PK 1:1 partner of Users) rather than
+  // Patients.id/Clinicians.id, since that's what MessageParticipants.user_id
+  // and createThread's participant_ids actually reference. Org-scoped like
+  // every other tenant-facing list; self excluded.
+  async messageableContacts(user: JwtPayload) {
+    const rows = await this.prisma.userProfiles.findMany({
+      where: {
+        is_deleted: false,
+        is_active: true,
+        id: { not: user.sub },
+        ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}),
+      },
+      include: { role: true },
+      orderBy: { first_name: 'asc' },
+    });
+    return rows.map((r) => ({ id: r.id, name: `${r.first_name} ${r.last_name}`, role: r.role.name }));
+  }
+
   async threads(user: JwtPayload) {
     const participations = await this.prisma.messageParticipants.findMany({
       where: { user_id: user.sub },

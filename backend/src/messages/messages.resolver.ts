@@ -2,7 +2,7 @@ import { Resolver, Query, Mutation, Subscription, Args, ID } from '@nestjs/graph
 import { Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { MessagesService, MESSAGE_RECEIVED_EVENT } from './messages.service';
-import { MessageThreadType } from './entities/message.entity';
+import { MessageThreadType, MessageableContactType } from './entities/message.entity';
 import { CreateThreadInput } from './dto/message.input';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -18,6 +18,11 @@ export class MessagesResolver {
   @Query(() => [MessageThreadType])
   threads(@CurrentUser() user: JwtPayload) {
     return this.messagesService.threads(user);
+  }
+
+  @Query(() => [MessageableContactType])
+  messageableContacts(@CurrentUser() user: JwtPayload) {
+    return this.messagesService.messageableContacts(user);
   }
 
   @Query(() => MessageThreadType)
