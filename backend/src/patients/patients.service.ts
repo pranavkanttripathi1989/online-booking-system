@@ -38,9 +38,18 @@ export class PatientsService {
   // restricted to their own record via the patient_id embedded in their JWT
   // (auth/strategies/jwt.strategy.ts); an unlinked patient account (no
   // patient_id yet) sees nothing rather than falling through to "everyone".
+  //
+  // Also closes TC-AUTH-API-009 ("a clinician cannot fetch a patient who
+  // isn't theirs"): a clinician caller is restricted to patients they have
+  // at least one appointment with, not the whole org's patient list.
+  // Deliberately not applied to manager/admin/super_admin/staff, who
+  // legitimately need the full clinic/org patient list at the front desk.
   private selfScope(user: JwtPayload) {
-    if (!user.roles.includes('patient')) return undefined;
-    return { id: user.patient_id ?? '__no_patient_link__' };
+    if (user.roles.includes('patient')) return { id: user.patient_id ?? '__no_patient_link__' };
+    if (user.roles.includes('clinician')) {
+      return { appointments: { some: { clinician_id: user.clinician_id ?? '__no_clinician_link__' } } };
+    }
+    return undefined;
   }
 
   async findAll(search: string | undefined, first: number, page: number, user: JwtPayload) {
@@ -89,6 +98,14 @@ export class PatientsService {
     }
     if (user.roles.includes('patient') && id !== user.patient_id) {
       throw new NotFoundException('Patient not found');
+    }
+    if (user.roles.includes('clinician')) {
+      const treated = await this.prisma.appointments.findFirst({
+        where: { patient_id: id, clinician_id: user.clinician_id ?? '__no_clinician_link__' },
+      });
+      if (!treated) {
+        throw new NotFoundException('Patient not found');
+      }
     }
     if (user.client_org_id) {
       const hasAccess = await this.prisma.appointments.findFirst({
