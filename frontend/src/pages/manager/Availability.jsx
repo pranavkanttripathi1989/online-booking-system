@@ -19,11 +19,11 @@ import ErrorBoundary from '../../components/ErrorBoundary'
 
 // Clinicians — IDs match seed.js (cln-*)
 const MOCK_CLINICIANS_AV = [
-  { id: 'cln-1', firstName: 'Sarah',  lastName: 'Mitchell',  isActive: true },
-  { id: 'cln-2', firstName: 'James',  lastName: 'Okafor',    isActive: true },
-  { id: 'cln-3', firstName: 'Priya',  lastName: 'Sharma',    isActive: true },
-  { id: 'cln-5', firstName: 'Lucy',   lastName: 'Harrington',isActive: true },
-  { id: 'cln-6', firstName: 'Ben',    lastName: 'Whitfield', isActive: true },
+  { id: 'cln-1', first_name: 'Sarah',  last_name: 'Mitchell',  is_active: true },
+  { id: 'cln-2', first_name: 'James',  last_name: 'Okafor',    is_active: true },
+  { id: 'cln-3', first_name: 'Priya',  last_name: 'Sharma',    is_active: true },
+  { id: 'cln-5', first_name: 'Lucy',   last_name: 'Harrington',is_active: true },
+  { id: 'cln-6', first_name: 'Ben',    last_name: 'Whitfield', is_active: true },
 ]
 
 // Clinics — IDs match seed.js (cli-*)
@@ -38,26 +38,26 @@ const MOCK_CLINICS_AV = [
 // Rooms per clinic — used as offline fallback when getRooms query returns nothing
 const MOCK_ROOMS_BY_CLINIC = {
   'cli-1': [
-    { id: 'rm-1', roomNumber: '1 — Consultation A', isActive: true },
-    { id: 'rm-2', roomNumber: '2 — Consultation B', isActive: true },
-    { id: 'rm-3', roomNumber: '3 — Procedure Room 1', isActive: true },
+    { id: 'rm-1', room_number: '1 — Consultation A', is_active: true },
+    { id: 'rm-2', room_number: '2 — Consultation B', is_active: true },
+    { id: 'rm-3', room_number: '3 — Procedure Room 1', is_active: true },
   ],
   'cli-2': [
-    { id: 'rm-4', roomNumber: '4 — Physio Suite', isActive: true },
-    { id: 'rm-5', roomNumber: '5 — Consultation A', isActive: true },
+    { id: 'rm-4', room_number: '4 — Physio Suite', is_active: true },
+    { id: 'rm-5', room_number: '5 — Consultation A', is_active: true },
   ],
   'cli-3': [
-    { id: 'rm-6', roomNumber: '6 — Mental Health Suite', isActive: true },
-    { id: 'rm-7', roomNumber: '7 — Consultation A', isActive: true },
+    { id: 'rm-6', room_number: '6 — Mental Health Suite', is_active: true },
+    { id: 'rm-7', room_number: '7 — Consultation A', is_active: true },
   ],
   'cli-4': [
-    { id: 'rm-8',  roomNumber: '8 — Derma Suite', isActive: true },
-    { id: 'rm-9',  roomNumber: '9 — Cardio Suite', isActive: true },
-    { id: 'rm-10', roomNumber: '10 — Consultation A', isActive: true },
+    { id: 'rm-8',  room_number: '8 — Derma Suite', is_active: true },
+    { id: 'rm-9',  room_number: '9 — Cardio Suite', is_active: true },
+    { id: 'rm-10', room_number: '10 — Consultation A', is_active: true },
   ],
   'cli-5': [
-    { id: 'rm-11', roomNumber: '11 — Main Consultation', isActive: true },
-    { id: 'rm-12', roomNumber: "12 — Children's Room", isActive: true },
+    { id: 'rm-11', room_number: '11 — Main Consultation', is_active: true },
+    { id: 'rm-12', room_number: "12 — Children's Room", is_active: true },
   ],
 }
 
@@ -147,15 +147,21 @@ const GET_AVAILABILITY_DATA = gql`
       clinic    { id name }
       room      { id roomNumber }
     }
-    clinicians(search: { limit: 500 }) { id firstName lastName isActive }
+    clinicians(first: 500, is_active: true) { data { id first_name last_name is_active } }
     clinics(search: { limit: 100 })   { id name }
   }
 `
+// Rewired to the real clinicians()/clinics()/rooms() contracts
+// (context/frontend-integration-audit.md #13/#15) -- clinicians() is
+// paginated with many other live consumers depending on that exact shape,
+// so this page adapts to it rather than the reverse; clinics() and rooms()
+// only needed a search/limit-arg addition (clinics) or an argument-name +
+// field-casing fix (rooms), both additive/non-breaking for existing callers.
 
 const GET_ROOMS_FOR_CLINIC = gql`
   query GetRoomsForClinic($clinicId: ID!) {
-    rooms(search: { limit: 200 }, clinicId: $clinicId) {
-      id roomNumber isActive
+    rooms(clinic_id: $clinicId) {
+      id room_number is_active
     }
   }
 `
@@ -237,7 +243,7 @@ export default function ManagerAvailability() {
     setRoomsLoading(true)
     try {
       const { data: roomData } = await getRooms({ variables: { clinicId } })
-      const liveRooms = (roomData?.rooms || []).filter(r => r.isActive)
+      const liveRooms = (roomData?.rooms || []).filter(r => r.is_active)
       // Fall back to mock rooms if backend is offline or returns empty
       setRooms(liveRooms.length ? liveRooms : (MOCK_ROOMS_BY_CLINIC[clinicId] ?? []))
     } catch {
@@ -362,7 +368,7 @@ export default function ManagerAvailability() {
   // SUG-AVAIL-015 — filter out optimistically-deleted rows
   const availabilities = (data?.availabilities?.length ? data.availabilities : MOCK_AVAILABILITIES)
     .filter(a => !deletedIds.includes(a.id))
-  const clinicians     = (data?.clinicians?.length ? data.clinicians : MOCK_CLINICIANS_AV).filter(c => c.isActive)
+  const clinicians     = (data?.clinicians?.data?.length ? data.clinicians.data : MOCK_CLINICIANS_AV).filter(c => c.is_active)
   const clinics        = data?.clinics?.length ? data.clinics : MOCK_CLINICS_AV
 
   if (loading && !data) {
@@ -415,7 +421,7 @@ export default function ManagerAvailability() {
                     <Select label="Clinician" value={form.clinician_id}
                       onChange={e => setField('clinician_id', e.target.value)}>
                       {clinicians.map(c => (
-                        <MenuItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</MenuItem>
+                        <MenuItem key={c.id} value={c.id}>{c.first_name} {c.last_name}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>
@@ -492,7 +498,7 @@ export default function ManagerAvailability() {
                       onChange={e => setField('room_id', e.target.value)}>
                       <MenuItem value="">Any room</MenuItem>
                       {rooms.map(r => (
-                        <MenuItem key={r.id} value={r.id}>Room {r.roomNumber}</MenuItem>
+                        <MenuItem key={r.id} value={r.id}>Room {r.room_number}</MenuItem>
                       ))}
                     </Select>
                   </FormControl>

@@ -11,13 +11,17 @@ export class ClinicsService {
   // JWT (`user.client_org_id`), never a client-supplied argument. super_admin
   // (client_org_id: null on their own token) sees every org's clinics —
   // everyone else is scoped to their own org only.
-  findAll(user: JwtPayload) {
+  // `limit` added additively for manager/Availability.jsx's/manager/Blocks.jsx's
+  // clinics(search:{limit}) sub-query (context/frontend-integration-audit.md
+  // #13/#15) -- every other caller passes no search arg at all, unaffected.
+  findAll(user: JwtPayload, limit?: number) {
     return this.prisma.clinics.findMany({
       where: {
         is_deleted: false,
         ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}),
       },
       orderBy: { created_at: 'asc' },
+      take: limit,
     });
   }
 

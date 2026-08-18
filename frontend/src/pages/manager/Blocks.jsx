@@ -16,9 +16,9 @@ import ErrorBoundary from '../../components/ErrorBoundary'
 // ─── Mock constants (used when GraphQL backend is offline) ───────────────────
 
 const MOCK_CLINICIANS = [
-  { id: 'cln-1', firstName: 'Dr. Sarah',  lastName: 'Mitchell', isActive: true },
-  { id: 'cln-2', firstName: 'Dr. James',  lastName: 'Okafor',   isActive: true },
-  { id: 'cln-3', firstName: 'Dr. Priya',  lastName: 'Sharma',   isActive: true },
+  { id: 'cln-1', first_name: 'Dr. Sarah',  last_name: 'Mitchell', is_active: true },
+  { id: 'cln-2', first_name: 'Dr. James',  last_name: 'Okafor',   is_active: true },
+  { id: 'cln-3', first_name: 'Dr. Priya',  last_name: 'Sharma',   is_active: true },
 ]
 const MOCK_CLINICS = [
   { id: 'cli-1', name: 'City Heart Clinic' },
@@ -26,10 +26,10 @@ const MOCK_CLINICS = [
   { id: 'cli-3', name: 'Family Health Hub' },
 ]
 const MOCK_ROOMS = [
-  { id: 'room-1', room_number: '1A',      clinic_id: 'cli-1', isActive: true },
-  { id: 'room-2', room_number: '2B',      clinic_id: 'cli-1', isActive: true },
-  { id: 'room-3', room_number: 'Suite A', clinic_id: 'cli-2', isActive: true },
-  { id: 'room-4', room_number: '3C',      clinic_id: 'cli-3', isActive: true },
+  { id: 'room-1', room_number: '1A',      clinic_id: 'cli-1', is_active: true },
+  { id: 'room-2', room_number: '2B',      clinic_id: 'cli-1', is_active: true },
+  { id: 'room-3', room_number: 'Suite A', clinic_id: 'cli-2', is_active: true },
+  { id: 'room-4', room_number: '3C',      clinic_id: 'cli-3', is_active: true },
 ]
 
 // FIX GAP-BLK-005 — Mock spacer + room block records for offline testing
@@ -142,9 +142,9 @@ const GET_BLOCKS_DATA = gql`
       room  { id room_number }
       clinic { id name }
     }
-    clinicians(search: { limit: 500 }) { id firstName lastName isActive }
+    clinicians(first: 500, is_active: true) { data { id first_name last_name is_active } }
     clinics(search: { limit: 100 })   { id name }
-    rooms(search: { limit: 500 })     { id room_number clinic_id isActive }
+    rooms { id room_number is_active clinic { id } }
   }
 `
 
@@ -252,9 +252,11 @@ export default function ManagerBlocks() {
   const [updateRoomBlock]   = useMutation(UPDATE_ROOM_BLOCK)
 
   // Fall back to mock data when GraphQL returns nothing (offline mode)
-  const clinicians   = (data?.clinicians?.length ? data.clinicians : MOCK_CLINICIANS).filter(c => c.isActive)
+  const clinicians   = (data?.clinicians?.data?.length ? data.clinicians.data : MOCK_CLINICIANS).filter(c => c.is_active)
   const clinics      = data?.clinics?.length ? data.clinics : MOCK_CLINICS
-  const allRooms     = (data?.rooms?.length ? data.rooms : MOCK_ROOMS).filter(r => r.isActive)
+  const allRooms     = (data?.rooms?.length ? data.rooms : MOCK_ROOMS)
+    .filter(r => r.is_active)
+    .map(r => ({ ...r, clinic_id: r.clinic_id ?? r.clinic?.id }))
   // FIX GAP-BLK-005 — fall back to mock block records
   // SUG-BLK-009 — merge in any local edits so updates are visible immediately (offline-safe)
   const spacerBlocks = (data?.spacerBlocks?.length ? data.spacerBlocks : MOCK_SPACER_BLOCKS)
@@ -325,7 +327,7 @@ export default function ManagerBlocks() {
         ...prev,
         [editingSpacerId]: {
           ...input,
-          clinician: clinician ? { id: clinician.id, first_name: clinician.firstName, last_name: clinician.lastName } : undefined,
+          clinician: clinician ? { id: clinician.id, first_name: clinician.first_name, last_name: clinician.last_name } : undefined,
           clinic:    clinic ? { id: clinic.id, name: clinic.name } : undefined,
           room:      room ? { id: room.id, room_number: room.room_number } : null,
         },
@@ -571,7 +573,7 @@ export default function ManagerBlocks() {
                           <InputLabel>Clinician</InputLabel>
                           <Select label="Clinician" value={spacerForm.clinician_id}
                             onChange={e => setSpacerForm(p => ({ ...p, clinician_id: e.target.value }))}>
-                            {clinicians.map(c => <MenuItem key={c.id} value={c.id}>{c.firstName} {c.lastName}</MenuItem>)}
+                            {clinicians.map(c => <MenuItem key={c.id} value={c.id}>{c.first_name} {c.last_name}</MenuItem>)}
                           </Select>
                         </FormControl>
                       </Grid>
