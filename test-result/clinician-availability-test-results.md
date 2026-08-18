@@ -88,3 +88,15 @@ New Issues Found:            0
 Test Cases Passed:           36 ✅ + 5 ⚠️ PASS* = 41 / 41
 Test Cases Failed:           0 ❌
 ```
+
+---
+
+## Backend-API Verification Pass — 2026-08-18
+
+**Scope:** First-ever real-backend execution against this page's actual GraphQL backend (`saveClinicianAvailability`/`deleteClinicianAvailability`/`saveLunchBreak`/`deleteLunchBreak`), per `QA-TESTING-EXECUTION-PROMPT.md` Phase 2's cross-check of `test-cases/04-availability-scheduling/test-cases.md` TC-AVAIL-API-011 against the real resolver source. All prior sessions above tested this page in mock mode only.
+
+| TC ID | Description | First-run result | Fix | Re-verified |
+|---|---|---|---|---|
+| TC-AVAIL-API-011 | Row-level ownership on availability mutations | ❌ **FAIL** — no ownership or tenant check existed at all; the resolver didn't even pass caller identity to the service. Any clinician, or any manager regardless of org, could write to any other clinician's schedule. | Added `@CurrentUser()` + `AvailabilityService.assertClinicianAccess()` (clinician-self + org scoping, re-checked against the existing record on update/delete). | ✅ PASS — `availability.service.spec.ts` (10 cases) + live curl against real seed accounts. |
+
+**Result: a Critical, higher-than-read-leak-severity cross-tenant write vulnerability was found and fixed. See `test-suggestion/clinician-availability-test-suggestion.md` SUG-CLAVAIL-SEC-001 for the full writeup.**

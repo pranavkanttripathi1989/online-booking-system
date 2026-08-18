@@ -101,3 +101,41 @@ const totalLunches = lunchBreaks.length;
 |------|-------|
 | SUG-CLAVAIL-005 — Unsaved changes warning | Requires dirty-state tracking; deferred |
 | TC-CLAVAIL-09, 10, 13, 23 (PASS*) | Need live backend for full confirm |
+
+---
+
+## 🔴 Critical — Found & Fixed (Backend-API Verification Pass, 2026-08-18)
+
+### SUG-CLAVAIL-SEC-001 — Unrestricted cross-tenant write: any clinician could edit/delete any other clinician's schedule
+```
+Found via: QA-TESTING-EXECUTION-PROMPT.md Phase 2 -- cross-checking TC-AVAIL-API-011's spec
+           against backend/src/availability/availability.resolver.ts's real source while
+           building the domain's RBAC matrix.
+What broke: saveClinicianAvailability/deleteClinicianAvailability/saveLunchBreak/deleteLunchBreak
+            (this page's real backend) had NO ownership or tenant check at all. The resolver
+            methods didn't even receive @CurrentUser(), so the service had no way to know who
+            was calling. Any authenticated clinician -- or a manager from ANY organization --
+            could create, edit, or delete ANY OTHER clinician's availability template or lunch
+            break, across tenant boundaries, just by passing a different clinicianId or record id.
+            More severe than this session's earlier read-only PHI leaks: this was an unrestricted
+            cross-tenant WRITE/DELETE path, capable of real operational damage (wiping another
+            clinic's bookable schedule).
+What changed: Added @CurrentUser() to all four resolver methods. New
+              AvailabilityService.assertClinicianAccess(): a clinician caller must target their
+              own clinician_id; every caller is org-scoped via the target's clinic.client_org_id
+              (previously missing even for manager/admin). Update/delete paths re-check ownership
+              against the EXISTING database record, not just the input's claimed clinicianId,
+              closing a record-id-swap bypass.
+Status: FIXED -- backend/src/availability/availability.service.ts,
+        availability.resolver.ts, 10 new unit tests in availability.service.spec.ts.
+        Live-verified: an unlinked clinician account (clinician@medibook.dev, not yet linked
+        to a Clinicians row) is correctly rejected writing to the real seeded clinician's
+        schedule; a legitimate same-org manager write still succeeds.
+Residual risk: none identified for the fixed paths. getClinicianAvailability/getLunchBreaks/
+               getRooms (the read side of this same self-service surface) still have no
+               ownership/org scoping either -- lower severity since they expose the same shape
+               availableSlots already serves patient-facing, but worth a Phase 2 RBAC-matrix
+               follow-up decision on whether that's acceptable long-term.
+Files: backend/src/availability/availability.service.ts, availability.resolver.ts,
+       availability.service.spec.ts
+```

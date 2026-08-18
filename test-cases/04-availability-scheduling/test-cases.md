@@ -4,6 +4,22 @@
 **Grounded in:** `test-plan/manager/manager-availability-test-plan.md`, `manager-blocks-test-plan.md` (and their `16-03-2026-not-done/` predecessor versions), `test-plan/clinician-portal/clinician-availability-test-plan-done.md`, plus their `test-result/`/`test-suggestion/` counterparts (`manager-availability-test-results.md`, `manager-blocks-test-results.md`, `clinician-availability-test-results.md`, `clinician-calendar-test-results.md`, and the matching `test-suggestion/` files), `context/backend-implementation-plan.md` Phase 5, `schema.prisma` (`ClinicianAvailability`, `LunchBreaks`, `SpacerBlocks`, `RoomBlocks`).
 **Known gap flagged by this research:** none of the existing QA docs exercise an actual slot-computation engine — every prior test pass has scoped to CRUD/UI correctness against static mock data. There is no prior precedent for how availability + lunch breaks + spacer blocks + room blocks + existing appointments combine into bookable slots, buffer time, or service-duration handling. The Unit/API/E2E sections' algorithm-focused cases below are therefore derived from `backend-implementation-plan.md` Phase 5 and `schema.prisma`, not from QA history — this is the core scheduling engine the backend plan calls out to "get under test before anything depends on it." Cross-clinic/cross-room conflict handling (a room double-booked by two different clinicians' availability, or a manager's Room Block silently colliding with an existing clinician availability template) is likewise undocumented anywhere and is treated the same way.
 
+**Note on this pass's coverage:** this domain has two largely independent resolver surfaces sharing the `Availability`/`LunchBreaks` tables — the canonical manager-facing CRUD (`availabilities`/`createAvailability`/`updateAvailability`/`deleteAvailability`) and the clinician self-service surface (`getClinicianAvailability`/`saveClinicianAvailability`/`deleteClinicianAvailability`/`saveLunchBreak`/`deleteLunchBreak`, backing `clinician/Availability.jsx`). This pass (2026-08-18) found and fixed a Critical write-path vulnerability in the *second* surface (TC-AVAIL-API-011) but did **not** verify the algorithm-heavy Unit/E2E sections below (TC-AVAIL-UNIT-010 through 013, the slot-generation engine) against the real implementation — those remain unverified-this-pass, not confirmed passing, and are the natural next unit of Phase 3/4 work for this domain.
+
+---
+
+## RBAC Matrix — availability & lunch-break operations
+
+Per QA-TESTING-EXECUTION-PROMPT.md Phase 2 rule 2.
+
+| Operation | admin | super_admin | manager | clinician | staff | patient | logged out |
+|---|---|---|---|---|---|---|---|
+| `availabilities` (list, no `@Auth`) | ✅ all orgs | ✅ | ✅ own org | ✅ own org (not self-scoped — reads the manager-facing surface) | ✅ own org | ✅ (reachable — read-only, no PHI) | ❌ 401 |
+| `createAvailability`/`updateAvailability`/`deleteAvailability` | ✅ (`@Auth`) | ✅ | ✅ own org | ❌ FORBIDDEN | ❌ FORBIDDEN | ❌ FORBIDDEN | ❌ 401 |
+| `getClinicianAvailability`/`getLunchBreaks`/`getRooms` (no `@Auth`) | ✅ | ✅ | ✅ | ✅ (own or any — no scoping on these specific reads, lower severity than the write side since it's the same shape `availableSlots` already exposes patient-facing) | ✅ | ✅ | ❌ 401 |
+| `saveClinicianAvailability`/`deleteClinicianAvailability`/`saveLunchBreak`/`deleteLunchBreak` | ✅ (`@Auth`, org-scoped) | ✅ | ✅ own org only (fixed 2026-08-18 — previously **no org check at all**) | ✅ **own clinician_id only** (fixed 2026-08-18 — previously **any clinician, any org**) | ❌ FORBIDDEN | ❌ FORBIDDEN | ❌ 401 |
+| `availableSlots` (no `@Auth`, patient-facing) | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ (intentionally public-within-app — booking wizard needs this) | ❌ 401 |
+
 ---
 
 ## 1. Unit Test Cases
@@ -142,6 +158,7 @@
 - **Preconditions:** Clinician C1 and C2 both exist.
 - **Steps:** Log in as C1, attempt to edit/delete a `ClinicianAvailability` or `LunchBreaks` record belonging to C2.
 - **Expected Result:** Rejected — mirrors `TC-AUTH-API-009`'s row-level-scoping pattern applied to the clinician's own schedule; a `staff`-role token must not be able to mutate a clinician's template either, unless explicitly acting on that clinician's behalf via a manager-level permission.
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING**, and worse than a read leak — the resolver methods (`saveClinicianAvailability`/`deleteClinicianAvailability`/`saveLunchBreak`/`deleteLunchBreak`) didn't even receive the caller's identity, so ANY authenticated clinician, or a manager from ANY organization, could create/edit/delete ANY OTHER clinician's availability template or lunch break — an unrestricted cross-tenant WRITE/DELETE path). Fixed via `AvailabilityService.assertClinicianAccess()`. 10 new unit tests + live-verified against real seed data. See `test-suggestion/clinician-availability-test-suggestion.md` (this bug lives in `clinician/Availability.jsx`'s backend, not the manager-facing surface). **Correction to this test case's premise:** `staff` is NOT in these mutations' `@Auth()` list (`@Auth('manager','admin','super_admin','clinician')` only) — a `staff`-role token is already rejected outright by the role guard before reaching any ownership check, so the "staff acting on a clinician's behalf" scenario this case originally described doesn't apply to the real implementation as built.
 
 ---
 
