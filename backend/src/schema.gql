@@ -146,12 +146,45 @@ type AppointmentService {
   price: Float
 }
 
+type AppointmentStats {
+  activePatients: Int!
+  cancellationRate: Float!
+  revenue: Float!
+  revenueByClinic: [RevenueByClinicPoint!]!
+  statusDistribution: [AppointmentStatusDistributionPoint!]!
+  timeSeriesData: [AppointmentTimeSeriesPoint!]!
+  topClinicians: [TopClinicianPoint!]!
+  totalAppointments: Int!
+  trends: AppointmentStatsTrends!
+  utilization: Float!
+}
+
+type AppointmentStatsTrends {
+  activePatients: Float!
+  cancellationRate: Float!
+  revenue: Float!
+  totalAppointments: Float!
+  utilization: Float!
+}
+
+type AppointmentStatusDistributionPoint {
+  name: String!
+  value: Int!
+}
+
 type AppointmentStatusLog {
   changed_by_user: AppointmentBookedByUser
   created_at: DateTime!
   id: ID!
   reason: String
   status: String!
+}
+
+type AppointmentTimeSeriesPoint {
+  cancelled: Int!
+  completed: Int!
+  date: String!
+  scheduled: Int!
 }
 
 input AppointmentUpdateInput {
@@ -1028,11 +1061,13 @@ type Query {
   clinics(search: SearchInput): [Clinic!]!
   emailTemplates: [EmailTemplate!]!
   getAppointment(id: ID!): PublicAppointmentDetail!
+  getAppointmentStats(clinicId: ID, endDate: String!, startDate: String!): AppointmentStats!
   getAppointments(clinicianId: ID!, date: String!): [PublicAppointmentSlot!]!
   getAuditLogs(action: String, limit: Int, offset: Int, resource: String): [AuditLog!]!
   getClinician(id: ID!): PublicClinician!
   getClinicianAvailability(clinicianId: ID!): [ClinicianAvailabilitySlot!]!
   getClinicians(search: PublicClinicianSearchInput): [PublicClinicianSummary!]!
+  getClinics: [Clinic!]!
   getLunchBreaks(clinicianId: ID!): [LunchBreakSlot!]!
   getPermissions: [Permission!]!
   getProducts(clinicianId: ID!): [PublicProduct!]!
@@ -1089,6 +1124,11 @@ input RequestOtpInput {
 input ResetPasswordInput {
   new_password: String!
   token: String!
+}
+
+type RevenueByClinicPoint {
+  name: String!
+  revenue: Float!
 }
 
 type Review {
@@ -1306,6 +1346,13 @@ type ThreadParticipant {
   id: ID!
   name: String!
   role: String!
+}
+
+type TopClinicianPoint {
+  appointments: Int!
+  id: ID!
+  name: String!
+  revenue: Float!
 }
 
 input UpdateAvailabilityInput {

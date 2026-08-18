@@ -103,22 +103,8 @@ const PIE_COLORS = {
   'No-Show': '#F59E0B',
 };
 
-// --- Mock Data Fallbacks (if Apollo fails/loading without cache) ---
-const MOCK_TIME_SERIES = Array.from({ length: 7 }).map((_, i) => ({
-  date: dayjs().subtract(6 - i, 'day').format('DD MMM'),
-  scheduled: Math.floor(Math.random() * 20) + 10,
-  completed: Math.floor(Math.random() * 15) + 5,
-  cancelled: Math.floor(Math.random() * 5),
-}));
-
-const MOCK_PIE = [
-  { name: 'Completed', value: 400 },
-  { name: 'Scheduled', value: 300 },
-  { name: 'Cancelled', value: 100 },
-  { name: 'No-Show', value: 50 },
-];
-
-// SUG-DASH-002: mock clinic dropdown options for when getClinics returns [] offline
+// SUG-DASH-002: mock clinic dropdown options, used only while the first
+// getClinics response hasn't landed yet (see `clinics` below).
 const MOCK_CLINICS = [
   { id: 'cli-1', name: 'London Central' },
   { id: 'cli-2', name: 'Manchester North' },
@@ -175,24 +161,30 @@ function ManagerDashboardInner() {
     }
   };
 
-  // Safe data access
-  // SUG-DASH-002: fall back to mock clinics so the dropdown isn't empty offline
-  const clinics = data?.getClinics?.length ? data.getClinics : MOCK_CLINICS;
-  const stats = data?.getAppointmentStats || {
-    totalAppointments: 1245, revenue: 145200, activePatients: 840, utilization: 78, cancellationRate: 12,
-    trends: { totalAppointments: 12, revenue: 15, activePatients: 5, utilization: 3, cancellationRate: -2 },
-    timeSeriesData: MOCK_TIME_SERIES,
-    statusDistribution: MOCK_PIE,
-    revenueByClinic: [ { name: 'London Central', revenue: 65000 }, { name: 'Manchester North', revenue: 45000 }, { name: 'Birmingham', revenue: 35200 } ],
-    topClinicians: [
-      { id: '1', name: 'Dr. Sarah Jenkins', appointments: 145, revenue: 21750 },
-      { id: '2', name: 'Dr. Michael Chen', appointments: 132, revenue: 19800 },
-      { id: '3', name: 'Dr. Emily Blunt', appointments: 110, revenue: 16500 },
-    ]
+  // Safe data access — KPIs/charts/clinic-filter now come from the real
+  // backend/src/analytics module (context/open-questions.md #1 resolved
+  // entry); only mock fallback left is a brief render before the first
+  // response lands, or a genuine network failure.
+  const clinics = data?.getClinics ?? MOCK_CLINICS;
+  const stats = data?.getAppointmentStats ?? {
+    totalAppointments: 0, revenue: 0, activePatients: 0, utilization: 0, cancellationRate: 0,
+    trends: { totalAppointments: 0, revenue: 0, activePatients: 0, utilization: 0, cancellationRate: 0 },
+    timeSeriesData: [],
+    statusDistribution: [],
+    revenueByClinic: [],
+    topClinicians: [],
   };
-  
-  // SUG-DASH-003/SUG-DASH-005 (older file): expanded to 6 rows (incl. a 'failed' one)
-  // so pagination "Next Page" and the red "Failed" chip are both browser-testable offline.
+
+  // "Recent Transactions" has no real backend yet — there is no per-appointment
+  // patient-payment model in schema.prisma (only tenant SaaS-subscription
+  // PaymentTransactions, unrelated to Appointments). This needs the not-yet-built
+  // Finances/Billing/Razorpay domain (CLAUDE.md Priority 2). Flagged loudly per
+  // CLAUDE.md Priority-3 point 3 ("visible in dev, not silent") rather than left
+  // as a silent fallback — see context/open-questions.md #1.
+  if (!data?.getTransactionsByDate && !loading) {
+    // eslint-disable-next-line no-console
+    console.warn('[Dashboard] "Recent Transactions" is showing mock data — no Finances/Billing backend exists yet. See context/open-questions.md #1.');
+  }
   const transactions = data?.getTransactionsByDate || [
     { id: 'TRX_1', createdAt: new Date().toISOString(), amount: 150.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Sarah Jenkins' }, patient: { id: 1, firstName: 'John', lastName: 'Doe' }, product: { name: 'Initial Consultation' } } },
     { id: 'TRX_2', createdAt: new Date().toISOString(), amount: 85.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Michael Chen' }, patient: { id: 2, firstName: 'Jane', lastName: 'Smith' }, product: { name: 'Follow-up' } } },
