@@ -11,8 +11,11 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('AppointmentsService — access scoping', () => {
   let service: AppointmentsService;
   let prisma: {
-    appointments: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock };
-    appointmentStatusLogs: { findMany: jest.Mock };
+    appointments: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock; findFirst: jest.Mock; create: jest.Mock };
+    appointmentStatusLogs: { findMany: jest.Mock; create: jest.Mock };
+    clinics: { findUnique: jest.Mock };
+    products: { findUnique: jest.Mock };
+    rooms: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -24,9 +27,19 @@ describe('AppointmentsService — access scoping', () => {
 
   beforeEach(async () => {
     prisma = {
-      appointments: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), findUnique: jest.fn() },
-      appointmentStatusLogs: { findMany: jest.fn().mockResolvedValue([]) },
-      $transaction: jest.fn((ops) => Promise.all(ops)),
+      appointments: {
+        findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue(null),
+        create: jest.fn().mockResolvedValue({
+          id: 'appt-new', patient_id: 'pat-1', clinician_id: 'cln-1', clinic: { client_org_id: 'org-1' },
+          patient: { id: 'pat-1', first_name: 'A', last_name: 'B', date_of_birth: new Date() },
+          clinician: { id: 'cln-1', first_name: 'X', last_name: 'Y' }, room: {}, appointment_time: new Date(), duration_minutes: 30, status: 'scheduled',
+        }),
+      },
+      appointmentStatusLogs: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+      clinics: { findUnique: jest.fn() },
+      products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 30 }) },
+      rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }) },
+      $transaction: jest.fn((ops) => (typeof ops === 'function' ? ops(prisma) : Promise.all(ops))),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -67,6 +80,27 @@ describe('AppointmentsService — access scoping', () => {
       await service.findAll(undefined, 20, 1, unlinkedClinicianUser);
       const where = prisma.appointments.findMany.mock.calls[0][0].where;
       expect(where.clinician_id).toBe('__no_clinician_link__');
+    });
+  });
+
+  describe('create', () => {
+    const baseInput = { clinician_id: 'cln-1', clinic_id: 'clinic-1', patient_id: 'pat-1', service_id: 'svc-1', start_datetime: new Date().toISOString(), notes: '' };
+
+    it('rejects creating an appointment for a clinic in a different org (previously no check at all)', async () => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-2' });
+      await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('Clinic not found');
+      expect(prisma.products.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('allows creating an appointment for a clinic in the caller\'s own org', async () => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+      await expect(service.create(baseInput as any, staffUser)).resolves.toBeDefined();
+    });
+
+    it('is a no-op for an org-less caller (patient self-serve booking goes through a separate mutation)', async () => {
+      const orgLessPatient: JwtPayload = { sub: 'p-1', roles: ['patient'], client_org_id: null, patient_id: 'pat-1' } as JwtPayload;
+      await expect(service.create(baseInput as any, orgLessPatient)).resolves.toBeDefined();
+      expect(prisma.clinics.findUnique).not.toHaveBeenCalled();
     });
   });
 

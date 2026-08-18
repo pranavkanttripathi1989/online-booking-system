@@ -199,7 +199,25 @@ export class AppointmentsService {
     }
   }
 
+  // SECURITY: create() previously never validated input.clinic_id against
+  // the caller's org at all -- same gap class fixed this session in
+  // availability/blocks/clinicians create paths. Applies to org-affiliated
+  // callers (manager/staff/clinician/admin-with-an-org): without this, any
+  // of them could create an appointment attributed to a DIFFERENT
+  // organization's clinic just by passing its clinic_id. Deliberately a
+  // no-op for an org-less caller (client_org_id: null, the seeded patient
+  // account's actual state) -- the real patient self-serve booking flow
+  // goes through public.resolver.ts's bookPatientAppointment, a separate
+  // mutation in the "public dialect" (see CLAUDE.md's two-dialect note),
+  // which by design lets a patient book across any clinic on the platform;
+  // this fix does not touch that path.
   async create(input: AppointmentInput, user: JwtPayload) {
+    if (user.client_org_id) {
+      const clinic = await this.prisma.clinics.findUnique({ where: { id: input.clinic_id } });
+      if (!clinic || clinic.client_org_id !== user.client_org_id) {
+        throw new BadRequestException('Clinic not found');
+      }
+    }
     const service = await this.prisma.products.findUnique({ where: { id: input.service_id } });
     if (!service) throw new BadRequestException('Service not found');
     const start = new Date(input.start_datetime);
