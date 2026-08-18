@@ -1025,7 +1025,7 @@ type Query {
   clinician(id: ID!): Clinician
   clinicianTypes: [ClinicianType!]!
   clinicians(clinic_id: ID, first: Int = 20, is_active: Boolean, page: Int): ClinicianPaginated!
-  clinics: [Clinic!]!
+  clinics(search: SearchInput): [Clinic!]!
   emailTemplates: [EmailTemplate!]!
   getAppointment(id: ID!): PublicAppointmentDetail!
   getAppointments(clinicianId: ID!, date: String!): [PublicAppointmentSlot!]!
