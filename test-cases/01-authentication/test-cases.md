@@ -6,6 +6,36 @@
 
 ---
 
+## RBAC Matrix — Auth domain's own operations
+
+Per QA-TESTING-EXECUTION-PROMPT.md Phase 2 rule 2 ("build an explicit table, not a sample"). This domain's operations are almost entirely `@Public()` or self-scoped-via-JWT rather than role-gated — the actual cross-domain RBAC enforcement (which role can call which *other* domain's mutations) is covered per-domain in each of the other 14 `test-cases/*.md` files, exercised here only as a smoke test (TC-AUTH-API-007) of the guard mechanism itself.
+
+| Operation | `@Public()`? | admin | super_admin | manager | clinician | staff | patient | logged out |
+|---|---|---|---|---|---|---|---|---|
+| `login` | ✅ | n/a (no auth required) | n/a | n/a | n/a | n/a | n/a | ✅ allow |
+| `register` | ✅ | n/a | n/a | n/a | n/a | n/a | n/a | ✅ allow |
+| `refresh` | ✅ | n/a | n/a | n/a | n/a | n/a | n/a | ✅ allow (valid refresh token only) |
+| `requestOtp` | ✅ | n/a | n/a | n/a | n/a | n/a | n/a | ✅ allow |
+| `verifyOtp` | ✅ | n/a | n/a | n/a | n/a | n/a | n/a | ✅ allow |
+| `forgotPassword` | ✅ | n/a | n/a | n/a | n/a | n/a | n/a | ✅ allow |
+| `resetPassword` | ✅ | n/a | n/a | n/a | n/a | n/a | n/a | ✅ allow (valid reset token only) |
+| `logout` | ❌ (no `@Auth`, just requires login) | ✅ own session only | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ 401 |
+| `me` | ❌ (no `@Auth`, just requires login) | ✅ own data only | ✅ | ✅ | ✅ | ✅ | ✅ | ❌ 401 |
+
+**Deny-path smoke test (TC-AUTH-API-007) exercised against `createUser`, an arbitrary admin-only mutation from another domain** — role × allow/deny for that one operation:
+
+| Role | `createUser` (`@Auth('admin','super_admin')`) |
+|---|---|
+| admin | ✅ allow |
+| super_admin | ✅ allow |
+| manager | ❌ FORBIDDEN |
+| clinician | ❌ FORBIDDEN |
+| staff | ❌ FORBIDDEN |
+| patient | ❌ FORBIDDEN |
+| logged out | ❌ 401 (guard order: auth before roles) |
+
+---
+
 ## 1. Unit Test Cases
 
 ### TC-AUTH-UNIT-001 — Password hash verification accepts correct password
@@ -22,7 +52,14 @@
 ### TC-AUTH-UNIT-003 — JWT payload contains required claims
 - **Priority:** Critical
 - **Steps:** Call the token-signing function with a user object `{id, email, roles: ['clinician']}`.
-- **Expected Result:** Decoded JWT payload contains `sub` (user id), `roles`, `client_org_id` (tenant scope), `iat`, `exp`. Missing `client_org_id` must fail this test — it's the field row-level scoping depends on.
+- **Expected Result:** Decoded JWT payload contains `sub` (user id), `roles`, `client_org_id` (tenant scope), `patient_id`, `clinician_id`, `iat`, `exp`. Missing `client_org_id`/`patient_id`/`clinician_id` must fail this test — `client_org_id` is the field tenant-level scoping depends on, `patient_id`/`clinician_id` are what patient/clinician row-level self-scoping (TC-AUTH-API-008/009) depend on.
+- **Status:** ✅ Implemented and passing — `backend/src/auth/auth.service.spec.ts` ("embeds the caller's own patient_id/clinician_id..." + "signs patient_id/clinician_id as null..."). `patient_id`/`clinician_id` were NOT part of the JWT payload until the 2026-08-18 security pass; TC-AUTH-API-008/009 below were failing prior to that fix (see `test-result/auth-test-results.md`'s Backend-API Verification Pass entry).
+
+### TC-AUTH-UNIT-003b — A role with neither patient_id nor clinician_id signs both as explicit null, not omitted
+- **Priority:** High
+- **Steps:** Sign a token for a `manager` role user (no `Patients`/`Clinicians` link).
+- **Expected Result:** Decoded payload has `patient_id: null, clinician_id: null` as real keys, not absent — every `selfScope()` check in `PatientsService`/`AppointmentsService`/`TestResultsService` does `user.roles.includes('patient')` before reading `user.patient_id`, so an absent-vs-null distinction doesn't currently matter for those checks, but an explicit `null` is asserted anyway since a future consumer written as `if (user.patient_id)` rather than `if (user.roles.includes('patient'))` would behave identically for null and undefined — this test exists to keep the payload shape self-documenting, not because a real bug was found from the distinction.
+- **Status:** ✅ Implemented and passing.
 
 ### TC-AUTH-UNIT-004 — JWT expiry matches configured TTL
 - **Priority:** High
@@ -108,12 +145,29 @@
 - **Preconditions:** Patient A and Patient B both exist.
 - **Steps:** Log in as Patient A, query `patient(id: <PatientB.id>)`.
 - **Expected Result:** Rejected or returns null — NOT Patient B's data. This is the single most important test in the whole suite: the frontend has zero client-side enforcement of this (`frontend-contract-analysis.md §3/§8`), so the backend is the only line of defense.
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING** — no such check existed at all; any patient JWT could read any patient's record). `backend/src/patients/patients.service.ts` `findOne`. See `test-result/patients-test-results.md`.
 
 ### TC-AUTH-API-009 — Row-level scoping: a clinician cannot fetch a patient who isn't theirs
 - **Priority:** Critical
 - **Preconditions:** Clinician C1 has an appointment history with Patient A but none with Patient B.
 - **Steps:** Log in as C1, query `patient(id: <PatientB.id>)`.
 - **Expected Result:** Rejected or returns null.
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING** — any clinician JWT could read any patient in the org, not just their own). `backend/src/patients/patients.service.ts` `findOne`/`findAll`, restricted via `appointments: {some: {clinician_id}}`. See `test-result/patients-test-results.md`.
+
+### TC-AUTH-API-008b — An unlinked patient account (no `UserProfiles.patient_id`) sees an empty result, never falls through to "everyone"
+- **Priority:** Critical
+- **Preconditions:** A `patient`-role `UserProfiles` row exists with `patient_id: null` (this is the actual state of the seeded `patient@medibook.dev` demo account as of 2026-08-18).
+- **Steps:** Log in as that account, query `patients` (list) and `patient(id: <anyRealPatient.id>)`.
+- **Expected Result:** `patients` returns an empty list; `patient(id)` returns null/rejected for every id, including a real one. This is the "fail closed, not fail open" edge case of the TC-AUTH-API-008 fix — an unset `patient_id` must never be treated as "no restriction."
+- **Status:** ✅ Implemented and passing — `backend/src/patients/patients.service.spec.ts` ("an unlinked patient account... sees nothing"). Live-verified against the real `patient@medibook.dev` seed account.
+- **Note:** this is also why `pages/patient/{Profile,Appointments,Dashboard}.jsx` currently show mock data rather than an empty state when demoed with this account — those pages aren't wired to these queries yet (tracked separately as a GAP item), not a consequence of this fix.
+
+### TC-AUTH-API-009b — Cross-role escalation: a patient account cannot use the clinician self-scoping path to see other patients
+- **Priority:** High
+- **Preconditions:** A user with `roles: ['patient']` and (hypothetically, e.g. via a tampered/forged token) a non-null `clinician_id` claim.
+- **Steps:** Send a `patients` query with a JWT where `roles` is `['patient']` but `clinician_id` is also set.
+- **Expected Result:** Still scoped by `patient_id` only — `PatientsService.selfScope()` checks `roles.includes('patient')` FIRST and returns immediately, never reaching the clinician branch, regardless of what `clinician_id` claims. A legitimately-issued token never has both roles, so this is a defense-in-depth case against a malformed/forged token, not a realistic normal-operation path.
+- **Status:** ✅ Implemented and passing — verified by code inspection of `selfScope()`'s if/else-if structure (`backend/src/patients/patients.service.ts`); no dedicated unit test added for this specific adversarial-token scenario since it requires bypassing JWT signature verification to construct, which is out of scope for an application-layer test (the signature check itself, not this authorization logic, is what would actually stop a forged token in production).
 
 ### TC-AUTH-API-010 — Cross-tenant isolation: a user from Org 1 cannot query Org 2's data
 - **Priority:** Critical
