@@ -148,6 +148,32 @@ describe('AuthService', () => {
       );
     });
 
+    it("embeds the caller's own patient_id/clinician_id in the signed JWT (TC-AUTH-UNIT-003) -- the entire patient/clinician self-scoping fix (TC-AUTH-API-008/009) rests on these being correct, not just present", async () => {
+      redis.get.mockResolvedValueOnce(null);
+      prisma.userProfiles.findUnique.mockResolvedValue(
+        activeProfile({ patient_id: 'pat-42', clinician_id: 'cln-7' }),
+      );
+
+      await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ patient_id: 'pat-42', clinician_id: 'cln-7' }),
+        expect.anything(),
+      );
+    });
+
+    it('signs patient_id/clinician_id as null (not omitted/undefined) for a role linked to neither, so downstream selfScope() checks never accidentally skip themselves via a missing key', async () => {
+      redis.get.mockResolvedValueOnce(null);
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile()); // default fixture: both null
+
+      await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ patient_id: null, clinician_id: null }),
+        expect.anything(),
+      );
+    });
+
     it('rejects outright once locked out, without ever touching the password (TC-AUTH-API-013)', async () => {
       redis.get.mockResolvedValueOnce('5'); // already at LOCKOUT_MAX_ATTEMPTS
 

@@ -1033,14 +1033,19 @@ function ForgotPasswordTab() {
 
 // ─── Main Login Component ─────────────────────────────────────────────────────
 export default function Login() {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, user } = useAuth();
   const [activeTab, setActiveTab] = useState(0);
   // NEW-AUTH-006: session-expired banner via query param
   const [searchParams] = useSearchParams();
   const sessionExpired = searchParams.get('reason') === 'session_expired';
 
-  // Already logged in — redirect
-  if (isAuthenticated) return <Navigate to="/dashboard" replace />;
+  // Already logged in — redirect to the role-appropriate dashboard, not
+  // always the admin-only /dashboard (BUG found via live Chrome MCP
+  // verification: a patient/clinician/staff account revisiting /login was
+  // silently dropped onto the manager-oriented /dashboard, which ProtectedRoute
+  // alone doesn't block since it has no role restriction — see App.jsx fix
+  // in the same commit).
+  if (isAuthenticated) return <Navigate to={getPostLoginRedirect(user)} replace />;
 
   return (
     <Grid container sx={{ minHeight: '100vh' }}>

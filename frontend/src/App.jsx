@@ -8,6 +8,19 @@ import RoleGuard      from './components/ProtectedRoute/RoleGuard'
 import AppShell       from './layouts/AppShell'
 import PublicLayout   from './layouts/PublicLayout'
 import AuthLayout     from './layouts/AuthLayout'
+import { useAuth, getPostLoginRedirect } from './context/AuthContext'
+
+// Role-aware home redirect for the AppShell index route (`/`) — found via
+// live Chrome MCP verification that the previous hardcoded
+// `<Navigate to="/dashboard" replace />` sent every role, including
+// patient/clinician/staff, into the admin-only /dashboard rather than their
+// own dedicated dashboard (getPostLoginRedirect already existed and is used
+// everywhere else post-login, just not here or in login.jsx's already-
+// authenticated redirect — both fixed together).
+function RoleHomeRedirect() {
+  const { user } = useAuth()
+  return <Navigate to={getPostLoginRedirect(user)} replace />
+}
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const Login              = lazy(() => import('./pages/auth/login'))
@@ -184,10 +197,21 @@ function App() {
       {/* ── Protected + AppShell ─────────────────────────────────────── */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route index element={<Navigate to="/dashboard" replace />} />
+          <Route index element={<RoleHomeRedirect />} />
 
           {/* ── Core shared ───────────────────────────────────────────── */}
-          <Route path="/dashboard"              element={<Suspense fallback={<ShellPageLoader />}><DashboardPage /></Suspense>} />
+          {/* /dashboard is shared by admin/super_admin/staff (AppShell.jsx NAV_CONFIG's
+              actual role list for this nav entry — 'receptionist' also listed there is
+              a dead/no-op role name, RolesGuard only ever sees the real seeded role
+              names). manager/clinician/patient each have their own dedicated dashboard
+              route below and were never meant to reach this one — previously reachable
+              by ANY authenticated role via plain ProtectedRoute; a patient/clinician
+              account could land here (e.g. via the /login redirect bug fixed alongside
+              this) and see a full manager-style analytics UI, even though its data was
+              mock-only. */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'staff']} />}>
+            <Route path="/dashboard"            element={<Suspense fallback={<ShellPageLoader />}><DashboardPage /></Suspense>} />
+          </Route>
           <Route path="/calendar"               element={<Suspense fallback={<ShellPageLoader />}><CalendarPage /></Suspense>} />
           <Route path="/messages"               element={<Suspense fallback={<ShellPageLoader />}><MessagesPage /></Suspense>} />
           <Route path="/settings"               element={<Suspense fallback={<ShellPageLoader />}><SettingsPage /></Suspense>} />
