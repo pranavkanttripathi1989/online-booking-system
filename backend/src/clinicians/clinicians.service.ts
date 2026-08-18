@@ -110,7 +110,13 @@ export class CliniciansService {
     return rows.map((r) => r.id);
   }
 
-  async create(input: ClinicianInput) {
+  // SECURITY: create() previously never validated the target clinic against
+  // the caller's org at all -- only update() did (via findOne()'s existing-
+  // record lookup). A manager/admin could create a clinician record
+  // attributed to a DIFFERENT organization's clinic just by passing its
+  // clinic_id. Same gap class fixed in availability.service.ts's create()
+  // and blocks.service.ts's createSpacerBlock/createRoomBlock.
+  async create(input: ClinicianInput, user: JwtPayload) {
     let clinicianTypeName: string | undefined;
     if (input.clinician_type_id) {
       const typeRow = await this.prisma.clinicianTypeModel.findUnique({ where: { id: input.clinician_type_id } });
@@ -119,6 +125,12 @@ export class CliniciansService {
     }
     const clinicId = input.clinic_ids?.[0];
     if (!clinicId) throw new BadRequestException('At least one clinic_id is required');
+    if (user.client_org_id) {
+      const clinic = await this.prisma.clinics.findUnique({ where: { id: clinicId } });
+      if (!clinic || clinic.client_org_id !== user.client_org_id) {
+        throw new BadRequestException('Clinic not found');
+      }
+    }
     const languageIds = await this.resolveLanguageIds(input.languages ?? []);
 
     const clinicianId = await this.prisma.$transaction(async (tx) => {

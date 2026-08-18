@@ -26,8 +26,8 @@ export class AvailabilityResolver {
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => AvailabilityMutationResultType)
-  createAvailability(@Args('input') input: CreateAvailabilityInput) {
-    return this.availabilityService.create(input);
+  createAvailability(@Args('input') input: CreateAvailabilityInput, @CurrentUser() user: JwtPayload) {
+    return this.availabilityService.create(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')

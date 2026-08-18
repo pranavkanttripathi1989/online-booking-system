@@ -16,6 +16,7 @@ describe('AvailabilityService — clinician self-service access scoping', () => 
     clinicians: { findUnique: jest.Mock };
     clinicianAvailability: { findUnique: jest.Mock; update: jest.Mock; create: jest.Mock };
     lunchBreaks: { findUnique: jest.Mock; update: jest.Mock; create: jest.Mock };
+    clinics: { findUnique: jest.Mock };
   };
 
   const ownClinicianUser: JwtPayload = { sub: 'u-1', roles: ['clinician'], client_org_id: 'org-1', clinician_id: 'cln-1' } as JwtPayload;
@@ -30,6 +31,7 @@ describe('AvailabilityService — clinician self-service access scoping', () => 
       clinicians: { findUnique: jest.fn().mockResolvedValue(targetClinician) },
       clinicianAvailability: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({ id: 'avail-1' }), create: jest.fn().mockResolvedValue({ id: 'avail-1' }) },
       lunchBreaks: { findUnique: jest.fn(), update: jest.fn().mockResolvedValue({ id: 'lb-1' }), create: jest.fn().mockResolvedValue({ id: 'lb-1' }) },
+      clinics: { findUnique: jest.fn().mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' }) },
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [AvailabilityService, { provide: PrismaService, useValue: prisma }],
@@ -39,6 +41,23 @@ describe('AvailabilityService — clinician self-service access scoping', () => 
 
   const baseAvailInput = { clinicianId: 'cln-1', recurrenceType: 'weekly', startTime: '09:00', endTime: '17:00' };
   const baseLunchInput = { clinicianId: 'cln-1', dayOfWeek: 'daily', startTime: '13:00', endTime: '14:00' };
+
+  describe('create (canonical manager-facing availability)', () => {
+    it('rejects creating a template for a clinic in a different org (previously no check at all)', async () => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-9', client_org_id: 'org-2' });
+      const result = await service.create({ clinic_id: 'clinic-9', clinician_id: 'cln-1', recurrence_type: 'weekly', start_time: '09:00', end_time: '17:00' } as any, managerSameOrg);
+      expect(result.success).toBe(false);
+      expect(prisma.clinicianAvailability.create).not.toHaveBeenCalled();
+    });
+
+    it('allows creating a template for a clinic in the caller\'s own org', async () => {
+      prisma.clinicianAvailability.create.mockResolvedValue({
+        id: 'avail-1', clinician: { id: 'cln-1', first_name: 'A', last_name: 'B' }, clinic: { id: 'clinic-1', name: 'C' }, room: null,
+      });
+      const result = await service.create({ clinic_id: 'clinic-1', clinician_id: 'cln-1', recurrence_type: 'weekly', start_time: '09:00', end_time: '17:00' } as any, managerSameOrg);
+      expect(result.success).toBe(true);
+    });
+  });
 
   describe('saveClinicianAvailability', () => {
     it('allows a clinician to save their own availability', async () => {

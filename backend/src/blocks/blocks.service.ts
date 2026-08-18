@@ -101,7 +101,22 @@ export class BlocksService {
     };
   }
 
-  async createSpacerBlock(input: CreateSpacerBlockInput) {
+  // SECURITY: create*Block previously never validated input.clinic_id against
+  // the caller's org -- only update*/delete* did (they look up an existing
+  // record first). A manager/admin could create a spacer/room block
+  // attributed to a DIFFERENT organization's clinic, e.g. to sabotage a
+  // competitor's booking availability with bogus "blocked" time. Same gap
+  // class fixed in availability.service.ts's create().
+  private async assertClinicInOrg(clinicId: string, user: JwtPayload) {
+    if (!user.client_org_id) return true;
+    const clinic = await this.prisma.clinics.findUnique({ where: { id: clinicId } });
+    return !!clinic && clinic.client_org_id === user.client_org_id;
+  }
+
+  async createSpacerBlock(input: CreateSpacerBlockInput, user: JwtPayload) {
+    if (!(await this.assertClinicInOrg(input.clinic_id, user))) {
+      return { success: false, userErrors: [{ message: 'Clinic not found' }] };
+    }
     try {
       const row = await this.prisma.spacerBlocks.create({
         data: this.mapSpacerData(input),
@@ -154,7 +169,10 @@ export class BlocksService {
     };
   }
 
-  async createRoomBlock(input: CreateRoomBlockInput) {
+  async createRoomBlock(input: CreateRoomBlockInput, user: JwtPayload) {
+    if (!(await this.assertClinicInOrg(input.clinic_id, user))) {
+      return { success: false, userErrors: [{ message: 'Clinic not found' }] };
+    }
     try {
       const row = await this.prisma.roomBlocks.create({
         data: this.mapRoomBlockData(input),

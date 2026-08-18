@@ -33,8 +33,8 @@ export class CliniciansResolver {
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ClinicianType)
-  createClinician(@Args('input') input: ClinicianInput) {
-    return this.cliniciansService.create(input);
+  createClinician(@Args('input') input: ClinicianInput, @CurrentUser() user: JwtPayload) {
+    return this.cliniciansService.create(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')

@@ -28,8 +28,8 @@ export class BlocksResolver {
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => SpacerBlockMutationResultType)
-  createSpacerBlock(@Args('input') input: CreateSpacerBlockInput) {
-    return this.blocksService.createSpacerBlock(input);
+  createSpacerBlock(@Args('input') input: CreateSpacerBlockInput, @CurrentUser() user: JwtPayload) {
+    return this.blocksService.createSpacerBlock(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')
@@ -46,8 +46,8 @@ export class BlocksResolver {
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => RoomBlockMutationResultType)
-  createRoomBlock(@Args('input') input: CreateRoomBlockInput) {
-    return this.blocksService.createRoomBlock(input);
+  createRoomBlock(@Args('input') input: CreateRoomBlockInput, @CurrentUser() user: JwtPayload) {
+    return this.blocksService.createRoomBlock(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')

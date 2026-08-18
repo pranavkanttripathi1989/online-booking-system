@@ -60,7 +60,20 @@ export class AvailabilityService {
     };
   }
 
-  async create(input: CreateAvailabilityInput) {
+  // SECURITY: create() previously never validated input.clinic_id against the
+  // caller's org at all -- only update()/remove() did, since they happen to
+  // look up an existing record anyway. A manager/admin could create an
+  // availability template attributed to a DIFFERENT organization's clinic
+  // just by passing its clinic_id, polluting another tenant's schedule data
+  // (e.g. sabotaging a competitor's booking availability). Same gap class
+  // fixed in blocks.service.ts's createSpacerBlock/createRoomBlock.
+  async create(input: CreateAvailabilityInput, user: JwtPayload) {
+    if (user.client_org_id) {
+      const clinic = await this.prisma.clinics.findUnique({ where: { id: input.clinic_id } });
+      if (!clinic || clinic.client_org_id !== user.client_org_id) {
+        return { success: false, userErrors: [{ message: 'Clinic not found' }] };
+      }
+    }
     try {
       const row = await this.prisma.clinicianAvailability.create({ data: this.mapCreateData(input), include: INCLUDE });
       return { success: true, userErrors: [], availability: this.toGraphQL(row) };
