@@ -145,7 +145,7 @@ Per QA-TESTING-EXECUTION-PROMPT.md Phase 2 rule 2. Neither read query carries an
 - **Preconditions:** Patient A belongs to Org 1 (via an Org 1 appointment).
 - **Steps:** Log in as an Org 2 manager, call `updatePatient(id: <PatientA.id>, ...)`.
 - **Expected Result:** Rejected with FORBIDDEN/NOT_FOUND; verify via a subsequent read that no field on Patient A changed.
-- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`update()` calls `findOne()` first, which enforces org scope before any write) — not independently re-verified with a live two-org fixture this pass.
+- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`update()` calls `findOne()` first, which enforces org scope before any write). Not independently re-verified with a full cross-org Patients fixture (would require constructing a second org's clinician + appointment + patient chain); the underlying `clinic.client_org_id` join it depends on has since been live-proven correct via the equivalent `createAppointment`/`createAvailability`/`clinic(id)` cross-org rejections (`context/qa-full-inventory.md` §6) once real tenant-linked seed data existed.
 
 ### TC-PAT-API-007 — A clinician can only fetch patients they have an appointment relationship with
 - **Priority:** Critical

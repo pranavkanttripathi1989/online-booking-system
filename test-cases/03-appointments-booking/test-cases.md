@@ -184,7 +184,7 @@ Per QA-TESTING-EXECUTION-PROMPT.md Phase 2 rule 2. Reads carry no `@Auth()` role
 - **Preconditions:** Org 1 and Org 2 each have their own clinics/appointments.
 - **Steps:** Log in as a manager of Org 1, query a specific `appointment(id: <Org2Appointment.id>)`.
 - **Expected Result:** Rejected or null — mirrors `TC-AUTH-API-010`'s multi-tenancy guarantee applied to this domain.
-- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`AppointmentsService.orgScope()`/`loadScoped()`) — not part of this session's fix (which addressed patient/clinician row-level scoping, a different gap), not independently re-verified with a live two-org fixture this pass.
+- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`AppointmentsService.orgScope()`/`loadScoped()`) — not part of this session's fix (which addressed patient/clinician row-level scoping, a different gap). **Live-verified 2026-08-19** once seed data actually established a real second tenant (`backend/prisma/seed.ts` previously linked nothing to either of the 2 real orgs that existed — see `context/qa-full-inventory.md` §6): a `city-heart`-org manager's `createAppointment`/`createAvailability`/`clinic(id)` against the new `westside-health` clinic are all correctly rejected, proving the shared `clinic.client_org_id` join this code path relies on.
 
 ### TC-APPT-API-014 — Journey mutations (`checkInPatient`/`markConsultationStarted`/`checkOutPatient`/`markPatientDidNotAttend`) are role-gated to front-desk/clinical staff, not patients
 - **Priority:** Critical
