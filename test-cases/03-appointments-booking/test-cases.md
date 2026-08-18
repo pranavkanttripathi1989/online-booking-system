@@ -7,6 +7,26 @@
 
 ---
 
+## RBAC Matrix — `appointments`/`appointment(id)` and the core mutations
+
+Per QA-TESTING-EXECUTION-PROMPT.md Phase 2 rule 2. Reads carry no `@Auth()` role annotation (reachable by any logged-in role); access control is enforced inside `AppointmentsService`.
+
+| Role | `appointments` (list) | `appointment(id)` | `createAppointment` | `cancelAppointment` | `updateAppointment`/`completeAppointment`/`markNoShow` |
+|---|---|---|---|---|---|
+| admin | ✅ all orgs | ✅ any | ✅ (`@Auth`) | ✅ (`@Auth`) | ✅ (`@Auth`) |
+| super_admin | ✅ all orgs | ✅ any | ✅ | ✅ | ✅ |
+| manager | ✅ own org | ✅ own-org only | ✅ | ✅ | ✅ |
+| clinician | ✅ **own schedule only** (fixed 2026-08-18) | ✅ **own appointments only** (fixed) | ✅ (`@Auth` includes clinician) | ✅ (`@Auth` includes clinician) | ✅ |
+| staff | ✅ own org | ✅ own-org only | ✅ | ✅ | ✅ |
+| patient | ✅ **own appointments only** (fixed 2026-08-18) | ✅ **own appointments only** (fixed) | ✅ (`@Auth` includes patient — self-booking) | ✅ (`@Auth` includes patient — self-cancel) | ❌ FORBIDDEN (not in `@Auth` list) |
+| logged out | ❌ 401 | ❌ 401 | ❌ 401 | ❌ 401 | ❌ 401 |
+
+**Note on `createAppointment`/`cancelAppointment` for a `clinician` caller**: allowed by `@Auth()`, but per this pass's `selfScope()` fix, a clinician's `appointment(id)` lookup (used internally by `cancelAppointment`'s `loadScoped()`) is now restricted to their own appointments — so a clinician CAN create an appointment for themselves and cancel their own, but cannot cancel another clinician's appointment even though the role check alone would have allowed it before this fix. This is a direct, intended consequence of TC-APPT-API-010's fix on the write path, not just the read path — worth an explicit test in Phase 3.
+
+**Journey mutations** (`checkInPatient`/`markConsultationStarted`/`checkOutPatient`/`markPatientDidNotAttend`, TC-APPT-API-014): `@Auth()` list not independently re-verified against the actual resolver source this pass — TC-APPT-API-014 remains the authoritative spec for what it should be (front-desk/clinical staff only, never patient); confirming the resolver actually matches is unstarted Phase 4 work for this domain.
+
+---
+
 ## 1. Unit Test Cases
 
 ### TC-APPT-UNIT-001 — Status-transition validator rejects invalid transitions
@@ -126,11 +146,20 @@
 - **Preconditions:** Grounded in SUG-PTAPPT-009 ("a genuine backend milestone" — this is the pending real backend the patient appointments page needs).
 - **Steps:** Log in as Patient A, call the patient-scoped appointments query with no filter arguments.
 - **Expected Result:** Returns only Patient A's appointments — there must be no way to pass a different `patient_id` and see someone else's, mirroring `TC-AUTH-API-008`'s row-level-scoping guarantee.
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING** — no such scoping existed; the plain `appointments` query is what backs this, not a separate "patient-scoped" query). See `test-result/appointments-test-results.md` and `backend/src/appointments/appointments.service.spec.ts`. `patient/Appointments.jsx` itself is still on mock data (not wired to this query yet) so this fix has no live-UI consequence until that page is built for real.
 
 ### TC-APPT-API-010 — A clinician's appointments query returns only their own schedule
 - **Priority:** Critical
 - **Steps:** Log in as Clinician C1, query appointments with no filter.
 - **Expected Result:** Returns only appointments where `clinician_id` = C1's own clinician record.
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING**). `clinician_id` newly embedded in the JWT (`auth/strategies/jwt.strategy.ts`). Live-verified: `clinician@medibook.dev` (not yet linked to a `Clinicians` row) correctly sees 0 rather than the org's full appointment list.
+
+### TC-APPT-API-009b — An unlinked patient/clinician account sees zero appointments, never the full org's
+- **Priority:** Critical
+- **Preconditions:** A `patient` or `clinician` role `UserProfiles` row with `patient_id`/`clinician_id: null` (the actual state of both seeded demo accounts as of 2026-08-18).
+- **Steps:** Log in as either demo account, call `appointments` with no filter.
+- **Expected Result:** Empty result set, not the org's full appointment list — the fail-closed edge case of TC-APPT-API-009/010's fix (`__no_patient_link__`/`__no_clinician_link__` sentinel values in `AppointmentsService.selfScope()` guarantee a real DB id can never accidentally match an unset filter).
+- **Status:** ✅ Implemented and passing — `appointments.service.spec.ts`, live-verified against both real seed accounts.
 
 ### TC-APPT-API-011 — `markNoShow` is rejected on an already-terminal appointment
 - **Priority:** Medium
@@ -148,6 +177,7 @@
 - **Preconditions:** Org 1 and Org 2 each have their own clinics/appointments.
 - **Steps:** Log in as a manager of Org 1, query a specific `appointment(id: <Org2Appointment.id>)`.
 - **Expected Result:** Rejected or null — mirrors `TC-AUTH-API-010`'s multi-tenancy guarantee applied to this domain.
+- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`AppointmentsService.orgScope()`/`loadScoped()`) — not part of this session's fix (which addressed patient/clinician row-level scoping, a different gap), not independently re-verified with a live two-org fixture this pass.
 
 ### TC-APPT-API-014 — Journey mutations (`checkInPatient`/`markConsultationStarted`/`checkOutPatient`/`markPatientDidNotAttend`) are role-gated to front-desk/clinical staff, not patients
 - **Priority:** Critical
