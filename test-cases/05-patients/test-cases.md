@@ -6,6 +6,24 @@
 
 ---
 
+## RBAC Matrix — `patients`/`patient(id)`/`createPatient`/`updatePatient`
+
+Per QA-TESTING-EXECUTION-PROMPT.md Phase 2 rule 2. Neither read query carries an `@Auth()` role annotation (reachable by any logged-in role); the actual access control is enforced *inside* `PatientsService`, which is why this matrix distinguishes "reaches the resolver" from "sees real data."
+
+| Role | `patients` (list) | `patient(id)` | `createPatient` | `updatePatient` |
+|---|---|---|---|---|
+| admin | ✅ all orgs (org-less, sees everything) | ✅ any patient | ✅ (`@Auth`) | ✅ (`@Auth`) |
+| super_admin | ✅ all orgs | ✅ any patient | ✅ | ✅ |
+| manager | ✅ own org only | ✅ own-org patients only | ✅ | ✅ own-org patients only |
+| clinician | ✅ **own treated patients only** (fixed 2026-08-18, was: all org patients) | ✅ **own treated patients only** (fixed) | ❌ FORBIDDEN (not in `@Auth` list) | ❌ FORBIDDEN |
+| staff | ✅ own org only | ✅ own-org patients only | ✅ | ✅ own-org patients only |
+| patient | ✅ **own record only** (fixed 2026-08-18, was: all org patients) | ✅ **own record only** (fixed) | ❌ FORBIDDEN | ❌ FORBIDDEN |
+| logged out | ❌ 401 | ❌ 401 | ❌ 401 | ❌ 401 |
+
+**Note on `manager`/`staff`/`admin`/`super_admin` "own-org" cells above:** verified correct by code inspection (`orgScope()`, pre-existing) but not independently re-verified live with a two-org fixture this pass — see TC-PAT-API-001/006's status notes.
+
+---
+
 ## 1. Unit Test Cases
 
 ### TC-PAT-UNIT-001 — Patient full name is derived consistently for avatar initials
@@ -97,6 +115,7 @@
 - **Preconditions:** Org 1 has Patient A (with an appointment at an Org 1 clinic); Org 2 has Patient B (appointment at an Org 2 clinic). Both orgs' managers are seeded.
 - **Steps:** Log in as Org 1's manager, call `patients` (list query).
 - **Expected Result:** Patient B never appears in the result set — proven via the `Appointments.clinic_id → Clinics.client_org_id` join, since `Patients` itself carries no org identifier. This is the direct backend fix for the schema gap noted above; if this resolver naively selects from `Patients` with no join/filter, it leaks cross-tenant data.
+- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`PatientsService.orgScope()`) — not part of this session's fix, which addressed a *different* gap (patient/clinician row-level scoping, see TC-PAT-API-003/007 below). Not independently re-verified with a live two-org fixture this pass; flagged as still-pending live verification in `context/qa-full-inventory.md`.
 
 ### TC-PAT-API-002 — A patient with no appointments yet is still visible to the org that created them
 - **Priority:** High
@@ -109,6 +128,7 @@
 - **Preconditions:** Patient A and Patient B both exist with logged-in `UserProfiles` accounts.
 - **Steps:** Log in as Patient A's own account, query `patient(id: <PatientB.id>)`.
 - **Expected Result:** Rejected or returns null — never Patient B's record. (Same pattern as `TC-AUTH-API-008`; re-verified here at the domain level since `Patients` is the table in question.)
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING**). See `test-result/patients-test-results.md`'s Backend-API Verification Pass entry and `backend/src/patients/patients.service.spec.ts`.
 
 ### TC-PAT-API-004 — `createPatient` requires `first_name`, `last_name`, `email`, `phone`
 - **Priority:** High
@@ -125,18 +145,21 @@
 - **Preconditions:** Patient A belongs to Org 1 (via an Org 1 appointment).
 - **Steps:** Log in as an Org 2 manager, call `updatePatient(id: <PatientA.id>, ...)`.
 - **Expected Result:** Rejected with FORBIDDEN/NOT_FOUND; verify via a subsequent read that no field on Patient A changed.
+- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`update()` calls `findOne()` first, which enforces org scope before any write) — not independently re-verified with a live two-org fixture this pass.
 
 ### TC-PAT-API-007 — A clinician can only fetch patients they have an appointment relationship with
 - **Priority:** Critical
 - **Preconditions:** Clinician C1 has at least one appointment with Patient A; Clinician C1 has never seen Patient B (same org, different clinician).
 - **Steps:** Log in as C1, query `myPatients` (or equivalent clinician-scoped patient list), then attempt `patient(id: <PatientB.id>)` directly.
 - **Expected Result:** `myPatients` never includes Patient B; the direct `patient(id)` lookup for Patient B is rejected or null. **This case has no equivalent in the existing frontend QA history** — `test-suggestion/clinician-patients-test-suggestion.md` explicitly defers "connect to real backend" (SUG-CLPAT-005) and the current `/clinician/patients` page runs entirely off a static 5-patient mock array with no cross-clinician boundary ever exercised. This must be a new, backend-only test — do not assume any existing frontend behavior proves this today.
+- **Status:** ✅ Fixed 2026-08-18, with a naming correction: no separate `myPatients` query exists or was created. The real fix scopes the *same* `patients`/`patient(id)` queries — a clinician caller gets `appointments: {some: {clinician_id}}` applied automatically, no dedicated clinician-only query needed. `/clinician/patients` (still on mock data, per `context/qa-full-inventory.md` §4) should be wired to plain `patients()` when its turn comes, not a query named `myPatients`. See `backend/src/patients/patients.service.spec.ts`.
 
 ### TC-PAT-API-008 — `me`-scoped patient query returns only the logged-in patient's own record
 - **Priority:** Critical
 - **Preconditions:** Patient A is logged in via their own `UserProfiles` account (`patient_id` set).
 - **Steps:** Call whatever query backs `/patient/profile` (e.g. `myPatientProfile`).
 - **Expected Result:** Returns exactly Patient A's `Patients` row, resolved from the JWT's `patient_id` claim — with no `patientId` argument accepted on the query at all (same principle as `TC-AUTH-API-005`'s `me` query).
+- **Status:** ⚠️ Genuinely open question, not yet resolved either way (flagging per QA-TESTING-EXECUTION-PROMPT.md "How to work" — stop for genuine ambiguity). No dedicated `myPatientProfile` query exists. What DOES now work: a patient calling plain `patient(id: <their own patient_id>)` correctly succeeds (self-scoping allows it), and calling `patients()` with no filter returns a single-item list containing only themselves. Whether `/patient/Profile.jsx` (still on mock data) should be wired to `patient(id)` with the id sourced client-side from the logged-in user's own record, or whether a dedicated no-argument `myPatientProfile`-style query should be added instead (arguably cleaner, avoids the frontend needing to know its own `patient_id` at all), is a real design decision for whoever builds that page's real wiring — not decided by this pass.
 
 ### TC-PAT-API-009 — Deleting/deactivating a patient is a soft delete, not a hard delete
 - **Priority:** High
@@ -148,12 +171,14 @@
 - **Preconditions:** A test-result record exists with `status: 'processing'` and populated `values`.
 - **Steps:** Query the test result's detail (patient-facing or staff-facing).
 - **Expected Result:** The `values` array is withheld/empty while `status !== 'completed'`, regardless of caller role — matches the frontend's existing gating rule (`test-plan/test-results-page-test-plan.md` TC-TRES-11/12: "Results not yet available" shown for `processing`/`pending`, gated purely by completion status, not by role). Confirms the backend enforces the same gate the UI currently fakes client-side.
+- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`TestResultsService.toGraphQL()`'s `values: row.status === 'completed' ? row.values : []`) — not part of this session's fix, not independently re-verified live this pass.
 
 ### TC-PAT-API-011 — A patient can only view their own test results, not another patient's
 - **Priority:** Critical
 - **Preconditions:** Patient A and Patient B each have a completed test result.
 - **Steps:** Log in as Patient A, query the test-results list/detail scoped to "my results", attempt direct lookup of Patient B's result ID.
 - **Expected Result:** Patient A's list never includes Patient B's result; direct lookup by ID is rejected/null. **Ungrounded in current frontend history** — the only test-results UI tested so far (`/test-results`) is explicitly a "clinical staff" list with zero patient-self-service view or per-patient auth boundary in any of the reviewed QA docs; this is new spec, not a regression of existing behavior.
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING** — `testResults`/`testResult(id)` had no `@Auth()` gate and no per-patient scoping at all; any authenticated role, patient included, could read every patient's lab values org-wide). No separate "my results" query exists — same `testResults()`/`testResult(id)` queries, now self-scoped for the `patient` role. See `test-suggestion/test-results-page-test-suggestion.md` SUG-TRES-SEC-001 and `backend/src/test-results/test-results.service.spec.ts`. **Still open:** `testResults`/`testResult` have no `@Auth()` role restriction at all (any logged-in role can call them) — deliberately not tightened further this pass since the actual PHI leak (patient role) is closed; whether `clinician`/`staff` access should also be restricted is a Phase 2 RBAC-matrix decision, not resolved here.
 
 ### TC-PAT-API-012 — Cursor/offset pagination on `patients` is stable under concurrent creates
 - **Priority:** Medium
