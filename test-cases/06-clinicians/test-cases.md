@@ -6,6 +6,22 @@
 
 ---
 
+## RBAC Matrix — `clinicians`/`clinician(id)`/create/update/toggle
+
+Per QA-TESTING-EXECUTION-PROMPT.md Phase 2 rule 2. Reads carry no `@Auth()` (see TC-CLIN-API-010's open item on `clinician(id)`'s full-record exposure).
+
+| Role | `clinicians`/`clinician(id)` | `createClinician` | `updateClinician` | `toggleClinicianActive` |
+|---|---|---|---|---|
+| admin | ✅ all orgs | ✅ (`@Auth`, org-scoped fixed 2026-08-18) | ✅ (`@Auth`) | ✅ (`@Auth`) |
+| super_admin | ✅ all orgs | ✅ | ✅ | ✅ |
+| manager | ✅ own org (reachable, no role gate) | ✅ own org only | ✅ own-org clinicians only | ✅ own-org clinicians only |
+| clinician | ✅ own org (reachable, no role gate — includes other clinicians' full records, TC-CLIN-API-010 open item) | ❌ FORBIDDEN (not in `@Auth` list) | ❌ FORBIDDEN | ❌ FORBIDDEN (added for `manager`/`admin`/`super_admin` only, `clinician` deliberately excluded — a clinician toggling their own or a peer's active status was never part of this feature's intent) |
+| staff | ✅ own org | ❌ FORBIDDEN | ❌ FORBIDDEN | ❌ FORBIDDEN |
+| patient | ✅ (reachable — public-ish directory data, no `@Auth`, judged intentional) | ❌ FORBIDDEN | ❌ FORBIDDEN | ❌ FORBIDDEN |
+| logged out | ❌ 401 | ❌ 401 | ❌ 401 | ❌ 401 |
+
+---
+
 ## 1. Unit Test Cases
 
 ### TC-CLIN-UNIT-001 — `clinician_type` value must match an active `ClinicianTypeModel.name`
@@ -64,6 +80,14 @@
 - **Preconditions:** Org 1 and Org 2 each have their own clinics and clinicians assigned via `clinic_id`.
 - **Steps:** Log in as an Org 1 manager, call `clinicians` (list query).
 - **Expected Result:** Only Org 1's clinicians are returned — scoped via `Clinicians.clinic_id → Clinics.client_org_id`, since `Clinicians` itself carries no direct org identifier.
+- **Status:** ✅ Already correctly implemented pre-2026-08-18 (`orgScope()`). Not independently re-verified with a live two-org fixture this pass.
+
+### TC-CLIN-API-001b — `createClinician` cannot attach a clinician to another org's clinic
+- **Priority:** Critical
+- **Preconditions:** Org 1 and Org 2 each have their own clinics.
+- **Steps:** Log in as an Org 1 manager, call `createClinician` with `clinic_ids: [<Org2Clinic.id>]`.
+- **Expected Result:** Rejected — same gap class as `TC-AUTH-API-010`'s multi-tenancy guarantee, applied to the create path.
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING** — `create()` never validated the target clinic against the caller's org at all, found during a systemic sweep of every `create()` method in the backend after the same gap was found in `createAvailability`/`createSpacerBlock`/`createRoomBlock`). See `backend/src/clinicians/clinicians.service.spec.ts`.
 
 ### TC-CLIN-API-002 — `createClinician` rejects an email already used by another clinician
 - **Priority:** High
@@ -90,6 +114,7 @@
 - **Priority:** High
 - **Steps:** Call the toggle-active mutation to set `is_active: false` on a clinician with existing completed appointments, then query that clinician's appointment history.
 - **Expected Result:** `is_active` flips to `false`; the clinician disappears from "available for new bookings" lists but their past `Appointments`/`Reviews` records remain fully intact and queryable.
+- **Status:** `toggleClinicianActive` didn't exist at all until fixed 2026-08-18 (`components/Clinicians/ClinicianCard.jsx` called a mutation with no backend — see `context/frontend-integration-audit.md`); the mutation now exists and is live-verified to flip `is_active`. The historical-appointments-preserved half of this test case (soft toggle, not cascading to appointment/review records) was not independently re-verified this pass — it's a straightforward consequence of the mutation only touching `Clinicians.is_active`, not a separate check that was added.
 
 ### TC-CLIN-API-007 — A clinician's own `me`-scoped update cannot change their `clinic_id` or `clinician_type`
 - **Priority:** Critical
@@ -113,6 +138,7 @@
 - **Preconditions:** Two clinicians, C1 and C2, exist in the same clinic.
 - **Steps:** Log in as C1 (clinician role, not manager/admin), query `clinician(id: <C2.id>)`.
 - **Expected Result:** Either rejected, or returns only the subset of fields a patient-facing "book with this doctor" view would show (name, specialty, public bio) — never C2's email/phone/internal fields. Distinguish this from admin/manager access, which should see full records.
+- **Status:** ⚠️ Not implemented, deliberately not fixed this pass — `clinicians`/`clinician(id)` have no `@Auth()` at all and return the full record (including `email`/`phone`) to any authenticated role. Reviewed and judged lower severity than the PHI leaks fixed elsewhere this pass (contact info, not medical/appointment data), and this test case's own spec hedges between two valid designs ("either rejected, or field-redacted") rather than stating one clear expected behavior — a genuine product-intent decision, not a clear-cut bug, so left as an open item rather than guessed at. Whoever picks this up next should decide the intended design first (reject vs. field-level redaction via a `@ResolveField` that checks the caller's role) before writing the fix.
 
 ### TC-CLIN-API-011 — `createSpacerBlock`/lunch-break mutations reject overlapping time ranges for the same clinician
 - **Priority:** High
