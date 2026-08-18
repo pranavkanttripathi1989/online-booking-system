@@ -49,9 +49,22 @@ export class StaffService {
     return rows.map((r) => this.toGraphQL(r));
   }
 
-  async findOne(id: string) {
+  // SECURITY: findOne/update/deactivate previously had NO org-scoping check
+  // at all -- only findAll() did. A manager from ANY organization could view,
+  // edit, or DEACTIVATE any other organization's staff account just by
+  // knowing/guessing its id -- a real cross-tenant write/deactivate
+  // vulnerability, same severity class as the availability self-service
+  // fix earlier this pass.
+  private assertStaffAccess(row: { client_org_id: string | null }, user: JwtPayload) {
+    if (user.client_org_id && row.client_org_id !== user.client_org_id) {
+      throw new NotFoundException('Staff member not found');
+    }
+  }
+
+  async findOne(id: string, user: JwtPayload) {
     const row = await this.prisma.userProfiles.findUnique({ where: { id }, include: { role: true } });
     if (!row || row.is_deleted) throw new NotFoundException('Staff member not found');
+    this.assertStaffAccess(row, user);
     return this.toGraphQL(row);
   }
 
@@ -88,9 +101,10 @@ export class StaffService {
     return this.toGraphQL(profile);
   }
 
-  async update(id: string, input: UpdateStaffInput) {
+  async update(id: string, input: UpdateStaffInput, user: JwtPayload) {
     const existing = await this.prisma.userProfiles.findUnique({ where: { id } });
     if (!existing || existing.is_deleted) throw new NotFoundException('Staff member not found');
+    this.assertStaffAccess(existing, user);
 
     let firstName = existing.first_name;
     let lastName = existing.last_name;
@@ -122,9 +136,10 @@ export class StaffService {
   // audit-worthy event distinct from a generic profile edit, matching
   // staff/index.jsx's explicit "Deactivate" action (next-10-features-
   // implementation-plan.md #7).
-  async deactivate(id: string) {
+  async deactivate(id: string, user: JwtPayload) {
     const existing = await this.prisma.userProfiles.findUnique({ where: { id } });
     if (!existing || existing.is_deleted) throw new NotFoundException('Staff member not found');
+    this.assertStaffAccess(existing, user);
     const profile = await this.prisma.userProfiles.update({
       where: { id },
       data: { staff_status: 'inactive', is_active: false },

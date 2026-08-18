@@ -23,8 +23,8 @@ export class StaffResolver {
 
   @Auth('admin', 'super_admin', 'manager')
   @Query(() => StaffType)
-  staffMember(@Args('id', { type: () => ID }) id: string) {
-    return this.staffService.findOne(id);
+  staffMember(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.staffService.findOne(id, user);
   }
 
   @Auth('admin', 'super_admin', 'manager')
@@ -35,13 +35,13 @@ export class StaffResolver {
 
   @Auth('admin', 'super_admin', 'manager')
   @Mutation(() => StaffType)
-  updateStaff(@Args('id', { type: () => ID }) id: string, @Args('input') input: UpdateStaffInput) {
-    return this.staffService.update(id, input);
+  updateStaff(@Args('id', { type: () => ID }) id: string, @Args('input') input: UpdateStaffInput, @CurrentUser() user: JwtPayload) {
+    return this.staffService.update(id, input, user);
   }
 
   @Auth('admin', 'super_admin', 'manager')
   @Mutation(() => StaffType)
-  deactivateStaff(@Args('id', { type: () => ID }) id: string) {
-    return this.staffService.deactivate(id);
+  deactivateStaff(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.staffService.deactivate(id, user);
   }
 }
