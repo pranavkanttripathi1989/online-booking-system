@@ -103,6 +103,13 @@ Per QA-TESTING-EXECUTION-PROMPT.md Phase 2 rule 2. Reads carry no `@Auth()` role
 - **Steps:** Call `createAppointment` with valid inputs, then fetch its detail including `status_logs`.
 - **Expected Result:** Response includes a single `status_logs` entry (`status: pending`, actor: System, timestamp), matching the "Patient Timeline" shape already rendered by the frontend (TC-APPT-031). **Implementation note:** `schema.prisma` currently has **no `AppointmentStatusLogs` model at all** — this model must be added before this test can pass; flagging it here since the frontend contract already assumes it exists.
 
+### TC-APPT-API-001b — `createAppointment` cannot be used to create an appointment against another org's clinic
+- **Priority:** Critical
+- **Preconditions:** Org 1 and Org 2 each have their own clinics.
+- **Steps:** Log in as an Org 1 manager, call `createAppointment` with `clinic_id` set to an Org 2 clinic's id.
+- **Expected Result:** Rejected — same gap class as `TC-AUTH-API-010`'s multi-tenancy guarantee, applied to the create path specifically (the read/update paths already had this check; create never did until this fix).
+- **Status:** ✅ Fixed 2026-08-18 (previously **FAILING** — `createAppointment` never validated `clinic_id` against the caller's org at all; found while extending the availability/blocks/clinicians create-path security fixes to a systemic sweep of every `create()` method in the backend). Deliberately a no-op for an org-less caller — the real patient self-serve booking flow uses `public.resolver.ts`'s `bookPatientAppointment`, a separate mutation, unaffected by this fix. See `backend/src/appointments/appointments.service.spec.ts`. Live-verified: legitimate same-org booking still succeeds; a true cross-org live test wasn't possible against current seed data (only one populated org exists), covered instead by the mocked-org unit tests.
+
 ### TC-APPT-API-002 — Double-booking is enforced at the database layer under concurrency
 - **Priority:** Critical
 - **Steps:** Fire two `createAppointment` mutations for the same `clinician_id` and overlapping time ranges as close to simultaneously as the test harness allows (e.g. `Promise.all`).
