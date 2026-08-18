@@ -1,8 +1,10 @@
 import { useState, useMemo, useEffect } from 'react'
+import { useQuery, useMutation, gql } from '@apollo/client'
 import {
   Box, Typography, Card, CardContent, Grid, Chip, Avatar,
   Rating, TextField, InputAdornment, IconButton, Tooltip,
   Dialog, DialogTitle, DialogContent, DialogActions, Button,
+  CircularProgress, Alert,
 } from '@mui/material'
 import { Helmet } from 'react-helmet-async'
 import SearchRoundedIcon       from '@mui/icons-material/SearchRounded'
@@ -11,9 +13,41 @@ import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import StarRoundedIcon          from '@mui/icons-material/StarRounded'
 import ReplyRoundedIcon         from '@mui/icons-material/ReplyRounded'
 import EditRoundedIcon          from '@mui/icons-material/EditRounded'
-import * as MockStore from '../../mocks/store'
 
 const PAGE_SIZE = 10 // SUG-REV-007
+
+// backend/src/reviews/** was built from scratch specifically to match this
+// page's shape (patient_name/clinician_name/stars/comment/response/created_at)
+// — see reviews/entities/review.entity.ts. Was never wired up; this page ran
+// on mocks/store.js exclusively until now (context/frontend-integration-audit.md).
+const GET_REVIEWS = gql`
+  query GetReviews {
+    reviews {
+      id
+      patient_name
+      clinician_name
+      stars
+      comment
+      response
+      created_at
+    }
+  }
+`
+const RESPOND_TO_REVIEW = gql`
+  mutation RespondToReview($id: ID!, $response: String!) {
+    respondToReview(id: $id, response: $response) {
+      success
+      review { id response }
+    }
+  }
+`
+const DELETE_REVIEW = gql`
+  mutation DeleteReview($id: ID!) {
+    deleteReview(id: $id) {
+      success
+    }
+  }
+`
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 function computeBreakdown(reviews) {
@@ -33,10 +67,14 @@ const STAR_FILTERS = ['all','5','4','3','2','1']
 export default function ReviewsPage() {
   const [filter,         setFilter]         = useState('all')
   const [search,         setSearch]         = useState('')
-  const [reviews,        setReviews]        = useState(() => MockStore.getReviews())
   const [replyDialog,    setReplyDialog]    = useState({ open: false, id: null, text: '', editing: false })
   const [confirmDeleteId, setConfirmDeleteId] = useState(null) // SUG-REV-004: delete confirm dialog
   const [page,           setPage]           = useState(1) // SUG-REV-007: pagination / load-more
+
+  const { data, loading, error, refetch } = useQuery(GET_REVIEWS)
+  const [respondToReviewMutation] = useMutation(RESPOND_TO_REVIEW)
+  const [deleteReviewMutation]    = useMutation(DELETE_REVIEW)
+  const reviews = data?.reviews || []
 
   const filtered = reviews.filter(r => {
     if (filter !== 'all' && String(r.stars) !== filter) return false
@@ -56,15 +94,14 @@ export default function ReviewsPage() {
   const totalReviews = reviews.length
   const breakdown    = useMemo(() => computeBreakdown(reviews), [reviews])
 
-  const handleReply = () => {
-    MockStore.respondToReview(replyDialog.id, replyDialog.text)
-    setReviews(MockStore.getReviews())
+  const handleReply = async () => {
+    await respondToReviewMutation({ variables: { id: replyDialog.id, response: replyDialog.text } })
+    await refetch()
     setReplyDialog({ open: false, id: null, text: '', editing: false })
   }
-  const handleDelete = (id) => {
-    // SUG-REV-003: Persist delete to MockStore (consistent with respondToReview)
-    MockStore.deleteReview(id)
-    setReviews(MockStore.getReviews())
+  const handleDelete = async (id) => {
+    await deleteReviewMutation({ variables: { id } })
+    await refetch()
     setConfirmDeleteId(null)
   }
 
@@ -78,6 +115,12 @@ export default function ReviewsPage() {
         <Typography variant="body2" sx={{ color: '#7A96AE' }}>Platform-wide patient feedback — {totalReviews} total</Typography>
       </Box>
 
+      {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>Failed to load reviews: {error.message}</Alert>}
+
+      {loading && !data ? (
+        <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
+      ) : (
+      <>
       {/* Stats Row */}
       <Grid container spacing={2.5} mb={3}>
         {/* Average Rating */}
@@ -237,6 +280,8 @@ export default function ReviewsPage() {
           </Button>
         )}
       </Box>
+      </>
+      )}
 
       {/* Reply Dialog — also used to edit an existing response (SUG-REV-006) */}
       <Dialog open={replyDialog.open} onClose={() => setReplyDialog({ open: false, id: null, text: '', editing: false })} maxWidth="sm" fullWidth>
