@@ -15,6 +15,23 @@ const DEMO_ACCOUNTS = [
 
 const ROLES = ['admin', 'super_admin', 'manager', 'clinician', 'staff', 'patient'];
 
+// SECURITY-TESTING GAP FIX (2026-08-19): a QA-audit pass found that
+// ClientOrganizations rows existed in the dev DB (created ad hoc via the
+// Organizations module, not by this script) but NOTHING was ever linked to
+// them -- every demo account and every seeded clinic had client_org_id:
+// null. That meant every tenant/self-scoping fix made during that pass could
+// only be live-verified via the "org-less caller sees everything" bypass
+// path, never against a real two-tenant boundary (only the mocked unit
+// tests actually exercised rejection). Fixing this here so `docker exec
+// medibook_backend npx prisma db seed` on a fresh or existing DB always
+// establishes a real, live-testable tenant boundary: `city-heart` is the
+// "home" org every demo account/clinic belongs to; `westside-health` is a
+// second, deliberately separate org existing purely so a cross-tenant
+// negative test (manager from city-heart querying/mutating westside-health
+// data) has something real to run against.
+const PRIMARY_ORG_CODE = 'city-heart';
+const FOREIGN_ORG_CODE = 'westside-health';
+
 // Mirrors admin/EmailTemplates.jsx's MOCK_EMAIL_TEMPLATES exactly (name/type/
 // subject/body/variables) so the real backend serves the same realistic
 // content the page already assumed via its mock fallback — per
@@ -40,13 +57,75 @@ async function main() {
       (await prisma.userRoles.create({ data: { name, description: `${name} role`, is_system: true } }));
   }
 
+  console.log('Seeding tenant organizations...');
+  const primaryOrg = await prisma.clientOrganizations.upsert({
+    where: { code: PRIMARY_ORG_CODE },
+    update: {},
+    create: {
+      name: 'City Heart Clinic Group',
+      code: PRIMARY_ORG_CODE,
+      contact_email: 'ops@cityheart.dev',
+      contact_phone: '+919876500000',
+      address_structured: { line1: '12 MG Road', city: 'Bengaluru', state: 'Karnataka', pincode: '560001', country: 'India' },
+      onboarding_status: 'completed',
+    },
+  });
+  const foreignOrg = await prisma.clientOrganizations.upsert({
+    where: { code: FOREIGN_ORG_CODE },
+    update: {},
+    create: {
+      name: 'Westside Health Group',
+      code: FOREIGN_ORG_CODE,
+      contact_email: 'ops@westsidehealth.dev',
+      contact_phone: '+919812345678',
+      address_structured: { line1: '45 FC Road', line2: '', city: 'Pune', state: 'Maharashtra', pincode: '411005', country: 'India' },
+      onboarding_status: 'completed',
+    },
+  });
+
+  // Every existing clinic with no org yet belongs to the primary org — these
+  // are the clinics the demo accounts already reference via seeded
+  // appointments/availability/etc., so they must land in the SAME org the
+  // demo accounts get assigned to below, not a fresh/different one.
+  const backfilledClinics = await prisma.clinics.updateMany({
+    where: { client_org_id: null },
+    data: { client_org_id: primaryOrg.id },
+  });
+  if (backfilledClinics.count) console.log(`  backfilled client_org_id on ${backfilledClinics.count} existing clinic(s) -> ${primaryOrg.name}`);
+
+  // A single clinic under the foreign org, existing purely so cross-tenant
+  // rejection tests (a primary-org caller trying to reach this clinic's
+  // data) have something real to run against live, not just in unit tests.
+  const foreignClinicExists = await prisma.clinics.findFirst({ where: { client_org_id: foreignOrg.id } });
+  if (!foreignClinicExists) {
+    await prisma.clinics.create({
+      data: {
+        name: 'Westside FC Road Clinic',
+        address: '45 FC Road',
+        city: 'Pune',
+        postcode: '411005',
+        phone: '+919812345679',
+        email: 'fcroad@westsidehealth.dev',
+        timezone: 'Asia/Kolkata',
+        client_org_id: foreignOrg.id,
+      },
+    });
+    console.log(`  created cross-tenant test clinic under ${foreignOrg.name}`);
+  }
+
   console.log('Seeding demo accounts...');
   for (const account of DEMO_ACCOUNTS) {
+    // admin/super_admin are deliberately platform-wide (client_org_id: null,
+    // not just absent) -- every other role belongs to the primary org.
+    const orgIdForAccount = account.role === 'admin' || account.role === 'super_admin' ? null : primaryOrg.id;
     const existing = await prisma.userProfiles.findUnique({ where: { email: account.email } });
     if (existing) {
-      if (!existing.phone) {
-        await prisma.userProfiles.update({ where: { id: existing.id }, data: { phone: account.phone } });
-        console.log(`  updated phone: ${account.email}`);
+      const patch: { phone?: string; client_org_id?: string | null } = {};
+      if (!existing.phone) patch.phone = account.phone;
+      if (existing.client_org_id !== orgIdForAccount) patch.client_org_id = orgIdForAccount;
+      if (Object.keys(patch).length) {
+        await prisma.userProfiles.update({ where: { id: existing.id }, data: patch });
+        console.log(`  updated (${Object.keys(patch).join(', ')}): ${account.email}`);
       } else {
         console.log(`  skip (exists): ${account.email}`);
       }
@@ -63,6 +142,7 @@ async function main() {
         last_name: account.last_name,
         phone: account.phone,
         role_id: roleRecords[account.role].id,
+        client_org_id: orgIdForAccount,
       },
     });
     console.log(`  created: ${account.email} (${account.role})`);

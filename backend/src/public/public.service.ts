@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicClinicianSearchInput, BookPatientAppointmentInput, PaymentTransactionInput } from './dto/public.input';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
@@ -126,9 +127,26 @@ export class PublicService {
     }));
   }
 
-  async getAppointment(id: string) {
-    const a = await this.prisma.appointments.findUnique({ where: { id }, include: { clinician: true, patient: true } });
+  // SECURITY: getAppointment previously had no ownership check at all -- the
+  // resolver requires login but never received the caller's identity, so any
+  // authenticated user (any patient, any role) could view any appointment's
+  // detail (patient name, clinician, video-call timing/type) just by knowing
+  // or guessing its id. Backs video/index.jsx's join page, where an
+  // appointment id is realistically shared via a URL, making this a real
+  // enumeration/leaked-link vector, not just a theoretical one.
+  async getAppointment(id: string, user: JwtPayload) {
+    const a = await this.prisma.appointments.findUnique({ where: { id }, include: { clinician: { include: { clinic: true } }, patient: true } });
     if (!a || a.is_deleted) throw new NotFoundException('Appointment not found');
+    const isParticipant = a.patient_id === user.patient_id || a.clinician_id === user.clinician_id;
+    // Front-desk/management roles legitimately need org-wide visibility for
+    // scheduling/support; a *clinician* who isn't this appointment's treating
+    // clinician does NOT get in via this branch -- they're covered (or not)
+    // by isParticipant above, same self-scoping boundary as everywhere else.
+    const isOrgStaff = !user.roles.includes('clinician') && !!user.client_org_id && a.clinician.clinic?.client_org_id === user.client_org_id;
+    const isPlatformAdmin = !user.client_org_id && (user.roles.includes('admin') || user.roles.includes('super_admin'));
+    if (!isParticipant && !isOrgStaff && !isPlatformAdmin) {
+      throw new NotFoundException('Appointment not found');
+    }
     return {
       id: a.id,
       startTime: a.appointment_time,

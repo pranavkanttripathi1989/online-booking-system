@@ -11,6 +11,8 @@ import {
 } from './entities/public.entity';
 import { PublicClinicianSearchInput, BookPatientAppointmentInput, PaymentTransactionInput } from './dto/public.input';
 import { Public } from '../common/decorators/public.decorator';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Resolver()
 export class PublicResolver {
@@ -45,8 +47,8 @@ export class PublicResolver {
 
   // video/index.jsx — behind login, deliberately not @Public().
   @Query(() => PublicAppointmentDetailType)
-  getAppointment(@Args('id', { type: () => ID }) id: string) {
-    return this.publicService.getAppointment(id);
+  getAppointment(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.publicService.getAppointment(id, user);
   }
 
   @Public()
