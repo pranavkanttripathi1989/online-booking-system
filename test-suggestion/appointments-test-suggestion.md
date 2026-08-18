@@ -76,3 +76,26 @@
 | ✅ Done | SUG-APPT-012 — Service-specific pre-visit checklist | **DONE v3** |
 | ✅ Done | NEW-APPT-004 — Send Reminder channel selection | **DONE v3** |
 | ✅ Done | All other 12 suggestions | **DONE (prev sessions)** |
+
+---
+
+## 🔴 Critical — Found & Fixed (Backend-API Verification Pass, 2026-08-18)
+
+### SUG-APPT-SEC-001 — PHI exposure: no patient/clinician row-level scoping on `appointments`
+```
+Found via: QA-TESTING-EXECUTION-PROMPT.md Phase 1 backend resolver/service inventory.
+What broke: appointments()/appointment(id) had org-level scoping only (TC-APPT-API-009/010,
+            both Critical priority, both previously unenforced). Any 'patient'-role JWT could read
+            every appointment in the org -- reason, notes, other patients' names, clinician
+            assignments. Any 'clinician'-role JWT saw every clinician's schedule, not just their own.
+What changed: Embedded clinician_id in the JWT alongside the patient_id fix (same commit family --
+              see patients-test-suggestion.md SUG-PAT-SEC-001). AppointmentsService.selfScope():
+              patient role -> own patient_id; clinician role -> own clinician_id. Applied to both
+              findAll (list) and loadScoped (single-record lookup, shared by findOne/cancel/etc.).
+Status: FIXED — backend/src/appointments/appointments.service.ts, 9 new unit tests in
+        appointments.service.spec.ts, live-verified against real seeded accounts.
+Residual risk: same as SUG-PAT-SEC-001 -- seeded patient/clinician demo accounts aren't yet linked
+               to a Patients/Clinicians row, so they see zero appointments (safe default, not a bug).
+Files: backend/src/appointments/appointments.service.ts, appointments.service.spec.ts,
+       backend/src/auth/strategies/jwt.strategy.ts, backend/src/auth/auth.service.ts
+```

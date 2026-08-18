@@ -305,3 +305,18 @@
 | Detail features | ✅ Complete | Reminder channels, reschedule, service checklists, timeline, print |
 | Backend integration | ⏳ Pending | All mutations/queries ready; swap mock→API by removing mock fallback lines |
 | Accessibility | ✅ Complete | ARIA labels on all interactive elements |
+
+---
+
+## Backend-API Verification Pass — 2026-08-18
+
+**Scope:** First-ever real-backend execution of `test-cases/03-appointments-booking/test-cases.md`'s Backend-API scoping cases (TC-APPT-API-*), per `QA-TESTING-EXECUTION-PROMPT.md` Phase 1. Previous entries in this file predate the real backend (mock-mode only).
+**Environment:** Real running stack, real Postgres, real seeded accounts, GraphQL via `curl` with real JWTs.
+
+| TC ID | Description | First-run result | Fix | Re-verified |
+|---|---|---|---|---|
+| TC-APPT-API-009 | A patient's appointments query returns only their own rows by default | ❌ **FAIL** — no self-scoping; any patient JWT could read every appointment in the org (reason, notes, other patients' names). | Added `selfScope()` to `appointments.service.ts`; `patient_id` embedded in JWT. | ✅ PASS — `appointments.service.spec.ts`. |
+| TC-APPT-API-010 | A clinician's appointments query returns only their own schedule | ❌ **FAIL** — no self-scoping; any clinician JWT saw every clinician's schedule org-wide. | Extended `selfScope()` to the `clinician` role (`clinician_id` embedded in JWT, sourced from `UserProfiles.clinician_id`). | ✅ PASS — `appointments.service.spec.ts`. |
+| TC-APPT-API-013 | Cross-tenant isolation on direct appointment lookup | ✅ PASS on first run — `orgScope()` (`clinic.client_org_id`) was already implemented. | N/A | N/A |
+
+**Result: 2 of 3 Critical cases were failing on first real execution, both now fixed and re-verified. 9 new unit tests added (`appointments.service.spec.ts`). Live-verified against `patient@medibook.dev`/`clinician@medibook.dev` (both correctly see 0 rows, not being linked to a Patients/Clinicians row yet — see `test-suggestion/appointments-test-suggestion.md`) and `manager@medibook.dev` (unaffected, sees full org). Full backend suite green (57/57).**

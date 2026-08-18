@@ -169,3 +169,32 @@ Priority: Low (cleanup)
 | SUG-PAT-013 | View Result onClick | ✅ DONE |
 | SUG-PAT-014 | Upload Document onClick | ✅ DONE |
 | SUG-PAT-015 | Dead AddPatientDialog code | ⏳ PENDING (Low — out of scope) |
+
+---
+
+## 🔴 Critical — Found & Fixed (Backend-API Verification Pass, 2026-08-18)
+
+### SUG-PAT-SEC-001 — PHI exposure: no patient/clinician row-level scoping on `patients`/`patient(id)`
+```
+Found via: QA-TESTING-EXECUTION-PROMPT.md Phase 1 backend resolver/service inventory.
+What broke: patients()/patient(id) had org-level scoping only. Any authenticated 'patient'-role
+            JWT could read every patient's PHI (name, DOB, medical notes) within the org via a
+            direct query -- no @Auth() role gate, no per-row check. Separately, any 'clinician'-role
+            JWT could read every patient in the org, not just patients they'd actually treated
+            (TC-AUTH-API-009's explicit, previously-unenforced requirement).
+What changed: Embedded patient_id/clinician_id in the JWT (auth/strategies/jwt.strategy.ts,
+              auth.service.ts issueTokens), sourced from UserProfiles. Added PatientsService.selfScope():
+              a patient caller is restricted to their own record (via patient_id); a clinician caller
+              is restricted to patients with >=1 shared appointment (appointments:{some:{clinician_id}}).
+Status: FIXED — backend/src/patients/patients.service.ts, 8 new unit tests in
+        patients.service.spec.ts, live-verified against real seeded accounts.
+Residual risk: patient@medibook.dev and clinician@medibook.dev (the seed accounts) aren't linked
+               via UserProfiles.patient_id/clinician_id to a Patients/Clinicians row at all -- a
+               separate, pre-existing data-modeling gap. They now correctly see zero rows rather
+               than leaking, which is strictly safer, but it means the demo accounts can't
+               meaningfully exercise "my own patients" flows until that linkage is designed
+               (likely as part of building out pages/patient/{Profile,Appointments}.jsx for real,
+               already a tracked GAP item). Not blocking -- deny-by-default is the correct interim state.
+Files: backend/src/patients/patients.service.ts, patients.service.spec.ts,
+       backend/src/auth/strategies/jwt.strategy.ts, backend/src/auth/auth.service.ts
+```

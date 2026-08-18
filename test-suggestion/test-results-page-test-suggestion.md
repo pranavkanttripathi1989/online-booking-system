@@ -151,3 +151,30 @@ Priority: Low
 | SUG-TRES-010 | Patient field is free text, not a real Patients link | ⏳ PENDING (blocked on Phase 6) |
 | SUG-TRES-011 | Mock-specific test assertions are environment-fragile now that a real backend exists | ⏳ PENDING |
 | SUG-TRES-012 | date_ordered/date_completed lose time-of-day precision in the resolver | ⏳ PENDING (no action needed yet) |
+
+---
+
+## 🔴 Critical — Found & Fixed (Backend-API Verification Pass, 2026-08-18)
+
+### SUG-TRES-SEC-001 — PHI exposure: `testResults`/`testResult(id)` had no auth gate or patient scoping at all
+```
+Found via: QA-TESTING-EXECUTION-PROMPT.md Phase 1 backend resolver/service inventory. Directly
+           relevant to SUG-TRES-010 above -- once patient_id is populated, this is the query that
+           would leak every patient's lab values without this fix.
+What broke: testResults()/testResult(id) had NO @Auth() role annotation at all (any authenticated
+            role, including 'patient', could call it) and org-level scoping only, never per-patient.
+            testResults() returned every patient's lab results (including sensitive `values`) to any
+            logged-in patient account. Matches test-cases/05-patients/test-cases.md TC-PAT-API-011
+            ("A patient can only view their own test results, not another patient's").
+What changed: Added patient self-scoping (patient_id embedded in JWT, same pattern as
+              patients-test-suggestion.md SUG-PAT-SEC-001) to both findAll and findOne.
+Status: FIXED — backend/src/test-results/test-results.service.ts, 4 new unit tests in
+        test-results.service.spec.ts. No live curl round-trip possible yet (no test result rows
+        are linked to a real patient_id in seed data -- see SUG-TRES-010), but the scoping logic
+        itself is unit-tested and structurally identical to the live-verified Patients/Appointments fixes.
+Residual risk: this query still has no @Auth() role restriction at all -- any authenticated role can
+               call it (deliberately left broad since manager/admin/clinician/staff all legitimately
+               need to browse results; only patient-role callers are now restricted to their own).
+               Worth an explicit @Auth() review once the domain gets its Phase 2 RBAC matrix pass.
+Files: backend/src/test-results/test-results.service.ts, test-results.service.spec.ts
+```

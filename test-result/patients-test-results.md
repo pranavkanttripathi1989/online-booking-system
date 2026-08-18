@@ -292,3 +292,19 @@ Impacted Files:  CreatePatientPage.jsx
 | **Expected** | Navigate to `/patients/1` |
 | **Actual** | ✅ Cancel correctly navigates to `/patients/1` (detail). No data saved. |
 | **Status** | ✅ PASS |
+
+---
+
+## Backend-API Verification Pass — 2026-08-18
+
+**Scope:** First-ever real-backend execution of `test-cases/05-patients/test-cases.md`'s Backend-API scoping cases (TC-PAT-API-*), per `QA-TESTING-EXECUTION-PROMPT.md` Phase 1. Previous entries in this file predate the real backend (mock-mode only).
+**Environment:** Real running stack, real Postgres, real seeded accounts, GraphQL via `curl` with real JWTs.
+
+| TC ID | Description | First-run result | Fix | Re-verified |
+|---|---|---|---|---|
+| TC-PAT-API-001 | `patients` returns only the calling org's patients | ✅ PASS on first run — `orgScope()` already correctly joins through `Appointments.clinic_id → Clinics.client_org_id`. | N/A | N/A |
+| TC-PAT-API-003 | `patient(id)` enforces patient-self row-level scoping | ❌ **FAIL** — no self-scoping existed; any patient JWT could read any patient's record (name, DOB, medical notes). | Added `selfScope()` to `patients.service.ts`; `patient_id` embedded in JWT. | ✅ PASS — see `backend/src/patients/patients.service.spec.ts`. |
+| TC-PAT-API-011 | A patient can only view their own test results, not another patient's | ❌ **FAIL** — `testResults`/`testResult(id)` had no `@Auth()` gate at all and no per-patient scoping; any authenticated role (including patient) could read every patient's lab values org-wide. | Added patient self-scoping to `test-results/test-results.service.ts` (`findAll`/`findOne`), same `patient_id`-in-JWT pattern. | ✅ PASS — see `backend/src/test-results/test-results.service.spec.ts`. |
+| (new, TC-AUTH-API-009 equivalent) | A clinician can only see patients they've treated | ❌ **FAIL** — any clinician JWT could read every patient in the org. | Added relationship-based `selfScope()` for the `clinician` role (`appointments: {some: {clinician_id}}`). | ✅ PASS — see `patients.service.spec.ts`. |
+
+**Result: 3 of 4 cases were failing on first real execution (2 Critical: TC-PAT-API-003, the clinician case; 1 that had no formal TC-PAT-API id but matches TC-PAT-API-011's intent extended to org-wide clinician access). All fixed and re-verified against real seed data. Full backend suite green (57/57) after the fix. See `test-suggestion/patients-test-suggestion.md` for residual risk (seeded/self-registered patient and clinician demo accounts aren't yet linked via `UserProfiles.patient_id`/`clinician_id`, so they now correctly see zero rows rather than leaking — a separate, pre-existing data-linkage gap, not a security regression).**

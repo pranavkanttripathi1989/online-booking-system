@@ -101,3 +101,19 @@ Test Cases Passed:  34 ✅
 Test Cases Failed:  0 ❌
 Test Cases Partial: 1 ⚠️ (TC-AUTH-016 — manual DevTools required)
 ```
+
+---
+
+## Backend-API Verification Pass — 2026-08-18
+
+**Scope:** First-ever execution of the Backend-API row-level-scoping test cases from `test-cases/01-authentication/test-cases.md` (distinct doc/numbering from the frontend-mock-mode `TC-AUTH-0XX` cases above — see `CLAUDE.md`'s note that `test-cases/` and `test-plan/`/`test-result/`/`test-suggestion/` are two parallel documentation systems). These test cases existed since the pre-backend spec-writing phase but had never been run against a real backend until now, per the QA execution prompt (`QA-TESTING-EXECUTION-PROMPT.md`) Phase 1 inventory sweep.
+**Environment:** Real running stack (`docker compose up -d`), real Postgres, real seeded accounts, GraphQL requests via `curl` with real JWTs.
+**Tester:** Claude (Sonnet 5), code + live-request verification.
+
+| TC ID | Description | First-run result | Fix | Re-verified |
+|---|---|---|---|---|
+| TC-AUTH-API-008 | Patient cannot fetch another patient's record by ID | ❌ **FAIL** — `patient(id)` had no row-level check at all; any patient JWT could read any patient record. Described in the spec as "the single most important test in the whole suite." | `backend/src/patients/patients.service.ts` `findOne`: reject if `id !== user.patient_id` for a `patient`-role caller. `patient_id` newly embedded in the JWT (`auth/strategies/jwt.strategy.ts`, `auth.service.ts`). | ✅ PASS — `patients.service.spec.ts` (2 cases) + live curl against `patient@medibook.dev`. |
+| TC-AUTH-API-009 | Clinician cannot fetch a patient who isn't theirs | ❌ **FAIL** — no relationship check; any clinician JWT could read any patient in the org. | `patients.service.ts` `findOne`/`findAll`: restrict a `clinician`-role caller to patients with ≥1 shared appointment (`appointments: {some: {clinician_id}}`). | ✅ PASS — `patients.service.spec.ts` (4 cases) + live curl against `clinician@medibook.dev`. |
+| TC-AUTH-API-010 | Cross-tenant isolation (Org 1 cannot see Org 2's clinics/patients) | ✅ **PASS on first run** — `orgScope()` (`client_org_id` join) was already implemented in `clinics.service.ts`/`patients.service.ts` before this pass. | N/A | N/A |
+
+**Result: 2 of 3 Critical cases were failing on first real execution, both now fixed and re-verified. See `test-suggestion/patients-test-suggestion.md` and `test-suggestion/appointments-test-suggestion.md` for the full writeup (the same underlying gap-class also affected `appointments`/`testResults`, tracked there since those are domain-specific, not auth-specific).**
