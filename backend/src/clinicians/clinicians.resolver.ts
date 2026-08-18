@@ -1,5 +1,5 @@
-import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
-import { ClinicianType, ClinicianPaginatedType } from './entities/clinician.entity';
+import { Resolver, Query, Mutation, Args, ID, Int, ResolveField, Parent } from '@nestjs/graphql';
+import { ClinicianType, ClinicianPaginatedType, ClinicianAvailabilityTemplateType } from './entities/clinician.entity';
 import { CliniciansService } from './clinicians.service';
 import { ClinicianInput } from './dto/clinician.input';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -26,6 +26,11 @@ export class CliniciansResolver {
     return this.cliniciansService.findOne(id, user);
   }
 
+  @ResolveField(() => [ClinicianAvailabilityTemplateType])
+  availability_templates(@Parent() clinician: ClinicianType) {
+    return this.cliniciansService.availabilityTemplates(clinician.id);
+  }
+
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ClinicianType)
   createClinician(@Args('input') input: ClinicianInput) {
@@ -36,5 +41,11 @@ export class CliniciansResolver {
   @Mutation(() => ClinicianType)
   updateClinician(@Args('id', { type: () => ID }) id: string, @Args('input') input: ClinicianInput, @CurrentUser() user: JwtPayload) {
     return this.cliniciansService.update(id, input, user);
+  }
+
+  @Auth('manager', 'admin', 'super_admin')
+  @Mutation(() => ClinicianType)
+  toggleClinicianActive(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.cliniciansService.toggleActive(id, user);
   }
 }

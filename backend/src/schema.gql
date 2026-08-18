@@ -352,6 +352,7 @@ input ClinicInput {
 }
 
 type Clinician {
+  availability_templates: [ClinicianAvailabilityTemplate!]!
   avatar_url: String
   bio: String
   clinician_type: ClinicianTypeInfo
@@ -388,6 +389,18 @@ type ClinicianAvailabilitySlot {
   startTime: String!
   validFrom: DateTime
   validUntil: DateTime
+}
+
+type ClinicianAvailabilityTemplate {
+  clinic: Clinic!
+  day_of_week: Int
+  effective_from: DateTime!
+  effective_to: DateTime
+  end_time: String!
+  id: ID!
+  is_active: Boolean!
+  room: Room
+  start_time: String!
 }
 
 type ClinicianInfo {
@@ -689,6 +702,7 @@ type Mutation {
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
   sendMessage(body: String!, threadId: ID!): MessageThread!
+  toggleClinicianActive(id: ID!): Clinician!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
   updateClinic(id: ID!, input: ClinicInput!): Clinic!

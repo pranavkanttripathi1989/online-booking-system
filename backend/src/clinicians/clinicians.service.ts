@@ -195,4 +195,48 @@ export class CliniciansService {
 
     return this.findOne(id, user);
   }
+
+  // components/Clinicians/ClinicianCard.jsx's real contract
+  // (context/frontend-integration-audit.md) -- a lightweight single-field
+  // flip, distinct from update() since ClinicianInput requires first_name/
+  // last_name/email and the card only ever has the current is_active value
+  // to toggle, not a full edit form's worth of state.
+  async toggleActive(id: string, user: JwtPayload) {
+    const existing = await this.prisma.clinicians.findUnique({ where: { id }, include: { clinic: true } });
+    if (!existing || existing.is_deleted) {
+      throw new NotFoundException('Clinician not found');
+    }
+    if (user.client_org_id && existing.clinic && existing.clinic.client_org_id !== user.client_org_id) {
+      throw new NotFoundException('Clinician not found');
+    }
+    const clinician = await this.prisma.clinicians.update({
+      where: { id },
+      data: { is_active: !existing.is_active },
+      include: this.include(),
+    });
+    return this.toGraphQL(clinician);
+  }
+
+  // Backs ClinicianType.availability_templates (clinicians.resolver.ts
+  // @ResolveField) -- see entities/clinician.entity.ts for why this reads
+  // the same ClinicianAvailability table as the Availability domain but
+  // exposes its own differently-shaped GraphQL type.
+  async availabilityTemplates(clinicianId: string) {
+    const rows = await this.prisma.clinicianAvailability.findMany({
+      where: { clinician_id: clinicianId, is_deleted: false },
+      include: { clinic: true, room: true },
+      orderBy: { day_of_week: 'asc' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      day_of_week: r.day_of_week ?? undefined,
+      start_time: r.start_time,
+      end_time: r.end_time,
+      is_active: r.is_active,
+      effective_from: r.valid_from,
+      effective_to: r.valid_until ?? undefined,
+      clinic: r.clinic,
+      room: r.room ? { ...r.room, name: r.room.room_number } : undefined,
+    }));
+  }
 }

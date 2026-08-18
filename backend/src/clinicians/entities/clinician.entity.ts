@@ -1,6 +1,7 @@
 import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 import { ClinicianTypeInfoType } from '../../auth/entities/user.entity';
 import { ClinicType } from '../../clinics/entities/clinic.entity';
+import { RoomType } from '../../rooms/entities/room.entity';
 
 @ObjectType('ClinicianServiceItem')
 export class ClinicianServiceItemType {
@@ -29,6 +30,32 @@ export class ClinicianType {
   // inventing multi-clinic-clinician modeling nothing else needs yet.
   @Field(() => [ClinicType]) clinics: ClinicType[];
   @Field(() => [ClinicianServiceItemType]) services: ClinicianServiceItemType[];
+}
+
+// components/Clinicians/ClinicianProfileDrawer.jsx's real CLINICIAN_DETAIL_QUERY
+// contract (context/frontend-integration-audit.md) -- backed by the same
+// ClinicianAvailability table as the canonical manager/Availability.jsx
+// contract (availability/entities/availability.entity.ts's camelCase
+// 'Availability' type), but this page's own query is snake_case with
+// differently-named fields (effective_from/to vs valid_from/until) and a
+// `room{id name}` shape rather than AvailabilityRoomType's `roomNumber` --
+// given its own type name rather than overloading either existing one.
+// slot_duration_minutes/buffer_minutes were dropped from the original
+// broken query: no such columns exist on ClinicianAvailability, and nothing
+// in manager/Availability.jsx's create/edit form collects them either, so
+// adding empty-always columns would be a schema change with no real data
+// behind it -- see the ClinicianProfileDrawer.jsx fix in the same commit.
+@ObjectType('ClinicianAvailabilityTemplate')
+export class ClinicianAvailabilityTemplateType {
+  @Field(() => ID) id: string;
+  @Field(() => Int, { nullable: true }) day_of_week?: number;
+  @Field() start_time: string;
+  @Field() end_time: string;
+  @Field() is_active: boolean;
+  @Field() effective_from: Date;
+  @Field({ nullable: true }) effective_to?: Date;
+  @Field(() => ClinicType) clinic: ClinicType;
+  @Field(() => RoomType, { nullable: true }) room?: RoomType;
 }
 
 @ObjectType('ClinicianPaginatorInfo')

@@ -274,8 +274,6 @@ export const CLINICIAN_DETAIL_QUERY = gql`
         day_of_week
         start_time
         end_time
-        slot_duration_minutes
-        buffer_minutes
         is_active
         effective_from
         effective_to

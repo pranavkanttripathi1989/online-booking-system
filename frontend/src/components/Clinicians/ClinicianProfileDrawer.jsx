@@ -201,8 +201,7 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
                     <Box>
                       <Typography variant="body2" fontWeight={700}>{DAY_NAMES[t.day_of_week] ?? t.day_of_week}</Typography>
                       <Typography variant="caption" color="text.secondary">
-                        {t.start_time} – {t.end_time} · {t.slot_duration_minutes}min slots
-                        {t.buffer_minutes ? ` · ${t.buffer_minutes}min buffer` : ''}
+                        {t.start_time} – {t.end_time}
                       </Typography>
                       {t.clinic?.name && (
                         <Typography variant="caption" color="text.secondary" display="block">{t.clinic.name}{t.room?.name ? ` · ${t.room.name}` : ''}</Typography>
