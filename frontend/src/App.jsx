@@ -150,6 +150,20 @@ const ShellPageLoader = () => (
   </Box>
 )
 
+// The booking wizard (/appointments/book) is the one route genuinely meant
+// to work both logged-in (pre-fills patient details, matches
+// BookingWizard's own `if (user && ...)` guard) and anonymous (a patient
+// booking from the public doctor-profile page, before creating an
+// account) — everything else in the app is strictly one or the other.
+// Renders the full authenticated shell when signed in, the public
+// header/footer layout otherwise, so the same URL and component serve
+// both without duplicating the route.
+function OptionalAuthShell() {
+  const { isAuthenticated, isLoading } = useAuth()
+  if (isLoading) return <FullPageLoader />
+  return isAuthenticated ? <AppShell /> : <PublicLayout />
+}
+
 // ─── App ──────────────────────────────────────────────────────────────────────
 function App() {
   return (
@@ -161,6 +175,17 @@ function App() {
         } />
         <Route path="/doctor/:id" element={
           <Suspense fallback={<FullPageLoader />}><DoctorProfile /></Suspense>
+        } />
+      </Route>
+
+      {/* ── Booking wizard — works both logged-in and anonymous ─────────
+          Linked from the public Landing/DoctorProfile "Book Appointment"
+          CTAs (as an anonymous patient) and from in-app "New Booking"
+          buttons (as an authenticated one) — same URL and component
+          either way, see OptionalAuthShell above. */}
+      <Route element={<OptionalAuthShell />}>
+        <Route path="/appointments/book" element={
+          <Suspense fallback={<ShellPageLoader />}><BookingWizard /></Suspense>
         } />
       </Route>
 
@@ -221,7 +246,9 @@ function App() {
           {/* ── Appointments ─────────────────────────────────────────── */}
           <Route path="/appointments"           element={<Suspense fallback={<ShellPageLoader />}><AppointmentsPage /></Suspense>} />
           <Route path="/appointments/new"        element={<Suspense fallback={<ShellPageLoader />}><NewAppointmentPage /></Suspense>} />
-          <Route path="/appointments/book"       element={<Suspense fallback={<ShellPageLoader />}><BookingWizard /></Suspense>} />
+          {/* /appointments/book moved to its own top-level OptionalAuthShell route
+              (below) — it's the one flow meant to work both logged-in and
+              anonymous, so it isn't nested under ProtectedRoute here. */}
           <Route path="/appointments/:id"        element={<Suspense fallback={<ShellPageLoader />}><AppointmentDetailPage /></Suspense>} />
           <Route path="/appointments/:id/edit"   element={<Suspense fallback={<ShellPageLoader />}><EditAppointmentPage /></Suspense>} />
 
