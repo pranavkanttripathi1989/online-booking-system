@@ -63,7 +63,11 @@ describe('ServicesService', () => {
       prisma.products.findMany.mockResolvedValue([scopedService]);
       const [result] = await service.findAll(undefined, undefined, orgAUser);
       expect(result.price).toBe(1500);
-      expect(result.clinicians).toEqual([{ id: 'cl-1', first_name: 'Dr', last_name: 'Rao' }]);
+      // ServiceClinicianType.full_name is a computed field (Clinicians has no
+      // such column) — assert the real GraphQL shape, not the raw Prisma row,
+      // so this test would have caught the "Cannot return null for
+      // non-nullable field ServiceClinician.full_name" bug this fixes.
+      expect(result.clinicians).toEqual([{ id: 'cl-1', full_name: 'Dr Rao' }]);
     });
   });
 

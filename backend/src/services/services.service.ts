@@ -16,7 +16,17 @@ export class ServicesService {
       ...rest,
       price: PAISE_TO_RUPEES(price),
       category: category ?? undefined,
-      clinicians: (clinicianServices ?? []).map((cs: any) => cs.clinician),
+      // ServiceClinicianType.full_name is a computed GraphQL field, not a
+      // Clinicians column (that model only has first_name/last_name) — passing
+      // the raw Prisma row through left full_name unresolved (null on a
+      // non-nullable field), crashing the whole query for any service with a
+      // linked clinician. Found live (a unit-tested mock fixture masked this —
+      // it asserted on the buggy passthrough shape rather than the real
+      // GraphQL entity's field), not caught by the mocked service spec.
+      clinicians: (clinicianServices ?? []).map((cs: any) => ({
+        id: cs.clinician.id,
+        full_name: `${cs.clinician.first_name} ${cs.clinician.last_name}`,
+      })),
     };
   }
 
