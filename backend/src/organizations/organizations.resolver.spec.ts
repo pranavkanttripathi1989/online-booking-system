@@ -27,7 +27,7 @@ describe('OrganizationsResolver', () => {
   // excludes 'manager', unlike Clinics/Rooms, since a tenant admin doesn't
   // create other tenants.
   describe('role gating (@Auth annotations)', () => {
-    const cases: [string, Function][] = [
+    const cases: [string, (...args: unknown[]) => unknown][] = [
       ['organizationsPaginated', OrganizationsResolver.prototype.organizationsPaginated],
       ['createOrganization', OrganizationsResolver.prototype.createOrganization],
       ['updateOrganization', OrganizationsResolver.prototype.updateOrganization],
