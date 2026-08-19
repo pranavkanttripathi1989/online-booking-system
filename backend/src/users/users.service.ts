@@ -50,9 +50,18 @@ export class UsersService {
     return rows.map((r) => this.toAdminUser(r));
   }
 
-  async getUser(id: string) {
+  // SECURITY: getUsers() already scopes its list by client_org_id, but this
+  // single-record lookup previously didn't — callable by 'manager' (org-scoped,
+  // unlike the platform-wide admin/super_admin roles also gated onto this
+  // query), it let a manager in one org read any user's admin profile
+  // (email, role, clinic) in a different org just by guessing/enumerating an
+  // id. Same tenant check as findOne() elsewhere in the codebase.
+  async getUser(id: string, user: JwtPayload) {
     const row = await this.prisma.userProfiles.findUnique({ where: { id }, include: { role: true, clinic: true } });
     if (!row || row.is_deleted) throw new NotFoundException('User not found');
+    if (user.client_org_id && row.client_org_id !== user.client_org_id) {
+      throw new NotFoundException('User not found');
+    }
     return this.toAdminUser(row);
   }
 

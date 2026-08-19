@@ -25,8 +25,8 @@ export class UsersResolver {
 
   @Auth('admin', 'super_admin', 'manager')
   @Query(() => AdminUserType)
-  getUser(@Args('id', { type: () => ID }) id: string) {
-    return this.usersService.getUser(id);
+  getUser(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.usersService.getUser(id, user);
   }
 
   @Query(() => [RoleType])
