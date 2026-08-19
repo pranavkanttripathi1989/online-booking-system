@@ -34,6 +34,47 @@ in the meantime.
 
 ---
 
+## 2. Products/ProductCategories/ProductSubcategories create paths never populate `clinic_id`, making the existing tenant-scoping filter inert
+
+**Status:** Open — found while writing `products` module unit tests (Priority 1), not fixed. Logged rather than
+patched because the correct fix depends on a product/contract decision, not a straightforward bug.
+
+`backend/src/products/products.service.ts`'s `create()`/`createCategory()`/`createSubcategory()` never set
+`clinic_id` on the row they insert — `CreateProductInput`/`CreateProductCategoryInput`/
+`CreateProductSubcategoryInput` (`dto/product.input.ts`) don't even have a `clinic_id` field, matching
+`manager/products/{create,edit}.jsx`'s real submitted fields exactly (per the DTO's own comment) — the frontend
+never sends one either. So every product/category/subcategory created through the live UI ends up with
+`clinic_id: null`.
+
+`findAll()`/`categories()`/`subcategories()` scope by `clinic: user.client_org_id ? {client_org_id: user.client_org_id} : undefined`
+— a relation filter requiring an attached clinic. A `clinic_id: null` row has no `clinic` relation, so it fails
+this filter for every org-scoped caller and becomes invisible in list views to the very org that "created" it.
+`findOne()`'s tenant check is `if (user.client_org_id && row.clinic && row.clinic.client_org_id !== user.client_org_id) throw NotFound`
+— when `row.clinic` is null (no clinic attached), the check short-circuits to false and is skipped entirely, so
+**any authenticated user, from any org, can read a clinic-less product directly via `product(id)`** once they
+know or guess its id. `update()`/`remove()` call `findOne()` first, so they inherit the same gap.
+
+Why this isn't the same bug pattern as the already-fixed `createAvailability`/`createSpacerBlock`/`createClinician`
+cross-org creates (CLAUDE.md's Hard Rule 6 note): those took a caller-supplied `clinic_id` and simply never
+validated it against the caller's org — a classic IDOR with an obvious fix (validate the supplied id). Here
+there is no caller-supplied `clinic_id` to validate — the field doesn't exist on the DTO at all, so the fix
+isn't "add a check," it's "decide how Products should be tenant-scoped in the first place": either (a) add
+`clinic_id` to the create DTOs and require the frontend to supply/select one (a UI change, since none of
+`manager/products/{index,create,edit}.jsx` currently expose clinic selection), or (b) give `Products`/
+`ProductCategories`/`ProductSubcategories` their own direct `client_org_id` column and stamp it from the JWT at
+create time the way `Clinics`/`Availability` etc. do, decoupled from any specific clinic. Both are real schema/
+frontend-contract changes, not something to guess at inside a test-writing pass.
+
+**Left as-is for now:** `products.service.spec.ts` tests the module's actual current behavior, including this
+gap (a clinic-less product is readable cross-org via `findOne`), rather than an assumed "should" behavior.
+
+**Decision needed from the user:** which of the two fixes above (org-column-on-Products vs. clinic-selection-in-UI),
+or confirm this is acceptable as-is if Products are meant to be catalog-wide rather than clinic/tenant-scoped
+(in which case the existing `clinic`-relation filters in `findAll`/`categories`/`subcategories` are themselves
+the bug — they should either be removed or replaced with a real org column, since half-scoping is worse than none).
+
+---
+
 ## Resolved
 
 ### manager/Dashboard.jsx KPIs, charts, and clinic filter (resolved 2026-08-18)
