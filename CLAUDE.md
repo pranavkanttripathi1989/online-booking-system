@@ -13,7 +13,7 @@ MediBook / HealthSync — multi-tenant SaaS for online doctor/clinic appointment
 ## Hard rules — non-negotiable
 
 1. **No skipped steps.** Each item in "Current priorities" below has a Definition of Done (DoD). Don't move to the next until the current one's DoD is fully satisfied. If you can't satisfy it, stop and say why — don't silently move on or mark it done anyway.
-2. **Test before you claim done.** "I wrote the resolver" is not done — "the test suite proves the resolver works, including tenant-isolation and validation-failure cases" is done. Every new or touched resolver/service gets unit tests; every user-facing flow gets an integration/e2e test (`npm run e2e` in `frontend/`, Playwright). 21 of 22 backend domains have `.spec.ts` coverage so far (`auth`, `analytics`, `appointments`, `availability`, `blocks`, `clinicians`, `clinics`, `email-templates`, `languages`, `lookups`, `messages`, `notifications`, `organizations`, `patients`, `products`, `public`, `reviews`, `rooms`, `services`, `staff`, `test-results` — see Current priorities); the rest are still the known gap.
+2. **Test before you claim done.** "I wrote the resolver" is not done — "the test suite proves the resolver works, including tenant-isolation and validation-failure cases" is done. Every new or touched resolver/service gets unit tests; every user-facing flow gets an integration/e2e test (`npm run e2e` in `frontend/`, Playwright). All 22 backend domains now have `.spec.ts` coverage (see Current priorities) — the remaining Priority 1 gap is per-domain e2e coverage, not unit coverage.
 3. **Verify before you commit.** Run lint + typecheck + the full test suite (backend `npm test`, frontend `npm test` and `npm run e2e` for touched flows) and confirm green before every commit. Never commit red.
 4. **Commit per vertical slice, same branch.** After a slice is built, tested, and verified, commit it with a conventional-commit message (`feat(backend): ...`, `test(backend): ...`, `feat(integration): ...`). Stay on the current branch unless explicitly told otherwise. Small, frequent, verified commits — not one giant commit at the end.
 5. **Mobile-first responsiveness is mandatory, not polish.** Any screen you touch must be checked at 360px, 768px, and 1280px using MUI breakpoints (`xs/sm/md/lg`). Overflow or breakage on mobile is a bug.
@@ -50,7 +50,7 @@ Never run `npm run build` inside the same container as the active `start:dev` wa
 ```bash
 npm run start:dev        # nest start --watch (this is what the backend container runs)
 npm run lint              # eslint --fix
-npm test                  # jest — 21 of 22 domains covered so far (see Current priorities for which)
+npm test                  # jest — all 22 domains covered (see Current priorities — e2e coverage is the remaining gap)
 npm run test -- <pattern> # run a single test file/suite, e.g. `npm run test -- appointments.service`
 npx prisma validate        # validate schema.prisma after editing it
 npx prisma migrate deploy  # apply migrations
@@ -121,15 +121,15 @@ Several `SKILL.md` reference files live under `.claude/skills/` (NestJS, React, 
 
 ### Priority 1 — Close the testing gap on what's already built
 
-`backend/src` has 22 built domain modules; 21 (`auth`, `analytics`, `appointments`, `availability`, `blocks`, `clinicians`, `clinics`, `email-templates`, `languages`, `lookups`, `messages`, `notifications`, `organizations`, `patients`, `products`, `public`, `reviews`, `rooms`, `services`, `staff`, `test-results`) have `.spec.ts` coverage, plus both global guards (`common/guards/*.spec.ts`). The remaining 1 (`users`) is still the gap — every subsequent step compounds on untested code.
+`backend/src` has 22 built domain modules; **all 22** (`auth`, `analytics`, `appointments`, `availability`, `blocks`, `clinicians`, `clinics`, `email-templates`, `languages`, `lookups`, `messages`, `notifications`, `organizations`, `patients`, `products`, `public`, `reviews`, `rooms`, `services`, `staff`, `test-results`, `users`) now have `.spec.ts` coverage, plus both global guards (`common/guards/*.spec.ts`) — the unit-test half of this priority's DoD is done. The remaining gap is e2e: `frontend/e2e/` currently has only 2 spec files (`auth-login.spec.js`, `admin-roles.spec.js`) against 22 domains, so "at least one e2e path per domain" (DoD below) is still mostly unmet — don't treat this priority as closed until that's addressed.
 
-1. Pick one domain at a time from the untested-11 list above.
+1. Pick one domain at a time from the e2e gap above (all 22 backend domains now have unit coverage; the remaining work here is writing/confirming each domain's Playwright spec).
 2. Write unit tests per resolver/service: happy path, validation failures, tenant-isolation AND self-scoping (see Architecture) both provably rejected for cross-tenant/cross-patient/cross-clinician access, role-gating (`@Auth`/`@Public` behaving as declared) — a resolver-vs-real-source cross-check like this has found a real, previously-unfixed security bug in every domain checked closely so far, so treat "read the code while writing the matrix" as part of the test-writing step, not a separate audit.
 3. Add/confirm at least one e2e test per domain's critical user path (Playwright, `frontend/`).
 4. Run `npm test` (backend) and `npm run e2e` (frontend) green before moving to the next domain.
 5. Commit per domain: `test(backend): add auth module tests`, etc.
 
-**DoD:** every existing domain module has unit test coverage for happy path + tenant isolation + self-scoping + role gating, and at least one e2e path is green against the real backend (not mocks).
+**DoD:** every existing domain module has unit test coverage for happy path + tenant isolation + self-scoping + role gating (✅ done, all 22), and at least one e2e path is green against the real backend, not mocks (❌ not done — 2 of 22 domains have an e2e spec today).
 
 ### Priority 2 — Build the remaining domains
 
