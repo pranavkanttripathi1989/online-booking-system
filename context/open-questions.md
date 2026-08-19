@@ -73,6 +73,13 @@ or confirm this is acceptable as-is if Products are meant to be catalog-wide rat
 (in which case the existing `clinic`-relation filters in `findAll`/`categories`/`subcategories` are themselves
 the bug — they should either be removed or replaced with a real org column, since half-scoping is worse than none).
 
+**Addendum (found while testing `services`):** `backend/src/services/services.service.ts`'s `create()` has the
+exact same gap — it writes directly to the same `Products` table (`product_type: 'simple'`) and `ServiceInput`
+also has no `clinic_id` field (confirmed against `manager/services/create.jsx`'s real submitted shape, matching
+the DTO's own comment), so every service created through the live UI is equally clinic-less and inherits the
+same cross-org-readable-by-id / invisible-in-org-scoped-lists behavior via `findOne`/`findAll` here. Same open
+decision applies to both resolvers since they share the underlying table.
+
 ---
 
 ## Resolved
