@@ -12,6 +12,7 @@ import { CreateAvailabilityInput, UpdateAvailabilityInput, ClinicianAvailability
 import { AvailableSlotType } from './entities/available-slot.entity';
 import { DateOnlyMarker } from '../common/scalars/date.scalar';
 import { Auth } from '../common/decorators/auth.decorator';
+import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
@@ -43,7 +44,15 @@ export class AvailabilityResolver {
   }
 
   // ── clinician/Availability.jsx self-service surface ──────────────────────
-
+  // Also the only source of slot data for the public doctor-profile page
+  // (pages/public/doctor-profile.jsx's GetClinicianProfile query calls this
+  // alongside the @Public() getClinician) — @Public() here since it's just
+  // day/start/end times, nothing patient- or PII-sensitive, and a patient
+  // genuinely needs to see a clinician's open hours before booking/logging
+  // in. Was missing this entirely, so every anonymous visitor to a doctor
+  // profile page got "Unauthorized" for the whole combined query (one
+  // unauthorized field nulls the entire GraphQL response).
+  @Public()
   @Query(() => [ClinicianAvailabilitySlotType])
   getClinicianAvailability(@Args('clinicianId', { type: () => ID }) clinicianId: string) {
     return this.availabilityService.getClinicianAvailability(clinicianId);
