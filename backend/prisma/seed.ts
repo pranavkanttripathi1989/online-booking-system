@@ -57,6 +57,28 @@ async function main() {
       (await prisma.userRoles.create({ data: { name, description: `${name} role`, is_system: true } }));
   }
 
+  // Permissions catalog: schema.prisma has always had the right primitives
+  // (Permissions/RolePermissions) for admin/Roles.jsx's custom-role builder,
+  // but the table itself was never seeded -- the resource/action taxonomy
+  // below matches frontend/src/mocks/data/permissions.js exactly, since that
+  // was the de-facto spec the real backend was built against.
+  console.log('Seeding permissions catalog...');
+  const PERMISSION_RESOURCES = [
+    'appointments', 'patients', 'clinicians', 'clinics', 'rooms',
+    'products', 'billing', 'reviews', 'messages', 'roles', 'settings', 'reports',
+  ];
+  const PERMISSION_ACTIONS = ['view', 'create', 'edit', 'delete', 'export'];
+  for (const resource of PERMISSION_RESOURCES) {
+    for (const action of PERMISSION_ACTIONS) {
+      const name = `${resource}.${action}`;
+      await prisma.permissions.upsert({
+        where: { name },
+        update: {},
+        create: { name, resource, action, description: `${action.charAt(0).toUpperCase()}${action.slice(1)} ${resource.replace('_', ' ')}` },
+      });
+    }
+  }
+
   console.log('Seeding tenant organizations...');
   const primaryOrg = await prisma.clientOrganizations.upsert({
     where: { code: PRIMARY_ORG_CODE },

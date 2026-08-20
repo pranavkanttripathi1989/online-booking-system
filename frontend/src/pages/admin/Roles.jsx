@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
+import { useQuery, useMutation, gql } from '@apollo/client'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
-  Alert, Box, Button, Card, CardContent, Chip, Grid, IconButton, MenuItem,
+  Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Grid, IconButton, MenuItem,
   Stack, Switch, TextField, Tooltip, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
@@ -14,9 +15,21 @@ import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import EmptyState from '../../components/shared/EmptyState'
 import PermissionMatrix from '../../components/Roles/PermissionMatrix'
-import { useMockData, useMockMutation } from '../../mocks/useMockData'
-import * as MockStore from '../../mocks/store'
-import { PERMISSION_RESOURCES, PERMISSION_ACTIONS } from '../../mocks/data/permissions'
+
+// backend/src/users/** — roles/getPermissions/createRole/updateRole/deleteRole
+// were built from scratch specifically against this page's MockStore shape
+// (see users/entities/user-admin.entity.ts's own comment), never wired up
+// until now. AppRoleType already carries permission_ids inline, so no
+// separate per-role fetch is needed for grant counts / edit pre-populate.
+const GET_ROLES_DATA = gql`
+  query GetRolesData {
+    roles { id name description is_active is_system permission_ids }
+    getPermissions { id action resource description }
+  }
+`
+const CREATE_ROLE = gql`mutation CreateRole($input: AppRoleInput!) { createRole(input: $input) { id } }`
+const UPDATE_ROLE = gql`mutation UpdateRole($id: ID!, $input: AppRoleInput!) { updateRole(id: $id, input: $input) { id } }`
+const DELETE_ROLE = gql`mutation DeleteRole($id: ID!) { deleteRole(id: $id) }`
 
 // ─── Validation (context/frontend-hard-rules.md §2.1) ─────────────────────────
 const roleSchema = z.object({
@@ -26,8 +39,20 @@ const roleSchema = z.object({
 })
 
 function RolesPageContent() {
-  const { data: roles } = useMockData((store) => store.getRoles())
-  const { data: permissions } = useMockData((store) => store.getPermissionCatalog())
+  const { data, loading, error, refetch } = useQuery(GET_ROLES_DATA)
+  const roles = data?.roles
+  const permissions = useMemo(() => data?.getPermissions || [], [data])
+
+  const resources = useMemo(() => [...new Set(permissions.map((p) => p.resource))], [permissions])
+  const actions = useMemo(() => [...new Set(permissions.map((p) => p.action))], [permissions])
+  const permissionIdFor = useMemo(() => {
+    const map = new Map(permissions.map((p) => [`${p.resource}::${p.action}`, p.id]))
+    return (resource, action) => map.get(`${resource}::${action}`)
+  }, [permissions])
+
+  const [createRoleMutation, { loading: creating }] = useMutation(CREATE_ROLE)
+  const [updateRoleMutation, { loading: updating }] = useMutation(UPDATE_ROLE)
+  const [deleteRoleMutation] = useMutation(DELETE_ROLE)
 
   const [showForm, setShowForm] = useState(false)
   const [editRole, setEditRole] = useState(null)
@@ -37,10 +62,6 @@ function RolesPageContent() {
   const [deletingId, setDeletingId] = useState(null)
   const [formError, setFormError] = useState(null)
   const [successMsg, setSuccessMsg] = useState(null)
-
-  const [createRole, { loading: creating }] = useMockMutation(MockStore.createRole)
-  const [updateRole, { loading: updating }] = useMockMutation(MockStore.updateRole)
-  const [deleteRoleMutation] = useMockMutation(MockStore.deleteRole)
 
   const { control, handleSubmit, reset, formState: { errors } } = useForm({
     resolver: zodResolver(roleSchema),
@@ -57,7 +78,7 @@ function RolesPageContent() {
 
   const openEdit = (role) => {
     setEditRole(role)
-    setSelectedPermissionIds(MockStore.getRolePermissionIds(role.id))
+    setSelectedPermissionIds(role.permission_ids || [])
     setCloneFromId('')
     reset({ name: role.name, description: role.description || '', is_active: role.is_active })
     setFormError(null); setShowForm(true)
@@ -67,7 +88,7 @@ function RolesPageContent() {
 
   const handleCloneFrom = (roleId) => {
     setCloneFromId(roleId)
-    if (roleId) setSelectedPermissionIds(MockStore.getRolePermissionIds(roleId))
+    if (roleId) setSelectedPermissionIds(roleList.find((r) => r.id === roleId)?.permission_ids || [])
   }
 
   const togglePermission = (permId) => {
@@ -79,27 +100,34 @@ function RolesPageContent() {
   const onSubmit = async (values) => {
     setFormError(null)
     try {
+      const input = { ...values, permission_ids: selectedPermissionIds }
       if (editRole) {
-        await updateRole(editRole.id, { ...values, permission_ids: selectedPermissionIds })
+        await updateRoleMutation({ variables: { id: editRole.id, input } })
         showSuccess('Role updated.')
       } else {
-        await createRole({ ...values, permission_ids: selectedPermissionIds })
+        await createRoleMutation({ variables: { input } })
         showSuccess('Role created.')
       }
+      await refetch()
       closeForm()
     } catch (err) { setFormError(err.message) }
   }
 
+  // System roles reject every updateRole call server-side (not just
+  // name/description edits), so the toggle must be disabled for them too —
+  // the Switch below is guarded the same way Edit/Delete already are.
   const handleToggleActive = async (role) => {
-    try { await MockStore.toggleRoleActive(role.id) }
-    catch (err) { setFormError(err.message) }
+    try {
+      await updateRoleMutation({ variables: { id: role.id, input: { name: role.name, description: role.description, is_active: !role.is_active } } })
+      await refetch()
+    } catch (err) { setFormError(err.message) }
   }
 
   const confirmDelete = async () => {
     setConfirmOpen(false)
     try {
-      const result = await deleteRoleMutation(deletingId)
-      if (!result?.success) throw new Error(result?.message || 'Could not delete role.')
+      await deleteRoleMutation({ variables: { id: deletingId } })
+      await refetch()
       showSuccess('Role deleted.')
     } catch (err) { setFormError(err.message) }
     setDeletingId(null)
@@ -123,7 +151,12 @@ function RolesPageContent() {
 
       {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
       {formError && !showForm && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setFormError(null)}>{formError}</Alert>}
+      {error && <Alert severity="error" sx={{ mb: 2 }}>Failed to load roles: {error.message}</Alert>}
 
+      {loading && !data ? (
+        <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
+      ) : (
+      <>
       {showForm && (
         <Card sx={{ mb: 3 }}>
           <CardContent>
@@ -176,8 +209,9 @@ function RolesPageContent() {
                     </Alert>
                   )}
                   <PermissionMatrix
-                    resources={PERMISSION_RESOURCES}
-                    actions={PERMISSION_ACTIONS}
+                    resources={resources}
+                    actions={actions}
+                    permissionIdFor={permissionIdFor}
                     selectedIds={selectedPermissionIds}
                     onToggle={togglePermission}
                     disabled={!!editRole?.is_system}
@@ -203,7 +237,7 @@ function RolesPageContent() {
       ) : (
         <Grid container spacing={2}>
           {roleList.map((role) => {
-            const grantCount = MockStore.getRolePermissionIds(role.id).length
+            const grantCount = (role.permission_ids || []).length
             return (
               <Grid item xs={12} sm={6} md={4} key={role.id}>
                 <Card variant="outlined" sx={{ height: '100%' }}>
@@ -222,6 +256,7 @@ function RolesPageContent() {
                       </Box>
                       <Switch
                         size="small" checked={!!role.is_active} onChange={() => handleToggleActive(role)}
+                        disabled={!!role.is_system}
                         inputProps={{ 'aria-label': `${role.is_active ? 'Deactivate' : 'Activate'} ${role.name} role` }}
                       />
                     </Stack>
@@ -255,6 +290,8 @@ function RolesPageContent() {
         onConfirm={confirmDelete}
         onCancel={() => { setConfirmOpen(false); setDeletingId(null) }}
       />
+      </>
+      )}
     </Box>
   )
 }

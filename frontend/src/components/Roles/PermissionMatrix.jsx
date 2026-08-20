@@ -4,8 +4,11 @@ import { Box, Checkbox, Table, TableBody, TableCell, TableContainer, TableHead, 
  * Resource × action permission grid. Scrolls horizontally on narrow
  * viewports instead of clipping (context/frontend-hard-rules.md §1.1/1.4).
  */
-export default function PermissionMatrix({ resources, actions, selectedIds, onToggle, disabled = false }) {
-  const permId = (resource, action) => `perm-${resource}-${action}`
+export default function PermissionMatrix({ resources, actions, selectedIds, onToggle, disabled = false, permissionIdFor }) {
+  // Real Permissions rows are UUID-keyed, not the mock's readable perm-<resource>-<action>
+  // ids — callers backed by the real backend pass permissionIdFor to look up the actual id;
+  // the synthesized fallback keeps this component's default (and its tests) unchanged.
+  const permId = permissionIdFor || ((resource, action) => `perm-${resource}-${action}`)
 
   return (
     <TableContainer sx={{ overflowX: 'auto', border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
