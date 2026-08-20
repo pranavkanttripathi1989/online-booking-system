@@ -3,7 +3,7 @@ import { useQuery, useMutation } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import {
   Alert, Box, Button, Typography, Chip, Grid, Card, CardContent, Stack, Paper,
-  Table, TableBody, TableCell, TableHead, TableRow, TextField, InputAdornment,
+  Table, TableBody, TableCell, TableHead, TableRow, TableContainer, TextField, InputAdornment,
   MenuItem, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
   Divider, LinearProgress, Select, FormControl, InputLabel, TableSortLabel, Skeleton,
 } from '@mui/material'
@@ -298,6 +298,7 @@ export default function TestResultsPage() {
         </Box>
 
         {/* ── Table ───────────────────────────────────────────────────── */}
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow sx={{ '& th': { fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', bgcolor: '#F8FAFC', py: 1.2 } }}>
@@ -360,6 +361,7 @@ export default function TestResultsPage() {
             </>}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       <ResultDialog result={viewResult} onClose={() => setViewResult(null)} />

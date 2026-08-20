@@ -162,8 +162,8 @@ function ManagerClinicsInner() {
       </Grid>
 
       {/* Filters */}
-      <Stack direction="row" spacing={2} sx={{ mb: 2.5 }} alignItems="center">
-        <SearchField value={search} onChange={setSearch} placeholder="Search clinics..." sx={{ width: 260 }} />
+      <Stack direction="row" spacing={2} rowGap={1} flexWrap="wrap" sx={{ mb: 2.5 }} alignItems="center">
+        <SearchField value={search} onChange={setSearch} placeholder="Search clinics..." sx={{ width: { xs: '100%', sm: 260 } }} />
         <Stack direction="row" spacing={1}>
           {['Clinics', 'Rooms'].map((t, i) => (
             <Chip

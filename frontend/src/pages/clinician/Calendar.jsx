@@ -314,7 +314,7 @@ export default function ClinicianCalendar() {
   return (
     <Box>
       {/* HEADER */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" rowGap={1} sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h2" fontWeight={700}>Calendar</Typography>
           <Typography variant="body2" color="text.secondary">{clinicianName} · {clinicName}</Typography>
@@ -346,7 +346,7 @@ export default function ClinicianCalendar() {
       </Stack>
 
       {/* GRID */}
-      <Box sx={{ overflowX: 'auto', pb: 1 }}>
+      <Box sx={{ overflowX: 'auto', pb: 1, width: '100%', minWidth: 0 }}>
         <Box sx={{ minWidth: 700 }}>
           <Grid container spacing={0} sx={{ border: '1px solid #D0E8EA', borderRadius: 2, overflow: 'hidden' }}>
 
