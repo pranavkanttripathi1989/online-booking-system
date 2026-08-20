@@ -172,11 +172,11 @@ For each: audit the frontend's existing `gql` calls for that domain first (rule 
 
 ### Priority 3 — Full mock-removal sweep
 
-1. Grep every page for `mocks/store.js` imports or inline mock usage; cross-check against which backend domains now exist.
-2. For any page still on mocks despite its backend existing, wire it to the real resolver and verify.
-3. For domains genuinely still without a backend (rare after Priority 2), leave the fallback but make it visible in dev (e.g. a console warn), not silent.
-4. Full responsive sweep across every page, not just newly touched ones.
-5. Load the seed dataset and manually verify empty states, edge cases (no doctors, no slots, cancelled appointments), and realistic volume.
+1. ✅ Done — grep audit found 12 pages with a real `mocks/store` import: 5 are 100% mock with zero real GraphQL call (`admin/Roles.jsx`, `onboarding/index.jsx`, `settings/index.jsx`, `tasks/index.jsx`, `waiting-room/index.jsx`), 7 are real-primary with a mock fallback (`appointments/{detail,edit,index}.jsx`, `calendar/index.jsx`, `clinician/Dashboard.jsx`, `clinicians/{Create,Edit}ClinicianPage.jsx` — fallback visibility not independently re-verified).
+2. 🟡 In progress — of the 5 fully-mock pages, only `admin/Roles.jsx` actually had a real backend already built and unwired (`backend/src/users`' `roles`/`getPermissions`/`createRole`/`updateRole`/`deleteRole`, built from scratch against this exact page's shape but never wired up, plus an empty `Permissions` table that needed seeding). **Wired and verified.** The other 4 (`onboarding`, `settings`, `tasks`, `waiting-room`) have no matching backend at all — they're Priority 2 (build the domain) or step 3 (visible fallback) candidates, not step 2.
+3. Not started for the remaining 4 fully-mock pages, nor independently re-verified for the 7 mixed-fallback pages.
+4. Full-app responsive sweep already done this session (213/213 clean, 3 bugs found/fixed) — but that was before this Priority 3 work landed; the pages touched here were spot-checked (`admin/Roles.jsx` clean at 360/768/1280px), not re-swept as a whole.
+5. Not started.
 
 **DoD:** no page silently falls back to mock data for a domain with a real backend; full test suite green end to end; final commit summarizing the sweep.
 
