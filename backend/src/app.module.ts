@@ -24,6 +24,7 @@ import { BlocksModule } from './blocks/blocks.module';
 import { CancellationRulesModule } from './cancellation-rules/cancellation-rules.module';
 import { AccountModule } from './account/account.module';
 import { NotificationPreferencesModule } from './notification-preferences/notification-preferences.module';
+import { OrgSettingsModule } from './org-settings/org-settings.module';
 import { UsersModule } from './users/users.module';
 import { StaffModule } from './staff/staff.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -99,6 +100,7 @@ import { PubSubModule } from './common/pubsub.module';
     CancellationRulesModule,
     AccountModule,
     NotificationPreferencesModule,
+    OrgSettingsModule,
     UsersModule,
     StaffModule,
     NotificationsModule,

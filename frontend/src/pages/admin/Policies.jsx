@@ -30,6 +30,21 @@ const CREATE_RULE = gql`mutation CreateCancellationRule($input:CreateCancellatio
 const UPDATE_RULE = gql`mutation UpdateCancellationRule($id:ID!,$input:UpdateCancellationRuleInput!){updateCancellationRule(id:$id,input:$input){success userErrors{message}}}`;
 const DELETE_RULE = gql`mutation DeleteCancellationRule($id:ID!){deleteCancellationRule(id:$id){success userErrors{message}}}`;
 
+// ─── Booking Policies GraphQL — No-Show Fee / Slot Buffer / Max Reschedules /
+// Retention only. Cancellation Policy + Late Cancellation Fee (below) are
+// deliberately NOT wired to a backend -- they conceptually overlap with the
+// Cancellation Rules tab's global-rule support; see context/open-questions.md #7.
+const GET_BOOKING_POLICIES = gql`
+  query GetOrgBookingPolicies {
+    myOrgBookingPolicies { no_show_fee slot_buffer_minutes max_reschedules_per_month data_retention_years }
+  }
+`;
+const UPDATE_BOOKING_POLICIES = gql`
+  mutation UpdateOrgBookingPolicies($input: UpdateOrgBookingPoliciesInput!) {
+    updateMyOrgBookingPolicies(input: $input) { success userErrors { message } }
+  }
+`;
+
 const defaultRule = { name:'', description:'', hours_before:24, fee_type:'percentage', fee_amount:0, clinic_id:'', priority:1, is_active:true };
 
 const POLICIES = [
@@ -57,6 +72,27 @@ export default function AdminPolicies() {
     Object.fromEntries(SECURITY.map((s) => [s.key, s.default]))
   );
   const [saved, setSaved] = useState(false);
+  const [policiesError, setPoliciesError] = useState(null);
+  const [savingPolicies, setSavingPolicies] = useState(false);
+
+  // ── Booking Policies — real fields only (No-Show Fee / Slot Buffer /
+  // Max Reschedules / Retention). Cancellation Policy + Late Fee stay
+  // local-only display state (see context/open-questions.md #7). ────────
+  useEffect(() => {
+    client.query({ query: GET_BOOKING_POLICIES, fetchPolicy: 'network-only' })
+      .then(({ data }) => {
+        const p = data?.myOrgBookingPolicies
+        if (!p) return
+        setPolicies((prev) => prev.map((row) => {
+          if (row.key === 'noShow') return { ...row, value: String(p.no_show_fee) }
+          if (row.key === 'slotBuffer') return { ...row, value: String(p.slot_buffer_minutes) }
+          if (row.key === 'maxReschedule') return { ...row, value: String(p.max_reschedules_per_month) }
+          if (row.key === 'retention') return { ...row, value: String(p.data_retention_years) }
+          return row
+        }))
+      })
+      .catch((err) => setPoliciesError(err.message))
+  }, [client])
 
   // ── Cancellation Rules state ────────────────────────────────────────────
   const [rules, setRules]             = useState([]);
@@ -112,7 +148,27 @@ export default function AdminPolicies() {
   };
 
   const updatePolicy = (id, value) => setPolicies((prev) => prev.map((p) => p.id === id ? { ...p, value } : p));
-  const saveAll = () => { setSaved(true); setTimeout(() => setSaved(false), 3000); };
+  const byKey = (key) => policies.find((p) => p.key === key)?.value
+
+  const saveAll = async () => {
+    setPoliciesError(null); setSavingPolicies(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: UPDATE_BOOKING_POLICIES,
+        variables: { input: {
+          no_show_fee: parseFloat(byKey('noShow')),
+          slot_buffer_minutes: parseInt(byKey('slotBuffer')),
+          max_reschedules_per_month: parseInt(byKey('maxReschedule')),
+          data_retention_years: parseInt(byKey('retention')),
+        } },
+      })
+      if (!data?.updateMyOrgBookingPolicies?.success) {
+        throw new Error(data?.updateMyOrgBookingPolicies?.userErrors?.[0]?.message ?? 'Failed to save policies')
+      }
+      setSaved(true); setTimeout(() => setSaved(false), 3000)
+    } catch (err) { setPoliciesError(err.message) }
+    finally { setSavingPolicies(false) }
+  };
 
   return (
     <Box>
@@ -121,10 +177,11 @@ export default function AdminPolicies() {
           <Typography variant="h2" fontWeight={700}>Policies &amp; Compliance</Typography>
           <Typography variant="body2" color="text.secondary">Booking rules, security settings, and GDPR compliance</Typography>
         </Box>
-        <Button variant="contained" startIcon={<SaveIcon />} onClick={saveAll}>Save All Changes</Button>
+        <Button variant="contained" startIcon={<SaveIcon />} disabled={savingPolicies} onClick={saveAll}>{savingPolicies ? 'Saving…' : 'Save All Changes'}</Button>
       </Stack>
 
       {saved && <Alert severity="success" sx={{ mb: 2 }}>✅ Policy settings saved successfully.</Alert>}
+      {policiesError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPoliciesError(null)}>{policiesError}</Alert>}
 
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid #D0E8EA' }}>
         <Tab label="Booking Policies" />
@@ -136,15 +193,22 @@ export default function AdminPolicies() {
       {/* Booking Policies */}
       {tab === 0 && (
         <Grid container spacing={2}>
-          {policies.map((policy) => (
+          {policies.map((policy) => {
+            const isUnbacked = policy.key === 'cancellation' || policy.key === 'lateFee'
+            return (
             <Grid item xs={12} sm={6} key={policy.id}>
-              <Card sx={{ border: '1px solid #D0E8EA' }}>
+              <Card sx={{ border: '1px solid #D0E8EA', opacity: isUnbacked ? 0.7 : 1 }}>
                 <CardContent sx={{ p: 2.5 }}>
                   <Typography fontWeight={700} sx={{ mb: 0.5 }}>{policy.label}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{policy.description}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: isUnbacked ? 1 : 2 }}>{policy.description}</Typography>
+                  {isUnbacked && (
+                    <Typography variant="caption" sx={{ display: 'block', mb: 1.5, color: '#B45309' }}>
+                      Not yet persisted — use the Cancellation Rules tab for a real, per-clinic cancellation policy.
+                    </Typography>
+                  )}
                   <Stack direction="row" spacing={1.5} alignItems="center">
                     <TextField
-                      size="small" type="number" value={policy.value}
+                      size="small" type="number" value={policy.value} disabled={isUnbacked}
                       onChange={(e) => updatePolicy(policy.id, e.target.value)}
                       sx={{ width: 100 }}
                     />
@@ -153,7 +217,8 @@ export default function AdminPolicies() {
                 </CardContent>
               </Card>
             </Grid>
-          ))}
+            )
+          })}
         </Grid>
       )}
 

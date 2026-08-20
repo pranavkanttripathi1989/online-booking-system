@@ -767,6 +767,8 @@ type Mutation {
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
   updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
   updateMyNotificationPreferences(input: [NotificationPreferenceInput!]!): GenericResult!
+  updateMyOrgBookingPolicies(input: UpdateOrgBookingPoliciesInput!): OrgBookingPoliciesMutationResult!
+  updateMyOrgCommunicationSettings(input: UpdateOrgCommunicationSettingsInput!): OrgCommunicationSettingsMutationResult!
   updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
@@ -835,6 +837,40 @@ input NotificationPreferenceInput {
 input OrderTestInput {
   patient: String!
   testType: String!
+}
+
+type OrgBookingPolicies {
+  data_retention_years: Int!
+  max_reschedules_per_month: Int!
+  no_show_fee: Float!
+  slot_buffer_minutes: Int!
+}
+
+type OrgBookingPoliciesMutationResult {
+  policies: OrgBookingPolicies
+  success: Boolean!
+  userErrors: [OrgBookingPoliciesUserError!]!
+}
+
+type OrgBookingPoliciesUserError {
+  message: String!
+}
+
+type OrgCommunicationSettings {
+  email_from_address: String
+  email_from_name: String!
+  email_include_branding: Boolean!
+  email_reply_to: String
+}
+
+type OrgCommunicationSettingsMutationResult {
+  settings: OrgCommunicationSettings
+  success: Boolean!
+  userErrors: [OrgCommunicationSettingsUserError!]!
+}
+
+type OrgCommunicationSettingsUserError {
+  message: String!
 }
 
 type Organization {
@@ -1187,6 +1223,8 @@ type Query {
   me: User!
   messageableContacts: [MessageableContact!]!
   myNotificationPreferences: [NotificationPreference!]!
+  myOrgBookingPolicies: OrgBookingPolicies
+  myOrgCommunicationSettings: OrgCommunicationSettings
   myProfile: MyProfile
   mySessions: [Session!]!
   notifications(filter: String): [Notification!]!
@@ -1522,6 +1560,20 @@ input UpdateMyProfileInput {
   first_name: String
   last_name: String
   phone: String
+}
+
+input UpdateOrgBookingPoliciesInput {
+  data_retention_years: Int
+  max_reschedules_per_month: Int
+  no_show_fee: Float
+  slot_buffer_minutes: Int
+}
+
+input UpdateOrgCommunicationSettingsInput {
+  email_from_address: String
+  email_from_name: String
+  email_include_branding: Boolean
+  email_reply_to: String
 }
 
 input UpdateProductCategoryInput {

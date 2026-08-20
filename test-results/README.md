@@ -2,7 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
-| communications-policies | 1 | 0 | 0 | 1 | 0 | 2026-08-20 | [communications-policies](./communications-policies/README.md) |
+| communications-policies | 2 | 0 | 0 | 2 | 0 | 2026-08-20 | [communications-policies](./communications-policies/README.md) |
 | settings | 2 | 0 | 0 | 1 | 1 | 2026-08-20 | [settings](./settings/README.md) |
 | clinician-availability | 1 | 0 | 0 | 0 | 1 | 2026-08-19 | [clinician-availability](./clinician-availability/README.md) |
 | appointments | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [appointments](./appointments/README.md) |

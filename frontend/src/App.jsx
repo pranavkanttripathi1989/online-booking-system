@@ -329,13 +329,23 @@ function App() {
               <Route path="/admin/users/new"       element={<Suspense fallback={<ShellPageLoader />}><CreateUserPage /></Suspense>} />
               <Route path="/admin/users/:id/edit"  element={<Suspense fallback={<ShellPageLoader />}><EditUserPage /></Suspense>} />
               <Route path="/admin/organizations"   element={<Suspense fallback={<ShellPageLoader />}><AdminOrganizations /></Suspense>} />
-              <Route path="/admin/communications"  element={<Suspense fallback={<ShellPageLoader />}><AdminCommunications /></Suspense>} />
-              <Route path="/admin/policies"        element={<Suspense fallback={<ShellPageLoader />}><AdminPolicies /></Suspense>} />
               <Route path="/admin/roles"           element={<Suspense fallback={<ShellPageLoader />}><AdminRoles /></Suspense>} />
               <Route path="/admin/clinician-types" element={<Suspense fallback={<ShellPageLoader />}><AdminClinicianTypes /></Suspense>} />
               <Route path="/admin/room-types"      element={<Suspense fallback={<ShellPageLoader />}><AdminRoomTypes /></Suspense>} />
               <Route path="/admin/languages"       element={<Suspense fallback={<ShellPageLoader />}><AdminLanguages /></Suspense>} />
               <Route path="/admin/email-templates" element={<Suspense fallback={<ShellPageLoader />}><AdminEmailTemplates /></Suspense>} />
+            </Route>
+          </Route>
+
+          {/* ── Admin OR manager — same AdminLayout shell, but these two pages'
+               real backend (cancellation-rules, org-settings) is org-scoped off
+               the caller's own client_org_id, which only a manager (not an
+               org-less admin/super_admin) actually has. Split out from the
+               admin-only block above so a manager can reach and use them. ── */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager']} />}>
+            <Route element={<AdminLayout />}>
+              <Route path="/admin/communications"  element={<Suspense fallback={<ShellPageLoader />}><AdminCommunications /></Suspense>} />
+              <Route path="/admin/policies"        element={<Suspense fallback={<ShellPageLoader />}><AdminPolicies /></Suspense>} />
             </Route>
           </Route>
         </Route>

@@ -2,6 +2,22 @@
 
 Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the question, why it's genuinely ambiguous (not just unimplemented), and current status.
 
+## 6. admin/Communications.jsx's "Global Settings" tab lets an org pick Twilio/Vonage + paste a raw API key — contradicts the fixed-vendor rule
+
+**Status:** Open — found while scoping REQ006's remaining tabs after cancellation-rules shipped. Not built (the SMS half).
+
+CLAUDE.md's India-vendor rule is explicit and non-negotiable: MSG91/Gupshup for OTP SMS, AWS SES `ap-south-1` for email, Razorpay/Stripe for payments — "Don't substitute a different provider 'for simplicity' — build/test against the real one." The mock UI's SMS Settings card has a `<Select>` defaulting to `twilio` (options: Twilio, Vonage — **neither is the project's actual vendor**) plus a raw `API Key` password-type text field with no encryption/secrets-manager story. Building real backend storage for a per-org "bring your own SMS vendor + paste your API key here" flow would directly undermine the fixed-vendor architecture and create a real plaintext-secret-handling liability.
+
+**Decision needed from the user:** remove/hide the SMS Provider + API Key controls entirely (recommended — MSG91/Gupshup is fixed, not org-configurable), or if org-level SMS vendor override is a genuine future requirement, that's a materially different, larger feature (encrypted credential storage, a provider-abstraction layer) that needs its own requirement, not a quiet extension of this one. The Email half of this tab (From Name/From Email/Reply-To/branding-in-emails toggle) has no such conflict — those configure the sender identity used *within* the fixed AWS SES pipeline, not an alternate vendor — and is being built as scoped below.
+
+## 7. admin/Policies.jsx's "Booking Policies" tab has a Cancellation Policy + Late Fee slider that may duplicate the new Cancellation Rules feature
+
+**Status:** Open — found while scoping REQ006's remaining tabs. Not built (these two fields specifically); the tab's other three fields (No-Show Fee, Slot Buffer, Max Reschedules, Retention Period) don't overlap with anything and are being built.
+
+The "Booking Policies" tab's `POLICIES` array has a single flat "Cancellation Policy" (hours) + "Late Cancellation Fee" (₹) pair — conceptually the same shape as one row of the just-shipped Cancellation Rules feature (`hours_before` + `fee_type`/`fee_amount`), which already supports a "global (all clinics)" rule per org. Building a second, parallel single-value cancellation-fee setting risks two competing sources of truth for the same real-world policy.
+
+**Decision needed from the user:** should this tab's two cancellation-related sliders be (a) removed/redirected to the Cancellation Rules tab (recommended — one system, not two), or (b) kept as a distinct "org-wide default used when no explicit rule matches" concept, in which case the cancellation-rules resolver would need an explicit fallback-precedence rule added (not currently modeled). No-Show Fee is a genuinely distinct concept (a different trigger — non-attendance, not cancellation — with no equivalent in `ProductCancellationRules` at all) and isn't blocked by this question.
+
 ## 4. settings/index.jsx Profile tab shows DOB/Gender/Address/Avatar fields with no backing schema
 
 **Status:** Open — found while building REQ005's Profile tab (`backend/src/account`). Not built, since REQ005's stated acceptance criteria only cover first/last name + phone.

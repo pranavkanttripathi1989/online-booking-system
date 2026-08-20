@@ -213,6 +213,25 @@ model ClientOrganizations {
   onboarding_step   String?          // e.g. "org_details" | "plan_selected" | "first_clinic_added" | "team_invited" — resumable wizard
   trial_ends_at     DateTime?
   onboarded_at      DateTime?
+  // admin/Communications.jsx "Global Settings" tab — Email half only. The
+  // SMS half (provider select + raw API key) is deliberately not modeled:
+  // it contradicts CLAUDE.md's fixed-vendor rule (MSG91/Gupshup, not an
+  // org-configurable Twilio/Vonage) -- see context/open-questions.md #6.
+  // These configure the sender identity used *within* the fixed AWS SES
+  // pipeline, not an alternate vendor.
+  email_from_name        String  @default("HealthSync")
+  email_from_address     String? // falls back to the platform default (noreply@) when null
+  email_reply_to         String?
+  email_include_branding Boolean @default(true)
+  // admin/Policies.jsx "Booking Policies" tab. Cancellation Policy/Late Fee
+  // sliders are deliberately not modeled here -- they conceptually overlap
+  // with ProductCancellationRules' global-rule support, see
+  // context/open-questions.md #7. No-show is a genuinely distinct trigger
+  // (non-attendance, not cancellation) with no equivalent there.
+  no_show_fee_paise         Int @default(8500)
+  slot_buffer_minutes       Int @default(10)
+  max_reschedules_per_month Int @default(3)
+  data_retention_years      Int @default(7)
   created_at    DateTime @default(now())
   updated_at    DateTime @default(now())
 
