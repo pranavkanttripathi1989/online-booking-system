@@ -25,6 +25,9 @@ test('admin sees real services and can create a new one', async ({ page }) => {
   await expect(page.getByText('GP Consultation')).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText('₹499.00')).toBeVisible()
 
+  // Scoped to this card below rather than a page-wide price lookup: repeated runs against the
+  // real backend leave prior E2E-created ₹50 services in place (no cleanup), so a global
+  // getByText('₹50.00') becomes ambiguous once more than one exists.
   const name = `E2E Service ${Date.now()}`
   await page.getByRole('button', { name: 'Add Service' }).click()
   await page.getByLabel('Service Name').fill(name)
@@ -32,6 +35,7 @@ test('admin sees real services and can create a new one', async ({ page }) => {
   await page.getByLabel('Price (₹)').fill('50')
   await page.getByRole('button', { name: 'Save Service' }).click()
 
-  await expect(page.getByText(name)).toBeVisible({ timeout: 15_000 })
-  await expect(page.getByText('₹50.00')).toBeVisible()
+  const serviceCard = page.locator('.MuiCard-root').filter({ hasText: name })
+  await expect(serviceCard).toBeVisible({ timeout: 15_000 })
+  await expect(serviceCard.getByText('₹50.00')).toBeVisible()
 })
