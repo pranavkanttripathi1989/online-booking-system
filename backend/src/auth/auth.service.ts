@@ -95,16 +95,19 @@ export class AuthService {
     };
   }
 
-  private async issueTokens(userProfile: {
-    id: string;
-    email: string;
-    first_name: string;
-    last_name: string;
-    role: { name: string };
-    clinician_id: string | null;
-    client_org_id: string | null;
-    patient_id?: string | null;
-  }): Promise<AuthPayloadType> {
+  private async issueTokens(
+    userProfile: {
+      id: string;
+      email: string;
+      first_name: string;
+      last_name: string;
+      role: { name: string };
+      clinician_id: string | null;
+      client_org_id: string | null;
+      patient_id?: string | null;
+    },
+    userAgent?: string,
+  ): Promise<AuthPayloadType> {
     const payload = {
       sub: userProfile.id,
       roles: [userProfile.role.name],
@@ -131,6 +134,19 @@ export class AuthService {
     await this.redis.sadd(setKey, refresh_token);
     await this.redis.expire(setKey, REFRESH_TTL_SECONDS);
 
+    // Additive-only: purely for account/account.service.ts's mySessions/
+    // revokeMySession. Never read here, so omitting userAgent (the default
+    // for any call site that doesn't pass one) leaves every other existing
+    // auth flow byte-for-byte unchanged.
+    if (userAgent) {
+      await this.redis.set(
+        `auth:refresh_meta:${refresh_token}`,
+        JSON.stringify({ user_agent: userAgent, created_at: new Date().toISOString() }),
+        'EX',
+        REFRESH_TTL_SECONDS,
+      );
+    }
+
     return {
       access_token,
       refresh_token,
@@ -142,7 +158,7 @@ export class AuthService {
 
   // ── Login ──────────────────────────────────────────────────────────────────
 
-  async login(input: LoginInput): Promise<AuthPayloadType> {
+  async login(input: LoginInput, userAgent?: string): Promise<AuthPayloadType> {
     // TC-AUTH-API-013: reject before touching the password at all once locked.
     if (await this.isLockedOut(input.email)) {
       throw new UnauthorizedException('Account temporarily locked due to repeated failed attempts. Try again later.');
@@ -164,7 +180,7 @@ export class AuthService {
     }
 
     await this.clearFailedAttempts(input.email);
-    return this.issueTokens(profile);
+    return this.issueTokens(profile, userAgent);
   }
 
   // ── Me ─────────────────────────────────────────────────────────────────────
@@ -184,7 +200,7 @@ export class AuthService {
 
   // ── Register ───────────────────────────────────────────────────────────────
 
-  async register(input: RegisterInput): Promise<AuthPayloadType> {
+  async register(input: RegisterInput, userAgent?: string): Promise<AuthPayloadType> {
     const existing = await this.prisma.userProfiles.findUnique({ where: { email: input.email.toLowerCase() } });
     if (existing) {
       // Deliberately still generic — avoids confirming the email exists any
@@ -221,12 +237,12 @@ export class AuthService {
       });
     });
 
-    return this.issueTokens(profile);
+    return this.issueTokens(profile, userAgent);
   }
 
   // ── Refresh (rotation) ──────────────────────────────────────────────────────
 
-  async refresh(input: RefreshInput): Promise<AuthPayloadType> {
+  async refresh(input: RefreshInput, userAgent?: string): Promise<AuthPayloadType> {
     const key = `auth:refresh:${input.refresh_token}`;
     const userId = await this.redis.get(key);
     if (!userId) {
@@ -243,7 +259,7 @@ export class AuthService {
     if (!profile || !profile.is_active) {
       throw new UnauthorizedException();
     }
-    return this.issueTokens(profile);
+    return this.issueTokens(profile, userAgent);
   }
 
   // ── Logout ─────────────────────────────────────────────────────────────────
@@ -284,7 +300,7 @@ export class AuthService {
     return { success: true };
   }
 
-  async verifyOtp(phone: string, code: string): Promise<AuthPayloadType> {
+  async verifyOtp(phone: string, code: string, userAgent?: string): Promise<AuthPayloadType> {
     const key = `auth:otp:${phone}`;
     const raw = await this.redis.get(key);
     if (!raw) {
@@ -308,7 +324,7 @@ export class AuthService {
     if (!profile || !profile.is_active) {
       throw new UnauthorizedException();
     }
-    return this.issueTokens(profile);
+    return this.issueTokens(profile, userAgent);
   }
 
   // ── Forgot / reset password ─────────────────────────────────────────────────

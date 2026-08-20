@@ -196,8 +196,18 @@ export function AuthProvider({ children }) {
     [state.user],
   )
 
+  // Settings' Profile tab (REQ005): patches the cached user (e.g. after a
+  // name change) so header/sidebar reflect it without a re-login. Merges
+  // rather than replaces, so callers only need to pass the fields that changed.
+  const updateUser = useCallback((patch) => {
+    const next = { ...state.user, ...patch }
+    const storage = localStorage.getItem('medibook_user') !== null ? localStorage : sessionStorage
+    storage.setItem('medibook_user', JSON.stringify(next))
+    dispatch({ type: 'SET_USER', payload: { user: next } })
+  }, [state.user])
+
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, hasRole, hasPermission }}>
+    <AuthContext.Provider value={{ ...state, login, logout, updateUser, hasRole, hasPermission }}>
       {children}
     </AuthContext.Provider>
   )

@@ -356,6 +356,11 @@ type CancellationRuleUserError {
   message: String!
 }
 
+input ChangeMyPasswordInput {
+  current_password: String!
+  new_password: String!
+}
+
 type Clinic {
   address: String!
   city: String
@@ -692,6 +697,7 @@ type MessageableContact {
 type Mutation {
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
   cancelAppointment(id: ID!, reason: String): Appointment!
+  changeMyPassword(input: ChangeMyPasswordInput!): GenericResult!
   completeAppointment(id: ID!): Appointment!
   createAppointment(input: AppointmentInput!): Appointment!
   createAvailability(input: CreateAvailabilityInput!): AvailabilityMutationResult!
@@ -715,6 +721,7 @@ type Mutation {
   createStaff(input: CreateStaffInput!): Staff!
   createThread(input: CreateThreadInput!): MessageThread!
   createUser(input: UserInput!): User!
+  deactivateMyAccount: GenericResult!
   deactivateStaff(id: ID!): Staff!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteCancellationRule(id: ID!): CancellationRuleMutationResult!
@@ -746,6 +753,7 @@ type Mutation {
   requestOtp(input: RequestOtpInput!): GenericResult!
   resetPassword(input: ResetPasswordInput!): GenericResult!
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
+  revokeMySession(id: String!): GenericResult!
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
   sendMessage(body: String!, threadId: ID!): MessageThread!
@@ -758,6 +766,8 @@ type Mutation {
   updateClinicianType(id: ID!, input: UpdateClinicianTypeInput!): LookupMutationResult!
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
   updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
+  updateMyNotificationPreferences(input: [NotificationPreferenceInput!]!): GenericResult!
+  updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
   updateProduct(id: ID!, input: UpdateProductInput!): ProductMutationResult!
@@ -775,6 +785,24 @@ type Mutation {
   verifyOtp(input: VerifyOtpInput!): AuthPayload!
 }
 
+type MyProfile {
+  email: String!
+  first_name: String!
+  id: ID!
+  last_name: String!
+  phone: String
+}
+
+type MyProfileMutationResult {
+  profile: MyProfile
+  success: Boolean!
+  userErrors: [MyProfileUserError!]!
+}
+
+type MyProfileUserError {
+  message: String!
+}
+
 type Notification {
   created_at: DateTime!
   id: ID!
@@ -787,6 +815,21 @@ type Notification {
 
 type NotificationMutationResult {
   success: Boolean!
+}
+
+type NotificationPreference {
+  app_enabled: Boolean!
+  email_enabled: Boolean!
+  event_type: String!
+  id: ID!
+  sms_enabled: Boolean!
+}
+
+input NotificationPreferenceInput {
+  app_enabled: Boolean!
+  email_enabled: Boolean!
+  event_type: String!
+  sms_enabled: Boolean!
 }
 
 input OrderTestInput {
@@ -1143,6 +1186,9 @@ type Query {
   languages: [Language!]!
   me: User!
   messageableContacts: [MessageableContact!]!
+  myNotificationPreferences: [NotificationPreference!]!
+  myProfile: MyProfile
+  mySessions: [Session!]!
   notifications(filter: String): [Notification!]!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
@@ -1338,6 +1384,12 @@ input ServiceInput {
   price: Float
 }
 
+type Session {
+  created_at: DateTime
+  device: String
+  id: ID!
+}
+
 type SpacerBlock {
   block_date: DateTime
   clinic: BlockClinic!
@@ -1464,6 +1516,12 @@ input UpdateLanguageInput {
   is_active: Boolean
   is_default: Boolean
   name: String
+}
+
+input UpdateMyProfileInput {
+  first_name: String
+  last_name: String
+  phone: String
 }
 
 input UpdateProductCategoryInput {

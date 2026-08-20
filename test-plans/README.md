@@ -3,6 +3,7 @@
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
 | communications-policies | 1 | 0 | 0 | 1 | 0 | 2026-08-20 | [communications-policies](./communications-policies/README.md) |
+| settings | 2 | 0 | 0 | 2 | 0 | 2026-08-20 | [settings](./settings/README.md) |
 | phase4-5-increment3 | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
 | phase4-backend-integration | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-backend-integration](./phase4-backend-integration/README.md) |
 | test-results-page | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [test-results-page](./test-results-page/README.md) |
@@ -34,7 +35,6 @@
 | patients | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [patients](./patients/README.md) |
 | profile | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [profile](./profile/README.md) |
 | reviews | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [reviews](./reviews/README.md) |
-| settings | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [settings](./settings/README.md) |
 | staff | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [staff](./staff/README.md) |
 | staff-appointments | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [staff-appointments](./staff-appointments/README.md) |
 | staff-dashboard | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [staff-dashboard](./staff-dashboard/README.md) |

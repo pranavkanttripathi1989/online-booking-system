@@ -1,4 +1,4 @@
-import { Resolver, Mutation, Query, Args } from '@nestjs/graphql';
+import { Resolver, Mutation, Query, Args, Context } from '@nestjs/graphql';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
@@ -24,20 +24,20 @@ export class AuthResolver {
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => AuthPayloadType)
-  login(@Args('input') input: LoginInput) {
-    return this.authService.login(input);
+  login(@Args('input') input: LoginInput, @Context() context: any) {
+    return this.authService.login(input, context?.req?.headers?.['user-agent']);
   }
 
   @Public()
   @Mutation(() => AuthPayloadType)
-  register(@Args('input') input: RegisterInput) {
-    return this.authService.register(input);
+  register(@Args('input') input: RegisterInput, @Context() context: any) {
+    return this.authService.register(input, context?.req?.headers?.['user-agent']);
   }
 
   @Public()
   @Mutation(() => AuthPayloadType)
-  refresh(@Args('input') input: RefreshInput) {
-    return this.authService.refresh(input);
+  refresh(@Args('input') input: RefreshInput, @Context() context: any) {
+    return this.authService.refresh(input, context?.req?.headers?.['user-agent']);
   }
 
   // LOGOUT_MUTATION (frontend/src/graphql/mutations.js) has no sub-selection
@@ -62,8 +62,8 @@ export class AuthResolver {
 
   @Public()
   @Mutation(() => AuthPayloadType)
-  verifyOtp(@Args('input') input: VerifyOtpInput) {
-    return this.authService.verifyOtp(input.phone, input.code);
+  verifyOtp(@Args('input') input: VerifyOtpInput, @Context() context: any) {
+    return this.authService.verifyOtp(input.phone, input.code, context?.req?.headers?.['user-agent']);
   }
 
   @Public()

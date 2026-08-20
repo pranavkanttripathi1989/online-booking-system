@@ -33,6 +33,19 @@ enum NotificationType {
   alert
 }
 
+// settings/index.jsx's Notifications tab (REQ005) — one row per (user, event
+// type) rather than a JSON blob, matching the DB-normalization precedent
+// already set project-wide. Values match NOTIF_ROWS' 7 fixed event kinds.
+enum NotificationEventType {
+  new_appointment
+  appointment_reminder
+  appointment_cancelled
+  new_message
+  new_review
+  payment_received
+  system_announcement
+}
+
 enum NotificationPriority {
   low
   medium
@@ -763,6 +776,27 @@ model Users {
   messageParticipants MessageParticipants[]
   messages      Messages[]
   ownedOrganizations ClientOrganizations[] @relation("OrganizationOwner")
+  notificationPreferences NotificationPreferences[]
+}
+
+// REQ005 Notifications tab. No code path in this codebase currently reads
+// these to decide whether to actually send anything (NotificationsService.create()
+// has zero callers today, and there's no real email/SMS sending infra beyond
+// the OTP-SMS stub) -- see context/open-questions.md. This table is real,
+// persisted storage for the preference itself, not yet wired to a trigger.
+model NotificationPreferences {
+  id            String                @id @default(uuid())
+  user_id       String
+  event_type    NotificationEventType
+  email_enabled Boolean               @default(true)
+  sms_enabled   Boolean               @default(false)
+  app_enabled   Boolean               @default(true)
+  created_at    DateTime              @default(now())
+  updated_at    DateTime              @default(now())
+
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@unique([user_id, event_type])
 }
 
 model UserProfiles {

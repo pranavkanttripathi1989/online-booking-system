@@ -2,6 +2,22 @@
 
 Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the question, why it's genuinely ambiguous (not just unimplemented), and current status.
 
+## 4. settings/index.jsx Profile tab shows DOB/Gender/Address/Avatar fields with no backing schema
+
+**Status:** Open — found while building REQ005's Profile tab (`backend/src/account`). Not built, since REQ005's stated acceptance criteria only cover first/last name + phone.
+
+The mock UI also renders Date of Birth, Gender, a full street/city/state/ZIP address block, and an avatar-upload control. None of these have a backing column on `UserProfiles` (DOB/Gender: no column at all; Address: the table's existing Western-flat address columns — `address_line1/2`, `city`, `postal_code`, `country` — have no `state` field at all, and are the same known Western-vs-India-structured-address inconsistency CLAUDE.md already documents for `Clinics`; Avatar: `avatar_url` exists as a plain string column, but there is zero file-upload infrastructure anywhere in the backend — no multer, no S3 SDK, no GraphQL upload scalar, confirmed by grep). REQ005 itself only explicitly flagged bio/avatar as open; DOB/Gender/full-address were not previously called out.
+
+**Decision needed from the user:** which of these (if any) are real requirements for this release. If yes: DOB/Gender/a `state` column are trivial additive schema changes; Avatar upload is a real, separate feature needing a storage decision (S3 in `ap-south-1`, matching the project's other AWS `ap-south-1` decisions, is the obvious default but hasn't been confirmed). If no: recommend removing the now-clearly-decorative controls from the UI rather than leaving them silently non-functional.
+
+## 5. Notification preferences are real and persisted, but nothing triggers a send to read them
+
+**Status:** Open — found while building REQ005's Notifications tab (`backend/src/notification-preferences`). Storage built; the "read by whatever decides to send" half of REQ005's acceptance criteria is not achievable yet because that code path doesn't exist.
+
+`NotificationsService.create()` (`backend/src/notifications`) has zero callers anywhere in the codebase outside its own module (confirmed by grep) — no domain (appointments, messages, reviews, payments) currently creates an in-app `Notifications` row when its underlying event happens. There is also no real outbound email/SMS sending infrastructure — the only thing that exists is an OTP-SMS *stub* (`auth.service.ts`'s `requestOtp`, logs `[OTP STUB] Would send...` rather than calling MSG91/Gupshup for real).
+
+**Decision needed from the user:** whether/when to build the actual event→notification trigger pipeline (a real, separate, larger feature spanning every domain that should produce a notification) that would make these preferences meaningful, versus leaving them as inert-but-correct user-configurable settings for now.
+
 ## 1. manager/Dashboard.jsx "Recent Transactions" table has no backing data model
 
 **Status:** Open — backend NOT built for this piece; everything else on the page now is (see below).

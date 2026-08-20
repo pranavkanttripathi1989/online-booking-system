@@ -4,6 +4,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP040 | requirement | Test plan — Profile, Password, Sessions, Deactivate, Notification Preferences (REQ005/PLAN010) | approved | 2026-08-20 | 2026-08-20 | REQ005 | [TP040-settings-2026-08-20-profile-password-sessions-notifications.md](./requirement/TP040-settings-2026-08-20-profile-password-sessions-notifications.md) |
 | TP032 | test-plan | Settings Page — Test Plan (v2.0) | approved | 2026-04-02 | 2026-04-02 | unknown | [settings-test-plan.md](./requirement/settings-test-plan.md) |
 
 ## improvement

@@ -1,8 +1,10 @@
 import { useState, useRef, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useApolloClient, gql } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import {
   Box, Button, Typography, Tabs, Tab, Grid, Card, CardContent, Stack, Divider,
-  TextField, Avatar, Switch, FormControlLabel, Paper, Chip, IconButton,
+  TextField, Avatar, Switch, FormControlLabel, Paper, IconButton,
   Slider, Radio, RadioGroup, FormControl, FormLabel, MenuItem, Alert,
   Tooltip, Table, TableBody, TableCell, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions,
@@ -27,54 +29,115 @@ function TabPanel({ value, index, children }) {
 
 const ACCENT_COLORS = ['#1A73E8', '#0F9D58', '#9334E6', '#D93025', '#F9AB00', '#0891B2', '#5F6368']
 
-// ─── Notification rows ────────────────────────────────────────────────────────
+// ─── Notification rows — event_type must match backend/src/notification-preferences
+// (NOTIFICATION_EVENT_TYPES / DEFAULTS) exactly; label is display-only ─────────
 const NOTIF_ROWS = [
-  { label: 'New appointment booked',         email: true,  sms: true,  app: true  },
-  { label: 'Appointment reminder (24h)',      email: true,  sms: true,  app: true  },
-  { label: 'Appointment cancelled',           email: true,  sms: false, app: true  },
-  { label: 'New message received',            email: false, sms: false, app: true  },
-  { label: 'New review posted',              email: true,  sms: false, app: true  },
-  { label: 'Payment received',               email: true,  sms: true,  app: true  },
-  { label: 'System announcements',           email: true,  sms: false, app: false },
+  { event_type: 'new_appointment',        label: 'New appointment booked'    },
+  { event_type: 'appointment_reminder',   label: 'Appointment reminder (24h)' },
+  { event_type: 'appointment_cancelled',  label: 'Appointment cancelled'      },
+  { event_type: 'new_message',            label: 'New message received'       },
+  { event_type: 'new_review',             label: 'New review posted'          },
+  { event_type: 'payment_received',       label: 'Payment received'           },
+  { event_type: 'system_announcement',    label: 'System announcements'       },
 ]
 
-// ─── Mock sessions ────────────────────────────────────────────────────────────
-const MOCK_SESSIONS = [
-  { id: '1', device: 'Chrome on macOS', location: 'Mumbai, IN', last_seen: 'Active now',   current: true  },
-  { id: '2', device: 'Safari on iPhone', location: 'Delhi, IN',  last_seen: '2 hours ago',  current: false },
-  { id: '3', device: 'Edge on Windows',  location: 'London, UK', last_seen: '5 days ago',   current: false },
-]
+// ─── REQ005 — Profile / Account & Security / Notifications GraphQL ─────────────
+const MY_PROFILE_QUERY = gql`
+  query MyProfile { myProfile { id first_name last_name email phone } }
+`
+const UPDATE_MY_PROFILE = gql`
+  mutation UpdateMyProfile($input: UpdateMyProfileInput!) {
+    updateMyProfile(input: $input) { success userErrors { message } profile { first_name last_name phone } }
+  }
+`
+const CHANGE_MY_PASSWORD = gql`
+  mutation ChangeMyPassword($input: ChangeMyPasswordInput!) {
+    changeMyPassword(input: $input) { success message }
+  }
+`
+const MY_SESSIONS_QUERY = gql`
+  query MySessions { mySessions { id device created_at } }
+`
+const REVOKE_MY_SESSION = gql`
+  mutation RevokeMySession($id: String!) { revokeMySession(id: $id) { success message } }
+`
+const DEACTIVATE_MY_ACCOUNT = gql`
+  mutation DeactivateMyAccount { deactivateMyAccount { success message } }
+`
+const MY_NOTIFICATION_PREFERENCES_QUERY = gql`
+  query MyNotificationPreferences { myNotificationPreferences { event_type email_enabled sms_enabled app_enabled } }
+`
+const UPDATE_MY_NOTIFICATION_PREFERENCES = gql`
+  mutation UpdateMyNotificationPreferences($input: [NotificationPreferenceInput!]!) {
+    updateMyNotificationPreferences(input: $input) { success message }
+  }
+`
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { user } = useAuth()
+  const { user, updateUser, logout } = useAuth()
+  const client = useApolloClient()
+  const navigate = useNavigate()
   const fileRef = useRef(null) // SUG-SET-001: camera icon file upload
   const [tab, setTab] = useState(0)
   const [saved, setSaved]     = useState(null) // SUG-SET-010: null|string
 
-  // Profile state
-  const [firstName, setFirstName]   = useState(user?.name?.split(' ')[0] ?? 'Admin')
-  const [lastName, setLastName]     = useState(user?.name?.split(' ').slice(1).join(' ') ?? 'User')
-  const [phone, setPhone]           = useState('+1 555-000-1234')
+  // Profile state — seeded from the real myProfile query (loadAccountTabs
+  // below), not a naive user?.name split or a hardcoded placeholder.
+  const [firstName, setFirstName]   = useState('')
+  const [lastName, setLastName]     = useState('')
+  const [phone, setPhone]           = useState('')
   const [bio, setBio]               = useState('')
+  const [profileError, setProfileError] = useState(null)
+  const [savingProfile, setSavingProfile] = useState(false)
 
   // Password state (SUG-SET-002)
   const [currentPw, setCurrentPw]   = useState('')
   const [newPw, setNewPw]           = useState('')
   const [confirmPw, setConfirmPw]   = useState('')
   const [pwError, setPwError]       = useState(null)
+  const [changingPw, setChangingPw] = useState(false)
 
-  // Sessions state (SUG-SET-003)
-  const [sessions, setSessions] = useState(MOCK_SESSIONS)
+  // Sessions state (SUG-SET-003) — real mySessions data. No `location`/
+  // `current` fields: nothing backs them (no geo-IP infra, and the frontend
+  // doesn't retain its own refresh_token to identify "this" session), so
+  // they're dropped from the UI entirely rather than shown as fake data.
+  const [sessions, setSessions] = useState([])
 
-  // 2FA controlled state (SUG-SET-008)
+  // 2FA controlled state (SUG-SET-008) — still local-only; see
+  // context/open-questions.md (REQ005 open question: real requirement or defer?)
   const [twoFa, setTwoFa] = useState(false)
 
   // Deactivate confirm dialog state (SUG-SET-004)
   const [deactivateOpen, setDeactivateOpen] = useState(false)
+  const [deactivating, setDeactivating] = useState(false)
 
-  // Notifications state
-  const [notifs, setNotifs] = useState(NOTIF_ROWS)
+  // Notifications state — real myNotificationPreferences data, keyed by
+  // event_type (see loadAccountTabs below); NOTIF_ROWS supplies only the
+  // static label/order.
+  const [notifPrefs, setNotifPrefs] = useState({})
+  const [savingNotifs, setSavingNotifs] = useState(false)
+
+  const loadAccountTabs = async () => {
+    try {
+      const [{ data: profileData }, { data: sessionsData }, { data: notifData }] = await Promise.all([
+        client.query({ query: MY_PROFILE_QUERY, fetchPolicy: 'network-only' }),
+        client.query({ query: MY_SESSIONS_QUERY, fetchPolicy: 'network-only' }),
+        client.query({ query: MY_NOTIFICATION_PREFERENCES_QUERY, fetchPolicy: 'network-only' }),
+      ])
+      if (profileData?.myProfile) {
+        setFirstName(profileData.myProfile.first_name ?? '')
+        setLastName(profileData.myProfile.last_name ?? '')
+        setPhone(profileData.myProfile.phone ?? '')
+      }
+      setSessions(sessionsData?.mySessions ?? [])
+      const prefsByType = Object.fromEntries(
+        (notifData?.myNotificationPreferences ?? []).map((p) => [p.event_type, p]),
+      )
+      setNotifPrefs(prefsByType)
+    } catch (err) { setProfileError(err.message) }
+  }
+  useEffect(() => { loadAccountTabs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Organization branding state (logo + color scheme — requirements/organization-branding-and-management-requirements.md)
   // NOTE: must never fall back to a hardcoded real org id here — a user with no
@@ -124,24 +187,79 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(null), 2500)
   }
 
-  // SUG-SET-002: Password validation
-  const handlePasswordUpdate = () => {
+  const handleProfileSave = async () => {
+    setProfileError(null); setSavingProfile(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: UPDATE_MY_PROFILE,
+        variables: { input: { first_name: firstName, last_name: lastName, phone: phone || null } },
+      })
+      if (!data?.updateMyProfile?.success) throw new Error(data?.updateMyProfile?.userErrors?.[0]?.message ?? 'Failed to save profile')
+      updateUser({ name: `${firstName} ${lastName}`.trim() })
+      handleSave('Profile changes')
+    } catch (err) { setProfileError(err.message) }
+    finally { setSavingProfile(false) }
+  }
+
+  // SUG-SET-002: Password validation, now against the real changeMyPassword mutation
+  const handlePasswordUpdate = async () => {
     setPwError(null)
     if (!currentPw) { setPwError('Please enter your current password.'); return }
     if (newPw.length < 8) { setPwError('New password must be at least 8 characters.'); return }
     if (newPw !== confirmPw) { setPwError('Passwords do not match.'); return }
-    // BACKEND SWAP: call UPDATE_PASSWORD mutation with { currentPw, newPw }
-    setCurrentPw(''); setNewPw(''); setConfirmPw('')
-    handleSave('Password')
+    setChangingPw(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: CHANGE_MY_PASSWORD,
+        variables: { input: { current_password: currentPw, new_password: newPw } },
+      })
+      if (!data?.changeMyPassword?.success) throw new Error(data?.changeMyPassword?.message ?? 'Failed to change password')
+      setCurrentPw(''); setNewPw(''); setConfirmPw('')
+      handleSave('Password')
+    } catch (err) { setPwError(err.message) }
+    finally { setChangingPw(false) }
   }
 
-  // SUG-SET-003: Revoke session
-  const handleRevoke = (id) => {
-    setSessions(prev => prev.filter(s => s.id !== id))
+  // SUG-SET-003: Revoke session — real revokeMySession mutation
+  const handleRevoke = async (id) => {
+    try {
+      const { data } = await client.mutate({ mutation: REVOKE_MY_SESSION, variables: { id } })
+      if (!data?.revokeMySession?.success) throw new Error(data?.revokeMySession?.message ?? 'Failed to revoke session')
+      setSessions(prev => prev.filter(s => s.id !== id))
+    } catch (err) { setProfileError(err.message) }
   }
 
-  const toggleNotif = (idx, channel) => {
-    setNotifs(prev => prev.map((r, i) => i === idx ? { ...r, [channel]: !r[channel] } : r))
+  const handleDeactivate = async () => {
+    setDeactivateOpen(false); setDeactivating(true)
+    try {
+      const { data } = await client.mutate({ mutation: DEACTIVATE_MY_ACCOUNT })
+      if (!data?.deactivateMyAccount?.success) throw new Error(data?.deactivateMyAccount?.message ?? 'Failed to deactivate account')
+      logout(client)
+      navigate('/login')
+    } catch (err) { setProfileError(err.message); setDeactivating(false) }
+  }
+
+  const toggleNotif = (eventType, channel) => {
+    setNotifPrefs(prev => ({
+      ...prev,
+      [eventType]: { ...prev[eventType], [`${channel}_enabled`]: !prev[eventType]?.[`${channel}_enabled`] },
+    }))
+  }
+
+  const handleSaveNotifications = async () => {
+    setSavingNotifs(true)
+    try {
+      const input = NOTIF_ROWS.map((r) => ({
+        event_type: r.event_type,
+        email_enabled: !!notifPrefs[r.event_type]?.email_enabled,
+        sms_enabled: !!notifPrefs[r.event_type]?.sms_enabled,
+        app_enabled: !!notifPrefs[r.event_type]?.app_enabled,
+      }))
+      const { data } = await client.mutate({ mutation: UPDATE_MY_NOTIFICATION_PREFERENCES, variables: { input } })
+      if (!data?.updateMyNotificationPreferences?.success) throw new Error(data?.updateMyNotificationPreferences?.message ?? 'Failed to save preferences')
+      handleSave('Notification preferences')
+    } catch (err) { setProfileError(err.message) }
+    finally { setSavingNotifs(false) }
   }
 
   return (
@@ -233,12 +351,13 @@ export default function SettingsPage() {
                   <Grid item xs={12} sm={4}><TextField fullWidth label="City" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
                   <Grid item xs={12} sm={4}><TextField fullWidth label="State / Province" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
                   <Grid item xs={12} sm={4}><TextField fullWidth label="ZIP / Postal Code" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  {profileError && <Grid item xs={12}><Alert severity="error" onClose={() => setProfileError(null)}>{profileError}</Alert></Grid>}
                   <Grid item xs={12}>
-                    <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => handleSave('Profile changes')}
+                    <Button variant="contained" disabled={savingProfile} startIcon={<SaveRoundedIcon />} onClick={handleProfileSave}
                       sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, px: 3,
                         background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
                         '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
-                      }}>Save Changes</Button>
+                      }}>{savingProfile ? 'Saving…' : 'Save Changes'}</Button>
                   </Grid>
                 </Grid>
               </Grid>
@@ -257,7 +376,7 @@ export default function SettingsPage() {
                   <Grid item xs={12} sm={6}><TextField fullWidth label="Confirm New Password" type="password" value={confirmPw} onChange={e => setConfirmPw(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
                   {/* SUG-SET-002: Password validation — error alert + wired onClick */}
                   {pwError && <Grid item xs={12}><Alert severity="error" onClose={() => setPwError(null)}>{pwError}</Alert></Grid>}
-                  <Grid item xs={12}><Button variant="outlined" onClick={handlePasswordUpdate} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Update Password</Button></Grid>
+                  <Grid item xs={12}><Button variant="outlined" disabled={changingPw} onClick={handlePasswordUpdate} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>{changingPw ? 'Updating…' : 'Update Password'}</Button></Grid>
                 </Grid>
               </Box>
               <Divider />
@@ -273,19 +392,24 @@ export default function SettingsPage() {
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}><DevicesRoundedIcon sx={{ fontSize: '1.1rem', color: '#9334E6' }} /> Active Sessions</Typography>
                 <Stack spacing={1.5}>
-                  {/* SUG-SET-003: sessions as state; Revoke wired to handleRevoke */}
+                  {/* SUG-SET-003: real mySessions data; Revoke wired to revokeMySession.
+                      No "Current"/location badge — nothing backs that data (see
+                      the account module's implementation plan). */}
                   {sessions.map((s) => (
-                    <Paper key={s.id} variant="outlined" sx={{ p: 2, borderRadius: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1, borderColor: s.current ? 'primary.main' : 'divider' }}>
+                    <Paper key={s.id} variant="outlined" sx={{ p: 2, borderRadius: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
                       <Stack direction="row" spacing={1.5} alignItems="center">
-                        <DevicesRoundedIcon sx={{ color: s.current ? 'primary.main' : 'text.disabled' }} />
+                        <DevicesRoundedIcon sx={{ color: 'text.disabled' }} />
                         <Box>
-                          <Typography variant="body2" fontWeight={700}>{s.device} {s.current && <Chip label="Current" size="small" color="primary" sx={{ ml: 1, fontWeight: 700, fontSize: '0.68rem' }} />}</Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>{s.location} · {s.last_seen}</Typography>
+                          <Typography variant="body2" fontWeight={700}>{s.device ?? 'Unknown device'}</Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {s.created_at ? `Signed in ${new Date(s.created_at).toLocaleString()}` : 'Sign-in time unknown'}
+                          </Typography>
                         </Box>
                       </Stack>
-                      {!s.current && <Button size="small" color="error" variant="outlined" onClick={() => handleRevoke(s.id)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Revoke</Button>}
+                      <Button size="small" color="error" variant="outlined" onClick={() => handleRevoke(s.id)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Revoke</Button>
                     </Paper>
                   ))}
+                  {sessions.length === 0 && <Typography variant="body2" color="text.secondary">No active sessions.</Typography>}
                 </Stack>
               </Box>
               <Divider />
@@ -313,12 +437,17 @@ export default function SettingsPage() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {notifs.map((row, i) => (
-                    <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
+                  {NOTIF_ROWS.map((row) => (
+                    <TableRow key={row.event_type} sx={{ '&:last-child td': { border: 0 } }}>
                       <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{row.label}</TableCell>
                       {['email', 'sms', 'app'].map(ch => (
                         <TableCell key={ch} align="center">
-                          <Switch size="small" checked={row[ch]} onChange={() => toggleNotif(i, ch)} color="success" />
+                          <Switch
+                            size="small"
+                            checked={!!notifPrefs[row.event_type]?.[`${ch}_enabled`]}
+                            onChange={() => toggleNotif(row.event_type, ch)}
+                            color="success"
+                          />
                         </TableCell>
                       ))}
                     </TableRow>
@@ -326,11 +455,11 @@ export default function SettingsPage() {
                 </TableBody>
               </Table>
             </Paper>
-            <Button variant="contained" startIcon={<SaveRoundedIcon />} onClick={() => handleSave('Notification preferences')}
+            <Button variant="contained" disabled={savingNotifs} startIcon={<SaveRoundedIcon />} onClick={handleSaveNotifications}
               sx={{ mt: 3, borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
                 background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
                 '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
-              }}>Save Preferences</Button>
+              }}>{savingNotifs ? 'Saving…' : 'Save Preferences'}</Button>
           </TabPanel>
 
           {/* ── Appearance ───────────────────────────────────────────────── */}
@@ -470,10 +599,10 @@ export default function SettingsPage() {
           </Typography>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setDeactivateOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="error" startIcon={<DeleteRoundedIcon />}
-            onClick={() => { setDeactivateOpen(false); /* BACKEND SWAP: call DEACTIVATE_ACCOUNT mutation */ }}
-          >Deactivate</Button>
+          <Button onClick={() => setDeactivateOpen(false)} disabled={deactivating}>Cancel</Button>
+          <Button variant="contained" color="error" startIcon={<DeleteRoundedIcon />} disabled={deactivating}
+            onClick={handleDeactivate}
+          >{deactivating ? 'Deactivating…' : 'Deactivate'}</Button>
         </DialogActions>
       </Dialog>
     </Box>
