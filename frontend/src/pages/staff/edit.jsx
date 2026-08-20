@@ -20,16 +20,37 @@ import BadgeRoundedIcon         from '@mui/icons-material/BadgeRounded'
 import DeleteRoundedIcon        from '@mui/icons-material/DeleteRounded'
 import PersonOffRoundedIcon     from '@mui/icons-material/PersonOffRounded'
 import CheckCircleRoundedIcon   from '@mui/icons-material/CheckCircleRounded'
-import VisibilityRoundedIcon    from '@mui/icons-material/VisibilityRounded'
-import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import InfoRoundedIcon          from '@mui/icons-material/InfoRounded'
 import { useSnackbar } from 'notistack'
-import { useMockData, useMockMutation } from '../../mocks/useMockData'
-import * as MockStore from '../../mocks/store'
+import { useQuery, useMutation, gql } from '@apollo/client'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TEAL = '#006D77'
 const TEAL_LIGHT = '#00858F'
+
+const GET_STAFF_MEMBER = gql`
+  query GetStaffMember($id: ID!) {
+    staffMember(id: $id) {
+      id name email phone role department status since address notes
+    }
+  }
+`
+// UpdateStaffInput has no password field — resetting a staff member's password
+// isn't supported by the backend yet (context/open-questions.md #3); the New
+// Password field below is disabled with an explanatory note rather than
+// silently dropped.
+const UPDATE_STAFF = gql`
+  mutation UpdateStaff($id: ID!, $input: UpdateStaffInput!) {
+    updateStaff(id: $id, input: $input) {
+      id name email phone role department status since address notes
+    }
+  }
+`
+const DEACTIVATE_STAFF = gql`
+  mutation DeactivateStaff($id: ID!) {
+    deactivateStaff(id: $id) { id status }
+  }
+`
 
 const ROLES = ['Receptionist', 'Admin', 'Nurse', 'Lab Technician', 'IT Administrator', 'Billing Specialist', 'Security Officer', 'Pharmacist', 'Coordinator']
 const DEPARTMENTS = ['Front Desk', 'Management', 'General Practice', 'Laboratory', 'Finance', 'IT & Systems', 'Security', 'Pharmacy', 'Radiology']
@@ -71,23 +92,23 @@ export default function EditStaffPage() {
   const [form, setForm] = useState(null)
   const [original, setOriginal] = useState(null)
   const [errors, setErrors] = useState({})
-  const [showPwd, setShowPwd] = useState(false)
-  const [newPassword, setNewPassword] = useState('')
   const [deactivateOpen, setDeactivateOpen] = useState(false)
 
-  // SUG-STAFF-010: load staff member from the shared mock store (persists edits/new staff)
-  const { data: staffRecord } = useMockData(store => store.getStaffById(id))
-  const [saveStaffMutation, { loading: saving }] = useMockMutation((data) => MockStore.updateStaff(id, data))
+  const { data, error: loadError } = useQuery(GET_STAFF_MEMBER, { variables: { id } })
+  const [saveStaffMutation, { loading: saving }] = useMutation(UPDATE_STAFF)
+  const [deactivateStaffMutation] = useMutation(DEACTIVATE_STAFF)
+  const staffRecord = data?.staffMember
 
   useEffect(() => {
     if (staffRecord) {
-      setForm(prev => prev ?? { ...staffRecord })
-      setOriginal(prev => prev ?? { ...staffRecord })
-    } else if (staffRecord === null) {
+      const normalized = { ...staffRecord, since: staffRecord.since ? staffRecord.since.split('T')[0] : '' }
+      setForm(prev => prev ?? normalized)
+      setOriginal(prev => prev ?? normalized)
+    } else if (loadError) {
       enqueueSnackbar('Staff member not found', { variant: 'error' })
       navigate('/staff')
     }
-  }, [id, staffRecord])
+  }, [id, staffRecord, loadError])
 
   if (!form) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
@@ -100,7 +121,7 @@ export default function EditStaffPage() {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
-  const hasChanges = JSON.stringify(form) !== JSON.stringify(original) || newPassword.length > 0
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
 
   const validate = () => {
     const e = {}
@@ -110,26 +131,33 @@ export default function EditStaffPage() {
     if (!form.phone.trim()) e.phone = 'Phone number is required'
     if (!form.role)         e.role  = 'Select a role'
     if (!form.department)   e.department = 'Select a department'
-    if (newPassword && newPassword.length < 8) e.newPassword = 'Minimum 8 characters'
     return e
   }
 
   const handleSave = async () => {
     const e = validate()
     if (Object.keys(e).length) { setErrors(e); return }
-    // SUG-STAFF-010: persist edits to the shared mock store
-    await saveStaffMutation({
-      name: form.name, email: form.email, phone: form.phone,
-      role: form.role, department: form.department, status: form.status,
-      since: form.since, address: form.address, notes: form.notes,
-    })
-    enqueueSnackbar(`${form.name}'s profile updated successfully!`, { variant: 'success' })
-    navigate('/staff')
+    try {
+      await saveStaffMutation({
+        variables: {
+          id,
+          input: {
+            name: form.name, email: form.email, phone: form.phone,
+            role: form.role, department: form.department, status: form.status,
+            address: form.address, notes: form.notes,
+          },
+        },
+      })
+      enqueueSnackbar(`${form.name}'s profile updated successfully!`, { variant: 'success' })
+      navigate('/staff')
+    } catch (err) {
+      enqueueSnackbar(err.message || 'Failed to update staff member', { variant: 'error' })
+    }
   }
 
   const handleDeactivate = async () => {
     setDeactivateOpen(false)
-    await saveStaffMutation({ status: 'inactive' })
+    await deactivateStaffMutation({ variables: { id } })
     enqueueSnackbar(`${form.name} has been deactivated`, { variant: 'warning' })
     navigate('/staff')
   }
@@ -325,26 +353,17 @@ export default function EditStaffPage() {
 
               <Divider sx={{ my: 2.5 }} />
 
-              {/* Reset password */}
+              {/* Reset password — UpdateStaffInput has no password field; the backend
+                  doesn't support this yet (context/open-questions.md #3), so the
+                  control is disabled rather than silently discarding input. */}
               <FieldSection icon={LockRoundedIcon} title="Reset Password">
                 <Box sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 1.5, mb: 2, display: 'flex', gap: 1 }}>
                   <InfoRoundedIcon sx={{ fontSize: '1rem', color: '#9AA0A6', mt: 0.1, flexShrink: 0 }} />
-                  <Typography variant="caption" sx={{ color: '#5F6368' }}>Leave blank to keep the current password unchanged.</Typography>
+                  <Typography variant="caption" sx={{ color: '#5F6368' }}>Password reset isn't available from this page yet.</Typography>
                 </Box>
-                <TextField label="New Password" fullWidth size="small" type={showPwd ? 'text' : 'password'}
-                  value={newPassword} onChange={e => { setNewPassword(e.target.value); if (errors.newPassword) setErrors(v => ({ ...v, newPassword: '' })) }}
-                  error={!!errors.newPassword} helperText={errors.newPassword}
-                  placeholder="Enter new password (min 8 chars)"
-                  InputProps={{
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton size="small" onClick={() => setShowPwd(v => !v)} edge="end">
-                          {showPwd ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  }}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2, '&.Mui-focused fieldset': { borderColor: TEAL } }, '& label.Mui-focused': { color: TEAL } }} />
+                <TextField label="New Password" fullWidth size="small" disabled
+                  placeholder="Not yet supported"
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
               </FieldSection>
 
               <Divider sx={{ my: 2.5 }} />

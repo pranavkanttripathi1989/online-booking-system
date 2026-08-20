@@ -72,6 +72,14 @@ export class StaffService {
     const existing = await this.prisma.userProfiles.findUnique({ where: { email: input.email.toLowerCase() } });
     if (existing) throw new ConflictException('A user with this email already exists');
 
+    // phone is globally @unique (OTP login needs an unambiguous phone→account
+    // lookup) — without this check the raw Prisma unique-constraint error
+    // (including an internal file path and query text) reaches the client.
+    if (input.phone) {
+      const existingPhone = await this.prisma.userProfiles.findUnique({ where: { phone: input.phone } });
+      if (existingPhone) throw new ConflictException('A user with this phone number already exists');
+    }
+
     const staffRole = await this.prisma.userRoles.findFirst({ where: { name: 'staff', client_org_id: null } });
     if (!staffRole) throw new NotFoundException('Staff system role not seeded');
 
@@ -105,6 +113,17 @@ export class StaffService {
     const existing = await this.prisma.userProfiles.findUnique({ where: { id } });
     if (!existing || existing.is_deleted) throw new NotFoundException('Staff member not found');
     this.assertStaffAccess(existing, user);
+
+    // Same email/phone uniqueness gap as create() — pre-check rather than let
+    // a raw Prisma unique-constraint error reach the client.
+    if (input.email && input.email.toLowerCase() !== existing.email) {
+      const emailTaken = await this.prisma.userProfiles.findUnique({ where: { email: input.email.toLowerCase() } });
+      if (emailTaken) throw new ConflictException('A user with this email already exists');
+    }
+    if (input.phone && input.phone !== existing.phone) {
+      const phoneTaken = await this.prisma.userProfiles.findUnique({ where: { phone: input.phone } });
+      if (phoneTaken) throw new ConflictException('A user with this phone number already exists');
+    }
 
     let firstName = existing.first_name;
     let lastName = existing.last_name;

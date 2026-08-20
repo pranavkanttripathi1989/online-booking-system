@@ -22,12 +22,20 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import CheckCircleRoundedIcon   from '@mui/icons-material/CheckCircleRounded'
 import SaveRoundedIcon          from '@mui/icons-material/SaveRounded'
 import { useSnackbar } from 'notistack'
-import { useMockMutation } from '../../mocks/useMockData'
-import * as MockStore from '../../mocks/store'
+import { useMutation, gql } from '@apollo/client'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TEAL = '#006D77'
 const TEAL_LIGHT = '#00858F'
+
+// Only fields CreateStaffInput actually accepts (backend/src/staff/dto/staff.input.ts) —
+// status/since are not part of the input; the backend always creates staff as
+// active as of now, matching real account-creation semantics.
+const CREATE_STAFF = gql`
+  mutation CreateStaff($input: CreateStaffInput!) {
+    createStaff(input: $input) { id }
+  }
+`
 
 const ROLES = ['Receptionist', 'Admin', 'Nurse', 'Lab Technician', 'IT Administrator', 'Billing Specialist', 'Security Officer', 'Pharmacist', 'Coordinator']
 const DEPARTMENTS = ['Front Desk', 'Management', 'General Practice', 'Laboratory', 'Finance', 'IT & Systems', 'Security', 'Pharmacy', 'Radiology']
@@ -76,8 +84,7 @@ export default function AddStaffPage() {
   const [errors, setErrors] = useState({})
   const [showPwd, setShowPwd]  = useState(false)
   const [showPwd2, setShowPwd2] = useState(false)
-  // SUG-STAFF-010: persist the new staff member to the shared mock store
-  const [createStaffMutation, { loading: saving }] = useMockMutation(MockStore.createStaff)
+  const [createStaffMutation, { loading: saving }] = useMutation(CREATE_STAFF)
 
   const set = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }))
@@ -101,15 +108,21 @@ export default function AddStaffPage() {
   const handleSave = async () => {
     const e = validate()
     if (Object.keys(e).length) { setErrors(e); return }
-    // SUG-STAFF-010: MOCK_STAFF used to be a constant, so new staff never showed
-    // up on /staff after navigating back. Persist via MockStore.createStaff() instead.
-    await createStaffMutation({
-      name: form.name, email: form.email, phone: form.phone,
-      role: form.role, department: form.department, status: form.status,
-      since: form.since, address: form.address, notes: form.notes,
-    })
-    enqueueSnackbar(`${form.name} added to staff successfully!`, { variant: 'success' })
-    navigate('/staff')
+    try {
+      await createStaffMutation({
+        variables: {
+          input: {
+            name: form.name, email: form.email, phone: form.phone,
+            role: form.role, department: form.department,
+            address: form.address, notes: form.notes, password: form.password,
+          },
+        },
+      })
+      enqueueSnackbar(`${form.name} added to staff successfully!`, { variant: 'success' })
+      navigate('/staff')
+    } catch (err) {
+      enqueueSnackbar(err.message || 'Failed to add staff member', { variant: 'error' })
+    }
   }
 
   const initials = form.name ? getInitials(form.name) : '?'
@@ -191,6 +204,11 @@ export default function AddStaffPage() {
 
             <CardContent sx={{ px: 2 }}>
               <Typography variant="caption" sx={{ color: '#9AA0A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.62rem' }}>Status</Typography>
+              {/* CreateStaffInput has no status/since fields — new staff are always
+                  created Active as of now; change status afterward from the edit page. */}
+              <Typography variant="caption" sx={{ display: 'block', color: '#9AA0A6', mt: 0.5, mb: 1 }}>
+                New staff start Active — change this after creation if needed.
+              </Typography>
               <Stack direction="column" spacing={1} sx={{ mt: 1.25 }}>
                 {STATUSES.map(s => (
                   <Box key={s.value} onClick={() => set('status')({ target: { value: s.value } })} sx={{

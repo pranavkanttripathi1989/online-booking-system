@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
-import { useTheme, useMediaQuery, alpha } from '@mui/material'
-import { useMockData, useMockMutation } from '../../mocks/useMockData'
-import * as MockStore from '../../mocks/store'
+import { useQuery, useMutation, gql } from '@apollo/client'
+import { alpha } from '@mui/material'
 import {
   Box, Button, Avatar, Typography, Chip, Grid, Card, CardContent,
   Stack, Divider, Paper, Table, TableBody, TableCell, TableHead,
-  TableRow, Rating, LinearProgress, Tabs, Tab, TextField, InputAdornment,
+  TableRow, TableContainer, Rating, LinearProgress, Tabs, Tab, TextField, InputAdornment,
   IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions,
+  CircularProgress, Alert,
 } from '@mui/material'
 import { useSnackbar } from 'notistack'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
@@ -23,6 +23,22 @@ import AdminPanelSettingsRoundedIcon from '@mui/icons-material/AdminPanelSetting
 import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded'
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded'
 import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded'
+
+// backend/src/staff/** was built from scratch specifically against this page's
+// (and new.jsx/edit.jsx's) MockStore shape — see staff/entities/staff.entity.ts.
+// Never wired up until now; this page ran on mocks/store.js exclusively.
+const GET_STAFF = gql`
+  query GetStaff {
+    staff {
+      id name email phone role department status since address notes
+    }
+  }
+`
+const DEACTIVATE_STAFF = gql`
+  mutation DeactivateStaff($id: ID!) {
+    deactivateStaff(id: $id) { id status }
+  }
+`
 
 function getInitials(name) {
   return name.trim().split(' ').map(p => p[0]).join('').toUpperCase().slice(0, 2) || '?'
@@ -52,32 +68,36 @@ export default function StaffPage() {
   const [tab, setTab] = useState(0)
   const [deactivateTarget, setDeactivateTarget] = useState(null) // SUG-STAFF-005
 
-  // SUG-STAFF-010: read staff from the shared mock store so newly-added staff
-  // (via /staff/new) persist across navigation instead of resetting to a hardcoded list.
-  const { data: staffData } = useMockData(store => store.getStaff())
-  const [deactivateStaff] = useMockMutation((id) => MockStore.updateStaff(id, { status: 'inactive' }))
-  const MOCK_STAFF = staffData || []
+  const { data, loading, error, refetch } = useQuery(GET_STAFF)
+  const [deactivateStaffMutation] = useMutation(DEACTIVATE_STAFF)
+  const staffList = data?.staff || []
 
-  const departments = ['All', ...new Set(MOCK_STAFF.map(s => s.department))]
+  const departments = ['All', ...new Set(staffList.map(s => s.department))]
 
-  const filtered = MOCK_STAFF.filter(s => {
+  const filtered = staffList.filter(s => {
     const matchSearch = !search || s.name.toLowerCase().includes(search.toLowerCase()) || s.role.toLowerCase().includes(search.toLowerCase()) || s.department.toLowerCase().includes(search.toLowerCase())
     const matchDept = departmentFilter === 'All' || s.department === departmentFilter
     const matchStatus = tab === 0 || (tab === 1 && s.status === 'active') || (tab === 2 && s.status !== 'active')
     return matchSearch && matchDept && matchStatus
   })
 
-  const activeCount = MOCK_STAFF.filter(s => s.status === 'active').length
+  const activeCount = staffList.filter(s => s.status === 'active').length
 
   return (
     <Box className="page-enter" sx={{ pb: 4 }}>
       <Helmet><title>Staff — MediBook</title></Helmet>
 
+      {error && <Alert severity="error" sx={{ mb: 3, borderRadius: 2 }}>Failed to load staff: {error.message}</Alert>}
+
+      {loading && !data ? (
+        <Box display="flex" justifyContent="center" py={8}><CircularProgress /></Box>
+      ) : (
+      <>
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2, flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="h4" fontWeight={800} sx={{ color: '#0D1B2E' }}>Staff Management</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{activeCount} active · {MOCK_STAFF.length} total staff members</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{activeCount} active · {staffList.length} total staff members</Typography>
         </Box>
         <Button variant="contained" startIcon={<AddRoundedIcon />}
           onClick={() => navigate('/staff/new')}
@@ -94,10 +114,10 @@ export default function StaffPage() {
       {/* ── KPI Cards ───────────────────────────────────────────────────── */}
       <Grid container spacing={2.5} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Staff', value: MOCK_STAFF.length, icon: PersonRoundedIcon, color: '#1565C7' },
-          { label: 'Active', value: MOCK_STAFF.filter(s => s.status === 'active').length, icon: CheckCircleRoundedIcon, color: '#0B7B5C' },
-          { label: 'On Leave', value: MOCK_STAFF.filter(s => s.status === 'on_leave').length, icon: PersonOffRoundedIcon, color: '#D97706' },
-          { label: 'Departments', value: new Set(MOCK_STAFF.map(s => s.department)).size, icon: WorkRoundedIcon, color: '#7C3AED' },
+          { label: 'Total Staff', value: staffList.length, icon: PersonRoundedIcon, color: '#1565C7' },
+          { label: 'Active', value: staffList.filter(s => s.status === 'active').length, icon: CheckCircleRoundedIcon, color: '#0B7B5C' },
+          { label: 'On Leave', value: staffList.filter(s => s.status === 'on_leave').length, icon: PersonOffRoundedIcon, color: '#D97706' },
+          { label: 'Departments', value: new Set(staffList.map(s => s.department)).size, icon: WorkRoundedIcon, color: '#7C3AED' },
         ].map((kpi) => (
           <Grid item xs={6} md={3} key={kpi.label}>
             <Card sx={{ borderRadius: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
@@ -141,12 +161,13 @@ export default function StaffPage() {
           </Box>
         </Box>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ px: 2, '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 44, fontSize: '0.85rem', color: '#5F6368' }, '& .MuiTab-root.Mui-selected': { color: '#006D77' }, '& .MuiTabs-indicator': { bgcolor: '#006D77', height: 3, borderRadius: '3px 3px 0 0' } }}>
-          <Tab label={`All (${MOCK_STAFF.length})`} />
-          <Tab label={`Active (${MOCK_STAFF.filter(s => s.status === 'active').length})`} />
-          <Tab label={`Others (${MOCK_STAFF.filter(s => s.status !== 'active').length})`} />
+          <Tab label={`All (${staffList.length})`} />
+          <Tab label={`Active (${staffList.filter(s => s.status === 'active').length})`} />
+          <Tab label={`Others (${staffList.filter(s => s.status !== 'active').length})`} />
         </Tabs>
 
         {/* ── Table ─────────────────────────────────────────────────────── */}
+        <TableContainer>
         <Table>
           <TableHead>
             <TableRow sx={{ '& th': { fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', bgcolor: '#F8FAFC', py: 1.2 } }}>
@@ -216,6 +237,7 @@ export default function StaffPage() {
             )}
           </TableBody>
         </Table>
+        </TableContainer>
       </Paper>
 
       {/* SUG-STAFF-005: Deactivate confirmation dialog */}
@@ -234,8 +256,8 @@ export default function StaffPage() {
           </Button>
           <Button variant="contained" color="error"
             onClick={async () => {
-              // SUG-STAFF-010: persist the status change to the mock store
-              await deactivateStaff(deactivateTarget?.id)
+              await deactivateStaffMutation({ variables: { id: deactivateTarget?.id } })
+              await refetch()
               enqueueSnackbar(`${deactivateTarget?.name} has been deactivated`, { variant: 'warning' })
               setDeactivateTarget(null)
             }}
@@ -244,6 +266,8 @@ export default function StaffPage() {
           </Button>
         </DialogActions>
       </Dialog>
+      </>
+      )}
     </Box>
   )
 }

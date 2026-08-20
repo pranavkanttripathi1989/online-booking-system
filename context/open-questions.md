@@ -82,6 +82,33 @@ decision applies to both resolvers since they share the underlying table.
 
 ---
 
+## 3. Staff module has no password-reset path, and create-time status/since are UI-only
+
+**Status:** Open — found while wiring `staff/{index,new,edit}.jsx` off mocks onto the real backend (Priority 1's
+last e2e-coverage gap). Not fixed, since both are contract/product decisions, not bugs with an obvious fix.
+
+`backend/src/staff/dto/staff.input.ts`'s `UpdateStaffInput` has no `password` field, so there is currently no
+way for an admin/manager to reset a staff member's login password from `staff/edit.jsx` — the page's "Reset
+Password" field has been disabled with an explanatory note rather than silently dropping whatever the admin
+types into it. `CreateStaffInput` likewise has no `status`/`since` fields — every staff member is created
+`active` as of the real creation timestamp regardless of what the create form's Status/Start Date controls are
+set to; the create form now shows a caption ("New staff start Active — change this after creation if needed")
+rather than letting those controls imply behavior the backend doesn't actually perform.
+
+Why this needs a decision rather than a fix: adding password-reset requires deciding the actual flow (admin
+sets a specific password vs. triggers a reset-link email via the existing AWS SES setup, matching how patient/
+clinician accounts might eventually get self-service reset) — not something to guess at inside a wiring pass.
+Backdating `since` at creation is a real but narrow product question (does "since" ever need to reflect a
+pre-existing employment start date entered after the fact, e.g. onboarding a staff member whose real start date
+was last month) — if never needed, the create form's Start Date field should probably be removed entirely
+rather than left decorative.
+
+**Decision needed from the user:** (a) whether/how staff password reset should work (admin-set vs. email link),
+and (b) whether create-time backdating of `since`/non-active initial `status` is a real requirement — if not,
+simplify `staff/new.jsx` by removing those now-inert controls instead of leaving them decorative.
+
+---
+
 ## Resolved
 
 ### manager/Dashboard.jsx KPIs, charts, and clinic filter (resolved 2026-08-18)
