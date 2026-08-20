@@ -21,6 +21,7 @@ import { PatientsModule } from './patients/patients.module';
 import { AppointmentsModule } from './appointments/appointments.module';
 import { AvailabilityModule } from './availability/availability.module';
 import { BlocksModule } from './blocks/blocks.module';
+import { CancellationRulesModule } from './cancellation-rules/cancellation-rules.module';
 import { UsersModule } from './users/users.module';
 import { StaffModule } from './staff/staff.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -93,6 +94,7 @@ import { PubSubModule } from './common/pubsub.module';
     AppointmentsModule,
     AvailabilityModule,
     BlocksModule,
+    CancellationRulesModule,
     UsersModule,
     StaffModule,
     NotificationsModule,

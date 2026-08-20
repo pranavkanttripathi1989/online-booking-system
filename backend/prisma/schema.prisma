@@ -211,6 +211,7 @@ model ClientOrganizations {
   paymentTransactions    PaymentTransactions[]
   messageThreads         MessageThreads[]
   customRoles            UserRoles[]
+  cancellationRules      ProductCancellationRules[]
 }
 
 model ClinicianAvailability {
@@ -320,6 +321,7 @@ model Clinics {
   productCategories  ProductCategories[]
   productSubcategories ProductSubcategories[]
   reviews            Reviews[]
+  cancellationRules  ProductCancellationRules[]
 }
 
 model EmailTemplates {
@@ -545,19 +547,34 @@ model Permissions {
   rolePermissions RolePermissions[]
 }
 
+// A rule is either clinic-scoped (a clinic-wide default policy) or
+// product-scoped (a per-service override) -- exactly one of product_id/
+// clinic_id is set, enforced by a CHECK constraint added in this model's
+// extension migration (Prisma doesn't model CHECK constraints declaratively,
+// so it's hand-written in the migration.sql, not expressed here). Originally
+// product-only; admin/Policies.jsx's real, already-written GraphQL contract
+// (name/description/priority/clinic_id, no product_id at all) needed the
+// clinic-scoped half added rather than building a second, parallel model.
 model ProductCancellationRules {
   id                     String      @id @default(uuid())
-  product_id             String
-  rule_type              RuleType
+  name                   String
+  description            String?
+  product_id             String?
+  clinic_id              String?
+  client_org_id          String?
+  rule_type              RuleType    @default(cancellation)
   hours_before_appointment Int      @default(24)
   fee_type               FeeType
   fee_amount             Int      // paise
+  priority               Int        @default(1)
   is_active              Boolean    @default(true)
   is_deleted             Boolean    @default(false)
   created_at             DateTime   @default(now())
   updated_at             DateTime   @default(now())
 
-  product Products @relation(fields: [product_id], references: [id])
+  product     Products?          @relation(fields: [product_id], references: [id])
+  clinic      Clinics?           @relation(fields: [clinic_id], references: [id])
+  clientOrg   ClientOrganizations? @relation(fields: [client_org_id], references: [id])
 }
 
 model ProductCategories {

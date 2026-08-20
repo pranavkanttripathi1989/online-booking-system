@@ -328,6 +328,34 @@ type BookedAppointmentResult {
   id: ID!
 }
 
+type CancellationRule {
+  clinic: CancellationRuleClinic
+  clinic_id: ID
+  description: String
+  fee_amount: Int!
+  fee_type: String!
+  hours_before: Int!
+  id: ID!
+  is_active: Boolean!
+  name: String!
+  priority: Int!
+}
+
+type CancellationRuleClinic {
+  id: ID!
+  name: String!
+}
+
+type CancellationRuleMutationResult {
+  cancellationRule: CancellationRule
+  success: Boolean!
+  userErrors: [CancellationRuleUserError!]!
+}
+
+type CancellationRuleUserError {
+  message: String!
+}
+
 type Clinic {
   address: String!
   city: String
@@ -482,6 +510,17 @@ input CreateAvailabilityInput {
   start_time: String!
   valid_from: String
   valid_until: String
+}
+
+input CreateCancellationRuleInput {
+  clinic_id: ID
+  description: String
+  fee_amount: Int!
+  fee_type: String!
+  hours_before: Int!
+  is_active: Boolean
+  name: String!
+  priority: Int
 }
 
 input CreateClinicianTypeInput {
@@ -656,6 +695,7 @@ type Mutation {
   completeAppointment(id: ID!): Appointment!
   createAppointment(input: AppointmentInput!): Appointment!
   createAvailability(input: CreateAvailabilityInput!): AvailabilityMutationResult!
+  createCancellationRule(input: CreateCancellationRuleInput!): CancellationRuleMutationResult!
   createClinic(input: ClinicInput!): Clinic!
   createClinician(input: ClinicianInput!): Clinician!
   createClinicianType(input: CreateClinicianTypeInput!): LookupMutationResult!
@@ -677,6 +717,7 @@ type Mutation {
   createUser(input: UserInput!): User!
   deactivateStaff(id: ID!): Staff!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
+  deleteCancellationRule(id: ID!): CancellationRuleMutationResult!
   deleteClinicianAvailability(id: ID!): Boolean!
   deleteClinicianType(id: ID!): LookupMutationResult!
   deleteLanguage(id: ID!): LookupMutationResult!
@@ -711,6 +752,7 @@ type Mutation {
   toggleClinicianActive(id: ID!): Clinician!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
+  updateCancellationRule(id: ID!, input: UpdateCancellationRuleInput!): CancellationRuleMutationResult!
   updateClinic(id: ID!, input: ClinicInput!): Clinic!
   updateClinician(id: ID!, input: ClinicianInput!): Clinician!
   updateClinicianType(id: ID!, input: UpdateClinicianTypeInput!): LookupMutationResult!
@@ -1074,6 +1116,7 @@ type Query {
   appointments(filters: AppointmentFilters, first: Int! = 20, page: Int! = 1): AppointmentPaginated!
   availabilities(search: SearchInput): [Availability!]!
   availableSlots(clinician_id: ID!, date: Date!, service_id: ID): [AvailableSlot!]!
+  cancellationRules: [CancellationRule!]!
   clinic(id: ID!): Clinic
   clinician(id: ID!): Clinician
   clinicianTypes: [ClinicianType!]!
@@ -1392,6 +1435,17 @@ input UpdateAvailabilityInput {
   start_time: String!
   valid_from: String
   valid_until: String
+}
+
+input UpdateCancellationRuleInput {
+  clinic_id: ID
+  description: String
+  fee_amount: Int
+  fee_type: String
+  hours_before: Int
+  is_active: Boolean
+  name: String
+  priority: Int
 }
 
 input UpdateClinicianTypeInput {
