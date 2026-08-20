@@ -1,5 +1,5 @@
-import { InputType, Field, Float } from '@nestjs/graphql';
-import { IsOptional, IsString, IsNotEmpty, IsEmail, IsIn, IsNumber } from 'class-validator';
+import { InputType, Field } from '@nestjs/graphql';
+import { IsOptional, IsString, IsNotEmpty, IsEmail, IsIn } from 'class-validator';
 
 @InputType('PublicClinicianSearchInput')
 export class PublicClinicianSearchInput {
@@ -38,10 +38,4 @@ export class BookPatientAppointmentInput {
   @Field(() => PatientDetailsInput, { nullable: true }) @IsOptional() patientDetails?: PatientDetailsInput;
 }
 
-@InputType('PaymentTransactionInput')
-export class PaymentTransactionInput {
-  @Field() @IsNotEmpty() appointmentId: string;
-  @Field({ nullable: true }) @IsOptional() paymentMethodId?: string;
-  @Field(() => Float) @IsNumber() amount: number;
-  @Field({ nullable: true }) @IsOptional() currency?: string;
-}
+// PaymentTransactionInput removed (REQ004) — see public.service.ts.

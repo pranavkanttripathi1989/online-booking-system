@@ -17,13 +17,22 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
 
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, CardElement, useStripe, useElements } from '@stripe/react-stripe-js';
-
 import { useAuth } from '../../hooks/useAuth';
 
-// Initialize Stripe outside of component to avoid recreating the object
-const stripePromise = loadStripe('pk_test_placeholder');
+// India market — Razorpay for patient payments (CLAUDE.md's fixed-vendor
+// rule; Stripe is reserved for tenant SaaS-subscription billing only).
+// Loads Razorpay's own Checkout widget rather than collecting card details
+// directly (REQ004) — no PCI card-data handling in this app's own code.
+function loadRazorpayScript() {
+  return new Promise((resolve) => {
+    if (window.Razorpay) { resolve(true); return; }
+    const script = document.createElement('script');
+    script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+    script.onload = () => resolve(true);
+    script.onerror = () => resolve(false);
+    document.body.appendChild(script);
+  });
+}
 
 const GET_CLINICIAN_AND_PRODUCTS = gql`
   query GetClinicianAndProducts($id: ID!) {
@@ -87,10 +96,22 @@ const BOOK_PATIENT_APPOINTMENT = gql`
   }
 `;
 
-const CREATE_PAYMENT_TRANSACTION = gql`
-  mutation CreatePaymentTransaction($input: PaymentTransactionInput!) {
-    createPaymentTransaction(input: $input) {
-      id
+const CREATE_RAZORPAY_ORDER = gql`
+  mutation CreateRazorpayOrder($appointmentId: ID!) {
+    createRazorpayOrder(appointmentId: $appointmentId) {
+      razorpay_order_id
+      amount
+      currency
+      razorpay_key_id
+    }
+  }
+`;
+
+const VERIFY_RAZORPAY_PAYMENT = gql`
+  mutation VerifyRazorpayPayment($input: VerifyRazorpayPaymentInput!) {
+    verifyRazorpayPayment(input: $input) {
+      success
+      message
     }
   }
 `;
@@ -115,32 +136,25 @@ const getDayOfWeekString = (day) => {
 };
 
 const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
-  const stripe = useStripe();
-  const elements = useElements();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [razorpayReady, setRazorpayReady] = useState(false);
   const [acceptedPolicy, setAcceptedPolicy] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
 
   const [bookPatientAppointment] = useMutation(BOOK_PATIENT_APPOINTMENT);
-  const [createPaymentTransaction] = useMutation(CREATE_PAYMENT_TRANSACTION);
+  const [createRazorpayOrder] = useMutation(CREATE_RAZORPAY_ORDER);
+  const [verifyRazorpayPayment] = useMutation(VERIFY_RAZORPAY_PAYMENT);
+
+  useEffect(() => {
+    loadRazorpayScript().then(setRazorpayReady);
+  }, []);
 
   const handlePayAndBook = async () => {
-    if (!stripe || !elements) return;
     setLoading(true);
     setErrorMsg('');
 
     try {
-      const cardElement = elements.getElement(CardElement);
-      const { error, paymentMethod } = await stripe.createPaymentMethod({
-        type: 'card',
-        card: cardElement,
-      });
-
-      if (error) {
-        throw new Error(error.message);
-      }
-
       // 1. Book Appointment
       const apptRes = await bookPatientAppointment({
         variables: {
@@ -156,17 +170,51 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
           }
         }
       });
+      const appointmentId = apptRes.data.bookPatientAppointment.id;
 
-      // 2. Create Payment Transaction (India market — INR, not GBP; CLAUDE.md)
-      await createPaymentTransaction({
-        variables: {
-          input: {
-            appointmentId: apptRes.data.bookPatientAppointment.id,
-            paymentMethodId: paymentMethod.id,
-            amount: price,
-            currency: 'INR',
-          }
-        }
+      // 2. Create a real Razorpay order (amount is derived server-side from
+      // the appointment's product price, never sent from the client).
+      const orderRes = await createRazorpayOrder({ variables: { appointmentId } });
+      const order = orderRes.data.createRazorpayOrder;
+
+      // 3. Open Razorpay's own Checkout widget — card/UPI/wallet details
+      // never touch this app's own code (no PCI scope here).
+      await new Promise((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key: order.razorpay_key_id,
+          order_id: order.razorpay_order_id,
+          amount: order.amount,
+          currency: order.currency,
+          name: 'HealthSync',
+          description: bookingData.product?.name,
+          prefill: {
+            name: `${bookingData.patient.firstName} ${bookingData.patient.lastName}`.trim(),
+            email: bookingData.patient.email,
+            contact: bookingData.patient.phone,
+          },
+          handler: async (response) => {
+            try {
+              // 4. Server-side HMAC verification — never trust the
+              // client-reported "payment succeeded" state.
+              const verifyRes = await verifyRazorpayPayment({
+                variables: {
+                  input: {
+                    razorpay_order_id: response.razorpay_order_id,
+                    razorpay_payment_id: response.razorpay_payment_id,
+                    razorpay_signature: response.razorpay_signature,
+                  },
+                },
+              });
+              if (!verifyRes.data.verifyRazorpayPayment.success) {
+                reject(new Error(verifyRes.data.verifyRazorpayPayment.message || 'Payment verification failed'));
+                return;
+              }
+              resolve();
+            } catch (err) { reject(err); }
+          },
+          modal: { ondismiss: () => reject(new Error('Payment cancelled')) },
+        });
+        rzp.open();
       });
 
       // Success
@@ -208,19 +256,10 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
           </Grid>
         </Grid>
 
-        <Typography variant="subtitle2" gutterBottom>Payment Details</Typography>
-        <Box sx={{ p: 2, border: '1px solid', borderColor: 'divider', borderRadius: 1, mb: 2 }}>
-          <CardElement options={{
-            style: {
-              base: {
-                fontSize: '16px',
-                color: '#424770',
-                '::placeholder': { color: '#aab7c4' },
-              },
-              invalid: { color: '#9e2146' },
-            },
-          }} />
-        </Box>
+        <Typography variant="subtitle2" gutterBottom>Payment</Typography>
+        <Alert severity="info" sx={{ mb: 2 }}>
+          You'll be prompted to pay ₹{price} via Razorpay's secure checkout (cards, UPI, wallets) — card and UPI details are entered on Razorpay's own screen, never on this page.
+        </Alert>
 
         {errorMsg && <Alert severity="error" sx={{ mb: 2 }}>{errorMsg}</Alert>}
 
@@ -237,7 +276,7 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
           size="large" 
           startIcon={<Payment />} 
           onClick={handlePayAndBook} 
-          disabled={!stripe || !acceptedPolicy || loading}
+          disabled={!razorpayReady || !acceptedPolicy || loading}
         >
           {loading ? <CircularProgress size={24} color="inherit" /> : `Confirm and Pay ₹${price}`}
         </Button>
@@ -564,14 +603,12 @@ export default function BookingWizard() {
       : bookingData.product?.price || 0;
 
     return (
-      <Elements stripe={stripePromise}>
-        <PaymentForm 
-          bookingData={bookingData} 
-          clinician={clinician} 
-          handleBack={handleBack}
-          price={price}
-        />
-      </Elements>
+      <PaymentForm
+        bookingData={bookingData}
+        clinician={clinician}
+        handleBack={handleBack}
+        price={price}
+      />
     );
   };
 

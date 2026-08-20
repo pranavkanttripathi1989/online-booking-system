@@ -708,10 +708,10 @@ type Mutation {
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
-  createPaymentTransaction(input: PaymentTransactionInput!): PaymentTransactionResult!
   createProduct(input: CreateProductInput!): ProductMutationResult!
   createProductCategory(input: CreateProductCategoryInput!): ProductCategoryMutationResult!
   createProductSubcategory(input: CreateProductSubcategoryInput!): ProductSubcategoryMutationResult!
+  createRazorpayOrder(appointmentId: ID!): RazorpayOrderResult!
   createRole(input: AppRoleInput!): AppRole!
   createRoom(input: RoomInput!): Room!
   createRoomBlock(input: CreateRoomBlockInput!): RoomBlockMutationResult!
@@ -785,6 +785,7 @@ type Mutation {
   updateStaff(id: ID!, input: UpdateStaffInput!): Staff!
   updateUser(id: ID!, input: UserUpdateInput!): User!
   verifyOtp(input: VerifyOtpInput!): AuthPayload!
+  verifyRazorpayPayment(input: VerifyRazorpayPaymentInput!): PaymentVerificationResult!
 }
 
 type MyProfile {
@@ -1017,15 +1018,9 @@ type PatientPaginatorInfo {
   total: Int!
 }
 
-input PaymentTransactionInput {
-  amount: Float!
-  appointmentId: String!
-  currency: String
-  paymentMethodId: String
-}
-
-type PaymentTransactionResult {
-  id: ID!
+type PaymentVerificationResult {
+  message: String
+  success: Boolean!
 }
 
 type Permission {
@@ -1216,6 +1211,7 @@ type Query {
   getRolePermissions(roleId: ID!): [RolePermission!]!
   getRooms(clinicId: ID!): [AvailabilityRoomOption!]!
   getSpacerBlocks(clinicianId: ID!, date: String!): [ClinicianSpacerBlock!]!
+  getTransactionsByDate(endDate: String!, limit: Int, offset: Int, startDate: String!): [Transaction!]!
   getUser(id: ID!): AdminUser!
   getUserRoles: [Role!]!
   getUsers(limit: Int, offset: Int, role: String, search: String): [AdminUser!]!
@@ -1251,6 +1247,13 @@ type Query {
   testResults(search: String, status: String, type: String): [TestResult!]!
   thread(id: ID!): MessageThread!
   threads: [MessageThread!]!
+}
+
+type RazorpayOrderResult {
+  amount: Int!
+  currency: String!
+  razorpay_key_id: String!
+  razorpay_order_id: String!
 }
 
 input RefreshInput {
@@ -1510,6 +1513,35 @@ type TopClinicianPoint {
   revenue: Float!
 }
 
+type Transaction {
+  amount: Float!
+  appointment: TransactionAppointment!
+  createdAt: DateTime!
+  id: ID!
+  status: String!
+}
+
+type TransactionAppointment {
+  clinician: TransactionClinician!
+  id: ID!
+  patient: TransactionPatient!
+  product: TransactionProduct
+}
+
+type TransactionClinician {
+  name: String!
+}
+
+type TransactionPatient {
+  firstName: String!
+  id: ID!
+  lastName: String!
+}
+
+type TransactionProduct {
+  name: String!
+}
+
 input UpdateAvailabilityInput {
   clinic_id: String!
   clinician_id: String!
@@ -1649,4 +1681,10 @@ input UserUpdateInput {
 input VerifyOtpInput {
   code: String!
   phone: String!
+}
+
+input VerifyRazorpayPaymentInput {
+  razorpay_order_id: String!
+  razorpay_payment_id: String!
+  razorpay_signature: String!
 }

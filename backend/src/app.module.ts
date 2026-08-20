@@ -25,6 +25,7 @@ import { CancellationRulesModule } from './cancellation-rules/cancellation-rules
 import { AccountModule } from './account/account.module';
 import { NotificationPreferencesModule } from './notification-preferences/notification-preferences.module';
 import { OrgSettingsModule } from './org-settings/org-settings.module';
+import { AppointmentPaymentsModule } from './appointment-payments/appointment-payments.module';
 import { UsersModule } from './users/users.module';
 import { StaffModule } from './staff/staff.module';
 import { NotificationsModule } from './notifications/notifications.module';
@@ -101,6 +102,7 @@ import { PubSubModule } from './common/pubsub.module';
     AccountModule,
     NotificationPreferencesModule,
     OrgSettingsModule,
+    AppointmentPaymentsModule,
     UsersModule,
     StaffModule,
     NotificationsModule,

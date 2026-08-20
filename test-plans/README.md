@@ -3,6 +3,7 @@
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
 | communications-policies | 2 | 0 | 0 | 2 | 0 | 2026-08-20 | [communications-policies](./communications-policies/README.md) |
+| patient-payments | 1 | 0 | 0 | 1 | 0 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |
 | settings | 2 | 0 | 0 | 2 | 0 | 2026-08-20 | [settings](./settings/README.md) |
 | phase4-5-increment3 | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
 | phase4-backend-integration | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-backend-integration](./phase4-backend-integration/README.md) |

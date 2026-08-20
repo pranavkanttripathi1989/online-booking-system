@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { PublicClinicianSearchInput, BookPatientAppointmentInput, PaymentTransactionInput } from './dto/public.input';
+import { PublicClinicianSearchInput, BookPatientAppointmentInput } from './dto/public.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
@@ -222,30 +222,7 @@ export class PublicService {
     return { id: appointment.id };
   }
 
-  // Records the transaction only — no real Stripe/Razorpay API call.
-  // StripeConfigurations/SubscriptionPlans exist for the SaaS-subscription
-  // side of the schema but hold no live payment-gateway secrets in this
-  // environment; actually capturing a card payment needs those configured,
-  // which is out of scope for a resolver built without them (documented
-  // scope cut, not a silently-skipped step).
-  async createPaymentTransaction(input: PaymentTransactionInput) {
-    const appointment = await this.prisma.appointments.findUnique({ where: { id: input.appointmentId }, include: { clinic: true } });
-    if (!appointment) throw new BadRequestException('Appointment not found');
-    // Same fallback as MessagesService.createThread: clinics created before
-    // Organizations existed (Phase 4) have no client_org_id — fall back to
-    // any existing org rather than blocking payment on a pre-existing data gap.
-    const clientOrgId = appointment.clinic.client_org_id ?? (await this.prisma.clientOrganizations.findFirst())?.id;
-    if (!clientOrgId) throw new BadRequestException('No billing organization available');
-
-    const transaction = await this.prisma.paymentTransactions.create({
-      data: {
-        client_org_id: clientOrgId,
-        amount: Math.round(input.amount),
-        currency: input.currency ?? 'INR',
-        status: input.paymentMethodId ? 'pending' : 'failed',
-        metadata: { appointment_id: input.appointmentId, payment_method_id: input.paymentMethodId ?? null },
-      },
-    });
-    return { id: transaction.id };
-  }
+  // createPaymentTransaction removed (REQ004) — see public.resolver.ts's
+  // comment at the same call site for why, and appointment-payments/ for
+  // the real replacement.
 }

@@ -161,6 +161,7 @@ model Appointments {
   booked_by_user      UserProfiles?         @relation("AppointmentBookedBy", fields: [booked_by_user_id], references: [id])
   reviews             Reviews[]
   status_logs         AppointmentStatusLogs[]
+  payments            AppointmentPayments[]
 }
 
 // APPOINTMENT_DETAIL_QUERY (frontend/src/graphql/queries.js) requests
@@ -244,6 +245,7 @@ model ClientOrganizations {
   messageThreads         MessageThreads[]
   customRoles            UserRoles[]
   cancellationRules      ProductCancellationRules[]
+  appointmentPayments    AppointmentPayments[]
 }
 
 model ClinicianAvailability {
@@ -354,6 +356,7 @@ model Clinics {
   productSubcategories ProductSubcategories[]
   reviews            Reviews[]
   cancellationRules  ProductCancellationRules[]
+  payments           AppointmentPayments[]
 }
 
 model EmailTemplates {
@@ -458,6 +461,7 @@ model Patients {
   userProfiles UserProfiles[]
   reviews      Reviews[]
   testResults  TestResults[]
+  payments     AppointmentPayments[]
 }
 
 // pages/test-results/index.jsx — built from scratch (zero pre-existing GraphQL
@@ -511,6 +515,41 @@ model PaymentTransactions {
 
   client_org    ClientOrganizations        @relation(fields: [client_org_id], references: [id])
   subscription  OrganizationSubscriptions? @relation("SubscriptionTransactions", fields: [subscription_id], references: [id])
+}
+
+// REQ004 — real per-appointment PATIENT payments via Razorpay. Deliberately
+// separate from PaymentTransactions above, which is scoped to
+// ClientOrganizations/OrganizationSubscriptions (tenant SaaS-subscription
+// billing only, per CLAUDE.md) and has no appointment_id/patient_id at all --
+// retrofitting it would be the wrong shape, not a shortcut. GST fields mirror
+// PaymentTransactions' own (nullable, per-transaction -- no org-level GST
+// config table exists anywhere in this schema to source from automatically).
+model AppointmentPayments {
+  id                  String   @id @default(uuid())
+  appointment_id      String
+  patient_id          String
+  clinic_id           String
+  client_org_id       String? // derived from clinic at write time; nullable to match Clinics' own optional client_org_id
+  amount              Int     // paise
+  currency            String  @default("INR")
+  status              String  // pending | succeeded | failed
+  razorpay_order_id   String?
+  razorpay_payment_id String?
+  razorpay_signature  String?
+  gstin               String?
+  hsn_sac_code        String?
+  gst_rate            Float?
+  cgst_amount         Int?
+  sgst_amount         Int?
+  igst_amount         Int?
+  metadata            Json     @default("{}")
+  created_at          DateTime @default(now())
+  updated_at          DateTime @default(now())
+
+  appointment Appointments        @relation(fields: [appointment_id], references: [id])
+  patient     Patients            @relation(fields: [patient_id], references: [id])
+  clinic      Clinics             @relation(fields: [clinic_id], references: [id])
+  client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
 }
 
 model Reviews {

@@ -7,9 +7,8 @@ import {
   PublicAppointmentSlotType,
   PublicAppointmentDetailType,
   BookedAppointmentResultType,
-  PaymentTransactionResultType,
 } from './entities/public.entity';
-import { PublicClinicianSearchInput, BookPatientAppointmentInput, PaymentTransactionInput } from './dto/public.input';
+import { PublicClinicianSearchInput, BookPatientAppointmentInput } from './dto/public.input';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -57,9 +56,9 @@ export class PublicResolver {
     return this.publicService.bookPatientAppointment(input);
   }
 
-  @Public()
-  @Mutation(() => PaymentTransactionResultType)
-  createPaymentTransaction(@Args('input') input: PaymentTransactionInput) {
-    return this.publicService.createPaymentTransaction(input);
-  }
+  // createPaymentTransaction removed (REQ004) -- it wrote appointment_id into
+  // PaymentTransactions.metadata, a table scoped to tenant SaaS-subscription
+  // billing with no appointment_id/patient_id columns at all. Replaced by
+  // backend/src/appointment-payments' real Razorpay createRazorpayOrder/
+  // verifyRazorpayPayment flow against the new AppointmentPayments model.
 }

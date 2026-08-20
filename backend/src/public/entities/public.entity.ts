@@ -126,7 +126,4 @@ export class BookedAppointmentResultType {
   @Field(() => ID) id: string;
 }
 
-@ObjectType('PaymentTransactionResult')
-export class PaymentTransactionResultType {
-  @Field(() => ID) id: string;
-}
+// PaymentTransactionResultType removed (REQ004) — see public.service.ts.

@@ -4,7 +4,7 @@ type: requirement
 feature: patient-payments
 created: 2026-08-20
 updated: 2026-08-20
-status: draft
+status: in-progress
 parent: null
 related: []
 ---
@@ -39,9 +39,9 @@ related: []
 
 ## Open questions (not resolved here — needs a decision before implementation-plan work can finish)
 
-1. **Razorpay sandbox credentials** — needed before any live-tested implementation can happen. Documented in `context/open-questions.md` #1 already; this requirement formalizes it as a hard blocker on `status: done`, not just a footnote.
-2. **Model name and shape for per-appointment payments** — `AppointmentPayments` is a placeholder name pending the implementation plan; needs a decision on whether `PaymentTransactions` gets a discriminator column instead of a wholly separate table (leaning separate, given the tenant-vs-patient distinction is real and `PaymentTransactions`' own fields — `subscription_id`, no `appointment_id`/`patient_id` at all — don't fit patient payments without an awkward retrofit).
-3. **Expense tracking** (`TRANSACTIONS` rows with `type: 'expense'`, e.g. "Office Supplies", "Equipment Lease") — is this actually wanted as a real feature (a lightweight clinic bookkeeping ledger), or was it mock-data flavor that shouldn't be built? The finances page's UI clearly supports it today; confirm before scoping it into the implementation plan.
+1. ~~**Razorpay sandbox credentials**~~ — **resolved 2026-08-20**, provided by the user mid-session. Real payment capture built against them — see [PLAN012](../../../implementation-plans/patient-payments/requirement/PLAN012-patient-payments-2026-08-20-razorpay-capture.md). No real webhook endpoint yet (needs a publicly reachable URL not available in this local sandbox) — Razorpay's Payment Verification (HMAC) pattern used instead, which is fully real cryptographic verification, not a lesser substitute.
+2. ~~**Model name and shape for per-appointment payments**~~ — **resolved**: `AppointmentPayments`, a separate model (not a `PaymentTransactions` discriminator column), confirmed correct once building it surfaced that the pre-existing `createPaymentTransaction` stub was already awkwardly retrofitting `appointment_id` into `PaymentTransactions.metadata` — exactly the anti-pattern this question was worried about.
+3. **Expense tracking** (`TRANSACTIONS` rows with `type: 'expense'`, e.g. "Office Supplies", "Equipment Lease") — still open. Not needed for payment capture (PLAN012's scope); blocks `finances/index.jsx`'s rewrite, the next slice.
 
 ## Acceptance criteria (high-level — implementation plan owns the detail)
 
