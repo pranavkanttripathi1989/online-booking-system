@@ -4,9 +4,9 @@ type: requirement
 feature: patient-payments
 created: 2026-08-20
 updated: 2026-08-20
-status: in-progress
+status: done
 parent: null
-related: []
+related: [PLAN012, PLAN013, TP042, TP043, TR041, TR042]
 ---
 
 # Patient Payments & Finances — Requirements
@@ -41,7 +41,7 @@ related: []
 
 1. ~~**Razorpay sandbox credentials**~~ — **resolved 2026-08-20**, provided by the user mid-session. Real payment capture built against them — see [PLAN012](../../../implementation-plans/patient-payments/requirement/PLAN012-patient-payments-2026-08-20-razorpay-capture.md). No real webhook endpoint yet (needs a publicly reachable URL not available in this local sandbox) — Razorpay's Payment Verification (HMAC) pattern used instead, which is fully real cryptographic verification, not a lesser substitute.
 2. ~~**Model name and shape for per-appointment payments**~~ — **resolved**: `AppointmentPayments`, a separate model (not a `PaymentTransactions` discriminator column), confirmed correct once building it surfaced that the pre-existing `createPaymentTransaction` stub was already awkwardly retrofitting `appointment_id` into `PaymentTransactions.metadata` — exactly the anti-pattern this question was worried about.
-3. **Expense tracking** (`TRANSACTIONS` rows with `type: 'expense'`, e.g. "Office Supplies", "Equipment Lease") — still open. Not needed for payment capture (PLAN012's scope); blocks `finances/index.jsx`'s rewrite, the next slice.
+3. ~~**Expense tracking** (`TRANSACTIONS` rows with `type: 'expense'`, e.g. "Office Supplies", "Equipment Lease")~~ — **resolved 2026-08-20**: descoped, not blocking. [PLAN013](../../../implementation-plans/patient-payments/requirement/PLAN013-patient-payments-2026-08-20-finances-page.md) shipped `finances/index.jsx` on real income data only; expense tracking, saved payment methods, and refunds remain explicitly out-of-scope, tracked in `context/open-questions.md`.
 
 ## Acceptance criteria (high-level — implementation plan owns the detail)
 

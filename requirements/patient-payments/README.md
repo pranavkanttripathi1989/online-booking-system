@@ -4,7 +4,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| REQ004 | requirement | Patient Payments & Finances — Requirements | in-progress | 2026-08-20 | 2026-08-20 | — | [REQ004-patient-payments-2026-08-20-razorpay-and-finances.md](./requirement/REQ004-patient-payments-2026-08-20-razorpay-and-finances.md) |
+| REQ004 | requirement | Patient Payments & Finances — Requirements | done | 2026-08-20 | 2026-08-20 | — | [REQ004-patient-payments-2026-08-20-razorpay-and-finances.md](./requirement/REQ004-patient-payments-2026-08-20-razorpay-and-finances.md) |
 
 ## improvement
 

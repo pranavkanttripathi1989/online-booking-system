@@ -143,4 +143,89 @@ export class AppointmentPaymentsService {
     });
     return rows.map((r) => this.toTransaction(r));
   }
+
+  // finances/index.jsx's Payment History tab -- canonical (snake_case)
+  // dialect, distinct from getTransactionsByDate's manager/Dashboard.jsx
+  // camelCase contract, since this page has no pre-existing gql to match.
+  // Income (real captured/attempted payments) only -- expense-row tracking
+  // has no schema anywhere in this project (REQ004 open question #3,
+  // still unresolved) and is deliberately not guessed at here.
+  async myFinanceTransactions(startDate: string, endDate: string, user: JwtPayload) {
+    const rows = await this.prisma.appointmentPayments.findMany({
+      where: {
+        created_at: { gte: new Date(startDate), lte: new Date(endDate) },
+        ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}),
+      },
+      include: {
+        patient: true,
+        appointment: { include: { product: true } },
+      },
+      orderBy: { created_at: 'desc' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      created_at: r.created_at,
+      amount: r.amount / 100,
+      status: r.status,
+      patient_name: `${r.patient.first_name} ${r.patient.last_name}`,
+      product_name: r.appointment.product?.name,
+      // Razorpay's basic checkout handler response doesn't include a
+      // card/UPI-level method breakdown without an extra API call this
+      // slice doesn't need -- "Razorpay" is the accurate processor name,
+      // not a fabricated card-brand-level detail.
+      method: 'Razorpay',
+    }));
+  }
+
+  // finances/index.jsx's KPI row + Revenue Chart tab. Deliberately its own
+  // metric, NOT a reuse of analytics.service.ts's "revenue" -- that's
+  // billable value of completed appointments (money that should be owed);
+  // this is real captured Razorpay payments (money that was actually
+  // collected). Conflating the two would be misleading even though both
+  // are called "revenue".
+  async myFinanceSummary(startDate: string, endDate: string, user: JwtPayload) {
+    const orgFilter = user.client_org_id ? { client_org_id: user.client_org_id } : {};
+    const now = new Date();
+    const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
+
+    const [thisMonthRows, pending, succeeded, failed, rangeRows] = await Promise.all([
+      this.prisma.appointmentPayments.findMany({
+        where: { ...orgFilter, status: 'succeeded', created_at: { gte: monthStart } },
+        select: { amount: true },
+      }),
+      this.prisma.appointmentPayments.aggregate({
+        where: { ...orgFilter, status: 'pending' },
+        _count: true,
+        _sum: { amount: true },
+      }),
+      this.prisma.appointmentPayments.count({ where: { ...orgFilter, status: 'succeeded' } }),
+      this.prisma.appointmentPayments.count({ where: { ...orgFilter, status: 'failed' } }),
+      this.prisma.appointmentPayments.findMany({
+        where: { ...orgFilter, status: 'succeeded', created_at: { gte: new Date(startDate), lte: new Date(endDate) } },
+        select: { amount: true, created_at: true },
+      }),
+    ]);
+
+    const revenueThisMonth = thisMonthRows.reduce((sum, r) => sum + r.amount, 0) / 100;
+
+    const byMonth = new Map<string, number>();
+    for (const row of rangeRows) {
+      const key = row.created_at.toLocaleString('en-US', { month: 'short', year: 'numeric' });
+      byMonth.set(key, (byMonth.get(key) ?? 0) + row.amount);
+    }
+    // Map insertion order isn't guaranteed chronological -- sort by parsing
+    // the "Mon YYYY" label back into a real date.
+    const monthly = [...byMonth.entries()]
+      .map(([month, paise]) => ({ month, revenue: paise / 100 }))
+      .sort((a, b) => new Date(`1 ${a.month}`).getTime() - new Date(`1 ${b.month}`).getTime());
+
+    return {
+      revenue_this_month: revenueThisMonth,
+      pending_count: pending._count,
+      pending_amount: (pending._sum.amount ?? 0) / 100,
+      succeeded_count: succeeded,
+      failed_count: failed,
+      monthly,
+    };
+  }
 }

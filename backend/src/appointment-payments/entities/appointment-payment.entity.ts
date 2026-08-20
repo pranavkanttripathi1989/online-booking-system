@@ -55,3 +55,36 @@ export class TransactionType {
   @Field() status: string;
   @Field(() => TransactionAppointmentType) appointment: TransactionAppointmentType;
 }
+
+// finances/index.jsx — canonical (snake_case) dialect, no pre-existing
+// contract to match (unlike Transaction above). Income only; see
+// context/open-questions.md for the still-open expense-tracking question.
+@ObjectType('FinanceTransaction')
+export class FinanceTransactionType {
+  @Field(() => ID) id: string;
+  @Field() created_at: Date;
+  @Field(() => Float) amount: number;
+  @Field() status: string;
+  @Field() patient_name: string;
+  @Field({ nullable: true }) product_name?: string;
+  @Field() method: string;
+}
+
+@ObjectType('FinanceMonthlyPoint')
+export class FinanceMonthlyPointType {
+  @Field() month: string;
+  @Field(() => Float) revenue: number;
+}
+
+// Deliberately a distinct metric from analytics' "revenue" (billable
+// appointment value) — this is real captured Razorpay payments. See
+// appointment-payments.service.ts's myFinanceSummary comment.
+@ObjectType('FinanceSummary')
+export class FinanceSummaryType {
+  @Field(() => Float) revenue_this_month: number;
+  @Field(() => Int) pending_count: number;
+  @Field(() => Float) pending_amount: number;
+  @Field(() => Int) succeeded_count: number;
+  @Field(() => Int) failed_count: number;
+  @Field(() => [FinanceMonthlyPointType]) monthly: FinanceMonthlyPointType[];
+}

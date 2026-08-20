@@ -10,7 +10,14 @@ describe('AppointmentPaymentsService', () => {
   let service: AppointmentPaymentsService;
   let prisma: {
     appointments: { findUnique: jest.Mock };
-    appointmentPayments: { create: jest.Mock; findFirst: jest.Mock; update: jest.Mock; findMany: jest.Mock };
+    appointmentPayments: {
+      create: jest.Mock;
+      findFirst: jest.Mock;
+      update: jest.Mock;
+      findMany: jest.Mock;
+      count: jest.Mock;
+      aggregate: jest.Mock;
+    };
   };
   let fetchMock: jest.Mock;
 
@@ -21,7 +28,14 @@ describe('AppointmentPaymentsService', () => {
     process.env = { ...ORIGINAL_ENV, RAZORPAY_KEY_ID: 'rzp_test_fake', RAZORPAY_KEY_SECRET: 'fake_secret' };
     prisma = {
       appointments: { findUnique: jest.fn() },
-      appointmentPayments: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn(), findMany: jest.fn() },
+      appointmentPayments: {
+        create: jest.fn(),
+        findFirst: jest.fn(),
+        update: jest.fn(),
+        findMany: jest.fn(),
+        count: jest.fn(),
+        aggregate: jest.fn(),
+      },
     };
     fetchMock = jest.fn();
     (global as any).fetch = fetchMock;
@@ -205,6 +219,102 @@ describe('AppointmentPaymentsService', () => {
       expect(result.appointment.patient.firstName).toBe('Jane');
       expect(result.appointment.patient.lastName).toBe('Doe');
       expect(result.appointment.product?.name).toBe('Consultation');
+    });
+  });
+
+  describe('myFinanceTransactions — tenant isolation', () => {
+    const row = {
+      id: 'pay-1',
+      created_at: new Date('2026-08-01'),
+      amount: 8500,
+      status: 'succeeded',
+      patient: { first_name: 'Jane', last_name: 'Doe' },
+      appointment: { product: { name: 'Consultation' } },
+    };
+
+    it('scopes to the caller org for a manager', async () => {
+      prisma.appointmentPayments.findMany.mockResolvedValue([]);
+      await service.myFinanceTransactions('2026-08-01', '2026-08-31', orgUser);
+      expect(prisma.appointmentPayments.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('does not scope by org for a platform-wide caller', async () => {
+      prisma.appointmentPayments.findMany.mockResolvedValue([]);
+      await service.myFinanceTransactions('2026-08-01', '2026-08-31', platformUser);
+      const callArg = prisma.appointmentPayments.findMany.mock.calls[0][0];
+      expect(callArg.where.client_org_id).toBeUndefined();
+    });
+
+    it('converts amount to rupees, composes patient_name, and reports Razorpay as the method', async () => {
+      prisma.appointmentPayments.findMany.mockResolvedValue([row]);
+      const [result] = await service.myFinanceTransactions('2026-08-01', '2026-08-31', orgUser);
+      expect(result.amount).toBe(85);
+      expect(result.patient_name).toBe('Jane Doe');
+      expect(result.product_name).toBe('Consultation');
+      expect(result.method).toBe('Razorpay');
+    });
+  });
+
+  describe('myFinanceSummary', () => {
+    beforeEach(() => {
+      prisma.appointmentPayments.findMany.mockResolvedValue([]);
+      prisma.appointmentPayments.aggregate.mockResolvedValue({ _count: 0, _sum: { amount: null } });
+      prisma.appointmentPayments.count.mockResolvedValue(0);
+    });
+
+    it('scopes every query to the caller org for a manager', async () => {
+      await service.myFinanceSummary('2026-08-01', '2026-08-31', orgUser);
+      const findManyCalls = prisma.appointmentPayments.findMany.mock.calls;
+      const aggregateCall = prisma.appointmentPayments.aggregate.mock.calls[0][0];
+      const countCalls = prisma.appointmentPayments.count.mock.calls;
+      expect(findManyCalls.every(([arg]) => arg.where.client_org_id === 'org-a')).toBe(true);
+      expect(aggregateCall.where.client_org_id).toBe('org-a');
+      expect(countCalls.every(([arg]) => arg.where.client_org_id === 'org-a')).toBe(true);
+    });
+
+    it('does not scope by org for a platform-wide caller', async () => {
+      await service.myFinanceSummary('2026-08-01', '2026-08-31', platformUser);
+      const aggregateCall = prisma.appointmentPayments.aggregate.mock.calls[0][0];
+      expect(aggregateCall.where.client_org_id).toBeUndefined();
+    });
+
+    it('sums this-calendar-month succeeded payments in rupees for revenue_this_month', async () => {
+      prisma.appointmentPayments.findMany.mockImplementation((args: any) =>
+        // "this month" query has gte with no lte; the date-range query has both.
+        args.where.created_at?.gte && !args.where.created_at?.lte
+          ? Promise.resolve([{ amount: 10000 }, { amount: 5000 }])
+          : Promise.resolve([]),
+      );
+      const result = await service.myFinanceSummary('2026-08-01', '2026-08-31', orgUser);
+      expect(result.revenue_this_month).toBe(150);
+    });
+
+    it('reports pending/succeeded/failed counts and pending_amount in rupees, distinct from analytics\' revenue metric', async () => {
+      prisma.appointmentPayments.aggregate.mockResolvedValue({ _count: 3, _sum: { amount: 30000 } });
+      prisma.appointmentPayments.count.mockResolvedValueOnce(7).mockResolvedValueOnce(2);
+      const result = await service.myFinanceSummary('2026-08-01', '2026-08-31', orgUser);
+      expect(result.pending_count).toBe(3);
+      expect(result.pending_amount).toBe(300);
+      expect(result.succeeded_count).toBe(7);
+      expect(result.failed_count).toBe(2);
+    });
+
+    it('groups succeeded range payments by month, converted to rupees, in chronological order', async () => {
+      prisma.appointmentPayments.findMany.mockImplementation((args: any) => {
+        if (args.where.created_at?.gte && !args.where.created_at?.lte) return Promise.resolve([]); // this-month query
+        return Promise.resolve([
+          { amount: 10000, created_at: new Date('2026-07-15') },
+          { amount: 5000, created_at: new Date('2026-08-05') },
+          { amount: 5000, created_at: new Date('2026-08-20') },
+        ]);
+      });
+      const result = await service.myFinanceSummary('2026-07-01', '2026-08-31', orgUser);
+      expect(result.monthly).toEqual([
+        { month: 'Jul 2026', revenue: 100 },
+        { month: 'Aug 2026', revenue: 100 },
+      ]);
     });
   });
 });

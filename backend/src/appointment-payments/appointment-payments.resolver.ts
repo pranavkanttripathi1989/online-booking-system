@@ -1,6 +1,12 @@
 import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { AppointmentPaymentsService } from './appointment-payments.service';
-import { RazorpayOrderResultType, PaymentVerificationResultType, TransactionType } from './entities/appointment-payment.entity';
+import {
+  RazorpayOrderResultType,
+  PaymentVerificationResultType,
+  TransactionType,
+  FinanceTransactionType,
+  FinanceSummaryType,
+} from './entities/appointment-payment.entity';
 import { VerifyRazorpayPaymentInput } from './dto/appointment-payment.input';
 import { Public } from '../common/decorators/public.decorator';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -34,5 +40,26 @@ export class AppointmentPaymentsResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.appointmentPaymentsService.getTransactionsByDate(startDate, endDate, limit ?? 10, offset ?? 0, user);
+  }
+
+  // finances/index.jsx
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => [FinanceTransactionType])
+  myFinanceTransactions(
+    @Args('startDate') startDate: string,
+    @Args('endDate') endDate: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.appointmentPaymentsService.myFinanceTransactions(startDate, endDate, user);
+  }
+
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => FinanceSummaryType)
+  myFinanceSummary(
+    @Args('startDate') startDate: string,
+    @Args('endDate') endDate: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.appointmentPaymentsService.myFinanceSummary(startDate, endDate, user);
   }
 }

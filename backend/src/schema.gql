@@ -637,6 +637,30 @@ type EmailTemplateMutationResult {
   userErrors: [UserError!]!
 }
 
+type FinanceMonthlyPoint {
+  month: String!
+  revenue: Float!
+}
+
+type FinanceSummary {
+  failed_count: Int!
+  monthly: [FinanceMonthlyPoint!]!
+  pending_amount: Float!
+  pending_count: Int!
+  revenue_this_month: Float!
+  succeeded_count: Int!
+}
+
+type FinanceTransaction {
+  amount: Float!
+  created_at: DateTime!
+  id: ID!
+  method: String!
+  patient_name: String!
+  product_name: String
+  status: String!
+}
+
 input ForgotPasswordInput {
   email: String!
 }
@@ -1218,6 +1242,8 @@ type Query {
   languages: [Language!]!
   me: User!
   messageableContacts: [MessageableContact!]!
+  myFinanceSummary(endDate: String!, startDate: String!): FinanceSummary!
+  myFinanceTransactions(endDate: String!, startDate: String!): [FinanceTransaction!]!
   myNotificationPreferences: [NotificationPreference!]!
   myOrgBookingPolicies: OrgBookingPolicies
   myOrgCommunicationSettings: OrgCommunicationSettings
