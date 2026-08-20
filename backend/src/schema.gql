@@ -611,6 +611,78 @@ input CreateThreadInput {
   participant_ids: [ID!]!
 }
 
+type Dashboard {
+  bookings_by_service: [DashboardBookingsByService!]!
+  no_show_rate: Float!
+  total_appointments_month: Int!
+  total_appointments_today: Int!
+  total_appointments_today_change: Float!
+  total_appointments_week: Int!
+  total_clinicians: Int!
+  total_clinicians_change: Float!
+  total_patients: Int!
+  total_patients_change: Float!
+  total_revenue_month: Float!
+  total_revenue_month_change: Float!
+  upcoming_appointments: [DashboardUpcomingAppointment!]!
+  utilisation_by_clinician: [DashboardClinicianUtilisation!]!
+  volume_by_day: [DashboardVolumeByDay!]!
+}
+
+type DashboardAppointmentClinician {
+  full_name: String!
+  id: ID!
+}
+
+type DashboardAppointmentPatient {
+  full_name: String!
+  id: ID!
+}
+
+type DashboardAppointmentService {
+  id: ID!
+  name: String!
+}
+
+type DashboardBookingsByService {
+  count: Int!
+  service_name: String!
+}
+
+type DashboardClinicianTypeRef {
+  name: String!
+}
+
+type DashboardClinicianUtilisation {
+  clinician: DashboardUtilisationClinician!
+  slots_available: Int!
+  slots_booked: Int!
+  utilisation_percent: Float!
+}
+
+type DashboardUpcomingAppointment {
+  clinician: DashboardAppointmentClinician!
+  end_datetime: DateTime!
+  id: ID!
+  patient: DashboardAppointmentPatient!
+  service: DashboardAppointmentService
+  start_datetime: DateTime!
+  status: String!
+}
+
+type DashboardUtilisationClinician {
+  avatar_url: String
+  clinician_type: DashboardClinicianTypeRef
+  full_name: String!
+  id: ID!
+}
+
+type DashboardVolumeByDay {
+  cancelled_count: Int!
+  confirmed_count: Int!
+  date: String!
+}
+
 """
 Date-only scalar (YYYY-MM-DD), distinct from the DateTime scalar used elsewhere
 """
@@ -1220,6 +1292,7 @@ type Query {
   clinicianTypes: [ClinicianType!]!
   clinicians(clinic_id: ID, first: Int = 20, is_active: Boolean, page: Int): ClinicianPaginated!
   clinics(search: SearchInput): [Clinic!]!
+  dashboard: Dashboard!
   emailTemplates: [EmailTemplate!]!
   getAppointment(id: ID!): PublicAppointmentDetail!
   getAppointmentStats(clinicId: ID, endDate: String!, startDate: String!): AppointmentStats!

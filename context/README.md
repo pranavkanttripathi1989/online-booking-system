@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| dashboard-2026-08-21 | dashboard | 2026-08-21 | REQ007, PLAN014, TP044, TR043 | done | [manifest.md](./dashboard-2026-08-21/manifest.md) |
 | communications-policies-2026-08-20 | communications-policies | 2026-08-20 | REQ006, PLAN009, TP039, TR038, PLAN011, TP041, TR040 | in-progress | [manifest.md](./communications-policies-2026-08-20/manifest.md) |
 | patient-payments-2026-08-20 | patient-payments | 2026-08-20 | REQ004, PLAN012, PLAN013, TP042, TP043, TR041, TR042 | done | [manifest.md](./patient-payments-2026-08-20/manifest.md) |
 | settings-2026-08-20 | settings | 2026-08-20 | REQ005, PLAN010, TP040, TR039 | in-progress | [manifest.md](./settings-2026-08-20/manifest.md) |
