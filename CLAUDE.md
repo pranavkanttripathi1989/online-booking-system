@@ -10,6 +10,35 @@ Act as a senior full-stack engineer with 20 years of production experience shipp
 
 MediBook / HealthSync — multi-tenant SaaS for online doctor/clinic appointment booking, built for the **Indian market**. Read `context/README.md` first — it indexes every planning/decision doc under `context/` and states current build status; treat it as more current than this file for "what's built" questions.
 
+## Project context
+
+At the start of a session, run `node scripts/archive-sweep.mjs` (add `--apply` when it reports pending moves). It is a no-op when nothing has aged out.
+
+Read these indexes before planning or implementing anything, then open the specific feature README and documents you need:
+@requirements/README.md
+@implementation-plans/README.md
+@test-plans/README.md
+@test-results/README.md
+@test-suggestions/README.md
+@context/README.md
+
+Read-order rule: ACTIVE documents are authoritative. Consult `context/archive/README.md` and `test-results/_archive/` ONLY when the active tree does not answer the question (e.g. tracing why a decision was made, or auditing a historical test run). Never treat an archived document as current.
+
+Directory contract:
+- `<root>/<feature-name>/{requirement,improvement,bug}/*.md` across all five roots.
+- The same `feature` slug and the same parent ID thread a work item through every root and its `context/` bundle.
+- Frontmatter (`id`, `type`, `feature`, `created`, `updated`, `status`, `parent`, `related`) is mandatory on every document.
+
+Working loop for all future work in this repo:
+1. Classify the incoming work as requirement, improvement, or bug, and identify its feature slug (reuse an existing slug; only create a new feature directory when the work genuinely belongs to no existing feature).
+2. Write the doc into `requirements/<feature>/<category>/` with a fresh ID and full frontmatter, then update that feature's README and the root README.
+3. Enter plan mode and explore the code BEFORE writing any implementation. Record the plan in `implementation-plans/<feature>/<category>/` with `parent` set to the requirement ID.
+4. Draft candidate tests into `test-suggestions/<feature>/<category>/`. These are UNREVIEWED — never treat a test-suggestion as an approved test. Promote to `test-plans/<feature>/<category>/` (new TP### ID, `parent` set) only after human review.
+5. Implement, then run the approved test-plans and record outcomes in `test-results/<feature>/<category>/` with pass/fail and the commit SHA.
+6. Create or update `context/<feature>-<date>/manifest.md` at every step above so the bundle never drifts from reality.
+7. Do not set a requirement's status to `done` until a `test-results` document with a passing outcome exists and is linked from the bundle.
+8. Keep every index current in the same change that adds or moves a document — a stale index is worse than no index.
+
 ## Hard rules — non-negotiable
 
 1. **No skipped steps.** Each item in "Current priorities" below has a Definition of Done (DoD). Don't move to the next until the current one's DoD is fully satisfied. If you can't satisfy it, stop and say why — don't silently move on or mark it done anyway.
