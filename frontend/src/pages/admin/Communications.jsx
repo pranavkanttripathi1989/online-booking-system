@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useApolloClient, gql } from '@apollo/client';
 import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Tab, Tabs,
   TextField, Paper, Switch, FormControlLabel, Select, MenuItem,
-  FormControl, InputLabel, Divider, IconButton, Alert,
+  FormControl, InputLabel, Divider, IconButton, Alert, Dialog, DialogTitle,
+  DialogContent, CircularProgress,
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
@@ -11,15 +13,34 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import EditIcon from '@mui/icons-material/Edit';
 import PreviewIcon from '@mui/icons-material/Preview';
 import SendIcon from '@mui/icons-material/Send';
+import CloseIcon from '@mui/icons-material/Close';
 
-const EMAIL_TEMPLATES = [
-  { id: 1, name: 'Appointment Confirmation', trigger: 'On booking', channel: 'email', active: true },
-  { id: 2, name: '24-Hour Reminder',         trigger: '24h before', channel: 'email+sms', active: true },
-  { id: 3, name: 'Appointment Cancellation', trigger: 'On cancel',  channel: 'email', active: true },
-  { id: 4, name: 'Payment Receipt',          trigger: 'On payment', channel: 'email', active: true },
-  { id: 5, name: 'Follow-up Survey',         trigger: '24h after',  channel: 'email', active: false },
-  { id: 6, name: 'Video Call Reminder',      trigger: '15min before',channel: 'sms',  active: true },
-];
+// REQ011 — real backend/src/email-templates data (the same module and rows
+// admin/EmailTemplates.jsx's full editor uses), replacing a 100% hardcoded
+// local array. Every real template is email-only (no SMS-template concept
+// exists on this model) -- the mock's fabricated "channel"/"email+sms"
+// distinction is dropped rather than carried forward. Full subject/body
+// editing stays on the dedicated Email Templates page (avoids maintaining
+// two copies of that editor); this tab does real active/inactive toggling
+// and a real read-only preview.
+const GET_EMAIL_TEMPLATES = gql`
+  query GetNotificationEmailTemplates { emailTemplates { id name type subject body variables is_active } }
+`;
+const UPDATE_EMAIL_TEMPLATE_ACTIVE = gql`
+  mutation UpdateEmailTemplateActive($id: ID!, $input: UpdateEmailTemplateInput!) {
+    updateEmailTemplate(id: $id, input: $input) { success userErrors { message } template { id is_active } }
+  }
+`;
+const TEMPLATE_TYPE_LABELS = {
+  appointment_confirmation: 'Appointment Confirmation',
+  appointment_reminder: 'Appointment Reminder',
+  appointment_cancellation: 'Appointment Cancellation',
+  appointment_rescheduled: 'Appointment Rescheduled',
+  password_reset: 'Password Reset',
+  welcome: 'Welcome',
+  invoice: 'Invoice / Receipt',
+  cancellation_fee: 'Cancellation Fee',
+};
 
 // REQ006 — Global Settings tab, Email half.
 const GET_COMMUNICATION_SETTINGS = gql`
@@ -55,10 +76,39 @@ const UPDATE_NOTIFICATION_PROVIDER_CONFIG = gql`
 
 export default function AdminCommunications() {
   const client = useApolloClient();
-  const [templates, setTemplates] = useState(EMAIL_TEMPLATES);
+  const navigate = useNavigate();
+  const [templates, setTemplates] = useState([]);
+  const [loadingTemplates, setLoadingTemplates] = useState(true);
+  const [templatesError, setTemplatesError] = useState(null);
+  const [togglingId, setTogglingId] = useState(null);
+  const [previewTemplate, setPreviewTemplate] = useState(null);
   const [tab, setTab] = useState(0);
   const [testEmail, setTestEmail] = useState('');
   const [sent, setSent] = useState(false);
+
+  const loadTemplates = () => {
+    setLoadingTemplates(true)
+    client.query({ query: GET_EMAIL_TEMPLATES, fetchPolicy: 'network-only' })
+      .then(({ data }) => setTemplates(data?.emailTemplates ?? []))
+      .catch((err) => setTemplatesError(err.message))
+      .finally(() => setLoadingTemplates(false))
+  }
+  useEffect(() => { loadTemplates() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleTemplateActive = async (t) => {
+    setTemplatesError(null); setTogglingId(t.id)
+    try {
+      const { data } = await client.mutate({
+        mutation: UPDATE_EMAIL_TEMPLATE_ACTIVE,
+        variables: { id: t.id, input: { subject: t.subject, body: t.body, is_active: !t.is_active } },
+      })
+      if (!data?.updateEmailTemplate?.success) {
+        throw new Error(data?.updateEmailTemplate?.userErrors?.[0]?.message ?? 'Failed to update template')
+      }
+      setTemplates((prev) => prev.map((row) => row.id === t.id ? { ...row, is_active: !row.is_active } : row))
+    } catch (err) { setTemplatesError(err.message) }
+    finally { setTogglingId(null) }
+  }
 
   const [emailFromName, setEmailFromName] = useState('');
   const [emailFromAddress, setEmailFromAddress] = useState('');
@@ -152,10 +202,6 @@ export default function AdminCommunications() {
     finally { setSavingEmailSettings(false) }
   }
 
-  const toggle = (id) => setTemplates((prev) => prev.map((t) => t.id === id ? { ...t, active: !t.active } : t));
-
-  const CHANNEL_ICON = { email: <EmailIcon sx={{ fontSize: 16 }} />, sms: <SmsIcon sx={{ fontSize: 16 }} />, 'email+sms': null };
-
   return (
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
@@ -171,35 +217,41 @@ export default function AdminCommunications() {
         <Tab label="Send Test Message" />
       </Tabs>
 
-      {/* Templates */}
+      {/* Templates — real backend/src/email-templates data */}
       {tab === 0 && (
         <Stack spacing={2}>
-          <Alert severity="info">Templates are sent automatically based on triggers. Toggle to enable/disable each notification.</Alert>
-          {templates.map((t) => (
-            <Card key={t.id} sx={{ border: '1px solid #D0E8EA', opacity: t.active ? 1 : 0.6 }}>
+          <Alert severity="info">
+            Toggle a template on/off here. To edit the subject or body, use the full editor on the Email Templates page.
+          </Alert>
+          {templatesError && <Alert severity="error" onClose={() => setTemplatesError(null)}>{templatesError}</Alert>}
+          {loadingTemplates ? (
+            <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>
+          ) : templates.length === 0 ? (
+            <Card><CardContent sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">No email templates found.</Typography></CardContent></Card>
+          ) : templates.map((t) => (
+            <Card key={t.id} sx={{ border: '1px solid #D0E8EA', opacity: t.is_active ? 1 : 0.6 }}>
               <CardContent sx={{ p: 2.5 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center">
-                  <Box flex={1}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                  <Box flex={1} minWidth={200}>
                     <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
-                      <Typography fontWeight={700}>{t.name}</Typography>
-                      {t.channel.split('+').map((ch) => (
-                        <Chip
-                          key={ch}
-                          icon={ch === 'email' ? <EmailIcon sx={{ fontSize: 14 }} /> : <SmsIcon sx={{ fontSize: 14 }} />}
-                          label={ch.toUpperCase()}
-                          size="small"
-                          sx={{ bgcolor: ch === 'email' ? '#DBEAFE' : '#D1FAE5', color: ch === 'email' ? '#1E40AF' : '#065F46', fontWeight: 700 }}
-                        />
-                      ))}
+                      <Typography fontWeight={700}>{t.name || TEMPLATE_TYPE_LABELS[t.type] || t.type}</Typography>
+                      <Chip
+                        icon={<EmailIcon sx={{ fontSize: 14 }} />}
+                        label="EMAIL"
+                        size="small"
+                        sx={{ bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700 }}
+                      />
                     </Stack>
-                    <Typography variant="body2" color="text.secondary">Trigger: <strong>{t.trigger}</strong></Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Type: <strong>{TEMPLATE_TYPE_LABELS[t.type] || t.type}</strong>
+                    </Typography>
                   </Box>
                   <Stack direction="row" spacing={1} alignItems="center">
-                    <IconButton size="small"><PreviewIcon fontSize="small" /></IconButton>
-                    <IconButton size="small"><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" onClick={() => setPreviewTemplate(t)}><PreviewIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" onClick={() => navigate('/admin/email-templates')}><EditIcon fontSize="small" /></IconButton>
                     <FormControlLabel
-                      control={<Switch checked={t.active} onChange={() => toggle(t.id)} size="small" />}
-                      label={<Typography variant="caption">{t.active ? 'Active' : 'Off'}</Typography>}
+                      control={<Switch checked={t.is_active} disabled={togglingId === t.id} onChange={() => toggleTemplateActive(t)} size="small" />}
+                      label={<Typography variant="caption">{t.is_active ? 'Active' : 'Off'}</Typography>}
                       labelPlacement="start"
                       sx={{ mr: 0, ml: 1 }}
                     />
@@ -210,6 +262,23 @@ export default function AdminCommunications() {
           ))}
         </Stack>
       )}
+
+      {/* Read-only preview — full editing lives on the Email Templates page */}
+      <Dialog open={!!previewTemplate} onClose={() => setPreviewTemplate(null)} maxWidth="md" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Preview: {previewTemplate?.name || TEMPLATE_TYPE_LABELS[previewTemplate?.type] || previewTemplate?.type}
+          <IconButton size="small" onClick={() => setPreviewTemplate(null)}><CloseIcon /></IconButton>
+        </DialogTitle>
+        <DialogContent dividers>
+          <Typography variant="subtitle2" gutterBottom>Subject:</Typography>
+          <Box sx={{ p: 1.5, bgcolor: 'grey.100', borderRadius: 1, mb: 2, fontFamily: 'monospace' }}>{previewTemplate?.subject}</Box>
+          <Divider sx={{ mb: 2 }} />
+          <Typography variant="subtitle2" gutterBottom>Body:</Typography>
+          <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', overflowX: 'auto', border: '1px solid', borderColor: 'divider', minHeight: 160 }}>
+            {previewTemplate?.body}
+          </Box>
+        </DialogContent>
+      </Dialog>
 
       {/* Global Settings */}
       {tab === 1 && (

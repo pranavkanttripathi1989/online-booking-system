@@ -1,10 +1,12 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsBoolean } from 'class-validator';
 
 // admin/EmailTemplates.jsx's edit form only ever submits {subject, body} —
-// type/variables/is_active are read-only from this page.
+// type/variables stay read-only from that page. admin/Communications.jsx's
+// Notification Templates tab additionally toggles is_active.
 @InputType('UpdateEmailTemplateInput')
 export class UpdateEmailTemplateInput {
   @Field() @IsNotEmpty() subject: string;
   @Field() @IsNotEmpty() body: string;
+  @Field({ nullable: true }) @IsOptional() @IsBoolean() is_active?: boolean;
 }

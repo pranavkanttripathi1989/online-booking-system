@@ -108,5 +108,24 @@ describe('EmailTemplatesService', () => {
         service.update('tpl-1', { subject: 'Cost is {5}', body: 'plain text' } as any),
       ).resolves.toBeDefined();
     });
+
+    // admin/Communications.jsx's Notification Templates tab toggle
+    it('persists is_active when provided, alongside the required subject/body', async () => {
+      prisma.emailTemplates.findUnique.mockResolvedValue(existing);
+      prisma.emailTemplates.update.mockResolvedValue({ ...existing, is_active: false });
+      await service.update('tpl-1', { subject: existing.subject, body: existing.body, is_active: false } as any);
+      expect(prisma.emailTemplates.update).toHaveBeenCalledWith({
+        where: { id: 'tpl-1' },
+        data: { subject: existing.subject, body: existing.body, is_active: false },
+      });
+    });
+
+    it('leaves is_active untouched when omitted (existing subject/body-only edit path)', async () => {
+      prisma.emailTemplates.findUnique.mockResolvedValue(existing);
+      prisma.emailTemplates.update.mockResolvedValue(existing);
+      await service.update('tpl-1', { subject: existing.subject, body: existing.body } as any);
+      const call = prisma.emailTemplates.update.mock.calls[0][0];
+      expect(call.data.is_active).toBeUndefined();
+    });
   });
 });

@@ -64,3 +64,36 @@ test('manager can reach and save real email sender settings', async ({ page }) =
   await page.getByRole('button', { name: 'Save Email Settings' }).click()
   await expect(page.getByText('Email settings saved.')).toBeVisible()
 })
+
+// REQ011 — Notification Templates tab, real backend/src/email-templates data
+// (the same module admin/EmailTemplates.jsx's full editor uses) replacing a
+// 100% hardcoded local array. updateEmailTemplate is @Auth('admin',
+// 'super_admin') only (no manager), unlike the two tests above -- Admin here.
+test('admin sees real email templates, toggles one off and back on, and previews it', async ({ page }) => {
+  await loginAs(page, 'Admin')
+  await page.goto('/admin/communications')
+  await expect(page.getByRole('heading', { name: 'Communications' })).toBeVisible()
+
+  // Real seeded template names, not the old mock's fabricated "24-Hour
+  // Reminder"/"Video Call Reminder"/"Follow-up Survey" (none of which exist
+  // as real backend/src/email-templates rows).
+  await expect(page.getByText('Appointment Confirmation').first()).toBeVisible({ timeout: 15_000 })
+  const card = page.locator('.MuiCard-root', { hasText: 'Appointment Confirmation' })
+  const toggle = card.locator('input[type="checkbox"]')
+  await expect(toggle).toBeChecked()
+
+  await toggle.click()
+  await expect(toggle).not.toBeChecked()
+  await page.reload()
+  const cardAfterReload = page.locator('.MuiCard-root', { hasText: 'Appointment Confirmation' })
+  await expect(cardAfterReload.locator('input[type="checkbox"]')).not.toBeChecked({ timeout: 15_000 })
+
+  // Revert so other specs/manual QA aren't left with a disabled template.
+  await cardAfterReload.locator('input[type="checkbox"]').click()
+  await expect(cardAfterReload.locator('input[type="checkbox"]')).toBeChecked()
+
+  // Preview shows the real subject/body, not a fabricated summary.
+  await cardAfterReload.getByRole('button').first().click()
+  await expect(page.getByText('Subject:')).toBeVisible()
+  await expect(page.locator('.MuiDialogContent-root')).toContainText('{{patient_name}}')
+})

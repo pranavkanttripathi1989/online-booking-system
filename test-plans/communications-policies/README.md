@@ -12,6 +12,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TP048 | improvement | Test plan — remove duplicate Cancellation Policy sliders | approved | 2026-08-21 | 2026-08-21 | REQ010 | [TP048-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md](./improvement/TP048-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md) |
+| TP049 | improvement | Test plan — Notification Templates real backend | approved | 2026-08-21 | 2026-08-21 | REQ011 | [TP049-communications-policies-2026-08-21-notification-templates-real-backend.md](./improvement/TP049-communications-policies-2026-08-21-notification-templates-real-backend.md) |
 
 ## bug
 

@@ -42,7 +42,7 @@ export class EmailTemplatesService {
 
     const updated = await this.prisma.emailTemplates.update({
       where: { id },
-      data: { subject: input.subject, body: input.body },
+      data: { subject: input.subject, body: input.body, is_active: input.is_active },
     });
     return this.toGraphQL(updated);
   }
