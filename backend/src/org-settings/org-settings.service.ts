@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { UpdateOrgCommunicationSettingsInput, UpdateOrgBookingPoliciesInput } from './dto/org-settings.input';
+import {
+  UpdateOrgCommunicationSettingsInput,
+  UpdateOrgBookingPoliciesInput,
+  UpdateOrgSecuritySettingsInput,
+} from './dto/org-settings.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 const PAISE_TO_RUPEES = (paise: number) => paise / 100;
@@ -27,6 +31,17 @@ export class OrgSettingsService {
       slot_buffer_minutes: row.slot_buffer_minutes,
       max_reschedules_per_month: row.max_reschedules_per_month,
       data_retention_years: row.data_retention_years,
+    };
+  }
+
+  private toSecuritySettings(row: any) {
+    return {
+      mfa_required: row.mfa_required,
+      session_timeout_minutes: row.session_timeout_minutes ?? undefined,
+      audit_log_enabled: row.audit_log_enabled,
+      patient_data_export_enabled: row.patient_data_export_enabled,
+      ip_whitelist_enabled: row.ip_whitelist_enabled,
+      ip_whitelist: row.ip_whitelist ?? undefined,
     };
   }
 
@@ -81,6 +96,35 @@ export class OrgSettingsService {
       return { success: true, userErrors: [], policies: this.toBookingPolicies(row) };
     } catch (e: any) {
       return { success: false, userErrors: [{ message: e.message ?? 'Failed to update booking policies' }] };
+    }
+  }
+
+  async mySecuritySettings(user: JwtPayload) {
+    if (!user.client_org_id) return null;
+    const org = await this.prisma.clientOrganizations.findUnique({ where: { id: user.client_org_id } });
+    if (!org || org.is_deleted) return null;
+    return this.toSecuritySettings(org);
+  }
+
+  async updateMySecuritySettings(input: UpdateOrgSecuritySettingsInput, user: JwtPayload) {
+    if (!user.client_org_id) {
+      return { success: false, userErrors: [{ message: NOT_LINKED_ERROR }] };
+    }
+    try {
+      const row = await this.prisma.clientOrganizations.update({
+        where: { id: user.client_org_id },
+        data: {
+          mfa_required: input.mfa_required,
+          session_timeout_minutes: input.session_timeout_minutes,
+          audit_log_enabled: input.audit_log_enabled,
+          patient_data_export_enabled: input.patient_data_export_enabled,
+          ip_whitelist_enabled: input.ip_whitelist_enabled,
+          ip_whitelist: input.ip_whitelist,
+        },
+      });
+      return { success: true, userErrors: [], settings: this.toSecuritySettings(row) };
+    } catch (e: any) {
+      return { success: false, userErrors: [{ message: e.message ?? 'Failed to update security settings' }] };
     }
   }
 }

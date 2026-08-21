@@ -69,4 +69,14 @@ export class AccountResolver {
   disableTotp(@Args('input') input: DisableTotpInput, @CurrentUser() user: JwtPayload) {
     return this.accountService.disableTotp(input.password, user);
   }
+
+  // REQ012/PLAN021 Slice 4 — GDPR Art.20 data export, gated by the
+  // patient's own org's patient_data_export_enabled setting. A JSON string
+  // (not a dedicated type) matching this codebase's existing
+  // AuditLogs.details precedent, rather than introducing a new generic-JSON
+  // scalar for a single field.
+  @Query(() => String, { name: 'myDataExport', nullable: true })
+  myDataExport(@CurrentUser() user: JwtPayload) {
+    return this.accountService.myDataExport(user);
+  }
 }

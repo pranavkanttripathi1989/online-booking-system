@@ -20,6 +20,7 @@ describe('AuthService', () => {
     userRoles: { findFirst: jest.Mock; create: jest.Mock };
     clinicians: { findUnique: jest.Mock };
     users: { create: jest.Mock };
+    clientOrganizations: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let jwt: { sign: jest.Mock; verifyAsync: jest.Mock };
@@ -56,6 +57,10 @@ describe('AuthService', () => {
       userRoles: { findFirst: jest.fn(), create: jest.fn() },
       clinicians: { findUnique: jest.fn() },
       users: { create: jest.fn() },
+      // REQ012/PLAN021 — defaults to org-less (null) so every pre-existing
+      // test in this file (none of which set client_org_id) keeps hitting
+      // the "no org to check" short-circuit and never touches this mock.
+      clientOrganizations: { findUnique: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn(),
     };
     jwt = { sign: jest.fn().mockReturnValue('signed.jwt.token'), verifyAsync: jest.fn() };
@@ -204,6 +209,61 @@ describe('AuthService', () => {
         expect.anything(),
       );
     });
+
+    // REQ012/PLAN021 — "Require MFA for all staff" + "Auto-logout after idle"
+    describe('security settings (mfa_setup_required / session_timeout_minutes)', () => {
+      it('flags mfa_setup_required when the org requires it, the role is not patient, and TOTP is not enrolled', async () => {
+        redis.get.mockResolvedValueOnce(null);
+        prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ client_org_id: 'org-1' }));
+        prisma.clientOrganizations.findUnique.mockResolvedValue({ mfa_required: true, session_timeout_minutes: null });
+
+        const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+        if (!('access_token' in result)) throw new Error('expected AuthPayloadType');
+        expect(result.mfa_setup_required).toBe(true);
+      });
+
+      it('does not flag mfa_setup_required when the org does not require it', async () => {
+        redis.get.mockResolvedValueOnce(null);
+        prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ client_org_id: 'org-1' }));
+        prisma.clientOrganizations.findUnique.mockResolvedValue({ mfa_required: false, session_timeout_minutes: null });
+
+        const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+        if (!('access_token' in result)) throw new Error('expected AuthPayloadType');
+        expect(result.mfa_setup_required).toBe(false);
+      });
+
+      it('never flags mfa_setup_required for a patient role, even when the org requires MFA', async () => {
+        redis.get.mockResolvedValueOnce(null);
+        prisma.userProfiles.findUnique.mockResolvedValue(
+          activeProfile({ client_org_id: 'org-1', role: { name: 'patient' } }),
+        );
+        prisma.clientOrganizations.findUnique.mockResolvedValue({ mfa_required: true, session_timeout_minutes: null });
+
+        const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+        if (!('access_token' in result)) throw new Error('expected AuthPayloadType');
+        expect(result.mfa_setup_required).toBe(false);
+      });
+
+      it('is false for an org-less caller, without querying clientOrganizations', async () => {
+        redis.get.mockResolvedValueOnce(null);
+        prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ client_org_id: null }));
+
+        const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+        if (!('access_token' in result)) throw new Error('expected AuthPayloadType');
+        expect(result.mfa_setup_required).toBe(false);
+        expect(prisma.clientOrganizations.findUnique).not.toHaveBeenCalled();
+      });
+
+      it('passes through the org\'s session_timeout_minutes for every role', async () => {
+        redis.get.mockResolvedValueOnce(null);
+        prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ client_org_id: 'org-1' }));
+        prisma.clientOrganizations.findUnique.mockResolvedValue({ mfa_required: false, session_timeout_minutes: 30 });
+
+        const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+        if (!('access_token' in result)) throw new Error('expected AuthPayloadType');
+        expect(result.session_timeout_minutes).toBe(30);
+      });
+    });
   });
 
   describe('verifyTotpLogin', () => {
@@ -246,6 +306,19 @@ describe('AuthService', () => {
 
       expect(result.access_token).toBe('signed.jwt.token');
       expect(result.user.email).toBe('sarah@medibook.dev');
+    });
+
+    // REQ012/PLAN021 — an account that already completed the TOTP challenge
+    // is, by definition, already enrolled -- mfa_setup_required must never
+    // fire again even if the org requires MFA.
+    it('never flags mfa_setup_required for an account that just cleared the TOTP challenge', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1', purpose: 'totp_challenge' });
+      prisma.userProfiles.findUnique.mockResolvedValue(totpProfile({ client_org_id: 'org-1' }));
+      prisma.clientOrganizations.findUnique.mockResolvedValue({ mfa_required: true, session_timeout_minutes: null });
+      const code = authenticator.generate(totpSecret);
+
+      const result = await service.verifyTotpLogin('token', code);
+      expect(result.mfa_setup_required).toBe(false);
     });
 
     it('accepts a correct backup code and consumes it (single-use), when the TOTP code itself is wrong', async () => {

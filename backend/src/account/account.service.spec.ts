@@ -13,12 +13,19 @@ const hashSync = (plain: string) => bcrypt.hashSync(plain, 4);
 
 describe('AccountService', () => {
   let service: AccountService;
-  let prisma: { userProfiles: { findUnique: jest.Mock; update: jest.Mock } };
+  let prisma: {
+    userProfiles: { findUnique: jest.Mock; update: jest.Mock };
+    clientOrganizations: { findUnique: jest.Mock };
+    patients: { findUnique: jest.Mock };
+    appointments: { findMany: jest.Mock };
+    testResults: { findMany: jest.Mock };
+  };
   let redis: { smembers: jest.Mock; get: jest.Mock; del: jest.Mock; srem: jest.Mock };
   let authService: { logout: jest.Mock };
 
   const user: JwtPayload = { sub: 'user-1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const otherUser: JwtPayload = { sub: 'user-2', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+  const patientUser: JwtPayload = { sub: 'user-3', roles: ['patient'], client_org_id: 'org-a', patient_id: 'pat-1', clinician_id: null } as JwtPayload;
 
   const profileRow = (overrides: Partial<Record<string, unknown>> = {}) => ({
     id: 'user-1',
@@ -32,7 +39,13 @@ describe('AccountService', () => {
   });
 
   beforeEach(async () => {
-    prisma = { userProfiles: { findUnique: jest.fn(), update: jest.fn() } };
+    prisma = {
+      userProfiles: { findUnique: jest.fn(), update: jest.fn() },
+      clientOrganizations: { findUnique: jest.fn() },
+      patients: { findUnique: jest.fn() },
+      appointments: { findMany: jest.fn() },
+      testResults: { findMany: jest.fn() },
+    };
     redis = { smembers: jest.fn(), get: jest.fn(), del: jest.fn(), srem: jest.fn() };
     authService = { logout: jest.fn().mockResolvedValue({ success: true }) };
 
@@ -296,6 +309,66 @@ describe('AccountService', () => {
       await service.deactivateMyAccount(otherUser);
       expect(prisma.userProfiles.findUnique).toHaveBeenCalledWith({ where: { id: 'user-2' } });
       expect(authService.logout).toHaveBeenCalledWith('user-2');
+    });
+  });
+
+  // REQ012/PLAN021 Slice 4 — GDPR Art.20 data export
+  describe('myDataExport', () => {
+    const patientRow = {
+      id: 'pat-1', first_name: 'A', last_name: 'B', email: 'a@example.com', phone: '+919810000000',
+      date_of_birth: new Date('1990-01-01'), address: '1 Main St', address_structured: null, is_deleted: false,
+    };
+
+    it('returns null for a caller with no linked patient_id', async () => {
+      expect(await service.myDataExport(user)).toBeNull();
+      expect(prisma.clientOrganizations.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns null when the org has not enabled patient data export', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue({ patient_data_export_enabled: false });
+      expect(await service.myDataExport(patientUser)).toBeNull();
+      expect(prisma.patients.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns null for a deleted or missing patient record even when the org allows export', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue({ patient_data_export_enabled: true });
+      prisma.patients.findUnique.mockResolvedValue(null);
+      expect(await service.myDataExport(patientUser)).toBeNull();
+    });
+
+    it('scopes strictly to the caller\'s own patient_id, never a client-supplied one', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue({ patient_data_export_enabled: true });
+      prisma.patients.findUnique.mockResolvedValue(patientRow);
+      prisma.appointments.findMany.mockResolvedValue([]);
+      prisma.testResults.findMany.mockResolvedValue([]);
+      await service.myDataExport(patientUser);
+      expect(prisma.patients.findUnique).toHaveBeenCalledWith({ where: { id: 'pat-1' } });
+      expect(prisma.appointments.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { patient_id: 'pat-1', is_deleted: false } }),
+      );
+      expect(prisma.testResults.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { patient_id: 'pat-1', is_deleted: false } }),
+      );
+    });
+
+    it('returns a real JSON export bundling profile, appointments, and test results', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue({ patient_data_export_enabled: true });
+      prisma.patients.findUnique.mockResolvedValue(patientRow);
+      prisma.appointments.findMany.mockResolvedValue([
+        { id: 'appt-1', appointment_date: new Date('2026-01-01'), appointment_time: new Date('2026-01-01T10:00:00Z'), duration_minutes: 30, status: 'completed', reason: 'Checkup', notes: '' },
+      ]);
+      prisma.testResults.findMany.mockResolvedValue([
+        { id: 'tr-1', test_name: 'Blood Panel', test_type: 'blood', status: 'completed', date_ordered: new Date('2026-01-02'), date_completed: new Date('2026-01-03'), values: [] },
+      ]);
+
+      const result = await service.myDataExport(patientUser);
+      expect(result).toEqual(expect.any(String));
+      const parsed = JSON.parse(result!);
+      expect(parsed.profile.id).toBe('pat-1');
+      expect(parsed.appointments).toHaveLength(1);
+      expect(parsed.appointments[0].reason).toBe('Checkup');
+      expect(parsed.test_results).toHaveLength(1);
+      expect(parsed.test_results[0].test_name).toBe('Blood Panel');
     });
   });
 });

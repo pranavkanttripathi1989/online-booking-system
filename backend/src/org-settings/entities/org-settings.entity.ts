@@ -48,3 +48,28 @@ export class OrgBookingPoliciesMutationResultType {
   @Field(() => [OrgBookingPoliciesUserErrorType]) userErrors: OrgBookingPoliciesUserErrorType[];
   @Field(() => OrgBookingPoliciesType, { nullable: true }) policies?: OrgBookingPoliciesType;
 }
+
+// admin/Policies.jsx "Security & Privacy" tab (REQ012/PLAN021). Every field
+// here has real enforcement elsewhere -- see the schema.prisma comment on
+// ClientOrganizations for exactly where each one is checked.
+@ObjectType('OrgSecuritySettings')
+export class OrgSecuritySettingsType {
+  @Field() mfa_required: boolean;
+  @Field(() => Int, { nullable: true }) session_timeout_minutes?: number;
+  @Field() audit_log_enabled: boolean;
+  @Field() patient_data_export_enabled: boolean;
+  @Field() ip_whitelist_enabled: boolean;
+  @Field({ nullable: true }) ip_whitelist?: string;
+}
+
+@ObjectType('OrgSecuritySettingsUserError')
+export class OrgSecuritySettingsUserErrorType {
+  @Field() message: string;
+}
+
+@ObjectType('OrgSecuritySettingsMutationResult')
+export class OrgSecuritySettingsMutationResultType {
+  @Field() success: boolean;
+  @Field(() => [OrgSecuritySettingsUserErrorType]) userErrors: OrgSecuritySettingsUserErrorType[];
+  @Field(() => OrgSecuritySettingsType, { nullable: true }) settings?: OrgSecuritySettingsType;
+}

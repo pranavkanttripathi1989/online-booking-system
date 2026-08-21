@@ -3,7 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { GraphQLModule } from '@nestjs/graphql';
 import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { join } from 'path';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
@@ -38,6 +38,8 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { GqlAuthGuard } from './common/guards/gql-auth.guard';
+import { IpWhitelistGuard } from './common/guards/ip-whitelist.guard';
+import { AuditLogInterceptor } from './common/interceptors/audit-log.interceptor';
 import { PubSubModule } from './common/pubsub.module';
 
 @Module({
@@ -122,6 +124,14 @@ import { PubSubModule } from './common/pubsub.module';
     { provide: APP_GUARD, useClass: GqlThrottlerGuard },
     { provide: APP_GUARD, useClass: GqlAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // REQ012/PLAN021 — runs last (req.user and its role are already
+    // verified), enforces the org's own IP whitelist for manager-role
+    // callers only. See the guard's own file for the deliberate
+    // self-lockout exemption on the settings mutation itself.
+    { provide: APP_GUARD, useClass: IpWhitelistGuard },
+    // Runs after the guards above (req.user is already populated),
+    // observes every mutation's outcome without altering it.
+    { provide: APP_INTERCEPTOR, useClass: AuditLogInterceptor },
   ],
 })
 export class AppModule {}

@@ -189,6 +189,60 @@ export class AccountService {
     return { success: true, backup_codes: backupCodes };
   }
 
+  // ── Data export (GDPR Art.20) — PLAN021 Slice 4 ─────────────────────────
+  // Self-scoped off the caller's own patient_id (never a client-supplied
+  // id), gated by the patient's own org's patient_data_export_enabled
+  // setting. Returns null (not an error) when the caller isn't a linked
+  // patient, isn't in an org, or the org hasn't enabled this -- matches
+  // this file's existing "self-scoped, no separate role gate" convention.
+  async myDataExport(user: JwtPayload): Promise<string | null> {
+    if (!user.patient_id || !user.client_org_id) return null;
+
+    const org = await this.prisma.clientOrganizations.findUnique({ where: { id: user.client_org_id } });
+    if (!org?.patient_data_export_enabled) return null;
+
+    const patient = await this.prisma.patients.findUnique({ where: { id: user.patient_id } });
+    if (!patient || patient.is_deleted) return null;
+
+    const [appointments, testResults] = await Promise.all([
+      this.prisma.appointments.findMany({ where: { patient_id: user.patient_id, is_deleted: false }, orderBy: { appointment_date: 'desc' } }),
+      this.prisma.testResults.findMany({ where: { patient_id: user.patient_id, is_deleted: false }, orderBy: { date_ordered: 'desc' } }),
+    ]);
+
+    const exportData = {
+      exported_at: new Date().toISOString(),
+      profile: {
+        id: patient.id,
+        first_name: patient.first_name,
+        last_name: patient.last_name,
+        email: patient.email,
+        phone: patient.phone,
+        date_of_birth: patient.date_of_birth,
+        address: patient.address,
+        address_structured: patient.address_structured ?? undefined,
+      },
+      appointments: appointments.map((a) => ({
+        id: a.id,
+        date: a.appointment_date,
+        time: a.appointment_time,
+        duration_minutes: a.duration_minutes,
+        status: a.status,
+        reason: a.reason,
+        notes: a.notes,
+      })),
+      test_results: testResults.map((t) => ({
+        id: t.id,
+        test_name: t.test_name,
+        test_type: t.test_type,
+        status: t.status,
+        date_ordered: t.date_ordered,
+        date_completed: t.date_completed ?? undefined,
+        values: t.values,
+      })),
+    };
+    return JSON.stringify(exportData, null, 2);
+  }
+
   async disableTotp(password: string, user: JwtPayload) {
     const profile = await this.prisma.userProfiles.findUnique({ where: { id: user.sub } });
     if (!profile) return { success: false, message: 'Profile not found' };

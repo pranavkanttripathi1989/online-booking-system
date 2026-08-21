@@ -233,6 +233,31 @@ model ClientOrganizations {
   slot_buffer_minutes       Int @default(10)
   max_reschedules_per_month Int @default(3)
   data_retention_years      Int @default(7)
+  // admin/Policies.jsx "Security & Privacy" tab (REQ012). All five toggles
+  // now have real enforcement, not just persisted config:
+  // - mfa_required: checked in auth.service.ts's issueTokens() for every
+  //   non-patient role in this org; flags AuthPayload.mfa_setup_required
+  //   rather than blocking login outright (a user who can't log in at all
+  //   has no way to reach the 2FA enrollment screen that requires being
+  //   logged in -- see PLAN021).
+  // - session_timeout_minutes: read by the frontend once after login
+  //   (myOrgSecuritySettings) to drive a real client-side idle-activity
+  //   timer -- distinct from the JWT's own fixed access/refresh TTLs.
+  // - audit_log_enabled: gates the new global AuditLogInterceptor (logs
+  //   every GraphQL mutation) per-org; org-less callers (admin/super_admin)
+  //   are always logged regardless, matching this schema's existing
+  //   "org-less caller sees/does everything" precedent.
+  // - patient_data_export_enabled: gates a real GDPR Art.20 data-export
+  //   query for patient callers.
+  // - ip_whitelist_enabled/ip_whitelist: enforced by IpWhitelistGuard
+  //   against manager-role callers of this same org (admin/super_admin are
+  //   platform-wide/org-less and can't be scoped to any one org's list).
+  mfa_required                 Boolean @default(false)
+  session_timeout_minutes      Int?
+  audit_log_enabled            Boolean @default(false)
+  patient_data_export_enabled  Boolean @default(false)
+  ip_whitelist_enabled         Boolean @default(false)
+  ip_whitelist                 String? // newline- or comma-separated IPs/CIDR ranges
   created_at    DateTime @default(now())
   updated_at    DateTime @default(now())
 

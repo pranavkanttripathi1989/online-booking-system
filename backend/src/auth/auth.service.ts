@@ -99,6 +99,25 @@ export class AuthService {
     };
   }
 
+  // REQ012/PLAN021 — one org lookup backing both security-setting fields on
+  // AuthPayloadType. mfa_setup_required is true only when the org has the
+  // setting on, the caller isn't a patient, and they haven't enrolled in
+  // TOTP yet (never throws/blocks -- see the entity field comment for why
+  // login still succeeds either way). session_timeout_minutes is passed
+  // through as-is for every role, since the frontend's idle timer applies
+  // regardless of who's logged in.
+  private async loadSecurityFields(userProfile: {
+    role: { name: string };
+    client_org_id: string | null;
+    totp_enabled?: boolean;
+  }): Promise<{ mfa_setup_required: boolean; session_timeout_minutes?: number }> {
+    if (!userProfile.client_org_id) return { mfa_setup_required: false };
+    const org = await this.prisma.clientOrganizations.findUnique({ where: { id: userProfile.client_org_id } });
+    if (!org) return { mfa_setup_required: false };
+    const mfaSetupRequired = org.mfa_required && userProfile.role.name !== 'patient' && !userProfile.totp_enabled;
+    return { mfa_setup_required: mfaSetupRequired, session_timeout_minutes: org.session_timeout_minutes ?? undefined };
+  }
+
   private async issueTokens(
     userProfile: {
       id: string;
@@ -109,6 +128,7 @@ export class AuthService {
       clinician_id: string | null;
       client_org_id: string | null;
       patient_id?: string | null;
+      totp_enabled?: boolean;
     },
     userAgent?: string,
   ): Promise<AuthPayloadType> {
@@ -151,12 +171,14 @@ export class AuthService {
       );
     }
 
+    const securityFields = await this.loadSecurityFields(userProfile);
     return {
       access_token,
       refresh_token,
       token_type: 'Bearer',
       expires_in: ACCESS_TTL_SECONDS,
       user: await this.buildAuthUser(userProfile),
+      ...securityFields,
     };
   }
 

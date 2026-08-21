@@ -90,4 +90,55 @@ describe('OrgSettingsService', () => {
       expect(result.userErrors[0].message).toBe('db exploded');
     });
   });
+
+  // REQ012/PLAN021 — admin/Policies.jsx "Security & Privacy" tab
+  describe('mySecuritySettings / updateMySecuritySettings', () => {
+    it('returns null for a platform-wide caller with no org to scope to', async () => {
+      expect(await service.mySecuritySettings(platformUser)).toBeNull();
+      expect(prisma.clientOrganizations.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('scopes strictly to the caller\'s own org id', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(orgRow({
+        mfa_required: true, session_timeout_minutes: 30, audit_log_enabled: true,
+        patient_data_export_enabled: false, ip_whitelist_enabled: false, ip_whitelist: null,
+      }));
+      const result = await service.mySecuritySettings(orgUser);
+      expect(prisma.clientOrganizations.findUnique).toHaveBeenCalledWith({ where: { id: 'org-a' } });
+      expect(result).toEqual({
+        mfa_required: true, session_timeout_minutes: 30, audit_log_enabled: true,
+        patient_data_export_enabled: false, ip_whitelist_enabled: false, ip_whitelist: undefined,
+      });
+    });
+
+    it('rejects an update for a platform-wide caller with a clear message', async () => {
+      const result = await service.updateMySecuritySettings({ mfa_required: true } as any, platformUser);
+      expect(result.success).toBe(false);
+      expect(result.userErrors[0].message).toMatch(/linked to an organization/i);
+      expect(prisma.clientOrganizations.update).not.toHaveBeenCalled();
+    });
+
+    it('updates only the caller\'s own org row', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow({ mfa_required: true }));
+      const result = await service.updateMySecuritySettings({ mfa_required: true } as any, orgUser);
+      expect(result.success).toBe(true);
+      expect(prisma.clientOrganizations.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'org-a' } }),
+      );
+    });
+
+    it('an explicit null clears session_timeout_minutes (distinct from omitting it)', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow({ session_timeout_minutes: null }));
+      await service.updateMySecuritySettings({ session_timeout_minutes: null } as any, orgUser);
+      const call = prisma.clientOrganizations.update.mock.calls[0][0];
+      expect(call.data.session_timeout_minutes).toBeNull();
+    });
+
+    it('omitting session_timeout_minutes leaves it untouched', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow());
+      await service.updateMySecuritySettings({ mfa_required: true } as any, orgUser);
+      const call = prisma.clientOrganizations.update.mock.calls[0][0];
+      expect(call.data.session_timeout_minutes).toBeUndefined();
+    });
+  });
 });

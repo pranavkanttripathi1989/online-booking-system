@@ -217,7 +217,9 @@ type AuditLogUser {
 type AuthPayload {
   access_token: String!
   expires_in: Int!
+  mfa_setup_required: Boolean!
   refresh_token: String!
+  session_timeout_minutes: Int
   token_type: String!
   user: User!
 }
@@ -886,6 +888,7 @@ type Mutation {
   updateMyNotificationProviderConfig(input: UpdateNotificationProviderConfigInput!): NotificationProviderConfigResult!
   updateMyOrgBookingPolicies(input: UpdateOrgBookingPoliciesInput!): OrgBookingPoliciesMutationResult!
   updateMyOrgCommunicationSettings(input: UpdateOrgCommunicationSettingsInput!): OrgCommunicationSettingsMutationResult!
+  updateMyOrgSecuritySettings(input: UpdateOrgSecuritySettingsInput!): OrgSecuritySettingsMutationResult!
   updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
@@ -1039,6 +1042,25 @@ type OrgCommunicationSettingsMutationResult {
 }
 
 type OrgCommunicationSettingsUserError {
+  message: String!
+}
+
+type OrgSecuritySettings {
+  audit_log_enabled: Boolean!
+  ip_whitelist: String
+  ip_whitelist_enabled: Boolean!
+  mfa_required: Boolean!
+  patient_data_export_enabled: Boolean!
+  session_timeout_minutes: Int
+}
+
+type OrgSecuritySettingsMutationResult {
+  settings: OrgSecuritySettings
+  success: Boolean!
+  userErrors: [OrgSecuritySettingsUserError!]!
+}
+
+type OrgSecuritySettingsUserError {
   message: String!
 }
 
@@ -1387,12 +1409,14 @@ type Query {
   languages: [Language!]!
   me: User!
   messageableContacts: [MessageableContact!]!
+  myDataExport: String
   myFinanceSummary(endDate: String!, startDate: String!): FinanceSummary!
   myFinanceTransactions(endDate: String!, startDate: String!): [FinanceTransaction!]!
   myNotificationPreferences: [NotificationPreference!]!
   myNotificationProviderConfig(channel: String!): NotificationProviderConfig
   myOrgBookingPolicies: OrgBookingPolicies
   myOrgCommunicationSettings: OrgCommunicationSettings
+  myOrgSecuritySettings: OrgSecuritySettings
   myProfile: MyProfile
   mySessions: [Session!]!
   notificationProviders: [NotificationProviderOption!]!
@@ -1807,6 +1831,15 @@ input UpdateOrgCommunicationSettingsInput {
   email_from_name: String
   email_include_branding: Boolean
   email_reply_to: String
+}
+
+input UpdateOrgSecuritySettingsInput {
+  audit_log_enabled: Boolean
+  ip_whitelist: String
+  ip_whitelist_enabled: Boolean
+  mfa_required: Boolean
+  patient_data_export_enabled: Boolean
+  session_timeout_minutes: Int
 }
 
 input UpdateProductCategoryInput {

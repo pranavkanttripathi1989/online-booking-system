@@ -23,6 +23,25 @@ export class AuthPayloadType {
 
   @Field(() => AuthUserType)
   user: AuthUserType;
+
+  // REQ012/PLAN021 — true when this org's "Require MFA for all staff"
+  // security setting is on, the caller's role isn't patient, and they
+  // haven't enrolled in TOTP yet. Login still succeeds (a user who can't
+  // log in at all has no way to reach the 2FA enrollment screen, which
+  // itself requires being logged in) -- the frontend redirects straight to
+  // enrollment instead of the normal post-login destination. Always
+  // present (false, not omitted) for every other case, matching this
+  // type's existing no-half-filled-shape contract.
+  @Field()
+  mfa_setup_required: boolean;
+
+  // REQ012/PLAN021 — the org's "Auto-logout after idle" setting, read once
+  // by the frontend right after login to drive a real client-side
+  // inactivity timer. Exposed here (not a separate manager-only query)
+  // because every authenticated role needs it, not just managers who can
+  // see the Security settings page itself.
+  @Field(() => Int, { nullable: true })
+  session_timeout_minutes?: number;
 }
 
 // PLAN016 Slice C — returned by `login` instead of AuthPayloadType when the

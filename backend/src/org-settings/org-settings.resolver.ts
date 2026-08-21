@@ -5,8 +5,14 @@ import {
   OrgCommunicationSettingsMutationResultType,
   OrgBookingPoliciesType,
   OrgBookingPoliciesMutationResultType,
+  OrgSecuritySettingsType,
+  OrgSecuritySettingsMutationResultType,
 } from './entities/org-settings.entity';
-import { UpdateOrgCommunicationSettingsInput, UpdateOrgBookingPoliciesInput } from './dto/org-settings.input';
+import {
+  UpdateOrgCommunicationSettingsInput,
+  UpdateOrgBookingPoliciesInput,
+  UpdateOrgSecuritySettingsInput,
+} from './dto/org-settings.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -40,5 +46,17 @@ export class OrgSettingsResolver {
   @Auth('manager', 'admin', 'super_admin')
   updateMyOrgBookingPolicies(@Args('input') input: UpdateOrgBookingPoliciesInput, @CurrentUser() user: JwtPayload) {
     return this.orgSettingsService.updateMyBookingPolicies(input, user);
+  }
+
+  @Query(() => OrgSecuritySettingsType, { name: 'myOrgSecuritySettings', nullable: true })
+  @Auth('manager', 'admin', 'super_admin')
+  myOrgSecuritySettings(@CurrentUser() user: JwtPayload) {
+    return this.orgSettingsService.mySecuritySettings(user);
+  }
+
+  @Mutation(() => OrgSecuritySettingsMutationResultType, { name: 'updateMyOrgSecuritySettings' })
+  @Auth('manager', 'admin', 'super_admin')
+  updateMyOrgSecuritySettings(@Args('input') input: UpdateOrgSecuritySettingsInput, @CurrentUser() user: JwtPayload) {
+    return this.orgSettingsService.updateMySecuritySettings(input, user);
   }
 }
