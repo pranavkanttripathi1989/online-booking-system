@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { useApolloClient, gql } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import {
@@ -19,6 +19,7 @@ import BusinessRoundedIcon from '@mui/icons-material/BusinessRounded'
 import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import DevicesRoundedIcon from '@mui/icons-material/DevicesRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import { useAuth } from '../../context/AuthContext'
 import { useMockData, useMockMutation } from '../../mocks/useMockData'
 import * as MockStore from '../../mocks/store'
@@ -88,6 +89,12 @@ const DEACTIVATE_MY_ACCOUNT = gql`
 const MY_NOTIFICATION_PREFERENCES_QUERY = gql`
   query MyNotificationPreferences { myNotificationPreferences { event_type email_enabled sms_enabled app_enabled } }
 `
+// REQ012/PLAN021 Slice 3 — GDPR Article 20 data portability. Nullable: null
+// means either the org hasn't enabled export or this account isn't linked
+// to a Patients row yet (both handled with a message, see handleDownloadData).
+const MY_DATA_EXPORT_QUERY = gql`
+  query MyDataExport { myDataExport }
+`
 const UPDATE_MY_NOTIFICATION_PREFERENCES = gql`
   mutation UpdateMyNotificationPreferences($input: [NotificationPreferenceInput!]!) {
     updateMyNotificationPreferences(input: $input) { success message }
@@ -99,8 +106,12 @@ export default function SettingsPage() {
   const { user, updateUser, logout } = useAuth()
   const client = useApolloClient()
   const navigate = useNavigate()
+  const location = useLocation()
+  // REQ012/PLAN021 Slice 1 — login.jsx redirects here with this state when
+  // the org requires MFA and this account hasn't enrolled yet.
+  const mfaSetupRequired = !!location.state?.mfaSetupRequired
   const fileRef = useRef(null) // SUG-SET-001: camera icon file upload
-  const [tab, setTab] = useState(0)
+  const [tab, setTab] = useState(location.state?.tab ?? 0)
   const [saved, setSaved]     = useState(null) // SUG-SET-010: null|string
 
   // Profile state — seeded from the real myProfile query (loadAccountTabs
@@ -151,6 +162,11 @@ export default function SettingsPage() {
   // Deactivate confirm dialog state (SUG-SET-004)
   const [deactivateOpen, setDeactivateOpen] = useState(false)
   const [deactivating, setDeactivating] = useState(false)
+
+  // REQ012/PLAN021 Slice 3 — "Download my data" (GDPR Article 20)
+  const [exportingData, setExportingData] = useState(false)
+  const [exportError, setExportError] = useState(null)
+  const isPatient = user?.roles?.some((r) => r.name === 'patient') ?? false
 
   // Notifications state — real myNotificationPreferences data, keyed by
   // event_type (see loadAccountTabs below); NOTIF_ROWS supplies only the
@@ -365,6 +381,31 @@ export default function SettingsPage() {
     } catch (err) { setProfileError(err.message) }
   }
 
+  // REQ012/PLAN021 Slice 3 — myDataExport returns null when the org hasn't
+  // enabled patient data export OR this account has no linked Patients row
+  // (both real, distinct states the backend deliberately collapses into one
+  // nullable result, see account.service.ts). Distinguished here only by the
+  // one thing the frontend can check itself (role), everything else gets a
+  // single honest "not available" message rather than guessing which reason applies.
+  const handleDownloadData = async () => {
+    setExportError(null); setExportingData(true)
+    try {
+      const { data } = await client.query({ query: MY_DATA_EXPORT_QUERY, fetchPolicy: 'network-only' })
+      if (!data?.myDataExport) {
+        throw new Error('Data export isn\'t available for your account right now. Your clinic may not have enabled this feature yet.')
+      }
+      const blob = new Blob([data.myDataExport], { type: 'application/json' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `medibook-my-data-${new Date().toISOString().slice(0, 10)}.json`
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (err) { setExportError(err.message) } finally { setExportingData(false) }
+  }
+
   const handleDeactivate = async () => {
     setDeactivateOpen(false); setDeactivating(true)
     try {
@@ -505,6 +546,12 @@ export default function SettingsPage() {
           {/* ── Account & Security ───────────────────────────────────────── */}
           <TabPanel value={tab} index={1}>
             <Stack spacing={3.5}>
+              {/* REQ012/PLAN021 Slice 1 — org requires MFA and this account hasn't enrolled yet */}
+              {mfaSetupRequired && !totpEnabled && (
+                <Alert severity="warning" icon={<SecurityRoundedIcon />}>
+                  Your organization requires two-factor authentication for your account. Please set it up below to continue using all features.
+                </Alert>
+              )}
               {/* Change password */}
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}><LockRoundedIcon sx={{ fontSize: '1.1rem', color: 'primary.main' }} /> Change Password</Typography>
@@ -561,6 +608,23 @@ export default function SettingsPage() {
                   {sessions.length === 0 && <Typography variant="body2" color="text.secondary">No active sessions.</Typography>}
                 </Stack>
               </Box>
+              {isPatient && (
+                <>
+                  <Divider />
+                  {/* REQ012/PLAN021 Slice 3 — GDPR Article 20 data portability */}
+                  <Box>
+                    <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><DownloadRoundedIcon sx={{ fontSize: '1.1rem', color: 'primary.main' }} /> Your Data</Typography>
+                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                      Download a copy of your personal data — profile, appointments, and test results — as a JSON file.
+                    </Typography>
+                    {exportError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setExportError(null)}>{exportError}</Alert>}
+                    <Button variant="outlined" startIcon={<DownloadRoundedIcon />} disabled={exportingData} onClick={handleDownloadData}
+                      sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                      {exportingData ? 'Preparing…' : 'Download My Data'}
+                    </Button>
+                  </Box>
+                </>
+              )}
               <Divider />
               {/* Danger zone */}
               <Box sx={{ p: 2.5, border: '1.5px solid #F5C6C2', borderRadius: 2.5, bgcolor: '#FCE8E6' }}>

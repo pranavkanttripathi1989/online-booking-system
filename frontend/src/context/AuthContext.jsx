@@ -1,5 +1,5 @@
-import { createContext, useContext, useReducer, useEffect, useCallback } from 'react'
-import { useLazyQuery } from '@apollo/client'
+import { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react'
+import { useLazyQuery, useApolloClient } from '@apollo/client'
 import { ME_QUERY } from '../graphql/queries'
 
 // ─── Mock users for offline/demo mode ────────────────────────────────────────
@@ -125,6 +125,7 @@ export const AuthContext = createContext(null)
 // ─── Provider ─────────────────────────────────────────────────────────────────
 export function AuthProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, undefined, getInitialState)
+  const apolloClient = useApolloClient()
 
   const [fetchMe, { data: meData, error: meError }] = useLazyQuery(ME_QUERY, {
     fetchPolicy: 'network-only',
@@ -163,7 +164,11 @@ export function AuthProvider({ children }) {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Exposed actions ───────────────────────────────────────────────────────
-  const login = useCallback((token, user, rememberMe = true) => {
+  // REQ012/PLAN021 Slice 2 — sessionTimeoutMinutes comes from the org's real
+  // "Auto-logout after idle" setting (login/verifyTotpLogin response),
+  // never a client-chosen value. Stored alongside the token so the idle
+  // timer below survives a page refresh.
+  const login = useCallback((token, user, rememberMe = true, sessionTimeoutMinutes) => {
     // SUG-AUTH-006: rememberMe=true → localStorage, false → sessionStorage only
     const storage = rememberMe ? localStorage : sessionStorage
     storage.setItem('medibook_token', token)
@@ -173,18 +178,55 @@ export function AuthProvider({ children }) {
       localStorage.removeItem('medibook_token')
       localStorage.removeItem('medibook_user')
     }
+    if (sessionTimeoutMinutes) {
+      storage.setItem('medibook_session_timeout_minutes', String(sessionTimeoutMinutes))
+    } else {
+      localStorage.removeItem('medibook_session_timeout_minutes')
+      sessionStorage.removeItem('medibook_session_timeout_minutes')
+    }
     // SUG-AUTH-008: store last login timestamp
     const ts = new Date().toISOString()
     localStorage.setItem('medibook_last_login', ts)
     dispatch({ type: 'LOGIN', payload: { token, user } })
   }, [])
 
-  const logout = useCallback((apolloClient) => {
+  const logout = useCallback((client) => {
     localStorage.removeItem('medibook_token')
     localStorage.removeItem('medibook_user')
-    if (apolloClient) apolloClient.clearStore()
+    localStorage.removeItem('medibook_session_timeout_minutes')
+    sessionStorage.removeItem('medibook_token')
+    sessionStorage.removeItem('medibook_user')
+    sessionStorage.removeItem('medibook_session_timeout_minutes')
+    const clientToUse = client || apolloClient
+    if (clientToUse) clientToUse.clearStore()
     dispatch({ type: 'LOGOUT' })
-  }, [])
+  }, [apolloClient])
+
+  // REQ012/PLAN021 Slice 2 — real client-side idle-activity auto-logout,
+  // distinct from the JWT's own fixed access/refresh TTLs. Only runs when
+  // the org actually set a timeout; a genuine user-interaction listener
+  // (not just a fixed timer), matching the setting's own "after N min
+  // *idle*" wording.
+  const idleTimerRef = useRef(null)
+  useEffect(() => {
+    const minutes = Number(
+      localStorage.getItem('medibook_session_timeout_minutes') || sessionStorage.getItem('medibook_session_timeout_minutes'),
+    )
+    if (!state.isAuthenticated || !minutes) return undefined
+
+    const resetTimer = () => {
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+      idleTimerRef.current = setTimeout(() => logout(), minutes * 60 * 1000)
+    }
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll']
+    events.forEach((e) => window.addEventListener(e, resetTimer))
+    resetTimer()
+
+    return () => {
+      events.forEach((e) => window.removeEventListener(e, resetTimer))
+      if (idleTimerRef.current) clearTimeout(idleTimerRef.current)
+    }
+  }, [state.isAuthenticated, logout])
 
   const hasRole = useCallback(
     (role) => state.user?.roles?.some((r) => r.name === role) ?? false,

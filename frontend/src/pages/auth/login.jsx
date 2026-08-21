@@ -17,6 +17,19 @@ import { useMutation } from '@apollo/client';
 import { LOGIN_MUTATION, VERIFY_TOTP_LOGIN_MUTATION } from '../../graphql/mutations';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import { useAuth, MOCK_USERS, getPostLoginRedirect } from '../../context/AuthContext';
+
+// REQ012/PLAN021 Slice 1 — "Require MFA for all staff": when the org
+// requires it and this account hasn't enrolled yet, land on the 2FA
+// enrollment step instead of the normal post-login destination. Login
+// itself still succeeds (see the backend's AuthPayload.mfa_setup_required
+// field comment for why) -- this is a redirect, not a second auth gate.
+function redirectAfterLogin(navigate, user, mfaSetupRequired) {
+  if (mfaSetupRequired) {
+    navigate('/settings', { state: { tab: 1, mfaSetupRequired: true } });
+  } else {
+    navigate(getPostLoginRedirect(user));
+  }
+}
 import LocalHospitalIcon    from '@mui/icons-material/LocalHospital';
 import MedicalServicesIcon  from '@mui/icons-material/MedicalServices';
 import CheckCircleIcon      from '@mui/icons-material/CheckCircle';
@@ -534,9 +547,9 @@ function TotpChallengeStep({ challengeToken, rememberMe, onBack }) {
       const { data } = await verifyTotpLogin({
         variables: { input: { challenge_token: challengeToken, code } },
       });
-      const { access_token, user } = data.verifyTotpLogin;
-      login(access_token, user, rememberMe);
-      navigate(getPostLoginRedirect(user));
+      const { access_token, user, mfa_setup_required, session_timeout_minutes } = data.verifyTotpLogin;
+      login(access_token, user, rememberMe, session_timeout_minutes);
+      redirectAfterLogin(navigate, user, mfa_setup_required);
     } catch (err) {
       setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Incorrect code');
     } finally {
@@ -646,9 +659,9 @@ function SignInTab({ onForgot }) {
         setTotpChallengeToken(data.login.challenge_token);
         return;
       }
-      const { access_token, user } = data.login;
-      login(access_token, user, rememberMe);
-      navigate(getPostLoginRedirect(user));
+      const { access_token, user, mfa_setup_required, session_timeout_minutes } = data.login;
+      login(access_token, user, rememberMe, session_timeout_minutes);
+      redirectAfterLogin(navigate, user, mfa_setup_required);
     } catch {
       // ── Mock fallback (offline / demo) ─────────────────────────────────────
       const mockUser = MOCK_USERS[email.toLowerCase()];

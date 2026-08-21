@@ -48,6 +48,24 @@ const UPDATE_BOOKING_POLICIES = gql`
 
 const defaultRule = { name:'', description:'', hours_before:24, fee_type:'percentage', fee_amount:0, clinic_id:'', priority:1, is_active:true };
 
+// REQ012/PLAN021 — Security & Privacy tab. All five toggles are real,
+// enforced settings (see backend/src/app.module.ts's IpWhitelistGuard/
+// AuditLogInterceptor and auth.service.ts's mfa_setup_required/
+// session_timeout_minutes), not just persisted display state.
+const GET_SECURITY_SETTINGS = gql`
+  query GetOrgSecuritySettings {
+    myOrgSecuritySettings {
+      mfa_required session_timeout_minutes audit_log_enabled
+      patient_data_export_enabled ip_whitelist_enabled ip_whitelist
+    }
+  }
+`;
+const UPDATE_SECURITY_SETTINGS = gql`
+  mutation UpdateOrgSecuritySettings($input: UpdateOrgSecuritySettingsInput!) {
+    updateMyOrgSecuritySettings(input: $input) { success userErrors { message } }
+  }
+`;
+
 // context/open-questions.md #7, resolved: Cancellation Policy + Late
 // Cancellation Fee removed from here — the Cancellation Rules tab is the
 // one real system for cancellation-fee policy (per-clinic or global,
@@ -59,24 +77,67 @@ const POLICIES = [
   { id: 6, key: 'retention',      label: 'Data Retention Period',  value: '7',     unit: 'years',   description: 'Patient records are retained for this period per UK GDPR requirements.' },
 ];
 
-const SECURITY = [
-  { key: 'mfaRequired',     label: 'Require MFA for all staff',    default: true,  help: 'Forces all non-patient accounts to set up two-factor authentication.' },
-  { key: 'sessionTimeout',  label: 'Auto-logout after 30 min idle', default: true,  help: 'Inactive sessions will be terminated automatically.' },
-  { key: 'auditLog',        label: 'Enable audit logging',          default: true,  help: 'Record all data access and user actions for compliance.' },
-  { key: 'dataExport',      label: 'Allow patient data export',     default: false, help: 'Allows patients to download their personal data (GDPR Art.20).' },
-  { key: 'ipWhitelist',     label: 'IP whitelist for admin',        default: false, help: 'Restrict admin panel access to specified IP addresses.' },
-];
-
 export default function AdminPolicies() {
   const client = useApolloClient();
   const [tab, setTab] = useState(0);
   const [policies, setPolicies] = useState(POLICIES);
-  const [security, setSecurity] = useState(
-    Object.fromEntries(SECURITY.map((s) => [s.key, s.default]))
-  );
   const [saved, setSaved] = useState(false);
   const [policiesError, setPoliciesError] = useState(null);
   const [savingPolicies, setSavingPolicies] = useState(false);
+
+  // REQ012/PLAN021 — Security & Privacy, real backend
+  const [mfaRequired, setMfaRequired] = useState(false);
+  const [sessionTimeoutEnabled, setSessionTimeoutEnabled] = useState(false);
+  const [auditLogEnabled, setAuditLogEnabled] = useState(false);
+  const [dataExportEnabled, setDataExportEnabled] = useState(false);
+  const [ipWhitelistEnabled, setIpWhitelistEnabled] = useState(false);
+  const [ipWhitelist, setIpWhitelist] = useState('');
+  const [securityError, setSecurityError] = useState(null);
+  const [securitySaved, setSecuritySaved] = useState(false);
+  const [savingSecurity, setSavingSecurity] = useState(false);
+  const [loadingSecurity, setLoadingSecurity] = useState(true);
+
+  const loadSecuritySettings = () => {
+    setLoadingSecurity(true)
+    client.query({ query: GET_SECURITY_SETTINGS, fetchPolicy: 'network-only' })
+      .then(({ data }) => {
+        const s = data?.myOrgSecuritySettings
+        if (!s) return
+        setMfaRequired(!!s.mfa_required)
+        setSessionTimeoutEnabled(s.session_timeout_minutes != null)
+        setAuditLogEnabled(!!s.audit_log_enabled)
+        setDataExportEnabled(!!s.patient_data_export_enabled)
+        setIpWhitelistEnabled(!!s.ip_whitelist_enabled)
+        setIpWhitelist(s.ip_whitelist ?? '')
+      })
+      .catch((err) => setSecurityError(err.message))
+      .finally(() => setLoadingSecurity(false))
+  }
+  useEffect(() => { loadSecuritySettings() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const saveSecuritySettings = async () => {
+    setSecurityError(null); setSavingSecurity(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: UPDATE_SECURITY_SETTINGS,
+        variables: { input: {
+          mfa_required: mfaRequired,
+          // Fixed 30-minute idle timeout when enabled, matching this
+          // toggle's own label -- not a separately configurable duration.
+          session_timeout_minutes: sessionTimeoutEnabled ? 30 : null,
+          audit_log_enabled: auditLogEnabled,
+          patient_data_export_enabled: dataExportEnabled,
+          ip_whitelist_enabled: ipWhitelistEnabled,
+          ip_whitelist: ipWhitelist,
+        } },
+      })
+      if (!data?.updateMyOrgSecuritySettings?.success) {
+        throw new Error(data?.updateMyOrgSecuritySettings?.userErrors?.[0]?.message ?? 'Failed to save security settings')
+      }
+      setSecuritySaved(true); setTimeout(() => setSecuritySaved(false), 3000)
+    } catch (err) { setSecurityError(err.message) }
+    finally { setSavingSecurity(false) }
+  }
 
   // ── Booking Policies — real fields only (No-Show Fee / Slot Buffer /
   // Max Reschedules / Retention). Cancellation Policy + Late Fee stay
@@ -228,9 +289,11 @@ export default function AdminPolicies() {
         </Stack>
       )}
 
-      {/* Security */}
+      {/* Security — REQ012/PLAN021, real backend, every toggle enforced */}
       {tab === 1 && (
         <Stack spacing={2} sx={{ maxWidth: 680 }}>
+          {securitySaved && <Alert severity="success">Security settings saved.</Alert>}
+          {securityError && <Alert severity="error" onClose={() => setSecurityError(null)}>{securityError}</Alert>}
           <Card>
             <CardContent sx={{ p: 2.5 }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2.5 }}>
@@ -238,31 +301,58 @@ export default function AdminPolicies() {
                 <Typography variant="h5" fontWeight={700}>Security Settings</Typography>
               </Stack>
               <Stack spacing={2} divider={<Divider />}>
-                {SECURITY.map((s) => (
-                  <Stack key={s.key} direction="row" justifyContent="space-between" alignItems="flex-start">
-                    <Box flex={1} sx={{ pr: 2 }}>
-                      <Typography variant="body2" fontWeight={600}>{s.label}</Typography>
-                      <Typography variant="caption" color="text.secondary">{s.help}</Typography>
-                    </Box>
-                    <Switch
-                      checked={security[s.key]}
-                      onChange={(e) => setSecurity({ ...security, [s.key]: e.target.checked })}
-                    />
-                  </Stack>
-                ))}
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box flex={1} sx={{ pr: 2 }}>
+                    <Typography variant="body2" fontWeight={600}>Require MFA for all staff</Typography>
+                    <Typography variant="caption" color="text.secondary">Forces all non-patient accounts to set up two-factor authentication. Existing sessions aren't interrupted — enrollment is required on next login.</Typography>
+                  </Box>
+                  <Switch disabled={loadingSecurity} checked={mfaRequired} onChange={(e) => setMfaRequired(e.target.checked)} />
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box flex={1} sx={{ pr: 2 }}>
+                    <Typography variant="body2" fontWeight={600}>Auto-logout after 30 min idle</Typography>
+                    <Typography variant="caption" color="text.secondary">Inactive sessions will be signed out automatically after 30 minutes of no activity.</Typography>
+                  </Box>
+                  <Switch disabled={loadingSecurity} checked={sessionTimeoutEnabled} onChange={(e) => setSessionTimeoutEnabled(e.target.checked)} />
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box flex={1} sx={{ pr: 2 }}>
+                    <Typography variant="body2" fontWeight={600}>Enable audit logging</Typography>
+                    <Typography variant="caption" color="text.secondary">Records every change made in this organization for compliance — viewable on the Audit Log tab.</Typography>
+                  </Box>
+                  <Switch disabled={loadingSecurity} checked={auditLogEnabled} onChange={(e) => setAuditLogEnabled(e.target.checked)} />
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box flex={1} sx={{ pr: 2 }}>
+                    <Typography variant="body2" fontWeight={600}>Allow patient data export</Typography>
+                    <Typography variant="caption" color="text.secondary">Allows patients to download their personal data (GDPR Art.20) from their own account.</Typography>
+                  </Box>
+                  <Switch disabled={loadingSecurity} checked={dataExportEnabled} onChange={(e) => setDataExportEnabled(e.target.checked)} />
+                </Stack>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
+                  <Box flex={1} sx={{ pr: 2 }}>
+                    <Typography variant="body2" fontWeight={600}>IP whitelist for managers</Typography>
+                    <Typography variant="caption" color="text.secondary">Restrict this organization's manager-level panel access to specified IP addresses. Saving this page is always allowed, even from a non-listed IP, so a mistake here can't lock you out.</Typography>
+                  </Box>
+                  <Switch disabled={loadingSecurity} checked={ipWhitelistEnabled} onChange={(e) => setIpWhitelistEnabled(e.target.checked)} />
+                </Stack>
               </Stack>
             </CardContent>
           </Card>
 
-          {security.ipWhitelist && (
+          {ipWhitelistEnabled && (
             <Card sx={{ border: '1px solid #D97706' }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Typography fontWeight={700} sx={{ mb: 1 }}>Allowed IP Addresses</Typography>
-                <TextField fullWidth multiline rows={3} placeholder="Enter one IP per line, e.g.&#10;192.168.1.0/24&#10;10.0.0.1" size="small" />
-                <Button size="small" variant="outlined" sx={{ mt: 1 }}>Save IPs</Button>
+                <TextField fullWidth multiline rows={3} placeholder="Enter one IP per line, e.g.&#10;192.168.1.0/24&#10;10.0.0.1"
+                  size="small" value={ipWhitelist} onChange={(e) => setIpWhitelist(e.target.value)} />
               </CardContent>
             </Card>
           )}
+
+          <Button variant="contained" startIcon={<SaveIcon />} disabled={savingSecurity} onClick={saveSecuritySettings} sx={{ alignSelf: 'flex-start' }}>
+            {savingSecurity ? 'Saving…' : 'Save Security Settings'}
+          </Button>
         </Stack>
       )}
 

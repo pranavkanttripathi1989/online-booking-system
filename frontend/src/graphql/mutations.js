@@ -14,6 +14,8 @@ export const LOGIN_MUTATION = gql`
         access_token
         token_type
         expires_in
+        mfa_setup_required
+        session_timeout_minutes
         user {
           id
           name
@@ -41,6 +43,8 @@ export const VERIFY_TOTP_LOGIN_MUTATION = gql`
       access_token
       token_type
       expires_in
+      mfa_setup_required
+      session_timeout_minutes
       user {
         id
         name
