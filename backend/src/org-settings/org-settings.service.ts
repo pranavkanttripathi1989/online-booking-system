@@ -4,8 +4,10 @@ import {
   UpdateOrgCommunicationSettingsInput,
   UpdateOrgBookingPoliciesInput,
   UpdateOrgSecuritySettingsInput,
+  UpdateOrgBrandingInput,
 } from './dto/org-settings.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { contrastRatio, WCAG_AA_MIN_CONTRAST } from '../common/utils/contrast';
 
 const PAISE_TO_RUPEES = (paise: number) => paise / 100;
 const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
@@ -31,6 +33,15 @@ export class OrgSettingsService {
       slot_buffer_minutes: row.slot_buffer_minutes,
       max_reschedules_per_month: row.max_reschedules_per_month,
       data_retention_years: row.data_retention_years,
+    };
+  }
+
+  private toBranding(row: any) {
+    return {
+      name: row.name,
+      logo_url: row.logo_url ?? undefined,
+      primary_color: row.primary_color,
+      secondary_color: row.secondary_color,
     };
   }
 
@@ -125,6 +136,51 @@ export class OrgSettingsService {
       return { success: true, userErrors: [], settings: this.toSecuritySettings(row) };
     } catch (e: any) {
       return { success: false, userErrors: [{ message: e.message ?? 'Failed to update security settings' }] };
+    }
+  }
+
+  async myBranding(user: JwtPayload) {
+    if (!user.client_org_id) return null;
+    const org = await this.prisma.clientOrganizations.findUnique({ where: { id: user.client_org_id } });
+    if (!org || org.is_deleted) return null;
+    return this.toBranding(org);
+  }
+
+  async updateMyBranding(input: UpdateOrgBrandingInput, user: JwtPayload) {
+    if (!user.client_org_id) {
+      return { success: false, userErrors: [{ message: NOT_LINKED_ERROR }] };
+    }
+    // REQ002 §3.4 — reject a color too light to keep the white chrome
+    // text/icons rendered on top of it readable, rather than silently
+    // persisting an inaccessible combination.
+    const userErrors: { message: string }[] = [];
+    for (const [field, label] of [
+      ['primary_color', 'Primary color'],
+      ['secondary_color', 'Secondary color'],
+    ] as const) {
+      const value = input[field];
+      if (value == null) continue;
+      const ratio = contrastRatio(value, '#FFFFFF');
+      if (ratio < WCAG_AA_MIN_CONTRAST) {
+        userErrors.push({
+          message: `${label} ${value} is too light to keep white text readable (contrast ${ratio.toFixed(2)}:1, needs at least ${WCAG_AA_MIN_CONTRAST}:1). Choose a darker shade.`,
+        });
+      }
+    }
+    if (userErrors.length > 0) return { success: false, userErrors };
+
+    try {
+      const row = await this.prisma.clientOrganizations.update({
+        where: { id: user.client_org_id },
+        data: {
+          logo_url: input.logo_url,
+          primary_color: input.primary_color,
+          secondary_color: input.secondary_color,
+        },
+      });
+      return { success: true, userErrors: [], branding: this.toBranding(row) };
+    } catch (e: any) {
+      return { success: false, userErrors: [{ message: e.message ?? 'Failed to update branding' }] };
     }
   }
 }

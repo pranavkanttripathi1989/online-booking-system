@@ -21,8 +21,6 @@ import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import DevicesRoundedIcon from '@mui/icons-material/DevicesRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import { useAuth } from '../../context/AuthContext'
-import { useMockData, useMockMutation } from '../../mocks/useMockData'
-import * as MockStore from '../../mocks/store'
 
 function TabPanel({ value, index, children }) {
   return value === index ? <Box>{children}</Box> : null
@@ -98,6 +96,17 @@ const MY_DATA_EXPORT_QUERY = gql`
 const UPDATE_MY_NOTIFICATION_PREFERENCES = gql`
   mutation UpdateMyNotificationPreferences($input: [NotificationPreferenceInput!]!) {
     updateMyNotificationPreferences(input: $input) { success message }
+  }
+`
+// REQ002/PLAN022 — Clinic tab -> Branding. myOrgBranding has no role gate
+// (any authenticated user) and returns null for an org-less caller, so this
+// page never needs to pre-guess who has an organisation client-side.
+const GET_ORG_BRANDING = gql`
+  query MyOrgBranding { myOrgBranding { name logo_url primary_color secondary_color } }
+`
+const UPDATE_ORG_BRANDING = gql`
+  mutation UpdateMyOrgBranding($input: UpdateOrgBrandingInput!) {
+    updateMyOrgBranding(input: $input) { success userErrors { message } branding { logo_url primary_color secondary_color } }
   }
 `
 
@@ -206,38 +215,74 @@ export default function SettingsPage() {
   }
   useEffect(() => { loadAccountTabs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Organization branding state (logo + color scheme — requirements/organization-branding-and-management-requirements.md)
-  // NOTE: must never fall back to a hardcoded real org id here — a user with no
-  // organisation (e.g. platform admin, patient) would otherwise silently read/write
-  // another tenant's real branding data (found in test-cases/14-settings/test-cases.md).
-  const orgId = user?.organisation?.id ?? null
-  const { data: branding } = useMockData((store) => orgId ? store.getOrganizationBranding(orgId) : null)
-  const [logoPreview, setLogoPreview]           = useState(null)
-  const [primaryColor, setPrimaryColor]         = useState(branding?.primary_color ?? '#006D77')
-  const [secondaryColor, setSecondaryColor]     = useState(branding?.secondary_color ?? '#00858F')
+  // Organization branding — REQ002/PLAN022, real backend
+  // (org-settings.service.ts's myBranding/updateMyBranding). Real source of
+  // truth for "does this account have an org to brand" is the query result
+  // itself (null for an org-less caller), not a client-side guess off
+  // user.organisation — that field isn't even populated by the real `me`
+  // query today, only by MOCK_USERS.
+  const [logoUrl, setLogoUrl]                   = useState(null)
+  const [primaryColor, setPrimaryColor]         = useState('#006D77')
+  const [secondaryColor, setSecondaryColor]     = useState('#007680')
+  const [hasOrgForBranding, setHasOrgForBranding] = useState(false)
+  const [brandingLoaded, setBrandingLoaded]     = useState(false)
+  const [brandingError, setBrandingError]       = useState(null)
+  const [savingBranding, setSavingBranding]     = useState(false)
+  const [uploadingLogo, setUploadingLogo]       = useState(false)
   const logoInputRef = useRef(null)
-  const [saveBranding, { loading: savingBranding }] = useMockMutation(MockStore.updateOrganizationBranding)
 
-  useEffect(() => {
-    if (branding) {
-      setPrimaryColor(branding.primary_color ?? '#006D77')
-      setSecondaryColor(branding.secondary_color ?? '#00858F')
-      setLogoPreview(branding.logo_url ?? null)
-    }
-  }, [branding])
+  const loadBranding = async () => {
+    try {
+      const { data } = await client.query({ query: GET_ORG_BRANDING, fetchPolicy: 'network-only' })
+      const b = data?.myOrgBranding
+      setHasOrgForBranding(!!b)
+      if (b) {
+        setLogoUrl(b.logo_url ?? null)
+        setPrimaryColor(b.primary_color ?? '#006D77')
+        setSecondaryColor(b.secondary_color ?? '#007680')
+      }
+    } catch (err) { setBrandingError(err.message) }
+    finally { setBrandingLoaded(true) }
+  }
+  useEffect(() => { loadBranding() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleLogoSelect = (e) => {
+  // Same REST-multipart pattern as the avatar upload above — PNG/JPEG only
+  // (magic-byte validated server-side; SVG deliberately excluded, see
+  // org-branding.controller.ts).
+  const handleLogoSelect = async (e) => {
     const file = e.target.files?.[0]
     if (!file) return
-    const reader = new FileReader()
-    reader.onload = () => setLogoPreview(reader.result)
-    reader.readAsDataURL(file)
+    setBrandingError(null); setUploadingLogo(true)
+    try {
+      const token = localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')
+      const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${apiBase}/org-branding/logo`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body?.message || 'Failed to upload logo')
+      setLogoUrl(body.url)
+    } catch (err) { setBrandingError(err.message) }
+    finally { setUploadingLogo(false) }
   }
 
   const handleSaveBranding = async () => {
-    if (!orgId) return
-    await saveBranding(orgId, { logo_url: logoPreview, primary_color: primaryColor, secondary_color: secondaryColor })
-    handleSave('Branding')
+    setBrandingError(null); setSavingBranding(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: UPDATE_ORG_BRANDING,
+        variables: { input: { logo_url: logoUrl, primary_color: primaryColor, secondary_color: secondaryColor } },
+      })
+      if (!data?.updateMyOrgBranding?.success) {
+        throw new Error(data?.updateMyOrgBranding?.userErrors?.[0]?.message ?? 'Failed to save branding')
+      }
+      handleSave('Branding')
+    } catch (err) { setBrandingError(err?.graphQLErrors?.[0]?.message || err.message) }
+    finally { setSavingBranding(false) }
   }
 
   // Appearance state
@@ -302,6 +347,9 @@ export default function SettingsPage() {
 
   const avatarSrc = avatarUrl
     ? (avatarUrl.startsWith('http') ? avatarUrl : `${(import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')}${avatarUrl}`)
+    : undefined
+  const logoSrc = logoUrl
+    ? (logoUrl.startsWith('http') ? logoUrl : `${(import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')}${logoUrl}`)
     : undefined
 
   // ── 2FA (TOTP) — PLAN016 Slice C ──────────────────────────────────────────
@@ -750,41 +798,46 @@ export default function SettingsPage() {
                   }}>Save Clinic Settings</Button>
               </Grid>
 
-              {/* ── Organization Branding — see requirements/organization-branding-and-management-requirements.md ── */}
+              {/* ── Organization Branding (REQ002/PLAN022, real backend) ── */}
               <Grid item xs={12}><Divider sx={{ my: 1 }} /></Grid>
               <Grid item xs={12}>
                 <Typography variant="subtitle1" fontWeight={800}>Branding</Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Your logo and colors appear on the patient booking page, confirmation emails, and invoices.
+                  Your logo and colors appear in the app sidebar and header for everyone signed into your organization.
                 </Typography>
               </Grid>
-              {!orgId && (
+              {brandingError && (
+                <Grid item xs={12}>
+                  <Alert severity="error" sx={{ borderRadius: 2 }} onClose={() => setBrandingError(null)}>{brandingError}</Alert>
+                </Grid>
+              )}
+              {brandingLoaded && !hasOrgForBranding && (
                 <Grid item xs={12}>
                   <Alert severity="info" sx={{ borderRadius: 2 }}>Your account isn't associated with an organization, so branding can't be edited here.</Alert>
                 </Grid>
               )}
-              <Grid item xs={12} sm={6} sx={{ opacity: orgId ? 1 : 0.5, pointerEvents: orgId ? 'auto' : 'none' }}>
+              <Grid item xs={12} sm={6} sx={{ opacity: hasOrgForBranding ? 1 : 0.5, pointerEvents: hasOrgForBranding ? 'auto' : 'none' }}>
                 <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar variant="rounded" src={logoPreview} sx={{ width: 64, height: 64, bgcolor: '#F0F7F8', border: '1px solid #E8EAED' }}>
+                  <Avatar variant="rounded" src={logoSrc} sx={{ width: 64, height: 64, bgcolor: '#F0F7F8', border: '1px solid #E8EAED' }}>
                     <BusinessRoundedIcon sx={{ color: '#006D77' }} />
                   </Avatar>
                   <Box>
-                    <input ref={logoInputRef} type="file" accept="image/png,image/jpeg,image/svg+xml" hidden onChange={handleLogoSelect} />
-                    <Button size="small" variant="outlined" onClick={() => logoInputRef.current?.click()} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
-                      Upload logo
+                    <input ref={logoInputRef} type="file" accept="image/png,image/jpeg" hidden onChange={handleLogoSelect} />
+                    <Button size="small" variant="outlined" disabled={uploadingLogo} onClick={() => logoInputRef.current?.click()} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                      {uploadingLogo ? 'Uploading…' : 'Upload logo'}
                     </Button>
-                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>SVG or PNG, square, at least 256×256px</Typography>
+                    <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: 'text.secondary' }}>PNG or JPEG, square, at least 256×256px, max 2MB</Typography>
                   </Box>
                 </Stack>
               </Grid>
-              <Grid item xs={12} sm={3} sx={{ opacity: orgId ? 1 : 0.5, pointerEvents: orgId ? 'auto' : 'none' }}>
+              <Grid item xs={12} sm={3} sx={{ opacity: hasOrgForBranding ? 1 : 0.5, pointerEvents: hasOrgForBranding ? 'auto' : 'none' }}>
                 <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>Primary color</Typography>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <input type="color" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} style={{ width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer' }} />
                   <TextField size="small" value={primaryColor} onChange={(e) => setPrimaryColor(e.target.value)} sx={{ width: 100, '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
                 </Stack>
               </Grid>
-              <Grid item xs={12} sm={3} sx={{ opacity: orgId ? 1 : 0.5, pointerEvents: orgId ? 'auto' : 'none' }}>
+              <Grid item xs={12} sm={3} sx={{ opacity: hasOrgForBranding ? 1 : 0.5, pointerEvents: hasOrgForBranding ? 'auto' : 'none' }}>
                 <Typography variant="caption" fontWeight={700} sx={{ display: 'block', mb: 0.5 }}>Secondary color</Typography>
                 <Stack direction="row" spacing={1} alignItems="center">
                   <input type="color" value={secondaryColor} onChange={(e) => setSecondaryColor(e.target.value)} style={{ width: 36, height: 36, border: 'none', borderRadius: 8, cursor: 'pointer' }} />
@@ -792,7 +845,7 @@ export default function SettingsPage() {
                 </Stack>
               </Grid>
               <Grid item xs={12}>
-                <Button variant="contained" disabled={savingBranding || !orgId} startIcon={<SaveRoundedIcon />} onClick={handleSaveBranding}
+                <Button variant="contained" disabled={savingBranding || !hasOrgForBranding} startIcon={<SaveRoundedIcon />} onClick={handleSaveBranding}
                   sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
                     background: `linear-gradient(135deg, ${primaryColor} 0%, ${secondaryColor} 100%)`,
                   }}>{savingBranding ? 'Saving…' : 'Save Branding'}</Button>

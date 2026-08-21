@@ -887,6 +887,7 @@ type Mutation {
   updateMyNotificationPreferences(input: [NotificationPreferenceInput!]!): GenericResult!
   updateMyNotificationProviderConfig(input: UpdateNotificationProviderConfigInput!): NotificationProviderConfigResult!
   updateMyOrgBookingPolicies(input: UpdateOrgBookingPoliciesInput!): OrgBookingPoliciesMutationResult!
+  updateMyOrgBranding(input: UpdateOrgBrandingInput!): OrgBrandingMutationResult!
   updateMyOrgCommunicationSettings(input: UpdateOrgCommunicationSettingsInput!): OrgCommunicationSettingsMutationResult!
   updateMyOrgSecuritySettings(input: UpdateOrgSecuritySettingsInput!): OrgSecuritySettingsMutationResult!
   updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
@@ -1025,6 +1026,23 @@ type OrgBookingPoliciesMutationResult {
 }
 
 type OrgBookingPoliciesUserError {
+  message: String!
+}
+
+type OrgBranding {
+  logo_url: String
+  name: String!
+  primary_color: String!
+  secondary_color: String!
+}
+
+type OrgBrandingMutationResult {
+  branding: OrgBranding
+  success: Boolean!
+  userErrors: [OrgBrandingUserError!]!
+}
+
+type OrgBrandingUserError {
   message: String!
 }
 
@@ -1415,6 +1433,7 @@ type Query {
   myNotificationPreferences: [NotificationPreference!]!
   myNotificationProviderConfig(channel: String!): NotificationProviderConfig
   myOrgBookingPolicies: OrgBookingPolicies
+  myOrgBranding: OrgBranding
   myOrgCommunicationSettings: OrgCommunicationSettings
   myOrgSecuritySettings: OrgSecuritySettings
   myProfile: MyProfile
@@ -1824,6 +1843,12 @@ input UpdateOrgBookingPoliciesInput {
   max_reschedules_per_month: Int
   no_show_fee: Float
   slot_buffer_minutes: Int
+}
+
+input UpdateOrgBrandingInput {
+  logo_url: String
+  primary_color: String
+  secondary_color: String
 }
 
 input UpdateOrgCommunicationSettingsInput {

@@ -258,6 +258,24 @@ model ClientOrganizations {
   patient_data_export_enabled  Boolean @default(false)
   ip_whitelist_enabled         Boolean @default(false)
   ip_whitelist                 String? // newline- or comma-separated IPs/CIDR ranges
+  // Settings -> Clinic -> Branding (REQ002/PLAN022). Propagated to AppShell's
+  // sidebar/top-nav header (logo + org name) for every JWT with a non-null
+  // client_org_id -- see PLAN022 for why email/invoice/favicon propagation
+  // and plan-tier gating are explicitly not built yet. Colors default to the
+  // platform's own existing teal (AppShell.jsx TEAL/TEAL_LIGHT) so an org
+  // that never customizes branding renders identically to today.
+  logo_url        String?
+  primary_color   String  @default("#006D77")
+  // #00858F (the platform's own decorative TEAL_LIGHT, used widely in
+  // frontend gradients) fails this pass's own WCAG AA contrast check
+  // against white by a hair (4.42:1, needs 4.5:1) -- found live while
+  // testing updateMyOrgBranding against a never-customized org. #007680 is
+  // the nearest passing shade (5.38:1); this column's default is the only
+  // thing changed, not the sitewide TEAL_LIGHT constant, since
+  // secondary_color isn't wired into any rendered surface this pass (see
+  // PLAN022) -- purely a stored value a manager must be able to re-save
+  // without hitting a rejection on a default they never touched.
+  secondary_color String  @default("#007680")
   created_at    DateTime @default(now())
   updated_at    DateTime @default(now())
 

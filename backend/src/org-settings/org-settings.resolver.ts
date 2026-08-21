@@ -7,11 +7,14 @@ import {
   OrgBookingPoliciesMutationResultType,
   OrgSecuritySettingsType,
   OrgSecuritySettingsMutationResultType,
+  OrgBrandingType,
+  OrgBrandingMutationResultType,
 } from './entities/org-settings.entity';
 import {
   UpdateOrgCommunicationSettingsInput,
   UpdateOrgBookingPoliciesInput,
   UpdateOrgSecuritySettingsInput,
+  UpdateOrgBrandingInput,
 } from './dto/org-settings.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -58,5 +61,20 @@ export class OrgSettingsResolver {
   @Auth('manager', 'admin', 'super_admin')
   updateMyOrgSecuritySettings(@Args('input') input: UpdateOrgSecuritySettingsInput, @CurrentUser() user: JwtPayload) {
     return this.orgSettingsService.updateMySecuritySettings(input, user);
+  }
+
+  // No role restriction (any authenticated role) -- AppShell reads this for
+  // every logged-in user (manager/clinician/staff/patient) to render the
+  // org's logo/name in the sidebar, not just on the manager-only Settings
+  // page. Still authenticated by default via the global GqlAuthGuard.
+  @Query(() => OrgBrandingType, { name: 'myOrgBranding', nullable: true })
+  myOrgBranding(@CurrentUser() user: JwtPayload) {
+    return this.orgSettingsService.myBranding(user);
+  }
+
+  @Mutation(() => OrgBrandingMutationResultType, { name: 'updateMyOrgBranding' })
+  @Auth('manager', 'admin', 'super_admin')
+  updateMyOrgBranding(@Args('input') input: UpdateOrgBrandingInput, @CurrentUser() user: JwtPayload) {
+    return this.orgSettingsService.updateMyBranding(input, user);
   }
 }

@@ -8,6 +8,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
+import { useQuery, gql } from '@apollo/client'
 import {
   Box, AppBar, Toolbar, Drawer, List, ListItemButton, ListItemIcon,
   ListItemText, Typography, Avatar, IconButton, Stack, Divider, Chip,
@@ -70,6 +71,23 @@ import * as MockStore from '../mocks/store'
 const DRAWER_WIDTH = 260
 const TEAL         = '#006D77'
 const TEAL_LIGHT   = '#00858F'
+
+// REQ002/PLAN022 — org branding (logo + org name in the sidebar/top-nav
+// header). No role gate on myOrgBranding (any authenticated user); resolves
+// to null for a platform-wide caller (admin/super_admin), which keeps the
+// default HealthSync wordmark exactly as it renders today.
+const GET_MY_ORG_BRANDING = gql`
+  query MyOrgBrandingForShell { myOrgBranding { name logo_url primary_color secondary_color } }
+`
+// logo_url from the backend is a relative /uploads/... path (local
+// filesystem storage, see org-branding.controller.ts) -- resolve it against
+// the API origin the same way settings/index.jsx's own logo/avatar preview does.
+function resolveLogoSrc(logoUrl) {
+  if (!logoUrl) return undefined
+  if (logoUrl.startsWith('http')) return logoUrl
+  const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
+  return `${apiBase}${logoUrl}`
+}
 
 // ─── Search mock data ─────────────────────────────────────────────────────────
 const SEARCH_DATA = [
@@ -241,7 +259,7 @@ function SearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
 }
 
 // ─── Drawer/Sidebar Content ────────────────────────────────────────────────────
-function DrawerContent({ user, navItems, location, navigate, expandedAdmin, setExpandedAdmin, expandedManager, setExpandedManager, onClose }) {
+function DrawerContent({ user, navItems, location, navigate, expandedAdmin, setExpandedAdmin, expandedManager, setExpandedManager, branding, onClose }) {
   const userRoles = user?.roles?.map(r => r.name) || ['patient']
   const role      = userRoles[0]
   const roleCfg   = ROLE_COLORS[role] || ROLE_COLORS.patient
@@ -262,18 +280,31 @@ function DrawerContent({ user, navItems, location, navigate, expandedAdmin, setE
         px: 2.5, py: 2,
         display: 'flex', alignItems: 'center', gap: 1.5,
       }}>
-        <Box sx={{
-          width: 36, height: 36, borderRadius: 1.5,
-          background: 'rgba(255,255,255,0.15)',
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          border: '1px solid rgba(255,255,255,0.20)',
-        }}>
-          <LocalHospitalIcon sx={{ color: '#fff', fontSize: 20 }} />
-        </Box>
-        <Box>
-          <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#fff', lineHeight: 1.1, letterSpacing: '-0.4px' }}>
-            Health<span style={{ color: '#7FEBED' }}>Sync</span>
-          </Typography>
+        {branding?.logo_url ? (
+          <Box component="img" src={resolveLogoSrc(branding.logo_url)} alt={`${branding.name} logo`} sx={{
+            width: 36, height: 36, borderRadius: 1.5, objectFit: 'cover',
+            border: '1px solid rgba(255,255,255,0.20)', flexShrink: 0,
+          }} />
+        ) : (
+          <Box sx={{
+            width: 36, height: 36, borderRadius: 1.5,
+            background: 'rgba(255,255,255,0.15)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            border: '1px solid rgba(255,255,255,0.20)',
+          }}>
+            <LocalHospitalIcon sx={{ color: '#fff', fontSize: 20 }} />
+          </Box>
+        )}
+        <Box sx={{ minWidth: 0 }}>
+          {branding?.logo_url ? (
+            <Typography variant="subtitle1" fontWeight={800} noWrap sx={{ color: '#fff', lineHeight: 1.1, letterSpacing: '-0.4px' }}>
+              {branding.name}
+            </Typography>
+          ) : (
+            <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#fff', lineHeight: 1.1, letterSpacing: '-0.4px' }}>
+              Health<span style={{ color: '#7FEBED' }}>Sync</span>
+            </Typography>
+          )}
           <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.55)', display: 'block', fontSize: '0.68rem' }}>
             Medical Platform
           </Typography>
@@ -398,7 +429,7 @@ function DrawerContent({ user, navItems, location, navigate, expandedAdmin, setE
 }
 
 // ─── Top Navigation Bar ────────────────────────────────────────────────────────
-function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMenu }) {
+function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMenu, branding }) {
   const [moreAnchor, setMoreAnchor] = useState(null)
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/')
 
@@ -417,12 +448,22 @@ function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMen
       <Box sx={{ display: 'flex', alignItems: 'center', px: 3, gap: 0, minHeight: 52 }}>
         {/* Logo */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, mr: 3, flexShrink: 0 }}>
-          <Box sx={{ width: 32, height: 32, borderRadius: 1.5, bgcolor: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.18)' }}>
-            <LocalHospitalIcon sx={{ color: '#fff', fontSize: 18 }} />
-          </Box>
-          <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#fff', letterSpacing: '-0.5px', lineHeight: 1 }}>
-            Health<span style={{ color: '#7FEBED' }}>Sync</span>
-          </Typography>
+          {branding?.logo_url ? (
+            <Box component="img" src={resolveLogoSrc(branding.logo_url)} alt={`${branding.name} logo`} sx={{ width: 32, height: 32, borderRadius: 1.5, objectFit: 'cover', border: '1px solid rgba(255,255,255,0.18)' }} />
+          ) : (
+            <Box sx={{ width: 32, height: 32, borderRadius: 1.5, bgcolor: 'rgba(255,255,255,0.12)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid rgba(255,255,255,0.18)' }}>
+              <LocalHospitalIcon sx={{ color: '#fff', fontSize: 18 }} />
+            </Box>
+          )}
+          {branding?.logo_url ? (
+            <Typography variant="subtitle1" fontWeight={800} noWrap sx={{ color: '#fff', letterSpacing: '-0.5px', lineHeight: 1, maxWidth: 160 }}>
+              {branding.name}
+            </Typography>
+          ) : (
+            <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#fff', letterSpacing: '-0.5px', lineHeight: 1 }}>
+              Health<span style={{ color: '#7FEBED' }}>Sync</span>
+            </Typography>
+          )}
         </Box>
 
         <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.12)', mx: 1.5 }} />
@@ -497,6 +538,11 @@ export default function AppShell() {
   const navigate = useNavigate()
   const location = useLocation()
   const { user, logout } = useAuth()
+  // REQ002/PLAN022 — org branding for the sidebar/top-nav header. Resolves
+  // to null (not an error) for a platform-wide caller, which the render
+  // below treats as "show the default HealthSync branding."
+  const { data: brandingData } = useQuery(GET_MY_ORG_BRANDING, { errorPolicy: 'ignore' })
+  const branding = brandingData?.myOrgBranding ?? null
 
   const [mobileOpen,       setMobileOpen]       = useState(false)
   const [expandedAdmin,    setExpandedAdmin]     = useState(false)
@@ -813,6 +859,7 @@ export default function AppShell() {
           navigate={navigate}
           onToggleLayout={toggleLayout}
           onOpenUserMenu={e => setAnchorEl(e.currentTarget)}
+          branding={branding}
         />
       )}
 
@@ -864,6 +911,7 @@ export default function AppShell() {
             <DrawerContent user={user} navItems={navItems} location={location} navigate={navigate}
               expandedAdmin={expandedAdmin} setExpandedAdmin={setExpandedAdmin}
               expandedManager={expandedManager} setExpandedManager={setExpandedManager}
+              branding={branding}
               onClose={() => setMobileOpen(false)} />
           </Drawer>
         ) : (
@@ -871,7 +919,8 @@ export default function AppShell() {
             PaperProps={{ sx: { width: DRAWER_WIDTH, bgcolor: '#1A2332', borderRight: 'none' } }}>
             <DrawerContent user={user} navItems={navItems} location={location} navigate={navigate}
               expandedAdmin={expandedAdmin} setExpandedAdmin={setExpandedAdmin}
-              expandedManager={expandedManager} setExpandedManager={setExpandedManager} />
+              expandedManager={expandedManager} setExpandedManager={setExpandedManager}
+              branding={branding} />
           </Drawer>
         )
       )}

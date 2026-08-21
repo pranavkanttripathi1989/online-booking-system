@@ -1,5 +1,7 @@
 import { InputType, Field, Float, Int } from '@nestjs/graphql';
-import { IsOptional, IsEmail, IsBoolean, IsInt, Min, IsNotEmpty } from 'class-validator';
+import { IsOptional, IsEmail, IsBoolean, IsInt, Min, IsNotEmpty, Matches } from 'class-validator';
+
+const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
 
 @InputType('UpdateOrgCommunicationSettingsInput')
 export class UpdateOrgCommunicationSettingsInput {
@@ -26,4 +28,14 @@ export class UpdateOrgSecuritySettingsInput {
   @Field({ nullable: true }) @IsOptional() @IsBoolean() patient_data_export_enabled?: boolean;
   @Field({ nullable: true }) @IsOptional() @IsBoolean() ip_whitelist_enabled?: boolean;
   @Field({ nullable: true }) @IsOptional() ip_whitelist?: string;
+}
+
+@InputType('UpdateOrgBrandingInput')
+export class UpdateOrgBrandingInput {
+  // Explicit null clears the logo (revert to the default HealthSync tile);
+  // omitted leaves it untouched. Set via the separate REST upload endpoint's
+  // returned URL, never a client-supplied arbitrary URL.
+  @Field({ nullable: true }) @IsOptional() logo_url?: string;
+  @Field({ nullable: true }) @IsOptional() @Matches(HEX_COLOR, { message: 'primary_color must be a 6-digit hex color, e.g. #006D77' }) primary_color?: string;
+  @Field({ nullable: true }) @IsOptional() @Matches(HEX_COLOR, { message: 'secondary_color must be a 6-digit hex color, e.g. #00858F' }) secondary_color?: string;
 }

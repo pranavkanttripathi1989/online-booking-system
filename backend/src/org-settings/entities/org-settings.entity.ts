@@ -73,3 +73,32 @@ export class OrgSecuritySettingsMutationResultType {
   @Field(() => [OrgSecuritySettingsUserErrorType]) userErrors: OrgSecuritySettingsUserErrorType[];
   @Field(() => OrgSecuritySettingsType, { nullable: true }) settings?: OrgSecuritySettingsType;
 }
+
+// Settings -> Clinic -> Branding tab (REQ002/PLAN022). logo_url is set via
+// the separate REST upload endpoint (organizations.controller.ts), not this
+// mutation directly -- the frontend uploads the file first, then saves the
+// returned URL here alongside the colors, same two-step flow as account
+// avatar upload.
+@ObjectType('OrgBranding')
+export class OrgBrandingType {
+  // Read-only display field (the org's real name) -- not part of
+  // UpdateOrgBrandingInput, since renaming an org isn't this mutation's
+  // job. Included so AppShell can show "practice name next to logo" (REQ002
+  // §2's Zocdoc/Practo trust-signal finding) without a second query.
+  @Field() name: string;
+  @Field({ nullable: true }) logo_url?: string;
+  @Field() primary_color: string;
+  @Field() secondary_color: string;
+}
+
+@ObjectType('OrgBrandingUserError')
+export class OrgBrandingUserErrorType {
+  @Field() message: string;
+}
+
+@ObjectType('OrgBrandingMutationResult')
+export class OrgBrandingMutationResultType {
+  @Field() success: boolean;
+  @Field(() => [OrgBrandingUserErrorType]) userErrors: OrgBrandingUserErrorType[];
+  @Field(() => OrgBrandingType, { nullable: true }) branding?: OrgBrandingType;
+}

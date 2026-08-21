@@ -12,6 +12,7 @@ describe('OrgSettingsService', () => {
 
   const orgRow = (overrides: Partial<Record<string, unknown>> = {}) => ({
     id: 'org-a',
+    name: 'Test Org',
     is_deleted: false,
     email_from_name: 'HealthSync',
     email_from_address: null,
@@ -139,6 +140,70 @@ describe('OrgSettingsService', () => {
       await service.updateMySecuritySettings({ mfa_required: true } as any, orgUser);
       const call = prisma.clientOrganizations.update.mock.calls[0][0];
       expect(call.data.session_timeout_minutes).toBeUndefined();
+    });
+  });
+
+  // REQ002/PLAN022 — Settings -> Clinic -> Branding tab
+  describe('myBranding / updateMyBranding', () => {
+    it('returns null for a platform-wide caller with no org to scope to', async () => {
+      expect(await service.myBranding(platformUser)).toBeNull();
+      expect(prisma.clientOrganizations.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('scopes strictly to the caller\'s own org id and applies the platform-default colors', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(
+        orgRow({ logo_url: null, primary_color: '#006D77', secondary_color: '#00858F' }),
+      );
+      const result = await service.myBranding(orgUser);
+      expect(prisma.clientOrganizations.findUnique).toHaveBeenCalledWith({ where: { id: 'org-a' } });
+      expect(result).toEqual({ name: 'Test Org', logo_url: undefined, primary_color: '#006D77', secondary_color: '#00858F' });
+    });
+
+    it('rejects an update for a platform-wide caller with a clear message', async () => {
+      const result = await service.updateMyBranding({ primary_color: '#123456' } as any, platformUser);
+      expect(result.success).toBe(false);
+      expect(result.userErrors[0].message).toMatch(/linked to an organization/i);
+      expect(prisma.clientOrganizations.update).not.toHaveBeenCalled();
+    });
+
+    it('updates only the caller\'s own org row for a color that passes contrast', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow({ primary_color: '#123456' }));
+      const result = await service.updateMyBranding({ primary_color: '#123456' } as any, orgUser);
+      expect(result.success).toBe(true);
+      expect(prisma.clientOrganizations.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'org-a' } }),
+      );
+    });
+
+    it('rejects a primary_color too light to keep white text readable, without writing', async () => {
+      const result = await service.updateMyBranding({ primary_color: '#FFFF00' } as any, orgUser);
+      expect(result.success).toBe(false);
+      expect(result.userErrors[0].message).toMatch(/Primary color #FFFF00 is too light/);
+      expect(prisma.clientOrganizations.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a too-light secondary_color independently of primary_color', async () => {
+      const result = await service.updateMyBranding(
+        { primary_color: '#123456', secondary_color: '#EEEEEE' } as any,
+        orgUser,
+      );
+      expect(result.success).toBe(false);
+      expect(result.userErrors[0].message).toMatch(/Secondary color #EEEEEE is too light/);
+      expect(prisma.clientOrganizations.update).not.toHaveBeenCalled();
+    });
+
+    it('an explicit null logo_url clears the logo', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow({ logo_url: null }));
+      await service.updateMyBranding({ logo_url: null } as any, orgUser);
+      const call = prisma.clientOrganizations.update.mock.calls[0][0];
+      expect(call.data.logo_url).toBeNull();
+    });
+
+    it('omitting logo_url leaves it untouched', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow());
+      await service.updateMyBranding({ primary_color: '#123456' } as any, orgUser);
+      const call = prisma.clientOrganizations.update.mock.calls[0][0];
+      expect(call.data.logo_url).toBeUndefined();
     });
   });
 });
