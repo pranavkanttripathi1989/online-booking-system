@@ -21,10 +21,7 @@ const EMAIL_TEMPLATES = [
   { id: 6, name: 'Video Call Reminder',      trigger: '15min before',channel: 'sms',  active: true },
 ];
 
-// REQ006 — Global Settings tab, Email half only. The SMS half (provider
-// select + API key below) is deliberately NOT wired to a backend — it
-// contradicts CLAUDE.md's fixed-vendor rule (MSG91/Gupshup, not an
-// org-configurable Twilio/Vonage); see context/open-questions.md #6.
+// REQ006 — Global Settings tab, Email half.
 const GET_COMMUNICATION_SETTINGS = gql`
   query GetOrgCommunicationSettings {
     myOrgCommunicationSettings { email_from_name email_from_address email_reply_to email_include_branding }
@@ -33,6 +30,26 @@ const GET_COMMUNICATION_SETTINGS = gql`
 const UPDATE_COMMUNICATION_SETTINGS = gql`
   mutation UpdateOrgCommunicationSettings($input: UpdateOrgCommunicationSettingsInput!) {
     updateMyOrgCommunicationSettings(input: $input) { success userErrors { message } }
+  }
+`;
+
+// REQ008/PLAN017 — SMS half: rebuilt as a generic, provider-agnostic OTP/SMS
+// configuration (per this session's redirect away from a single fixed
+// vendor). notificationProviders is the public catalog of registered
+// providers (MSG91, Gupshup, Twilio, AWS SNS) and their own credential
+// field shapes; myNotificationProviderConfig/updateMyNotificationProviderConfig
+// are org-scoped and never return raw credentials (has_credentials only).
+const GET_NOTIFICATION_PROVIDERS = gql`
+  query GetNotificationProviders { notificationProviders { id label channel fields { key label type required } } }
+`;
+const GET_MY_NOTIFICATION_PROVIDER_CONFIG = gql`
+  query GetMyNotificationProviderConfig($channel: String!) {
+    myNotificationProviderConfig(channel: $channel) { channel provider sender_id has_credentials }
+  }
+`;
+const UPDATE_NOTIFICATION_PROVIDER_CONFIG = gql`
+  mutation UpdateMyNotificationProviderConfig($input: UpdateNotificationProviderConfigInput!) {
+    updateMyNotificationProviderConfig(input: $input) { success message }
   }
 `;
 
@@ -51,6 +68,17 @@ export default function AdminCommunications() {
   const [emailSettingsSaved, setEmailSettingsSaved] = useState(false);
   const [savingEmailSettings, setSavingEmailSettings] = useState(false);
 
+  // REQ008/PLAN017 — SMS/OTP provider configuration
+  const [smsProviders, setSmsProviders] = useState([]);
+  const [smsSelectedProvider, setSmsSelectedProvider] = useState('');
+  const [smsSenderId, setSmsSenderId] = useState('');
+  const [smsCredentials, setSmsCredentials] = useState({}); // { [fieldKey]: value }
+  const [smsHasCredentials, setSmsHasCredentials] = useState(false);
+  const [smsError, setSmsError] = useState(null);
+  const [smsSaved, setSmsSaved] = useState(false);
+  const [savingSms, setSavingSms] = useState(false);
+  const [loadingSms, setLoadingSms] = useState(true);
+
   useEffect(() => {
     client.query({ query: GET_COMMUNICATION_SETTINGS, fetchPolicy: 'network-only' })
       .then(({ data }) => {
@@ -63,6 +91,46 @@ export default function AdminCommunications() {
       })
       .catch((err) => setEmailSettingsError(err.message))
   }, [client])
+
+  useEffect(() => {
+    Promise.all([
+      client.query({ query: GET_NOTIFICATION_PROVIDERS, fetchPolicy: 'network-only' }),
+      client.query({ query: GET_MY_NOTIFICATION_PROVIDER_CONFIG, variables: { channel: 'sms' }, fetchPolicy: 'network-only' }),
+    ])
+      .then(([{ data: providersData }, { data: configData }]) => {
+        setSmsProviders(providersData?.notificationProviders ?? [])
+        const cfg = configData?.myNotificationProviderConfig
+        if (cfg) {
+          setSmsSelectedProvider(cfg.provider ?? '')
+          setSmsSenderId(cfg.sender_id ?? '')
+          setSmsHasCredentials(!!cfg.has_credentials)
+        }
+      })
+      .catch((err) => setSmsError(err.message))
+      .finally(() => setLoadingSms(false))
+  }, [client])
+
+  const selectedSmsProvider = smsProviders.find((p) => p.id === smsSelectedProvider)
+
+  const handleSaveSmsSettings = async () => {
+    setSmsError(null); setSavingSms(true)
+    try {
+      const credentials = Object.entries(smsCredentials)
+        .filter(([, v]) => v)
+        .map(([key, value]) => ({ key, value }))
+      const { data } = await client.mutate({
+        mutation: UPDATE_NOTIFICATION_PROVIDER_CONFIG,
+        variables: { input: { channel: 'sms', provider: smsSelectedProvider, sender_id: smsSenderId || null, credentials } },
+      })
+      if (!data?.updateMyNotificationProviderConfig?.success) {
+        throw new Error(data?.updateMyNotificationProviderConfig?.message ?? 'Failed to save SMS provider settings')
+      }
+      setSmsHasCredentials(true)
+      setSmsCredentials({}) // clear entered secrets from memory once saved
+      setSmsSaved(true); setTimeout(() => setSmsSaved(false), 2500)
+    } catch (err) { setSmsError(err.message) }
+    finally { setSavingSms(false) }
+  }
 
   const handleSaveEmailSettings = async () => {
     setEmailSettingsError(null); setSavingEmailSettings(true)
@@ -166,23 +234,54 @@ export default function AdminCommunications() {
             </Card>
           </Grid>
           <Grid item xs={12} md={6}>
-            <Card sx={{ opacity: 0.7 }}>
+            <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                   <SmsIcon sx={{ color: '#006D77' }} />
-                  <Typography variant="h5" fontWeight={700}>SMS Settings</Typography>
+                  <Typography variant="h5" fontWeight={700}>OTP / SMS Provider</Typography>
                 </Stack>
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  MediBook's SMS provider (MSG91/Gupshup) is fixed and not org-configurable — this section is not yet backed by a real setting. See context/open-questions.md #6.
+                  Choose your organization's own SMS provider and enter its credentials — used for OTP login and SMS notifications. Credentials are encrypted at rest and never shown again once saved.
                 </Alert>
+                {smsSaved && <Alert severity="success" sx={{ mb: 2 }}>SMS provider settings saved.</Alert>}
+                {smsError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSmsError(null)}>{smsError}</Alert>}
                 <Stack spacing={2}>
-                  <TextField fullWidth label="SMS Sender Name" defaultValue="HealthSync" size="small" disabled />
-                  <FormControl fullWidth size="small" disabled><InputLabel>SMS Provider</InputLabel>
-                    <Select label="SMS Provider" defaultValue="twilio"><MenuItem value="twilio">Twilio</MenuItem><MenuItem value="vonage">Vonage</MenuItem></Select>
+                  <FormControl fullWidth size="small" disabled={loadingSms}>
+                    <InputLabel>SMS Provider</InputLabel>
+                    <Select
+                      label="SMS Provider"
+                      value={smsSelectedProvider}
+                      onChange={(e) => { setSmsSelectedProvider(e.target.value); setSmsCredentials({}) }}
+                    >
+                      {smsProviders.map((p) => <MenuItem key={p.id} value={p.id}>{p.label}</MenuItem>)}
+                    </Select>
                   </FormControl>
-                  <TextField fullWidth label="API Key" type="password" size="small" disabled />
-                  <FormControlLabel control={<Switch defaultChecked disabled />} label="Opt-out message in all SMS" />
-                  <Button variant="contained" size="small" disabled>Save SMS Settings</Button>
+
+                  {selectedSmsProvider && (
+                    <>
+                      {selectedSmsProvider.fields.map((f) => (
+                        <TextField
+                          key={f.key}
+                          fullWidth
+                          size="small"
+                          label={f.label + (f.required ? '' : ' (optional)')}
+                          type={f.type === 'password' ? 'password' : 'text'}
+                          value={smsCredentials[f.key] ?? ''}
+                          onChange={(e) => setSmsCredentials((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder={smsHasCredentials ? '••••••••  (leave blank to keep current)' : ''}
+                        />
+                      ))}
+                      <TextField fullWidth size="small" label="SMS Sender Name" value={smsSenderId} onChange={(e) => setSmsSenderId(e.target.value)} />
+                    </>
+                  )}
+
+                  {smsHasCredentials && (
+                    <Chip size="small" label="Credentials configured" sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontWeight: 700, alignSelf: 'flex-start' }} />
+                  )}
+
+                  <Button variant="contained" size="small" disabled={savingSms || !smsSelectedProvider} onClick={handleSaveSmsSettings}>
+                    {savingSms ? 'Saving…' : 'Save SMS Provider Settings'}
+                  </Button>
                 </Stack>
               </CardContent>
             </Card>

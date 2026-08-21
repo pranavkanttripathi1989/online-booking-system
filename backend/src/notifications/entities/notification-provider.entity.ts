@@ -1,4 +1,6 @@
 import { ObjectType, Field, InputType } from '@nestjs/graphql';
+import { IsNotEmpty, IsOptional, IsArray, IsString, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 // REQ008/PLAN017 — admin/Communications.jsx's "OTP / Notification Provider"
 // card. Describes one registry provider's id/label/required-field shape, so
@@ -37,16 +39,22 @@ export class NotificationProviderConfigResultType {
   @Field({ nullable: true }) message?: string;
 }
 
-@InputType('UpdateNotificationProviderConfigInput')
-export class UpdateNotificationProviderConfigInput {
-  @Field() channel: string;
-  @Field() provider: string;
-  @Field(() => [CredentialFieldInput]) credentials: CredentialFieldInput[];
-  @Field({ nullable: true }) sender_id?: string;
-}
-
 @InputType('CredentialFieldInput')
 export class CredentialFieldInput {
-  @Field() key: string;
-  @Field() value: string;
+  @Field() @IsNotEmpty() key: string;
+  // @IsString, not @IsNotEmpty -- an empty value is meaningful here
+  // (updateMyProviderConfig's "keep the existing secret" signal), not invalid input.
+  @Field() @IsString() value: string;
+}
+
+@InputType('UpdateNotificationProviderConfigInput')
+export class UpdateNotificationProviderConfigInput {
+  @Field() @IsNotEmpty() channel: string;
+  @Field() @IsNotEmpty() provider: string;
+  @Field(() => [CredentialFieldInput])
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => CredentialFieldInput)
+  credentials: CredentialFieldInput[];
+  @Field({ nullable: true }) @IsOptional() sender_id?: string;
 }
