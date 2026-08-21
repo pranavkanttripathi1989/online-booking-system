@@ -164,9 +164,9 @@ Several `SKILL.md` reference files live under `.claude/skills/` (NestJS, React, 
 
 ### Priority 2 — Build the remaining domains
 
-Finances/Billing (Razorpay integration for patient payments, subscription billing via Stripe, `PaymentTransactions` with GST fields — note `PaymentTransactions` already exists but is scoped to tenant SaaS-subscription billing only, a per-appointment patient-payment model still needs to be designed), most of Settings, Communications/Policies UI tabs.
+**Status as of 2026-08-21** (kept current here rather than left to go stale — check `requirements/README.md` for the live picture, this is a snapshot): Finances/Billing (`REQ004`) is **done** — real Razorpay patient-payment capture plus the `finances/index.jsx` page, both tested. Settings (`REQ005`) is **mostly done** — Profile, Password, Sessions, Deactivate, Notification-preferences storage all real and tested; still open: 2FA (fake toggle, no enrollment flow), Bio/DOB/Gender/Address/Avatar (no schema), the notification-trigger pipeline (prefs stored, nothing sends), and Branding (that's `REQ002`'s separate scope, not started). Communications/Policies (`REQ006`) is **2/3 tabs done** — Cancellation Rules and Booking Policies + Email settings real and tested; still open: the SMS provider tab (blocked, contradicts the fixed-vendor rule — `context/open-questions.md` #6), a possible Cancellation-Policy-slider duplication (`context/open-questions.md` #7), and the "Notification Templates"/"Security settings" tabs (not started, possible duplication with `EmailTemplates`/`REQ005` respectively).
 
-For each: audit the frontend's existing `gql` calls for that domain first (rule 7), then follow the same build → test → integrate → verify-responsive → commit loop as Priority 1, using `context/backend-api-requirements-master-plan.md` as the acceptance spec.
+For each remaining gap: audit the frontend's existing `gql` calls for that domain first (rule 7), then follow the same build → test → integrate → verify-responsive → commit loop as Priority 1, using `context/backend-api-requirements-master-plan.md` as the acceptance spec.
 
 **DoD per domain:** resolvers match the frontend's existing contract exactly, tests green (including tenant isolation), e2e path verified, responsive at 360/768/1280px, mock dependency removed for this domain's operations, committed.
 

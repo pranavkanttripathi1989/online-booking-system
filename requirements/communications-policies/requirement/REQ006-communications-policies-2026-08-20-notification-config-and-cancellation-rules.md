@@ -3,15 +3,17 @@ id: REQ006
 type: requirement
 feature: communications-policies
 created: 2026-08-20
-updated: 2026-08-20
-status: draft
+updated: 2026-08-21
+status: in-progress
 parent: null
-related: []
+related: [PLAN009, PLAN011]
 ---
 
 # Communications & Policies — Backend Requirements
 
-**Why this exists:** two admin pages, three tabs each, all currently mock or partially-mock: `admin/Communications.jsx` (route `/admin/communications`) and `admin/Policies.jsx` (route `/admin/policies`).
+**Progress (2026-08-21):** Cancellation Rules (`PLAN009`) and Booking Policies + Email settings (`PLAN011`) are done and tested. Still open: `admin/Communications.jsx`'s SMS Settings card (blocked on `context/open-questions.md` #6 — its Twilio/Vonage picker contradicts the fixed MSG91/Gupshup vendor rule; now visibly disabled rather than silently non-functional) and Policies' Cancellation Policy/Late-Fee sliders (blocked on `context/open-questions.md` #7 — likely duplicate of Cancellation Rules; also visibly disabled). Not yet started at all, not even blocked: the "Notification Templates" tab (this doc's own Open Question 1 — possible duplicate of the already-real `admin/EmailTemplates.jsx`, unresolved) and Policies' "Security settings" tab (this doc's Open Question 2 — possible overlap with `REQ005`'s Account & Security tab, unresolved).
+
+**Why this exists (original, 2026-08-20):** two admin pages, three tabs each, all currently mock or partially-mock: `admin/Communications.jsx` (route `/admin/communications`) and `admin/Policies.jsx` (route `/admin/policies`).
 
 ## Scope
 

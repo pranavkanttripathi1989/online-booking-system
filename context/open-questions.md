@@ -36,7 +36,13 @@ The mock UI also renders Date of Birth, Gender, a full street/city/state/ZIP add
 
 ## 1. manager/Dashboard.jsx "Recent Transactions" table has no backing data model
 
-**Status:** Open — backend NOT built for this piece; everything else on the page now is (see below).
+**Status:** ~~Open~~ — **resolved 2026-08-20**, by `REQ004`'s Razorpay/`AppointmentPayments` work
+(`context/patient-payments-2026-08-20/manifest.md`). `getTransactionsByDate` is now a real resolver in
+`backend/src/appointment-payments` — this entry was left marked "Open" after the fact (a stale-index gap,
+caught 2026-08-21 during a pending-work audit) even though the code had already moved on. The page's inline
+mock-fallback array and its misleading "no backend" console warning were dead code by that point and have now
+been removed (`manager/Dashboard.jsx`) — `transactions` just defaults to `[]` like every other real query on
+this page.
 
 `manager/Dashboard.jsx`'s `getTransactionsByDate(startDate, endDate, limit, offset)` query expects a list of
 per-appointment *patient payment* records — `{id, createdAt, amount, status: succeeded|pending|failed, appointment{clinician{name}, patient{firstName,lastName}, product{name}}}`.

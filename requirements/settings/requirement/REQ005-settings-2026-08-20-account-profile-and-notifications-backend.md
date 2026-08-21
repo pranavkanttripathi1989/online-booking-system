@@ -3,15 +3,17 @@ id: REQ005
 type: requirement
 feature: settings
 created: 2026-08-20
-updated: 2026-08-20
-status: draft
+updated: 2026-08-21
+status: in-progress
 parent: null
-related: []
+related: [PLAN010, TP040, TR039]
 ---
 
 # Settings — Backend Requirements (Profile / Account & Security / Notifications)
 
-**Why this exists:** `frontend/src/pages/settings/index.jsx` (route `/settings`, 481 lines, 5 tabs) is 100% mock — zero real `useQuery`/`gql` reference anywhere in the file (confirmed by direct grep, not assumed). Every field across every tab is local `useState`, backed by `mocks/store.js` or nothing at all.
+**Progress (2026-08-21):** Profile, Password change, Sessions list/revoke, Deactivate account, and Notification-preferences storage are all real and shipped — `PLAN010`, tested (`TP040` approved, `TR039` passed). The "Why this exists" paragraph below is the doc's original scoping snapshot and is now stale for those five items; kept for history. Still genuinely open: 2FA (a fake toggle, no real enrollment flow — this doc's own Open Question 1, unresolved), Bio/DOB/Gender/Address/Avatar on Profile (this doc's Open Question 3 = `context/open-questions.md` #4, unresolved), and the notification-trigger pipeline (prefs are stored but nothing reads them to actually send anything — `context/open-questions.md` #5, unresolved). Appearance stays correctly scoped out of the backend per this doc's own recommendation below (client-only/localStorage, pending a product decision on whether cross-device sync is ever needed). The Clinic tab's branding sub-feature is `REQ002`'s separate scope, not this requirement's — and `REQ002` itself is still `approved`, not implemented.
+
+**Why this exists (original, 2026-08-20):** `frontend/src/pages/settings/index.jsx` (route `/settings`, 481 lines, 5 tabs) is 100% mock — zero real `useQuery`/`gql` reference anywhere in the file (confirmed by direct grep, not assumed). Every field across every tab is local `useState`, backed by `mocks/store.js` or nothing at all.
 
 ## Scope — one requirement per tab, since they have genuinely different backend needs
 

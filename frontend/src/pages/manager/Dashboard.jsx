@@ -24,14 +24,15 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 
 // --- GraphQL ---
 
-// Split into two queries deliberately: getClinics/getAppointmentStats are
-// real (backend/src/analytics/**), but getTransactionsByDate has no backend
-// yet (context/open-questions.md #1, Finances/Billing deferred to Priority 2).
-// A single combined query document fails GraphQL validation as a whole the
-// moment ONE field doesn't exist on the schema -- found via live Chrome MCP
-// verification: the entire dashboard silently zeroed out (KPIs, charts, all
-// of it) even though getClinics/getAppointmentStats work correctly, because
-// they were bundled with the not-yet-buildable field in one request.
+// Split into two queries deliberately: getTransactionsByDate is now real
+// too (backend/src/appointment-payments, built under REQ004), but the split
+// itself stays -- a single combined query document fails GraphQL validation
+// as a whole the moment ONE field doesn't exist on the schema, found via
+// live Chrome MCP verification back when getTransactionsByDate didn't exist
+// yet: the entire dashboard silently zeroed out (KPIs, charts, all of it)
+// even though getClinics/getAppointmentStats worked correctly, because they
+// were bundled with the not-yet-buildable field in one request. Keeping the
+// split means one query's failure still can't take the other down.
 const GET_MANAGER_DASHBOARD_DATA = gql`
   query GetManagerDashboardData($clinicId: ID, $startDate: String!, $endDate: String!) {
     getClinics {
@@ -80,8 +81,8 @@ const GET_MANAGER_DASHBOARD_DATA = gql`
   }
 `;
 
-// Isolated in its own query/useQuery call so its failure (no backend yet)
-// doesn't take down GET_MANAGER_DASHBOARD_DATA above.
+// Isolated in its own query/useQuery call (real backend now, REQ004) so a
+// failure here still can't take down GET_MANAGER_DASHBOARD_DATA above.
 const GET_MANAGER_TRANSACTIONS = gql`
   query GetManagerTransactions($startDate: String!, $endDate: String!) {
     getTransactionsByDate(startDate: $startDate, endDate: $endDate, limit: 10, offset: 0) {
@@ -169,11 +170,10 @@ function ManagerDashboardInner() {
     skip: !user || !!dateRangeError // BUG-DASH-001: skip query when dates are inverted
   });
 
-  // Separate query (see GET_MANAGER_TRANSACTIONS comment above) — no
-  // getTransactionsByDate backend exists yet, so this one is expected to
-  // always error until the Finances/Billing domain is built; errorPolicy
-  // 'all' + ignoring the error here is deliberate, not a missed check.
-  const { data: txData, loading: txLoading } = useQuery(GET_MANAGER_TRANSACTIONS, {
+  // Separate query (see GET_MANAGER_TRANSACTIONS comment above) — real
+  // backend now (REQ004), kept isolated with errorPolicy 'all' so any future
+  // failure here still can't take down the KPI/chart query above.
+  const { data: txData } = useQuery(GET_MANAGER_TRANSACTIONS, {
     variables: { startDate: startStr, endDate: endStr },
     skip: !user || !!dateRangeError,
     errorPolicy: 'all',
@@ -199,24 +199,9 @@ function ManagerDashboardInner() {
     topClinicians: [],
   };
 
-  // "Recent Transactions" has no real backend yet — there is no per-appointment
-  // patient-payment model in schema.prisma (only tenant SaaS-subscription
-  // PaymentTransactions, unrelated to Appointments). This needs the not-yet-built
-  // Finances/Billing/Razorpay domain (CLAUDE.md Priority 2). Flagged loudly per
-  // CLAUDE.md Priority-3 point 3 ("visible in dev, not silent") rather than left
-  // as a silent fallback — see context/open-questions.md #1.
-  if (!txData?.getTransactionsByDate && !txLoading) {
-    // eslint-disable-next-line no-console
-    console.warn('[Dashboard] "Recent Transactions" is showing mock data — no Finances/Billing backend exists yet. See context/open-questions.md #1.');
-  }
-  const transactions = txData?.getTransactionsByDate || [
-    { id: 'TRX_1', createdAt: new Date().toISOString(), amount: 150.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Sarah Jenkins' }, patient: { id: 1, firstName: 'John', lastName: 'Doe' }, product: { name: 'Initial Consultation' } } },
-    { id: 'TRX_2', createdAt: new Date().toISOString(), amount: 85.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Michael Chen' }, patient: { id: 2, firstName: 'Jane', lastName: 'Smith' }, product: { name: 'Follow-up' } } },
-    { id: 'TRX_3', createdAt: new Date().toISOString(), amount: 200.00, status: 'pending', appointment: { clinician: { name: 'Dr. Emily Blunt' }, patient: { id: 3, firstName: 'Robert', lastName: 'Johnson' }, product: { name: 'Specialist Review' } } },
-    { id: 'TRX_4', createdAt: new Date().toISOString(), amount: 45.00, status: 'failed', appointment: { clinician: { name: 'Dr. Emily Blunt' }, patient: { id: 4, firstName: 'Alice', lastName: 'Wong' }, product: { name: 'Blood Test' } } },
-    { id: 'TRX_5', createdAt: new Date().toISOString(), amount: 95.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Sarah Jenkins' }, patient: { id: 5, firstName: 'Priya', lastName: 'Patel' }, product: { name: 'Physiotherapy' } } },
-    { id: 'TRX_6', createdAt: new Date().toISOString(), amount: 120.00, status: 'succeeded', appointment: { clinician: { name: 'Dr. Michael Chen' }, patient: { id: 6, firstName: 'Tom', lastName: 'Lee' }, product: { name: 'Consultation' } } },
-  ];
+  // "Recent Transactions" is real now (backend/src/appointment-payments,
+  // built under REQ004 — see context/open-questions.md #1, resolved).
+  const transactions = txData?.getTransactionsByDate || [];
 
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
