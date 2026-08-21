@@ -3,6 +3,7 @@ import { NotFoundException } from '@nestjs/common';
 import { AppointmentsService } from './appointments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
+import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -16,8 +17,10 @@ describe('AppointmentsService — access scoping', () => {
     clinics: { findUnique: jest.Mock };
     products: { findUnique: jest.Mock };
     rooms: { findFirst: jest.Mock };
+    userProfiles: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
+  let notificationTrigger: { dispatch: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -39,13 +42,16 @@ describe('AppointmentsService — access scoping', () => {
       clinics: { findUnique: jest.fn() },
       products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 30 }) },
       rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }) },
+      userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn((ops) => (typeof ops === 'function' ? ops(prisma) : Promise.all(ops))),
     };
+    notificationTrigger = { dispatch: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentsService,
         { provide: PrismaService, useValue: prisma },
         { provide: PUB_SUB, useValue: { publish: jest.fn(), asyncIterableIterator: jest.fn() } },
+        { provide: NotificationTriggerService, useValue: notificationTrigger },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -95,6 +101,25 @@ describe('AppointmentsService — access scoping', () => {
     it('allows creating an appointment for a clinic in the caller\'s own org', async () => {
       prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
       await expect(service.create(baseInput as any, staffUser)).resolves.toBeDefined();
+    });
+
+    // REQ008/PLAN017
+    it('dispatches new_appointment to the clinician\'s linked profile', async () => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+      prisma.userProfiles.findFirst.mockResolvedValue({ id: 'profile-cln-1' });
+      await service.create(baseInput as any, staffUser);
+      expect(notificationTrigger.dispatch).toHaveBeenCalledWith(
+        'profile-cln-1',
+        'new_appointment',
+        expect.objectContaining({ type: 'appointment' }),
+      );
+    });
+
+    it('does not dispatch when the clinician has no linked profile', async () => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+      prisma.userProfiles.findFirst.mockResolvedValue(null);
+      await service.create(baseInput as any, staffUser);
+      expect(notificationTrigger.dispatch).not.toHaveBeenCalled();
     });
 
     it('is a no-op for an org-less caller (patient self-serve booking goes through a separate mutation)', async () => {

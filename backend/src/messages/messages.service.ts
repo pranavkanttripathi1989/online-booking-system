@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateThreadInput } from './dto/message.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PUB_SUB } from '../common/pubsub.provider';
+import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 
 export const MESSAGE_RECEIVED_EVENT = 'messageReceived';
 
@@ -12,6 +13,7 @@ export class MessagesService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
+    private readonly notificationTrigger: NotificationTriggerService,
   ) {}
 
   private async participantsFor(threadId: string) {
@@ -118,6 +120,13 @@ export class MessagesService {
     for (const p of otherParticipants) {
       const payload = await this.toGraphQL(thread, p.user_id, false);
       await this.pubSub.publish(MESSAGE_RECEIVED_EVENT, { messageReceived: payload, userId: p.user_id });
+      // REQ008/PLAN017
+      await this.notificationTrigger.dispatch(p.user_id, 'new_message', {
+        title: 'New message',
+        message: body.length > 120 ? `${body.slice(0, 117)}...` : body,
+        type: 'alert',
+        action_url: `/messages/${threadId}`,
+      });
     }
     return this.toGraphQL(thread, user.sub, true);
   }

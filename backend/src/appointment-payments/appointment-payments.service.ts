@@ -3,12 +3,16 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { VerifyRazorpayPaymentInput } from './dto/appointment-payment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
 
 @Injectable()
 export class AppointmentPaymentsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notificationTrigger: NotificationTriggerService,
+  ) {}
 
   private razorpayAuthHeader() {
     const keyId = process.env.RAZORPAY_KEY_ID;
@@ -105,6 +109,20 @@ export class AppointmentPaymentsService {
         razorpay_signature: input.razorpay_signature,
       },
     });
+
+    // REQ008/PLAN017 — notify the patient's own login account, if linked.
+    const patientProfile = await this.prisma.userProfiles.findFirst({
+      where: { patient_id: payment.patient_id, is_deleted: false },
+    });
+    if (patientProfile) {
+      await this.notificationTrigger.dispatch(patientProfile.id, 'payment_received', {
+        title: 'Payment received',
+        message: `Your payment of ₹${(payment.amount / 100).toFixed(2)} was received successfully`,
+        type: 'payment',
+        action_url: `/finances`,
+      });
+    }
+
     return { success: true };
   }
 

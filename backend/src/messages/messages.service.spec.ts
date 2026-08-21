@@ -3,6 +3,7 @@ import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { MessagesService } from './messages.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
+import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 describe('MessagesService', () => {
@@ -16,6 +17,7 @@ describe('MessagesService', () => {
     $transaction: jest.Mock;
   };
   let pubSub: { publish: jest.Mock };
+  let notificationTrigger: { dispatch: jest.Mock };
 
   const meUser: JwtPayload = { sub: 'user-me', roles: ['patient'], client_org_id: 'org-a', patient_id: 'pat-1', clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'user-admin', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
@@ -48,11 +50,13 @@ describe('MessagesService', () => {
       $transaction: jest.fn((cb) => cb(makeTx())),
     };
     pubSub = { publish: jest.fn() };
+    notificationTrigger = { dispatch: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MessagesService,
         { provide: PrismaService, useValue: prisma },
         { provide: PUB_SUB, useValue: pubSub },
+        { provide: NotificationTriggerService, useValue: notificationTrigger },
       ],
     }).compile();
     service = module.get(MessagesService);
@@ -138,6 +142,14 @@ describe('MessagesService', () => {
       expect(pubSub.publish).toHaveBeenCalledTimes(1);
       const [, payload] = pubSub.publish.mock.calls[0];
       expect(payload.userId).toBe('user-other');
+
+      // REQ008/PLAN017
+      expect(notificationTrigger.dispatch).toHaveBeenCalledWith(
+        'user-other',
+        'new_message',
+        expect.objectContaining({ type: 'alert' }),
+      );
+      expect(notificationTrigger.dispatch).not.toHaveBeenCalledWith('user-me', expect.anything(), expect.anything());
     });
   });
 

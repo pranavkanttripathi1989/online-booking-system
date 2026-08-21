@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import * as crypto from 'crypto';
 import { AppointmentPaymentsService } from './appointment-payments.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 const ORIGINAL_ENV = process.env;
@@ -18,8 +19,10 @@ describe('AppointmentPaymentsService', () => {
       count: jest.Mock;
       aggregate: jest.Mock;
     };
+    userProfiles: { findFirst: jest.Mock };
   };
   let fetchMock: jest.Mock;
+  let notificationTrigger: { dispatch: jest.Mock };
 
   const orgUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'u2', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
@@ -36,11 +39,17 @@ describe('AppointmentPaymentsService', () => {
         count: jest.fn(),
         aggregate: jest.fn(),
       },
+      userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
     };
     fetchMock = jest.fn();
     (global as any).fetch = fetchMock;
+    notificationTrigger = { dispatch: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [AppointmentPaymentsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        AppointmentPaymentsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: NotificationTriggerService, useValue: notificationTrigger },
+      ],
     }).compile();
     service = module.get(AppointmentPaymentsService);
   });
@@ -114,7 +123,7 @@ describe('AppointmentPaymentsService', () => {
   });
 
   describe('verifyRazorpayPayment — real HMAC verification', () => {
-    const pendingPayment = { id: 'pay-1', razorpay_order_id: 'order_1', status: 'pending' };
+    const pendingPayment = { id: 'pay-1', razorpay_order_id: 'order_1', status: 'pending', patient_id: 'pat-1', amount: 49900 };
 
     const validSignatureFor = (orderId: string, paymentId: string, secret = 'fake_secret') =>
       crypto.createHmac('sha256', secret).update(`${orderId}|${paymentId}`).digest('hex');
@@ -135,6 +144,37 @@ describe('AppointmentPaymentsService', () => {
         where: { id: 'pay-1' },
         data: { status: 'succeeded', razorpay_payment_id: 'pay_1', razorpay_signature: signature },
       });
+    });
+
+    // REQ008/PLAN017
+    it('dispatches payment_received to the patient\'s linked profile on success', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(pendingPayment);
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.userProfiles.findFirst.mockResolvedValue({ id: 'profile-pat-1' });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: signature,
+      });
+
+      expect(notificationTrigger.dispatch).toHaveBeenCalledWith(
+        'profile-pat-1',
+        'payment_received',
+        expect.objectContaining({ type: 'payment' }),
+      );
+    });
+
+    it('does not dispatch on a failed (tampered signature) verification', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(pendingPayment);
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: 'deadbeef',
+      });
+      expect(notificationTrigger.dispatch).not.toHaveBeenCalled();
     });
 
     it('rejects a tampered signature (wrong secret) and marks the payment failed, not succeeded', async () => {

@@ -5,6 +5,7 @@ import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput } from './dto/appointment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PUB_SUB } from '../common/pubsub.provider';
+import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -24,7 +25,17 @@ export class AppointmentsService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
+    private readonly notificationTrigger: NotificationTriggerService,
   ) {}
+
+  // REQ008/PLAN017 — notify the clinician's own login account, if linked.
+  // An unlinked clinician (no UserProfiles row pointing at them yet) is
+  // skipped silently, same as every other unlinked-account case elsewhere
+  // in this codebase — not an error, just nothing to notify.
+  private async notifyLinkedProfile(kind: 'clinician_id' | 'patient_id', id: string, eventType: string, payload: Parameters<NotificationTriggerService['dispatch']>[2]) {
+    const profile = await this.prisma.userProfiles.findFirst({ where: { [kind]: id, is_deleted: false } });
+    if (profile) await this.notificationTrigger.dispatch(profile.id, eventType, payload);
+  }
 
   private toGraphQL(a: any, statusLogs: any[] = []) {
     const start = a.appointment_time as Date;
@@ -255,7 +266,14 @@ export class AppointmentsService {
       return appointment;
     });
 
-    return this.toGraphQL(created);
+    const result = this.toGraphQL(created);
+    await this.notifyLinkedProfile('clinician_id', created.clinician_id, 'new_appointment', {
+      title: 'New appointment booked',
+      message: `${result.patient.full_name} booked ${result.service?.name ?? 'an appointment'} for ${start.toLocaleString('en-IN')}`,
+      type: 'appointment',
+      action_url: `/appointments/${created.id}`,
+    });
+    return result;
   }
 
   private async transitionStatus(id: string, status: string, reason: string | undefined, user: JwtPayload) {
@@ -277,7 +295,22 @@ export class AppointmentsService {
     });
     const result = this.toGraphQL(updated);
     await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
+    if (status === 'cancelled' && appointment.status !== 'cancelled') {
+      await this.notifyCancellation(result);
+    }
     return result;
+  }
+
+  // REQ008/PLAN017 — notifies both sides; either may be unlinked.
+  private async notifyCancellation(appointment: ReturnType<AppointmentsService['toGraphQL']>) {
+    const payload = {
+      title: 'Appointment cancelled',
+      message: `${appointment.service?.name ?? 'Appointment'} on ${new Date(appointment.start_datetime).toLocaleString('en-IN')} was cancelled`,
+      type: 'appointment' as const,
+      action_url: `/appointments/${appointment.id}`,
+    };
+    await this.notifyLinkedProfile('clinician_id', appointment.clinician.id, 'appointment_cancelled', payload);
+    await this.notifyLinkedProfile('patient_id', appointment.patient.id, 'appointment_cancelled', payload);
   }
 
   cancel(id: string, reason: string | undefined, user: JwtPayload) {
@@ -327,6 +360,9 @@ export class AppointmentsService {
     });
     const result = this.toGraphQL(updated);
     await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
+    if (input.status === 'cancelled' && existing.status !== 'cancelled') {
+      await this.notifyCancellation(result);
+    }
     return result;
   }
 }
