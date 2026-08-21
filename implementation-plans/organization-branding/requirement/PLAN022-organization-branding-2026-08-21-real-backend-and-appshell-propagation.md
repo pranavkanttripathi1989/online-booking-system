@@ -4,7 +4,7 @@ type: requirement
 feature: organization-branding
 created: 2026-08-21
 updated: 2026-08-21
-status: in-progress
+status: done
 parent: REQ002
 related: [TP051, TR050]
 ---

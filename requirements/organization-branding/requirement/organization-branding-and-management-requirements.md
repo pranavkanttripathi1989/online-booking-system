@@ -3,11 +3,13 @@ id: REQ002
 type: requirement
 feature: organization-branding
 created: 2026-08-17
-updated: 2026-08-17
-status: approved
+updated: 2026-08-21
+status: done
 parent: null
-related: []
+related: [PLAN022, TP051, TR050]
 ---
+
+**Closed 2026-08-21** (`PLAN022`/`TP051`/`TR050`): logo upload (server-validated, PNG/JPEG, magic-byte checked), primary/secondary color pickers with real WCAG AA contrast validation, and propagation into `AppShell`'s sidebar/top-nav for every logged-in user with an org are real and tested. Booking-email/invoice/favicon propagation and plan-tier gating (§3.2 items 2–4, §3.3) remain not built — no live email pipeline, invoice module, dynamic-favicon infrastructure, or entitlements guard exists yet in this codebase; logged as deliberate scope decisions in `PLAN022`, not silently dropped.
 
 # Organization Branding & Management — Business Requirements
 
