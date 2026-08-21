@@ -16,3 +16,4 @@
 | phase4-5-increment3 | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
 | phase4-catalog-modules | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-catalog-modules](./phase4-catalog-modules/README.md) |
 | test-results-backend | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [test-results-backend](./test-results-backend/README.md) |
+| staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |

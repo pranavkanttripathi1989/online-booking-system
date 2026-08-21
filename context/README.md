@@ -38,6 +38,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 | reviews-2026-08-17 | reviews | 2026-08-17 | TP031, TR030, TS031 | approved | [manifest.md](./reviews-2026-08-17/manifest.md) |
 | security-2026-08-17 | security | 2026-08-17 | REQ001 | approved | [manifest.md](./security-2026-08-17/manifest.md) |
 | semble-competitive-gap-2026-08-17 | semble-competitive-gap | 2026-08-17 | REQ003 | approved | [manifest.md](./semble-competitive-gap-2026-08-17/manifest.md) |
+| staff-2026-08-21 | staff | 2026-08-21 | REQ009, PLAN018, TP047, TR046 | done | [manifest.md](./staff-2026-08-21/manifest.md) |
 | staff-2026-08-17 | staff | 2026-08-17 | TP033, TR032, TS033 | approved | [manifest.md](./staff-2026-08-17/manifest.md) |
 | staff-appointments-2026-08-17 | staff-appointments | 2026-08-17 | TP034, TR033, TS034 | done | [manifest.md](./staff-appointments-2026-08-17/manifest.md) |
 | staff-dashboard-2026-08-17 | staff-dashboard | 2026-08-17 | TP035, TR034, TS035 | approved | [manifest.md](./staff-dashboard-2026-08-17/manifest.md) |

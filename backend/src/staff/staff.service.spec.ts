@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ConflictException } from '@nestjs/common';
+import * as bcrypt from 'bcrypt';
 import { StaffService } from './staff.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -93,6 +94,35 @@ describe('StaffService — access scoping', () => {
       expect(prisma.userProfiles.update).not.toHaveBeenCalled();
     });
   });
+
+  // context/open-questions.md #3, resolved: real backdatable `since` and a
+  // real admin-set password reset.
+  describe('update — since and password reset', () => {
+    it('writes a backdated staff_since when since is provided', async () => {
+      await service.update('staff-1', { since: '2024-01-15' } as any, managerSameOrg);
+      const call = prisma.userProfiles.update.mock.calls[0][0];
+      expect(call.data.staff_since).toEqual(new Date('2024-01-15'));
+    });
+
+    it('leaves staff_since untouched when since is omitted', async () => {
+      await service.update('staff-1', { name: 'New Name' } as any, managerSameOrg);
+      const call = prisma.userProfiles.update.mock.calls[0][0];
+      expect(call.data.staff_since).toBeUndefined();
+    });
+
+    it('hashes and writes a new password when provided', async () => {
+      await service.update('staff-1', { password: 'NewPassword123!' } as any, managerSameOrg);
+      const call = prisma.userProfiles.update.mock.calls[0][0];
+      expect(call.data.password).not.toBe('NewPassword123!');
+      expect(await bcrypt.compare('NewPassword123!', call.data.password)).toBe(true);
+    });
+
+    it('never clears the existing password when none is provided', async () => {
+      await service.update('staff-1', { name: 'New Name' } as any, managerSameOrg);
+      const call = prisma.userProfiles.update.mock.calls[0][0];
+      expect(call.data.password).toBeUndefined();
+    });
+  });
 });
 
 describe('StaffService — create', () => {
@@ -132,5 +162,52 @@ describe('StaffService — create', () => {
     prisma.userProfiles.findUnique = jest.fn((args: any) => (args.where.phone ? Promise.resolve({ id: 'existing' }) : Promise.resolve(null)));
     await expect(service.create(createInput, currentUser)).rejects.toThrow(ConflictException);
     expect(prisma.users.create).not.toHaveBeenCalled();
+  });
+
+  // context/open-questions.md #3, resolved: status/since are real requirements.
+  it('defaults status to active and leaves staff_since null when neither is provided', async () => {
+    await service.create(createInput, currentUser);
+    const call = prisma.userProfiles.create.mock.calls[0][0];
+    expect(call.data.staff_status).toBe('active');
+    expect(call.data.staff_since).toBeUndefined();
+  });
+
+  it('honors an explicit status and backdated since', async () => {
+    await service.create({ ...createInput, status: 'on_leave', since: '2023-06-01' } as any, currentUser);
+    const call = prisma.userProfiles.create.mock.calls[0][0];
+    expect(call.data.staff_status).toBe('on_leave');
+    expect(call.data.staff_since).toEqual(new Date('2023-06-01'));
+  });
+});
+
+describe('StaffService — toGraphQL since fallback', () => {
+  let service: StaffService;
+  let prisma: { userProfiles: { findMany: jest.Mock } };
+  const user: JwtPayload = { sub: 'u-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
+
+  beforeEach(async () => {
+    prisma = { userProfiles: { findMany: jest.fn() } };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [StaffService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(StaffService);
+  });
+
+  it('falls back to created_at when staff_since was never set (pre-existing rows)', async () => {
+    const createdAt = new Date('2022-01-01');
+    prisma.userProfiles.findMany.mockResolvedValue([
+      { id: 's-1', first_name: 'A', last_name: 'B', role: {}, staff_since: null, created_at: createdAt },
+    ]);
+    const [row] = await service.findAll(undefined, undefined, undefined, user);
+    expect(row.since).toBe(createdAt);
+  });
+
+  it('uses the real staff_since when it was explicitly set', async () => {
+    const since = new Date('2020-05-01');
+    prisma.userProfiles.findMany.mockResolvedValue([
+      { id: 's-1', first_name: 'A', last_name: 'B', role: {}, staff_since: since, created_at: new Date('2022-01-01') },
+    ]);
+    const [row] = await service.findAll(undefined, undefined, undefined, user);
+    expect(row.since).toBe(since);
   });
 });

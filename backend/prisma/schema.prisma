@@ -931,6 +931,11 @@ model UserProfiles {
   job_title     String?
   notes         String?
   staff_status  String?  @default("active")
+  // context/open-questions.md #3 — real, backdatable employment start date,
+  // distinct from created_at (the row's actual creation timestamp). Null for
+  // every staff row created before this column existed; toGraphQL() falls
+  // back to created_at for those so `since` is never null in the API.
+  staff_since   DateTime?
 
   // add these for forgot-password
   password_reset_token   String?

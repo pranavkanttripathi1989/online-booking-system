@@ -608,6 +608,8 @@ input CreateStaffInput {
   password: String!
   phone: String
   role: String!
+  since: String
+  status: String
 }
 
 input CreateThreadInput {
@@ -1841,8 +1843,10 @@ input UpdateStaffInput {
   email: String
   name: String
   notes: String
+  password: String
   phone: String
   role: String
+  since: String
   status: String
 }
 

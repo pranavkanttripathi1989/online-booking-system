@@ -19,7 +19,10 @@ export class StaffService {
       role: p.job_title || p.role?.name || 'Staff',
       department: p.department ?? undefined,
       status: p.staff_status,
-      since: p.created_at,
+      // staff_since is null for rows created before this column existed (or
+      // where no explicit start date was ever set) -- created_at is always a
+      // real value, so `since` is never null in the API either way.
+      since: p.staff_since ?? p.created_at,
       address: p.address_line1 ?? undefined,
       notes: p.notes ?? undefined,
     };
@@ -99,6 +102,8 @@ export class StaffService {
           role_id: staffRole.id,
           job_title: input.role,
           department: input.department,
+          staff_status: input.status ?? 'active',
+          staff_since: input.since ? new Date(input.since) : undefined,
           address_line1: input.address,
           notes: input.notes,
           client_org_id: currentUser.client_org_id ?? undefined,
@@ -133,6 +138,11 @@ export class StaffService {
       lastName = rest.join(' ');
     }
 
+    // context/open-questions.md #3 — resolved: admin sets a specific password
+    // directly. Only hashed and written when actually provided -- an absent
+    // field must never clear the existing password.
+    const hashedPassword = input.password ? await bcrypt.hash(input.password, BCRYPT_COST) : undefined;
+
     const profile = await this.prisma.userProfiles.update({
       where: { id },
       data: {
@@ -143,8 +153,10 @@ export class StaffService {
         job_title: input.role,
         department: input.department,
         staff_status: input.status,
+        staff_since: input.since ? new Date(input.since) : undefined,
         address_line1: input.address,
         notes: input.notes,
+        password: hashedPassword,
       },
       include: { role: true },
     });

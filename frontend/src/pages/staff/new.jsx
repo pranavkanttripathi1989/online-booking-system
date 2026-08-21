@@ -28,9 +28,8 @@ import { useMutation, gql } from '@apollo/client'
 const TEAL = '#006D77'
 const TEAL_LIGHT = '#00858F'
 
-// Only fields CreateStaffInput actually accepts (backend/src/staff/dto/staff.input.ts) —
-// status/since are not part of the input; the backend always creates staff as
-// active as of now, matching real account-creation semantics.
+// context/open-questions.md #3, resolved: status/since are now real fields
+// on CreateStaffInput (backend/src/staff/dto/staff.input.ts).
 const CREATE_STAFF = gql`
   mutation CreateStaff($input: CreateStaffInput!) {
     createStaff(input: $input) { id }
@@ -114,6 +113,7 @@ export default function AddStaffPage() {
           input: {
             name: form.name, email: form.email, phone: form.phone,
             role: form.role, department: form.department,
+            status: form.status, since: form.since,
             address: form.address, notes: form.notes, password: form.password,
           },
         },
@@ -204,11 +204,6 @@ export default function AddStaffPage() {
 
             <CardContent sx={{ px: 2 }}>
               <Typography variant="caption" sx={{ color: '#9AA0A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.62rem' }}>Status</Typography>
-              {/* CreateStaffInput has no status/since fields — new staff are always
-                  created Active as of now; change status afterward from the edit page. */}
-              <Typography variant="caption" sx={{ display: 'block', color: '#9AA0A6', mt: 0.5, mb: 1 }}>
-                New staff start Active — change this after creation if needed.
-              </Typography>
               <Stack direction="column" spacing={1} sx={{ mt: 1.25 }}>
                 {STATUSES.map(s => (
                   <Box key={s.value} onClick={() => set('status')({ target: { value: s.value } })} sx={{

@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP047 | improvement | Test plan — Staff since/status/password-reset | approved | 2026-08-21 | 2026-08-21 | REQ009 | [TP047-staff-2026-08-21-since-and-password-reset.md](./improvement/TP047-staff-2026-08-21-since-and-password-reset.md) |
 
 ## bug
 

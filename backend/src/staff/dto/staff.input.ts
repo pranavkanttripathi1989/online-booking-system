@@ -1,5 +1,7 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsEmail, MinLength } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsEmail, IsIn, IsDateString, MinLength } from 'class-validator';
+
+const STAFF_STATUSES = ['active', 'on_leave', 'inactive'];
 
 // Matches staff/new.jsx's actual submitted shape: { name, email, phone, role,
 // department, status, since, address, notes, password }. `role` here is a
@@ -13,6 +15,9 @@ export class CreateStaffInput {
   @Field({ nullable: true }) @IsOptional() phone?: string;
   @Field() @IsNotEmpty() role: string;
   @Field({ nullable: true }) @IsOptional() department?: string;
+  // context/open-questions.md #3 — resolved: real requirement, wired up.
+  @Field({ nullable: true }) @IsOptional() @IsIn(STAFF_STATUSES) status?: string;
+  @Field({ nullable: true }) @IsOptional() @IsDateString() since?: string;
   @Field({ nullable: true }) @IsOptional() address?: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
   @Field() @MinLength(8) password: string;
@@ -25,7 +30,11 @@ export class UpdateStaffInput {
   @Field({ nullable: true }) @IsOptional() phone?: string;
   @Field({ nullable: true }) @IsOptional() role?: string;
   @Field({ nullable: true }) @IsOptional() department?: string;
-  @Field({ nullable: true }) @IsOptional() status?: string;
+  @Field({ nullable: true }) @IsOptional() @IsIn(STAFF_STATUSES) status?: string;
+  @Field({ nullable: true }) @IsOptional() @IsDateString() since?: string;
   @Field({ nullable: true }) @IsOptional() address?: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
+  // context/open-questions.md #3 — resolved: admin sets a specific password
+  // directly (not an emailed reset link).
+  @Field({ nullable: true }) @IsOptional() @MinLength(8) password?: string;
 }

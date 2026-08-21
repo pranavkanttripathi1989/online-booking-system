@@ -121,8 +121,10 @@ now test the fixed behavior, including new cross-tenant rejection cases for `upd
 
 ## 3. Staff module has no password-reset path, and create-time status/since are UI-only
 
-**Status:** Open — found while wiring `staff/{index,new,edit}.jsx` off mocks onto the real backend (Priority 1's
-last e2e-coverage gap). Not fixed, since both are contract/product decisions, not bugs with an obvious fix.
+**Status:** ~~Open~~ — **resolved 2026-08-21** (`REQ009`, `PLAN018`). Both decided by explicit user direction: (a) admin/manager sets a specific password directly, not an emailed reset link — `UpdateStaffInput` gained a `password` field; (b) backdating `since`/setting a non-Active initial status at creation *is* a real requirement — `CreateStaffInput` gained `status`/`since`, `UserProfiles` gained a `staff_since` column distinct from `created_at`. Live-verified: a backdated/non-Active staff member's fields land correctly in the DB, and an admin-reset password actually authenticates on a real login attempt, not just a successful mutation response.
+
+Original framing, kept for history — found while wiring `staff/{index,new,edit}.jsx` off mocks onto the real backend (Priority 1's
+last e2e-coverage gap). Not fixed at the time, since both were contract/product decisions, not bugs with an obvious fix.
 
 `backend/src/staff/dto/staff.input.ts`'s `UpdateStaffInput` has no `password` field, so there is currently no
 way for an admin/manager to reset a staff member's login password from `staff/edit.jsx` — the page's "Reset

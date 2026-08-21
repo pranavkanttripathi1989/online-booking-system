@@ -21,6 +21,8 @@ import DeleteRoundedIcon        from '@mui/icons-material/DeleteRounded'
 import PersonOffRoundedIcon     from '@mui/icons-material/PersonOffRounded'
 import CheckCircleRoundedIcon   from '@mui/icons-material/CheckCircleRounded'
 import InfoRoundedIcon          from '@mui/icons-material/InfoRounded'
+import VisibilityRoundedIcon    from '@mui/icons-material/VisibilityRounded'
+import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, gql } from '@apollo/client'
 
@@ -35,10 +37,8 @@ const GET_STAFF_MEMBER = gql`
     }
   }
 `
-// UpdateStaffInput has no password field — resetting a staff member's password
-// isn't supported by the backend yet (context/open-questions.md #3); the New
-// Password field below is disabled with an explanatory note rather than
-// silently dropped.
+// context/open-questions.md #3, resolved: UpdateStaffInput now has a real
+// password field (admin sets a specific password directly).
 const UPDATE_STAFF = gql`
   mutation UpdateStaff($id: ID!, $input: UpdateStaffInput!) {
     updateStaff(id: $id, input: $input) {
@@ -93,6 +93,13 @@ export default function EditStaffPage() {
   const [original, setOriginal] = useState(null)
   const [errors, setErrors] = useState({})
   const [deactivateOpen, setDeactivateOpen] = useState(false)
+  // context/open-questions.md #3, resolved: admin-set password reset —
+  // local-only, never part of `form`/`hasChanges` (a typed-then-cleared
+  // password shouldn't count as "unsaved changes" on its own next to real
+  // profile fields, and must never be sent unless non-empty).
+  const [newPassword, setNewPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [showNewPassword, setShowNewPassword] = useState(false)
 
   const { data, error: loadError } = useQuery(GET_STAFF_MEMBER, { variables: { id } })
   const [saveStaffMutation, { loading: saving }] = useMutation(UPDATE_STAFF)
@@ -121,7 +128,7 @@ export default function EditStaffPage() {
     if (errors[field]) setErrors(prev => ({ ...prev, [field]: '' }))
   }
 
-  const hasChanges = JSON.stringify(form) !== JSON.stringify(original)
+  const hasChanges = JSON.stringify(form) !== JSON.stringify(original) || newPassword.length > 0
 
   const validate = () => {
     const e = {}
@@ -131,6 +138,8 @@ export default function EditStaffPage() {
     if (!form.phone.trim()) e.phone = 'Phone number is required'
     if (!form.role)         e.role  = 'Select a role'
     if (!form.department)   e.department = 'Select a department'
+    if (newPassword && newPassword.length < 8) e.newPassword = 'Minimum 8 characters'
+    if (newPassword && newPassword !== confirmPassword) e.confirmPassword = 'Passwords do not match'
     return e
   }
 
@@ -144,11 +153,15 @@ export default function EditStaffPage() {
           input: {
             name: form.name, email: form.email, phone: form.phone,
             role: form.role, department: form.department, status: form.status,
-            address: form.address, notes: form.notes,
+            since: form.since, address: form.address, notes: form.notes,
+            password: newPassword || undefined,
           },
         },
       })
-      enqueueSnackbar(`${form.name}'s profile updated successfully!`, { variant: 'success' })
+      enqueueSnackbar(
+        newPassword ? `${form.name}'s profile and password updated successfully!` : `${form.name}'s profile updated successfully!`,
+        { variant: 'success' },
+      )
       navigate('/staff')
     } catch (err) {
       enqueueSnackbar(err.message || 'Failed to update staff member', { variant: 'error' })
@@ -353,17 +366,38 @@ export default function EditStaffPage() {
 
               <Divider sx={{ my: 2.5 }} />
 
-              {/* Reset password — UpdateStaffInput has no password field; the backend
-                  doesn't support this yet (context/open-questions.md #3), so the
-                  control is disabled rather than silently discarding input. */}
+              {/* context/open-questions.md #3, resolved: admin sets a specific
+                  password directly via UpdateStaffInput.password. */}
               <FieldSection icon={LockRoundedIcon} title="Reset Password">
                 <Box sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 1.5, mb: 2, display: 'flex', gap: 1 }}>
                   <InfoRoundedIcon sx={{ fontSize: '1rem', color: '#9AA0A6', mt: 0.1, flexShrink: 0 }} />
-                  <Typography variant="caption" sx={{ color: '#5F6368' }}>Password reset isn't available from this page yet.</Typography>
+                  <Typography variant="caption" sx={{ color: '#5F6368' }}>Leave blank to keep the current password. Setting a new one takes effect immediately.</Typography>
                 </Box>
-                <TextField label="New Password" fullWidth size="small" disabled
-                  placeholder="Not yet supported"
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                <Grid container spacing={2}>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="New Password" fullWidth size="small"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={newPassword}
+                      onChange={(e) => { setNewPassword(e.target.value); if (errors.newPassword) setErrors(prev => ({ ...prev, newPassword: '' })) }}
+                      error={!!errors.newPassword} helperText={errors.newPassword}
+                      InputProps={{ endAdornment: (
+                        <InputAdornment position="end">
+                          <IconButton size="small" onClick={() => setShowNewPassword(v => !v)} edge="end">
+                            {showNewPassword ? <VisibilityOffRoundedIcon fontSize="small" /> : <VisibilityRoundedIcon fontSize="small" />}
+                          </IconButton>
+                        </InputAdornment>
+                      ) }}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField label="Confirm New Password" fullWidth size="small"
+                      type={showNewPassword ? 'text' : 'password'}
+                      value={confirmPassword}
+                      onChange={(e) => { setConfirmPassword(e.target.value); if (errors.confirmPassword) setErrors(prev => ({ ...prev, confirmPassword: '' })) }}
+                      error={!!errors.confirmPassword} helperText={errors.confirmPassword}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  </Grid>
+                </Grid>
               </FieldSection>
 
               <Divider sx={{ my: 2.5 }} />
