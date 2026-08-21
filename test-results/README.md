@@ -5,7 +5,7 @@
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
 | communications-policies | 2 | 0 | 0 | 2 | 0 | 2026-08-20 | [communications-policies](./communications-policies/README.md) |
 | patient-payments | 2 | 0 | 0 | 0 | 2 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |
-| settings | 2 | 0 | 0 | 1 | 1 | 2026-08-20 | [settings](./settings/README.md) |
+| settings | 3 | 0 | 0 | 2 | 1 | 2026-08-21 | [settings](./settings/README.md) |
 | clinician-availability | 1 | 0 | 0 | 0 | 1 | 2026-08-19 | [clinician-availability](./clinician-availability/README.md) |
 | appointments | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [appointments](./appointments/README.md) |
 | auth | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [auth](./auth/README.md) |
@@ -31,7 +31,7 @@
 | manager-rooms | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [manager-rooms](./manager-rooms/README.md) |
 | manager-services | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [manager-services](./manager-services/README.md) |
 | messages | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [messages](./messages/README.md) |
-| notifications | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [notifications](./notifications/README.md) |
+| notifications | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [notifications](./notifications/README.md) |
 | patient-appointments | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [patient-appointments](./patient-appointments/README.md) |
 | patient-dashboard | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [patient-dashboard](./patient-dashboard/README.md) |
 | profile | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [profile](./profile/README.md) |

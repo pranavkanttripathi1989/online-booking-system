@@ -8,7 +8,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 | dashboard-2026-08-21 | dashboard | 2026-08-21 | REQ007, PLAN014, TP044, TR043 | done | [manifest.md](./dashboard-2026-08-21/manifest.md) |
 | communications-policies-2026-08-20 | communications-policies | 2026-08-20 | REQ006, PLAN009, TP039, TR038, PLAN011, TP041, TR040 | in-progress | [manifest.md](./communications-policies-2026-08-20/manifest.md) |
 | patient-payments-2026-08-20 | patient-payments | 2026-08-20 | REQ004, PLAN012, PLAN013, TP042, TP043, TR041, TR042 | done | [manifest.md](./patient-payments-2026-08-20/manifest.md) |
-| settings-2026-08-20 | settings | 2026-08-20 | REQ005, PLAN010, TP040, TR039 | in-progress | [manifest.md](./settings-2026-08-20/manifest.md) |
+| settings-2026-08-20 | settings | 2026-08-20 | REQ005, PLAN010, TP040, TR039, PLAN016, TP045, TR044 | done | [manifest.md](./settings-2026-08-20/manifest.md) |
 | clinician-availability-2026-08-19 | clinician-availability | 2026-08-19 | TP007, TR006, TS006 | in-progress | [manifest.md](./clinician-availability-2026-08-19/manifest.md) |
 | appointments-2026-08-18 | appointments | 2026-08-18 | TP003, TR003, TS003 | in-progress | [manifest.md](./appointments-2026-08-18/manifest.md) |
 | auth-2026-08-18 | auth | 2026-08-18 | TP004, TR004, TS004 | in-progress | [manifest.md](./auth-2026-08-18/manifest.md) |
@@ -22,6 +22,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 | clinician-dashboard-2026-08-17 | clinician-dashboard | 2026-08-17 | TP009, TR008, TS008 | done | [manifest.md](./clinician-dashboard-2026-08-17/manifest.md) |
 | date-time-format-2026-08-17 | date-time-format | 2026-08-17 | TP013, TR012, TS012 | done | [manifest.md](./date-time-format-2026-08-17/manifest.md) |
 | header-navigation-2026-08-17 | header-navigation | 2026-08-17 | TP014, TR013, TS013 | done | [manifest.md](./header-navigation-2026-08-17/manifest.md) |
+| notifications-2026-08-21 | notifications | 2026-08-21 | REQ008, PLAN017, TP046, TR045 | done | [manifest.md](./notifications-2026-08-21/manifest.md) |
 | notifications-2026-08-17 | notifications | 2026-08-17 | TP025, TR024, TS024 | approved | [manifest.md](./notifications-2026-08-17/manifest.md) |
 | organization-branding-2026-08-17 | organization-branding | 2026-08-17 | REQ002 | approved | [manifest.md](./organization-branding-2026-08-17/manifest.md) |
 | organization-onboarding-2026-08-17 | organization-onboarding | 2026-08-17 | TS025 | in-progress | [manifest.md](./organization-onboarding-2026-08-17/manifest.md) |

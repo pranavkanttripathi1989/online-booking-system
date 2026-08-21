@@ -4,14 +4,14 @@ type: requirement
 feature: settings
 created: 2026-08-20
 updated: 2026-08-21
-status: in-progress
+status: done
 parent: null
-related: [PLAN010, TP040, TR039]
+related: [PLAN010, TP040, TR039, PLAN016, TP045, TR044]
 ---
 
 # Settings — Backend Requirements (Profile / Account & Security / Notifications)
 
-**Progress (2026-08-21):** Profile, Password change, Sessions list/revoke, Deactivate account, and Notification-preferences storage are all real and shipped — `PLAN010`, tested (`TP040` approved, `TR039` passed). The "Why this exists" paragraph below is the doc's original scoping snapshot and is now stale for those five items; kept for history. Still genuinely open: 2FA (a fake toggle, no real enrollment flow — this doc's own Open Question 1, unresolved), Bio/DOB/Gender/Address/Avatar on Profile (this doc's Open Question 3 = `context/open-questions.md` #4, unresolved), and the notification-trigger pipeline (prefs are stored but nothing reads them to actually send anything — `context/open-questions.md` #5, unresolved). Appearance stays correctly scoped out of the backend per this doc's own recommendation below (client-only/localStorage, pending a product decision on whether cross-device sync is ever needed). The Clinic tab's branding sub-feature is `REQ002`'s separate scope, not this requirement's — and `REQ002` itself is still `approved`, not implemented.
+**Progress (2026-08-21, closed):** Profile, Password change, Sessions list/revoke, Deactivate account, and Notification-preferences storage were shipped first — `PLAN010`, tested (`TP040` approved, `TR039` passed). This session closed the remaining gap: Bio/DOB/Gender/structured-India-address + avatar upload on Profile, and real TOTP 2FA (enrollment, QR, single-use backup codes, a `LoginResult` GraphQL union so the existing `AuthPayloadType` "hard contract" stayed non-nullable) — `PLAN016`, tested (`TP045` approved, `TR044` passed). Open Question 1 (2FA real-or-defer) was resolved by explicit user direction mid-session: build real TOTP now, not the smaller remove/hide option. Open Question 3 (Bio/avatar fields, storage approach) resolved: local filesystem storage under `backend/uploads/avatars/`, since no AWS credentials exist in this environment to build against S3 for real — a documented swap path is left in `account.controller.ts`'s header comment. The notification-trigger pipeline (`context/open-questions.md` #5) was closed under `REQ008`, not this requirement. Appearance stays correctly scoped out of the backend per this doc's own recommendation below (client-only/localStorage, pending a product decision on whether cross-device sync is ever needed). The Clinic tab's branding sub-feature is `REQ002`'s separate scope, not this requirement's — and `REQ002` itself is still `approved`, not implemented.
 
 **Why this exists (original, 2026-08-20):** `frontend/src/pages/settings/index.jsx` (route `/settings`, 481 lines, 5 tabs) is 100% mock — zero real `useQuery`/`gql` reference anywhere in the file (confirmed by direct grep, not assumed). Every field across every tab is local `useState`, backed by `mocks/store.js` or nothing at all.
 
@@ -40,11 +40,11 @@ This tab's branding sub-feature (`getOrganizationBranding`/`updateOrganizationBr
 - Multi-tenancy: every mutation here is inherently self-scoped (a user editing their own profile/password/notifications) rather than org-scoped, but still needs the same JWT-derived-identity discipline as every other domain — never trust a client-supplied user id, always operate on `req.user`'s own identity from the token.
 - Match the existing contract (hard rule 7): don't invent new field names for Profile-tab data that already exists on `AdminUserType`/`UserUpdateInput` — extend, don't duplicate.
 
-## Open questions (not resolved here)
+## Open questions
 
-1. Is 2FA a real requirement for this release, or should the toggle be removed/hidden until it's actually built? Building a convincing-looking-but-fake 2FA toggle is exactly the kind of prototype-not-production gap CLAUDE.md's Role section rules out.
-2. Does "Appearance" need any server-side persistence at all, or is `localStorage` sufficient? Needs a product decision, not an engineering guess.
-3. Bio/avatar fields on Profile — new columns needed; confirm avatar storage approach (S3/local/etc.) isn't already decided elsewhere in the project before inventing one.
+1. ~~Is 2FA a real requirement for this release...~~ **Resolved 2026-08-21**: build real TOTP now (explicit user direction, not the smaller remove/hide option). Shipped under `PLAN016`.
+2. Does "Appearance" need any server-side persistence at all, or is `localStorage` sufficient? Needs a product decision, not an engineering guess. **Still open** — out of this requirement's closed scope.
+3. ~~Bio/avatar fields on Profile...~~ **Resolved 2026-08-21**: local filesystem storage (`backend/uploads/avatars/`), no AWS credentials exist in this environment for S3; swap path documented in `account.controller.ts`. Shipped under `PLAN016`.
 
 ## Acceptance criteria (high-level)
 
