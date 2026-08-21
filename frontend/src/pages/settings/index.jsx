@@ -43,12 +43,33 @@ const NOTIF_ROWS = [
 
 // ─── REQ005 — Profile / Account & Security / Notifications GraphQL ─────────────
 const MY_PROFILE_QUERY = gql`
-  query MyProfile { myProfile { id first_name last_name email phone } }
+  query MyProfile {
+    myProfile {
+      id first_name last_name email phone bio date_of_birth gender avatar_url totp_enabled
+      address { line1 line2 city state pincode country }
+    }
+  }
 `
 const UPDATE_MY_PROFILE = gql`
   mutation UpdateMyProfile($input: UpdateMyProfileInput!) {
-    updateMyProfile(input: $input) { success userErrors { message } profile { first_name last_name phone } }
+    updateMyProfile(input: $input) {
+      success
+      userErrors { message }
+      profile { first_name last_name phone bio date_of_birth gender avatar_url }
+    }
   }
+`
+// PLAN016 Slice C — 2FA (TOTP)
+const START_TOTP_ENROLLMENT = gql`
+  mutation StartTotpEnrollment { startTotpEnrollment { qr_data_url secret } }
+`
+const CONFIRM_TOTP_ENROLLMENT = gql`
+  mutation ConfirmTotpEnrollment($input: ConfirmTotpEnrollmentInput!) {
+    confirmTotpEnrollment(input: $input) { success message backup_codes }
+  }
+`
+const DISABLE_TOTP = gql`
+  mutation DisableTotp($input: DisableTotpInput!) { disableTotp(input: $input) { success message } }
 `
 const CHANGE_MY_PASSWORD = gql`
   mutation ChangeMyPassword($input: ChangeMyPasswordInput!) {
@@ -88,8 +109,17 @@ export default function SettingsPage() {
   const [lastName, setLastName]     = useState('')
   const [phone, setPhone]           = useState('')
   const [bio, setBio]               = useState('')
+  const [dateOfBirth, setDateOfBirth] = useState('')
+  const [gender, setGender]         = useState('prefer_not_to_say')
+  const [avatarUrl, setAvatarUrl]   = useState(null)
+  const [addressLine1, setAddressLine1] = useState('')
+  const [addressLine2, setAddressLine2] = useState('')
+  const [addressCity, setAddressCity]   = useState('')
+  const [addressState, setAddressState] = useState('')
+  const [addressPincode, setAddressPincode] = useState('')
   const [profileError, setProfileError] = useState(null)
   const [savingProfile, setSavingProfile] = useState(false)
+  const [uploadingAvatar, setUploadingAvatar] = useState(false)
 
   // Password state (SUG-SET-002)
   const [currentPw, setCurrentPw]   = useState('')
@@ -104,9 +134,19 @@ export default function SettingsPage() {
   // they're dropped from the UI entirely rather than shown as fake data.
   const [sessions, setSessions] = useState([])
 
-  // 2FA controlled state (SUG-SET-008) — still local-only; see
-  // context/open-questions.md (REQ005 open question: real requirement or defer?)
-  const [twoFa, setTwoFa] = useState(false)
+  // 2FA (TOTP) — PLAN016 Slice C: real enrollment against startTotpEnrollment/
+  // confirmTotpEnrollment/disableTotp, seeded from myProfile.totp_enabled.
+  const [totpEnabled, setTotpEnabled] = useState(false)
+  const [enrollOpen, setEnrollOpen] = useState(false)
+  const [enrollStep, setEnrollStep] = useState('qr') // 'qr' | 'backup_codes'
+  const [qrDataUrl, setQrDataUrl] = useState(null)
+  const [totpSecret, setTotpSecret] = useState(null)
+  const [confirmCode, setConfirmCode] = useState('')
+  const [backupCodes, setBackupCodes] = useState([])
+  const [totpBusy, setTotpBusy] = useState(false)
+  const [totpError, setTotpError] = useState(null)
+  const [disableOpen, setDisableOpen] = useState(false)
+  const [disablePassword, setDisablePassword] = useState('')
 
   // Deactivate confirm dialog state (SUG-SET-004)
   const [deactivateOpen, setDeactivateOpen] = useState(false)
@@ -126,9 +166,20 @@ export default function SettingsPage() {
         client.query({ query: MY_NOTIFICATION_PREFERENCES_QUERY, fetchPolicy: 'network-only' }),
       ])
       if (profileData?.myProfile) {
-        setFirstName(profileData.myProfile.first_name ?? '')
-        setLastName(profileData.myProfile.last_name ?? '')
-        setPhone(profileData.myProfile.phone ?? '')
+        const p = profileData.myProfile
+        setFirstName(p.first_name ?? '')
+        setLastName(p.last_name ?? '')
+        setPhone(p.phone ?? '')
+        setBio(p.bio ?? '')
+        setDateOfBirth(p.date_of_birth ? p.date_of_birth.slice(0, 10) : '')
+        setGender(p.gender ?? 'prefer_not_to_say')
+        setAvatarUrl(p.avatar_url ?? null)
+        setAddressLine1(p.address?.line1 ?? '')
+        setAddressLine2(p.address?.line2 ?? '')
+        setAddressCity(p.address?.city ?? '')
+        setAddressState(p.address?.state ?? '')
+        setAddressPincode(p.address?.pincode ?? '')
+        setTotpEnabled(!!p.totp_enabled)
       }
       setSessions(sessionsData?.mySessions ?? [])
       const prefsByType = Object.fromEntries(
@@ -190,15 +241,100 @@ export default function SettingsPage() {
   const handleProfileSave = async () => {
     setProfileError(null); setSavingProfile(true)
     try {
+      // MyAddressInput requires line1/city/state/pincode together — only send
+      // an address at all once every required part has actually been filled in,
+      // rather than submitting a half-filled object the backend would reject.
+      const address = (addressLine1 && addressCity && addressState && addressPincode)
+        ? { line1: addressLine1, line2: addressLine2 || null, city: addressCity, state: addressState, pincode: addressPincode, country: 'India' }
+        : null
       const { data } = await client.mutate({
         mutation: UPDATE_MY_PROFILE,
-        variables: { input: { first_name: firstName, last_name: lastName, phone: phone || null } },
+        variables: { input: {
+          first_name: firstName, last_name: lastName, phone: phone || null,
+          bio: bio || null, date_of_birth: dateOfBirth || null, gender, address,
+        } },
       })
       if (!data?.updateMyProfile?.success) throw new Error(data?.updateMyProfile?.userErrors?.[0]?.message ?? 'Failed to save profile')
       updateUser({ name: `${firstName} ${lastName}`.trim() })
       handleSave('Profile changes')
-    } catch (err) { setProfileError(err.message) }
+    } catch (err) { setProfileError(err?.graphQLErrors?.[0]?.message || err.message) }
     finally { setSavingProfile(false) }
+  }
+
+  // REQ005/PLAN016 Slice B — plain REST multipart upload (no GraphQL upload
+  // scalar exists in this schema), authenticated manually since the global
+  // GqlAuthGuard only covers GraphQL execution context (account.controller.ts).
+  const handleAvatarUpload = async (file) => {
+    setProfileError(null); setUploadingAvatar(true)
+    try {
+      const token = localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')
+      const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${apiBase}/account/avatar`, {
+        method: 'POST',
+        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        body: formData,
+      })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(body?.message || 'Failed to upload photo')
+      setAvatarUrl(body.url)
+      handleSave('Photo')
+    } catch (err) { setProfileError(err.message) }
+    finally { setUploadingAvatar(false) }
+  }
+
+  const avatarSrc = avatarUrl
+    ? (avatarUrl.startsWith('http') ? avatarUrl : `${(import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')}${avatarUrl}`)
+    : undefined
+
+  // ── 2FA (TOTP) — PLAN016 Slice C ──────────────────────────────────────────
+  const handleStartEnroll = async () => {
+    setTotpError(null); setTotpBusy(true)
+    try {
+      const { data } = await client.mutate({ mutation: START_TOTP_ENROLLMENT })
+      setQrDataUrl(data.startTotpEnrollment.qr_data_url)
+      setTotpSecret(data.startTotpEnrollment.secret)
+      setEnrollStep('qr')
+      setConfirmCode('')
+      setEnrollOpen(true)
+    } catch (err) { setProfileError(err?.graphQLErrors?.[0]?.message || err.message) }
+    finally { setTotpBusy(false) }
+  }
+
+  const handleConfirmEnroll = async () => {
+    setTotpError(null); setTotpBusy(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: CONFIRM_TOTP_ENROLLMENT,
+        variables: { input: { code: confirmCode } },
+      })
+      if (!data?.confirmTotpEnrollment?.success) throw new Error(data?.confirmTotpEnrollment?.message ?? 'Incorrect code')
+      setBackupCodes(data.confirmTotpEnrollment.backup_codes ?? [])
+      setEnrollStep('backup_codes')
+      setTotpEnabled(true)
+    } catch (err) { setTotpError(err?.graphQLErrors?.[0]?.message || err.message) }
+    finally { setTotpBusy(false) }
+  }
+
+  const closeEnrollDialog = () => {
+    setEnrollOpen(false); setQrDataUrl(null); setTotpSecret(null); setConfirmCode('')
+    setBackupCodes([]); setEnrollStep('qr'); setTotpError(null)
+  }
+
+  const handleDisableTotp = async () => {
+    setTotpError(null); setTotpBusy(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: DISABLE_TOTP,
+        variables: { input: { password: disablePassword } },
+      })
+      if (!data?.disableTotp?.success) throw new Error(data?.disableTotp?.message ?? 'Failed to disable 2FA')
+      setTotpEnabled(false)
+      setDisableOpen(false); setDisablePassword('')
+      handleSave('Two-factor authentication')
+    } catch (err) { setTotpError(err?.graphQLErrors?.[0]?.message || err.message) }
+    finally { setTotpBusy(false) }
   }
 
   // SUG-SET-002: Password validation, now against the real changeMyPassword mutation
@@ -298,24 +434,25 @@ export default function SettingsPage() {
               {/* Avatar */}
               <Grid item xs={12} md={3} sx={{ textAlign: { xs: 'left', md: 'center' } }}>
                 <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                  <Avatar sx={{ width: 110, height: 110, bgcolor: '#E8F0FE', color: '#1A73E8', fontSize: '2.5rem', fontWeight: 800 }}>
+                  <Avatar src={avatarSrc} sx={{ width: 110, height: 110, bgcolor: '#E8F0FE', color: '#1A73E8', fontSize: '2.5rem', fontWeight: 800 }}>
                     {(firstName[0] ?? '') + (lastName[0] ?? '')}
                   </Avatar>
-                  {/* SUG-SET-001: Wire camera icon to hidden file input */}
+                  {/* SUG-SET-001: real upload — POST /account/avatar */}
                   <input ref={fileRef} type="file" accept="image/jpeg,image/png,image/gif" style={{ display: 'none' }} onChange={(e) => {
                     const file = e.target.files?.[0]
+                    e.target.value = ''
                     if (!file) return
-                    if (file.size > 2 * 1024 * 1024) { alert('File must be under 2 MB'); return }
-                    const url = URL.createObjectURL(file)
-                    // Optimistic preview would set avatarUrl state here
-                    handleSave('Photo')
+                    if (file.size > 2 * 1024 * 1024) { setProfileError('File must be under 2 MB'); return }
+                    handleAvatarUpload(file)
                   }} />
-                  <IconButton size="small" onClick={() => fileRef.current?.click()} aria-label="Change profile photo"
+                  <IconButton size="small" disabled={uploadingAvatar} onClick={() => fileRef.current?.click()} aria-label="Change profile photo"
                     sx={{ position: 'absolute', bottom: 0, right: 0, bgcolor: '#fff', border: '2px solid #E8EAED', '&:hover': { bgcolor: '#E8F0FE' } }}>
                     <CameraAltRoundedIcon fontSize="small" sx={{ color: '#1A73E8' }} />
                   </IconButton>
                 </Box>
-                <Typography variant="caption" display="block" sx={{ mt: 1.5, color: 'text.secondary' }}>Click to change photo<br />JPG, PNG or GIF · Max 2MB</Typography>
+                <Typography variant="caption" display="block" sx={{ mt: 1.5, color: 'text.secondary' }}>
+                  {uploadingAvatar ? 'Uploading…' : <>Click to change photo<br />JPG, PNG or GIF · Max 2MB</>}
+                </Typography>
               </Grid>
               {/* Form */}
               <Grid item xs={12} md={9}>
@@ -333,10 +470,10 @@ export default function SettingsPage() {
                     <TextField fullWidth label="Phone" value={phone} onChange={e => setPhone(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth label="Date of Birth" type="date" InputLabelProps={{ shrink: true }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                    <TextField fullWidth label="Date of Birth" type="date" value={dateOfBirth} onChange={e => setDateOfBirth(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth select label="Gender" defaultValue="prefer_not_to_say" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
+                    <TextField fullWidth select label="Gender" value={gender} onChange={e => setGender(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
                       {['male', 'female', 'other', 'prefer_not_to_say'].map(g => <MenuItem key={g} value={g} sx={{ textTransform: 'capitalize' }}>{g.replace(/_/g, ' ')}</MenuItem>)}
                     </TextField>
                   </Grid>
@@ -347,10 +484,11 @@ export default function SettingsPage() {
                   <Grid item xs={12}>
                     <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem', mb: 1.5 }}>Address</Typography>
                   </Grid>
-                  <Grid item xs={12}><TextField fullWidth label="Street Address" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth label="City" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth label="State / Province" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
-                  <Grid item xs={12} sm={4}><TextField fullWidth label="ZIP / Postal Code" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  <Grid item xs={12}><TextField fullWidth label="Address line 1" value={addressLine1} onChange={e => setAddressLine1(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  <Grid item xs={12}><TextField fullWidth label="Address line 2 (optional)" value={addressLine2} onChange={e => setAddressLine2(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  <Grid item xs={12} sm={4}><TextField fullWidth label="City" value={addressCity} onChange={e => setAddressCity(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  <Grid item xs={12} sm={4}><TextField fullWidth label="State" value={addressState} onChange={e => setAddressState(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
+                  <Grid item xs={12} sm={4}><TextField fullWidth label="PIN Code" value={addressPincode} onChange={e => setAddressPincode(e.target.value.replace(/\D/g, '').slice(0, 6))} inputProps={{ inputMode: 'numeric' }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} /></Grid>
                   {profileError && <Grid item xs={12}><Alert severity="error" onClose={() => setProfileError(null)}>{profileError}</Alert></Grid>}
                   <Grid item xs={12}>
                     <Button variant="contained" disabled={savingProfile} startIcon={<SaveRoundedIcon />} onClick={handleProfileSave}
@@ -380,12 +518,23 @@ export default function SettingsPage() {
                 </Grid>
               </Box>
               <Divider />
-              {/* 2FA */}
+              {/* 2FA — PLAN016 Slice C: real TOTP enrollment against startTotpEnrollment/confirmTotpEnrollment/disableTotp */}
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><SecurityRoundedIcon sx={{ fontSize: '1.1rem', color: '#0F9D58' }} /> Two-Factor Authentication</Typography>
-                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>Add an extra layer of security to your account by enabling 2FA.</Typography>
-                {/* SUG-SET-008: 2FA controlled state */}
-                <FormControlLabel control={<Switch color="success" checked={twoFa} onChange={(e) => setTwoFa(e.target.checked)} />} label={<Typography fontWeight={600}>Enable 2FA (TOTP)</Typography>} />
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                  {totpEnabled
+                    ? 'Two-factor authentication is enabled. You\'ll be asked for a code from your authenticator app each time you sign in.'
+                    : 'Add an extra layer of security to your account with an authenticator app (Google Authenticator, Authy, etc).'}
+                </Typography>
+                {totpEnabled ? (
+                  <Button variant="outlined" color="error" onClick={() => setDisableOpen(true)}
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Disable 2FA</Button>
+                ) : (
+                  <Button variant="contained" color="success" disabled={totpBusy} onClick={handleStartEnroll}
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                    {totpBusy ? 'Starting…' : 'Enable 2FA'}
+                  </Button>
+                )}
               </Box>
               <Divider />
               {/* Active sessions */}
@@ -603,6 +752,80 @@ export default function SettingsPage() {
           <Button variant="contained" color="error" startIcon={<DeleteRoundedIcon />} disabled={deactivating}
             onClick={handleDeactivate}
           >{deactivating ? 'Deactivating…' : 'Deactivate'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* PLAN016 Slice C — 2FA enrollment: QR scan → confirm code → show backup codes once */}
+      <Dialog open={enrollOpen} onClose={totpBusy ? undefined : closeEnrollDialog} maxWidth="xs" fullWidth>
+        {enrollStep === 'qr' ? (
+          <>
+            <DialogTitle fontWeight={700}>Set up two-factor authentication</DialogTitle>
+            <DialogContent>
+              <Stack spacing={2} alignItems="center">
+                <Typography variant="body2" sx={{ color: 'text.secondary', alignSelf: 'flex-start' }}>
+                  Scan this QR code with your authenticator app, then enter the 6-digit code it shows.
+                </Typography>
+                {qrDataUrl && <Box component="img" src={qrDataUrl} alt="2FA QR code" sx={{ width: 200, height: 200, border: '1px solid #E8EAED', borderRadius: 2 }} />}
+                <Typography variant="caption" sx={{ color: 'text.secondary', wordBreak: 'break-all', textAlign: 'center' }}>
+                  Can't scan? Enter this code manually: <strong>{totpSecret}</strong>
+                </Typography>
+                {totpError && <Alert severity="error" sx={{ width: '100%' }} onClose={() => setTotpError(null)}>{totpError}</Alert>}
+                <TextField
+                  fullWidth label="6-digit code" value={confirmCode}
+                  onChange={e => setConfirmCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                  inputProps={{ inputMode: 'numeric', 'aria-label': '6-digit authenticator code' }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+              </Stack>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={closeEnrollDialog} disabled={totpBusy}>Cancel</Button>
+              <Button variant="contained" disabled={totpBusy || confirmCode.length !== 6} onClick={handleConfirmEnroll}>
+                {totpBusy ? 'Verifying…' : 'Verify & Enable'}
+              </Button>
+            </DialogActions>
+          </>
+        ) : (
+          <>
+            <DialogTitle fontWeight={700} sx={{ color: '#0F9D58' }}>2FA is now enabled</DialogTitle>
+            <DialogContent>
+              <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
+                Save these backup codes somewhere safe. Each one can be used once to sign in if you lose access to your authenticator app — they won't be shown again.
+              </Alert>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#F8F9FA' }}>
+                <Grid container spacing={1}>
+                  {backupCodes.map((c) => (
+                    <Grid item xs={6} key={c}><Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{c}</Typography></Grid>
+                  ))}
+                </Grid>
+              </Paper>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button variant="contained" onClick={closeEnrollDialog}>Done</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* PLAN016 Slice C — disable 2FA requires current password re-entry */}
+      <Dialog open={disableOpen} onClose={() => { setDisableOpen(false); setDisablePassword(''); setTotpError(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={700} sx={{ color: '#D93025' }}>Disable two-factor authentication?</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>Confirm your password to disable 2FA on this account.</Typography>
+            {totpError && <Alert severity="error" onClose={() => setTotpError(null)}>{totpError}</Alert>}
+            <TextField
+              fullWidth type="password" label="Current Password" value={disablePassword}
+              onChange={e => setDisablePassword(e.target.value)}
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => { setDisableOpen(false); setDisablePassword(''); setTotpError(null) }} disabled={totpBusy}>Cancel</Button>
+          <Button variant="contained" color="error" disabled={totpBusy || !disablePassword} onClick={handleDisableTotp}>
+            {totpBusy ? 'Disabling…' : 'Disable 2FA'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

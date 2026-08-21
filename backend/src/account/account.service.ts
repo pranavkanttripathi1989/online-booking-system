@@ -50,6 +50,7 @@ export class AccountService {
       gender: row.gender ?? undefined,
       avatar_url: row.avatar_url ?? undefined,
       address: row.address_structured ?? undefined,
+      totp_enabled: row.totp_enabled ?? false,
     };
   }
 

@@ -2,9 +2,42 @@ import { gql } from '@apollo/client'
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 
+// PLAN016 Slice C — login now returns a LoginResult union: AuthPayloadType
+// (unchanged shape) on a normal login, or TotpChallengeType when the
+// account has 2FA enabled and a second verifyTotpLogin call is required.
+// __typename disambiguates which branch matched at the call site.
 export const LOGIN_MUTATION = gql`
   mutation Login($input: LoginInput!) {
     login(input: $input) {
+      __typename
+      ... on AuthPayload {
+        access_token
+        token_type
+        expires_in
+        user {
+          id
+          name
+          email
+          roles { name }
+          clinician {
+            id
+            full_name
+            avatar_url
+            clinician_type { id name }
+          }
+        }
+      }
+      ... on TotpChallenge {
+        requires_totp
+        challenge_token
+      }
+    }
+  }
+`
+
+export const VERIFY_TOTP_LOGIN_MUTATION = gql`
+  mutation VerifyTotpLogin($input: VerifyTotpLoginInput!) {
+    verifyTotpLogin(input: $input) {
       access_token
       token_type
       expires_in

@@ -933,6 +933,7 @@ type MyProfile {
   id: ID!
   last_name: String!
   phone: String
+  totp_enabled: Boolean!
 }
 
 type MyProfileMutationResult {

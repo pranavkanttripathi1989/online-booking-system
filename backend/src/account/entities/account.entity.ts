@@ -15,6 +15,9 @@ export class MyProfileType {
   @Field({ nullable: true }) gender?: string;
   @Field({ nullable: true }) avatar_url?: string;
   @Field(() => MyAddressType, { nullable: true }) address?: MyAddressType;
+  // PLAN016 Slice C — the Settings page needs this to render "Enable" vs
+  // "Disable 2FA" correctly; no other query exposes it.
+  @Field() totp_enabled: boolean;
 }
 
 @ObjectType('MyProfileUserError')

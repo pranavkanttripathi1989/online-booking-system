@@ -14,7 +14,8 @@ import {
 } from '@mui/material';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { useMutation } from '@apollo/client';
-import { LOGIN_MUTATION } from '../../graphql/mutations';
+import { LOGIN_MUTATION, VERIFY_TOTP_LOGIN_MUTATION } from '../../graphql/mutations';
+import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
 import { useAuth, MOCK_USERS, getPostLoginRedirect } from '../../context/AuthContext';
 import LocalHospitalIcon    from '@mui/icons-material/LocalHospital';
 import MedicalServicesIcon  from '@mui/icons-material/MedicalServices';
@@ -511,11 +512,78 @@ function BrandPanel() {
 }
 
 // ─── Sign In Tab ──────────────────────────────────────────────────────────────
+// ─── TOTP challenge step (PLAN016 Slice C) ─────────────────────────────────
+// Rendered after a normal password login returns TotpChallengeType instead
+// of tokens. Accepts either a 6-digit authenticator code or a single-use
+// backup code — verifyTotpLogin tries both server-side, so this is one
+// plain text field rather than two separate flows.
+function TotpChallengeStep({ challengeToken, rememberMe, onBack }) {
+  const { login } = useAuth();
+  const navigate = useNavigate();
+  const [code, setCode] = useState('');
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState('');
+  const [verifyTotpLogin] = useMutation(VERIFY_TOTP_LOGIN_MUTATION);
+
+  const handleVerify = async (e) => {
+    e?.preventDefault();
+    if (!code) return;
+    setError('');
+    setLoading(true);
+    try {
+      const { data } = await verifyTotpLogin({
+        variables: { input: { challenge_token: challengeToken, code } },
+      });
+      const { access_token, user } = data.verifyTotpLogin;
+      login(access_token, user, rememberMe);
+      navigate(getPostLoginRedirect(user));
+    } catch (err) {
+      setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Incorrect code');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <Box component="form" onSubmit={handleVerify} noValidate>
+      <Stack spacing={2}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Link component="button" type="button" onClick={onBack}
+            sx={{ color: '#006D77', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            ← Back to sign in
+          </Link>
+        </Box>
+        <Stack direction="row" spacing={1} alignItems="center">
+          <ShieldOutlinedIcon sx={{ color: '#006D77' }} />
+          <Typography variant="subtitle1" fontWeight={700}>Two-factor authentication</Typography>
+        </Stack>
+        <Typography variant="body2" color="text.secondary">
+          Enter the 6-digit code from your authenticator app, or one of your backup codes.
+        </Typography>
+        {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
+        <TextField
+          fullWidth
+          label="Authenticator code or backup code"
+          value={code}
+          onChange={(e) => setCode(e.target.value.trim())}
+          inputProps={{ 'aria-label': 'Two-factor authentication code' }}
+        />
+        <Button type="submit" variant="contained" fullWidth size="large" disabled={loading || !code}
+          sx={{ py: 1.5, fontWeight: 700 }}>
+          {loading ? <CircularProgress size={20} color="inherit" /> : 'Verify'}
+        </Button>
+      </Stack>
+    </Box>
+  );
+}
+
 function SignInTab({ onForgot }) {
   // ─── All hooks declared unconditionally (Rules of Hooks) ──────────────────
   // NEW-AUTH-004: OTP passwordless mode toggle
   const [otpMode, setOtpMode]   = useState(false);
   const [rememberMeOtp]         = useState(true);
+  // PLAN016 Slice C — set when login() returns a TotpChallengeType instead of tokens
+  const [totpChallengeToken, setTotpChallengeToken] = useState(null);
 
   const navigate                = useNavigate();
   const { login, isAuthenticated } = useAuth();
@@ -551,6 +619,17 @@ function SignInTab({ onForgot }) {
     return <OtpLoginMode onBack={() => setOtpMode(false)} rememberMe={rememberMeOtp} />;
   }
 
+  // PLAN016 Slice C: render the 2FA challenge step after all hooks too
+  if (totpChallengeToken) {
+    return (
+      <TotpChallengeStep
+        challengeToken={totpChallengeToken}
+        rememberMe={rememberMe}
+        onBack={() => setTotpChallengeToken(null)}
+      />
+    );
+  }
+
   const handleSignIn = async (e) => {
     e.preventDefault();
     if (!email || !password) return;
@@ -561,6 +640,12 @@ function SignInTab({ onForgot }) {
     try {
       // ── Try real GraphQL login ──────────────────────────────────────────────
       const { data } = await loginMutation({ variables: { input: { email, password } } });
+      if (data.login.__typename === 'TotpChallenge') {
+        // PLAN016 Slice C — password verified, but this account has 2FA
+        // enabled; hand off to TotpChallengeStep instead of issuing tokens.
+        setTotpChallengeToken(data.login.challenge_token);
+        return;
+      }
       const { access_token, user } = data.login;
       login(access_token, user, rememberMe);
       navigate(getPostLoginRedirect(user));
