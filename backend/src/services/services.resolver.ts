@@ -26,8 +26,8 @@ export class ServicesResolver {
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ServiceType)
-  createService(@Args('input') input: ServiceInput) {
-    return this.servicesService.create(input);
+  createService(@Args('input') input: ServiceInput, @CurrentUser() user: JwtPayload) {
+    return this.servicesService.create(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')

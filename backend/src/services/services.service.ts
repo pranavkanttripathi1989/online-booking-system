@@ -43,7 +43,7 @@ export class ServicesService {
         is_deleted: false,
         ...(clinicId ? { clinic_id: clinicId } : {}),
         ...(isActive !== undefined ? { is_active: isActive } : {}),
-        clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined,
+        client_org_id: user.client_org_id ?? undefined,
       },
       include: this.include(),
       orderBy: { order_by: 'asc' },
@@ -52,11 +52,11 @@ export class ServicesService {
   }
 
   async findOne(id: string, user: JwtPayload) {
-    const product = await this.prisma.products.findUnique({ where: { id }, include: { ...this.include(), clinic: true } });
+    const product = await this.prisma.products.findUnique({ where: { id }, include: this.include() });
     if (!product || product.is_deleted) {
       throw new NotFoundException('Service not found');
     }
-    if (user.client_org_id && product.clinic && product.clinic.client_org_id !== user.client_org_id) {
+    if (user.client_org_id && product.client_org_id !== user.client_org_id) {
       throw new NotFoundException('Service not found');
     }
     return this.toGraphQL(product);
@@ -70,7 +70,7 @@ export class ServicesService {
     return `${slug || 'svc'}-${Date.now().toString(36)}`;
   }
 
-  async create(input: ServiceInput) {
+  async create(input: ServiceInput, user: JwtPayload) {
     const product = await this.prisma.products.create({
       data: {
         name: input.name,
@@ -80,6 +80,7 @@ export class ServicesService {
         is_active: input.is_active ?? true,
         product_type: 'simple',
         sku: this.generateSku(input.name),
+        client_org_id: user.client_org_id ?? undefined,
       },
       include: this.include(),
     });

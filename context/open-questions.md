@@ -68,8 +68,12 @@ in the meantime.
 
 ## 2. Products/ProductCategories/ProductSubcategories create paths never populate `clinic_id`, making the existing tenant-scoping filter inert
 
-**Status:** Open — found while writing `products` module unit tests (Priority 1), not fixed. Logged rather than
-patched because the correct fix depends on a product/contract decision, not a straightforward bug.
+**Status:** ~~Open~~ — **resolved 2026-08-21**, see `BUG001` (`context/products-2026-08-21/manifest.md`). Went
+with the org-column fix (below), not the UI clinic-picker — no product-creation page has ever had one, itself
+evidence products were always meant to be an org-wide catalog. Digging deeper than this question originally
+described also surfaced a more severe instance of the same bug class: `updateCategory`/`deleteCategory`/
+`updateSubcategory`/`deleteSubcategory` had **zero** tenant check at all, not just a broken null-guarded one —
+fixed in the same slice.
 
 `backend/src/products/products.service.ts`'s `create()`/`createCategory()`/`createSubcategory()` never set
 `clinic_id` on the row they insert — `CreateProductInput`/`CreateProductCategoryInput`/
@@ -97,20 +101,15 @@ isn't "add a check," it's "decide how Products should be tenant-scoped in the fi
 create time the way `Clinics`/`Availability` etc. do, decoupled from any specific clinic. Both are real schema/
 frontend-contract changes, not something to guess at inside a test-writing pass.
 
-**Left as-is for now:** `products.service.spec.ts` tests the module's actual current behavior, including this
-gap (a clinic-less product is readable cross-org via `findOne`), rather than an assumed "should" behavior.
-
-**Decision needed from the user:** which of the two fixes above (org-column-on-Products vs. clinic-selection-in-UI),
-or confirm this is acceptable as-is if Products are meant to be catalog-wide rather than clinic/tenant-scoped
-(in which case the existing `clinic`-relation filters in `findAll`/`categories`/`subcategories` are themselves
-the bug — they should either be removed or replaced with a real org column, since half-scoping is worse than none).
-
-**Addendum (found while testing `services`):** `backend/src/services/services.service.ts`'s `create()` has the
-exact same gap — it writes directly to the same `Products` table (`product_type: 'simple'`) and `ServiceInput`
-also has no `clinic_id` field (confirmed against `manager/services/create.jsx`'s real submitted shape, matching
-the DTO's own comment), so every service created through the live UI is equally clinic-less and inherits the
-same cross-org-readable-by-id / invisible-in-org-scoped-lists behavior via `findOne`/`findAll` here. Same open
-decision applies to both resolvers since they share the underlying table.
+**Resolution:** went with the org-column fix — `Products`/`ProductCategories`/`ProductSubcategories` now each
+carry their own nullable `client_org_id`, stamped from the JWT at create time in `create()`/`createCategory()`/
+`createSubcategory()` (and `services.service.ts`'s `create()`, which writes to the same table — this addendum's
+gap closed in the same slice). `findAll`/`findOne`/`categories`/`subcategories` scope by that direct column
+instead of the old always-null `clinic` relation filter. Existing rows backfilled from real appointment history
+where available (migration `20260821000000_products_client_org_id`), so already-shipped functionality depending
+on pre-existing data (`GP Consultation`) didn't silently break. `products.service.spec.ts`/`services.service.spec.ts`
+now test the fixed behavior, including new cross-tenant rejection cases for `updateCategory`/`deleteCategory`/
+`updateSubcategory`/`deleteSubcategory`, which had no test before because they had no check to test.
 
 ---
 

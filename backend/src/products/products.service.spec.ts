@@ -17,15 +17,15 @@ describe('ProductsService', () => {
 
   const scopedProduct = {
     id: 'prod-a1',
-    clinic_id: 'clinic-a',
+    clinic_id: null,
+    client_org_id: 'org-a',
     price: 50000, // paise
     is_deleted: false,
-    clinic: { id: 'clinic-a', client_org_id: 'org-a' },
     category: null,
     subcategory: null,
   };
-  const otherOrgProduct = { ...scopedProduct, id: 'prod-b1', clinic_id: 'clinic-b', clinic: { id: 'clinic-b', client_org_id: 'org-b' } };
-  const clinicLessProduct = { ...scopedProduct, id: 'prod-none', clinic_id: null, clinic: null };
+  const otherOrgProduct = { ...scopedProduct, id: 'prod-b1', client_org_id: 'org-b' };
+  const orgLessProduct = { ...scopedProduct, id: 'prod-none', client_org_id: null };
 
   beforeEach(async () => {
     prisma = {
@@ -39,18 +39,18 @@ describe('ProductsService', () => {
     service = module.get(ProductsService);
   });
 
-  describe('findAll — paise-to-rupees conversion and org scoping via the clinic relation', () => {
+  describe('findAll — paise-to-rupees conversion and org scoping via client_org_id', () => {
     it('converts price from paise to rupees', async () => {
       prisma.products.findMany.mockResolvedValue([scopedProduct]);
       const [result] = await service.findAll(undefined, undefined, orgAUser);
       expect(result.price).toBe(500);
     });
 
-    it('scopes findAll through the clinic relation for an org-linked user', async () => {
+    it('scopes findAll by client_org_id for an org-linked user', async () => {
       prisma.products.findMany.mockResolvedValue([]);
       await service.findAll(undefined, undefined, orgAUser);
       expect(prisma.products.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ clinic: { client_org_id: 'org-a' } }) }),
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
       );
     });
 
@@ -58,12 +58,12 @@ describe('ProductsService', () => {
       prisma.products.findMany.mockResolvedValue([]);
       await service.findAll(undefined, undefined, platformUser);
       expect(prisma.products.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ clinic: undefined }) }),
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: undefined }) }),
       );
     });
   });
 
-  describe('findOne — tenant isolation when a clinic IS attached', () => {
+  describe('findOne — tenant isolation via client_org_id (BUG001)', () => {
     it('returns a same-org product', async () => {
       prisma.products.findUnique.mockResolvedValue(scopedProduct);
       const result = await service.findOne('prod-a1', orgAUser);
@@ -85,27 +85,33 @@ describe('ProductsService', () => {
       await expect(service.findOne('missing', orgAUser)).rejects.toThrow(NotFoundException);
     });
 
-    // Known gap — see context/open-questions.md #2: create() never attaches a
-    // clinic_id, so the tenant check (`row.clinic && ...`) is a no-op for any
-    // product created through the current UI flow. Documents actual current
-    // behavior, not the intended behavior.
-    it('KNOWN GAP: does not reject a cross-org read of a clinic-less product (tenant check is skipped when no clinic is attached)', async () => {
-      prisma.products.findUnique.mockResolvedValue(clinicLessProduct);
-      await expect(service.findOne('prod-none', orgAUser)).resolves.toMatchObject({ id: 'prod-none' });
+    // BUG001 — previously this was a documented KNOWN GAP: a clinic-less
+    // product's tenant check silently skipped because it keyed off the
+    // (also always-null) clinic relation. Now that org-scoping is a direct
+    // column stamped at create time, an org-less row is correctly rejected
+    // for a tenant caller, same as any other org's row.
+    it('rejects a cross-org read of an org-less product for a tenant caller (BUG001 fixed)', async () => {
+      prisma.products.findUnique.mockResolvedValue(orgLessProduct);
+      await expect(service.findOne('prod-none', orgAUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('a platform-wide caller can still read an org-less product', async () => {
+      prisma.products.findUnique.mockResolvedValue(orgLessProduct);
+      await expect(service.findOne('prod-none', platformUser)).resolves.toMatchObject({ id: 'prod-none' });
     });
   });
 
   describe('create', () => {
     it('generates a SKU from the name when none is supplied', async () => {
       prisma.products.create.mockResolvedValue({ id: 'prod-new' });
-      await service.create({ name: 'Blood Test Panel' } as any);
+      await service.create({ name: 'Blood Test Panel' } as any, orgAUser);
       const call = prisma.products.create.mock.calls[0][0];
       expect(call.data.sku).toMatch(/^blood-test-panel-/);
     });
 
     it('uses the supplied SKU when present', async () => {
       prisma.products.create.mockResolvedValue({ id: 'prod-new' });
-      await service.create({ name: 'X', sku: 'CUSTOM-SKU' } as any);
+      await service.create({ name: 'X', sku: 'CUSTOM-SKU' } as any, orgAUser);
       expect(prisma.products.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ sku: 'CUSTOM-SKU' }) }),
       );
@@ -113,21 +119,39 @@ describe('ProductsService', () => {
 
     it('converts price from rupees to paise', async () => {
       prisma.products.create.mockResolvedValue({ id: 'prod-new' });
-      await service.create({ name: 'X', sku: 'S1', price: 250 } as any);
+      await service.create({ name: 'X', sku: 'S1', price: 250 } as any, orgAUser);
       expect(prisma.products.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ price: 25000 }) }),
       );
     });
 
+    // BUG001 — the actual fix: create() never stamped any org scope before,
+    // which is why every product ever created was invisible to its own org.
+    it('stamps client_org_id from the caller JWT, never from client input', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'prod-new' });
+      await service.create({ name: 'X', sku: 'S1' } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('stamps undefined client_org_id for a platform-wide caller (visible only to platform roles)', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'prod-new' });
+      await service.create({ name: 'X', sku: 'S1' } as any, platformUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ client_org_id: undefined }) }),
+      );
+    });
+
     it('returns {success:true, product} on success', async () => {
       prisma.products.create.mockResolvedValue({ id: 'prod-new' });
-      const result = await service.create({ name: 'X', sku: 'S1' } as any);
+      const result = await service.create({ name: 'X', sku: 'S1' } as any, orgAUser);
       expect(result).toEqual({ success: true, userErrors: [], product: { id: 'prod-new' } });
     });
 
     it('maps a duplicate-SKU Prisma error (P2002) into a friendly userError', async () => {
       prisma.products.create.mockRejectedValue({ code: 'P2002', message: 'raw prisma error' });
-      const result = await service.create({ name: 'X', sku: 'DUP' } as any);
+      const result = await service.create({ name: 'X', sku: 'DUP' } as any, orgAUser);
       expect(result).toEqual({
         success: false,
         userErrors: [{ message: 'A product with this SKU already exists' }],
@@ -136,7 +160,7 @@ describe('ProductsService', () => {
 
     it('falls back to a generic message for a non-P2002 error', async () => {
       prisma.products.create.mockRejectedValue({ message: 'db unavailable' });
-      const result = await service.create({ name: 'X', sku: 'S1' } as any);
+      const result = await service.create({ name: 'X', sku: 'S1' } as any, orgAUser);
       expect(result.userErrors).toEqual([{ message: 'db unavailable' }]);
     });
   });
@@ -175,49 +199,97 @@ describe('ProductsService', () => {
   });
 
   describe('categories', () => {
-    it('scopes to the caller org via the clinic relation', async () => {
+    it('scopes to the caller org via client_org_id', async () => {
       prisma.productCategories.findMany.mockResolvedValue([]);
       await service.categories(orgAUser);
       expect(prisma.productCategories.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ clinic: { client_org_id: 'org-a' } }) }),
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('createCategory stamps client_org_id from the JWT', async () => {
+      prisma.productCategories.create.mockResolvedValue({ id: 'cat-new' });
+      await service.createCategory({ name: 'Diagnostics' } as any, orgAUser);
+      expect(prisma.productCategories.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ client_org_id: 'org-a' }) }),
       );
     });
 
     it('updateCategory returns {success:false} for a missing category', async () => {
       prisma.productCategories.findUnique.mockResolvedValue(null);
-      const result = await service.updateCategory('missing', { name: 'X' } as any);
+      const result = await service.updateCategory('missing', { name: 'X' } as any, orgAUser);
       expect(result).toEqual({ success: false, userErrors: [{ message: 'Category not found' }] });
     });
 
-    it('deleteCategory soft-deletes an existing category', async () => {
-      prisma.productCategories.findUnique.mockResolvedValue({ id: 'cat-1', is_deleted: false });
+    // BUG001 — previously there was NO tenant check at all on this path (not
+    // even a null-guarded one): any manager could rename any org's category.
+    it('rejects a cross-org update as "not found" without ever calling prisma.update (BUG001 fixed)', async () => {
+      prisma.productCategories.findUnique.mockResolvedValue({ id: 'cat-b1', is_deleted: false, client_org_id: 'org-b' });
+      const result = await service.updateCategory('cat-b1', { name: 'Hijack' } as any, orgAUser);
+      expect(result).toEqual({ success: false, userErrors: [{ message: 'Category not found' }] });
+      expect(prisma.productCategories.update).not.toHaveBeenCalled();
+    });
+
+    it('deleteCategory soft-deletes an existing same-org category', async () => {
+      prisma.productCategories.findUnique.mockResolvedValue({ id: 'cat-1', is_deleted: false, client_org_id: 'org-a' });
       prisma.productCategories.update.mockResolvedValue({ id: 'cat-1', is_deleted: true });
-      const result = await service.deleteCategory('cat-1');
+      const result = await service.deleteCategory('cat-1', orgAUser);
       expect(prisma.productCategories.update).toHaveBeenCalledWith({ where: { id: 'cat-1' }, data: { is_deleted: true } });
       expect(result).toEqual({ success: true, userErrors: [] });
+    });
+
+    // BUG001 — same previously-zero-check gap as update, for delete.
+    it('rejects a cross-org delete as "not found" without ever calling prisma.update (BUG001 fixed)', async () => {
+      prisma.productCategories.findUnique.mockResolvedValue({ id: 'cat-b1', is_deleted: false, client_org_id: 'org-b' });
+      const result = await service.deleteCategory('cat-b1', orgAUser);
+      expect(result).toEqual({ success: false, userErrors: [{ message: 'Category not found' }] });
+      expect(prisma.productCategories.update).not.toHaveBeenCalled();
     });
   });
 
   describe('subcategories', () => {
-    it('scopes to the caller org via the clinic relation', async () => {
+    it('scopes to the caller org via client_org_id', async () => {
       prisma.productSubcategories.findMany.mockResolvedValue([]);
       await service.subcategories(orgAUser);
       expect(prisma.productSubcategories.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ clinic: { client_org_id: 'org-a' } }) }),
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('createSubcategory stamps client_org_id from the JWT', async () => {
+      prisma.productSubcategories.create.mockResolvedValue({ id: 'sub-new' });
+      await service.createSubcategory({ category_id: 'cat-1', name: 'Blood Tests' } as any, orgAUser);
+      expect(prisma.productSubcategories.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ client_org_id: 'org-a' }) }),
       );
     });
 
     it('updateSubcategory returns {success:false} for a missing subcategory', async () => {
       prisma.productSubcategories.findUnique.mockResolvedValue(null);
-      const result = await service.updateSubcategory('missing', { name: 'X' } as any);
+      const result = await service.updateSubcategory('missing', { name: 'X' } as any, orgAUser);
       expect(result).toEqual({ success: false, userErrors: [{ message: 'Subcategory not found' }] });
     });
 
-    it('deleteSubcategory soft-deletes an existing subcategory', async () => {
-      prisma.productSubcategories.findUnique.mockResolvedValue({ id: 'sub-1', is_deleted: false });
+    // BUG001 — same previously-zero-check gap as categories, for subcategories.
+    it('rejects a cross-org update as "not found" without ever calling prisma.update (BUG001 fixed)', async () => {
+      prisma.productSubcategories.findUnique.mockResolvedValue({ id: 'sub-b1', is_deleted: false, client_org_id: 'org-b' });
+      const result = await service.updateSubcategory('sub-b1', { name: 'Hijack' } as any, orgAUser);
+      expect(result).toEqual({ success: false, userErrors: [{ message: 'Subcategory not found' }] });
+      expect(prisma.productSubcategories.update).not.toHaveBeenCalled();
+    });
+
+    it('deleteSubcategory soft-deletes an existing same-org subcategory', async () => {
+      prisma.productSubcategories.findUnique.mockResolvedValue({ id: 'sub-1', is_deleted: false, client_org_id: 'org-a' });
       prisma.productSubcategories.update.mockResolvedValue({ id: 'sub-1', is_deleted: true });
-      const result = await service.deleteSubcategory('sub-1');
+      const result = await service.deleteSubcategory('sub-1', orgAUser);
       expect(result).toEqual({ success: true, userErrors: [] });
+    });
+
+    it('rejects a cross-org delete as "not found" without ever calling prisma.update (BUG001 fixed)', async () => {
+      prisma.productSubcategories.findUnique.mockResolvedValue({ id: 'sub-b1', is_deleted: false, client_org_id: 'org-b' });
+      const result = await service.deleteSubcategory('sub-b1', orgAUser);
+      expect(result).toEqual({ success: false, userErrors: [{ message: 'Subcategory not found' }] });
+      expect(prisma.productSubcategories.update).not.toHaveBeenCalled();
     });
   });
 });

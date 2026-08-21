@@ -40,8 +40,8 @@ export class ProductsResolver {
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ProductMutationResultType)
-  createProduct(@Args('input') input: CreateProductInput) {
-    return this.productsService.create(input);
+  createProduct(@Args('input') input: CreateProductInput, @CurrentUser() user: JwtPayload) {
+    return this.productsService.create(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')
@@ -63,20 +63,20 @@ export class ProductsResolver {
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ProductCategoryMutationResultType)
-  createProductCategory(@Args('input') input: CreateProductCategoryInput) {
-    return this.productsService.createCategory(input);
+  createProductCategory(@Args('input') input: CreateProductCategoryInput, @CurrentUser() user: JwtPayload) {
+    return this.productsService.createCategory(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ProductCategoryMutationResultType)
-  updateProductCategory(@Args('id', { type: () => ID }) id: string, @Args('input') input: UpdateProductCategoryInput) {
-    return this.productsService.updateCategory(id, input);
+  updateProductCategory(@Args('id', { type: () => ID }) id: string, @Args('input') input: UpdateProductCategoryInput, @CurrentUser() user: JwtPayload) {
+    return this.productsService.updateCategory(id, input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ProductCategoryMutationResultType)
-  deleteProductCategory(@Args('id', { type: () => ID }) id: string) {
-    return this.productsService.deleteCategory(id);
+  deleteProductCategory(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.productsService.deleteCategory(id, user);
   }
 
   @Query(() => [ProductSubcategoryType])
@@ -86,19 +86,19 @@ export class ProductsResolver {
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ProductSubcategoryMutationResultType)
-  createProductSubcategory(@Args('input') input: CreateProductSubcategoryInput) {
-    return this.productsService.createSubcategory(input);
+  createProductSubcategory(@Args('input') input: CreateProductSubcategoryInput, @CurrentUser() user: JwtPayload) {
+    return this.productsService.createSubcategory(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ProductSubcategoryMutationResultType)
-  updateProductSubcategory(@Args('id', { type: () => ID }) id: string, @Args('input') input: UpdateProductSubcategoryInput) {
-    return this.productsService.updateSubcategory(id, input);
+  updateProductSubcategory(@Args('id', { type: () => ID }) id: string, @Args('input') input: UpdateProductSubcategoryInput, @CurrentUser() user: JwtPayload) {
+    return this.productsService.updateSubcategory(id, input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ProductSubcategoryMutationResultType)
-  deleteProductSubcategory(@Args('id', { type: () => ID }) id: string) {
-    return this.productsService.deleteSubcategory(id);
+  deleteProductSubcategory(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.productsService.deleteSubcategory(id, user);
   }
 }

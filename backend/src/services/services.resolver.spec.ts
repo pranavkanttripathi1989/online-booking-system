@@ -39,10 +39,11 @@ describe('ServicesResolver', () => {
       expect(service.findAll).toHaveBeenCalledWith('clinic-a', true, user);
     });
 
-    it('createService does not forward a user (create() has no tenant param today)', async () => {
+    it('createService forwards input and user (BUG001 — stamps client_org_id)', async () => {
+      const user = { client_org_id: 'org-a' } as any;
       service.create.mockResolvedValue({ id: 'svc-1' });
-      await resolver.createService({ name: 'X' } as any);
-      expect(service.create).toHaveBeenCalledWith({ name: 'X' });
+      await resolver.createService({ name: 'X' } as any, user);
+      expect(service.create).toHaveBeenCalledWith({ name: 'X' }, user);
     });
 
     it('updateService forwards id, input, and user', async () => {

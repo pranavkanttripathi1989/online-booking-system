@@ -2,6 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
 | communications-policies | 2 | 0 | 0 | 0 | 2 | 2026-08-20 | [communications-policies](./communications-policies/README.md) |
 | patient-payments | 2 | 0 | 0 | 0 | 2 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |

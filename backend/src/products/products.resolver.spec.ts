@@ -62,10 +62,11 @@ describe('ProductsResolver', () => {
       expect(service.findAll).toHaveBeenCalledWith('clinic-a', 'cat-1', user);
     });
 
-    it('createProduct does not forward a user (create() has no tenant param today)', async () => {
+    it('createProduct forwards input and user (BUG001 — stamps client_org_id)', async () => {
+      const user = { client_org_id: 'org-a' } as any;
       service.create.mockResolvedValue({ success: true, userErrors: [] });
-      await resolver.createProduct({ name: 'X' } as any);
-      expect(service.create).toHaveBeenCalledWith({ name: 'X' });
+      await resolver.createProduct({ name: 'X' } as any, user);
+      expect(service.create).toHaveBeenCalledWith({ name: 'X' }, user);
     });
 
     it('updateProduct forwards id, input, and user', async () => {

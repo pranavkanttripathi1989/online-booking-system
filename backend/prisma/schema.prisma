@@ -246,6 +246,9 @@ model ClientOrganizations {
   customRoles            UserRoles[]
   cancellationRules      ProductCancellationRules[]
   appointmentPayments    AppointmentPayments[]
+  products               Products[]
+  productCategories      ProductCategories[]
+  productSubcategories   ProductSubcategories[]
 }
 
 model ClinicianAvailability {
@@ -651,6 +654,13 @@ model ProductCancellationRules {
 model ProductCategories {
   id           String   @id @default(uuid())
   clinic_id    String?
+  // BUG001 — Products/Categories/Subcategories never had a client_org_id of
+  // their own; every create path left clinic_id null too, so the old
+  // clinic-relation tenant filter silently matched nothing for a caller's own
+  // rows and skipped the check entirely on findOne. Stamped from the JWT at
+  // create time, decoupled from any specific clinic — see BUG001 for why an
+  // org-wide catalog is the right model here, not a per-clinic one.
+  client_org_id String?
   name         String
   description  String   @default("")
   is_active    Boolean  @default(true)
@@ -658,6 +668,7 @@ model ProductCategories {
   created_at   DateTime @default(now())
 
   clinic            Clinics? @relation(fields: [clinic_id], references: [id])
+  client_org        ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   subcategories     ProductSubcategories[]
   products          Products[]
 }
@@ -665,6 +676,7 @@ model ProductCategories {
 model ProductSubcategories {
   id           String   @id @default(uuid())
   clinic_id    String?
+  client_org_id String?  // BUG001 — see ProductCategories.client_org_id
   category_id  String
   name         String
   description  String   @default("")
@@ -673,6 +685,7 @@ model ProductSubcategories {
   created_at   DateTime @default(now())
 
   clinic    Clinics? @relation(fields: [clinic_id], references: [id])
+  client_org ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   category  ProductCategories @relation(fields: [category_id], references: [id])
   products  Products[]
 }
@@ -696,6 +709,7 @@ model ProductVariations {
 model Products {
   id                String   @id @default(uuid())
   clinic_id         String?
+  client_org_id     String?  // BUG001 — see ProductCategories.client_org_id
   category_id       String?
   subcategory_id    String?
   name              String
@@ -713,6 +727,7 @@ model Products {
   created_at        DateTime @default(now())
 
   clinic            Clinics? @relation(fields: [clinic_id], references: [id])
+  client_org        ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   category          ProductCategories? @relation(fields: [category_id], references: [id])
   subcategory       ProductSubcategories? @relation(fields: [subcategory_id], references: [id])
   variations        ProductVariations[]

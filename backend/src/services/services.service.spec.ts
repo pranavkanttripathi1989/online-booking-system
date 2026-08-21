@@ -16,15 +16,15 @@ describe('ServicesService', () => {
   const scopedService = {
     id: 'svc-a1',
     name: 'Consultation',
-    clinic_id: 'clinic-a',
+    clinic_id: null,
+    client_org_id: 'org-a',
     price: 150000,
     is_deleted: false,
     category: null,
     clinicianServices: [{ clinician: { id: 'cl-1', first_name: 'Dr', last_name: 'Rao' } }],
-    clinic: { id: 'clinic-a', client_org_id: 'org-a' },
   };
-  const otherOrgService = { ...scopedService, id: 'svc-b1', clinic_id: 'clinic-b', clinic: { id: 'clinic-b', client_org_id: 'org-b' } };
-  const clinicLessService = { ...scopedService, id: 'svc-none', clinic_id: null, clinic: null };
+  const otherOrgService = { ...scopedService, id: 'svc-b1', client_org_id: 'org-b' };
+  const orgLessService = { ...scopedService, id: 'svc-none', client_org_id: null };
 
   beforeEach(async () => {
     prisma = { products: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() } };
@@ -35,11 +35,11 @@ describe('ServicesService', () => {
   });
 
   describe('findAll — tenant isolation + shaping', () => {
-    it('scopes to the caller org via the clinic relation', async () => {
+    it('scopes to the caller org via client_org_id', async () => {
       prisma.products.findMany.mockResolvedValue([]);
       await service.findAll(undefined, undefined, orgAUser);
       expect(prisma.products.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ clinic: { client_org_id: 'org-a' } }) }),
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
       );
     });
 
@@ -47,7 +47,7 @@ describe('ServicesService', () => {
       prisma.products.findMany.mockResolvedValue([]);
       await service.findAll(undefined, undefined, platformUser);
       expect(prisma.products.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ clinic: undefined }) }),
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: undefined }) }),
       );
     });
 
@@ -93,20 +93,24 @@ describe('ServicesService', () => {
       await expect(service.findOne('missing', orgAUser)).rejects.toThrow(NotFoundException);
     });
 
-    // Known gap shared with the products domain — see context/open-questions.md
-    // #2's addendum: create() never attaches a clinic_id (ServiceInput has no
-    // such field), so the tenant check is a no-op for services created via the
-    // live UI. Documents actual current behavior, not the intended behavior.
-    it('KNOWN GAP: does not reject a cross-org read of a clinic-less service', async () => {
-      prisma.products.findUnique.mockResolvedValue(clinicLessService);
-      await expect(service.findOne('svc-none', orgAUser)).resolves.toMatchObject({ id: 'svc-none' });
+    // BUG001 — previously a documented KNOWN GAP: the tenant check keyed off
+    // the (always-null) clinic relation. Fixed by scoping on the direct
+    // client_org_id column stamped at create time.
+    it('rejects a cross-org read of an org-less service for a tenant caller (BUG001 fixed)', async () => {
+      prisma.products.findUnique.mockResolvedValue(orgLessService);
+      await expect(service.findOne('svc-none', orgAUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('a platform-wide caller can still read an org-less service', async () => {
+      prisma.products.findUnique.mockResolvedValue(orgLessService);
+      await expect(service.findOne('svc-none', platformUser)).resolves.toMatchObject({ id: 'svc-none' });
     });
   });
 
   describe('create', () => {
     it('auto-generates a SKU and hardcodes product_type to simple (ServiceInput has neither field)', async () => {
       prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
-      await service.create({ name: 'Blood Test', duration_minutes: 30, price: 500 } as any);
+      await service.create({ name: 'Blood Test', duration_minutes: 30, price: 500 } as any, orgAUser);
       const call = prisma.products.create.mock.calls[0][0];
       expect(call.data.sku).toMatch(/^blood-test-/);
       expect(call.data.product_type).toBe('simple');
@@ -114,9 +118,18 @@ describe('ServicesService', () => {
 
     it('converts price from rupees to paise and passes duration_minutes through', async () => {
       prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
-      await service.create({ name: 'X', duration_minutes: 20, price: 300 } as any);
+      await service.create({ name: 'X', duration_minutes: 20, price: 300 } as any, orgAUser);
       expect(prisma.products.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ price: 30000, duration_minutes: 20 }) }),
+      );
+    });
+
+    // BUG001 — the actual fix: create() never stamped any org scope before.
+    it('stamps client_org_id from the caller JWT', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
+      await service.create({ name: 'X', duration_minutes: 20, price: 300 } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ client_org_id: 'org-a' }) }),
       );
     });
   });
