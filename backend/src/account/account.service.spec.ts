@@ -126,6 +126,30 @@ describe('AccountService', () => {
       expect(result.profile?.bio).toBe('Cardiologist');
       expect(result.profile?.address).toEqual(address);
     });
+
+    it('an explicit null date_of_birth/address clears them, distinct from omitting the fields entirely', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(profileRow());
+      prisma.userProfiles.update.mockResolvedValue(profileRow({ date_of_birth: null, address_structured: null }));
+
+      await service.updateMyProfile({ date_of_birth: null, address: null } as any, user);
+
+      expect(prisma.userProfiles.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ date_of_birth: null, address_structured: null }),
+        }),
+      );
+    });
+
+    it('omitting date_of_birth/address leaves the previously-stored values untouched', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(profileRow());
+      prisma.userProfiles.update.mockResolvedValue(profileRow({ first_name: 'New' }));
+
+      await service.updateMyProfile({ first_name: 'New' } as any, user);
+
+      const call = prisma.userProfiles.update.mock.calls[0][0];
+      expect(call.data.date_of_birth).toBeUndefined();
+      expect(call.data.address_structured).toBeUndefined();
+    });
   });
 
   describe('setMyAvatarUrl', () => {

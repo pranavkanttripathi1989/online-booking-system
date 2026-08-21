@@ -79,9 +79,20 @@ export class AccountService {
           last_name: input.last_name,
           phone: input.phone,
           bio: input.bio,
-          date_of_birth: input.date_of_birth ? new Date(input.date_of_birth) : undefined,
+          // Explicit null must clear the field (Prisma omits an `undefined`
+          // key from the UPDATE entirely, so `undefined` is the only value
+          // that leaves it untouched) — a `date_of_birth ? … : undefined`
+          // ternary collapsed both "clear" and "leave untouched" into the
+          // same undefined branch, silently making the field un-clearable
+          // once set. Same fix applied to address_structured below.
+          date_of_birth:
+            input.date_of_birth === undefined
+              ? undefined
+              : input.date_of_birth === null
+                ? null
+                : new Date(input.date_of_birth),
           gender: input.gender,
-          address_structured: input.address ? (input.address as any) : undefined,
+          address_structured: input.address === undefined ? undefined : (input.address as any),
         },
       });
       return { success: true, userErrors: [], profile: this.toProfile(row) };
