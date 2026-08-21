@@ -4,7 +4,7 @@
 |---|---|---|---|---|---|---|---|
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
-| communications-policies | 1 | 0 | 0 | 1 | 0 | 2026-08-20 | [communications-policies](./communications-policies/README.md) |
+| communications-policies | 1 | 1 | 0 | 1 | 1 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | patient-payments | 1 | 0 | 0 | 0 | 1 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |
 | settings | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [settings](./settings/README.md) |
 | notifications | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [notifications](./notifications/README.md) |

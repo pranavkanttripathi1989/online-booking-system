@@ -11,9 +11,18 @@ import { loginAs } from './helpers.js'
 
 test('manager can reach and save real booking policies', async ({ page }) => {
   await loginAs(page, 'Manager')
+  const policiesLoaded = page.waitForResponse(
+    (res) => res.url().includes('/graphql') && res.request().postDataJSON()?.operationName === 'GetOrgBookingPolicies',
+  )
   await page.goto('/admin/policies')
   await expect(page.getByText('Policies & Compliance')).toBeVisible()
 
+  // "No-Show Fee" renders immediately from static defaults, independent of
+  // the GetOrgBookingPolicies fetch -- waiting on the response directly
+  // (not just the label) avoids a real race where the query resolves after
+  // this test's fill() and the resulting setPolicies() clobbers it back to
+  // the loaded value.
+  await policiesLoaded
   await expect(page.getByText('No-Show Fee')).toBeVisible()
   const slotBufferCard = page.locator('.MuiCard-root', { hasText: 'Slot Buffer Time' })
   const slotBufferInput = slotBufferCard.locator('input[type="number"]')

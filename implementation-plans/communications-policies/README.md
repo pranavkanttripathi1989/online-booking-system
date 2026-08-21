@@ -9,7 +9,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN019 | improvement | Implementation plan — remove duplicate Cancellation Policy sliders | done | 2026-08-21 | 2026-08-21 | REQ010 | [PLAN019-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md](./improvement/PLAN019-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md) |
 
 ## bug
 

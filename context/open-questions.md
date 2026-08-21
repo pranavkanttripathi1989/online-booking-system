@@ -12,7 +12,7 @@ CLAUDE.md's India-vendor rule is explicit and non-negotiable: MSG91/Gupshup for 
 
 ## 7. admin/Policies.jsx's "Booking Policies" tab has a Cancellation Policy + Late Fee slider that may duplicate the new Cancellation Rules feature
 
-**Status:** Open — found while scoping REQ006's remaining tabs. Not built (these two fields specifically); the tab's other three fields (No-Show Fee, Slot Buffer, Max Reschedules, Retention Period) don't overlap with anything and are being built.
+**Status:** ~~Open~~ — **resolved 2026-08-21** (`REQ010`, `PLAN019`), by explicit user direction: redirect, don't duplicate. Removed the two sliders entirely; the tab now shows an info banner pointing to the real Cancellation Rules tab (per-clinic or global, priority-ordered) instead. The other four fields (No-Show Fee, Slot Buffer, Max Reschedules, Retention Period) were unaffected — already real and already shipped.
 
 The "Booking Policies" tab's `POLICIES` array has a single flat "Cancellation Policy" (hours) + "Late Cancellation Fee" (₹) pair — conceptually the same shape as one row of the just-shipped Cancellation Rules feature (`hours_before` + `fee_type`/`fee_amount`), which already supports a "global (all clinics)" rule per org. Building a second, parallel single-value cancellation-fee setting risks two competing sources of truth for the same real-world policy.
 

@@ -9,7 +9,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR047 | improvement | Test result — remove duplicate Cancellation Policy sliders | passed | 2026-08-21 | 2026-08-21 | REQ010 | [TR047-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md](./improvement/TR047-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md) |
 
 ## bug
 

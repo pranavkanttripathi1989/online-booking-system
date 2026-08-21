@@ -31,9 +31,10 @@ const UPDATE_RULE = gql`mutation UpdateCancellationRule($id:ID!,$input:UpdateCan
 const DELETE_RULE = gql`mutation DeleteCancellationRule($id:ID!){deleteCancellationRule(id:$id){success userErrors{message}}}`;
 
 // ─── Booking Policies GraphQL — No-Show Fee / Slot Buffer / Max Reschedules /
-// Retention only. Cancellation Policy + Late Cancellation Fee (below) are
-// deliberately NOT wired to a backend -- they conceptually overlap with the
-// Cancellation Rules tab's global-rule support; see context/open-questions.md #7.
+// Retention only. context/open-questions.md #7, resolved 2026-08-21: the
+// duplicate Cancellation Policy + Late Cancellation Fee sliders that used to
+// live here were removed -- the real, per-clinic-capable Cancellation Rules
+// tab is the one system for this now (see the redirect banner below).
 const GET_BOOKING_POLICIES = gql`
   query GetOrgBookingPolicies {
     myOrgBookingPolicies { no_show_fee slot_buffer_minutes max_reschedules_per_month data_retention_years }
@@ -47,9 +48,11 @@ const UPDATE_BOOKING_POLICIES = gql`
 
 const defaultRule = { name:'', description:'', hours_before:24, fee_type:'percentage', fee_amount:0, clinic_id:'', priority:1, is_active:true };
 
+// context/open-questions.md #7, resolved: Cancellation Policy + Late
+// Cancellation Fee removed from here — the Cancellation Rules tab is the
+// one real system for cancellation-fee policy (per-clinic or global,
+// priority-ordered), not a second, parallel single-value setting.
 const POLICIES = [
-  { id: 1, key: 'cancellation',   label: 'Cancellation Policy',   value: '24',    unit: 'hours',   description: 'Patients can cancel for free up to this many hours before their appointment.' },
-  { id: 2, key: 'lateFee',        label: 'Late Cancellation Fee',  value: '25',    unit: '₹',       description: 'Fee charged when a patient cancels inside the cancellation window.' },
   { id: 3, key: 'noShow',         label: 'No-Show Fee',            value: '85',    unit: '₹',       description: 'Fee charged when a patient does not attend without cancelling.' },
   { id: 4, key: 'slotBuffer',     label: 'Slot Buffer Time',       value: '10',    unit: 'minutes', description: 'Gap automatically added between consecutive appointments.' },
   { id: 5, key: 'maxReschedule',  label: 'Max Reschedules/Month',  value: '3',     unit: 'times',   description: 'Maximum number of times a patient can reschedule per calendar month.' },
@@ -192,34 +195,37 @@ export default function AdminPolicies() {
 
       {/* Booking Policies */}
       {tab === 0 && (
-        <Grid container spacing={2}>
-          {policies.map((policy) => {
-            const isUnbacked = policy.key === 'cancellation' || policy.key === 'lateFee'
-            return (
-            <Grid item xs={12} sm={6} key={policy.id}>
-              <Card sx={{ border: '1px solid #D0E8EA', opacity: isUnbacked ? 0.7 : 1 }}>
-                <CardContent sx={{ p: 2.5 }}>
-                  <Typography fontWeight={700} sx={{ mb: 0.5 }}>{policy.label}</Typography>
-                  <Typography variant="body2" color="text.secondary" sx={{ mb: isUnbacked ? 1 : 2 }}>{policy.description}</Typography>
-                  {isUnbacked && (
-                    <Typography variant="caption" sx={{ display: 'block', mb: 1.5, color: '#B45309' }}>
-                      Not yet persisted — use the Cancellation Rules tab for a real, per-clinic cancellation policy.
-                    </Typography>
-                  )}
-                  <Stack direction="row" spacing={1.5} alignItems="center">
-                    <TextField
-                      size="small" type="number" value={policy.value} disabled={isUnbacked}
-                      onChange={(e) => updatePolicy(policy.id, e.target.value)}
-                      sx={{ width: 100 }}
-                    />
-                    <Chip label={policy.unit} size="small" sx={{ bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }} />
-                  </Stack>
-                </CardContent>
-              </Card>
-            </Grid>
-            )
-          })}
-        </Grid>
+        <Stack spacing={2}>
+          {/* context/open-questions.md #7, resolved: cancellation-fee policy
+              lives only on the Cancellation Rules tab now (per-clinic or
+              global, priority-ordered) — not duplicated here as a second,
+              parallel single-value setting. */}
+          <Alert severity="info" action={
+            <Button color="inherit" size="small" onClick={() => setTab(3)}>Go to Cancellation Rules</Button>
+          }>
+            Looking for cancellation policy or fees? That's managed on the Cancellation Rules tab now, with support for per-clinic rules and priority ordering.
+          </Alert>
+          <Grid container spacing={2}>
+            {policies.map((policy) => (
+              <Grid item xs={12} sm={6} key={policy.id}>
+                <Card sx={{ border: '1px solid #D0E8EA' }}>
+                  <CardContent sx={{ p: 2.5 }}>
+                    <Typography fontWeight={700} sx={{ mb: 0.5 }}>{policy.label}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{policy.description}</Typography>
+                    <Stack direction="row" spacing={1.5} alignItems="center">
+                      <TextField
+                        size="small" type="number" value={policy.value}
+                        onChange={(e) => updatePolicy(policy.id, e.target.value)}
+                        sx={{ width: 100 }}
+                      />
+                      <Chip label={policy.unit} size="small" sx={{ bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }} />
+                    </Stack>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))}
+          </Grid>
+        </Stack>
       )}
 
       {/* Security */}
