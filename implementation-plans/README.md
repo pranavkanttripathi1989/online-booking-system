@@ -4,6 +4,7 @@
 |---|---|---|---|---|---|---|---|
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
+| security | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [security](./security/README.md) |
 | communications-policies | 2 | 2 | 0 | 0 | 4 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | patient-payments | 2 | 0 | 0 | 0 | 2 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |
 | settings | 2 | 0 | 0 | 0 | 2 | 2026-08-21 | [settings](./settings/README.md) |

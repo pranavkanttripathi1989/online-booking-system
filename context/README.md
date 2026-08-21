@@ -6,6 +6,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 |---|---|---|---|---|---|
 | products-2026-08-21 | products | 2026-08-21 | BUG001, PLAN015, TP045, TR044 | done | [manifest.md](./products-2026-08-21/manifest.md) |
 | dashboard-2026-08-21 | dashboard | 2026-08-21 | REQ007, PLAN014, TP044, TR043 | done | [manifest.md](./dashboard-2026-08-21/manifest.md) |
+| security-2026-08-21 | security | 2026-08-21 | REQ012, PLAN021, TP050, TR049 | done | [manifest.md](./security-2026-08-21/manifest.md) |
 | communications-policies-2026-08-21 | communications-policies | 2026-08-21 | REQ010, PLAN019, TP048, TR047, REQ011, PLAN020, TP049, TR048 | done | [manifest.md](./communications-policies-2026-08-21/manifest.md) |
 | communications-policies-2026-08-20 | communications-policies | 2026-08-20 | REQ006, PLAN009, TP039, TR038, PLAN011, TP041, TR040 | in-progress | [manifest.md](./communications-policies-2026-08-20/manifest.md) |
 | patient-payments-2026-08-20 | patient-payments | 2026-08-20 | REQ004, PLAN012, PLAN013, TP042, TP043, TR041, TR042 | done | [manifest.md](./patient-payments-2026-08-20/manifest.md) |
