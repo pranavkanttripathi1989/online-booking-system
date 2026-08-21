@@ -223,13 +223,18 @@ export class AuthService {
     }
 
     // Not a valid TOTP code -- try it as a single-use backup code instead.
+    // Checked in parallel, not a sequential await loop: up to 10 real
+    // bcrypt.compare calls at the service's BCRYPT_COST (12) is slow enough
+    // sequentially (seconds) to risk tripping the frontend's own 10s
+    // request-abort timeout (apollo/client.js) on a genuinely wrong code --
+    // found via a real, reproducible e2e timeout, not a hypothetical.
     const backupCodes = (profile.totp_backup_codes as string[] | null) ?? [];
-    for (let i = 0; i < backupCodes.length; i++) {
-      if (await bcrypt.compare(code, backupCodes[i])) {
-        const remaining = [...backupCodes.slice(0, i), ...backupCodes.slice(i + 1)];
-        await this.prisma.userProfiles.update({ where: { id: profile.id }, data: { totp_backup_codes: remaining } });
-        return this.issueTokens(profile, userAgent);
-      }
+    const matches = await Promise.all(backupCodes.map((hash) => bcrypt.compare(code, hash)));
+    const matchIndex = matches.indexOf(true);
+    if (matchIndex !== -1) {
+      const remaining = [...backupCodes.slice(0, matchIndex), ...backupCodes.slice(matchIndex + 1)];
+      await this.prisma.userProfiles.update({ where: { id: profile.id }, data: { totp_backup_codes: remaining } });
+      return this.issueTokens(profile, userAgent);
     }
 
     throw new UnauthorizedException('Incorrect code');
