@@ -14,6 +14,9 @@ import { JwtStrategy } from './strategies/jwt.strategy';
     }),
   ],
   providers: [AuthService, AuthResolver, JwtStrategy],
-  exports: [AuthService],
+  // JwtModule exported so AccountController (a plain REST route, outside the
+  // GraphQL-context-only global GqlAuthGuard) can verify a bearer token
+  // itself via JwtService -- see account.controller.ts.
+  exports: [AuthService, JwtModule],
 })
 export class AuthModule {}

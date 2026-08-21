@@ -1,11 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
+import { authenticator } from 'otplib';
 import { AccountService } from './account.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { AuthService } from '../auth/auth.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { encrypt, decrypt } from '../common/crypto/secrets';
 
 const hashSync = (plain: string) => bcrypt.hashSync(plain, 4);
 
@@ -81,6 +83,131 @@ describe('AccountService', () => {
       expect(prisma.userProfiles.update).toHaveBeenCalledWith(
         expect.objectContaining({ where: { id: 'user-1' } }),
       );
+    });
+
+    // PLAN016 Slice A
+    it('persists bio, date_of_birth, gender, and the structured India address, and returns them round-tripped', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(profileRow());
+      const address = { line1: '12 MG Road', line2: '', city: 'Bengaluru', state: 'Karnataka', pincode: '560001', country: 'India' };
+      prisma.userProfiles.update.mockResolvedValue(
+        profileRow({ bio: 'Cardiologist', date_of_birth: new Date('1985-04-12'), gender: 'female', address_structured: address }),
+      );
+
+      const result = await service.updateMyProfile(
+        { bio: 'Cardiologist', date_of_birth: '1985-04-12', gender: 'female', address } as any,
+        user,
+      );
+
+      expect(result.success).toBe(true);
+      expect(prisma.userProfiles.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { id: 'user-1' },
+          data: expect.objectContaining({
+            bio: 'Cardiologist',
+            gender: 'female',
+            date_of_birth: new Date('1985-04-12'),
+            address_structured: address,
+          }),
+        }),
+      );
+      expect(result.profile?.bio).toBe('Cardiologist');
+      expect(result.profile?.address).toEqual(address);
+    });
+  });
+
+  describe('setMyAvatarUrl', () => {
+    it('writes the avatar url to the caller\'s own row, keyed by the userId passed by the REST controller', async () => {
+      prisma.userProfiles.update.mockResolvedValue(profileRow({ avatar_url: '/uploads/avatars/user-1-abc.jpg' }));
+      await service.setMyAvatarUrl('/uploads/avatars/user-1-abc.jpg', 'user-1');
+      expect(prisma.userProfiles.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { avatar_url: '/uploads/avatars/user-1-abc.jpg' },
+      });
+    });
+  });
+
+  describe('2FA (TOTP) — PLAN016 Slice C', () => {
+    describe('startTotpEnrollment', () => {
+      it('rejects when the caller has no profile row', async () => {
+        prisma.userProfiles.findUnique.mockResolvedValue(null);
+        await expect(service.startTotpEnrollment(user)).rejects.toThrow('Profile not found');
+      });
+
+      it('generates and stores an encrypted secret with totp_enabled left false, and returns a scannable QR code', async () => {
+        prisma.userProfiles.findUnique.mockResolvedValue(profileRow());
+        prisma.userProfiles.update.mockResolvedValue({});
+
+        const result = await service.startTotpEnrollment(user);
+
+        expect(result.qr_data_url).toMatch(/^data:image\/png;base64,/);
+        expect(result.secret).toEqual(expect.any(String));
+        const updateCall = prisma.userProfiles.update.mock.calls[0][0];
+        expect(updateCall.where).toEqual({ id: 'user-1' });
+        expect(updateCall.data.totp_enabled).toBe(false);
+        expect(decrypt(updateCall.data.totp_secret_encrypted)).toBe(result.secret);
+      });
+    });
+
+    describe('confirmTotpEnrollment', () => {
+      it('rejects when no enrollment (no stored secret) is in progress', async () => {
+        prisma.userProfiles.findUnique.mockResolvedValue(profileRow({ totp_secret_encrypted: null }));
+        const result = await service.confirmTotpEnrollment('123456', user);
+        expect(result.success).toBe(false);
+        expect(prisma.userProfiles.update).not.toHaveBeenCalled();
+      });
+
+      it('rejects an incorrect code without enabling 2FA', async () => {
+        const secret = authenticator.generateSecret();
+        prisma.userProfiles.findUnique.mockResolvedValue(
+          profileRow({ totp_secret_encrypted: encrypt(secret) }),
+        );
+        const result = await service.confirmTotpEnrollment('000000', user);
+        expect(result.success).toBe(false);
+        expect(prisma.userProfiles.update).not.toHaveBeenCalled();
+      });
+
+      // Hashes 10 backup codes at the service's real BCRYPT_COST (12) --
+      // slower than the rest of this suite's hashSync(..., 4) fixtures,
+      // which use a low cost purely for setup speed.
+      it('accepts a correct code, enables 2FA, and returns 10 plaintext backup codes (hashed at rest)', async () => {
+        const secret = authenticator.generateSecret();
+        prisma.userProfiles.findUnique.mockResolvedValue(
+          profileRow({ totp_secret_encrypted: encrypt(secret) }),
+        );
+        prisma.userProfiles.update.mockResolvedValue({});
+        const code = authenticator.generate(secret);
+
+        const result = await service.confirmTotpEnrollment(code, user);
+
+        expect(result.success).toBe(true);
+        expect(result.backup_codes).toHaveLength(10);
+        const updateCall = prisma.userProfiles.update.mock.calls[0][0];
+        expect(updateCall.data.totp_enabled).toBe(true);
+        expect(updateCall.data.totp_backup_codes).toHaveLength(10);
+        // Stored codes are bcrypt hashes, not the plaintext codes returned to the caller.
+        expect(updateCall.data.totp_backup_codes[0]).not.toBe(result.backup_codes![0]);
+        expect(await bcrypt.compare(result.backup_codes![0], updateCall.data.totp_backup_codes[0])).toBe(true);
+      }, 15000);
+    });
+
+    describe('disableTotp', () => {
+      it('requires the correct current password', async () => {
+        prisma.userProfiles.findUnique.mockResolvedValue(profileRow());
+        const result = await service.disableTotp('WrongPassword!', user);
+        expect(result.success).toBe(false);
+        expect(prisma.userProfiles.update).not.toHaveBeenCalled();
+      });
+
+      it('clears totp fields on a correct password', async () => {
+        prisma.userProfiles.findUnique.mockResolvedValue(profileRow({ totp_enabled: true }));
+        prisma.userProfiles.update.mockResolvedValue({});
+        const result = await service.disableTotp('CorrectPassword1!', user);
+        expect(result.success).toBe(true);
+        expect(prisma.userProfiles.update).toHaveBeenCalledWith({
+          where: { id: 'user-1' },
+          data: { totp_enabled: false, totp_secret_encrypted: null, totp_backup_codes: [] },
+        });
+      });
     });
   });
 

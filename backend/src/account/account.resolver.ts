@@ -1,7 +1,18 @@
 import { Resolver, Query, Mutation, Args } from '@nestjs/graphql';
 import { AccountService } from './account.service';
-import { MyProfileType, MyProfileMutationResultType, SessionType } from './entities/account.entity';
-import { UpdateMyProfileInput, ChangeMyPasswordInput } from './dto/account.input';
+import {
+  MyProfileType,
+  MyProfileMutationResultType,
+  SessionType,
+  TotpEnrollmentType,
+  TotpConfirmResultType,
+} from './entities/account.entity';
+import {
+  UpdateMyProfileInput,
+  ChangeMyPasswordInput,
+  ConfirmTotpEnrollmentInput,
+  DisableTotpInput,
+} from './dto/account.input';
 import { GenericResultType } from '../auth/entities/auth-payload.entity';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -42,5 +53,20 @@ export class AccountResolver {
   @Mutation(() => GenericResultType, { name: 'deactivateMyAccount' })
   deactivateMyAccount(@CurrentUser() user: JwtPayload) {
     return this.accountService.deactivateMyAccount(user);
+  }
+
+  @Mutation(() => TotpEnrollmentType, { name: 'startTotpEnrollment' })
+  startTotpEnrollment(@CurrentUser() user: JwtPayload) {
+    return this.accountService.startTotpEnrollment(user);
+  }
+
+  @Mutation(() => TotpConfirmResultType, { name: 'confirmTotpEnrollment' })
+  confirmTotpEnrollment(@Args('input') input: ConfirmTotpEnrollmentInput, @CurrentUser() user: JwtPayload) {
+    return this.accountService.confirmTotpEnrollment(input.code, user);
+  }
+
+  @Mutation(() => GenericResultType, { name: 'disableTotp' })
+  disableTotp(@Args('input') input: DisableTotpInput, @CurrentUser() user: JwtPayload) {
+    return this.accountService.disableTotp(input.password, user);
   }
 }

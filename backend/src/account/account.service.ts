@@ -1,14 +1,19 @@
-import { Inject, Injectable } from '@nestjs/common';
+import { Inject, Injectable, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import Redis from 'ioredis';
+import { authenticator } from 'otplib';
+import * as QRCode from 'qrcode';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { AuthService } from '../auth/auth.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { UpdateMyProfileInput, ChangeMyPasswordInput } from './dto/account.input';
+import { encrypt, decrypt } from '../common/crypto/secrets';
 
 const BCRYPT_COST = 12;
+const BACKUP_CODE_COUNT = 10;
+const TOTP_ISSUER = 'MediBook';
 
 @Injectable()
 export class AccountService {
@@ -40,6 +45,11 @@ export class AccountService {
       last_name: row.last_name,
       email: row.email,
       phone: row.phone ?? undefined,
+      bio: row.bio ?? undefined,
+      date_of_birth: row.date_of_birth ?? undefined,
+      gender: row.gender ?? undefined,
+      avatar_url: row.avatar_url ?? undefined,
+      address: row.address_structured ?? undefined,
     };
   }
 
@@ -67,12 +77,23 @@ export class AccountService {
           first_name: input.first_name,
           last_name: input.last_name,
           phone: input.phone,
+          bio: input.bio,
+          date_of_birth: input.date_of_birth ? new Date(input.date_of_birth) : undefined,
+          gender: input.gender,
+          address_structured: input.address ? (input.address as any) : undefined,
         },
       });
       return { success: true, userErrors: [], profile: this.toProfile(row) };
     } catch (e: any) {
       return { success: false, userErrors: [{ message: e.message ?? 'Failed to update profile' }] };
     }
+  }
+
+  // PLAN016 Slice B — called from the REST avatar-upload endpoint
+  // (account.controller.ts), not a GraphQL mutation, so the file itself
+  // never has to cross the GraphQL layer.
+  async setMyAvatarUrl(url: string, userId: string) {
+    await this.prisma.userProfiles.update({ where: { id: userId }, data: { avatar_url: url } });
   }
 
   async changeMyPassword(input: ChangeMyPasswordInput, user: JwtPayload) {
@@ -124,6 +145,59 @@ export class AccountService {
     }
     await this.prisma.userProfiles.update({ where: { id: user.sub }, data: { is_active: false } });
     await this.authService.logout(user.sub);
+    return { success: true };
+  }
+
+  // ── 2FA (TOTP) — PLAN016 Slice C ────────────────────────────────────────
+
+  // Secret is written immediately (encrypted) but totp_enabled stays false
+  // until confirmTotpEnrollment verifies a real code -- an abandoned
+  // enrollment just leaves an unused, unenforced secret sitting there, not
+  // a half-enabled state.
+  async startTotpEnrollment(user: JwtPayload) {
+    const profile = await this.prisma.userProfiles.findUnique({ where: { id: user.sub } });
+    if (!profile) throw new BadRequestException('Profile not found');
+
+    const secret = authenticator.generateSecret();
+    await this.prisma.userProfiles.update({
+      where: { id: user.sub },
+      data: { totp_secret_encrypted: encrypt(secret), totp_enabled: false },
+    });
+
+    const otpauth = authenticator.keyuri(profile.email, TOTP_ISSUER, secret);
+    const qrDataUrl = await QRCode.toDataURL(otpauth);
+    return { qr_data_url: qrDataUrl, secret };
+  }
+
+  async confirmTotpEnrollment(code: string, user: JwtPayload) {
+    const profile = await this.prisma.userProfiles.findUnique({ where: { id: user.sub } });
+    if (!profile?.totp_secret_encrypted) {
+      return { success: false, message: 'No 2FA enrollment in progress — start enrollment first' };
+    }
+    const secret = decrypt(profile.totp_secret_encrypted);
+    if (!authenticator.check(code, secret)) {
+      return { success: false, message: 'Incorrect code' };
+    }
+
+    const backupCodes = Array.from({ length: BACKUP_CODE_COUNT }, () => crypto.randomBytes(5).toString('hex'));
+    const hashedCodes = await Promise.all(backupCodes.map((c) => bcrypt.hash(c, BCRYPT_COST)));
+    await this.prisma.userProfiles.update({
+      where: { id: user.sub },
+      data: { totp_enabled: true, totp_backup_codes: hashedCodes },
+    });
+    return { success: true, backup_codes: backupCodes };
+  }
+
+  async disableTotp(password: string, user: JwtPayload) {
+    const profile = await this.prisma.userProfiles.findUnique({ where: { id: user.sub } });
+    if (!profile) return { success: false, message: 'Profile not found' };
+    const matches = await bcrypt.compare(password, profile.password);
+    if (!matches) return { success: false, message: 'Incorrect password' };
+
+    await this.prisma.userProfiles.update({
+      where: { id: user.sub },
+      data: { totp_enabled: false, totp_secret_encrypted: null, totp_backup_codes: [] as any },
+    });
     return { success: true };
   }
 }

@@ -2,9 +2,11 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
+import { authenticator } from 'otplib';
 import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
+import { encrypt } from '../common/crypto/secrets';
 
 // Mirrors this project's own bcrypt cost (BCRYPT_COST = 12 in auth.service.ts)
 // closely enough to produce real, verifiable hashes without a 12-round cost
@@ -20,7 +22,7 @@ describe('AuthService', () => {
     users: { create: jest.Mock };
     $transaction: jest.Mock;
   };
-  let jwt: { sign: jest.Mock };
+  let jwt: { sign: jest.Mock; verifyAsync: jest.Mock };
   let redis: {
     get: jest.Mock;
     set: jest.Mock;
@@ -56,7 +58,7 @@ describe('AuthService', () => {
       users: { create: jest.fn() },
       $transaction: jest.fn(),
     };
-    jwt = { sign: jest.fn().mockReturnValue('signed.jwt.token') };
+    jwt = { sign: jest.fn().mockReturnValue('signed.jwt.token'), verifyAsync: jest.fn() };
     redis = {
       get: jest.fn(),
       set: jest.fn(),
@@ -89,6 +91,8 @@ describe('AuthService', () => {
 
       const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
 
+      // No totp_enabled on the fixture -> always the AuthPayloadType branch.
+      if (!('access_token' in result)) throw new Error('expected AuthPayloadType, got a TotpChallenge');
       expect(result.access_token).toBe('signed.jwt.token');
       expect(result.token_type).toBe('Bearer');
       expect(result.user.email).toBe('sarah@medibook.dev');
@@ -182,6 +186,87 @@ describe('AuthService', () => {
       ).rejects.toThrow('Account temporarily locked due to repeated failed attempts. Try again later.');
 
       expect(prisma.userProfiles.findUnique).not.toHaveBeenCalled();
+    });
+
+    // PLAN016 Slice C
+    it('returns a TotpChallenge (not tokens) for a correct password when totp_enabled is true', async () => {
+      redis.get.mockResolvedValueOnce(null);
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ totp_enabled: true }));
+
+      const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+
+      if (!('requires_totp' in result)) throw new Error('expected a TotpChallenge, got AuthPayloadType');
+      expect(result.requires_totp).toBe(true);
+      expect(result.challenge_token).toBe('signed.jwt.token');
+      // The challenge JWT carries a distinct purpose claim, never the full session payload.
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'user-1', purpose: 'totp_challenge' }),
+        expect.anything(),
+      );
+    });
+  });
+
+  describe('verifyTotpLogin', () => {
+    const totpSecret = authenticator.generateSecret();
+    const backupCodePlain = 'abcd1234ef';
+
+    const totpProfile = (overrides: Partial<Record<string, unknown>> = {}) =>
+      activeProfile({
+        totp_enabled: true,
+        totp_secret_encrypted: encrypt(totpSecret),
+        totp_backup_codes: [bcrypt.hashSync(backupCodePlain, 4)],
+        ...overrides,
+      });
+
+    it('rejects an expired/invalid challenge token without touching Prisma', async () => {
+      jwt.verifyAsync.mockRejectedValue(new Error('jwt expired'));
+      await expect(service.verifyTotpLogin('bad.token', '123456')).rejects.toThrow(
+        'Login challenge has expired — please sign in again',
+      );
+      expect(prisma.userProfiles.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects a token whose purpose claim is not the TOTP-challenge purpose', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1', purpose: 'password_reset' });
+      await expect(service.verifyTotpLogin('token', '123456')).rejects.toThrow('Invalid login challenge');
+    });
+
+    it('rejects when the account no longer has 2FA enabled (e.g. disabled mid-challenge)', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1', purpose: 'totp_challenge' });
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ totp_enabled: false }));
+      await expect(service.verifyTotpLogin('token', '123456')).rejects.toThrow('Invalid login challenge');
+    });
+
+    it('issues real tokens for a correct current TOTP code', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1', purpose: 'totp_challenge' });
+      prisma.userProfiles.findUnique.mockResolvedValue(totpProfile());
+      const code = authenticator.generate(totpSecret);
+
+      const result = await service.verifyTotpLogin('token', code);
+
+      expect(result.access_token).toBe('signed.jwt.token');
+      expect(result.user.email).toBe('sarah@medibook.dev');
+    });
+
+    it('accepts a correct backup code and consumes it (single-use), when the TOTP code itself is wrong', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1', purpose: 'totp_challenge' });
+      prisma.userProfiles.findUnique.mockResolvedValue(totpProfile());
+
+      const result = await service.verifyTotpLogin('token', backupCodePlain);
+
+      expect(result.access_token).toBe('signed.jwt.token');
+      expect(prisma.userProfiles.update).toHaveBeenCalledWith({
+        where: { id: 'user-1' },
+        data: { totp_backup_codes: [] }, // the one-and-only backup code was removed
+      });
+    });
+
+    it('rejects a code that matches neither the current TOTP nor any backup code', async () => {
+      jwt.verifyAsync.mockResolvedValue({ sub: 'user-1', purpose: 'totp_challenge' });
+      prisma.userProfiles.findUnique.mockResolvedValue(totpProfile());
+
+      await expect(service.verifyTotpLogin('token', '000000')).rejects.toThrow('Incorrect code');
+      expect(prisma.userProfiles.update).not.toHaveBeenCalled();
     });
   });
 

@@ -249,6 +249,7 @@ model ClientOrganizations {
   products               Products[]
   productCategories      ProductCategories[]
   productSubcategories   ProductSubcategories[]
+  notificationProviderConfigs NotificationProviderConfig[]
 }
 
 model ClinicianAvailability {
@@ -411,6 +412,29 @@ model Notifications {
   created_at DateTime            @default(now())
 
   user Users @relation(fields: [user_id], references: [id])
+}
+
+// REQ008/PLAN017 — admin-configurable OTP/SMS provider per org. Deliberately
+// its own model, not columns bolted onto ClientOrganizations, since the
+// credential shape varies per provider (see backend/src/notifications/providers/)
+// and doesn't belong flattened into the org's own row. `channel` is a plain
+// string ('sms' today) rather than an enum so a future channel (whatsapp,
+// etc.) needs zero schema change — same reasoning for `provider` being a
+// registry key, not an enum, so adding a provider is a code change only.
+model NotificationProviderConfig {
+  id                    String   @id @default(uuid())
+  client_org_id         String
+  channel               String
+  provider              String
+  credentials_encrypted String   // AES-256-GCM JSON blob, shape owned by the provider's registry entry
+  sender_id             String?  // common display field across most SMS providers; kept denormalized
+  is_active             Boolean  @default(true)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @default(now())
+
+  client_org ClientOrganizations @relation(fields: [client_org_id], references: [id])
+
+  @@unique([client_org_id, channel])
 }
 
 model OrganizationSubscriptions {
@@ -915,6 +939,22 @@ model UserProfiles {
   email_verified           Boolean   @default(false)
   email_verification_token String?
   email_verification_expires DateTime?
+
+  // PLAN016 (REQ005 remainder) — settings/index.jsx's Profile tab. address_structured
+  // matches Patients/ClientOrganizations' exact {line1, line2, city, state, pincode,
+  // country} shape (the modern, actively-used convention project-wide) rather than
+  // this model's older address_line1/postal_code/no-state columns above, which are
+  // never exposed in any GraphQL entity today — no compatibility surface to preserve.
+  date_of_birth DateTime?
+  gender        String?
+  bio           String?
+  address_structured Json?
+
+  // PLAN016 Slice C — real TOTP 2FA. Secret and backup codes are always
+  // encrypted/hashed at rest, never stored or returned in plaintext.
+  totp_secret_encrypted String?
+  totp_enabled          Boolean  @default(false)
+  totp_backup_codes     Json?    // array of bcrypt-hashed one-time codes
 
   user        Users                @relation(fields: [id], references: [id])
   role        UserRoles            @relation(fields: [role_id], references: [id])

@@ -500,6 +500,10 @@ type ClinicianTypeInfo {
   name: String!
 }
 
+input ConfirmTotpEnrollmentInput {
+  code: String!
+}
+
 input CreateAvailabilityInput {
   clinic_id: String!
   clinician_id: String!
@@ -611,6 +615,11 @@ input CreateThreadInput {
   participant_ids: [ID!]!
 }
 
+input CredentialFieldInput {
+  key: String!
+  value: String!
+}
+
 type Dashboard {
   bookings_by_service: [DashboardBookingsByService!]!
   no_show_rate: Float!
@@ -693,6 +702,10 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+input DisableTotpInput {
+  password: String!
+}
+
 type EmailTemplate {
   body: String!
   id: ID!
@@ -755,6 +768,8 @@ input LoginInput {
   password: String!
 }
 
+union LoginResult = AuthPayload | TotpChallenge
+
 type LookupMutationResult {
   success: Boolean!
   userErrors: [UserError!]!
@@ -795,6 +810,7 @@ type Mutation {
   cancelAppointment(id: ID!, reason: String): Appointment!
   changeMyPassword(input: ChangeMyPasswordInput!): GenericResult!
   completeAppointment(id: ID!): Appointment!
+  confirmTotpEnrollment(input: ConfirmTotpEnrollmentInput!): TotpConfirmResult!
   createAppointment(input: AppointmentInput!): Appointment!
   createAvailability(input: CreateAvailabilityInput!): AvailabilityMutationResult!
   createCancellationRule(input: CreateCancellationRuleInput!): CancellationRuleMutationResult!
@@ -836,8 +852,9 @@ type Mutation {
   deleteRoomBlock(id: ID!): RoomBlockMutationResult!
   deleteRoomType(id: ID!): LookupMutationResult!
   deleteSpacerBlock(id: ID!): SpacerBlockMutationResult!
+  disableTotp(input: DisableTotpInput!): GenericResult!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
-  login(input: LoginInput!): AuthPayload!
+  login(input: LoginInput!): LoginResult!
   logout: Boolean!
   markAllNotificationsRead: NotificationMutationResult!
   markNoShow(id: ID!): Appointment!
@@ -853,6 +870,7 @@ type Mutation {
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
   sendMessage(body: String!, threadId: ID!): MessageThread!
+  startTotpEnrollment: TotpEnrollment!
   toggleClinicianActive(id: ID!): Clinician!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
@@ -863,6 +881,7 @@ type Mutation {
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
   updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
   updateMyNotificationPreferences(input: [NotificationPreferenceInput!]!): GenericResult!
+  updateMyNotificationProviderConfig(input: UpdateNotificationProviderConfigInput!): NotificationProviderConfigResult!
   updateMyOrgBookingPolicies(input: UpdateOrgBookingPoliciesInput!): OrgBookingPoliciesMutationResult!
   updateMyOrgCommunicationSettings(input: UpdateOrgCommunicationSettingsInput!): OrgCommunicationSettingsMutationResult!
   updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
@@ -882,11 +901,35 @@ type Mutation {
   updateUser(id: ID!, input: UserUpdateInput!): User!
   verifyOtp(input: VerifyOtpInput!): AuthPayload!
   verifyRazorpayPayment(input: VerifyRazorpayPaymentInput!): PaymentVerificationResult!
+  verifyTotpLogin(input: VerifyTotpLoginInput!): AuthPayload!
+}
+
+type MyAddress {
+  city: String!
+  country: String
+  line1: String!
+  line2: String
+  pincode: String!
+  state: String!
+}
+
+input MyAddressInput {
+  city: String!
+  country: String
+  line1: String!
+  line2: String
+  pincode: String!
+  state: String!
 }
 
 type MyProfile {
+  address: MyAddress
+  avatar_url: String
+  bio: String
+  date_of_birth: DateTime
   email: String!
   first_name: String!
+  gender: String
   id: ID!
   last_name: String!
   phone: String
@@ -929,6 +972,32 @@ input NotificationPreferenceInput {
   email_enabled: Boolean!
   event_type: String!
   sms_enabled: Boolean!
+}
+
+type NotificationProviderConfig {
+  channel: String!
+  has_credentials: Boolean!
+  provider: String
+  sender_id: String
+}
+
+type NotificationProviderConfigResult {
+  message: String
+  success: Boolean!
+}
+
+type NotificationProviderField {
+  key: String!
+  label: String!
+  required: Boolean!
+  type: String!
+}
+
+type NotificationProviderOption {
+  channel: String!
+  fields: [NotificationProviderField!]!
+  id: String!
+  label: String!
 }
 
 input OrderTestInput {
@@ -1318,10 +1387,12 @@ type Query {
   myFinanceSummary(endDate: String!, startDate: String!): FinanceSummary!
   myFinanceTransactions(endDate: String!, startDate: String!): [FinanceTransaction!]!
   myNotificationPreferences: [NotificationPreference!]!
+  myNotificationProviderConfig(channel: String!): NotificationProviderConfig
   myOrgBookingPolicies: OrgBookingPolicies
   myOrgCommunicationSettings: OrgCommunicationSettings
   myProfile: MyProfile
   mySessions: [Session!]!
+  notificationProviders: [NotificationProviderOption!]!
   notifications(filter: String): [Notification!]!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
@@ -1612,6 +1683,22 @@ type TopClinicianPoint {
   revenue: Float!
 }
 
+type TotpChallenge {
+  challenge_token: String!
+  requires_totp: Boolean!
+}
+
+type TotpConfirmResult {
+  backup_codes: [String!]
+  message: String
+  success: Boolean!
+}
+
+type TotpEnrollment {
+  qr_data_url: String!
+  secret: String!
+}
+
 type Transaction {
   amount: Float!
   appointment: TransactionAppointment!
@@ -1688,9 +1775,20 @@ input UpdateLanguageInput {
 }
 
 input UpdateMyProfileInput {
+  address: MyAddressInput
+  bio: String
+  date_of_birth: String
   first_name: String
+  gender: String
   last_name: String
   phone: String
+}
+
+input UpdateNotificationProviderConfigInput {
+  channel: String!
+  credentials: [CredentialFieldInput!]!
+  provider: String!
+  sender_id: String
 }
 
 input UpdateOrgBookingPoliciesInput {
@@ -1786,4 +1884,9 @@ input VerifyRazorpayPaymentInput {
   razorpay_order_id: String!
   razorpay_payment_id: String!
   razorpay_signature: String!
+}
+
+input VerifyTotpLoginInput {
+  challenge_token: String!
+  code: String!
 }

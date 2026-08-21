@@ -6,7 +6,8 @@ import { RegisterInput } from './dto/register.input';
 import { RefreshInput } from './dto/refresh.input';
 import { RequestOtpInput, VerifyOtpInput } from './dto/otp.input';
 import { ForgotPasswordInput, ResetPasswordInput } from './dto/password-reset.input';
-import { AuthPayloadType, GenericResultType } from './entities/auth-payload.entity';
+import { VerifyTotpLoginInput } from './dto/totp-login.input';
+import { AuthPayloadType, GenericResultType, LoginResultType } from './entities/auth-payload.entity';
 import { AuthUserType } from './entities/user.entity';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -21,11 +22,20 @@ export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
   // TC-AUTH-API-012: rate-limited independent of the per-account lockout in the service.
+  // PLAN016 Slice C — returns AuthPayload directly, or TotpChallenge when the
+  // account has 2FA enabled (client must then call verifyTotpLogin).
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Mutation(() => LoginResultType)
+  login(@Args('input') input: LoginInput, @Context() context: any) {
+    return this.authService.login(input, context?.req?.headers?.['user-agent']);
+  }
+
   @Public()
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => AuthPayloadType)
-  login(@Args('input') input: LoginInput, @Context() context: any) {
-    return this.authService.login(input, context?.req?.headers?.['user-agent']);
+  verifyTotpLogin(@Args('input') input: VerifyTotpLoginInput, @Context() context: any) {
+    return this.authService.verifyTotpLogin(input.challenge_token, input.code, context?.req?.headers?.['user-agent']);
   }
 
   @Public()

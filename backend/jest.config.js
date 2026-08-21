@@ -3,6 +3,7 @@ module.exports = {
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'src',
   testRegex: '.*\\.spec\\.ts$',
+  setupFiles: ['<rootDir>/test-setup.ts'],
   transform: {
     '^.+\\.(t|j)s$': 'ts-jest',
   },

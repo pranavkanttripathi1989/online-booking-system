@@ -3,12 +3,14 @@ import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import Redis from 'ioredis';
+import { authenticator } from 'otplib';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { LoginInput } from './dto/login.input';
 import { RegisterInput } from './dto/register.input';
 import { RefreshInput } from './dto/refresh.input';
-import { AuthPayloadType } from './entities/auth-payload.entity';
+import { AuthPayloadType, TotpChallengeType } from './entities/auth-payload.entity';
+import { decrypt } from '../common/crypto/secrets';
 
 const BCRYPT_COST = 12;
 const ACCESS_TTL_SECONDS = 15 * 60;
@@ -18,6 +20,8 @@ const LOCKOUT_WINDOW_SECONDS = 15 * 60;
 const OTP_TTL_SECONDS = Number(process.env.OTP_TTL_SECONDS ?? 300);
 const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS ?? 3);
 const RESET_TOKEN_TTL_MINUTES = 30;
+const TOTP_CHALLENGE_TTL_SECONDS = 5 * 60;
+const TOTP_CHALLENGE_PURPOSE = 'totp_challenge';
 
 // TC-AUTH-API-002/003: dummy hash so a nonexistent-email login takes the same
 // bcrypt-compare time as a real one — closes the user-enumeration timing side-channel.
@@ -158,7 +162,7 @@ export class AuthService {
 
   // ── Login ──────────────────────────────────────────────────────────────────
 
-  async login(input: LoginInput, userAgent?: string): Promise<AuthPayloadType> {
+  async login(input: LoginInput, userAgent?: string): Promise<AuthPayloadType | TotpChallengeType> {
     // TC-AUTH-API-013: reject before touching the password at all once locked.
     if (await this.isLockedOut(input.email)) {
       throw new UnauthorizedException('Account temporarily locked due to repeated failed attempts. Try again later.');
@@ -180,7 +184,55 @@ export class AuthService {
     }
 
     await this.clearFailedAttempts(input.email);
+
+    // PLAN016 Slice C — password verified, but full tokens are withheld
+    // until a real TOTP/backup code clears verifyTotpLogin. The challenge
+    // token proves "already passed password check" without being a usable
+    // session credential itself (short TTL, distinct `purpose` claim, and
+    // verifyTotpLogin is the only thing that accepts it).
+    if (profile.totp_enabled) {
+      const challenge_token = this.jwt.sign(
+        { sub: profile.id, purpose: TOTP_CHALLENGE_PURPOSE },
+        { secret: process.env.JWT_ACCESS_SECRET, expiresIn: TOTP_CHALLENGE_TTL_SECONDS },
+      );
+      return { requires_totp: true, challenge_token };
+    }
+
     return this.issueTokens(profile, userAgent);
+  }
+
+  async verifyTotpLogin(challengeToken: string, code: string, userAgent?: string): Promise<AuthPayloadType> {
+    let claims: { sub: string; purpose: string };
+    try {
+      claims = await this.jwt.verifyAsync(challengeToken, { secret: process.env.JWT_ACCESS_SECRET });
+    } catch {
+      throw new UnauthorizedException('Login challenge has expired — please sign in again');
+    }
+    if (claims.purpose !== TOTP_CHALLENGE_PURPOSE) {
+      throw new UnauthorizedException('Invalid login challenge');
+    }
+
+    const profile = await this.prisma.userProfiles.findUnique({ where: { id: claims.sub }, include: { role: true } });
+    if (!profile?.totp_enabled || !profile.totp_secret_encrypted || !profile.is_active) {
+      throw new UnauthorizedException('Invalid login challenge');
+    }
+
+    const secret = decrypt(profile.totp_secret_encrypted);
+    if (authenticator.check(code, secret)) {
+      return this.issueTokens(profile, userAgent);
+    }
+
+    // Not a valid TOTP code -- try it as a single-use backup code instead.
+    const backupCodes = (profile.totp_backup_codes as string[] | null) ?? [];
+    for (let i = 0; i < backupCodes.length; i++) {
+      if (await bcrypt.compare(code, backupCodes[i])) {
+        const remaining = [...backupCodes.slice(0, i), ...backupCodes.slice(i + 1)];
+        await this.prisma.userProfiles.update({ where: { id: profile.id }, data: { totp_backup_codes: remaining } });
+        return this.issueTokens(profile, userAgent);
+      }
+    }
+
+    throw new UnauthorizedException('Incorrect code');
   }
 
   // ── Me ─────────────────────────────────────────────────────────────────────
