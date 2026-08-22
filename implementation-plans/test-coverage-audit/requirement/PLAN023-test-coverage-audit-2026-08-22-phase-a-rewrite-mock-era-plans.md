@@ -4,10 +4,12 @@ type: requirement
 feature: test-coverage-audit
 created: 2026-08-22
 updated: 2026-08-22
-status: approved
+status: done
 parent: REQ013
-related: []
+related: [TP003, TR003, TP011, TR010]
 ---
+
+**Closed 2026-08-22.** All 6 execution steps completed: re-audited `clinician/Availability.jsx` and `Calendar.jsx` (found and fixed 4 real bugs — wrong `clinicianId`, a `dayOfWeek` type mismatch, a `null`-vs-`'daily'` sentinel mismatch, a non-existent `getClinicianSchedule` GraphQL field — plus 1 more in `clinicians/index.jsx` and 1 in `CreateClinicianPage.jsx`'s always-mock `useMock = true`, found during the same pass); rewrote `TP003`/`TP011` in place against the real backend; extended/added real e2e coverage (`clinician-portal.spec.js`, new cases in `manager-appointments.spec.js` and `manager-clinicians-patients.spec.js`); re-issued `TR003`/`TR010` with an honest live-verified-vs-code-reviewed breakdown per case; updated all three affected context bundles (`appointments-2026-08-18`, `clinicians-2026-04-02`, `clinician-availability-2026-08-19`). One new finding surfaced during execution and logged rather than silently expanded into scope: `TP007`/`clinician-availability` duplicates `TP011`'s coverage of the same file under a different feature slug — flagged in `REQ013` Finding 7 and both docs, not rewritten in this pass.
 
 # Implementation plan — Phase A: rewrite the mock-era test-plans that now endorse fixed bugs (REQ013)
 

@@ -4,7 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
-| test-coverage-audit-2026-08-22 | test-coverage-audit | 2026-08-22 | REQ013 | in-progress | [manifest.md](./test-coverage-audit-2026-08-22/manifest.md) |
+| test-coverage-audit-2026-08-22 | test-coverage-audit | 2026-08-22 | REQ013, PLAN023 | in-progress | [manifest.md](./test-coverage-audit-2026-08-22/manifest.md) |
 | organization-branding-2026-08-21 | organization-branding | 2026-08-21 | REQ002, PLAN022, TP051, TR050 | done | [manifest.md](./organization-branding-2026-08-21/manifest.md) |
 | products-2026-08-21 | products | 2026-08-21 | BUG001, PLAN015, TP045, TR044 | done | [manifest.md](./products-2026-08-21/manifest.md) |
 | dashboard-2026-08-21 | dashboard | 2026-08-21 | REQ007, PLAN014, TP044, TR043 | done | [manifest.md](./dashboard-2026-08-21/manifest.md) |
@@ -13,8 +13,8 @@ One bundle per feature, linking every doc across the five roots for that feature
 | communications-policies-2026-08-20 | communications-policies | 2026-08-20 | REQ006, PLAN009, TP039, TR038, PLAN011, TP041, TR040 | in-progress | [manifest.md](./communications-policies-2026-08-20/manifest.md) |
 | patient-payments-2026-08-20 | patient-payments | 2026-08-20 | REQ004, PLAN012, PLAN013, TP042, TP043, TR041, TR042 | done | [manifest.md](./patient-payments-2026-08-20/manifest.md) |
 | settings-2026-08-20 | settings | 2026-08-20 | REQ005, PLAN010, TP040, TR039, PLAN016, TP045, TR044 | done | [manifest.md](./settings-2026-08-20/manifest.md) |
-| clinician-availability-2026-08-19 | clinician-availability | 2026-08-19 | TP007, TR006, TS006 | in-progress | [manifest.md](./clinician-availability-2026-08-19/manifest.md) |
-| appointments-2026-08-18 | appointments | 2026-08-18 | TP003, TR003, TS003 | in-progress | [manifest.md](./appointments-2026-08-18/manifest.md) |
+| clinician-availability-2026-08-19 | clinician-availability | 2026-08-19 | TP007, TR006, TS006, REQ013 | in-progress | [manifest.md](./clinician-availability-2026-08-19/manifest.md) |
+| appointments-2026-08-18 | appointments | 2026-08-18 | TP003, TR003, TS003, REQ013, PLAN023 | done | [manifest.md](./appointments-2026-08-18/manifest.md) |
 | auth-2026-08-18 | auth | 2026-08-18 | TP004, TR004, TS004 | in-progress | [manifest.md](./auth-2026-08-18/manifest.md) |
 | next-10-features-2026-08-18 | next-10-features | 2026-08-18 | PLAN003 | done | [manifest.md](./next-10-features-2026-08-18/manifest.md) |
 | patients-2026-08-18 | patients | 2026-08-18 | TP026, TR025, TS026 | approved | [manifest.md](./patients-2026-08-18/manifest.md) |
@@ -50,7 +50,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 | analytics-finances-2026-04-02 | analytics-finances | 2026-04-02 | TP002, TR002, TS002 | in-progress | [manifest.md](./analytics-finances-2026-04-02/manifest.md) |
 | calendar-2026-04-02 | calendar | 2026-04-02 | TP006, TR005, TS005 | in-progress | [manifest.md](./calendar-2026-04-02/manifest.md) |
 | clinician-patients-2026-04-02 | clinician-patients | 2026-04-02 | TP010, TR009, TS009 | in-progress | [manifest.md](./clinician-patients-2026-04-02/manifest.md) |
-| clinicians-2026-04-02 | clinicians | 2026-04-02 | TP011, TR010, TS010 | approved | [manifest.md](./clinicians-2026-04-02/manifest.md) |
+| clinicians-2026-04-02 | clinicians | 2026-04-02 | TP011, TR010, TS010, REQ013, PLAN023 | done | [manifest.md](./clinicians-2026-04-02/manifest.md) |
 | dashboard-2026-04-02 | dashboard | 2026-04-02 | TP012, TR011, TS011 | in-progress | [manifest.md](./dashboard-2026-04-02/manifest.md) |
 | manager-2026-04-02 | manager | 2026-04-02 | TP015, TR014, TS014 | approved | [manifest.md](./manager-2026-04-02/manifest.md) |
 | manager-availability-2026-04-02 | manager-availability | 2026-04-02 | TP016, TR015, TS015 | approved | [manifest.md](./manager-availability-2026-04-02/manifest.md) |

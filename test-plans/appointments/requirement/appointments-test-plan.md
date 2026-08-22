@@ -3,470 +3,260 @@ id: TP003
 type: test-plan
 feature: appointments
 created: 2026-03-19
-updated: 2026-04-02
-status: done
-parent: unknown
-related: [TR003, TS003]
+updated: 2026-08-22
+status: approved
+parent: REQ013
+related: [TR003, PLAN023]
 ---
 
-# Appointments — Test Plan (Updated Post-Implementation)
+# Appointments — Test Plan
 
-**Feature area:** `/src/pages/appointments/`  
-**Files:** `index.jsx`, `create.jsx`, `edit.jsx`, `detail.jsx`  
-**Routes tested:** `/appointments`, `/appointments/new`, `/appointments/:id`, `/appointments/:id/edit`  
-**GraphQL:** `APPOINTMENTS_QUERY`, `CANCEL_APPOINTMENT_MUTATION`  
-**Mock data:** `src/mocks/store.js` (35 records)  
-**Updated:** 2026-03-18 — Added TC-APPT-020/021/022/023 for implemented suggestions; updated TC-APPT-001 to reflect tab strip.  
-**Updated:** 2026-03-19 Session 3 — Added TC-APPT-024 to TC-APPT-029 for NEW-APPT-001/002/003, SUG-APPT-005, SUG-APPT-007.  
-**Updated:** 2026-03-19 Session 4 — Added TC-APPT-030 to TC-APPT-034 (Print, Status Timeline, Teal Theme, Time Validation, Empty State).  
-**Updated:** 2026-03-27 v3 — Added TC-APPT-035 to TC-APPT-038 (Bulk Select, Reminder Channel, Reschedule Dialog, Service Checklist). **Total: 38 TCs.**
+**Data source: real backend as of 2026-08-22** (previously `MockStore`'s 35-record dataset — see `context/test-coverage-audit-2026-08-22/manifest.md` and `PLAN023` for the full rewrite rationale). Rewritten under `REQ013`/`PLAN023` Phase A after this session's Priority 3 sweep found and fixed 2 real bugs across the files this plan covers, one of which this document's previous version specced as the *correct* expected result.
+
+**Feature area:** `/src/pages/appointments/`
+**Files:** `index.jsx`, `create.jsx` (wraps `components/BookingWizard/*`), `detail.jsx`, `edit.jsx`
+**Routes tested:** `/appointments`, `/appointments/new`, `/appointments/:id`, `/appointments/:id/edit`
+**GraphQL:** `APPOINTMENTS_QUERY`, `APPOINTMENT_DETAIL_QUERY`, `CANCEL_APPOINTMENT_MUTATION`, `COMPLETE_APPOINTMENT_MUTATION`, `MARK_NO_SHOW_MUTATION`, `UPDATE_APPOINTMENT_MUTATION`, `CREATE_APPOINTMENT_MUTATION`, `CREATE_PATIENT_MUTATION`.
+
+## What changed from the mock-era version of this plan
+
+1. **TC-APPT-028** (old, sidebar pending-count badge) specced `MockStore.getAppointments({status:'pending'}).length` as the correct sidebar implementation. `components/Layout/Sidebar.jsx` — the file this badge lived in — was deleted this session as confirmed-orphaned dead code (zero live importers, fully superseded by `layouts/AppShell.jsx`, which has no equivalent badge at all). **This feature no longer exists in the app.** Removed below rather than carried forward as if still real.
+2. **TC-APPT-039** (old, Reschedule dialog) only asserted the dialog UI and a success snackbar — it never asserted the appointment's `start_datetime` actually persisted. This is exactly the blind spot that let `appointments/detail.jsx`'s Reschedule handler ship calling `MockStore.updateAppointment()` unconditionally, even for a real appointment — the success toast fired but nothing was ever saved to the real database. Corrected below with a real persistence assertion, matching the fix (wired to the real, already-defined `UPDATE_APPOINTMENT_MUTATION`).
+3. **TC-APPT-022** (old, contextual empty state) asserted only that *some* empty-looking UI appears — the exact bug this session found in `appointments/index.jsx` and `calendar/index.jsx` (`rows = apiRows.length > 0 ? apiRows : mockRows`, falling back to 35 fabricated rows / a month of fabricated events on any real empty result, not just a real error) would have passed this old assertion, since the fallback still rendered *something* that looked like results, not an empty state — the bug only became visible with a specific, real, zero-match filter (confirmed live: `status=no_show` rendered 3 completely fake patients). Corrected below to assert against a filter combination proven to have zero real matches.
+4. **TC-APPT-010/011** (old) referenced mock ids `appt-1` and `mock-50` directly. Real appointment ids are UUIDs; rewritten to reference a real seeded appointment by patient name lookup, matching how `manager-appointments.spec.js` already does this.
+5. **Mock Data Reference** section (old, 35 named mock rows) removed — the real dataset is a handful of seeded rows (patients: Anita Sharma, Pranav Tripathi, Test Patient ×2) plus accumulating e2e-created test data, not a fixed 35-row set.
+6. `appointments/create.jsx`/`BookingWizard` and `appointments/edit.jsx` were checked this session and confirmed **already correct** — `create.jsx` has zero `mocks/store`/`useMockData` imports anywhere in its 5-step wizard (fully real `CREATE_APPOINTMENT_MUTATION`/`CREATE_PATIENT_MUTATION`); `edit.jsx` is real-primary with an explicitly-labeled "(mock mode)" fallback only on a genuine `networkError`, the correct pattern. No behavioral corrections needed for either — only mock-id references removed from the cases that touch them.
 
 ---
 
 ## 1. Appointments List Page (`/appointments`)
 
-### TC-APPT-001 — List loads with Upcoming / Past / All tabs and mock data
-**Prompt:**
-> Navigate to `http://localhost:3001/appointments`.
-> Assert: 3-tab strip visible: "Upcoming", "Past", "All".
-> Assert: "Upcoming" is selected by default (blue underline indicator).
-> Assert: Subtitle reads "X upcoming appointments" (not "35 total").
-> Assert: "Export CSV" button visible in header next to "+ New Booking".
-> Assert: Filter toolbar below tabs: Patient name, Status, Clinician, From, To date pickers, red Clear icon.
-> Assert: Status chips visible: Confirmed (green), Pending (amber), Cancelled (red), Completed (blue), No Show (grey).
-
-**Expected:** Page loads in "Upcoming" mode. 12 upcoming appointments shown (≤35). No blank screen.
+### TC-APPT-001 — List loads with Upcoming / Past / All tabs and real data
+**Steps:** Navigate to `/appointments`.
+**Expected:** 3-tab strip ("Upcoming", "Past", "All"), "Upcoming" selected by default. Subtitle reflects the real filtered count. "Export CSV" button next to "+ New Booking". Filter toolbar: Patient name, Status, Clinician, From/To date pickers, Clear icon. Status chips render per real appointment status. No blank screen. Covered live: `manager-appointments.spec.js` › `manager sees real seeded appointments`.
 
 ---
 
 ### TC-APPT-002 — Search by patient name
-**Prompt:**
-> On `/appointments`, type "Alice" in the Patient name field. Press Enter or blur.
-> Assert: table updates to show only rows with "Alice" in the patient name column.
-
-**Expected:** 300ms debounce (blur/Enter). Matching rows shown. Non-matching hidden.
+**Steps:** Type a real patient's name (e.g. "Anita") in the Patient name field, press Enter (the field commits on Enter/blur, not on every keystroke — see `handleSearchKeyDown`).
+**Expected:** Table updates to only rows matching that real patient. Clearing restores the full real list.
 
 ---
 
-### TC-APPT-003 — Filter by status — Confirmed only
-**Prompt:**
-> On `/appointments`, open the Status dropdown. Select "Confirmed".
-> Assert: only rows with green "Confirmed" chip are shown. Other statuses disappear.
-> Assert: subtitle count updates.
-
-**Expected:** `STATUS_OPTIONS` filter applied. Table re-renders with filtered rows.
+### TC-APPT-003 — Filter by status
+**Steps:** Open the Status dropdown → select a real status present in the current data (e.g. "Scheduled").
+**Expected:** Only matching rows shown; subtitle count updates to the real filtered count.
 
 ---
 
 ### TC-APPT-004 — Filter by date range
-**Prompt:**
-> On `/appointments`, set From date to 2026-03-16 and To date to 2026-03-23.
-> Assert: only appointments within that date range shown.
-
-**Expected:** DatePicker values applied. Records outside range excluded.
+**Steps:** Set From/To dates spanning a real appointment's date.
+**Expected:** Only appointments within that real range shown.
 
 ---
 
 ### TC-APPT-005 — Clear all filters resets table
-**Prompt:**
-> Apply status "Cancelled" and search "bob". Click the red `FilterAltOffIcon` button.
-> Assert: search field clears, status resets to "All Statuses", tab returns to "Upcoming", date pickers cleared.
-> Assert: all upcoming appointments return.
-
-**Expected:** All state reset. Tab returns to "Upcoming". Subtitle says "X upcoming appointments".
+**Steps:** Apply a status filter and a search term. Click the Clear Filters icon.
+**Expected:** Search clears, status resets to "All Statuses", tab returns to "Upcoming", date pickers clear, the full real "Upcoming" set returns.
 
 ---
 
-### TC-APPT-006 — Click row navigates to detail page
-**Prompt:**
-> On `/appointments`, click the eye (View) icon on any row.
-> Assert: navigated to `/appointments/:id`. Detail page renders with appointment info.
-
-**Expected:** `navigate('/appointments/${id}')` fires. Detail page loads with all cards populated.
+### TC-APPT-006 — View icon navigates to detail page
+**Steps:** Click the View (eye) icon on any real row.
+**Expected:** Navigates to `/appointments/:id` with the real appointment's real id; detail page renders that appointment's real data. Covered live: `manager-appointments.spec.js` › `rescheduling a real appointment calls the real updateAppointment mutation` (navigates via this same action as setup).
 
 ---
 
-### TC-APPT-007 — New appointment button navigates to create
-**Prompt:**
-> On `/appointments`, click the "+ New Booking" button in the page header.
-> Assert: navigated to `/appointments/new` (or booking wizard).
-> Also: verify FAB (bottom-right) navigates to the same route.
-
-**Expected:** Button and FAB both navigate to `/appointments/new`. 5-step wizard loads.
+### TC-APPT-007 — New appointment button navigates to the real booking wizard
+**Steps:** Click "+ New Booking" (header button and FAB).
+**Expected:** Navigates to `/appointments/new`; the real 5-step `BookingWizard` loads (already confirmed fully real this session — `CREATE_APPOINTMENT_MUTATION`/`CREATE_PATIENT_MUTATION`, no mock fallback anywhere in the flow).
 
 ---
 
 ### TC-APPT-008 — Cancel dialog opens
-**Prompt:**
-> On `/appointments` (switch to "All" or "Upcoming" tab), find a row with status "Confirmed" or "Pending".
-> Click the red Cancel (X) icon in the Actions column.
-> Assert: dialog opens with title "Cancel Appointment" and ❌ icon.
-> Assert: dialog body includes warning text and "Cancellation reason (optional)" textarea with autoFocus.
-> Assert: two buttons: "Keep Appointment" (outlined) and "Cancel Appointment" (red filled).
-
-**Expected:** `CancelDialog` opens. No mutation called yet. Textarea has autoFocus.
+**Steps:** On a non-terminal-status real row, click the Cancel icon.
+**Expected:** `CancelDialog` opens ("Cancel Appointment" title, warning text, optional reason textarea with autofocus, "Keep Appointment"/"Cancel Appointment" buttons). No mutation fires yet.
 
 ---
 
-### TC-APPT-009 — Confirm cancel → optimistic update
-**Prompt:**
-> Open cancel dialog for a "Confirmed" appointment. Type "Patient requested cancellation" in reason.
-> Click "Cancel Appointment" (red confirm button).
-> Assert: dialog closes immediately.
-> Assert: row status chip changes to "Cancelled" (red) **immediately, before mutation response**.
-> Assert: warning snackbar appears: "Appointment cancelled."
-
-**Expected:** Optimistic update via `setOptimisticCancelled(Set)`. Row reflects cancel instantly. Mutation fires in background.
+### TC-APPT-009 — Confirm cancel calls the real mutation with an optimistic update
+**Steps:** Open the cancel dialog on a real non-terminal appointment, enter a reason, confirm.
+**Expected:** Dialog closes immediately; the row's status chip flips to "Cancelled" optimistically, before the mutation resolves; a real `CANCEL_APPOINTMENT_MUTATION` fires in the background against the real appointment's real id.
 
 ---
 
-### TC-APPT-020 — Upcoming / Past / All tabs (new)
-**Prompt:**
-> On `/appointments`, verify "Upcoming" starts as default.
-> Click "Past" tab. Assert: table shows only past appointments (< today). Subtitle reads "X past appointments".
-> Click "All" tab. Assert: table shows all 35 appointments. Subtitle reads "35 total appointments".
-> Switch back to "Upcoming". Assert: returns to 12 upcoming.
-> Apply a date filter while on "Upcoming". Assert: explicit date filter overrides the tab's implicit bound.
-
-**Expected:** Tab state controls implicit date range. Explicit date filters layer on top. Subtitle reflects active tab.
+### TC-APPT-010 — Detail page loads for a real appointment
+**Steps:** From the list, open a real appointment's detail page (do not hardcode a UUID — look it up by a known real patient name, e.g. "Anita Sharma", matching `manager-appointments.spec.js`'s own pattern, since ids are not stable seed-data constants).
+**Expected:** All detail cards populated with that appointment's real data; action buttons match its real (non-terminal) status.
 
 ---
 
-### TC-APPT-021 — Export CSV button
-**Prompt:**
-> On "All" tab (35 appointments), click "Export CSV" in the header.
-> Assert: file downloads as `appointments_all_YYYY-MM-DD.csv`.
-> Assert: green snackbar "Exported 35 appointments as CSV".
-> Switch to "Upcoming" tab (12 appointments), click Export CSV again.
-> Assert: snackbar says "Exported 12 appointments as CSV". Filename: `appointments_upcoming_....csv`.
-
-**Expected:** Export respects active tab's filter state. Filename includes tab name and date.
+### TC-APPT-011 — Invalid/unmatched appointment id shows a real not-found state
+**Steps:** Navigate to `/appointments/00000000-0000-0000-0000-000000000000` (a syntactically valid but non-existent UUID).
+**Expected:** "Appointment not found" + icon + "← Back" button, no crash. (The file's own `mockIdx`/`appt-N`-style id-lookup fallback was checked this session and confirmed harmless in practice — real UUIDs never collide with the mock store's `appt-N` ids, so it never actually triggers on real navigation; noted here so it isn't rediscovered as a false alarm.)
 
 ---
 
-### TC-APPT-022 — Contextual empty state when filters return 0 results
-**Prompt:**
-> On `/appointments`, search for "xyznonexistent" in patient name and press Enter.
-> Assert: DataGrid empty state shows:
->   - CalendarMonthIcon
->   - "No appointments match your filters" (heading)
->   - "Try widening your date range, clearing the status filter, or searching a different name." (body)
->   - Red "Clear all filters" button
-> Click "Clear all filters". Assert: search cleared, table restored.
-
-**Expected:** `EmptyState({ hasFilters: true, onClearFilters })` renders contextual message. Generic state "No appointments yet" does NOT appear.
+### TC-APPT-012 — Edit button navigates to edit
+**Steps:** On a real appointment's detail page, click "Edit".
+**Expected:** Navigates to `/appointments/:id/edit`; form pre-filled with that appointment's real current values (via `edit.jsx`'s real `APPOINTMENT_DETAIL_QUERY`).
 
 ---
 
-## 2. Appointment Detail Page (`/appointments/:id`)
-
-### TC-APPT-010 — Detail page loads for a real appointment ID
-**Prompt:**
-> Navigate to `http://localhost:3001/appointments/appt-1`.
-> Assert: patient name, clinician, service, date/time, status, clinic location visible.
-> Assert: 4 action buttons in right column: "Mark as Completed", "Mark No Show", "Cancel Appointment", "Send Reminder".
-> Assert: Pre-visit Checklist card visible.
-
-**Expected:** All detail cards populated. Actions panel shows 4 buttons (not terminal status).
+### TC-APPT-013 — Send Reminder (simulated send, not a real dispatch)
+**Steps:** On a non-terminal real appointment's detail page, click "Send Reminder", pick a channel (Email/SMS — SMS disabled with "No phone on file" if the real patient has none).
+**Expected:** Dialog closes, button shows "Sending…" for ~1.5s, a channel-aware success snackbar shows the real patient's real email/phone. **This is a simulated UI-only delay, not a real SMS/email dispatch** — no real notification-sending mutation exists for this button; it was never real and this test case doesn't claim otherwise.
 
 ---
 
-### TC-APPT-011 — Detail page loads for mock ID (mock-50)
-**Prompt:**
-> Navigate to `/appointments/mock-50`.
-> Assert: page does NOT show 404 or blank. Appointment detail renders.
-
-**Expected:** `parseInt('50') % 35 = 15` → maps to valid record.
-
----
-
-### TC-APPT-012 — Invalid appointment ID shows not-found state
-**Prompt:**
-> Navigate to `/appointments/nonexistent-xyz`.
-> Assert: "Appointment not found" + CalendarMonthIcon + "← Back" button. No React crash.
-
-**Expected:** Graceful empty state. Back button navigates to `/appointments`.
-
----
-
-### TC-APPT-013 — Edit button on detail navigates to edit
-**Prompt:**
-> On `/appointments/appt-1`, click "Edit" button in header.
-> Assert: navigated to `/appointments/appt-1/edit`. Form pre-filled.
-
-**Expected:** Edit page loads with all existing values pre-populated.
-
----
-
-### TC-APPT-023 — Send Reminder button on detail (new)
-**Prompt:**
-> Navigate to `/appointments/appt-3` (or any non-terminal appointment).
-> Assert: "Send Reminder" button is visible in the Actions panel (teal outline, bell icon).
-> Click "Send Reminder".
-> Assert: button shows "Sending…" (disabled) for ~1.5s.
-> Assert: green snackbar: "Reminder sent to [patient email]".
-> Assert: button re-enables after sending.
-
-**Expected:** `handleSendReminder()` fires, setTimeout 1500ms, snackbar shows patient contact info.
-
----
-
-## 3. Create Appointment (`/appointments/new`)
+## 2. Create Appointment (`/appointments/new`)
 
 ### TC-APPT-014 — Create form validates required fields
-**Prompt:**
-> Navigate to `/appointments/new`. Try to proceed without filling required fields.
-> Assert: "Review Booking" button stays disabled. Required fields highlighted.
-
-**Expected:** Validation prevents progression. Required fields: First Name, Last Name minimum.
+**Steps:** Open the wizard, try to proceed without required fields.
+**Expected:** Progression blocked; required fields highlighted.
 
 ---
 
-### TC-APPT-015 — 5-step booking wizard works end-to-end
-**Prompt:**
-> Open booking wizard via Dashboard or `/appointments/new`.
-> Walk: Step 1 (Clinic) → Step 2 (Clinician + Service) → Step 3 (Date/Time calendar + slot grid) → Step 4 (Patient details) → Step 5 (Confirm).
-> Assert: all 5 steps render. Clinic cards selectable. Time slots selectable.
-
-**Expected:** Full wizard navigation. Step 4 has "Existing Patient" / "New Patient" toggle.
+### TC-APPT-015 — 5-step wizard completes and creates a real appointment
+**Steps:** Walk all 5 steps (Clinic → Clinician+Service → Date/Time → Patient details → Confirm) with real data, submit.
+**Expected:** A real `createAppointment` mutation fires (and `createPatient` first, if "New Patient" was chosen); the created appointment is real and later visible on `/appointments`.
 
 ---
 
 ### TC-APPT-016 — Wizard back navigation preserves data
-**Prompt:**
-> On Step 4 of booking wizard, click "Back".
-> Assert: returns to Step 3 with previously selected date and time slot still highlighted.
-
-**Expected:** Stepper preserves state. Back does NOT reset data.
+**Steps:** On Step 4, click Back.
+**Expected:** Returns to Step 3 with the previously-selected date/slot still shown selected — state is not reset.
 
 ---
 
-## 4. Edit Appointment (`/appointments/:id/edit`)
+## 3. Edit Appointment (`/appointments/:id/edit`)
 
-### TC-APPT-017 — Edit form pre-fills with existing data
-**Prompt:**
-> Navigate to `/appointments/appt-1/edit`.
-> Assert: Status dropdown, Clinician, Start datetime, End datetime all pre-filled with existing values.
-
-**Expected:** All form fields pre-populated from fetched (or mock) appointment data.
+### TC-APPT-017 — Edit form pre-fills with the real appointment's data
+**Steps:** Navigate to a real appointment's `/edit` route.
+**Expected:** Status, Clinician, Start/End datetime all pre-filled from a real `APPOINTMENT_DETAIL_QUERY` response.
 
 ---
 
-### TC-APPT-018 — Edit and save appointment
-**Prompt:**
-> On edit page, change Status to "Completed". Click "Save Changes".
-> Assert: mutation fires (network error expected in mock mode — no crash).
-
-**Expected:** Full PASS in mock mode — `onError` detects network failure, updates MockStore in-memory, shows success snackbar, navigates to detail page.
+### TC-APPT-018 — Save calls the real update mutation (primary path)
+**Steps:** Change Status → "Completed" → Save Changes.
+**Expected:** Real `UPDATE_APPOINTMENT_MUTATION` fires; on success, "Appointment updated successfully" snackbar, navigate to detail, the change is really persisted. **Secondary case (offline resilience, not primary):** on a genuine `networkError`, falls back to `MockStore` with a distinctly-labeled "(mock mode)" snackbar — re-verified this session as correctly gated on a real failure, not an empty-result heuristic.
 
 ---
 
-### TC-APPT-019 — Reschedule changes date and time
-**Prompt:**
-> On edit page, change Start and End date/time to new values. Click Save.
-> Assert: form captures new values, success snackbar, redirect.
-
-**Expected:** Full PASS in mock mode — date fields captured, MockStore updated, success snackbar, redirect to detail.
+### TC-APPT-019 — Reschedule via the edit form changes date and time for real
+**Steps:** Change Start/End date-time, Save.
+**Expected:** New values captured and sent to the real `UPDATE_APPOINTMENT_MUTATION`; success snackbar; the new datetime is really persisted (reload/re-query to confirm, not just the toast).
 
 ---
 
-## 5. Session 3 Additions (2026-03-19)
+## 4. Additional behavior
 
-### TC-APPT-024 — Upcoming/Past tab uses current datetime boundary (NEW-APPT-001/003)
-**Prompt:**
-> On `/appointments`, click "Past" tab.
-> Assert: appointments from *earlier today* (before current time) are shown in Past, not stuck in a grey zone.
-> Assert: "Upcoming" only shows appointments scheduled *after current time*.
-
-**Expected:** `dayjs()` (current moment) used as boundary — not start/end of day. No appointments fall into a no-man's land.
+### TC-APPT-020 — Upcoming/Past/All tabs use the current moment as the boundary
+**Steps:** Click "Past" — assert appointments earlier today (before the current time) appear here, not in a gap. Click "Upcoming" — only appointments after the current time. Apply an explicit date filter while on "Upcoming" — it overrides the tab's implicit bound.
+**Expected:** `dayjs()` (current moment), not start/end-of-day, is the real boundary.
 
 ---
 
-### TC-APPT-025 — CSV export includes Room & Clinic columns (NEW-APPT-002)
-**Prompt:**
-> On `/appointments` All tab, click "Export CSV".
-> Assert: snackbar says "Exported X appointments as CSV (10 columns)".
-> Open the CSV: verify columns include Room and Clinic (after Status).
-
-**Expected:** 10-column CSV: ID, Patient, Email, Clinician, Service, Date & Time, Duration, Status, Room, Clinic.
+### TC-APPT-021 — Export CSV respects the active tab/filters
+**Steps:** On "All", click Export CSV — assert the download and a snackbar with the real exported count and "(10 columns)". Switch to "Upcoming", export again — assert the count and filename update to match.
+**Expected:** 10-column CSV (ID, Patient, Email, Clinician, Service, Date & Time, Duration, Status, Room, Clinic) scoped to the currently active tab/filters.
 
 ---
 
-### TC-APPT-026 — Inline status change via chip click (SUG-APPT-005)
-**Prompt:**
-> On `/appointments` list, hover over a "Pending" status chip.
-> Assert: tooltip "Click to change status" appears.
-> Click the chip. Assert: dropdown menu with status options opens.
-> Select "Confirmed". Assert: chip changes immediately to "Confirmed" (green).
-> Assert: green snackbar appears: `Status updated to "Confirmed"`.
-
-**Expected:** `handleInlineStatusChange` applies `statusOverrides[rowId]`, updates UI immediately. Mutation fires in background.
+### TC-APPT-022 — A real filter with zero matches shows a real empty state, not fabricated rows
+**Steps:** On `/appointments` "All" tab, filter Status to a value proven to have zero real matches for this org (e.g. "No Show", if none of the current real seeded appointments carry that status — confirm via a quick real-data check before relying on it, since the real dataset is not fixed).
+**Expected:** Zero rows, real "No appointments match your filters" empty state with a "Clear all filters" action. **Not** 35 fabricated `MockStore` rows — the exact bug found and fixed this session. Covered live: `manager-appointments.spec.js` › `a real filter with zero matches shows a real empty state, not fabricated mock rows`.
 
 ---
 
-### TC-APPT-027 — Terminal statuses do not open inline menu (SUG-APPT-005)
-**Prompt:**
-> Click on a "Cancelled", "Completed", or "No Show" status chip.
-> Assert: NO dropdown menu opens. Cursor is `default` (not pointer) on those chips.
-
-**Expected:** Guard condition `['cancelled','completed','no_show'].includes(row.status)` prevents menu from opening.
+### TC-APPT-023 — Inline status change via chip click
+**Steps:** Click a non-terminal status chip on a real row → select a new status from the dropdown.
+**Expected:** Chip updates immediately (optimistic); real `UPDATE_APPOINTMENT_MUTATION` fires with the new status; success snackbar names the new status.
 
 ---
 
-### TC-APPT-028 — Sidebar shows pending appointment count badge (SUG-APPT-007)
-**Prompt:**
-> Log in. Look at sidebar next to "Appointments" nav item.
-> Assert: an amber badge with a number is visible.
-> Assert: the number matches the count of pending appointments in the mock data.
-> Change a pending appointment to confirmed via inline status. Assert: badge count decreases.
-
-**Expected:** `useMemo(() => MockStore.getAppointments({ status: 'pending' }).length, [])` shown as amber badge. Note: badge only decrements on next render/page reload (memo dep array is empty; real-time update requires state subscription).
+### TC-APPT-024 — Terminal statuses don't open the inline menu
+**Steps:** Click a "Cancelled"/"Completed"/"No Show" chip.
+**Expected:** No dropdown opens; cursor is not a pointer on that chip.
 
 ---
 
-### TC-APPT-029 — Export CSV with 10 columns on Upcoming tab
-**Prompt:**
-> Switch to "Upcoming" tab. Click Export CSV.
-> Assert: snackbar says "Exported X appointments as CSV (10 columns)".
-> Assert: filename is `appointments_upcoming_YYYY-MM-DD.csv`.
-
-**Expected:** Upcoming tab filter applied to export. 10-column CSV with Room + Clinic fields.
+### TC-APPT-025 — Bulk selection + action bar
+**Steps:** Select 3 real rows via checkboxes.
+**Expected:** A teal action bar animates in with "3 appointments selected", "Export Selected"/"Bulk Cancel" buttons, a deselect icon. Deselecting collapses the bar.
 
 ---
 
-## 6. Session 4 Additions (2026-03-19 — Theme & Validation)
-
-### TC-APPT-030 — Print appointment detail
-**Prompt:**
-> Navigate to any appointment detail page. Click the "Print" button in the header.
-> Assert: browser print dialog opens.
-
-**Expected:** `window.print()` triggers system print dialog. Button is styled as outlined with print icon.
+### TC-APPT-026 — Bulk export selected
+**Steps:** Select 3 rows, click "Export Selected".
+**Expected:** Real 10-column CSV of exactly those 3 real rows downloads; snackbar confirms the count; action bar clears.
 
 ---
 
-### TC-APPT-031 — Status history timeline shows on detail page
-**Prompt:**
-> Navigate to `/appointments/appt-1` (a confirmed appointment).
-> Scroll to the left column. Assert: "Patient Timeline" card is visible.
-> Assert: at minimum 2 entries: `pending` (System) → `confirmed` (Admin User), each with timestamp.
-
-**Expected:** `status_logs` generated by `getAppointmentById` for all mock records. Timeline card visible. Pending-only appointments show 1 entry.
+### TC-APPT-027 — Bulk cancel
+**Steps:** Select 2–3 non-terminal real rows, click "Bulk Cancel".
+**Expected:** Real `CANCEL_APPOINTMENT_MUTATION` fires per row (reason: "Bulk cancellation"); rows show "Cancelled" optimistically; snackbar confirms the count; action bar clears.
 
 ---
 
-### TC-APPT-032 — Patient card uses teal theme (no blue)
-**Prompt:**
-> Navigate to any appointment detail page.
-> Assert: the patient card top accent bar is teal (`#006D77→#00858F`), not blue.
-> Assert: patient avatar background is teal `#006D77`, not `#1A73E8`.
-
-**Expected:** No blue (`#1A73E8` / `#4285F4`) visible on detail page. Dashboard "+ New Booking" button also teal.
+### TC-APPT-028 *(removed — feature no longer exists)*
+Previously: sidebar pending-appointment-count badge. `components/Layout/Sidebar.jsx` (the file this lived in) was deleted this session as confirmed dead/orphaned code — zero live importers, fully superseded by `layouts/AppShell.jsx`, which has no equivalent badge. There is nothing to test here anymore; kept as a removed entry rather than silently renumbering, so the gap in the sequence is explained.
 
 ---
 
-### TC-APPT-033 — End-time before start-time validation on edit
-**Prompt:**
-> Navigate to `/appointments/appt-1/edit`.
-> Set the End Date & Time to a time BEFORE the Start Date & Time.
-> Assert: End Date field turns red with helper text "End time must be after start time".
-> Assert: Save Changes button is disabled (greyed out).
-> Set End Time back to AFTER Start Time. Assert: error clears and button re-enables.
-
-**Expected:** `endBeforeStart` computed flag drives `error` + `helperText` on End DateTimePicker and `disabled` on Save button.
+### TC-APPT-029 — Print appointment detail
+**Steps:** On a real appointment's detail page, click "Print".
+**Expected:** Browser print dialog opens (`window.print()`).
 
 ---
 
-### TC-APPT-034 — Invalid appointment ID shows empty state
-**Prompt:**
-> Navigate to `/appointments/appt-9999`.
-> Assert: page shows calendar icon + "Appointment not found" text.
-> Assert: "← Back" button is present; clicking it returns to `/appointments`.
-
-**Expected:** `if (!apt)` guard renders empty state with navigation back.
+### TC-APPT-030 — Status history timeline shows real `status_logs`
+**Steps:** On a real appointment's detail page, view "Patient Timeline".
+**Expected:** Real entries from the appointment's real `status_logs` (a field on the `Appointment` GraphQL type) — at minimum a `pending`/creation entry; more entries if the real status has changed since creation.
 
 ---
 
-## 4. v3 New Test Cases (SUG-APPT-006, NEW-APPT-004, SUG-APPT-010, SUG-APPT-012)
-
-### TC-APPT-035 — Bulk row selection + action bar (SUG-APPT-006)
-**Prompt:**
-> On `/appointments` → "All" tab, click 3 row checkboxes.
-> Assert: a teal action bar animates in above the DataGrid showing "3 appointments selected".
-> Assert: "Export Selected" and "Bulk Cancel" buttons are visible.
-> Assert: a deselect (×) icon button is visible.
-> Click the deselect icon. Assert: action bar hides (collapses).
-
-**Expected:** CSS `max-height`/`opacity` transition shows/hides the bar. `rowSelectionModel` drives the count.
+### TC-APPT-031 — End-time-before-start-time validation on edit
+**Steps:** On a real appointment's edit form, set End before Start.
+**Expected:** End field shows a red error + "End time must be after start time"; Save button disabled. Fixing the order clears the error and re-enables Save.
 
 ---
 
-### TC-APPT-036 — Bulk export selected (SUG-APPT-006)
-**Prompt:**
-> Select 3 rows, click "Export Selected".
-> Assert: green snackbar "Exported 3 selected appointments as CSV".
-> Assert: action bar disappears after export.
-> Assert: downloaded file is 10-column CSV.
-
-**Expected:** `handleExportSelected()` creates 10-column CSV blob, triggers download, clears `rowSelectionModel`.
+### TC-APPT-032 — Send Reminder channel selection
+**Steps:** Click "Send Reminder" on a non-terminal real appointment.
+**Expected:** Dialog with Email/SMS radios showing the real patient's real contact details; SMS disabled with "No phone on file" if the real patient record has no phone. Selecting a channel and confirming shows a channel-aware snackbar (see TC-APPT-013 — this remains a simulated send, not a real dispatch).
 
 ---
 
-### TC-APPT-037 — Bulk cancel (SUG-APPT-006)
-**Prompt:**
-> Select 2–3 rows with non-terminal statuses (Pending or Confirmed).
-> Click "Bulk Cancel".
-> Assert: warning snackbar "N appointments cancelled."
-> Assert: all selected rows immediately show red "Cancelled" chip.
-> Assert: action bar disappears.
-
-**Expected:** `handleBulkCancel()` filters non-terminal rows, applies `setOptimisticCancelled`, fires mutations.
+### TC-APPT-033 — Reschedule dialog persists the new time for real
+**Steps:** On a real appointment's detail page, click "Reschedule". Set a new start time (end time is UI-only in the dialog — the real `UPDATE_APPOINTMENT_MUTATION` accepts `start_datetime` only; `end_datetime` is recomputed server-side from the service's `duration_minutes`, per `appointments.service.ts`'s `update()`). Confirm.
+**Expected:** Dialog closes, "Appointment rescheduled successfully." snackbar, navigates to `/appointments`. **The new `start_datetime` must be verified as actually persisted** (re-query or reload) — this is exactly the assertion the old version of this test case was missing, which is why the real bug (mock-only write) shipped undetected. Covered live: `manager-appointments.spec.js` › `rescheduling a real appointment calls the real updateAppointment mutation`, which asserts the real `UpdateAppointment` GraphQL response has no errors and the mutation genuinely fired.
 
 ---
 
-### TC-APPT-038 — Send Reminder channel selection (NEW-APPT-004)
-**Prompt:**
-> Navigate to `/appointments/appt-1`.
-> Click "Send Reminder" button.
-> Assert: a dialog opens (not a direct snackbar).
-> Assert: dialog title is "Send Reminder".
-> Assert: Email and SMS radio options are shown with patient contact details.
-> If patient has no phone, SMS radio is disabled with "No phone on file" badge.
-> Select Email, click "Send via Email".
-> Assert: dialog closes.
-> Assert: after ~1.5s snackbar reads "Reminder sent via EMAIL to [email]".
-> Repeat: open dialog, select SMS, click "Send via SMS".
-> Assert: snackbar reads "Reminder sent via SMS to [phone]".
-
-**Expected:** `ReminderDialog` with controlled RadioGroup; `handleSendReminder(channel)` dispatches channel-aware snackbar.
+### TC-APPT-034 — Service-specific pre-visit checklist
+**Steps:** View a real appointment's detail page for a given real service (e.g. "GP Consultation").
+**Expected:** "Specific to: <service name>" label with that service's checklist items (frontend-only static content, `SERVICE_CHECKLISTS`, matched by service name — not backed by a real per-service database record, and was never meant to be; this is a legitimate, intentionally static UI feature, not a mock-data gap).
 
 ---
 
-### TC-APPT-039 — Reschedule dialog (SUG-APPT-010)
-**Prompt:**
-> Navigate to `/appointments/appt-1`.
-> Click the purple "Reschedule" button in the Actions panel.
-> Assert: dialog titled "Reschedule Appointment" opens.
-> Assert: current appointment datetime is shown in the subtitle.
-> Assert: two DateTimePickers: "New Start Date & Time" and "New End Date & Time".
-> Set end time BEFORE start time. Assert: error helperText appears, Confirm button disabled.
-> Set valid start and end (end after start).
-> Click "Confirm Reschedule".
-> Assert: dialog closes. Green snackbar "Appointment rescheduled successfully."
-> Assert: navigates back to `/appointments`.
+## Edge cases
 
-**Expected:** `RescheduleDialog` with `endBeforeStart` validation; `handleReschedule(start, end)` closes dialog + navigates.
+| # | Edge case | Expected |
+|---|-----------|----------|
+| E1 | A real filter combination matches zero real appointments | Real empty state — not 35 fabricated rows (TC-APPT-022) |
+| E2 | Real backend genuinely unreachable | `error` set → visible, distinctly-labeled mock fallback (`edit.jsx`'s "(mock mode)" pattern) — the one case that fallback is *for* |
+| E3 | Appointment id doesn't match any real row | "Appointment not found" empty state, no crash |
+| E4 | Real appointment has no `service` | Checklist section shows the default checklist, no crash |
+| E5 | Real patient has no phone | SMS reminder option disabled with a clear reason, not silently hidden |
+| E6 | Reschedule to a slot the clinician is already booked for | Real backend rejection (`assertSlotFree` in `appointments.service.ts`), surfaced to the user |
+| E7 | End time set before start time (create or edit) | Real-time validation blocks Save, independent of backend round-trip |
 
 ---
 
-### TC-APPT-040 — Service-specific pre-visit checklist (SUG-APPT-012)
-**Prompt:**
-> Navigate to `/appointments/appt-1` (GP Consultation service).
-> Scroll to "Pre-visit Checklist" card.
-> Assert: label "Specific to: GP Consultation" is visible above checklist items.
-> Assert: checklist contains GP-specific items (e.g., "Bring previous lab results", "Note any recent symptoms").
-> Assert: items are NOT the generic 4-item list.
-> Navigate to an appointment with a different service (e.g., Dental).
-> Assert: checklist shows Dental-specific items (e.g., "Brush and floss before your appointment").
+## Session history
 
-**Expected:** `getChecklist(serviceName)` exact/partial maps to `SERVICE_CHECKLISTS`; each service renders unique items.
+| Session | Change |
+|---|---|
+| 2026-03-16 – 2026-03-27 | Mock-era baseline, 38 cases (later 39/40 with reschedule/checklist additions) against `MockStore`'s 35-record dataset, all "passing" against mock behavior only |
+| 2026-08-22 (`REQ013`/`PLAN023` Phase A) | Full rewrite against the real backend. 1 real bug found and fixed in the process (reschedule silently mock-only writing to a real appointment — see "What changed" above); the sidebar pending-badge feature confirmed removed from the app entirely. Re-executed and re-verified — see `TR003`. |

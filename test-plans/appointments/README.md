@@ -4,7 +4,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| TP003 | test-plan | Appointments — Test Plan (Updated Post-Implementation) | done | 2026-03-19 | 2026-04-02 | unknown | [appointments-test-plan.md](./requirement/appointments-test-plan.md) |
+| TP003 | test-plan | Appointments — Test Plan | approved | 2026-03-19 | 2026-08-22 | REQ013 | [appointments-test-plan.md](./requirement/appointments-test-plan.md) |
 
 ## improvement
 

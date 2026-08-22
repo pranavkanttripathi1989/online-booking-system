@@ -3,10 +3,10 @@ id: TP007
 type: test-plan
 feature: clinician-availability
 created: 2026-03-19
-updated: 2026-04-02
+updated: 2026-08-22
 status: approved
 parent: unknown
-related: [TR006, TS006]
+related: [TR006, TS006, REQ013]
 ---
 
 # Clinician Availability — Test Plan
@@ -14,6 +14,8 @@ related: [TR006, TS006]
 **Route:** `/clinician/availability`  
 **File:** `frontend/src/pages/clinician/Availability.jsx`  
 **Status:** ✅ Updated — 2026-03-30 (Session 4 QA) · **Total: 41 TCs, 9 Edge Cases**
+
+> **2026-08-22 note (`REQ013` Finding 7 addendum):** this document and `test-plans/clinicians/requirement/clinicians-test-plan.md` (`TP011`) both cover this exact same file — a genuine cross-feature duplication the original `REQ013` audit didn't catch. `TP011` was fully rewritten this session against the real backend after 3 real bugs were found and fixed in this file (wrong `clinicianId` — `user?.id` instead of `user?.clinician?.id` — meaning no real clinician could ever view or save their own availability; a `dayOfWeek` type mismatch that meant real weekly slots never appeared in their day column; a `null`-vs-`'daily'` sentinel mismatch for lunch breaks). **This document (`TP007`) was checked for the same risk `TP003`/`TP011` had (documenting the exact bug as correct) and does not have it** — its case descriptions stay at a UI-interaction level (drawer opens, click behavior) without asserting which specific day a slot lands in, so it isn't actively misleading. It also has not been rewritten to reflect the real fix, and its "Mock fallback ... when backend offline" framing (Feature Overview, TC-CLAVAIL-02) predates this session's confirmation that the mock fallback is correctly error-gated (not an empty-result heuristic) — logged here as a known, real, not-yet-closed gap rather than fixed silently or left undiscovered. A future pass should give this document the same full rewrite `TP011` got, ideally merging the two into one feature slug rather than maintaining both.
 
 ---
 

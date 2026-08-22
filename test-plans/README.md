@@ -11,13 +11,13 @@
 | phase4-backend-integration | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-backend-integration](./phase4-backend-integration/README.md) |
 | test-results-page | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [test-results-page](./test-results-page/README.md) |
 | analytics-finances | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [analytics-finances](./analytics-finances/README.md) |
-| appointments | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [appointments](./appointments/README.md) |
+| appointments | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [appointments](./appointments/README.md) |
 | auth | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [auth](./auth/README.md) |
 | calendar | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [calendar](./calendar/README.md) |
-| clinician-availability | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [clinician-availability](./clinician-availability/README.md) |
+| clinician-availability | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinician-availability](./clinician-availability/README.md) |
 | clinician-dashboard | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [clinician-dashboard](./clinician-dashboard/README.md) |
 | clinician-patients | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [clinician-patients](./clinician-patients/README.md) |
-| clinicians | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [clinicians](./clinicians/README.md) |
+| clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
 | dashboard | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
 | security | 1 | 0 | 0 | 1 | 0 | 2026-08-21 | [security](./security/README.md) |
 | date-time-format | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [date-time-format](./date-time-format/README.md) |
