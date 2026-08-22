@@ -2,10 +2,10 @@
 -- PostgreSQL database dump
 --
 
-\restrict 3LeqNbMEjNPJ7y7Yf7HYO3XVCOHmhQuIZbhoYSINeS9EUZIQOYjZEBy7EMFyEDU
+\restrict vo29j0r0EenAtH5WXZd2kpnCesPE1mEmVXsDIo8EutxqJHGzks1MMtWrYK5YRQJ
 
--- Dumped from database version 16.15
--- Dumped by pg_dump version 16.15
+-- Dumped from database version 16.14
+-- Dumped by pg_dump version 16.14
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1287,7 +1287,7 @@ COPY public."Appointments" (id, clinic_id, room_id, clinician_id, patient_id, ap
 9798af17-ee7e-45cc-b4e2-254825fdba4d	7307c9d9-8a74-4305-8933-7b0a73c1486d	183883aa-5398-4092-b434-84a731cc431a	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	f8a33736-0ad4-4df8-a854-344cd567010c	2026-08-21 00:00:00	2026-08-21 10:00:00	20	scheduled			f	2026-08-17 08:04:03.42	2026-08-17 08:04:03.42	caa89f8e-26bd-4325-9f16-df5dd7eb994e	\N	\N	\N	d764ff7a-de6a-484e-a374-c2d8575d15c3	in_person
 2b0b13e7-56e1-4089-bbd3-964cf153ac32	7307c9d9-8a74-4305-8933-7b0a73c1486d	183883aa-5398-4092-b434-84a731cc431a	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	f8a33736-0ad4-4df8-a854-344cd567010c	2026-08-20 00:00:00	2026-08-20 10:00:00	20	completed	first visit	live subscription test 3	f	2026-08-17 08:03:37.607	2026-08-17 08:12:56.015	caa89f8e-26bd-4325-9f16-df5dd7eb994e	\N	patient requested	\N	d764ff7a-de6a-484e-a374-c2d8575d15c3	in_person
 a05e3bc5-c5f0-49c1-a00a-542feedeb9ce	7307c9d9-8a74-4305-8933-7b0a73c1486d	183883aa-5398-4092-b434-84a731cc431a	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	2abfec66-7a54-45d8-b25d-8a2e121d5f82	2026-09-15 00:00:00	2026-09-15 09:00:00	20	cancelled	live regression check	live regression check	f	2026-08-18 18:43:10.588	2026-08-18 18:43:19.071	caa89f8e-26bd-4325-9f16-df5dd7eb994e	\N	cleanup after live security regression test	\N	7d3f3ade-b82a-4383-859e-31d8a42c4a01	in_person
-43b1ae5e-e4eb-46cf-b9ff-a2ad836c64a9	7307c9d9-8a74-4305-8933-7b0a73c1486d	183883aa-5398-4092-b434-84a731cc431a	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	69168728-b9e1-453c-85bd-3044c71bbac6	2026-08-25 00:00:00	2026-08-25 11:00:00	20	scheduled			f	2026-08-17 19:51:08.095	2026-08-22 02:16:16.786	caa89f8e-26bd-4325-9f16-df5dd7eb994e	\N	\N	\N	\N	video
+43b1ae5e-e4eb-46cf-b9ff-a2ad836c64a9	7307c9d9-8a74-4305-8933-7b0a73c1486d	183883aa-5398-4092-b434-84a731cc431a	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	69168728-b9e1-453c-85bd-3044c71bbac6	2026-08-25 00:00:00	2026-08-25 11:00:00	20	scheduled			f	2026-08-17 19:51:08.095	2026-08-22 21:45:42.565	caa89f8e-26bd-4325-9f16-df5dd7eb994e	\N	\N	\N	\N	video
 \.
 
 
@@ -1586,6 +1586,40 @@ c970cd02-917e-49aa-9245-2e315e19694c	\N	login	login	\N	{}	::ffff:172.21.0.1	f	20
 78050fb9-bc52-4f1d-b406-49d3db1eec06	\N	register	register	\N	{}	::ffff:172.21.0.1	f	2026-08-22 12:52:47.999
 4d7ddb9d-1507-4cfa-bcc8-cfe5030779bc	\N	register	register	\N	{}	::ffff:172.21.0.1	f	2026-08-22 13:13:36.59
 393b1de3-c281-4f9a-ba9a-244c436fc74e	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 13:13:41.884
+324e6002-ba5a-46f4-9012-0c641713cc05	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:22:05.09
+b3b83ab1-3c5d-43b9-9f04-7fe6e7b0ec9a	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:22:17.477
+73ca9853-579a-4a73-8b2d-bcdb248c9817	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:22:27.578
+6367d31c-d694-4dcf-90c8-691da518378a	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:22:36.074
+655c0834-eb89-4835-900d-4468776fa6d7	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:22:46.895
+411df03c-dc0e-4b53-bead-22761cfffc5c	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:23:43.101
+efe93f3b-29dd-4852-a722-3e9b9b20dc25	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:23:56.993
+a7ac13ce-1afe-4ed3-961a-b7341ff8e1ec	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:24:03.579
+38bdb805-d52f-4a9a-9d70-9d1b42145473	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:24:09.47
+7d5ea4e2-f73e-40e4-be4d-ce3fe46244d1	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:24:21.583
+2a6301d4-bb95-4ed5-8600-2f4a7e0163e1	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:25:20.63
+61362ea0-3d3e-450a-aab0-0e4d45f6dc75	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:25:38.598
+58655b7f-5a97-4c66-9e5c-6f2d62f0ff35	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:25:51.193
+056fda26-073e-4124-81ae-49a15358f7fe	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:26:02.675
+b476c913-da9a-4fe6-b310-7e9ddd9013c0	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:27:25.244
+138b44db-6c57-4888-9860-b28077dadb94	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:28:17.871
+3d7939fe-a68a-45f2-9f9b-8ee35813e078	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:28:32.165
+ddaa5a48-6932-4759-9dfd-b6cbc688a6a2	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:28:36.338
+ab28ca13-293b-4a48-8f78-e69fd6f05622	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:30:01.971
+f8435c1b-866d-40ca-96f5-42c8c74be09b	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:30:14.9
+76baadfb-5a0a-4eb7-8cb7-82db28953a9d	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:30:25.625
+de316923-6954-4320-81e2-07db11f07380	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:30:30.941
+13150ba8-7e8f-44f2-b989-9e931f1b1b0f	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:45:05.782
+322034be-3b72-46e1-8ca9-c53f80aeb3ef	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:45:15.085
+8658139c-be13-4fcb-8229-6ab585d54921	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:45:26.102
+8dd7bf41-8182-4838-8a24-b3ea9ca5a9bf	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:45:36.262
+08ecea9b-0c30-4ca1-8b36-7be86d62103e	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:45:49.071
+d9694599-eab8-4bff-9b0c-15600b5d87c9	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:46:58.287
+49ee73fc-5f85-403c-aa87-2eff06e07740	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:47:17.875
+b55bf32d-bbd7-4a83-8bec-b47d05178bf7	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:46:41.144
+a4e08214-32e5-4996-8174-7e24c8f069c8	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:46:49.881
+24dd150f-e9df-48e9-ac6a-b01e80ab1e57	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:47:08.605
+db41f580-25c5-474d-b733-0ab8a6d089f5	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:51:28.712
+270612b3-7760-4b98-8ded-ca02c45efb87	\N	login	login	\N	{}	::ffff:172.21.0.1	f	2026-08-22 21:52:26.988
 \.
 
 
@@ -1610,6 +1644,14 @@ COPY public."ClinicianAvailability" (id, clinician_id, clinic_id, day_of_week, s
 3cba1152-0a37-4b68-b6df-1702d8e7664f	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	3	11:00	13:00	weekly	\N	f	f	f	\N	2026-08-18 18:28:43.556	\N	t	t	2026-08-18 18:28:43.562	2026-08-18 18:28:53.122	\N
 39e1740f-e6f8-45b5-bb24-d0aa74297a34	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	3	07:00	07:45	weekly	\N	f	f	f	\N	2026-08-22 01:55:47.752	\N	t	t	2026-08-22 01:55:47.754	2026-08-22 01:56:17.584	\N
 bb90a11b-c8e6-43a3-817c-a1d57621c043	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	3	07:00	07:45	weekly	\N	f	f	f	\N	2026-08-22 01:57:31.601	\N	t	t	2026-08-22 01:57:31.602	2026-08-22 01:58:03.048	\N
+db476bcf-5b63-41ab-a471-1528651ffa90	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	3	07:00	07:45	weekly	\N	f	f	f	\N	2026-08-22 21:24:03.869	\N	t	t	2026-08-22 21:24:03.87	2026-08-22 21:24:03.87	\N
+45f8b97b-bb3c-4043-8493-d6199d7c89e3	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	3	07:00	07:45	weekly	\N	f	f	f	\N	2026-08-22 21:28:18.158	\N	t	t	2026-08-22 21:28:18.159	2026-08-22 21:28:36.365	\N
+30113b4d-9a07-41c1-baf0-fdf01029b456	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	3	07:00	07:45	weekly	\N	f	f	f	\N	2026-08-22 21:30:02.285	\N	t	t	2026-08-22 21:30:02.286	2026-08-22 21:30:30.992	\N
+019af7ca-24a9-4651-9076-556690167e3e	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	0	09:00	17:00	weekly	\N	f	f	f	\N	2026-08-22 21:40:39.505	\N	t	f	2026-08-22 21:40:39.505	2026-08-22 21:40:39.505	\N
+10845b0a-e936-4dc6-90d7-a5802a8cd81a	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	3	09:00	17:00	weekly	\N	f	f	f	\N	2026-08-22 21:40:39.505	\N	t	f	2026-08-22 21:40:39.505	2026-08-22 21:40:39.505	\N
+b7527eb1-b727-48cd-a798-88b788c783ea	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	4	09:00	17:00	weekly	\N	f	f	f	\N	2026-08-22 21:40:39.505	\N	t	f	2026-08-22 21:40:39.505	2026-08-22 21:40:39.505	\N
+98500d96-2b36-4a12-b73d-c63088394ea7	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	5	09:00	17:00	weekly	\N	f	f	f	\N	2026-08-22 21:40:39.505	\N	t	f	2026-08-22 21:40:39.505	2026-08-22 21:40:39.505	\N
+28b89987-2277-4d24-a6a5-d685c42bfb79	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	6	09:00	17:00	weekly	\N	f	f	f	\N	2026-08-22 21:40:39.505	\N	t	f	2026-08-22 21:40:39.505	2026-08-22 21:40:39.505	\N
 \.
 
 
@@ -1645,6 +1687,8 @@ d0e328f8-f660-4d8f-9424-000f8b8c9655	7307c9d9-8a74-4305-8933-7b0a73c1486d	E2E	Te
 76877e4e-04f0-45ed-af1e-04d1352964fa	7307c9d9-8a74-4305-8933-7b0a73c1486d	E2E	TestClinician		\N	e2e-clinician-1787359351611@medibook.dev		t	f	2026-08-22 00:42:36.947	\N	\N	\N
 48a9d92e-330a-468f-b143-cb1f13cd5438	7307c9d9-8a74-4305-8933-7b0a73c1486d	E2E	TestClinician		\N	e2e-clinician-1787364012390@medibook.dev		t	f	2026-08-22 02:00:17.475	\N	\N	\N
 f5d8f6ea-4301-4089-82f1-d0e3a7e2fbc3	7307c9d9-8a74-4305-8933-7b0a73c1486d	E2E	TestClinician		\N	e2e-clinician-1787364286377@medibook.dev		t	f	2026-08-22 02:04:50.94	\N	\N	\N
+d41f0552-676e-4357-8daf-003ed6f99ed4	7307c9d9-8a74-4305-8933-7b0a73c1486d	E2E	TestClinician		\N	e2e-clinician-1787433758970@medibook.dev		t	f	2026-08-22 21:22:40.896	\N	\N	\N
+8c2fb2d9-1a75-44db-b386-46011f0f6075	7307c9d9-8a74-4305-8933-7b0a73c1486d	E2E	TestClinician		\N	e2e-clinician-1787435240402@medibook.dev		t	f	2026-08-22 21:47:22.341	\N	\N	\N
 \.
 
 
@@ -1700,6 +1744,9 @@ COPY public."LunchBreaks" (id, clinician_id, clinic_id, day_of_week, start_time,
 7b6b4be7-a362-4d3e-afb7-f2054f5b209e	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	\N	1970-01-01 13:00:00	1970-01-01 14:00:00	t	\N	f	2026-08-17 08:16:39.101	daily	\N	\N
 a79648be-7778-4b7f-9d5c-87cc920e5227	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	4	1970-01-01 15:15:00	1970-01-01 15:30:00	t	\N	t	2026-08-22 01:55:47.832	weekly	\N	\N
 2ca85c5c-8fb5-49ae-87e6-0ca64cf7b12a	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	4	1970-01-01 15:15:00	1970-01-01 15:30:00	t	\N	t	2026-08-22 01:57:31.667	weekly	\N	\N
+71e6d2ec-08cf-4427-8927-462876feaaa8	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	4	1970-01-01 15:15:00	1970-01-01 15:30:00	t	\N	t	2026-08-22 21:24:03.904	weekly	\N	\N
+6f70865c-e9fc-4302-a85e-8d42a0578d67	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	4	1970-01-01 15:15:00	1970-01-01 15:30:00	t	\N	t	2026-08-22 21:28:18.236	weekly	\N	\N
+a5b38758-603f-4ce3-a35f-b5bc6637d9d9	8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7	7307c9d9-8a74-4305-8933-7b0a73c1486d	4	1970-01-01 15:15:00	1970-01-01 15:30:00	t	\N	t	2026-08-22 21:30:02.314	weekly	\N	\N
 \.
 
 
@@ -2047,9 +2094,9 @@ bedc8e50-e363-4c47-b774-0d0e25635c4f	7d460567-3f9d-4604-b418-846712227374	Throwa
 ded11bce-2b7f-43b9-a87f-7e2cb59a085e	3860c8b1-8bcb-4ac6-a9c2-62d7c4cc7247	Jamie	Reception	receptionist@medibook.dev	$2b$12$DeJESLl4GOywyEzK34qMTuwkapj0pWLdihmY1loZanamrAc/9m9dK	+919810000004	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	t	f	2026-08-16 20:38:38.443	2026-08-16 20:38:38.443	3efd3018-9760-4d10-92c0-86981799240b	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	active	\N	\N	\N	\N	\N	f	\N	\N
 c9e0af2b-4312-4fdf-b6c2-115388919f11	7d460567-3f9d-4604-b418-846712227374	Priya	Patient	patient@medibook.dev	$2b$12$BZnTKkaPRPsuuulRnM2SEu7Rr7tFjg16ybaKoVTt3VtiNe5lDeDzi	+919810000005	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	t	f	2026-08-16 20:38:38.824	2026-08-16 20:38:38.824	3efd3018-9760-4d10-92c0-86981799240b	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	active	\N	\N	\N	\N	\N	f	\N	\N
 7d3f3ade-b82a-4383-859e-31d8a42c4a01	48754a3e-d7e8-471a-bd91-4058a07cec83	Sarah	Manager	manager@medibook.dev	$2b$12$OXa1ETaSzMsApz7y1J8WCe5oMugiOxGEcEApxB15ril6W/6P39SrW	+919810000002	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	t	f	2026-08-16 20:38:37.682	2026-08-16 20:38:37.682	3efd3018-9760-4d10-92c0-86981799240b	\N	\N	f	\N	\N	\N	/uploads/avatars/7d3f3ade-b82a-4383-859e-31d8a42c4a01-19ae3e2e-6965-4b68-9e8b-ecdc7f93c194.png	\N	\N	\N	active	\N	prefer_not_to_say	\N	null	\N	f	[]	\N
-3939263b-2272-437b-9010-bc1f72af8d05	ca7f3f6f-768b-4209-87e4-b12f577f3a19	Alex	Clinician	clinician@medibook.dev	$2b$12$XJBx9EY.CaKXbUhipdrv3eieIh9VLr1ypAtL0EEQOuGg0R5oyYR56	+919810000003	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	t	f	2026-08-16 20:38:38.055	2026-08-16 20:38:38.055	3efd3018-9760-4d10-92c0-86981799240b	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	active	\N	\N	\N	\N	\N	f	\N	\N
 a92f8ab8-8fd3-4c67-8da6-f5c91de17aab	7d460567-3f9d-4604-b418-846712227374	E2E	Totp	e2e-totp-1787320191302-873662@medibook.dev	$2b$12$kCB71XAQmw5HCSbOK8d.Buu.zwQ4dIf58m.TYMP/DfSIa.eFPXRGO	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	t	f	2026-08-21 13:49:52.29	2026-08-21 13:49:52.29	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	active	\N	\N	\N	\N	\N	f	[]	\N
 f79bc07c-4b88-443c-8d43-0a99c150ec41	7d460567-3f9d-4604-b418-846712227374	E2E	Totp	e2e-totp-1787320012633-5271@medibook.dev	$2b$12$6/iXt2YlA2/1qjeqGQrDiOba/H8g03FS7ZDYlnsRlWwpxqhcnjewm	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	t	f	2026-08-21 13:46:56.056	2026-08-21 13:46:56.056	\N	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	active	\N	\N	\N	\N	\N	f	[]	\N
+3939263b-2272-437b-9010-bc1f72af8d05	ca7f3f6f-768b-4209-87e4-b12f577f3a19	Alex	Clinician	clinician@medibook.dev	$2b$12$XJBx9EY.CaKXbUhipdrv3eieIh9VLr1ypAtL0EEQOuGg0R5oyYR56	+919810000003	\N	\N	\N	\N	\N	\N	\N	\N	\N	\N	t	f	2026-08-16 20:38:38.055	2026-08-16 20:38:38.055	3efd3018-9760-4d10-92c0-86981799240b	\N	\N	f	\N	\N	\N	\N	\N	\N	\N	active	\N	\N	\N	\N	\N	f	\N	\N
 \.
 
 
@@ -3683,5 +3730,5 @@ ALTER TABLE ONLY public."UserRoles"
 -- PostgreSQL database dump complete
 --
 
-\unrestrict 3LeqNbMEjNPJ7y7Yf7HYO3XVCOHmhQuIZbhoYSINeS9EUZIQOYjZEBy7EMFyEDU
+\unrestrict vo29j0r0EenAtH5WXZd2kpnCesPE1mEmVXsDIo8EutxqJHGzks1MMtWrYK5YRQJ
 
