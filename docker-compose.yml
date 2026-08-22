@@ -34,9 +34,22 @@ services:
       - PORT=4000
       - DATABASE_URL=postgresql://${POSTGRES_USER:-medibook}:${POSTGRES_PASSWORD:-medibook_secret}@postgres:5432/${POSTGRES_DB:-medibook_db}
       - REDIS_URL=redis://redis:6379
-      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET:-change-me-in-production}
-      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET:-change-me-too-in-production}
+      # No insecure fallback here on purpose (project-plans/02-findings-register.md
+      # F-11): a deployment with no real JWT_ACCESS_SECRET/JWT_REFRESH_SECRET set
+      # gets an EMPTY value, not a guessable placeholder — auth/strategies/jwt.strategy.ts
+      # already throws ("JWT_ACCESS_SECRET must be set") on an empty secret, so the
+      # backend fails to boot instead of silently signing tokens with a known string.
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      # Previously only present in backend/.env, which is NOT actually read by the
+      # running container (confirmed live: process.env showed these as empty) —
+      # passed explicitly here instead of relying on dotenv-loading a mounted file.
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - OTP_TTL_SECONDS=${OTP_TTL_SECONDS:-300}
+      - OTP_MAX_ATTEMPTS=${OTP_MAX_ATTEMPTS:-3}
     depends_on:
       postgres:
         condition: service_healthy
