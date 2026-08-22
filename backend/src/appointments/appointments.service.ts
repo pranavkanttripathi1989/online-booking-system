@@ -48,6 +48,7 @@ export class AppointmentsService {
       end_datetime: end,
       duration_minutes: a.duration_minutes,
       status: a.status,
+      type: a.type ?? 'in_person',
       notes: a.notes || undefined,
       cancellation_reason: a.cancellation_reason ?? undefined,
       reminder_sent_at: a.reminder_sent_at ?? undefined,

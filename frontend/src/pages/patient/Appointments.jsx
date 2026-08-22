@@ -1,9 +1,6 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import {
-  Box, Stack, Typography, Card, CardContent, Button, Chip, Divider,
-  Avatar, Paper, Tab, Tabs, IconButton, Grid, TextField, InputAdornment,
-  Select, MenuItem, FormControl, InputLabel,
-  Dialog, DialogTitle, DialogContent, DialogActions,
+  Box, Stack, Typography, Button, Chip, Divider, Avatar, Paper, Tab, Tabs, IconButton, Grid, TextField, InputAdornment, Select, MenuItem, FormControl, InputLabel, Dialog, DialogTitle, DialogContent, DialogActions, Alert,
 } from '@mui/material';
 import { StatusChip, EmptyState, AppointmentsListSkeleton } from '../../components/shared';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
@@ -20,33 +17,39 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
+import { useQuery, useMutation } from '@apollo/client';
+import dayjs from 'dayjs';
+import { APPOINTMENTS_QUERY } from '../../graphql/queries';
+import { CANCEL_APPOINTMENT_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations';
 
-const APPOINTMENTS = [
-  {
-    id: 1, date: '2026-03-20', time: '10:00 AM', doctor: 'Dr. Sarah Johnson',
-    specialty: 'Cardiology', clinic: 'City Heart Clinic', type: 'in-person',
-    service: 'Cardiology Consultation', price: 85, status: 'confirmed',
-    initials: 'SJ',
-  },
-  {
-    id: 2, date: '2026-03-25', time: '02:30 PM', doctor: 'Dr. Marcus Osei',
-    specialty: 'Neurology', clinic: 'Online', type: 'video',
-    service: 'Neurology Follow-up', price: 95, status: 'scheduled',
-    initials: 'MO',
-  },
-  {
-    id: 3, date: '2026-03-05', time: '09:00 AM', doctor: 'Dr. Sarah Johnson',
-    specialty: 'Cardiology', clinic: 'City Heart Clinic', type: 'in-person',
-    service: 'ECG Recording', price: 120, status: 'completed',
-    initials: 'SJ',
-  },
-  {
-    id: 4, date: '2026-02-18', time: '11:00 AM', doctor: 'Dr. Priya Sharma',
-    specialty: 'Paediatrics', clinic: 'Family Health Hub', type: 'in-person',
-    service: 'Annual Check-up', price: 75, status: 'cancelled',
-    initials: 'PS',
-  },
-];
+// F-18 / BUG009. This page rendered four hardcoded appointments while
+// backend/src/appointments has been real and tested for months. The UI below is
+// good and is kept as-is; only the data source was fabricated.
+//
+// The card and dialogs consume a flattened, display-ready shape, so rather than
+// rewrite them this adapter maps the real GraphQL Appointment onto it. Every
+// field comes from the server — including `type`, which drives the Join Call
+// button and which the GraphQL layer did not expose until this change (the
+// column existed all along; the page had been guessing).
+function toCardShape(a) {
+  const start = dayjs(a.start_datetime);
+  const clinicianName = a.clinician?.full_name ?? 'Clinician';
+  return {
+    id: a.id,
+    date: start.format('YYYY-MM-DD'),
+    time: start.format('hh:mm A'),
+    doctor: clinicianName,
+    specialty: a.clinician?.clinician_type?.name ?? '',
+    clinic: a.type === 'video' ? 'Online' : (a.clinic?.name ?? ''),
+    type: a.type === 'video' ? 'video' : 'in-person',
+    service: a.service?.name ?? 'Consultation',
+    // Rupees — converted at the resolver boundary. Null is a real state ("Price
+    // TBD"), not a zero.
+    price: a.service?.price ?? null,
+    status: a.status,
+    initials: clinicianName.split(' ').filter(Boolean).map((n) => n[0]).join('').slice(0, 2).toUpperCase(),
+  };
+}
 
 // SUG-PTAPPT-003: Receipt handler (passed down from parent)
 // SUG-PTAPPT-005: Price null guard
@@ -161,9 +164,25 @@ export default function PatientAppointments() {
   // SUG-PTAPPT-008: Sort direction toggle (asc/desc)
   const [sortDir, setSortDir] = useState('asc');
 
-  // SUG-PTAPPT-001 + SUG-PTAPPT-007: Convert to state so cancel updates UI + subtitle
-  const [appointments, setAppointments] = useState(APPOINTMENTS);
   const [cancelId, setCancelId] = useState(null);
+
+  // Self-scoped server-side: appointments.service.ts narrows a `patient` caller
+  // to their own patient_id from the JWT, so this returns only this patient's
+  // records without the page passing an id (and without being able to ask for
+  // anyone else's).
+  const { data, loading, error, refetch } = useQuery(APPOINTMENTS_QUERY, {
+    variables: { first: 100, page: 1 },
+    fetchPolicy: 'cache-and-network',
+  });
+  const [cancelAppointment, { loading: cancelling }] = useMutation(CANCEL_APPOINTMENT_MUTATION);
+  const [updateAppointment, { loading: rescheduling }] = useMutation(UPDATE_APPOINTMENT_MUTATION);
+
+  // No mock fallback: an empty list is a real answer for a patient with no
+  // bookings, and must render as such rather than as someone else's data.
+  const appointments = useMemo(
+    () => (data?.appointments?.data ?? []).map(toCardShape),
+    [data],
+  );
 
   // SUG-PTAPPT-011 / SUG-PTDASH-011: Reschedule dialog state + query-param handoff from Dashboard
   const [rescheduleAppt, setRescheduleAppt] = useState(null);
@@ -195,12 +214,19 @@ export default function PatientAppointments() {
   const upcoming = appointments.filter((a) => ['scheduled', 'confirmed'].includes(a.status));
   const past     = appointments.filter((a) => ['completed', 'cancelled'].includes(a.status));
 
-  // SUG-PTAPPT-001: Cancel handler — update status in state, no backend call in mock mode
-  const handleCancel = (id) => {
-    setAppointments((prev) =>
-      prev.map((a) => a.id === id ? { ...a, status: 'cancelled' } : a)
-    );
-    setCancelId(null);
+  const handleCancel = async (id) => {
+    try {
+      await cancelAppointment({ variables: { id, reason: 'Cancelled by patient' } });
+      enqueueSnackbar('Appointment cancelled', { variant: 'success' });
+      await refetch();
+    } catch (e) {
+      // Surface the real reason. A cancellation-policy window or a
+      // already-completed appointment are both legitimate server refusals, and
+      // the patient needs to see which.
+      enqueueSnackbar(e.message || 'Could not cancel this appointment', { variant: 'error' });
+    } finally {
+      setCancelId(null);
+    }
   };
 
   // SUG-PTAPPT-003: Receipt handler — navigate to receipt page
@@ -209,14 +235,22 @@ export default function PatientAppointments() {
   };
 
   // SUG-PTAPPT-011 / SUG-PTDASH-011: Reschedule handlers
-  const handleRescheduleConfirm = () => {
+  const handleRescheduleConfirm = async () => {
     if (!rescheduleAppt || !rescheduleDate || !rescheduleTime) return;
-    setAppointments((prev) =>
-      prev.map((a) => a.id === rescheduleAppt.id ? { ...a, date: rescheduleDate, time: rescheduleTime } : a)
-    );
-    enqueueSnackbar(`Appointment with ${rescheduleAppt.doctor} rescheduled to ${rescheduleDate} at ${rescheduleTime}`, { variant: 'success' });
-    setRescheduleAppt(null);
-    setHighlightId(null);
+    // There is no rescheduleAppointment mutation on the backend — the frontend's
+    // RESCHEDULE_APPOINTMENT_MUTATION is dead code against the real schema.
+    // updateAppointment takes an ISO start_datetime and is the real path.
+    const iso = dayjs(`${rescheduleDate} ${rescheduleTime}`, ['YYYY-MM-DD hh:mm A', 'YYYY-MM-DD HH:mm']).toISOString();
+    try {
+      await updateAppointment({ variables: { id: rescheduleAppt.id, input: { start_datetime: iso } } });
+      enqueueSnackbar(`Appointment with ${rescheduleAppt.doctor} rescheduled`, { variant: 'success' });
+      await refetch();
+      setRescheduleAppt(null);
+      setHighlightId(null);
+    } catch (e) {
+      // Left open on failure so the patient can adjust rather than losing input.
+      enqueueSnackbar(e.message || 'Could not reschedule — that slot may no longer be free', { variant: 'error' });
+    }
   };
 
   // SUG-PTAPPT-002 + SUG-PTAPPT-004: search resets on tab change; sort applied via useMemo
@@ -287,7 +321,18 @@ export default function PatientAppointments() {
       </Stack>
 
       {/* List */}
-      {filtered.length === 0 ? (
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+          Could not load your appointments: {error.message}
+        </Alert>
+      )}
+
+      {/* Loading is distinct from empty. Showing the "no appointments — book
+          your first" empty state while the query is still in flight would tell a
+          patient with a full calendar that they have none. */}
+      {loading && appointments.length === 0 ? (
+        <AppointmentsListSkeleton />
+      ) : filtered.length === 0 ? (
         <EmptyState
           icon={<CalendarMonthIcon sx={{ fontSize: 48 }} />}
           title={tab === 0 ? 'No upcoming appointments' : 'No past appointments'}
@@ -324,6 +369,7 @@ export default function PatientAppointments() {
           <Button
             id="confirm-cancel-btn"
             color="error" variant="contained"
+            disabled={cancelling}
             onClick={() => handleCancel(cancelId)}
             sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
           >
@@ -358,7 +404,7 @@ export default function PatientAppointments() {
           <Button onClick={() => { setRescheduleAppt(null); setHighlightId(null); }} sx={{ textTransform: 'none' }}>Cancel</Button>
           <Button
             variant="contained"
-            disabled={!rescheduleDate || !rescheduleTime}
+            disabled={!rescheduleDate || !rescheduleTime || rescheduling}
             onClick={handleRescheduleConfirm}
             sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
           >

@@ -91,5 +91,14 @@ export const formatRelativeTime = (value) => {
  * @param {number} amount
  * @param {string} currency - ISO 4217 code, default 'GBP'
  */
-export const formatCurrency = (amount, currency = 'GBP') =>
-  new Intl.NumberFormat('en-GB', { style: 'currency', currency }).format(amount ?? 0);
+// India market (CLAUDE.md Hard Rule 9): money is INR. This defaulted to GBP with
+// an en-GB locale, which would have rendered every price as pounds. Its only
+// caller was manager/Billing.jsx, which rendered fabricated data and has since
+// been redirected to /finances — so the wrong currency never reached a real
+// number, but the default was a landmine for the next caller.
+//
+// Note the real money-rendering convention on live pages (finances/index.jsx) is
+// `₹{value.toLocaleString()}`; prefer that for consistency. This helper stays for
+// callers that want full Intl formatting.
+export const formatCurrency = (amount, currency = 'INR') =>
+  new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount ?? 0);

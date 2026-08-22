@@ -153,7 +153,6 @@ const MANAGER_CHILDREN = [
   { label: 'Rooms',        path: '/manager/rooms',        icon: <MeetingRoomIcon /> },
   { label: 'Products',     path: '/manager/products',     icon: <InventoryIcon /> },
   { label: 'Services',     path: '/manager/services',     icon: <MedicalServicesIcon /> },
-  { label: 'Billing',      path: '/manager/billing',      icon: <AttachMoneyIcon /> },
 ]
 
 const BOTTOM_NAV = [

@@ -64,6 +64,7 @@ type Appointment {
   status: String!
   status_logs: [AppointmentStatusLog!]!
   tenant_id: String
+  type: String
   updated_at: DateTime!
 }
 

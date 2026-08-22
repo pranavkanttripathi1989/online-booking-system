@@ -1,278 +1,306 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
-  Box, Grid, Typography, Card, CardContent, Stack, Button, Chip,
-  Avatar, Divider, Tab, Tabs, Paper, Switch, FormControlLabel,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Checkbox, IconButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  TextField, Select, MenuItem, FormControl, InputLabel, Autocomplete,
+  Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Paper, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, IconButton, Checkbox, Avatar,
+  FormControl, InputLabel, Select, MenuItem, TextField, Alert, Skeleton, TablePagination,
 } from '@mui/material';
+import { useQuery, useMutation } from '@apollo/client';
+import { useNavigate } from 'react-router-dom';
+import { useSnackbar } from 'notistack';
+import dayjs from 'dayjs';
 import { StatusChip, SearchField, ConfirmDialog, PatientAvatar } from '../../components/shared';
 import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import CancelIcon from '@mui/icons-material/Cancel';
-import FilterListIcon from '@mui/icons-material/FilterList';
 import DownloadIcon from '@mui/icons-material/Download';
-import TableRowsIcon from '@mui/icons-material/TableRows';
-import CalendarViewMonthIcon from '@mui/icons-material/CalendarViewMonth';
+import { APPOINTMENTS_QUERY } from '../../graphql/queries';
+import { CANCEL_APPOINTMENT_MUTATION } from '../../graphql/mutations';
 
-const MOCK_APPOINTMENTS = [
-  { id: 1, dateTime: '2026-03-20 10:00', patient: { name: 'Emma Wilson', email: 'emma@email.com', avatar: 'EW' }, clinician: { name: 'Dr. Sarah Johnson', specialty: 'Cardiology', avatar: 'SJ' }, clinic: 'City Heart Clinic', room: '3A', duration: 30, service: 'Cardiology Consultation', price: 85,  status: 'confirmed' },
-  { id: 2, dateTime: '2026-03-20 11:30', patient: { name: 'James Brown',  email: 'james@mail.com', avatar: 'JB' }, clinician: { name: 'Dr. Marcus Osei', specialty: 'Neurology', avatar: 'MO' },    clinic: 'Central Medical',   room: '1B', duration: 45, service: 'Neurology Assessment',  price: 120, status: 'scheduled' },
-  { id: 3, dateTime: '2026-03-20 14:00', patient: { name: 'Lily Chen',    email: 'lily@email.com',  avatar: 'LC' }, clinician: { name: 'Dr. Priya Sharma', specialty: 'Paediatrics', avatar: 'PS' },  clinic: 'Family Health Hub', room: '2C', duration: 30, service: 'Paediatrics Check-up', price: 75,  status: 'completed' },
-  { id: 4, dateTime: '2026-03-21 09:00', patient: { name: 'Omar Hassan',  email: 'omar@email.com',  avatar: 'OH' }, clinician: { name: 'Dr. Sarah Johnson', specialty: 'Cardiology', avatar: 'SJ' },  clinic: 'City Heart Clinic', room: '3A', duration: 30, service: 'ECG Recording',         price: 120, status: 'cancelled' },
-];
+// F-18 / BUG009. This page rendered four hardcoded appointments
+// (`MOCK_APPOINTMENTS`) while backend/src/appointments has existed and been
+// tested for months. It never imported mocks/store, which is why four
+// grep-based audits walked past it.
+//
+// Filtering is done SERVER-side through AppointmentFilters (date_from, date_to,
+// status, patient_name) rather than in the browser. The mock version filtered a
+// four-row array client-side; doing that against a real, paginated dataset would
+// only ever filter the current page and quietly under-report.
+
+const ROWS_PER_PAGE = 20;
+const STATUSES = ['all', 'scheduled', 'completed', 'cancelled', 'no_show'];
 
 export default function StaffAppointments() {
-  const [appointments, setAppointments] = useState(MOCK_APPOINTMENTS);
+  const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
+
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [fromDate, setFromDate] = useState('');   // SUG-STFAPPT-001
-  const [toDate, setToDate] = useState('');       // SUG-STFAPPT-001
+  const [fromDate, setFromDate] = useState('');
+  const [toDate, setToDate] = useState('');
+  const [page, setPage] = useState(0);
   const [selected, setSelected] = useState([]);
-  const [bookOpen, setBookOpen] = useState(false);
   const [cancelTarget, setCancelTarget] = useState(null);
-  const [editTarget, setEditTarget] = useState(null); // SUG-STFAPPT-003
-  const [bulkCancelConfirmOpen, setBulkCancelConfirmOpen] = useState(false); // SUG-STFAPPT-008
+  const [bulkCancelOpen, setBulkCancelOpen] = useState(false);
 
-  // SUG-STFAPPT-002: Book form controlled state
-  const [bookForm, setBookForm] = useState({ patient: '', clinician: '', date: '', time: '', service: '', reason: '', clinic: '', room: '', duration: 30 });
-  const setBookField = (k, v) => setBookForm(f => ({ ...f, [k]: v }));
-  const resetBook = () => { setBookForm({ patient: '', clinician: '', date: '', time: '', service: '', reason: '', clinic: '', room: '', duration: 30 }); setEditTarget(null); };
+  const filters = useMemo(() => {
+    const f = {};
+    if (statusFilter !== 'all') f.status = statusFilter;
+    if (fromDate) f.date_from = fromDate;
+    if (toDate) f.date_to = toDate;
+    if (search.trim()) f.patient_name = search.trim();
+    return f;
+  }, [statusFilter, fromDate, toDate, search]);
 
-  const filtered = appointments.filter((a) => {
-    const matchSearch = !search || a.patient.name.toLowerCase().includes(search.toLowerCase()) || a.clinician.name.toLowerCase().includes(search.toLowerCase());
-    const matchStatus = statusFilter === 'all' || a.status === statusFilter;
-    // SUG-STFAPPT-001: Date range filter
-    const apptDate = a.dateTime.split(' ')[0]
-    const matchFrom = !fromDate || apptDate >= fromDate;
-    const matchTo   = !toDate   || apptDate <= toDate;
-    return matchSearch && matchStatus && matchFrom && matchTo;
+  const { data, loading, error, refetch } = useQuery(APPOINTMENTS_QUERY, {
+    variables: { filters, first: ROWS_PER_PAGE, page: page + 1 },
+    fetchPolicy: 'cache-and-network',
   });
 
-  const handleSelectAll = (e) => {
-    setSelected(e.target.checked ? filtered.map((a) => a.id) : []);
+  const [cancelAppointment, { loading: cancelling }] = useMutation(CANCEL_APPOINTMENT_MUTATION);
+
+  // No `|| MOCK` fallback. An empty result is a real answer and must render as
+  // "none found", never as fabricated rows — the exact regression
+  // appointments/index.jsx and calendar/index.jsx shipped (Priority 3, point 3).
+  const rows = data?.appointments?.data ?? [];
+  const total = data?.appointments?.paginatorInfo?.total ?? 0;
+  const activeCount = rows.filter((a) => a.status !== 'cancelled').length;
+
+  const handleSelectAll = (e) => setSelected(e.target.checked ? rows.map((a) => a.id) : []);
+  const handleSelect = (id) =>
+    setSelected((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]));
+
+  const runCancel = async (ids) => {
+    try {
+      // Sequential rather than Promise.all: each is a real mutation and a
+      // partial failure should stop rather than leave an unknown subset applied.
+      for (const id of ids) {
+        await cancelAppointment({ variables: { id, reason: 'Cancelled by front desk' } });
+      }
+      enqueueSnackbar(`${ids.length} appointment${ids.length > 1 ? 's' : ''} cancelled`, { variant: 'success' });
+      setSelected([]);
+      await refetch();
+    } catch (e) {
+      enqueueSnackbar(e.message || 'Could not cancel the appointment', { variant: 'error' });
+    } finally {
+      setCancelTarget(null);
+      setBulkCancelOpen(false);
+    }
   };
 
-  const handleSelect = (id) => {
-    setSelected((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
-  };
-
-  const handleCancel = (id) => {
-    setAppointments((prev) => prev.map((a) => a.id === id ? { ...a, status: 'cancelled' } : a));
-    setCancelTarget(null);
-  };
-
-  // SUG-STFAPPT-004: Bulk cancel handler
-  // SUG-STFAPPT-008: now invoked only after ConfirmDialog confirmation
-  const handleBulkCancel = () => {
-    setAppointments(prev => prev.map(a => selected.includes(a.id) ? { ...a, status: 'cancelled' } : a));
-    setSelected([]);
-    setBulkCancelConfirmOpen(false);
-  };
-
-  // SUG-STFAPPT-005: CSV export
-  const handleExportCSV = (rows) => {
+  const handleExportCSV = (list) => {
     const cols = ['ID', 'Date', 'Time', 'Patient', 'Clinician', 'Service', 'Status', 'Price'];
-    const data = rows.map(a => [a.id, a.dateTime.split(' ')[0], a.dateTime.split(' ')[1], a.patient.name, a.clinician.name, a.service, a.status, `₹${a.price}`]);
-    const csv = [cols, ...data].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a'); link.href = url; link.download = 'appointments.csv'; link.click();
+    const body = list.map((a) => [
+      a.id,
+      dayjs(a.start_datetime).format('YYYY-MM-DD'),
+      dayjs(a.start_datetime).format('HH:mm'),
+      a.patient?.full_name ?? '',
+      a.clinician?.full_name ?? '',
+      a.service?.name ?? '',
+      a.status,
+      a.service?.price ?? '',   // rupees — converted at the resolver boundary
+    ]);
+    // Quote every field: real patient names and service names contain commas.
+    const csv = [cols, ...body]
+      .map((row) => row.map((c) => `"${String(c ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n');
+    const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `appointments-${dayjs().format('YYYY-MM-DD')}.csv`;
+    link.click();
     URL.revokeObjectURL(url);
   };
 
-  // SUG-STFAPPT-002: Book (or edit) appointment submit
-  const handleBookSubmit = () => {
-    if (editTarget) {
-      // Edit mode — update existing
-      setAppointments(prev => prev.map(a => a.id === editTarget.id ? {
-        ...a,
-        dateTime: bookForm.date && bookForm.time ? `${bookForm.date} ${bookForm.time}` : a.dateTime,
-        patient: { ...a.patient, name: bookForm.patient || a.patient.name },
-        clinician: { ...a.clinician, name: bookForm.clinician || a.clinician.name },
-        service: bookForm.service || a.service,
-        duration: bookForm.duration,
-      } : a));
-    } else {
-      // Create mode
-      const newAppt = {
-        id: Date.now(),
-        dateTime: bookForm.date && bookForm.time ? `${bookForm.date} ${bookForm.time}` : '—',
-        patient: { name: bookForm.patient || 'New Patient', email: '', avatar: (bookForm.patient || 'NP').split(' ').map(w => w[0]).join('').slice(0,2).toUpperCase() },
-        clinician: { name: bookForm.clinician || 'TBD', specialty: '', avatar: 'TBD' },
-        clinic: bookForm.clinic || '—', room: bookForm.room || '—',
-        duration: bookForm.duration, service: bookForm.service || '—', price: 0, status: 'scheduled',
-      };
-      setAppointments(prev => [...prev, newAppt]);
-    }
-    resetBook();
-    setBookOpen(false);
-  };
-
-  // SUG-STFAPPT-003: Open edit dialog pre-filled
-  const handleEdit = (appt) => {
-    setEditTarget(appt);
-    setBookForm({
-      patient: appt.patient.name, clinician: appt.clinician.name,
-      date: appt.dateTime.split(' ')[0], time: appt.dateTime.split(' ')[1],
-      service: appt.service, reason: '', clinic: appt.clinic, room: appt.room,
-      duration: appt.duration,
-    });
-    setBookOpen(true);
-  };
-
-  // SUG-STFAPPT-009: Reset all filters
   const hasFilters = search || statusFilter !== 'all' || fromDate || toDate;
-  const resetFilters = () => { setSearch(''); setStatusFilter('all'); setFromDate(''); setToDate(''); };
+  const resetFilters = () => {
+    setSearch('');
+    setStatusFilter('all');
+    setFromDate('');
+    setToDate('');
+    setPage(0);
+  };
 
   return (
     <Box>
-      {/* Header */}
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1.5} sx={{ mb: 3 }}>
         <Stack direction="row" alignItems="center" spacing={1.5}>
           <Typography variant="h2" fontWeight={700}>Appointments</Typography>
-          {/* SUG-STFAPPT-007: Show active (non-cancelled) count */}
-          <Chip label={`${appointments.filter(a => a.status !== 'cancelled').length} active · ${appointments.length} total`} color="primary" />
+          {!loading && <Chip label={`${activeCount} active · ${total} total`} color="primary" />}
         </Stack>
         <Stack direction="row" spacing={1.5}>
-          {/* SUG-STFAPPT-005: Header Export CSV wired */}
-          <Button variant="outlined" startIcon={<DownloadIcon />} size="small" onClick={() => handleExportCSV(filtered)}>Export CSV</Button>
-          <Button variant="contained" startIcon={<AddIcon />} onClick={() => { resetBook(); setBookOpen(true); }}>
+          <Button variant="outlined" startIcon={<DownloadIcon />} size="small" disabled={!rows.length} onClick={() => handleExportCSV(rows)}>
+            Export CSV
+          </Button>
+          {/* Booking goes to the real, already-wired /appointments/new rather
+              than a second form. The mock dialog here took free-text patient and
+              clinician names, which cannot create a real appointment — that
+              needs ids, availability and a clinic the caller's org owns. */}
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => navigate('/appointments/new')}>
             Book Appointment
           </Button>
         </Stack>
       </Stack>
 
-      {/* Filter Bar */}
       <Card sx={{ mb: 2 }}>
         <CardContent sx={{ p: 2 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={4}>
-              <SearchField value={search} onChange={setSearch} placeholder="Search patient or clinician..." sx={{ width: '100%' }} />
+              <SearchField
+                value={search}
+                onChange={(v) => { setSearch(v); setPage(0); }}
+                placeholder="Search by patient name..."
+                sx={{ width: '100%' }}
+              />
             </Grid>
             <Grid item xs={6} sm={2}>
               <FormControl fullWidth size="small">
                 <InputLabel>Status</InputLabel>
-                <Select value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)} label="Status">
-                  {['all', 'scheduled', 'confirmed', 'completed', 'cancelled'].map((s) => (
-                    <MenuItem key={s} value={s}>{s.charAt(0).toUpperCase() + s.slice(1)}</MenuItem>
+                <Select value={statusFilter} label="Status" onChange={(e) => { setStatusFilter(e.target.value); setPage(0); }}>
+                  {STATUSES.map((s) => (
+                    <MenuItem key={s} value={s}>{s === 'all' ? 'All' : s.replace('_', ' ')}</MenuItem>
                   ))}
                 </Select>
               </FormControl>
             </Grid>
-            {/* SUG-STFAPPT-001: Date pickers wired to state */}
             <Grid item xs={6} sm={2}>
-              <TextField fullWidth size="small" type="date" label="From" InputLabelProps={{ shrink: true }} value={fromDate} onChange={e => setFromDate(e.target.value)} />
+              <TextField fullWidth size="small" type="date" label="From" InputLabelProps={{ shrink: true }}
+                value={fromDate} onChange={(e) => { setFromDate(e.target.value); setPage(0); }} />
             </Grid>
             <Grid item xs={6} sm={2}>
-              <TextField fullWidth size="small" type="date" label="To" InputLabelProps={{ shrink: true }} value={toDate} onChange={e => setToDate(e.target.value)} />
+              <TextField fullWidth size="small" type="date" label="To" InputLabelProps={{ shrink: true }}
+                value={toDate} onChange={(e) => { setToDate(e.target.value); setPage(0); }} />
             </Grid>
-            {/* SUG-STFAPPT-009: Reset filters button */}
             {hasFilters && (
               <Grid item xs={6} sm={2}>
                 <Button size="small" variant="text" onClick={resetFilters}>Clear Filters</Button>
               </Grid>
             )}
           </Grid>
-          {(statusFilter !== 'all' || fromDate || toDate) && (
-            <Stack direction="row" spacing={1} sx={{ mt: 1.5 }}>
-              {statusFilter !== 'all' && <Chip label={`Status: ${statusFilter}`} size="small" onDelete={() => setStatusFilter('all')} />}
-              {fromDate && <Chip label={`From: ${fromDate}`} size="small" onDelete={() => setFromDate('')} />}
-              {toDate   && <Chip label={`To: ${toDate}`}   size="small" onDelete={() => setToDate('')} />}
-            </Stack>
-          )}
         </CardContent>
       </Card>
 
-      {/* Bulk actions */}
       {selected.length > 0 && (
-        <Paper sx={{ p: 1.5, mb: 2, bgcolor: '#E8F8F9', border: '1px solid #83C5BE', display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Paper sx={{ p: 1.5, mb: 2, bgcolor: 'action.hover', display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Typography variant="body2" fontWeight={700}>{selected.length} selected</Typography>
-          {/* SUG-STFAPPT-004/008: Bulk cancel now opens a confirmation dialog first */}
-          <Button size="small" color="error" variant="outlined" onClick={() => setBulkCancelConfirmOpen(true)}>Cancel Selected</Button>
-          {/* SUG-STFAPPT-005: Bulk export wired */}
-          <Button size="small" variant="outlined" startIcon={<DownloadIcon />} onClick={() => handleExportCSV(appointments.filter(a => selected.includes(a.id)))}>Export</Button>
+          <Button size="small" color="error" variant="outlined" disabled={cancelling} onClick={() => setBulkCancelOpen(true)}>
+            Cancel Selected
+          </Button>
+          <Button size="small" variant="outlined" startIcon={<DownloadIcon />}
+            onClick={() => handleExportCSV(rows.filter((a) => selected.includes(a.id)))}>
+            Export
+          </Button>
         </Paper>
       )}
 
-      {/* Table */}
-      <TableContainer component={Paper} sx={{ border: '1px solid #D0E8EA' }}>
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+          Could not load appointments: {error.message}
+        </Alert>
+      )}
+
+      <TableContainer component={Paper} variant="outlined">
         <Table>
           <TableHead>
             <TableRow>
               <TableCell padding="checkbox">
                 <Checkbox
-                  indeterminate={selected.length > 0 && selected.length < filtered.length}
-                  checked={filtered.length > 0 && selected.length === filtered.length}
+                  indeterminate={selected.length > 0 && selected.length < rows.length}
+                  checked={rows.length > 0 && selected.length === rows.length}
                   onChange={handleSelectAll}
+                  inputProps={{ 'aria-label': 'Select all appointments on this page' }}
                 />
               </TableCell>
-              <TableCell>Date & Time</TableCell>
+              <TableCell>Date &amp; Time</TableCell>
               <TableCell>Patient</TableCell>
               <TableCell>Clinician</TableCell>
-              <TableCell>Clinic & Room</TableCell>
+              <TableCell>Clinic &amp; Room</TableCell>
               <TableCell>Duration</TableCell>
-              <TableCell>Service & Price</TableCell>
+              <TableCell>Service &amp; Price</TableCell>
               <TableCell>Status</TableCell>
               <TableCell>Actions</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
-            {/* SUG-STFAPPT-006: Empty state row */}
-            {filtered.length === 0 && (
+            {loading && !rows.length &&
+              Array.from({ length: 5 }).map((_, i) => (
+                <TableRow key={`s-${i}`}>
+                  <TableCell colSpan={9}><Skeleton height={40} /></TableCell>
+                </TableRow>
+              ))}
+
+            {/* Distinguish "no data at all" from "filters exclude everything" —
+                they call for different next actions from the user. */}
+            {!loading && !error && rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary', fontStyle: 'italic' }}>
-                  No appointments match your current filters
+                <TableCell colSpan={9} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                  {hasFilters ? 'No appointments match your current filters' : 'No appointments have been booked yet'}
                 </TableCell>
               </TableRow>
             )}
-            {filtered.map((appt) => (
+
+            {rows.map((appt) => (
               <TableRow key={appt.id} hover selected={selected.includes(appt.id)}>
                 <TableCell padding="checkbox">
-                  <Checkbox checked={selected.includes(appt.id)} onChange={() => handleSelect(appt.id)} />
+                  <Checkbox
+                    checked={selected.includes(appt.id)}
+                    onChange={() => handleSelect(appt.id)}
+                    inputProps={{ 'aria-label': `Select appointment for ${appt.patient?.full_name ?? 'patient'}` }}
+                  />
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2" fontWeight={700}>{appt.dateTime.split(' ')[0]}</Typography>
-                  <Typography variant="caption" color="text.secondary">{appt.dateTime.split(' ')[1]}</Typography>
+                  <Typography variant="body2" fontWeight={700}>{dayjs(appt.start_datetime).format('DD MMM YYYY')}</Typography>
+                  <Typography variant="caption" color="text.secondary">{dayjs(appt.start_datetime).format('HH:mm')}</Typography>
                 </TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={1} alignItems="center">
-                    <PatientAvatar firstName={appt.patient.name.split(' ')[0]} lastName={appt.patient.name.split(' ')[1]} email={appt.patient.email} size="sm" />
+                    <PatientAvatar
+                      firstName={appt.patient?.first_name}
+                      lastName={appt.patient?.last_name}
+                      email={appt.patient?.email}
+                      size="sm"
+                    />
                     <Box>
-                      <Typography variant="body2" fontWeight={600}>{appt.patient.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">{appt.patient.email}</Typography>
+                      <Typography variant="body2" fontWeight={600}>{appt.patient?.full_name ?? '—'}</Typography>
+                      <Typography variant="caption" color="text.secondary">{appt.patient?.email ?? ''}</Typography>
                     </Box>
                   </Stack>
                 </TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={1} alignItems="center">
-                    <Avatar sx={{ width: 28, height: 28, bgcolor: '#006D77', fontSize: '0.7rem', fontWeight: 700 }}>
-                      {appt.clinician.avatar}
+                    <Avatar src={appt.clinician?.avatar_url || undefined} sx={{ width: 28, height: 28, bgcolor: 'primary.main', fontSize: '0.7rem', fontWeight: 700 }}>
+                      {(appt.clinician?.full_name ?? '?').split(' ').map((n) => n[0]).join('').slice(0, 2)}
                     </Avatar>
                     <Box>
-                      <Typography variant="body2" fontWeight={600}>{appt.clinician.name}</Typography>
-                      <Chip label={appt.clinician.specialty} size="small" variant="outlined" color="primary" />
+                      <Typography variant="body2" fontWeight={600}>{appt.clinician?.full_name ?? '—'}</Typography>
+                      {appt.clinician?.clinician_type?.name && (
+                        <Chip label={appt.clinician.clinician_type.name} size="small" variant="outlined" color="primary" />
+                      )}
                     </Box>
                   </Stack>
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2">{appt.clinic}</Typography>
-                  <Chip label={`Room ${appt.room}`} size="small" sx={{ bgcolor: '#F0F7F8', mt: 0.25 }} />
+                  <Typography variant="body2">{appt.clinic?.name ?? '—'}</Typography>
+                  {appt.room?.name && <Chip label={`Room ${appt.room.name}`} size="small" sx={{ mt: 0.25 }} />}
                 </TableCell>
                 <TableCell>
-                  <Chip label={`${appt.duration} min`} size="small" variant="outlined" />
+                  <Chip label={`${appt.duration_minutes ?? '—'} min`} size="small" variant="outlined" />
                 </TableCell>
                 <TableCell>
-                  <Typography variant="body2">{appt.service}</Typography>
-                  <Typography variant="caption" color="primary" fontWeight={700}>₹{appt.price}</Typography>
+                  <Typography variant="body2">{appt.service?.name ?? '—'}</Typography>
+                  {appt.service?.price != null && (
+                    <Typography variant="caption" color="primary" fontWeight={700}>₹{appt.service.price.toLocaleString()}</Typography>
+                  )}
                 </TableCell>
                 <TableCell><StatusChip status={appt.status} /></TableCell>
                 <TableCell>
                   <Stack direction="row" spacing={0.5}>
-                    {/* SUG-STFAPPT-003: Edit icon pre-fills dialog */}
-                    <IconButton size="small" onClick={() => handleEdit(appt)} aria-label={`Edit appointment for ${appt.patient.name}`}><EditIcon fontSize="small" /></IconButton>
+                    <IconButton size="small" onClick={() => navigate(`/appointments/${appt.id}/edit`)}
+                      aria-label={`Edit appointment for ${appt.patient?.full_name ?? 'patient'}`}>
+                      <EditIcon fontSize="small" />
+                    </IconButton>
                     {appt.status !== 'cancelled' && (
-                      <IconButton size="small" color="error" onClick={() => setCancelTarget(appt.id)} aria-label={`Cancel appointment for ${appt.patient.name}`}>
+                      <IconButton size="small" color="error" disabled={cancelling} onClick={() => setCancelTarget(appt.id)}
+                        aria-label={`Cancel appointment for ${appt.patient?.full_name ?? 'patient'}`}>
                         <CancelIcon fontSize="small" />
                       </IconButton>
                     )}
@@ -284,87 +312,29 @@ export default function StaffAppointments() {
         </Table>
       </TableContainer>
 
-      {/* SUG-STFAPPT-002/003: Book / Edit Appointment Dialog with controlled state */}
-      <Dialog open={bookOpen} onClose={() => { setBookOpen(false); resetBook(); }} maxWidth="md" fullWidth>
-        <DialogTitle fontWeight={700}>{editTarget ? 'Edit Appointment' : 'Book Appointment'}</DialogTitle>
-        <DialogContent dividers>
-          <Grid container spacing={2} sx={{ pt: 1 }}>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Patient (search by name/email)" size="small" value={bookForm.patient} onChange={e => setBookField('patient', e.target.value)} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth label="Clinician" size="small" value={bookForm.clinician} onChange={e => setBookField('clinician', e.target.value)} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Clinic</InputLabel>
-                <Select label="Clinic" value={bookForm.clinic} onChange={e => setBookField('clinic', e.target.value)}>
-                  <MenuItem value="City Heart Clinic">City Heart Clinic</MenuItem>
-                  <MenuItem value="Central Medical Centre">Central Medical Centre</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Room</InputLabel>
-                <Select label="Room" value={bookForm.room} onChange={e => setBookField('room', e.target.value)}>
-                  <MenuItem value="1A">Room 1A</MenuItem>
-                  <MenuItem value="2B">Room 2B</MenuItem>
-                  <MenuItem value="3A">Room 3A</MenuItem>
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <TextField fullWidth label="Date" type="date" size="small" InputLabelProps={{ shrink: true }} value={bookForm.date} onChange={e => setBookField('date', e.target.value)} />
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <TextField fullWidth label="Time" type="time" size="small" InputLabelProps={{ shrink: true }} value={bookForm.time} onChange={e => setBookField('time', e.target.value)} />
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <FormControl fullWidth size="small">
-                <InputLabel>Duration</InputLabel>
-                <Select label="Duration" value={bookForm.duration} onChange={e => setBookField('duration', e.target.value)}>
-                  {[15, 30, 45, 60].map((d) => <MenuItem key={d} value={d}>{d} min</MenuItem>)}
-                </Select>
-              </FormControl>
-            </Grid>
-            <Grid item xs={6} sm={3}>
-              <TextField fullWidth label="Service" size="small" value={bookForm.service} onChange={e => setBookField('service', e.target.value)} />
-            </Grid>
-            <Grid item xs={12}>
-              <TextField fullWidth multiline rows={2} label="Reason for Visit" size="small" value={bookForm.reason} onChange={e => setBookField('reason', e.target.value)} />
-            </Grid>
-          </Grid>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, py: 2 }}>
-          <Button onClick={() => { setBookOpen(false); resetBook(); }}>Cancel</Button>
-          {/* SUG-STFAPPT-010: disabled until Patient + Date + Time are filled */}
-          <Button
-            variant="contained"
-            onClick={handleBookSubmit}
-            disabled={!bookForm.patient || !bookForm.date || !bookForm.time}
-          >
-            {editTarget ? 'Save Changes' : 'Book Appointment'}
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <TablePagination
+        component="div"
+        count={total}
+        page={page}
+        onPageChange={(_, p) => { setPage(p); setSelected([]); }}
+        rowsPerPage={ROWS_PER_PAGE}
+        rowsPerPageOptions={[ROWS_PER_PAGE]}
+      />
 
-      {/* Cancel Confirm */}
       <ConfirmDialog
         open={Boolean(cancelTarget)}
         onClose={() => setCancelTarget(null)}
-        onConfirm={() => handleCancel(cancelTarget)}
+        onConfirm={() => runCancel([cancelTarget])}
         title="Cancel Appointment"
         message="Are you sure you want to cancel this appointment? The patient will be notified."
         confirmLabel="Cancel Appointment"
         confirmColor="error"
       />
 
-      {/* SUG-STFAPPT-008: Bulk cancel confirmation */}
       <ConfirmDialog
-        open={bulkCancelConfirmOpen}
-        onClose={() => setBulkCancelConfirmOpen(false)}
-        onConfirm={handleBulkCancel}
+        open={bulkCancelOpen}
+        onClose={() => setBulkCancelOpen(false)}
+        onConfirm={() => runCancel(selected)}
         title="Cancel Appointments"
         message={`Cancel ${selected.length} appointment(s)? All selected patients will be notified.`}
         confirmLabel="Cancel Appointments"

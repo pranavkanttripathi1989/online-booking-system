@@ -3,13 +3,11 @@
  * Public homepage with hero, doctor search filters, DoctorCard grid
  * Uses medicalTheme — no auth required
  */
-import React, { useState, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, gql } from '@apollo/client';
 import {
-  Box, Container, Grid, Typography, Paper, Button, TextField, Chip,
-  Stack, Autocomplete, Avatar, Card, CardContent, CardActions,
-  FormGroup, FormControlLabel, Checkbox, Slider, Skeleton, Divider,
-  Rating, InputAdornment,
+  Box, Container, Grid, Typography, Paper, Button, TextField, Chip, Stack, Autocomplete, Avatar, Card, CardContent, CardActions, FormGroup, FormControlLabel, Checkbox, Slider, Skeleton, Divider, Rating, InputAdornment, Alert,
 } from '@mui/material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import SearchIcon          from '@mui/icons-material/Search';
@@ -18,7 +16,6 @@ import LocationOnIcon      from '@mui/icons-material/LocationOn';
 import StarIcon            from '@mui/icons-material/Star';
 import VideocamIcon        from '@mui/icons-material/Videocam';
 import VerifiedIcon        from '@mui/icons-material/Verified';
-import AccessTimeIcon      from '@mui/icons-material/AccessTime';
 import TuneIcon            from '@mui/icons-material/Tune';
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
@@ -42,44 +39,39 @@ const SPECIALTY_CHIPS = [
   'Orthopaedics', 'Mental Health', 'Physiotherapy', 'Gynaecology',
 ];
 
-const MOCK_DOCTORS = [
-  {
-    id: 1, name: 'Dr. Sarah Johnson', specialty: 'Cardiologist', clinic: 'City Heart Clinic',
-    rating: 4.9, reviews: 128, price: 85, languages: ['English', 'French'],
-    nextAvailable: 'Mon, 10:00 AM', videoEnabled: true, verified: true,
-    initials: 'SJ', bio: 'Specialist in preventive cardiology and heart failure management.',
-  },
-  {
-    id: 2, name: 'Dr. Marcus Osei', specialty: 'Neurologist', clinic: 'Central Medical Centre',
-    rating: 4.8, reviews: 94, price: 95, languages: ['English', 'French', 'Arabic'],
-    nextAvailable: 'Tue, 02:30 PM', videoEnabled: true, verified: true,
-    initials: 'MO', bio: 'Expert in migraines, epilepsy and neurodegenerative disorders.',
-  },
-  {
-    id: 3, name: 'Dr. Priya Sharma', specialty: 'Paediatrician', clinic: 'Family Health Hub',
-    rating: 4.7, reviews: 166, price: 75, languages: ['English', 'Hindi'],
-    nextAvailable: 'Mon, 09:00 AM', videoEnabled: false, verified: true,
-    initials: 'PS', bio: 'Passionate about child health and developmental paediatrics.',
-  },
-  {
-    id: 4, name: 'Dr. Hans Müller', specialty: 'Orthopaedic Surgeon', clinic: 'Westside Physio',
-    rating: 4.6, reviews: 72, price: 110, languages: ['English', 'German'],
-    nextAvailable: 'Wed, 11:00 AM', videoEnabled: false, verified: false,
-    initials: 'HM', bio: 'Sports injuries, joint replacement and minimally invasive surgery.',
-  },
-  {
-    id: 5, name: 'Dr. Aisha Khalil', specialty: 'Dermatologist', clinic: 'SkinFirst Clinic',
-    rating: 4.9, reviews: 201, price: 90, languages: ['English', 'Arabic'],
-    nextAvailable: 'Mon, 03:00 PM', videoEnabled: true, verified: true,
-    initials: 'AK', bio: 'Specialist in acne, eczema and cosmetic dermatology.',
-  },
-  {
-    id: 6, name: 'Dr. James Peters', specialty: 'Psychiatrist', clinic: 'MindWell Centre',
-    rating: 4.5, reviews: 58, price: 100, languages: ['English'],
-    nextAvailable: 'Thu, 10:00 AM', videoEnabled: true, verified: true,
-    initials: 'JP', bio: 'CBT-trained psychiatrist specialising in anxiety and depression.',
-  },
-];
+// F-18 / BUG009. This block was six invented doctors, and the effect below was
+// literally commented "Simulate GraphQL getClinicians" — complete with an 800ms
+// fake delay — while backend/src/public exposes a real, @Public() getClinicians
+// built against this very shape.
+//
+// The entity matches the mock field for field (rating, reviews, price,
+// languages, bio, initials, videoEnabled, verified), because it was written
+// from this page. All of it is derived server-side from real rows: rating and
+// reviews from Reviews, price from the minimum linked service price.
+//
+// `nextAvailable` is the one field with no counterpart — computing it means
+// walking ClinicianAvailability minus Blocks minus booked slots, which is the
+// availability engine's job, not a landing page's. The line is removed rather
+// than filled with a plausible time.
+const GET_CLINICIANS = gql`
+  query GetClinicians($search: PublicClinicianSearchInput) {
+    getClinicians(search: $search) {
+      id
+      name
+      specialty
+      clinic
+      rating
+      reviews
+      price
+      languages
+      bio
+      initials
+      videoEnabled
+      verified
+    }
+  }
+`;
+
 
 // ─── Card Skeleton ────────────────────────────────────────────────────────────
 function CardSkeleton() {
@@ -184,13 +176,6 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
           ))}
         </Stack>
 
-        {/* Next available */}
-        <Stack direction="row" alignItems="center" spacing={0.5} sx={{ mt: 1.5 }}>
-          <AccessTimeIcon sx={{ fontSize: 14, color: '#2DC653' }} />
-          <Typography variant="body2" sx={{ color: '#2DC653', fontWeight: 600 }}>
-            Next available: {doctor.nextAvailable}
-          </Typography>
-        </Stack>
       </CardContent>
 
       <CardActions sx={{ px: 2.5, pb: 2, pt: 0 }}>
@@ -221,44 +206,40 @@ export default function Landing() {
   const [specialty, setSpecialty]   = useState(null);
   const [city, setCity]            = useState('');
   const [date, setDate]            = useState(null);
-  const [loading, setLoading]      = useState(true);
-  const [results, setResults]      = useState([]);
   const [priceRange, setPriceRange] = useState([0, 200]);
   const [selectedTypes, setSelectedTypes] = useState([]);
   const [selectedLangs, setSelectedLangs] = useState([]);
 
-  // ── Simulate GraphQL getClinicians ──────────────────────────────────────────
-  useEffect(() => {
-    setLoading(true);
-    const timer = setTimeout(() => {
-      let filtered = [...MOCK_DOCTORS];
-      if (specialty) {
-        filtered = filtered.filter((d) => d.specialty === specialty.name);
-      }
-      if (city) {
-        filtered = filtered.filter((d) =>
-          d.clinic.toLowerCase().includes(city.toLowerCase())
-        );
-      }
-      if (selectedTypes.length > 0) {
-        filtered = filtered.filter((d) => selectedTypes.includes(d.specialty));
-      }
-      if (selectedLangs.length > 0) {
-        filtered = filtered.filter((d) =>
-          d.languages.some((l) => selectedLangs.includes(l))
-        );
-      }
-      filtered = filtered.filter(
-        (d) => d.price >= priceRange[0] && d.price <= priceRange[1]
-      );
-      setResults(filtered);
-      setLoading(false);
-    }, 800);
-    return () => clearTimeout(timer);
-  }, [specialty, city, selectedTypes, selectedLangs, priceRange]);
+  // Specialty, city and language are filtered SERVER-side by the resolver.
+  // Price range and the multi-select chips stay client-side: the backend input
+  // takes a single specialty/language, so the extra selections refine the
+  // returned set rather than being silently dropped.
+  const { data, loading, error, refetch } = useQuery(GET_CLINICIANS, {
+    variables: {
+      search: {
+        specialty: specialty?.name || undefined,
+        city: city || undefined,
+        language: selectedLangs.length === 1 ? selectedLangs[0] : undefined,
+      },
+    },
+    fetchPolicy: 'cache-and-network',
+  });
+
+  const results = useMemo(() => {
+    // No mock fallback: an org with no published clinicians must show an empty
+    // state, not six fictional doctors a patient could try to book.
+    let list = data?.getClinicians ?? [];
+    if (selectedTypes.length > 0) list = list.filter((d) => selectedTypes.includes(d.specialty));
+    if (selectedLangs.length > 1) list = list.filter((d) => (d.languages ?? []).some((l) => selectedLangs.includes(l)));
+    // A clinician with no linked service has no price; excluding them on a
+    // price filter they cannot satisfy would hide real people, so null passes.
+    return list.filter((d) => d.price == null || (d.price >= priceRange[0] && d.price <= priceRange[1]));
+  }, [data, selectedTypes, selectedLangs, priceRange]);
 
   const handleSearch = () => {
-    // triggers useEffect via state changes already bound
+    // Variables are reactive, so a change already refetches; this is the
+    // explicit "Search" affordance re-running the same query.
+    refetch();
   };
 
   const toggleType = (typeName) => {
@@ -513,7 +494,13 @@ export default function Landing() {
             </Grid>
 
             {/* Empty state */}
-            {!loading && results.length === 0 && (
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+                Could not load doctors right now. {error.message}
+              </Alert>
+            )}
+
+            {!loading && !error && results.length === 0 && (
               <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3, mt: 2 }}>
                 <SearchIcon sx={{ fontSize: 48, color: '#D0E8EA', mb: 2 }} />
                 <Typography variant="h5" fontWeight={700}>No doctors match your criteria</Typography>

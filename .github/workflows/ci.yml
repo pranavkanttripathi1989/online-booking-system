@@ -152,9 +152,9 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      # `--max-warnings 197` is a ratchet, not a target: it blocks NEW warnings
-      # while the existing 197 stay visible. Lower the number as they are fixed;
-      # never raise it.
+      # `--max-warnings 177` is a ratchet, not a target: it blocks NEW warnings
+      # while the existing ones stay visible. Lower the number as they are fixed
+      # (197 -> 177 when BUG009 wired the fabricated pages); never raise it.
       - run: npm run lint
       - run: npm test
       - run: npm run build

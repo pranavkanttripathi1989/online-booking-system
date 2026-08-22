@@ -1,142 +1,136 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Paper,
-  Divider, Avatar, List, ListItem, ListItemText, ListItemIcon, LinearProgress,
+  Alert, Avatar, Box, Button, Card, CardContent, Chip, Grid, LinearProgress,
+  Paper, Skeleton, Stack, Typography,
 } from '@mui/material';
+import { useQuery } from '@apollo/client';
+import { useNavigate } from 'react-router-dom';
+import dayjs from 'dayjs';
 import EventNoteIcon from '@mui/icons-material/EventNote';
 import PersonIcon from '@mui/icons-material/Person';
 import GroupIcon from '@mui/icons-material/Group';
-import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
+import EventBusyIcon from '@mui/icons-material/EventBusy';
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth';
-import { useNavigate } from 'react-router-dom';
+import { StatusChip } from '../../components/shared';
+import { DASHBOARD_QUERY } from '../../graphql/queries';
 
-// SUG-STFDS-004: Timestamps derived relative to load time (static offsets for mock)
-const NOW = Date.now();
-const RECENT_ACTIVITY = [
-  { icon: <CheckCircleIcon sx={{ color: '#2DC653', fontSize: 18 }} />, text: 'Emma Wilson checked in for 10:00 appt',    time: '10 min ago', patient: 'Emma' },
-  { icon: <CancelIcon      sx={{ color: '#E63946', fontSize: 18 }} />, text: 'Omar Hassan cancelled 14:00 appointment',  time: '35 min ago', patient: 'Omar' },
-  { icon: <PersonIcon      sx={{ color: '#3A86FF', fontSize: 18 }} />, text: 'New patient Lily Chen registered',          time: '1h ago',     patient: 'Lily' },
-  { icon: <CheckCircleIcon sx={{ color: '#2DC653', fontSize: 18 }} />, text: "James Brown confirmed tomorrow's session", time: '2h ago',     patient: 'James' },
-];
+// F-18 / BUG009. Every number on this page was invented — "12" appointments,
+// a three-person queue, a four-item activity feed, three rooms with made-up
+// occupancy — while backend/src/dashboard has been real and role-gated
+// (@Auth('admin','super_admin','staff')) all along.
+//
+// Three panels had NO backend counterpart and are removed rather than faked,
+// following the precedent set when clinicians/detail.jsx was rewired:
+//
+//   * "Check In" / "Checked In" count. Appointments.status is
+//     scheduled | completed | cancelled | no_show — there is no checked_in
+//     state, so the button wrote nowhere and the KPI counted a field that does
+//     not exist. Real check-in is queue management (REQ019), a feature, not a
+//     wiring gap. Logged as an open question.
+//   * "Recent Activity" feed. No event or audit source shaped for it.
+//   * "Clinic Capacity" per room. No per-room slot model exists — but
+//     utilisation_by_clinician does and is real, so the panel keeps its purpose
+//     with data that actually exists rather than being deleted outright.
 
-const MOCK_QUEUE = [
-  { name: 'Emma Wilson',   time: '10:00', room: '3A', status: 'checked-in' },
-  { name: 'Omar Hassan',   time: '11:00', room: '3A', status: 'scheduled'  },
-  { name: 'Lily Chen',     time: '14:00', room: '2B', status: 'scheduled'  },
-];
+const barColor = (pct) => (pct > 85 ? 'error.main' : pct > 70 ? 'warning.main' : 'primary.main');
 
-// SUG-STFDS-003: Three-tier color helper for capacity bars
-const getBarColor = (ratio) => {
-  if (ratio > 0.85) return '#E63946'; // red — critical
-  if (ratio > 0.70) return '#D97706'; // amber — warning
-  return '#006D77';                   // teal — normal
-};
+function Kpi({ label, value, sub, color, icon, loading }) {
+  return (
+    <Card sx={{ borderTop: 4, borderColor: color, height: '100%' }}>
+      <CardContent sx={{ p: 2 }}>
+        <Stack direction="row" justifyContent="space-between">
+          <Box sx={{ minWidth: 0 }}>
+            {loading
+              ? <Skeleton width={60} height={40} />
+              : <Typography variant="h3" fontWeight={800} sx={{ color }}>{value}</Typography>}
+            <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.3 }}>{label}</Typography>
+            {sub && <Typography variant="caption" color="text.secondary">{sub}</Typography>}
+          </Box>
+          <Box sx={{ color, opacity: 0.3, fontSize: 32 }}>{icon}</Box>
+        </Stack>
+      </CardContent>
+    </Card>
+  );
+}
+
+const pctLabel = (n) => `${n >= 0 ? '+' : ''}${Number(n ?? 0).toFixed(0)}% vs yesterday`;
 
 export default function StaffDashboard() {
   const navigate = useNavigate();
+  const { data, loading, error, refetch } = useQuery(DASHBOARD_QUERY, { fetchPolicy: 'cache-and-network' });
 
-  // SUG-STFDS-001: Queue as state to support Check In updates
-  const [queue, setQueue] = useState(MOCK_QUEUE);
-  // SUG-STFDS-007: track recently-checked-in patients so "Undo" can be offered for 30s
-  const [recentCheckIns, setRecentCheckIns] = useState({});
-
-  // SUG-STFDS-001: Check In handler
-  // SUG-STFDS-007: also mark the patient as "recent" so an Undo button appears for 30s
-  const handleCheckIn = (name) => {
-    setQueue(prev => prev.map(p => p.name === name ? { ...p, status: 'checked-in' } : p));
-    setRecentCheckIns(prev => ({ ...prev, [name]: true }));
-    setTimeout(() => {
-      setRecentCheckIns(prev => { const next = { ...prev }; delete next[name]; return next; });
-    }, 30000);
-  };
-
-  // SUG-STFDS-007: revert an accidental check-in back to "scheduled"
-  const handleUndoCheckIn = (name) => {
-    setQueue(prev => prev.map(p => p.name === name ? { ...p, status: 'scheduled' } : p));
-    setRecentCheckIns(prev => { const next = { ...prev }; delete next[name]; return next; });
-  };
-
-  // SUG-STFDS-002: Derive checked-in count from queue state
-  const checkedInCount = queue.filter(p => p.status === 'checked-in').length;
+  const d = data?.dashboard;
+  // No mock fallback — an empty clinic day is a real answer.
+  const queue = d?.upcoming_appointments ?? [];
+  const utilisation = d?.utilisation_by_clinician ?? [];
 
   return (
     <Box>
-      <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1.5} sx={{ mb: 3 }}>
         <Box>
           <Typography variant="h2" fontWeight={700}>Staff Dashboard</Typography>
-          <Typography variant="body2" color="text.secondary">City Heart Clinic · Good morning!</Typography>
+          <Typography variant="body2" color="text.secondary">{dayjs().format('dddd, D MMMM YYYY')}</Typography>
         </Box>
         <Button variant="contained" startIcon={<CalendarMonthIcon />} onClick={() => navigate('/staff/appointments')}>
           View All Appointments
         </Button>
       </Stack>
 
-      {/* KPI cards */}
+      {error && (
+        <Alert severity="error" sx={{ mb: 3 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+          Could not load the dashboard: {error.message}
+        </Alert>
+      )}
+
       <Grid container spacing={2} sx={{ mb: 3 }}>
-        {[
-          { label: "Today's Appointments", value: 12,             sub: '3 completed',          color: '#006D77', icon: <EventNoteIcon /> },
-          { label: 'Checked In',           value: checkedInCount,  sub: 'Currently waiting',     color: '#2DC653', icon: <CheckCircleIcon /> },
-          { label: 'Cancellations Today',  value: 1,               sub: '1 slot freed',          color: '#E63946', icon: <CancelIcon /> },
-          { label: 'New Registrations',    value: 4,               sub: 'This week',             color: '#3A86FF', icon: <PersonIcon /> },
-        ].map(({ label, value, sub, color, icon }) => (
-          <Grid item xs={6} md={3} key={label}>
-            <Card sx={{ borderTop: `4px solid ${color}` }}>
-              <CardContent sx={{ p: 2 }}>
-                <Stack direction="row" justifyContent="space-between">
-                  <Box>
-                    <Typography variant="h3" fontWeight={800} sx={{ color }}>{value}</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ lineHeight: 1.3 }}>{label}</Typography>
-                    <Typography variant="caption" color="text.secondary">{sub}</Typography>
-                  </Box>
-                  <Box sx={{ color, opacity: 0.3, fontSize: 32 }}>{icon}</Box>
-                </Stack>
-              </CardContent>
-            </Card>
-          </Grid>
-        ))}
+        <Grid item xs={6} md={3}>
+          <Kpi label="Today's Appointments" loading={loading && !d} color="primary.main" icon={<EventNoteIcon />}
+            value={d?.total_appointments_today ?? 0} sub={d ? pctLabel(d.total_appointments_today_change) : ''} />
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Kpi label="This Week" loading={loading && !d} color="success.main" icon={<CalendarMonthIcon />}
+            value={d?.total_appointments_week ?? 0} sub="Scheduled across the clinic" />
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Kpi label="Total Patients" loading={loading && !d} color="info.main" icon={<PersonIcon />}
+            value={d?.total_patients ?? 0} sub={d ? `${Number(d.total_patients_change ?? 0).toFixed(0)}% vs last month` : ''} />
+        </Grid>
+        <Grid item xs={6} md={3}>
+          <Kpi label="No-Show Rate" loading={loading && !d} color="error.main" icon={<EventBusyIcon />}
+            value={`${Number(d?.no_show_rate ?? 0).toFixed(1)}%`} sub="Last 30 days" />
+        </Grid>
       </Grid>
 
       <Grid container spacing={3}>
-        {/* Today's queue */}
         <Grid item xs={12} md={7}>
           <Card>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Today's Patient Queue</Typography>
+              <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Upcoming Appointments</Typography>
               <Stack spacing={1.5}>
-                {/* SUG-STFDS-006: Empty state for queue */}
-                {queue.length === 0 ? (
-                  <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>No patients scheduled for today</Typography>
-                ) : queue.map((p) => (
-                  <Paper key={p.name} variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: 2 }}>
-                    <Avatar sx={{ bgcolor: '#006D77', width: 36, height: 36, fontWeight: 800, fontSize: '0.8rem' }}>
-                      {p.name.split(' ').map((n) => n[0]).join('')}
+                {loading && !queue.length && Array.from({ length: 3 }).map((_, i) => (
+                  <Skeleton key={i} variant="rounded" height={64} />
+                ))}
+
+                {!loading && queue.length === 0 && (
+                  <Typography color="text.secondary" sx={{ py: 3, textAlign: 'center' }}>
+                    No upcoming appointments
+                  </Typography>
+                )}
+
+                {queue.map((a) => (
+                  <Paper key={a.id} variant="outlined" sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 2, borderRadius: 2, flexWrap: 'wrap' }}>
+                    <Avatar sx={{ bgcolor: 'primary.main', width: 36, height: 36, fontWeight: 800, fontSize: '0.8rem' }}>
+                      {(a.patient?.full_name ?? '?').split(' ').filter(Boolean).map((n) => n[0]).join('').slice(0, 2)}
                     </Avatar>
-                    <Box flex={1}>
-                      <Typography variant="body2" fontWeight={700}>{p.name}</Typography>
-                      <Stack direction="row" spacing={1}>
-                        <Typography variant="caption" color="text.secondary">{p.time}</Typography>
-                        <Typography variant="caption" color="text.secondary">Room {p.room}</Typography>
+                    <Box flex={1} sx={{ minWidth: 140 }}>
+                      <Typography variant="body2" fontWeight={700}>{a.patient?.full_name ?? '—'}</Typography>
+                      <Stack direction="row" spacing={1} flexWrap="wrap">
+                        <Typography variant="caption" color="text.secondary">{dayjs(a.start_datetime).format('D MMM, HH:mm')}</Typography>
+                        {a.clinician?.full_name && <Typography variant="caption" color="text.secondary">{a.clinician.full_name}</Typography>}
+                        {a.service?.name && <Typography variant="caption" color="text.secondary">{a.service.name}</Typography>}
                       </Stack>
                     </Box>
-                    <Chip
-                      label={p.status === 'checked-in' ? 'Checked In' : 'Scheduled'}
-                      size="small"
-                      sx={{
-                        bgcolor: p.status === 'checked-in' ? '#D1FAE5' : '#E8F8F9',
-                        color:   p.status === 'checked-in' ? '#065F46' : '#006D77',
-                        fontWeight: 700,
-                      }}
-                    />
-                    {/* SUG-STFDS-001: Check In button wired to handleCheckIn */}
-                    {p.status === 'scheduled' && (
-                      <Button size="small" variant="outlined" onClick={() => handleCheckIn(p.name)}>Check In</Button>
-                    )}
-                    {/* SUG-STFDS-007: Undo Check In — available for 30s after check-in */}
-                    {p.status === 'checked-in' && recentCheckIns[p.name] && (
-                      <Button size="small" color="warning" onClick={() => handleUndoCheckIn(p.name)}>Undo</Button>
-                    )}
+                    <StatusChip status={a.status} />
                   </Paper>
                 ))}
               </Stack>
@@ -147,58 +141,67 @@ export default function StaffDashboard() {
           </Card>
         </Grid>
 
-        {/* Activity feed */}
         <Grid item xs={12} md={5}>
           <Card>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Recent Activity</Typography>
-              <List dense sx={{ p: 0 }}>
-                {RECENT_ACTIVITY.map((item, i) => (
-                  <React.Fragment key={i}>
-                    {/* SUG-STFDS-005: Clickable activity items */}
-                    <ListItem
-                      button
-                      onClick={() => navigate(`/staff/appointments?search=${encodeURIComponent(item.patient)}`)}
-                      sx={{ px: 0, py: 1, alignItems: 'flex-start', cursor: 'pointer', borderRadius: 1, '&:hover': { bgcolor: '#F0F7F8' } }}
-                    >
-                      <ListItemIcon sx={{ minWidth: 30, mt: 0.3 }}>{item.icon}</ListItemIcon>
-                      <ListItemText
-                        primary={<Typography variant="body2">{item.text}</Typography>}
-                        secondary={<Typography variant="caption" sx={{ color: '#83C5BE', fontWeight: 600 }}>{item.time}</Typography>}
-                      />
-                    </ListItem>
-                    {i < RECENT_ACTIVITY.length - 1 && <Divider />}
-                  </React.Fragment>
-                ))}
-              </List>
+              <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
+                <GroupIcon fontSize="small" color="action" />
+                <Typography variant="h5" fontWeight={700}>Clinician Utilisation</Typography>
+              </Stack>
+
+              {loading && !utilisation.length && Array.from({ length: 3 }).map((_, i) => (
+                <Skeleton key={i} height={44} sx={{ mb: 1 }} />
+              ))}
+
+              {!loading && utilisation.length === 0 && (
+                <Typography color="text.secondary" variant="body2" sx={{ py: 3, textAlign: 'center' }}>
+                  No availability configured yet
+                </Typography>
+              )}
+
+              {utilisation.map((u) => {
+                const pct = Number(u.utilisation_percent ?? 0);
+                return (
+                  <Box key={u.clinician.id} sx={{ mb: 1.5 }}>
+                    <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }} spacing={1}>
+                      <Typography variant="body2" fontWeight={600} noWrap sx={{ minWidth: 0 }}>
+                        {u.clinician.full_name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                        {u.slots_booked}/{u.slots_available} slots
+                      </Typography>
+                    </Stack>
+                    <LinearProgress
+                      variant="determinate"
+                      value={Math.min(100, pct)}
+                      aria-label={`${u.clinician.full_name} utilisation ${pct.toFixed(0)} percent`}
+                      sx={{ height: 6, borderRadius: 3, '& .MuiLinearProgress-bar': { bgcolor: barColor(pct), borderRadius: 3 } }}
+                    />
+                  </Box>
+                );
+              })}
+
+              {/* The resolver documents exactly what this count includes and
+                  excludes (dashboard.service.ts getUtilisationByClinician). Said
+                  out loud rather than presented as an exact capacity figure. */}
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 1 }}>
+                Slots are derived from configured availability; a simplified measure.
+              </Typography>
             </CardContent>
           </Card>
 
-          {/* Clinic capacity */}
           <Card sx={{ mt: 2 }}>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Clinic Capacity</Typography>
-              {[
-                { label: 'Room 1A', used: 8, total: 10 },
-                { label: 'Room 2B', used: 5, total: 8  },
-                { label: 'Room 3C', used: 3, total: 6  },
-              ].map(({ label, used, total }) => (
-                <Box key={label} sx={{ mb: 1.5 }}>
-                  <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
-                    <Typography variant="body2" fontWeight={600}>{label}</Typography>
-                    <Typography variant="caption" color="text.secondary">{used}/{total} slots</Typography>
-                  </Stack>
-                  <LinearProgress
-                    variant="determinate"
-                    value={(used / total) * 100}
-                    sx={{
-                      height: 6, borderRadius: 3,
-                      bgcolor: '#E8F8F9',
-                      // SUG-STFDS-003: 3-tier color: teal / amber / red
-                      '& .MuiLinearProgress-bar': { bgcolor: getBarColor(used / total), borderRadius: 3 },
-                    }}
-                  />
-                </Box>
+              <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>Bookings by Service</Typography>
+              {loading && !d && <Skeleton height={80} />}
+              {d && (d.bookings_by_service ?? []).length === 0 && (
+                <Typography variant="body2" color="text.secondary">No bookings yet</Typography>
+              )}
+              {(d?.bookings_by_service ?? []).map((s) => (
+                <Stack key={s.service_name} direction="row" justifyContent="space-between" sx={{ py: 0.5 }} spacing={1}>
+                  <Typography variant="body2" noWrap sx={{ minWidth: 0 }}>{s.service_name}</Typography>
+                  <Chip label={s.count} size="small" />
+                </Stack>
               ))}
             </CardContent>
           </Card>

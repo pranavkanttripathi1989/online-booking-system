@@ -6,6 +6,10 @@ const STATUS_CONFIG = {
   confirmed:   { label: 'Confirmed',   color: 'primary' },
   completed:   { label: 'Completed',   color: 'success' },
   cancelled:   { label: 'Cancelled',   color: 'error' },
+  // The backend emits `no_show` (Appointments.status, underscore). The hyphen
+  // form is kept for any caller still passing it; without the underscore key
+  // the chip fell through to the raw string, rendering a literal "no_show".
+  'no_show':   { label: 'No Show',     color: 'warning' },
   'no-show':   { label: 'No Show',     color: 'warning' },
   blocked:     { label: 'Blocked',     color: 'default' },
   pending:     { label: 'Pending',     color: 'warning' },

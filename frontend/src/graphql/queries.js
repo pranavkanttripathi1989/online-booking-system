@@ -19,6 +19,7 @@ export const APPOINTMENT_FIELDS = gql`
     end_datetime
     duration_minutes
     status
+    type
     notes
     cancellation_reason
     reminder_sent_at

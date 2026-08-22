@@ -83,6 +83,12 @@ export class AppointmentType {
   @Field() end_datetime: Date;
   @Field(() => Int) duration_minutes: number;
   @Field() status: string;
+  // Appointments.type ("in_person" | "video"). The column has existed since the
+  // model was written but was never exposed, so patient/Appointments.jsx had no
+  // way to tell a video consultation from an in-person one and fabricated the
+  // distinction. Nullable because the column is, with "in_person" as the
+  // database default.
+  @Field({ nullable: true }) type?: string;
   @Field({ nullable: true }) notes?: string;
   @Field({ nullable: true }) cancellation_reason?: string;
   @Field({ nullable: true }) reminder_sent_at?: Date;

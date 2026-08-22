@@ -91,7 +91,6 @@ const ClinicianPatients     = lazy(() => import('./pages/clinician/Patients'))
 const ManagerDashboard    = lazy(() => import('./pages/manager/Dashboard'))
 const ManagerAvailability = lazy(() => import('./pages/manager/Availability'))
 const ManagerBlocks       = lazy(() => import('./pages/manager/Blocks'))
-const ManagerBilling      = lazy(() => import('./pages/manager/Billing'))
 
 // ─── Manager: Clinics (feature folder) ───────────────────────────────────────
 const ManagerClinics   = lazy(() => import('./pages/manager/clinics/index'))
@@ -276,13 +275,27 @@ function App() {
           <Route path="/clinician/patients"     element={<Suspense fallback={<ShellPageLoader />}><ClinicianPatients /></Suspense>} />
 
           {/* ── Staff ─────────────────────────────────────────────────── */}
-          <Route path="/staff/dashboard"        element={<Suspense fallback={<ShellPageLoader />}><StaffDashboard /></Suspense>} />
-          <Route path="/staff/appointments"     element={<Suspense fallback={<ShellPageLoader />}><StaffAppointments /></Suspense>} />
+          {/* Guarded to match the backend: dashboard.resolver.ts is
+              @Auth('admin','super_admin','staff'). These routes previously had
+              no RoleGuard at all, so a patient or clinician could open a staff
+              console — harmless while the pages were fabricated, a FORBIDDEN
+              error the moment they read real data. 'manager' is included
+              because managers legitimately cover the front desk. */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'staff', 'manager']} />}>
+            <Route path="/staff/dashboard"        element={<Suspense fallback={<ShellPageLoader />}><StaffDashboard /></Suspense>} />
+            <Route path="/staff/appointments"     element={<Suspense fallback={<ShellPageLoader />}><StaffAppointments /></Suspense>} />
+          </Route>
 
           {/* ── Manager / admin ───────────────────────────────────────── */}
           <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager']} />}>
             <Route path="/manager/dashboard"         element={<Suspense fallback={<ShellPageLoader />}><ManagerDashboard /></Suspense>} />
-            <Route path="/manager/billing"           element={<Suspense fallback={<ShellPageLoader />}><ManagerBilling /></Suspense>} />
+            {/* /manager/billing duplicated /finances (real since REQ004) — same
+                manager-scoped revenue summary, transaction list and revenue
+                chart. Its extra concepts (invoice IDs, refunds, "outstanding")
+                had no backing model at all. Redirected rather than given a
+                second, fabricated source of truth for the same numbers — the
+                same call as open-questions.md #7. */}
+            <Route path="/manager/billing"           element={<Navigate to="/finances" replace />} />
             <Route path="/manager/availability"      element={<Suspense fallback={<ShellPageLoader />}><ManagerAvailability /></Suspense>} />
             <Route path="/manager/blocks"            element={<Suspense fallback={<ShellPageLoader />}><ManagerBlocks /></Suspense>} />
             {/* Clinics CRUD */}

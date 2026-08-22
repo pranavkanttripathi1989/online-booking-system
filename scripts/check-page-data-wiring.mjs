@@ -61,27 +61,19 @@ const EXTERNAL_SOURCE = [
  * Two very different groups, and the distinction is the whole point:
  */
 const ALLOWED = new Set([
-  // (a) No backend domain exists yet. Building it is CLAUDE.md Priority 2.
-  //     Fabricated data here is a known gap, not a regression.
+  // No backend domain exists yet, so there is nothing to wire these to.
+  // Building the domains is CLAUDE.md Priority 2. Fabricated data here is a
+  // known gap, not a regression.
   'onboarding/index.jsx',
   'tasks/index.jsx',
   'waiting-room/index.jsx',
 
-  // (b) A real backend domain EXISTS and the page ignores it. These are bugs,
-  //     found by this gate on its first run — Priority 3's mock-removal sweep
-  //     missed all seven because its grep matched `mocks/store` imports, and
-  //     none of these import it; they declare their own `MOCK_*` arrays instead
-  //     (clinician/Patients.jsx goes as far as `export const MOCK_PATIENTS`).
-  //     That is the same blind spot that hid NotificationBell.jsx and
-  //     clinicians/detail.jsx. Backend module in brackets.
-  'analytics/index.jsx',        // [analytics]
-  'clinician/Patients.jsx',     // [patients]
-  'manager/Billing.jsx',        // [appointment-payments]
-  'patient/Appointments.jsx',   // [appointments]
-  'public/landing.jsx',         // [public] — already documented as mock in CLAUDE.md
-  'staff/Appointments.jsx',     // [appointments]
-  'staff/Dashboard.jsx',        // [dashboard]
+  // The seven pages that were here — analytics, clinician/Patients,
+  // manager/Billing, patient/Appointments, public/landing, staff/Appointments
+  // and staff/Dashboard — are gone from this list because they are wired
+  // (BUG009). manager/Billing was deleted outright: it duplicated /finances.
 ]);
+
 
 function walk(dir) {
   const out = [];

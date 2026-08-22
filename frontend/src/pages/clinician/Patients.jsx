@@ -1,9 +1,7 @@
 import React, { useState, useMemo, useRef, useCallback } from 'react';
 import dayjs from 'dayjs';
 import {
-  Box, Grid, Typography, Card, CardContent, Stack, Button, Chip,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, TableSortLabel, Tooltip, TablePagination, InputAdornment, TextField,
+  Box, Typography, Card, CardContent, Stack, Button, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, TableSortLabel, Tooltip, TablePagination, InputAdornment, TextField, Alert,
 } from '@mui/material';
 import DownloadIcon from '@mui/icons-material/Download';
 import { PatientAvatar } from '../../components/shared';
@@ -13,41 +11,79 @@ import VisibilityIcon     from '@mui/icons-material/Visibility';
 import CalendarMonthIcon  from '@mui/icons-material/CalendarMonth';
 import PersonSearchIcon   from '@mui/icons-material/PersonSearch';
 import { useNavigate }    from 'react-router-dom';
+import { useQuery, gql } from '@apollo/client';
+import { PATIENT_FIELDS } from '../../graphql/queries';
 
-// ─── Mock Patients ─────────────────────────────────────────────────────────────
-// Named export so booking wizard can import for pre-fill lookup (SUG-CLPAT-011)
-export const MOCK_PATIENTS = [
-  { id: 'pt-1', name: 'Alice Thompson',  dob: '1985-03-12', email: 'alice.thompson@gmail.com',       lastVisit: '2026-03-05', totalVisits: 6, nextAppt: '2026-03-20', condition: 'Hypertension', status: 'active'   },
-  { id: 'pt-2', name: 'Marcus Chen',     dob: '1990-07-25', email: 'marcus.chen@outlook.com',        lastVisit: '2026-02-18', totalVisits: 3, nextAppt: null,          condition: 'Asthma',       status: 'active'   },
-  { id: 'pt-3', name: 'Fatima Al-Hassan',dob: '1978-11-04', email: 'fatima.alhassan@email.com',      lastVisit: '2026-03-01', totalVisits: 1, nextAppt: null,          condition: 'Diabetes',     status: 'new'      },
-  { id: 'pt-4', name: 'George Williams', dob: '1962-05-18', email: 'george.williams@btinternet.com', lastVisit: '2026-01-14', totalVisits: 8, nextAppt: '2026-03-25', condition: 'Cholesterol',  status: 'active'   },
-  { id: 'pt-5', name: 'Sophie Turner',   dob: '1995-09-30', email: 'sophie.turner@gmail.com',        lastVisit: '2025-12-10', totalVisits: 2, nextAppt: null,          condition: '—',            status: 'inactive' },
-];
+// F-18 / BUG009. This page exported `MOCK_PATIENTS` — five hardcoded people —
+// while backend/src/patients has been real and self-scoping for months. The
+// "named export so the booking wizard can import it" comment was also stale:
+// nothing imported it.
+//
+// Page-local query rather than the canonical PATIENTS_QUERY because this screen
+// needs each patient's visit history, and adding a nested appointments field to
+// the shared query would make every other consumer pay for it.
+//
+// NOTE (N+1): `appointments` is a @ResolveField, so this issues one extra query
+// per patient in the page. At 10 rows that is 10 indexed lookups
+// (Appointments(patient_id, appointment_date) — added in BUG005), which is
+// acceptable; it would not be at a page size of 200. Revisit with a batched
+// resolver if this page ever grows one.
+const CLINICIAN_PATIENTS_QUERY = gql`
+  query ClinicianPatients($search: String, $first: Int!, $page: Int!) {
+    patients(search: $search, first: $first, page: $page) {
+      data {
+        ...PatientFields
+        appointments(first: 100, page: 1) {
+          data { id start_datetime status }
+          paginatorInfo { total }
+        }
+      }
+      paginatorInfo { total currentPage lastPage perPage }
+    }
+  }
+  ${PATIENT_FIELDS}
+`;
+
+// Flattens a real Patient into the display shape the table already expects.
+// `condition` and `status` are deliberately absent — see the note on COLS.
+function toRow(p) {
+  const appts = p.appointments?.data ?? [];
+  const now = Date.now();
+  const past = appts
+    .filter((a) => new Date(a.start_datetime).getTime() <= now && a.status !== 'cancelled')
+    .sort((a, b) => new Date(b.start_datetime) - new Date(a.start_datetime));
+  const future = appts
+    .filter((a) => new Date(a.start_datetime).getTime() > now && a.status !== 'cancelled')
+    .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
+  return {
+    id: p.id,
+    name: p.full_name,
+    dob: p.date_of_birth ? dayjs(p.date_of_birth).format('YYYY-MM-DD') : '',
+    email: p.email ?? '',
+    lastVisit: past[0] ? dayjs(past[0].start_datetime).format('YYYY-MM-DD') : null,
+    nextAppt: future[0] ? dayjs(future[0].start_datetime).format('YYYY-MM-DD') : null,
+    // Real count from the server, not the length of the fetched page.
+    totalVisits: p.appointments?.paginatorInfo?.total ?? appts.length,
+  };
+}
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STITCH_BRAND = '#006D77';
 
-const FILTERS = ['all', 'active', 'new', 'inactive'];
-const FILTER_LABELS = { all: 'All', active: 'Active', new: 'New', inactive: 'Inactive' };
-
+// `condition` and `status` (active/new/inactive) are GONE rather than faked.
+// Neither exists anywhere in the schema. `status` could be *derived* — "new" if
+// one visit, "inactive" if the last visit is over N months old — but N is a
+// clinical/business rule nobody has set, and inventing one is exactly what Hard
+// Rule 7 forbids. Logged as an open question instead; the columns come back the
+// moment there is a real definition to render.
 const COLS = [
   { key: 'name',        label: 'Patient',          sortable: true  },
   { key: 'dob',         label: 'Date of Birth',    sortable: true  },
-  { key: 'condition',   label: 'Condition',        sortable: false },
   { key: 'lastVisit',   label: 'Last Visit',       sortable: true  },
   { key: 'nextAppt',    label: 'Next Appointment', sortable: true  },
   { key: 'totalVisits', label: 'Total Visits',     sortable: true  },
-  { key: 'status',      label: 'Status',           sortable: true  },
   { key: 'actions',     label: 'Actions',          sortable: false },
 ];
-
-// ─── Status colours ────────────────────────────────────────────────────────────
-const getStatusStyle = (status) => ({
-  bgcolor:       status === 'active' ? '#D1FAE5' : status === 'new' ? '#DBEAFE' : '#F3F4F6',
-  color:         status === 'active' ? '#065F46' : status === 'new' ? '#1E40AF' : '#6B7280',
-  fontWeight:    700,
-  textTransform: 'capitalize',
-});
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 // SUG-CLPAT-008: safe single-word name split
@@ -56,10 +92,9 @@ const splitName = (fullName = '') => {
   return { firstName: first, lastName: rest.join(' ') };
 };
 
-// SUG-CLPAT-010: Unicode normalization for diacritic-insensitive search
-const normalise = (str = '') =>
-  str.normalize('NFD').replace(/\p{Diacritic}/gu, '').toLowerCase();
-
+// Diacritic-normalising search moved SERVER-side with the query; the local
+// helper it used is gone. Postgres `contains` with mode:'insensitive' handles
+// case, and matching across the whole dataset beats matching one page.
 // Sort comparator (null/undefined → '' so nulls sort to start of asc)
 const compareBy = (key, dir) => (a, b) => {
   const av = a[key] ?? '';
@@ -76,7 +111,6 @@ export default function ClinicianPatients() {
   // ── State ──────────────────────────────────────────────────────────────────
   const [search,   setSearch]   = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [filter,   setFilter]   = useState('all');
   const [sortKey,  setSortKey]  = useState('name');
   const [sortDir,  setSortDir]  = useState('asc');
   // SUG-CLPAT-012: pagination
@@ -99,40 +133,36 @@ export default function ClinicianPatients() {
     setPage(0); // reset to first page on sort change
   };
 
-  // ── Filter chip counts (always based on full MOCK list) ───────────────────
-  const countOf = (status) =>
-    status === 'all' ? MOCK_PATIENTS.length : MOCK_PATIENTS.filter(p => p.status === status).length;
+  // Search and pagination are SERVER-side. patients.service.ts narrows a
+  // clinician caller to patients they have actually treated (an
+  // `appointments: { some: { clinician_id } }` relation check), so "My Patients"
+  // is enforced by the backend rather than by this page filtering a list it
+  // should never have received.
+  const { data, loading, error, refetch } = useQuery(CLINICIAN_PATIENTS_QUERY, {
+    variables: {
+      search: debouncedSearch || undefined,
+      first: rowsPerPage === -1 ? 200 : rowsPerPage,
+      page: page + 1,
+    },
+    fetchPolicy: 'cache-and-network',
+  });
 
-  // ── Filtered + sorted + paginated list ────────────────────────────────────
-  const filtered = useMemo(() => {
-    const q = normalise(debouncedSearch); // NEW-CLPAT-022: use debounced value
-    return MOCK_PATIENTS
-      .filter(p => {
-        const matchSearch =
-          !debouncedSearch ||
-          normalise(p.name  ?? '').includes(q) ||  // SUG-010: diacritic-safe
-          normalise(p.email ?? '').includes(q);     // SUG-002: null guard
-        const matchFilter = filter === 'all' || p.status === filter;
-        return matchSearch && matchFilter;
-      })
-      .sort(compareBy(sortKey, sortDir));
-  }, [debouncedSearch, filter, sortKey, sortDir]);
+  const totalPatients = data?.patients?.paginatorInfo?.total ?? 0;
+  const rows = useMemo(() => (data?.patients?.data ?? []).map(toRow), [data]);
 
-  // Paginated slice
-  const paginated = rowsPerPage === -1
-    ? filtered
-    : filtered.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage);
+  // Sorting stays client-side and therefore sorts THIS PAGE only. The backend
+  // exposes no sort argument, and pretending otherwise would silently mis-order
+  // across pages. Made visible in the column header tooltip rather than hidden.
+  const filtered = useMemo(() => [...rows].sort(compareBy(sortKey, sortDir)), [rows, sortKey, sortDir]);
+  const paginated = filtered;
 
-  // Reset to page 0 whenever filter/search changes
-  const handleFilterChange = (f) => { setFilter(f); setPage(0); };
   const handleSearchChange = (val) => { handleSearch(val); };
 
   // NEW-CLPAT-023: Export CSV of filtered patient list
   const exportCSV = () => {
-    const header = ['Name', 'DOB', 'Email', 'Condition', 'Last Visit', 'Next Appt', 'Total Visits', 'Status'];
+    const header = ['Name', 'DOB', 'Email', 'Last Visit', 'Next Appt', 'Total Visits'];
     const rows = filtered.map(p => [
-      p.name, p.dob, p.email ?? '', p.condition ?? '',
-      p.lastVisit ?? '', p.nextAppt ?? '', p.totalVisits, p.status,
+      p.name, p.dob, p.email ?? '', p.lastVisit ?? '', p.nextAppt ?? '', p.totalVisits,
     ]);
     const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
@@ -144,11 +174,12 @@ export default function ClinicianPatients() {
   };
 
   // ── KPI calculations ───────────────────────────────────────────────────────
+  // "Active" and "New This Month" are gone with the status field they counted.
+  // "Upcoming Appts" is scoped to this page, and says so, rather than implying a
+  // figure across all patients that this query cannot see.
   const kpis = [
-    { label: 'Total Patients', value: MOCK_PATIENTS.length,                                    color: STITCH_BRAND },
-    { label: 'Active',         value: MOCK_PATIENTS.filter(p => p.status === 'active').length, color: '#2DC653'    },
-    { label: 'New This Month', value: MOCK_PATIENTS.filter(p => p.status === 'new').length,    color: '#3A86FF'    },
-    { label: 'Upcoming Appts', value: MOCK_PATIENTS.filter(p => p.nextAppt).length,            color: '#E29578'    },
+    { label: 'Total Patients',          value: totalPatients,                            color: STITCH_BRAND },
+    { label: 'With Upcoming (page)',    value: rows.filter(p => p.nextAppt).length,      color: '#E29578'    },
   ];
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -159,7 +190,7 @@ export default function ClinicianPatients() {
         <Box>
           <Typography variant="h2" fontWeight={700}>My Patients</Typography>
           <Typography variant="body2" color="text.secondary">
-            {MOCK_PATIENTS.length} patients · {MOCK_PATIENTS.filter(p => p.nextAppt).length} with upcoming appointments
+            {loading && !rows.length ? 'Loading…' : `${totalPatients} patient${totalPatients === 1 ? '' : 's'} you have treated`}
           </Typography>
         </Box>
         {/* NEW-CLPAT-023: Export CSV button */}
@@ -216,29 +247,17 @@ export default function ClinicianPatients() {
           }}
         />
 
-        {/* Filter chips — SUG-CLPAT-016: keyboard nav (Enter/Space) */}
-        <Stack direction="row" spacing={1} flexWrap="wrap">
-          {FILTERS.map(f => (
-            <Chip
-              key={f}
-              label={`${FILTER_LABELS[f]} (${countOf(f)})`}
-              onClick={() => handleFilterChange(f)}
-              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handleFilterChange(f); } }}
-              tabIndex={0}
-              color={filter === f ? 'primary' : 'default'}
-              variant={filter === f ? 'filled' : 'outlined'}
-              sx={{ cursor: 'pointer', fontWeight: filter === f ? 700 : 400 }}
-            />
-          ))}
-        </Stack>
-
         {/* Results count badge */}
         <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-          {filtered.length === MOCK_PATIENTS.length
-            ? `${filtered.length} patients`
-            : `${filtered.length} of ${MOCK_PATIENTS.length} patients`}
+          {`${filtered.length} shown · ${totalPatients} total`}
         </Typography>
       </Stack>
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 2 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+          Could not load your patients: {error.message}
+        </Alert>
+      )}
 
       {/* TABLE */}
       <TableContainer component={Paper} sx={{ border: '1px solid #D0E8EA', borderRadius: 2 }}>
@@ -265,7 +284,7 @@ export default function ClinicianPatients() {
             {/* Empty state */}
             {filtered.length === 0 ? (
               <TableRow>
-                <TableCell colSpan={8} align="center" sx={{ py: 7 }}>
+                <TableCell colSpan={6} align="center" sx={{ py: 7 }}>
                   <Stack spacing={1.5} alignItems="center">
                     <PersonSearchIcon sx={{ fontSize: 48, color: 'text.disabled' }} />
                     <Typography variant="body1" fontWeight={600} color="text.secondary">
@@ -274,13 +293,13 @@ export default function ClinicianPatients() {
                     <Typography variant="body2" color="text.disabled">
                       {search
                         ? `No results for "${search}". Try a different name or email.`
-                        : `No patients match the "${FILTER_LABELS[filter]}" filter.`}
+                        : 'Patients appear here once you have treated them.'}
                     </Typography>
-                    {(search || filter !== 'all') && (
+                    {search && (
                       <Button
                         size="small"
                         variant="outlined"
-                        onClick={() => { handleSearchChange(''); handleFilterChange('all'); }}
+                        onClick={() => handleSearchChange('')}
                         sx={{ mt: 1, color: STITCH_BRAND, borderColor: STITCH_BRAND, borderRadius: 2 }}
                       >
                         Clear filters
@@ -294,7 +313,10 @@ export default function ClinicianPatients() {
                 const { firstName, lastName } = splitName(patient.name); // SUG-008
                 // NEW-CLPAT-019: overdue warning — last visit > 90 days
                 const daysSinceVisit = patient.lastVisit ? dayjs().diff(dayjs(patient.lastVisit), 'day') : null;
-                const isOverdue = daysSinceVisit !== null && daysSinceVisit > 90 && patient.status !== 'inactive';
+                // The `status !== 'inactive'` guard went with the status field. Overdue is
+                // now purely "last real visit was over 90 days ago", which is what it
+                // always actually measured.
+                const isOverdue = daysSinceVisit !== null && daysSinceVisit > 90;
                 return (
                   <TableRow
                     key={patient.id}
@@ -374,7 +396,7 @@ export default function ClinicianPatients() {
                     {/* Status — NEW-CLPAT-019: overdue warning badge */}
                     <TableCell>
                       <Stack direction="row" spacing={0.5} alignItems="center">
-                        <Chip label={patient.status} size="small" sx={getStatusStyle(patient.status)} />
+
                         {isOverdue && (
                           <Tooltip title={`Last visit ${daysSinceVisit} days ago — consider follow-up`}>
                             <Chip label="Overdue" size="small" sx={{ bgcolor: '#FFF3CD', color: '#856404', fontWeight: 700, fontSize: '0.65rem', height: 18 }} />
@@ -424,7 +446,7 @@ export default function ClinicianPatients() {
           <TablePagination
             rowsPerPageOptions={[5, 10, 25, { label: 'All', value: -1 }]}
             component="div"
-            count={filtered.length}
+            count={totalPatients}
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={(_, newPage) => setPage(newPage)}
