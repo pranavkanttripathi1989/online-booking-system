@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderTestInput } from './dto/order-test.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { isPlatformOperator, orgScopeVia } from '../common/scoping/tenant-scope';
 
 @Injectable()
 export class TestResultsService {
@@ -38,10 +39,11 @@ export class TestResultsService {
               ],
             }
           : {}),
-        // Indirect tenant scoping via the ordering user's org, same pattern as
-        // every other domain — a legacy/seeded result with no ordering user
-        // is visible to any authenticated staff role rather than hidden.
-        ordered_by: user.client_org_id ? { client_org_id: user.client_org_id } : undefined,
+        // BUG006. Indirect tenant scoping via the ordering user's org. This
+        // read `user.client_org_id ? {...} : undefined`, and `undefined` is
+        // "no filter" to Prisma — so an org-less caller was unscoped. Only the
+        // patient self-scope below happened to contain it.
+        ...orgScopeVia(user, 'ordered_by'),
         // SECURITY: this query had no @Auth() role gate and no per-patient
         // scoping -- any authenticated 'patient' role account could read
         // every patient's lab values within the org. Restrict to the
@@ -59,11 +61,31 @@ export class TestResultsService {
     if (!row || row.is_deleted) {
       throw new NotFoundException('Test result not found');
     }
-    if (user.client_org_id && row.ordered_by && row.ordered_by.client_org_id !== user.client_org_id) {
-      throw new NotFoundException('Test result not found');
+    // BUG006 — two separate defects lived in these four lines, and the pair of
+    // them was live-exploitable by an account anyone could self-register.
+    //
+    // 1. `user.client_org_id && ...` skipped the ORG CHECK ENTIRELY for a caller
+    //    with no org, rather than failing closed. Absence of an org was read as
+    //    permission, which is the F-01 inference all over again.
+    // 2. The patient self-scope then compared `row.patient_id !== user.patient_id`.
+    //    For a self-registered patient both sides are null, `null !== null` is
+    //    false, and the check passed — so every free-text result (patient_id
+    //    NULL, which CLAUDE.md documents as the common shape here) was readable
+    //    across every tenant.
+    //
+    // Live-reproduced by test/integration/tenancy.int-spec.ts before this fix.
+    if (!isPlatformOperator(user)) {
+      const rowOrgId = row.ordered_by?.client_org_id ?? null;
+      if (!user.client_org_id || rowOrgId !== user.client_org_id) {
+        throw new NotFoundException('Test result not found');
+      }
     }
-    if (user.roles.includes('patient') && row.patient_id !== user.patient_id) {
-      throw new NotFoundException('Test result not found');
+    if (user.roles.includes('patient')) {
+      // An unlinked patient account (patient_id null) matches nothing, rather
+      // than matching every row that also has a null patient_id.
+      if (!user.patient_id || row.patient_id !== user.patient_id) {
+        throw new NotFoundException('Test result not found');
+      }
     }
     return this.toGraphQL(row);
   }

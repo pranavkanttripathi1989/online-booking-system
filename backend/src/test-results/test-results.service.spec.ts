@@ -13,6 +13,9 @@ describe('TestResultsService — access scoping', () => {
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['clinician'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
+  // BUG006: the self-registered archetype — patient role, no org, no patient
+  // link. Reachable by anyone via auth.service.ts register().
+  const selfRegistered: JwtPayload = { sub: 'user-2', roles: ['patient'], client_org_id: null, patient_id: null } as JwtPayload;
 
   beforeEach(async () => {
     prisma = { testResults: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn() } };
@@ -44,7 +47,37 @@ describe('TestResultsService — access scoping', () => {
   it('a patient caller can read their own test result', async () => {
     prisma.testResults.findUnique.mockResolvedValue({
       id: 'tr-1', is_deleted: false, patient_id: 'pat-1', status: 'completed', date_ordered: new Date(), values: [],
+      // The ordering user is what anchors a TestResults row to a tenant. It was
+      // absent from this fixture, which made the row look org-less — and under
+      // the pre-BUG006 guard an org-less row was readable by everyone, so the
+      // omission went unnoticed. findAll never returned such rows to an
+      // org-scoped caller; only findOne did.
+      ordered_by: { client_org_id: 'org-1' },
     });
     await expect(service.findOne('tr-1', patientUser)).resolves.toBeDefined();
+  });
+
+  // ---- BUG006 regressions -------------------------------------------------
+  // Both of these passed against the old code, which is the point: the old
+  // guard `if (user.client_org_id && ...)` skipped the org check entirely for
+  // an org-less caller, and `row.patient_id !== user.patient_id` was
+  // `null !== null` — false — for a free-text result. Live-reproduced over real
+  // HTTP in test/integration/tenancy.int-spec.ts.
+
+  it('a self-registered (org-less) caller cannot read a free-text result from another org', async () => {
+    prisma.testResults.findUnique.mockResolvedValue({
+      id: 'tr-3', is_deleted: false, patient_id: null, status: 'completed', date_ordered: new Date(), values: [],
+      ordered_by: { client_org_id: 'org-1' },
+    });
+    await expect(service.findOne('tr-3', selfRegistered)).rejects.toThrow(NotFoundException);
+  });
+
+  it('a self-registered (org-less) caller gets a fail-closed sentinel, not an unfiltered list', async () => {
+    await service.findAll(undefined, undefined, undefined, selfRegistered);
+    const where = prisma.testResults.findMany.mock.calls[0][0].where;
+    // The key must be PRESENT and impossible to match. Absent — or present and
+    // `undefined` — means Prisma applies no filter at all.
+    expect(where.ordered_by).toEqual({ client_org_id: '__no_org__' });
+    expect(where.patient_id).toBe('__no_patient_link__');
   });
 });

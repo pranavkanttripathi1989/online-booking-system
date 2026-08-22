@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { VerifyRazorpayPaymentInput } from './dto/appointment-payment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScope } from '../common/scoping/tenant-scope';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
@@ -149,7 +150,9 @@ export class AppointmentPaymentsService {
     const rows = await this.prisma.appointmentPayments.findMany({
       where: {
         created_at: { gte: new Date(startDate), lte: new Date(endDate) },
-        ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}),
+        // BUG006 — F-01 ternary; `{}` for an org-less caller returned every
+        // tenant's payment records.
+        ...orgScope(user),
       },
       include: {
         patient: true,
@@ -172,7 +175,9 @@ export class AppointmentPaymentsService {
     const rows = await this.prisma.appointmentPayments.findMany({
       where: {
         created_at: { gte: new Date(startDate), lte: new Date(endDate) },
-        ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}),
+        // BUG006 — F-01 ternary; `{}` for an org-less caller returned every
+        // tenant's payment records.
+        ...orgScope(user),
       },
       include: {
         patient: true,
@@ -202,7 +207,7 @@ export class AppointmentPaymentsService {
   // collected). Conflating the two would be misleading even though both
   // are called "revenue".
   async myFinanceSummary(startDate: string, endDate: string, user: JwtPayload) {
-    const orgFilter = user.client_org_id ? { client_org_id: user.client_org_id } : {};
+    const orgFilter = orgScope(user); // BUG006 — was the F-01 ternary
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
 

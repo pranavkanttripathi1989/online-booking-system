@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateStaffInput, UpdateStaffInput } from './dto/staff.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgIdForWrite, orgScope } from '../common/scoping/tenant-scope';
 
 const BCRYPT_COST = 12;
 
@@ -32,7 +33,9 @@ export class StaffService {
     const rows = await this.prisma.userProfiles.findMany({
       where: {
         is_deleted: false,
-        client_org_id: user.client_org_id ?? undefined,
+        // BUG006 — `?? undefined` is no filter; an org-less caller read every
+        // tenant's staff directory.
+        ...orgScope(user),
         role: { name: { notIn: ['clinician', 'patient'] } },
         department: department ?? undefined,
         staff_status: status ?? undefined,
@@ -106,7 +109,8 @@ export class StaffService {
           staff_since: input.since ? new Date(input.since) : undefined,
           address_line1: input.address,
           notes: input.notes,
-          client_org_id: currentUser.client_org_id ?? undefined,
+          // BUG006 — `?? undefined` silently created an ORG-LESS staff account.
+          client_org_id: orgIdForWrite(currentUser, 'staff member'),
         },
         include: { role: true },
       });

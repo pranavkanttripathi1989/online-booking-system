@@ -1,0 +1,91 @@
+import { readdirSync, existsSync } from 'fs';
+import { join } from 'path';
+import { COVERED_DOMAINS } from './setup/domain-cases';
+
+/**
+ * The anti-rot gate (technical-plans/00-foundation-hardening.md §4:
+ * "Make CI fail when a domain has no matrix row — otherwise it rots").
+ *
+ * A tenancy matrix decays in a specific, silent way: someone adds a domain,
+ * never adds a row, and the suite stays green while coverage quietly shrinks as
+ * a fraction of the app. This test makes that a build failure.
+ *
+ * Every resolver-bearing directory under src/ must be in exactly one of three
+ * places: covered by the matrix, EXEMPT with a stated reason, or KNOWN_GAPS.
+ * A new domain is in none of them, so it fails until someone decides which.
+ */
+
+/** Domains with no tenant-scoped data to isolate. Each needs a real reason. */
+const EXEMPT: Record<string, string> = {
+  auth: 'Login/register/OTP. @Public by necessity; owns no tenant-scoped read.',
+  account: "The caller's own profile, keyed by JWT `sub`. No tenant dimension to cross.",
+  'notification-preferences': "The caller's own preferences, keyed by user id.",
+  public: 'The deliberately public patient-facing surface (see CLAUDE.md, two-dialect note).',
+  languages: 'Global reference table, shared by every tenant by design (see BUG005 — deliberately unindexed for the same reason).',
+  lookups: 'Global reference data (room types, clinician types).',
+  'email-templates': 'Global reference table; templates are seed-created, not tenant-created.',
+};
+
+/**
+ * Tenant-scoped domains that this matrix does NOT yet cover.
+ *
+ * Frozen deliberately: the assertion below compares the actual gap set to this
+ * list exactly, so the backlog cannot grow silently, and closing an entry means
+ * deleting a line here. This is a stated debt, not a claim of coverage — TR054
+ * reports it as such rather than implying the matrix is exhaustive.
+ */
+const KNOWN_GAPS = [
+  'analytics',
+  'availability',
+  'blocks',
+  'cancellation-rules',
+  'dashboard',
+  'notifications',
+  'org-settings',
+  'organizations',
+  'reviews',
+  'services',
+].sort();
+
+function resolverDomains(): string[] {
+  const srcDir = join(__dirname, '..', '..', 'src');
+  return readdirSync(srcDir, { withFileTypes: true })
+    .filter((d) => d.isDirectory())
+    .map((d) => d.name)
+    .filter((name) => {
+      const dir = join(srcDir, name);
+      return existsSync(dir) && readdirSync(dir).some((f) => f.endsWith('.resolver.ts'));
+    })
+    .sort();
+}
+
+describe('tenancy matrix coverage', () => {
+  const domains = resolverDomains();
+
+  it('finds the resolver domains it is supposed to police', () => {
+    // A sanity check on the discovery itself: if the glob broke, every other
+    // assertion here would vacuously pass.
+    expect(domains.length).toBeGreaterThan(15);
+    expect(domains).toContain('clinics');
+  });
+
+  it('every resolver domain is covered, exempt, or a declared known gap', () => {
+    const unclassified = domains.filter(
+      (d) => !COVERED_DOMAINS.includes(d) && !(d in EXEMPT) && !KNOWN_GAPS.includes(d),
+    );
+    expect(unclassified).toEqual([]);
+  });
+
+  it('the known-gap list has not grown', () => {
+    const actualGaps = domains
+      .filter((d) => !COVERED_DOMAINS.includes(d) && !(d in EXEMPT))
+      .sort();
+    // Exact equality in both directions: a new uncovered domain fails, and so
+    // does a stale entry for a domain that has since been covered or deleted.
+    expect(actualGaps).toEqual(KNOWN_GAPS);
+  });
+
+  it('no domain is both covered and exempt', () => {
+    expect(COVERED_DOMAINS.filter((d) => d in EXEMPT)).toEqual([]);
+  });
+});

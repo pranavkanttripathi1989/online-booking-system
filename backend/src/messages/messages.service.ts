@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateThreadInput } from './dto/message.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PUB_SUB } from '../common/pubsub.provider';
+import { orgScope } from '../common/scoping/tenant-scope';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 
 export const MESSAGE_RECEIVED_EVENT = 'messageReceived';
@@ -71,7 +72,13 @@ export class MessagesService {
         is_deleted: false,
         is_active: true,
         id: { not: user.sub },
-        ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}),
+        // BUG006. This was `user.client_org_id ? {...} : {}`, which expands to
+        // NO FILTER for an org-less caller — and `register` mints exactly that
+        // (patient role, null org) for anyone on the public internet. With no
+        // @Auth() anywhere on this resolver, a self-registered account read the
+        // name and role of every user on the platform. Live-reproduced by
+        // test/integration/tenancy.int-spec.ts before this fix.
+        ...orgScope(user),
       },
       include: { role: true },
       orderBy: { first_name: 'asc' },

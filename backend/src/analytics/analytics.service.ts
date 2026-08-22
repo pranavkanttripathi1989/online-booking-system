@@ -1,6 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+// Aliased: this service has its own private orgScope() for the indirect
+// (via-clinic) case, which would otherwise shadow the import.
+import { orgScope as sharedOrgScope, orgScopeVia } from '../common/scoping/tenant-scope';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? 0 : paise / 100);
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -24,13 +27,15 @@ const formatDayLabel = (d: Date) =>
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // BUG006 — was the F-01 ternary, returning `{}` (every tenant) for an
+  // org-less caller. Delegates to the shared fail-closed helper.
   private orgScope(user: JwtPayload) {
-    return user.client_org_id ? { clinic: { client_org_id: user.client_org_id } } : {};
+    return orgScopeVia(user, 'clinic');
   }
 
   async getClinics(user: JwtPayload) {
     return this.prisma.clinics.findMany({
-      where: { is_deleted: false, ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}) },
+      where: { is_deleted: false, ...sharedOrgScope(user) }, // BUG006 — was the F-01 ternary
       orderBy: { created_at: 'asc' },
     });
   }

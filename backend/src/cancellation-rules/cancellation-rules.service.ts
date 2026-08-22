@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateCancellationRuleInput, UpdateCancellationRuleInput } from './dto/cancellation-rule.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScope } from '../common/scoping/tenant-scope';
 
 @Injectable()
 export class CancellationRulesService {
@@ -44,7 +45,9 @@ export class CancellationRulesService {
     const rows = await this.prisma.productCancellationRules.findMany({
       where: {
         is_deleted: false,
-        ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}),
+        // BUG006 — was the F-01 ternary; `{}` for an org-less caller exposed
+        // every tenant's cancellation policy.
+        ...orgScope(user),
       },
       include: { clinic: true },
       orderBy: [{ priority: 'asc' }, { created_at: 'desc' }],

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { isPlatformOperator, orgScope, orgScopeVia } from '../common/scoping/tenant-scope';
 
 const PAISE_TO_RUPEES = (paise: number) => paise / 100;
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -23,28 +24,33 @@ const pctChange = (current: number, previous: number) => {
 export class DashboardService {
   constructor(private readonly prisma: PrismaService) {}
 
+  // BUG006: all four scopes below were the F-01 ternary, returning `{}` — every
+  // tenant — for an org-less caller. They now fail closed via the shared helper.
   private appointmentOrgScope(user: JwtPayload) {
-    return user.client_org_id ? { clinic: { client_org_id: user.client_org_id } } : {};
+    return orgScopeVia(user, 'clinic');
   }
 
   private clinicianOrgScope(user: JwtPayload) {
-    return user.client_org_id ? { clinic: { client_org_id: user.client_org_id } } : {};
+    return orgScopeVia(user, 'clinic');
   }
 
   // Same via-appointments-OR-no-appointments-yet pattern as patients.service.ts's
   // orgScope() — Patients has no client_org_id column of its own.
   private patientOrgScope(user: JwtPayload) {
-    if (!user.client_org_id) return {};
+    if (isPlatformOperator(user)) return {};
+    // Non-operator with no org falls through to the sentinel, matching nothing,
+    // rather than to `{}`, matching everything.
+    const scope = orgScopeVia(user, 'clinic');
     return {
       OR: [
-        { appointments: { some: { clinic: { client_org_id: user.client_org_id } } } },
+        { appointments: { some: scope } },
         { appointments: { none: {} } },
       ],
     };
   }
 
   private paymentOrgScope(user: JwtPayload) {
-    return user.client_org_id ? { client_org_id: user.client_org_id } : {};
+    return orgScope(user);
   }
 
   async getDashboard(user: JwtPayload) {

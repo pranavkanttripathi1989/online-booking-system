@@ -600,7 +600,7 @@ visible, then add tests where the risk is: `AuthContext` (after F-02),
 date formatting, and each form's zod schema.
 **File as:** requirement, feature `test-coverage-audit`.
 
-### F-25 · S2 · No integration tests; tenancy is proven against a mock
+### F-25 · S2 · No integration tests; tenancy is proven against a mock — ✅ CLOSED 2026-08-22
 **Evidence:** all 49 suites replace `PrismaService` with `jest.fn()` mocks and
 assert the shape of the `where` argument. No `supertest`, no test database, no
 API-level test. F-01, F-04 and F-05 are all invisible to this design.
@@ -610,6 +610,43 @@ whose core is a **tenancy matrix**: for each of ~8 roles × each domain, assert
 own-org read succeeds and other-org read returns empty or `FORBIDDEN`. That
 suite is the regression net this project most needs and does not have.
 **File as:** requirement, feature `test-coverage-audit`.
+
+**Closed** as `BUG007` / `PLAN028` / `TP055` / `TR054` (filed under
+`platform-nfr`, not `test-coverage-audit` — the fix is a platform capability, and
+the leaks it exposed belong to `security`). Went with the dedicated compose
+service over Testcontainers: no new dependency, and it maps one-to-one onto a
+GitHub Actions `services:` block for F-26.
+
+**What it found on first run, exactly as predicted.** Two live cross-tenant
+leaks reachable by an account anyone can self-register — the full platform user
+directory via `messageableContacts`, and lab results across tenants via
+`testResult(id)`. Ten further instances of the same pattern, latent behind role
+gates. All twelve are `BUG006`.
+
+**Three corrections to the finding as written**, each of which matters for
+whoever extends the matrix:
+
+1. **The defect has four spellings, not one.** The F-01 write-up describes
+   `client_org_id ? {…} : {}`. Also live were `?? undefined`, `: undefined` on a
+   relation, and `if (user.client_org_id && …)` guards that skip entirely for a
+   null org. A grep for the first spelling finds a third of the instances —
+   which is exactly how `BUG004` left twelve behind.
+2. **The write path is a separate bug class with the same cause.**
+   `client_org_id: user.client_org_id ?? undefined` on a `create` never leaks on
+   read; it silently writes an **org-less row**. Six `create` paths did this.
+   `tenant-scope.ts` had no write-path helper at all, which is why each service
+   improvised the same wrong thing. `orgIdForWrite()` now exists.
+3. **The unit suite had begun asserting the defect.** Three specs expected
+   `client_org_id: undefined` — the precise value the bug produced — so they
+   would have failed against a *correct* implementation. A suite that cannot
+   detect a defect eventually gets edited to agree with it. This is the strongest
+   argument for the matrix, stronger than the missing coverage itself.
+
+**Not closed by this:** coverage is 12 of 22 tenant-scoped domains, with the
+other ten declared in a frozen `KNOWN_GAPS` list that the suite asserts by exact
+equality; the ten latent fixes are not matrix-proven (their role gates make them
+unreachable today); and the suite needs `--forceExit` (see F-29), which must be
+resolved before F-26.
 
 ### F-26 · S2 · No CI
 **Evidence:** `.github/workflows` does not exist.
@@ -648,8 +685,20 @@ Redis client or throttler interval in a testing module), and add
 `--forceExit` only as a last resort — a hanging worker will hang CI.
 **File as:** bug, feature `test-coverage-audit`.
 
+**Confirmed and widened 2026-08-22** while building F-25's harness. The
+integration suite hits the same class harder — it currently *requires*
+`--forceExit` and logs `Cannot log after tests are done` after teardown, so
+something holds a handle past `app.close()`. Two further measured facts for
+whoever picks this up: the default `npm test` worker count is **OOM-killed on
+this host** (exit 137) before finishing, and at `--maxWorkers=2` the `account`
+and `staff` suites intermittently time out on bcrypt under contention while
+passing in isolation. All three are the same underlying problem — the backend
+suite is not currently safe to run unattended, which blocks F-26.
+
 ### F-30 · S4 · Documented status drifts from measured status
-`CLAUDE.md` cites 405 tests / 37 suites (actual 602 / 49) and asserts several
+`CLAUDE.md` cited 405 tests / 37 suites when this register measured 602 / 49; as
+of 2026-08-22 the real figures are **645 / 50** unit plus **120 / 3** integration
+(`CLAUDE.md` corrected in the same commit, but by hand, which is the problem) and asserts several
 "green" states that need re-verification each session. This is a known, already
 logged pattern rather than a new problem, but it compounds: the counts are cited
 as coverage evidence.

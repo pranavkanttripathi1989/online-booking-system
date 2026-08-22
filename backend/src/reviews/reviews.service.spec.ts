@@ -46,9 +46,20 @@ describe('ReviewsService', () => {
     it('does not scope by org for a platform-wide caller', async () => {
       prisma.reviews.findMany.mockResolvedValue([]);
       await service.findAll(undefined, platformUser);
-      expect(prisma.reviews.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ clinic: undefined }) }),
-      );
+      const where = prisma.reviews.findMany.mock.calls[0][0].where;
+      // BUG006: previously asserted `clinic: undefined`, which is exactly the
+      // "no filter" value the bug produced — the test encoded the defect.
+      expect(where).not.toHaveProperty('clinic');
+    });
+
+    it('an org-less NON-platform caller is scoped to an impossible sentinel', async () => {
+      // BUG006 regression: `clinic: ... : undefined` left this caller able to
+      // read every tenant's reviews, patient names and comments included.
+      prisma.reviews.findMany.mockResolvedValue([]);
+      const orgLess = { sub: 'u-9', roles: ['patient'], client_org_id: null } as any;
+      await service.findAll(undefined, orgLess);
+      const where = prisma.reviews.findMany.mock.calls[0][0].where;
+      expect(where.clinic).toEqual({ client_org_id: '__no_org__' });
     });
 
     it('applies a stars filter when given', async () => {

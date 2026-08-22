@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ReviewFilterInput } from './dto/review-filter.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScopeVia } from '../common/scoping/tenant-scope';
 
 @Injectable()
 export class ReviewsService {
@@ -24,7 +25,10 @@ export class ReviewsService {
       where: {
         is_deleted: false,
         stars: filter?.stars ?? undefined,
-        clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined,
+        // BUG006 — `: undefined` is NOT a filter in Prisma, so an org-less
+        // caller read every tenant's reviews (patient names and free-text
+        // comments included).
+        ...orgScopeVia(user, 'clinic'),
         ...(filter?.search
           ? {
               OR: [

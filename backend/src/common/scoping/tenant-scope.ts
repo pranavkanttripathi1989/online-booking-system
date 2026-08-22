@@ -1,4 +1,4 @@
-import { NotFoundException } from '@nestjs/common';
+import { ForbiddenException, NotFoundException } from '@nestjs/common';
 import { JwtPayload } from '../../auth/strategies/jwt.strategy';
 
 // F-01 fix (project-plans/02-findings-register.md) — the shared helper that
@@ -74,4 +74,25 @@ export function assertSameOrg(user: JwtPayload, recordOrgId: string | null | und
   if (!isSameOrg(user, recordOrgId)) {
     throw new NotFoundException(`${entityLabel} not found`);
   }
+}
+
+/**
+ * The org id to stamp on a NEW tenant-scoped row.
+ *
+ * The read helpers above have a write-path counterpart that is easy to miss,
+ * and several services got it wrong the same way: `client_org_id:
+ * user.client_org_id ?? undefined` on a `create`. That is not a filter, so it
+ * does not leak on read — it silently writes an ORG-LESS ROW, which then
+ * belongs to no tenant and (before `orgScope`) was visible to everyone.
+ *
+ * Platform operators legitimately create global rows, so `undefined` is right
+ * for them. For anyone else, having no org is not a licence to create an
+ * unscoped record — it is a bug in the caller's account, and it fails closed.
+ */
+export function orgIdForWrite(user: JwtPayload, entityLabel: string): string | undefined {
+  if (isPlatformOperator(user)) return user?.client_org_id ?? undefined;
+  if (!user?.client_org_id) {
+    throw new ForbiddenException(`Cannot create ${entityLabel} without an organization`);
+  }
+  return user.client_org_id;
 }

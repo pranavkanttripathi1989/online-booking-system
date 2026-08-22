@@ -4,6 +4,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput } from './dto/appointment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScopeVia } from '../common/scoping/tenant-scope';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 
@@ -98,8 +99,10 @@ export class AppointmentsService {
     };
   }
 
+  // BUG006: delegates to the shared helper. The local version was the F-01
+  // ternary — an org-less caller got `{}`, i.e. every tenant's appointments.
   private orgScope(user: JwtPayload) {
-    return user.client_org_id ? { clinic: { client_org_id: user.client_org_id } } : {};
+    return orgScopeVia(user, 'clinic');
   }
 
   // SECURITY: appointments() previously only org-scoped, never self-scoped --

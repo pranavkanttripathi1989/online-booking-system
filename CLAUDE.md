@@ -50,8 +50,8 @@ shared `orgScope()` helper, the index migration, and the tenancy-matrix
 integration test land first. Building Phase 1 on the current foundation means
 fixing those defects ~40 times instead of once.
 
-**Phase F status (2026-08-22) — the two code prerequisites are done; the two
-process gates are not.** All four S1 findings are closed:
+**Phase F status (2026-08-22) — five of six items done; only CI remains.**
+Every S1 finding is closed:
 
 | | What landed | Use it like this |
 |---|---|---|
@@ -59,15 +59,44 @@ process gates are not.** All four S1 findings are closed:
 | F-02 `BUG003` | Frontend mock-auth bypass deleted (`MOCK_USERS`, `login-legacy.jsx`, the `mock_` token branch) | never reintroduce a client-side auth fallback; a failed `me` query logs out |
 | F-01 `BUG004` | `backend/src/common/scoping/tenant-scope.ts` — `orgScope`, `orgScopeVia`, `isPlatformOperator`, `assertSameOrg` | **use these in every new tenant-scoped query.** Never write `user.client_org_id ? {...} : undefined` — that ternary is the bug: it makes "no org" mean "see everything". The helper fails closed on a `__no_org__` sentinel |
 | F-13 `BUG005` | 69 indexes across 30 models (`20260822130000_add_indexes`) | index from the real `where`/`orderBy`, equality columns first and the range/sort column last. **Do not lead a composite with `client_org_id`** — measured, it matches ~20% of rows and the planner correctly ignores it; lead with the selective column (`clinician_id`, `clinic_id`, `patient_id`). Note `appointment_time`, not `appointment_date`, is the hot column |
+| F-25 `BUG007` | Integration harness + tenancy matrix (`backend/test/integration/`, `npm run test:int`) | **use it.** Real `AppModule`, real PostgreSQL (`postgres_test`, port 5433), real JWTs through the real guard chain. Adding a domain is one row in `setup/domain-cases.ts` — and `matrix-coverage.int-spec.ts` FAILS if you add a resolver domain without classifying it |
+| F-01 residue `BUG006` | 12 more services migrated onto the scoping helpers; new `orgIdForWrite()` | the defect has **four** spellings, not one — see below |
 
-Two Phase F items remain, and both are *process* gaps rather than live defects —
-which is exactly why they matter: nothing currently stops any of the four
-findings above from silently regressing. **There is no CI**, so "verify before you
-commit" is unenforceable, and a new model can land with zero indexes without any
-test noticing (unit tests mock Prisma, and the dev database's handful of rows
-makes a sequential scan genuinely optimal). **There is no integration-test
-tenancy matrix**, so cross-tenant leaks are caught only by hand-probing, which is
-how all three security findings were actually found.
+**The scoping bug has four spellings. Grepping for one finds a third of them.**
+`BUG004` fixed the `client_org_id ? {...} : {}` ternary and left twelve
+instances behind, two of them live-exploitable. All four of these mean *no
+filter* for an org-less caller:
+
+| Spelling | Why it leaks |
+|---|---|
+| `user.client_org_id ? { client_org_id: … } : {}` | spreads to nothing |
+| `client_org_id: user.client_org_id ?? undefined` | Prisma reads `undefined` as "key not supplied" |
+| `clinic: user.client_org_id ? { … } : undefined` | same, on a relation filter |
+| `if (user.client_org_id && …) { throw }` | the guard is skipped, not failed |
+
+**On a `create`, use `orgIdForWrite(user, 'thing')`, never `?? undefined`** —
+that doesn't leak on read, it silently writes an **org-less row**. Six create
+paths did this; `createRole` produced platform-global roles from an org admin's
+own "create custom role" button.
+
+**Do not write a unit test that asserts `client_org_id: undefined`.** Three specs
+did, pinning the bug in place — they would have failed against correct code. Assert
+the key is **absent** for a platform operator and **`'__no_org__'`** for everyone
+else with no org. Better still, add a matrix row: a mocked-Prisma test asserts the
+`where` a service *built* and can never fail an isolation check, which is exactly
+how F-01 and all twelve of BUG006 shipped green.
+
+**One Phase F item remains: there is no CI (F-26)**, so "verify before you commit"
+is a convention rather than a control, and nothing runs the tenancy matrix on the
+default branch. Two things block it, both measured: **F-29** — the backend suite
+is not safe to run unattended (bare `npm test` is OOM-killed at exit 137; the
+integration suite needs `--forceExit`; `account`/`staff` time out on bcrypt under
+`--maxWorkers=2` contention while passing in isolation) — and **F-22**, where
+`frontend/`'s `npm run lint` exits 1 immediately.
+
+Matrix coverage is **12 of 22** tenant-scoped domains. The other ten are declared
+in a frozen `KNOWN_GAPS` list asserted by exact equality, so the debt is visible
+and cannot grow silently — but it is debt, not coverage.
 
 Directory contract:
 - `<root>/<feature-name>/{requirement,improvement,bug}/*.md` across all five roots.
@@ -128,12 +157,20 @@ Never run `npm run build` inside the same container as the active `start:dev` wa
 ```bash
 npm run start:dev        # nest start --watch (this is what the backend container runs)
 npm run lint              # eslint --fix
-npx jest --maxWorkers=2   # THE way to run the backend suite here — 641 tests / 50 suites, ~130s.
+npx jest --maxWorkers=2   # THE way to run the unit suite here — 645 tests / 50 suites, ~130s.
                           # A bare `npm test` (default workers) gets OOM-killed on this host (exit 137).
+                          # `account`/`staff` also time out on bcrypt under contention but pass
+                          # in isolation — re-run a suspect suite alone before believing a failure.
+npm run test:int          # integration suite — 120 tests / 3 suites, ~117s, REAL Postgres + real
+                          # HTTP. Prerequisite: docker compose --profile test up -d postgres_test
 npm run test -- <pattern> # run a single test file/suite, e.g. `npm run test -- appointments.service`
 npx prisma validate        # validate schema.prisma after editing it
 npx prisma migrate deploy  # apply migrations
 npx prisma generate        # regenerate Prisma Client — ALWAYS follow with docker restart medibook_backend
+
+# Integration/tenancy suite (BUG007) — separate throwaway database, never the dev one
+docker compose --profile test up -d postgres_test   # port 5433, tmpfs; not started by a bare `up -d`
+npm run test:int                                    # boots the real AppModule against it
 ```
 
 **`prisma migrate dev` cannot run non-interactively in this environment** (confirmed — refuses even with `--create-only`). Every schema change ships as a **hand-written migration SQL file** under `backend/prisma/migrations/<timestamp>_<name>/migration.sql`, matching Prisma's own naming/constraint conventions, applied via `prisma migrate deploy`. Migrations don't get Prisma's diff/review safety net this way — read every migration end-to-end against the `schema.prisma` diff before applying it, every time.

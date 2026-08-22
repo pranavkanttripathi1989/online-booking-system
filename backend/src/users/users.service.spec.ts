@@ -77,9 +77,22 @@ describe('UsersService', () => {
     it('does not scope by org for a platform-wide caller', async () => {
       prisma.userProfiles.findMany.mockResolvedValue([]);
       await service.getUsers(undefined, undefined, undefined, undefined, platformUser);
-      expect(prisma.userProfiles.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ client_org_id: undefined }) }),
-      );
+      const where = prisma.userProfiles.findMany.mock.calls[0][0].where;
+      // BUG006: this used to assert `client_org_id: undefined` — which is what
+      // the buggy `?? undefined` produced, so the test was pinning the defect
+      // in place. A platform operator now gets the key OMITTED entirely.
+      expect(where).not.toHaveProperty('client_org_id');
+    });
+
+    it('an org-less NON-platform caller is scoped to an impossible sentinel', async () => {
+      // BUG006 regression. `?? undefined` made this caller unscoped, i.e. able
+      // to read every tenant's user directory. The distinction platform-vs-not
+      // is the whole fix: absence of an org is not evidence of privilege.
+      prisma.userProfiles.findMany.mockResolvedValue([]);
+      const orgLess = { sub: 'u-9', roles: ['manager'], client_org_id: null } as any;
+      await service.getUsers(undefined, undefined, undefined, undefined, orgLess);
+      const where = prisma.userProfiles.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBe('__no_org__');
     });
 
     it('shapes roles/clinic into the admin-facing view', async () => {

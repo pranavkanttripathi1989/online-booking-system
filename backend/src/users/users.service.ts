@@ -3,6 +3,7 @@ import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserInput, UserUpdateInput, AppRoleInput } from './dto/user-admin.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgIdForWrite, orgScope } from '../common/scoping/tenant-scope';
 
 const BCRYPT_COST = 12;
 
@@ -30,7 +31,9 @@ export class UsersService {
     const rows = await this.prisma.userProfiles.findMany({
       where: {
         is_deleted: false,
-        client_org_id: user.client_org_id ?? undefined,
+        // BUG006 — `?? undefined` is NOT a filter in Prisma: an org-less caller
+        // read every tenant's user directory. `orgScope` fails closed instead.
+        ...orgScope(user),
         role: role ? { OR: [{ code: role }, { name: role }] } : undefined,
         ...(search
           ? {
@@ -67,7 +70,10 @@ export class UsersService {
 
   async getUserRoles(user: JwtPayload) {
     const rows = await this.prisma.userRoles.findMany({
-      where: { is_deleted: false, OR: [{ client_org_id: null }, { client_org_id: user.client_org_id ?? undefined }] },
+      // BUG006 — the `?? undefined` arm collapsed to `{ client_org_id: undefined }`,
+      // i.e. "any org", so the OR matched every org's custom roles. Global
+      // (client_org_id null) system roles stay visible to everyone by design.
+      where: { is_deleted: false, OR: [{ client_org_id: null }, orgScope(user)] },
       orderBy: { name: 'asc' },
     });
     return rows.map((r) => ({ id: r.id, name: r.name, description: r.description || undefined, code: r.code ?? slugify(r.name) }));
@@ -148,7 +154,8 @@ export class UsersService {
           first_name: firstName || input.name,
           last_name: rest.join(' ') || '',
           role_id: role.id,
-          client_org_id: currentUser.client_org_id ?? undefined,
+          // BUG006 — `?? undefined` silently created an ORG-LESS user row.
+          client_org_id: orgIdForWrite(currentUser, 'user'),
         },
         include: { role: true },
       });
@@ -211,7 +218,8 @@ export class UsersService {
 
   async listRoles(user: JwtPayload) {
     const rows = await this.prisma.userRoles.findMany({
-      where: { OR: [{ client_org_id: null }, { client_org_id: user.client_org_id ?? undefined }] },
+      // BUG006 — see getUserRoles above; same `?? undefined` defect.
+      where: { OR: [{ client_org_id: null }, orgScope(user)] },
       orderBy: { name: 'asc' },
     });
     return Promise.all(rows.map((r) => this.toAppRole(r)));
@@ -224,7 +232,9 @@ export class UsersService {
           name: input.name,
           description: input.description ?? '',
           code: slugify(input.name),
-          client_org_id: user.client_org_id ?? undefined,
+          // BUG006 — `?? undefined` created a GLOBAL role visible to every
+          // tenant, from a normal org admin's "create custom role" action.
+          client_org_id: orgIdForWrite(user, 'role'),
         },
       });
       if (input.permission_ids?.length) {

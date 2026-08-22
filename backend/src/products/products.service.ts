@@ -9,7 +9,7 @@ import {
   UpdateProductSubcategoryInput,
 } from './dto/product.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScope, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
+import { orgScope, orgIdForWrite, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
@@ -70,7 +70,9 @@ export class ProductsService {
           subcategory_id: input.subcategory_id || undefined,
           product_type: (input.product_type ?? 'simple') as any,
           is_active: input.is_active ?? true,
-          client_org_id: user.client_org_id ?? undefined,
+          // BUG006 — `?? undefined` silently created an ORG-LESS product, which
+          // before orgScope() landed was then visible to every tenant.
+          client_org_id: orgIdForWrite(user, 'product'),
         },
       });
       return { success: true, userErrors: [], product: { id: row.id } };
@@ -132,7 +134,8 @@ export class ProductsService {
   async createCategory(input: CreateProductCategoryInput, user: JwtPayload) {
     try {
       await this.prisma.productCategories.create({
-        data: { name: input.name, description: input.description ?? '', client_org_id: user.client_org_id ?? undefined },
+        // BUG006 — see createProduct; `?? undefined` created an org-less row.
+        data: { name: input.name, description: input.description ?? '', client_org_id: orgIdForWrite(user, 'category') },
       });
       return { success: true, userErrors: [] };
     } catch (e: any) {
@@ -177,7 +180,8 @@ export class ProductsService {
           category_id: input.category_id,
           name: input.name,
           description: input.description ?? '',
-          client_org_id: user.client_org_id ?? undefined,
+          // BUG006 — see createProduct; `?? undefined` created an org-less row.
+          client_org_id: orgIdForWrite(user, 'subcategory'),
         },
       });
       return { success: true, userErrors: [] };

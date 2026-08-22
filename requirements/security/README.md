@@ -16,6 +16,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG006 | bug | The F-01 "org-less caller sees everything" pattern survived in twelve more services | done | 2026-08-22 | 2026-08-22 | BUG004 | [BUG006-security-2026-08-22-org-less-caller-leaks-in-nine-services.md](./bug/BUG006-security-2026-08-22-org-less-caller-leaks-in-nine-services.md) |
 | BUG004 | bug | Public registration mints org-less accounts that read every tenant (F-01) | done | 2026-08-22 | 2026-08-22 | — | [BUG004-security-2026-08-22-tenant-scoping-org-less-caller-sees-everything.md](./bug/BUG004-security-2026-08-22-tenant-scoping-org-less-caller-sees-everything.md) |
 | BUG003 | bug | Frontend client-side authentication and role bypass (F-02) | done | 2026-08-22 | 2026-08-22 | — | [BUG003-security-2026-08-22-frontend-mock-auth-bypass.md](./bug/BUG003-security-2026-08-22-frontend-mock-auth-bypass.md) |
 | BUG002 | bug | Live backend was signing JWTs with a guessable placeholder secret; four other real secrets never reached the container | done | 2026-08-22 | 2026-08-22 | — | [BUG002-security-2026-08-22-live-guessable-jwt-secret-and-unset-container-secrets.md](./bug/BUG002-security-2026-08-22-live-guessable-jwt-secret-and-unset-container-secrets.md) |

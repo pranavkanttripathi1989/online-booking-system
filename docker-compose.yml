@@ -80,6 +80,43 @@ services:
     networks:
       - medibook_network
 
+  # ── PostgreSQL 16 (Integration-test database — F-25 / BUG007) ──────────────────
+  # Deliberately a second, throwaway database rather than a schema inside the dev
+  # one. The tenancy matrix truncates and re-fixtures on every run; pointing that
+  # at medibook_postgres would destroy the dev data the e2e suite runs against.
+  #
+  # tmpfs, not a named volume: the whole point is that it is disposable, and
+  # keeping it in RAM makes `prisma migrate deploy` on a cold start fast enough
+  # to run per-invocation. Nothing here is ever meant to survive a restart.
+  #
+  # Not started by a bare `docker compose up -d` (profile: test) so day-to-day
+  # dev does not pay for a database it never queries. Start it explicitly:
+  #   docker compose --profile test up -d postgres_test
+  postgres_test:
+    image: postgres:16-alpine
+    container_name: medibook_postgres_test
+    profiles: ["test"]
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_TEST_PORT:-5433}:5432"
+    environment:
+      POSTGRES_DB: medibook_test
+      POSTGRES_USER: medibook
+      POSTGRES_PASSWORD: medibook_test_secret
+      # Safe here and only here: this database holds nothing but generated
+      # fixtures, is never exposed beyond localhost, and is wiped every run.
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medibook -d medibook_test"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - medibook_network
+
   # ── Redis 7 (OTP / refresh-token rotation / rate limiting / BullMQ) ─────────────
   redis:
     image: redis:7-alpine

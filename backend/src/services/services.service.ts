@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ServiceInput } from './dto/service.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScope, assertSameOrg } from '../common/scoping/tenant-scope';
+import { orgScope, orgIdForWrite, assertSameOrg } from '../common/scoping/tenant-scope';
 
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
@@ -79,7 +79,8 @@ export class ServicesService {
         is_active: input.is_active ?? true,
         product_type: 'simple',
         sku: this.generateSku(input.name),
-        client_org_id: user.client_org_id ?? undefined,
+        // BUG006 — `?? undefined` silently created an ORG-LESS service.
+        client_org_id: orgIdForWrite(user, 'service'),
       },
       include: this.include(),
     });
