@@ -167,3 +167,10 @@ frontend/*.tsbuildinfo
 # ── Local tool state / test-run artifacts ─────────────────────────────────────
 .claude/settings.local.json
 .playwright-mcp/
+
+# ── Database dumps ────────────────────────────────────────────────────────────
+# Kept out of git deliberately: a dump carries real user rows (emails, bcrypt
+# password hashes, patient records) and would put them in the repository
+# history permanently. Move dumps between machines out-of-band, not via git.
+db-dumps/
+*.dump
