@@ -63,12 +63,20 @@ const UPDATE_ROLE_PERMS = gql`
 const BRAND = '#006D77';
 const BRAND_LIGHT = '#E0F2F1';
 
-// Role visual config — matching Stitch color scheme
+// Role visual config — matching Stitch color scheme.
+// Keys must be the real seeded role names (backend/prisma/seed.ts's ROLES:
+// admin/super_admin/manager/clinician/staff/patient) — this used to key off
+// an older system_admin/clinic_manager/receptionist naming scheme that no
+// real account has ever had, so every admin/super_admin/manager/staff user
+// fell through to the `default` "Unknown" grey chip here (same dead-name
+// class as AppShell.jsx's ROLE_COLORS, which had the identical
+// receptionist-vs-staff mismatch).
 const ROLE_STYLES = {
-  system_admin:   { bg: '#FEE2E2', color: '#B91C1C', label: 'System Admin' },
-  clinic_manager: { bg: '#EDE9FE', color: '#6D28D9', label: 'Clinic Manager' },
+  admin:          { bg: '#FEE2E2', color: '#B91C1C', label: 'Admin' },
+  super_admin:    { bg: '#FEE2E2', color: '#B91C1C', label: 'Super Admin' },
+  manager:        { bg: '#EDE9FE', color: '#6D28D9', label: 'Manager' },
   clinician:      { bg: '#D1FAE5', color: '#065F46', label: 'Clinician' },
-  receptionist:   { bg: '#DBEAFE', color: '#1E40AF', label: 'Receptionist' },
+  staff:          { bg: '#DBEAFE', color: '#1E40AF', label: 'Staff' },
   patient:        { bg: '#FEF3C7', color: '#92400E', label: 'Patient' },
   default:        { bg: '#F1F5F9', color: '#475569', label: 'Unknown' },
 };
