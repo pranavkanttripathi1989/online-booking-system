@@ -27,13 +27,12 @@ test('manager can sign in with real credentials and lands on the manager dashboa
 test('a wrong password is rejected without a stack trace or silent success', async ({ page }) => {
   await page.goto('/login')
 
-  // manager@medibook.dev is both a real seeded account (backend/prisma/seed.ts)
-  // and a recognized "demo account" in login.jsx's MOCK_USERS fallback list —
-  // on a real 401 rejection for a *known* demo email, the frontend shows a
-  // demo-specific hint ("Demo password for this account is...") rather than
-  // the generic "Invalid email or password" message it shows for an unknown
-  // email. Either way, the real assertion is: some error surfaces, no stack
-  // trace/internals leak, and the user stays on /login — not which exact copy.
+  // F-02 fix (project-plans/02-findings-register.md): login.jsx used to fall
+  // back, on any real login failure, to a client-side check accepting the
+  // known demo password or the literal strings "password"/"demo" for any
+  // seeded account — a full auth bypass. That fallback is gone; every
+  // attempt is decided by the server now, so this test just needs some
+  // error to surface, with no stack trace/internals leak and no redirect.
   await page.locator('input[type="email"]').fill('manager@medibook.dev')
   await page.locator('input[type="password"]').fill('DefinitelyWrongPassword!')
   await page.getByRole('button', { name: 'Sign In', exact: true }).click()

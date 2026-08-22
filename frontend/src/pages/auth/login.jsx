@@ -2,7 +2,6 @@
  * AG-2 — Login.jsx
  * Two-column auth screen: Sign In | Register | Forgot Password tabs
  * Wired to LOGIN_MUTATION (GraphQL) + AuthContext.login()
- * Falls back to MOCK_USERS for offline/demo mode
  */
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Navigate, useSearchParams } from 'react-router-dom';
@@ -14,9 +13,9 @@ import {
 } from '@mui/material';
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded';
 import { useMutation } from '@apollo/client';
-import { LOGIN_MUTATION, VERIFY_TOTP_LOGIN_MUTATION } from '../../graphql/mutations';
+import { LOGIN_MUTATION, VERIFY_TOTP_LOGIN_MUTATION, REQUEST_OTP_MUTATION, VERIFY_OTP_MUTATION } from '../../graphql/mutations';
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined';
-import { useAuth, MOCK_USERS, getPostLoginRedirect } from '../../context/AuthContext';
+import { useAuth, getPostLoginRedirect } from '../../context/AuthContext';
 
 // REQ012/PLAN021 Slice 1 — "Require MFA for all staff": when the org
 // requires it and this account hasn't enrolled yet, land on the 2FA
@@ -148,14 +147,24 @@ function OtpInputBoxes({ value, onChange, disabled }) {
 
 
 // ─── OTP Login Mode (NEW-AUTH-004) ────────────────────────────────────────────
-const MOCK_OTP = '123456'; // demo-mode accepted code
-
+// F-02 fix: this used to accept a hardcoded "123456" client-side with no
+// backend call at all — anyone could sign in as any seeded account just by
+// knowing its email. Now wired to the real requestOtp/verifyOtp resolvers
+// (auth.resolver.ts): OTP is phone-keyed only (RequestOtpInput has no email
+// field — matching the real contract, not inventing a "reasonable" one),
+// server-generated, Redis-backed with a real TTL, and 3-attempt lockout is
+// enforced server-side. requestOtp deliberately returns {success:true}
+// whether or not the phone is registered (its own comment: avoids leaking
+// account existence over the OTP channel), so the UI always proceeds to the
+// verify step uniformly.
 function OtpLoginMode({ onBack, rememberMe }) {
   const { login } = useAuth();
   const navigate  = useNavigate();
+  const [requestOtpMutation] = useMutation(REQUEST_OTP_MUTATION);
+  const [verifyOtpMutation]  = useMutation(VERIFY_OTP_MUTATION);
 
   const [step, setStep]         = useState('identifier'); // 'identifier' | 'verify'
-  const [identifier, setId]     = useState('');
+  const [phone, setPhone]       = useState('');
   const [otp, setOtp]           = useState('');
   const [loading, setLoading]   = useState(false);
   const [error, setError]       = useState('');
@@ -171,32 +180,34 @@ function OtpLoginMode({ onBack, rememberMe }) {
 
   const handleSendOtp = async (e) => {
     e.preventDefault();
-    if (!identifier) return;
+    if (!phone) return;
     setError(''); setLoading(true);
-    await new Promise(r => setTimeout(r, 1500));
-    setLoading(false);
-    setStep('verify');
-    setCooldown(60);
-    setHint(`Demo mode — use code: ${MOCK_OTP}`);
+    try {
+      await requestOtpMutation({ variables: { input: { phone } } });
+      setStep('verify');
+      setCooldown(60);
+      setHint(`If ${phone} is a registered account, a code has been sent.`);
+    } catch (err) {
+      setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Could not send code. Try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleVerify = async (e) => {
     e?.preventDefault();
-    if (otp.length < 6) return;
+    if (otp.length !== 6) return;
     setError(''); setLoading(true);
-    await new Promise(r => setTimeout(r, 800));
-    setLoading(false);
-
-    // Mock validation
-    const key = identifier.toLowerCase();
-    const mockUser = MOCK_USERS[key];
-    if (otp === MOCK_OTP && mockUser) {
-      login(mockUser.mock_token || `mock_otp_${Date.now()}`, mockUser, rememberMe);
-      navigate(getPostLoginRedirect(mockUser));
-    } else if (otp === MOCK_OTP) {
-      setError('No demo account found for that email/phone. Try a demo account email.');
-    } else {
-      setError(`Incorrect OTP. In demo mode use ${MOCK_OTP}.`);
+    try {
+      const { data } = await verifyOtpMutation({ variables: { input: { phone, code: otp } } });
+      const { access_token, user, mfa_setup_required, session_timeout_minutes } = data.verifyOtp;
+      login(access_token, user, rememberMe, session_timeout_minutes);
+      navigate(getPostLoginRedirect(user), { state: mfa_setup_required ? { tab: 1, mfaSetupRequired: true } : undefined });
+    } catch (err) {
+      setOtp('');
+      setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Incorrect code.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -220,8 +231,8 @@ function OtpLoginMode({ onBack, rememberMe }) {
 
       <Typography variant="body2" color="text.secondary">
         {step === 'identifier'
-          ? 'Enter your registered email or phone number to receive a one-time code.'
-          : `Enter the 6-digit code sent to ${identifier}`}
+          ? 'Enter your registered phone number to receive a one-time code.'
+          : `Enter the 6-digit code sent to ${phone}`}
       </Typography>
 
       {error && <Alert severity="error" onClose={() => setError('')}>{error}</Alert>}
@@ -237,10 +248,10 @@ function OtpLoginMode({ onBack, rememberMe }) {
           <Stack spacing={2}>
             <TextField
               fullWidth autoFocus
-              label="Email or Phone Number"
-              value={identifier}
-              onChange={e => setId(e.target.value)}
-              inputProps={{ 'aria-label': 'Email or phone for OTP' }}
+              label="Phone Number"
+              value={phone}
+              onChange={e => setPhone(e.target.value)}
+              inputProps={{ 'aria-label': 'Phone number for OTP' }}
               InputProps={{ startAdornment: (
                 <InputAdornment position="start">
                   <PhoneAndroidIcon sx={{ fontSize: 18, color: 'text.secondary' }} />
@@ -248,7 +259,7 @@ function OtpLoginMode({ onBack, rememberMe }) {
               )}}
             />
             <Button type="submit" variant="contained" fullWidth size="large"
-              disabled={loading || !identifier}
+              disabled={loading || !phone}
               sx={{ py: 1.5, fontWeight: 700 }}
             >
               {loading ? <CircularProgress size={20} color="inherit" /> : 'Send One-Time Code'}
@@ -280,6 +291,16 @@ function OtpLoginMode({ onBack, rememberMe }) {
 }
 
 // ─── Mobile Signup Mode (NEW-AUTH-005) ────────────────────────────────────────
+// Not a login path and never grants a session — handleCreate below only sets
+// local `success` state, matching RegisterTab's own already-labeled "Simulate
+// registration — replace with real GraphQL mutation when backend ready."
+// There is no real phone-based signup endpoint to wire this to yet (the
+// backend's `register` mutation is email+password only). This local demo
+// code is scoped to this component's own wizard-step progression only —
+// distinct from OtpLoginMode above, which is a real authentication path and
+// must never accept a fixed code.
+const SIGNUP_WIZARD_DEMO_CODE = '123456';
+
 function MobileSignupMode({ onBack }) {
   const [step, setStep]         = useState('phone'); // 'phone' | 'verify' | 'profile'
   const [phone, setPhone]       = useState('');
@@ -306,7 +327,7 @@ function MobileSignupMode({ onBack }) {
     setLoading(false);
     setStep('verify');
     setCooldown(60);
-    setHint(`Demo mode — use code: ${MOCK_OTP}`);
+    setHint(`Demo mode — use code: ${SIGNUP_WIZARD_DEMO_CODE}`);
   };
 
   const handleVerifyOtp = async (e) => {
@@ -315,11 +336,11 @@ function MobileSignupMode({ onBack }) {
     setError(''); setLoading(true);
     await new Promise(r => setTimeout(r, 800));
     setLoading(false);
-    if (otp === MOCK_OTP) {
+    if (otp === SIGNUP_WIZARD_DEMO_CODE) {
       setStep('profile');
       setHint('');
     } else {
-      setError(`Incorrect OTP. In demo mode use ${MOCK_OTP}.`);
+      setError(`Incorrect code. In demo mode use ${SIGNUP_WIZARD_DEMO_CODE}.`);
     }
   };
 
@@ -651,7 +672,12 @@ function SignInTab({ onForgot }) {
     setLoading(true);
 
     try {
-      // ── Try real GraphQL login ──────────────────────────────────────────────
+      // ── Real GraphQL login — the only path now. F-02 fix: this used to
+      // fall back, on any failure (including a genuinely wrong password), to
+      // a client-side check accepting the known demo password OR the literal
+      // strings "password"/"demo" for any seeded account — a full
+      // authentication bypass requiring no real credential at all. There is
+      // no fallback anymore: every sign-in attempt is decided by the server.
       const { data } = await loginMutation({ variables: { input: { email, password } } });
       if (data.login.__typename === 'TotpChallenge') {
         // PLAN016 Slice C — password verified, but this account has 2FA
@@ -660,35 +686,18 @@ function SignInTab({ onForgot }) {
         return;
       }
       const { access_token, user, mfa_setup_required, session_timeout_minutes } = data.login;
+      setFailedAttempts(0);
       login(access_token, user, rememberMe, session_timeout_minutes);
       redirectAfterLogin(navigate, user, mfa_setup_required);
-    } catch {
-      // ── Mock fallback (offline / demo) ─────────────────────────────────────
-      const mockUser = MOCK_USERS[email.toLowerCase()];
-      const knownPassword = mockUser?.mock_password ?? 'password';
-      if (mockUser && (password === knownPassword || password === 'password' || password === 'demo')) {
-        setFailedAttempts(0); // reset on success
-        login(mockUser.mock_token || `mock_${Date.now()}`, mockUser, rememberMe);
-        navigate(getPostLoginRedirect(mockUser));
-      } else if (mockUser) {
-        // NEW-AUTH-002: increment failed attempts
-        const next = failedAttempts + 1;
-        setFailedAttempts(next);
-        if (next >= 5) {
-          setLockoutSecs(60);
-          setError(`Too many failed attempts. Account locked for 60 seconds.`);
-        } else {
-          setError(`Demo password for this account is "${knownPassword}" (or use "password") — ${next}/5 attempts`);
-        }
+    } catch (err) {
+      const next = failedAttempts + 1;
+      setFailedAttempts(next);
+      if (next >= 5) {
+        setLockoutSecs(60);
+        setError('Too many failed attempts. Try again in 60 seconds.');
       } else {
-        const next = failedAttempts + 1;
-        setFailedAttempts(next);
-        if (next >= 5) {
-          setLockoutSecs(60);
-          setError(`Too many failed attempts. Try again in 60 seconds.`);
-        } else {
-          setError(`Invalid email or password. Click a demo account below. (${next}/5 attempts)`);
-        }
+        const message = err?.graphQLErrors?.[0]?.message || err?.message || 'Invalid email or password.';
+        setError(`${message} (${next}/5 attempts)`);
       }
     } finally {
       setLoading(false);
@@ -832,26 +841,34 @@ function SignInTab({ onForgot }) {
           </Link>
         </Box>
 
-        {/* SUG-AUTH-011: demo chips with tooltips */}
-        <Box>
-          <Divider sx={{ my: 1 }}>
-            <Typography variant="caption" color="text.secondary">demo accounts</Typography>
-          </Divider>
-          <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center" gap={1}>
-            {DEMO_ACCOUNTS.map((d) => (
-              <Tooltip key={d.email} title={d.tooltip} placement="top" arrow>
-                <Button
-                  size="small"
-                  variant="outlined"
-                  onClick={() => fillDemo(d)}
-                  sx={{ fontSize: '0.72rem', px: 1.5 }}
-                >
-                  {d.label}
-                </Button>
-              </Tooltip>
-            ))}
-          </Stack>
-        </Box>
+        {/* SUG-AUTH-011: demo chips with tooltips.
+            F-02 fix: these fill real credentials into the form and still go
+            through the real LOGIN_MUTATION above (nothing here bypasses
+            auth) — but they list working passwords for every seeded role in
+            plain sight, which has no place in a production build. Dev-only,
+            same as e2e/helpers.js's loginAs() already assumes about the dev
+            server this runs against. */}
+        {import.meta.env.DEV && (
+          <Box>
+            <Divider sx={{ my: 1 }}>
+              <Typography variant="caption" color="text.secondary">demo accounts</Typography>
+            </Divider>
+            <Stack direction="row" spacing={1} flexWrap="wrap" justifyContent="center" gap={1}>
+              {DEMO_ACCOUNTS.map((d) => (
+                <Tooltip key={d.email} title={d.tooltip} placement="top" arrow>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    onClick={() => fillDemo(d)}
+                    sx={{ fontSize: '0.72rem', px: 1.5 }}
+                  >
+                    {d.label}
+                  </Button>
+                </Tooltip>
+              ))}
+            </Stack>
+          </Box>
+        )}
       </Stack>
     </Box>
   );

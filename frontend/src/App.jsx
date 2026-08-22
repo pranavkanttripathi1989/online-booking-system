@@ -24,7 +24,6 @@ function RoleHomeRedirect() {
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const Login              = lazy(() => import('./pages/auth/login'))
-const LoginPage          = lazy(() => import('./pages/auth/login-legacy'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password'))
 const OnboardingWizard   = lazy(() => import('./pages/onboarding/index'))
 
@@ -193,9 +192,6 @@ function App() {
       <Route element={<AuthLayout />}>
         <Route path="/login" element={
           <Suspense fallback={<FullPageLoader />}><Login /></Suspense>
-        } />
-        <Route path="/login-legacy" element={
-          <Suspense fallback={<FullPageLoader />}><LoginPage /></Suspense>
         } />
         <Route path="/forgot-password" element={
           <Suspense fallback={<FullPageLoader />}><ForgotPasswordPage /></Suspense>

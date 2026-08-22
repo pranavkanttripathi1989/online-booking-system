@@ -2,60 +2,6 @@ import { createContext, useContext, useReducer, useEffect, useCallback, useRef }
 import { useLazyQuery, useApolloClient } from '@apollo/client'
 import { ME_QUERY } from '../graphql/queries'
 
-// ─── Mock users for offline/demo mode ────────────────────────────────────────
-// Matches mockup-data-plan.md Section 4, Feature 1 (7 accounts)
-export const MOCK_USERS = {
-  'admin@medibook.dev': {
-    id: 'u-1', name: 'Admin User', email: 'admin@medibook.dev',
-    roles: [{ name: 'admin' }, { name: 'super_admin' }],
-    clinician: null, organisation: null,
-    mock_token: 'mock_admin_token_001',
-    mock_password: 'Admin1234!',
-  },
-  'manager@medibook.dev': {
-    id: 'u-2', name: 'Sarah Manager', email: 'manager@medibook.dev',
-    roles: [{ name: 'manager' }],
-    clinician: null, organisation: { id: 'org-1', name: 'Meridian Health Group' },
-    mock_token: 'mock_manager_token_002',
-    mock_password: 'Mgr1234!',
-  },
-  'clinician@medibook.dev': {
-    id: 'u-3', name: 'Dr. Sarah Mitchell', email: 'clinician@medibook.dev',
-    roles: [{ name: 'clinician' }],
-    clinician: { id: 'cln-1', full_name: 'Dr. Sarah Mitchell', clinician_type: { name: 'General Practitioner' } },
-    organisation: null,
-    mock_token: 'mock_clinician_token_003',
-    mock_password: 'Cln1234!',
-  },
-  'receptionist@medibook.dev': {
-    id: 'u-4', name: 'Sara Receptionist', email: 'receptionist@medibook.dev',
-    roles: [{ name: 'staff' }],
-    clinician: null, organisation: null,
-    mock_token: 'mock_staff_token_004',
-    mock_password: 'Rec1234!',
-  },
-  'patient@medibook.dev': {
-    id: 'u-5', name: 'Alice Thompson', email: 'patient@medibook.dev',
-    roles: [{ name: 'patient' }],
-    clinician: null, patient: { id: 'pt-1', full_name: 'Alice Thompson' },
-    mock_token: 'mock_patient_token_005',
-    mock_password: 'Pat1234!',
-  },
-  'dr.okafor@medibook.dev': {
-    id: 'u-6', name: 'Dr. James Okafor', email: 'dr.okafor@medibook.dev',
-    roles: [{ name: 'clinician' }],
-    clinician: { id: 'cln-2', full_name: 'Dr. James Okafor', clinician_type: { name: 'General Practitioner' } },
-    organisation: null,
-    mock_token: 'mock_clinician_token_006',
-  },
-  'manager2@medibook.dev': {
-    id: 'u-7', name: 'Chris Manager', email: 'manager2@medibook.dev',
-    roles: [{ name: 'manager' }],
-    clinician: null, organisation: { id: 'org-2', name: 'CityCore Medical' },
-    mock_token: 'mock_manager_token_007',
-  },
-}
-
 // Post-login redirect by primary role (matches plan Section 4 Feature 1)
 export function getPostLoginRedirect(user) {
   const roles = user?.roles?.map(r => r.name) ?? []
@@ -69,27 +15,22 @@ export function getPostLoginRedirect(user) {
 
 // ─── Synchronous initial hydration ───────────────────────────────────────────
 // Read localStorage synchronously so the very first render already knows
-// whether the user is authenticated. This eliminates the auth-check spinner
-// entirely for mock tokens and cached sessions.
+// whether the user is authenticated. A token is never trusted on its own —
+// it's a real JWT or it isn't a session at all; ME_QUERY (below) is the only
+// thing that actually confirms it. This function only decides whether to
+// render optimistically from cache while that verification is in flight.
+//
+// F-02 fix: this used to special-case any token starting with "mock_" as
+// pre-authenticated purely from its prefix, trusting whatever role array sat
+// in localStorage.medibook_user — a two-line client-side escalation to any
+// role. There is no legitimate token shape that needs that branch anymore:
+// every real login path issues a real JWT, and a stale/forged token is
+// rejected identically to any other invalid one, below.
 function getInitialState() {
   const token = localStorage.getItem('medibook_token')
   if (!token) {
     return { user: null, token: null, isAuthenticated: false, isLoading: false }
   }
-  if (token.startsWith('mock_')) {
-    const cached = localStorage.getItem('medibook_user')
-    if (cached) {
-      try {
-        const user = JSON.parse(cached)
-        return { user, token, isAuthenticated: true, isLoading: false }
-      } catch { /* fall through */ }
-    }
-    // Invalid cached user — clear token
-    localStorage.removeItem('medibook_token')
-    localStorage.removeItem('medibook_user')
-    return { user: null, token: null, isAuthenticated: false, isLoading: false }
-  }
-  // Real JWT — need to verify async, but pre-populate from cache while waiting
   const cached = localStorage.getItem('medibook_user')
   if (cached) {
     try {
@@ -139,26 +80,29 @@ export function AuthProvider({ children }) {
     }
   }, [meData])
 
-  // React to ME_QUERY error — fall back to cached user
+  // React to ME_QUERY error — log out.
+  //
+  // F-02 fix: this used to fall back to whatever user object was cached in
+  // localStorage instead of logging out, so an expired, revoked, or forged
+  // token kept its client-side session indefinitely — the one real check
+  // that could invalidate a bad session was itself ignored on failure. A
+  // rejected ME_QUERY means the server does not consider this session valid;
+  // that is authoritative.
   useEffect(() => {
     if (meError) {
-      const cachedUser = localStorage.getItem('medibook_user')
-      if (cachedUser) {
-        try {
-          dispatch({ type: 'SET_USER', payload: { user: JSON.parse(cachedUser) } })
-          return
-        } catch { /* fall through */ }
-      }
       localStorage.removeItem('medibook_token')
       localStorage.removeItem('medibook_user')
+      sessionStorage.removeItem('medibook_token')
+      sessionStorage.removeItem('medibook_user')
       dispatch({ type: 'LOGOUT' })
     }
   }, [meError])
 
-  // On mount — only fetch ME if we have a real JWT with NO cached user
+  // On mount — verify any stored token against the server whenever we don't
+  // already have a cached user to render optimistically from.
   useEffect(() => {
     const token = localStorage.getItem('medibook_token')
-    if (token && !token.startsWith('mock_') && !localStorage.getItem('medibook_user')) {
+    if (token && !localStorage.getItem('medibook_user')) {
       fetchMe()
     }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps

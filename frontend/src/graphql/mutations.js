@@ -67,6 +67,42 @@ export const LOGOUT_MUTATION = gql`
   }
 `
 
+// F-02 fix — OTP login previously accepted a hardcoded MOCK_OTP client-side
+// with no backend call at all. requestOtp/verifyOtp are real, already-built
+// resolvers (auth.resolver.ts): OTP is phone-keyed only (RequestOtpInput has
+// no email field), rate-limited, Redis-backed, 3-attempt lockout server-side.
+export const REQUEST_OTP_MUTATION = gql`
+  mutation RequestOtp($input: RequestOtpInput!) {
+    requestOtp(input: $input) {
+      success
+    }
+  }
+`
+
+export const VERIFY_OTP_MUTATION = gql`
+  mutation VerifyOtp($input: VerifyOtpInput!) {
+    verifyOtp(input: $input) {
+      access_token
+      token_type
+      expires_in
+      mfa_setup_required
+      session_timeout_minutes
+      user {
+        id
+        name
+        email
+        roles { name }
+        clinician {
+          id
+          full_name
+          avatar_url
+          clinician_type { id name }
+        }
+      }
+    }
+  }
+`
+
 // ─── Appointments ─────────────────────────────────────────────────────────────
 
 export const CREATE_APPOINTMENT_MUTATION = gql`
