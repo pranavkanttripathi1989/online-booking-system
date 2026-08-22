@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| platform-nfr-2026-08-22-f13 | platform-nfr | 2026-08-22 | BUG005, PLAN027, TP054, TR053 | done | [manifest.md](./platform-nfr-2026-08-22-f13/manifest.md) |
 | insurance-claims-2026-08-22 | insurance-claims | 2026-08-22 | REQ031 | in-progress | [manifest.md](./insurance-claims-2026-08-22/manifest.md) |
 | clinical-records-2026-08-22 | clinical-records | 2026-08-22 | REQ020 | in-progress | [manifest.md](./clinical-records-2026-08-22/manifest.md) |
 | scheduling-engine-2026-08-22 | scheduling-engine | 2026-08-22 | REQ017 | in-progress | [manifest.md](./scheduling-engine-2026-08-22/manifest.md) |

@@ -59,27 +59,93 @@ ALTER TABLE "Products" ADD CONSTRAINT "Products_client_org_id_fkey"
   FOREIGN KEY ("client_org_id") REFERENCES "ClientOrganizations"("id")
   ON DELETE SET NULL ON UPDATE CASCADE;
 
--- Index: "Table_column_idx"
-CREATE INDEX "Appointments_clinician_id_appointment_date_idx"
-  ON "Appointments"("clinician_id", "appointment_date");
+-- Index: "Table_column_idx" -- must match what Prisma generates for @@index,
+-- or migrate diff will try to drop and recreate it forever.
+CREATE INDEX "Appointments_clinician_id_appointment_time_idx"
+  ON "Appointments"("clinician_id", "appointment_time");
 ```
 
 ## Indexes are mandatory on new tables
 
-`grep -c "@@index" schema.prisma` returned **0** across 41 models at audit time —
-confirmed live, `Appointments` had only its primary key. **PostgreSQL does not
-auto-index foreign-key columns** (it indexes the referenced PK, not the
-referencing column). Every list query in the product was a sequential scan.
+`grep -c "@@index" schema.prisma` returned **0** across 41 models at audit time.
+**PostgreSQL does not auto-index foreign-key columns** — a `@relation` gives you
+referential integrity and nothing else; it indexes the referenced PK, not the
+referencing column. Every list query in the product was a sequential scan.
+
+Closed 2026-08-22 by `BUG005` / `20260822130000_add_indexes`: **69 indexes across
+30 of the 41 models.** The rules below are what the measurements actually showed,
+and two of them contradict the obvious advice.
 
 **Standing rule** (`REQ035`, a code-review gate): a migration creating a
-tenant-scoped table **must** declare its indexes in the same file. At minimum:
+tenant-scoped table **must** declare its indexes in the same file. Derive them
+from the real `where` / `orderBy` clauses in the service, then:
 
-- the scoping column (`client_org_id`, or the relation FK it scopes through)
-- every foreign key
-- the columns in its hottest `where` + `orderBy` combination
+1. **Equality columns first, range or sort column last.** One composite index
+   then serves both the filter and the ordering, and the sort node disappears
+   from the plan entirely. Measured: the clinician-schedule query's `top-N
+   heapsort` vanished, buffers 2,755 → 34.
+2. **Do NOT lead a composite with `client_org_id`, and do not index it alone.**
+   This is the counter-intuitive one. Measured at 50,000 appointments, the tenant
+   predicate matches ~20% of rows, so a sequential scan is genuinely optimal and
+   the planner correctly ignores any index on it — identical buffer counts before
+   and after. Tenant-scoping columns only help *led by* a selective column. Lead
+   with `clinician_id` / `clinic_id` / `patient_id`.
 
-Verify with `EXPLAIN ANALYZE` at realistic volume — do not assume. Full
-per-table catalogue: `project-plans/technical-plans/04-data-model-evolution.md` §2.2.
+   **But do not over-apply this into "never lead with an unselective column."**
+   Selectivity is only one reason to index; **ordered access for a paginated list
+   is another.** `Appointments(is_deleted, appointment_time)` leads with a boolean
+   that is `false` for effectively every row, and the planner uses it anyway —
+   measured as an Index Scan Backward at 130 buffers, versus a 2,753-buffer
+   sequential scan plus a 50,000-row sort — because it can walk in
+   `appointment_time` order and stop at the `LIMIT`. The test is not "is the
+   leading column selective" but "does this index let the planner avoid either a
+   full scan **or** a sort." `client_org_id` fails both on `Appointments`, and for
+   a further reason: it is not a column on that table at all, it is joined through
+   `Clinics`, so no index on `Appointments` could serve it.
+3. **Do not blanket-index every foreign key.** That would have produced ~120
+   indexes here instead of 69, most never used by any query the app issues, each
+   paying write amplification on every insert forever. Index a bare FK only where
+   a query filters on it alone, or where a cascade delete would otherwise scan
+   the child table.
+4. **Check which of two similar columns the code actually uses.** `Appointments`
+   carries both `appointment_date` and `appointment_time`; the services
+   overwhelmingly filter and sort on **`appointment_time`**. Indexing the
+   more-obvious-looking `appointment_date` would have produced indexes the
+   planner ignores.
+5. **Skip small global reference tables** (`Languages`, `RoomTypes`,
+   `ClinicianTypes`, `EmailTemplates`). One or two pages total — an index scan is
+   strictly slower than the sequential scan the planner will rightly choose.
+6. **`CREATE INDEX`, not `CONCURRENTLY`.** Prisma wraps each migration in a
+   transaction and `CONCURRENTLY` cannot run inside one. Fine at current volume;
+   split it out before running against a populated production database.
+7. **Length-check every generated name against PostgreSQL's 63-byte identifier
+   limit.** Over it, PostgreSQL silently truncates and `migrate diff` then reports
+   permanent drift.
+
+**Verify with `EXPLAIN (ANALYZE, BUFFERS)` at realistic volume — do not assume.**
+The dev database holds a handful of appointments, where a sequential scan really
+is fastest, so verifying there proves nothing. Seed a *scratch* database (keep dev
+data clean), then read **buffer counts, not milliseconds** — a dev machine under
+load makes timings noisy while buffer hits stay deterministic.
+
+To get "before" and "after" on the same data, set `enable_indexscan`,
+`enable_bitmapscan` and `enable_indexonlyscan` to `off` rather than comparing
+against a pre-migration database — that holds volume and distribution constant so
+index availability is the only variable.
+
+When bulk-seeding for this, never pick parents with
+`JOIN LATERAL (SELECT id FROM ... LIMIT 1 OFFSET (g % n))` — it is O(n × offset)
+and re-scans the parent table per row (it ran 7 minutes and committed nothing
+here). Hoist the IDs once instead:
+
+```sql
+SELECT array_agg(id) INTO doc_ids FROM "Clinicians";
+-- then: doc_ids[1 + (g % array_length(doc_ids,1))]
+```
+
+Full per-table catalogue:
+`project-plans/technical-plans/04-data-model-evolution.md` §2.2. Measured results
+and the one deliberate negative: `requirements/platform-nfr/bug/BUG005-*`.
 
 ## The established backfill pattern
 

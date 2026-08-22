@@ -2,6 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| platform-nfr | 0 | 0 | 1 | 0 | 1 | 2026-08-22 | [platform-nfr](./platform-nfr/README.md) |
 | appointments | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [appointments](./appointments/README.md) |
 | clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
 | organizations | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [organizations](./organizations/README.md) |

@@ -105,17 +105,32 @@ Do **not** attempt all ~12 call sites in one commit. Per domain:
 - `users.service.ts`: `is_system` guard on `updateRolePermissions`, permission-id validation, `@CurrentUser()` threaded through `updateUser`/`updateRole`/`deleteRole`/`getAuditLogs` (F-06).
 - `createRazorpayOrder` gains authentication + ownership check (F-07).
 
-## 3. The index migration (F-13)
+## 3. The index migration (F-13) — ✅ DONE 2026-08-22
 
-`grep -c "@@index" schema.prisma` → **0**, across 41 models. Confirmed live:
-`Appointments` has exactly one index (its PK). PostgreSQL does not auto-index
-foreign-key columns.
+`grep -c "@@index" schema.prisma` → **0**, across 41 models. PostgreSQL does not
+auto-index foreign-key columns.
 
-One hand-written migration. Full column list in `04-data-model-evolution.md` §5.
-Verify with `EXPLAIN ANALYZE` against a seeded dataset (§4), not by assumption.
+**Delivered:** `20260822130000_add_indexes`, 69 indexes across 30 of 41 models
+(`BUG005` / `PLAN027` / `TR053`). Measured on a scratch database at 50,000
+appointments: the clinician-schedule query went from a sequential scan with a
+`top-N heapsort` and 2,755 buffer hits, to an index scan with no sort and 34.
 
-**Sequencing note:** land this *before* the seed script grows the dataset, so the
-"before" plan is measurable, then re-measure after.
+The two results worth carrying forward, because they contradict the obvious
+approach and apply to all ~40 new tenant-scoped tables:
+
+- **Don't lead a composite index with `client_org_id`, or index it alone.** The
+  tenant predicate matches ~20% of rows; a sequential scan is genuinely optimal
+  and the planner ignores the index. Lead with the selective column.
+- **Don't blanket-index every foreign key** — that yields ~120 indexes here
+  instead of 69, most unused, all costing write amplification forever.
+
+**Sequencing note (recorded because the original advice here was wrong):** this
+said to land the migration *before* seeding so the "before" plan is measurable.
+In practice the better method is the opposite — seed first, then produce "before"
+by setting `enable_indexscan` / `enable_bitmapscan` / `enable_indexonlyscan` to
+`off` on the *same* data. That holds volume and distribution constant so index
+availability is the only variable, and it means the before/after can be re-run at
+any time instead of only once at a migration boundary.
 
 ## 4. Integration-test harness + tenancy matrix (F-25) — highest leverage item
 
@@ -197,7 +212,7 @@ fabricated-data pages (F-18).
 
 - A self-registered org-less account provably reads nothing outside its scope — asserted by the tenancy matrix, not by inspection.
 - No `mock_`-token path exists in the frontend bundle.
-- `EXPLAIN ANALYZE` on the core appointment query shows an index scan.
+- ✅ `EXPLAIN ANALYZE` on the core appointment query shows an index scan (`TR053`, TC-09: Index Scan Backward, buffers 2755 → 34).
 - CI is required on the default branch and green.
 - The booking-concurrency test exists and its failure is recorded as Phase 1's acceptance criterion.
 - `docker compose up` without a root `.env` fails loudly rather than booting with a known key.

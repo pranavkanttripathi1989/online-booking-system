@@ -12,4 +12,6 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| BUG005 | bug | The database declared zero indexes across all 41 models (F-13) | done | 2026-08-22 | 2026-08-22 | REQ035 | [BUG005-platform-nfr-2026-08-22-zero-database-indexes.md](./bug/BUG005-platform-nfr-2026-08-22-zero-database-indexes.md) |

@@ -62,7 +62,29 @@ Both changes belong in the same slice as the migration.
 
 ### 2.2 `<ts>_add_indexes` — the big one
 
-Zero `@@index` exist across 41 models today. Minimum set, by access pattern:
+**Delivered 2026-08-22 as `20260822130000_add_indexes` — 69 indexes across 30 of
+the 41 models.** See `requirements/platform-nfr/bug/BUG005-*` for the measured
+before/after. Three corrections to the table below came out of actually
+measuring it, and they govern every future index in this project:
+
+1. **`appointment_time`, not `appointment_date`.** The schema carries both; the
+   services overwhelmingly filter and sort on `appointment_time`. The delivered
+   indexes are `(clinician_id, appointment_time)` and `(clinic_id,
+   appointment_time)`; `(patient_id, appointment_date)` stayed on the date
+   because the patient-history view genuinely uses it.
+2. **A bare `client_org_id` index is not worth having.** Measured at 50,000
+   appointments the predicate matches ~20% of rows, so a sequential scan is
+   optimal and the planner correctly ignores the index — identical buffer counts
+   with and without. Tenant columns help only *led by* a selective column. This
+   matters directly for the ~40 new tenant-scoped tables in §3.
+3. **Equality columns first, range/sort column last**, so one index serves the
+   filter and the sort and the sort node leaves the plan.
+
+The trigram/`lower()` search indexes for `Patients` were **not** delivered — they
+need the `pg_trgm` extension and a decision about which search paths are actually
+hot, so they stay in this plan as future work rather than being guessed at.
+
+Original planned minimum set, by access pattern (kept for traceability):
 
 | Table | Index | Why |
 |---|---|---|
@@ -85,7 +107,13 @@ Zero `@@index` exist across 41 models today. Minimum set, by access pattern:
 | `UserProfiles` | `(client_org_id, role_id)` | user directory |
 | `TestResults` | `(ordered_by_user_id)`, `(patient_id)` | scoping + patient view |
 
-Verify with `EXPLAIN ANALYZE` at seeded volume — do not assume.
+Verify with `EXPLAIN (ANALYZE, BUFFERS)` at seeded volume — do not assume. Seed a
+**scratch** database, not dev (dev's handful of rows makes a sequential scan
+genuinely optimal, so verifying there proves nothing), and read **buffer counts
+rather than milliseconds** — timings on a loaded dev machine are noise, buffer
+hits are deterministic. Produce the "before" by setting `enable_indexscan` /
+`enable_bitmapscan` / `enable_indexonlyscan` to `off` on the same seeded data, so
+index availability is the only variable.
 
 ### 2.3 `<ts>_appointment_exclusion_constraints`
 

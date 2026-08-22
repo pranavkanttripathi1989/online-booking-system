@@ -8,6 +8,44 @@ datasource db {
 }
 
 //
+// INDEX POLICY (F-13, BUG005 — migration 20260822130000_add_indexes)
+//
+// The 69 @@index declarations below were derived by reading the real `where` and
+// `orderBy` clauses in backend/src/**/*.service.ts, then measured with
+// EXPLAIN (ANALYZE, BUFFERS) on a scratch database seeded to 50,000 appointments.
+// Four rules came out of that measurement. Follow them when adding a model:
+//
+//   1. Equality columns first, range/sort column last, so one index serves both
+//      the filter and the ordering and the sort node leaves the plan.
+//   2. Never lead a composite with client_org_id, and never index it alone. The
+//      tenant predicate matches ~20% of rows, so a sequential scan is genuinely
+//      optimal and the planner correctly ignores such an index (measured:
+//      identical buffer counts with and without). Lead with the selective
+//      column - clinician_id, clinic_id, patient_id.
+//
+//      The exception, and it is a real one: an unselective leading column is
+//      still worth indexing when the TRAILING column supplies the sort order for
+//      a LIMIT. Appointments(is_deleted, appointment_time) leads with a boolean
+//      that is false for ~all rows, and the planner uses it anyway - measured, an
+//      Index Scan Backward at 130 buffers instead of a 2,753-buffer sequential
+//      scan plus a 50,000-row sort - because it can walk in appointment_time
+//      order and stop at the LIMIT. Selectivity is one reason to index; ordered
+//      access for a paginated list is another. client_org_id has neither here,
+//      because it is not even a column on Appointments (it is joined through
+//      Clinics), so no index on this table can serve it.
+//   3. Do not blanket-index every foreign key. That yields ~120 indexes here
+//      instead of 69, most never used, each paying write amplification forever.
+//      Index a bare FK only where a query filters on it alone.
+//   4. Small global reference tables (Languages, RoomTypes, ClinicianTypes,
+//      EmailTemplates) get none - an index scan is slower than scanning two pages.
+//
+// Note Appointments carries both appointment_date and appointment_time; the
+// services overwhelmingly use appointment_time, so the composites follow the code.
+//
+// Nothing enforces this policy in CI yet - see BUG005 follow-ups.
+//
+
+//
 // ENUMS
 //
 
@@ -162,6 +200,14 @@ model Appointments {
   reviews             Reviews[]
   status_logs         AppointmentStatusLogs[]
   payments            AppointmentPayments[]
+
+  @@index([clinician_id, appointment_time])
+  @@index([clinic_id, appointment_time])
+  @@index([patient_id, appointment_date])
+  @@index([is_deleted, appointment_time])
+  @@index([room_id])
+  @@index([product_id])
+  @@index([booked_by_user_id])
 }
 
 // APPOINTMENT_DETAIL_QUERY (frontend/src/graphql/queries.js) requests
@@ -177,6 +223,8 @@ model AppointmentStatusLogs {
 
   appointment     Appointments  @relation(fields: [appointment_id], references: [id])
   changed_by_user UserProfiles? @relation("StatusLogChangedBy", fields: [changed_by_user_id], references: [id])
+
+  @@index([appointment_id, created_at])
 }
 
 model AuditLogs {
@@ -191,6 +239,10 @@ model AuditLogs {
   created_at DateTime @default(now())
 
   user Users? @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, created_at])
+  @@index([resource, resource_id])
+  @@index([created_at])
 }
 
 model ClientOrganizations {
@@ -319,6 +371,10 @@ model ClinicianAvailability {
   clinician Clinicians @relation(fields: [clinician_id], references: [id])
   clinic    Clinics    @relation(fields: [clinic_id], references: [id])
   room      Rooms?     @relation(fields: [room_id], references: [id])
+
+  @@index([clinician_id, is_deleted])
+  @@index([clinic_id, is_deleted])
+  @@index([room_id])
 }
 
 
@@ -350,6 +406,8 @@ model Clinicians {
   clinicianLanguages  ClinicianLanguages[]
   clinicianServices   ClinicianServices[]
   reviews             Reviews[]
+
+  @@index([clinic_id, is_deleted, is_active])
 }
 
 // CLINICIAN_FIELDS wants `services{id name duration_minutes price}` per clinician
@@ -366,6 +424,8 @@ model ClinicianServices {
   product   Products   @relation(fields: [product_id], references: [id], onDelete: Cascade)
 
   @@unique([clinician_id, product_id])
+
+  @@index([product_id])
 }
 
 model Clinics {
@@ -404,6 +464,8 @@ model Clinics {
   reviews            Reviews[]
   cancellationRules  ProductCancellationRules[]
   payments           AppointmentPayments[]
+
+  @@index([client_org_id, is_deleted])
 }
 
 model EmailTemplates {
@@ -439,6 +501,9 @@ model LunchBreaks {
 
   clinician Clinicians @relation(fields: [clinician_id], references: [id])
   clinic    Clinics    @relation(fields: [clinic_id], references: [id])
+
+  @@index([clinician_id, is_deleted])
+  @@index([clinic_id])
 }
 
 model Notifications {
@@ -455,6 +520,8 @@ model Notifications {
   created_at DateTime            @default(now())
 
   user Users @relation(fields: [user_id], references: [id])
+
+  @@index([user_id, is_deleted, created_at])
 }
 
 // REQ008/PLAN017 — admin-configurable OTP/SMS provider per org. Deliberately
@@ -497,6 +564,9 @@ model OrganizationSubscriptions {
   client_org          ClientOrganizations @relation(fields: [client_org_id], references: [id])
   plan                SubscriptionPlans   @relation(fields: [plan_id], references: [id])
   paymentTransactions PaymentTransactions[] @relation("SubscriptionTransactions")
+
+  @@index([client_org_id])
+  @@index([plan_id])
 }
 
 model Patients {
@@ -532,6 +602,10 @@ model Patients {
   reviews      Reviews[]
   testResults  TestResults[]
   payments     AppointmentPayments[]
+
+  @@index([is_deleted, created_at])
+  @@index([email])
+  @@index([phone])
 }
 
 // pages/test-results/index.jsx — built from scratch (zero pre-existing GraphQL
@@ -557,6 +631,10 @@ model TestResults {
 
   patient       Patients?     @relation(fields: [patient_id], references: [id])
   ordered_by    UserProfiles? @relation(fields: [ordered_by_user_id], references: [id])
+
+  @@index([patient_id, date_ordered])
+  @@index([ordered_by_user_id])
+  @@index([is_deleted, date_ordered])
 }
 
 model PaymentTransactions {
@@ -585,6 +663,8 @@ model PaymentTransactions {
 
   client_org    ClientOrganizations        @relation(fields: [client_org_id], references: [id])
   subscription  OrganizationSubscriptions? @relation("SubscriptionTransactions", fields: [subscription_id], references: [id])
+
+  @@index([client_org_id, created_at])
 }
 
 // REQ004 — real per-appointment PATIENT payments via Razorpay. Deliberately
@@ -620,6 +700,13 @@ model AppointmentPayments {
   patient     Patients            @relation(fields: [patient_id], references: [id])
   clinic      Clinics             @relation(fields: [clinic_id], references: [id])
   client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+
+  @@index([client_org_id, created_at])
+  @@index([status, created_at])
+  @@index([razorpay_order_id])
+  @@index([appointment_id])
+  @@index([patient_id])
+  @@index([clinic_id])
 }
 
 model Reviews {
@@ -639,6 +726,11 @@ model Reviews {
   patient     Patients     @relation(fields: [patient_id], references: [id])
   clinician   Clinicians?  @relation(fields: [clinician_id], references: [id])
   clinic      Clinics?     @relation(fields: [clinic_id], references: [id])
+
+  @@index([clinic_id, is_deleted])
+  @@index([clinician_id])
+  @@index([patient_id])
+  @@index([appointment_id])
 }
 
 model MessageThreads {
@@ -651,6 +743,8 @@ model MessageThreads {
   client_org   ClientOrganizations   @relation(fields: [client_org_id], references: [id])
   participants MessageParticipants[]
   messages     Messages[]
+
+  @@index([client_org_id, last_activity])
 }
 
 model MessageParticipants {
@@ -663,6 +757,8 @@ model MessageParticipants {
   user   Users          @relation(fields: [user_id], references: [id])
 
   @@unique([thread_id, user_id])
+
+  @@index([user_id])
 }
 
 model Messages {
@@ -675,6 +771,9 @@ model Messages {
 
   thread MessageThreads @relation(fields: [thread_id], references: [id])
   from   Users          @relation(fields: [from_id], references: [id])
+
+  @@index([thread_id, sent_at])
+  @@index([from_id])
 }
 
 model Permissions {
@@ -716,6 +815,10 @@ model ProductCancellationRules {
   product     Products?          @relation(fields: [product_id], references: [id])
   clinic      Clinics?           @relation(fields: [clinic_id], references: [id])
   clientOrg   ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+
+  @@index([client_org_id, is_deleted])
+  @@index([product_id])
+  @@index([clinic_id])
 }
 
 model ProductCategories {
@@ -738,6 +841,8 @@ model ProductCategories {
   client_org        ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   subcategories     ProductSubcategories[]
   products          Products[]
+
+  @@index([client_org_id, is_deleted])
 }
 
 model ProductSubcategories {
@@ -755,6 +860,9 @@ model ProductSubcategories {
   client_org ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   category  ProductCategories @relation(fields: [category_id], references: [id])
   products  Products[]
+
+  @@index([client_org_id, is_deleted])
+  @@index([category_id])
 }
 
 model ProductVariations {
@@ -771,6 +879,8 @@ model ProductVariations {
 
   product Products @relation(fields: [product_id], references: [id])
   appointments Appointments[]
+
+  @@index([product_id])
 }
 
 model Products {
@@ -801,6 +911,11 @@ model Products {
   appointments      Appointments[]
   cancellationRules ProductCancellationRules[]
   clinicianServices ClinicianServices[]
+
+  @@index([client_org_id, is_deleted])
+  @@index([category_id])
+  @@index([subcategory_id])
+  @@index([clinic_id])
 }
 
 model RolePermissions {
@@ -812,6 +927,9 @@ model RolePermissions {
 
   role       UserRoles   @relation(fields: [role_id], references: [id])
   permission Permissions @relation(fields: [permission_id], references: [id])
+
+  @@index([role_id])
+  @@index([permission_id])
 }
 
 model RoomBlocks {
@@ -833,6 +951,9 @@ model RoomBlocks {
 
   room   Rooms   @relation(fields: [room_id], references: [id])
   clinic Clinics @relation(fields: [clinic_id], references: [id])
+
+  @@index([room_id, block_date])
+  @@index([clinic_id, is_deleted])
 }
 
 model Rooms {
@@ -851,6 +972,8 @@ model Rooms {
   appointments Appointments[]
   roomBlocks   RoomBlocks[]
   spacerBlocks SpacerBlocks[]
+
+  @@index([clinic_id, is_deleted])
 }
 
 model SpacerBlocks {
@@ -871,6 +994,10 @@ model SpacerBlocks {
   clinician Clinicians @relation(fields: [clinician_id], references: [id])
   clinic    Clinics    @relation(fields: [clinic_id], references: [id])
   room      Rooms?     @relation(fields: [room_id], references: [id])
+
+  @@index([clinician_id, block_date])
+  @@index([clinic_id, is_deleted])
+  @@index([room_id])
 }
 
 model StripeConfigurations {
@@ -1013,6 +1140,12 @@ model UserProfiles {
   orderedTestResults TestResults[]
   bookedAppointments Appointments[] @relation("AppointmentBookedBy")
   appointmentStatusLogs AppointmentStatusLogs[] @relation("StatusLogChangedBy")
+
+  @@index([client_org_id, is_deleted])
+  @@index([role_id])
+  @@index([clinic_id])
+  @@index([patient_id])
+  @@index([clinician_id])
 }
 
 model UserRoles {
@@ -1041,6 +1174,8 @@ model UserRoles {
   userProfiles   UserProfiles[]
 
   @@unique([client_org_id, name], name: "org_role_name", map: "org_role_name")
+
+  @@index([client_org_id])
 }
 
 model Languages {
@@ -1068,4 +1203,6 @@ model ClinicianLanguages {
   language  Languages  @relation(fields: [language_id], references: [id], onDelete: Cascade)
 
   @@unique([clinician_id, language_id])
+
+  @@index([language_id])
 }

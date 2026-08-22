@@ -18,7 +18,7 @@ the `CLAUDE.md` working loop.
 Severity: **S1** ship-blocker · **S2** must fix before pilot · **S3** should fix
 in the next few slices · **S4** cleanup.
 
-Summary: **4 × S1** (F-01, F-02, F-11, F-13) · **12 × S2** · **14 × S3** · **3 × S4**.
+Summary: **4 × S1** (F-01, F-02, F-11, F-13 — all four now fixed) · **12 × S2** · **14 × S3** · **3 × S4**.
 33 findings total; F-11 was upgraded from S2 to S1 and F-33 was added after this
 register's initial pass, both from the same live investigation (see F-11/`BUG002`).
 
@@ -27,14 +27,19 @@ session, and F-01, F-02, F-07, F-11, F-13, F-22, F-24, F-32 and F-33 were
 additionally confirmed by executing against the running stack. Nothing here is
 inferred from a document.
 
-**Fixed and verified — 3 of the 4 S1 findings are now closed:**
+**Fixed and verified — all 4 S1 findings are now closed:**
 
 - **F-11** (`BUG002`) — clean boot, the real secret in effect, and a successful login round-trip, confirmed after an unrelated Docker Desktop stall was resolved.
 - **F-02** (`BUG003`) — the exact bypass reproduced live by planting a forged `mock_` token, then confirmed rejected after the fix; a real password login, a real OTP login, and a rejected wrong-password attempt each separately verified in-browser against the live stack, plus e2e.
 - **F-01** (`BUG004`) — the original exploit re-run verbatim: every query that previously leaked now returns empty for a self-registered account, while a real manager and a platform admin retain their correct (database-cross-checked) scope. 641/641 backend tests green.
 
-**F-13** (zero database indexes) is the one remaining S1 and the last Phase F
-blocker. The rest remain open.
+- **F-13** (`BUG005`) — 0 indexes → 69, derived from the real `where`/`orderBy` clauses in the services rather than from a blanket index-every-FK rule, then proved with `EXPLAIN (ANALYZE, BUFFERS)` against a scratch database seeded to 50,000 appointments: the clinician-schedule query fell from 2,755 shared buffer hits to 34, and its sort node disappeared entirely. One deliberate negative result recorded (the org-scoped join, unchanged — see below).
+
+With F-13 closed, **both hard prerequisites in `technical-plans/00-foundation-hardening.md`
+are in place** (the `orgScope` helper from F-01, and the index baseline). The
+remaining Phase F items — CI, and the integration-test tenancy matrix — are
+process gaps rather than live defects, and they are what stops these four
+findings from silently regressing. The rest of the register remains open.
 
 ## Security and multi-tenancy
 
@@ -355,10 +360,12 @@ known set.
 ## Data model and performance
 
 ### F-13 · S1 · Zero indexes across 41 models
-**File:** `backend/prisma/schema.prisma` (`grep -c "@@index"` → 0).
+**File:** `backend/prisma/schema.prisma`.
 
-**Evidence:** live `\d "Appointments"` shows exactly one index, the primary key.
-PostgreSQL does not auto-index foreign-key columns.
+**Evidence as originally found** (all figures below describe the pre-fix state):
+`grep -c "@@index"` → 0, and a live `\d "Appointments"` showed exactly one
+index, the primary key. PostgreSQL does not auto-index foreign-key columns — a
+`@relation` gives referential integrity and nothing else.
 
 **Blast radius:** every list query in the product is a sequential scan. The core
 booking query (clinician + date range + status, scoped through
@@ -367,23 +374,74 @@ booking query (clinician + date range + status, scoped through
 `AuditLogs.user_id`, or any `client_org_id` scoping column. At the current 4
 appointments this is unmeasurable; it becomes a hard cliff, not a gradual slope.
 
-**Fix:** one hand-written migration adding, at minimum:
-`Appointments(clinician_id, appointment_date)`,
-`Appointments(clinic_id, appointment_date)`,
-`Appointments(patient_id)`, `Appointments(status, is_deleted)`;
-`Patients(client_org_id)` (after F-04) and a trigram or lower-cased index for
-name/email/phone search; `Notifications(user_id, created_at)`;
-`Messages(thread_id, created_at)`; `MessageParticipants(user_id)`;
-`AuditLogs(user_id, created_at)` and `AuditLogs(resource, resource_id)`;
-`AppointmentPayments(appointment_id)` and `(razorpay_order_id)`;
-`ClinicianAvailability(clinician_id, day_of_week)`;
-`SpacerBlocks`/`RoomBlocks(clinician_id|room_id, date)`;
-`Products(client_org_id, is_active)`; `Clinics(client_org_id)`;
-`Clinicians(clinic_id)`; `UserProfiles(client_org_id, role_id)`.
-Then seed a realistic volume (§F-28) and check the plans with `EXPLAIN ANALYZE`
-rather than assuming.
+**Status: fixed and verified 2026-08-22, see `BUG005` / `PLAN027` / `TR053`.**
 
-**File as:** bug, feature `performance` (new feature slug).
+**Fix as delivered:** 69 indexes across 30 of the 41 models, in `schema.prisma`
+plus the hand-written migration `20260822130000_add_indexes`. The register's
+original suggestion above was to index roughly the right places, but two of its
+specifics were wrong once checked against the code, and correcting them mattered:
+
+1. It proposed `Appointments(clinician_id, appointment_date)` and
+   `(clinic_id, appointment_date)`. The services overwhelmingly filter and sort
+   on **`appointment_time`**, not `appointment_date` — the schema carries both.
+   Indexing `appointment_date` there would have produced indexes the planner
+   ignores. Delivered as `(clinician_id, appointment_time)` and
+   `(clinic_id, appointment_time)`, keeping `(patient_id, appointment_date)`
+   where the history view genuinely uses the date.
+2. It proposed indexing `client_org_id` scoping columns for their own sake.
+   Measured, that predicate matches ~20% of rows and a sequential scan is
+   correctly chosen with or without an index — identical buffer counts, same
+   plan. **Tenant-scoping columns are not selective enough to index alone.**
+   They only help led by a selective column, which is why every composite here
+   leads with `clinician_id`/`clinic_id`/`patient_id`. This is the single most
+   transferable result, given the PRD adds ~40 more tenant-scoped tables.
+
+   **Do not over-generalise this into "never lead with an unselective column."**
+   `Appointments(is_deleted, appointment_time)` leads with a boolean that is
+   `false` for effectively every row, and the planner uses it anyway — measured,
+   an Index Scan Backward at 130 buffers versus a 2,753-buffer sequential scan
+   plus a 50,000-row sort — because it supplies pre-sorted access so the sort
+   node vanishes and the `LIMIT` stops early. The real test is **"does this index
+   let the planner avoid a full scan *or* a sort,"** not "is the leading column
+   selective." `client_org_id` fails both here, and for a further reason: it is
+   not a column on `Appointments` at all — it is joined through `Clinics`, so no
+   index on `Appointments` could serve it. Indirectly-scoped models are served by
+   the parent's scoping-column index plus the join key, together.
+
+Eleven models were deliberately left unindexed: small global reference tables
+(`Languages`, `RoomTypes`, `ClinicianTypes`, `EmailTemplates`) where the whole
+table is a page or two and an index scan is strictly slower. Unused indexes are
+not free — they cost write amplification on every insert forever.
+
+**Measured, not assumed** (per `technical-plans/04-data-model-evolution.md` §2.2),
+on a scratch database seeded to 5 orgs / 20 clinics / 100 clinicians / 5,000
+patients / 50,000 appointments:
+
+| Query | Before | After | Buffers |
+|---|---|---|---|
+| clinician schedule, 30d window | Seq Scan + top-N heapsort | Index Scan Backward, no sort | 2755 → **34** |
+| clinic schedule, 7d window | Seq Scan + quicksort | Index Scan, no sort | 2753 → **77** |
+| patient history | Seq Scan | Bitmap Index Scan | 2753 → **20** |
+| org-scoped join | Seq Scan | Seq Scan (**unchanged, expected**) | 610 → 610 |
+
+Buffer counts, not milliseconds, carried the verdict — the measurement host was
+saturated (load average 45–190), so wall-clock timings are noisy while buffer
+counts are deterministic.
+
+**Still open after this fix:** nothing enforces the baseline. The next model can
+land with zero indexes and no test will notice, because unit tests mock Prisma
+and the dev database's 4 appointments make a sequential scan genuinely optimal.
+That gate is proposed in `technical-plans/00-foundation-hardening.md` and is not
+built. Separately, `prisma migrate diff` surfaced 33 lines of **pre-existing**
+schema-vs-database drift (missing foreign keys, a `UserProfiles.staff_status`
+nullability mismatch) — real, unrelated to indexing, and not folded into this
+migration.
+
+**Filed as:** bug `BUG005` under the existing `platform-nfr` feature slug (parent
+`REQ035`), rather than creating a new `performance` slug as this register
+originally suggested — `REQ035` already owns the platform non-functional
+requirements this belongs to.
+
 
 ### F-14 · S2 · Unbounded list resolvers
 **Evidence:** `clinics`, `rooms`, `services`, `products`, `testResults`,
