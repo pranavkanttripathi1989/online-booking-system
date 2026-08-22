@@ -186,8 +186,13 @@ export default function CliniciansPage() {
   const { data: clinicsData } = useQuery(CLINICS_QUERY)
 
   const apiClinicians = data?.clinicians?.data ?? []
-  // Fall back to 6 rich mock clinicians when backend is offline
-  const allClinicians = apiClinicians.length > 0 ? apiClinicians : MOCK_CLINICIANS
+  // REQ013/PLAN023 Phase A fix: fall back to mock only on a real query
+  // error, not merely an empty real result -- an org with genuinely zero
+  // clinicians (or a filtered view matching none) is a valid real state,
+  // not a reason to render 8 fabricated clinicians in its place. Same bug
+  // class already found and fixed this session in appointments/index.jsx,
+  // calendar/index.jsx, and clinicians/{Create,Edit}ClinicianPage.jsx.
+  const allClinicians = error ? MOCK_CLINICIANS : apiClinicians
   const clinics = clinicsData?.clinics ?? []
 
   // Derive specialty list from data for filter dropdown (BUG-CLIN-003)

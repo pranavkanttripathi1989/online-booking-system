@@ -13,6 +13,24 @@ test('manager sees real seeded clinicians with real availability data', async ({
   await expect(page.getByText('General Physician')).toBeVisible()
 })
 
+// REQ013/PLAN023 Phase A re-audit (2026-08-22) — `allClinicians =
+// apiClinicians.length > 0 ? apiClinicians : MOCK_CLINICIANS` fell back to
+// 8 fabricated clinicians whenever a real search genuinely matched zero
+// real clinicians, not just on a real query error. Same bug class already
+// found and fixed this session in appointments/index.jsx and
+// calendar/index.jsx.
+test('a search matching zero real clinicians shows a real empty state, not 8 fabricated ones', async ({ page }) => {
+  await loginAs(page, 'Manager')
+  await page.goto('/clinicians')
+  await expect(page.getByText('Sarah Mitchell')).toBeVisible({ timeout: 15_000 })
+
+  await page.getByLabel('Search clinicians').fill('ZZZ_NO_SUCH_CLINICIAN_ZZZ')
+  await page.waitForTimeout(1000)
+
+  await expect(page.getByText('Sarah Mitchell')).not.toBeVisible()
+  await expect(page.getByText('Dr. Jane Smith')).not.toBeVisible()
+})
+
 test('manager sees real seeded patients', async ({ page }) => {
   await loginAs(page, 'Manager')
   await page.goto('/patients')
