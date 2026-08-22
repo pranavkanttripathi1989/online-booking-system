@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { useParams, useNavigate, useLocation } from 'react-router-dom';
+import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { useQuery, useMutation, gql } from '@apollo/client';
 import {
   Box, Stepper, Step, StepLabel, Button, Typography, Paper, Grid, TextField,
@@ -129,11 +129,6 @@ function CustomStepIcon(props) {
 }
 
 const steps = ['Select Time', 'Your Details', 'Choose Service', 'Review and Pay'];
-
-const getDayOfWeekString = (day) => {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return days[day];
-};
 
 const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
   const navigate = useNavigate();
@@ -286,7 +281,15 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
 };
 
 export default function BookingWizard() {
-  const { clinicianId } = useParams();
+  // BUG011: '/appointments/book' has no :clinicianId route segment (see
+  // App.jsx) -- useParams().clinicianId was always undefined here, so this
+  // page always fell back to a hardcoded mock clinician regardless of which
+  // real doctor the visitor was sent to book. The real, only-ever-supplied
+  // identifier is the ?doctor= query string (DoctorProfile's "Book
+  // Appointment" button, and every direct/shared booking link).
+  const { clinicianId: routeClinicianId } = useParams();
+  const [searchParams] = useSearchParams();
+  const clinicianId = routeClinicianId || searchParams.get('doctor') || undefined;
   const location = useLocation();
   const { user } = useAuth();
   const navigate = useNavigate();
@@ -397,8 +400,17 @@ export default function BookingWizard() {
         }
         return mockSlots;
       }
-      const dayName = getDayOfWeekString(bookingData.date.day());
-      const dayAvailabilities = qData.getClinicianAvailability.filter(a => a.dayOfWeek === dayName);
+      // BUG011: getClinicianAvailability returns dayOfWeek as a real Int
+      // (0=Sunday..6=Saturday, matching dayjs().day() and the backend's own
+      // availableSlots() getUTCDay() convention) -- this used to compare it
+      // against a day-NAME string ('Monday', etc) with ===, which a number
+      // can never strictly equal. Real availability never matched, for any
+      // clinician, on any day; every booking silently used the hardcoded
+      // 09:00-17:00 mock fallback above instead.
+      const dow = bookingData.date.day();
+      const dayAvailabilities = qData.getClinicianAvailability.filter(
+        a => Number(a.dayOfWeek) === dow || a.recurrenceType === 'daily'
+      );
 
       let slots = [];
       dayAvailabilities.forEach(avail => {

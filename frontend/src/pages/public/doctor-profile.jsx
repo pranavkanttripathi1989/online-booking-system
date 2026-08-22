@@ -65,11 +65,6 @@ const GET_APPOINTMENTS = gql`
   }
 `;
 
-const getDayOfWeekString = (day) => {
-  const days = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
-  return days[day];
-};
-
 export default function DoctorProfile() {
   const { id } = useParams();
   const navigate = useNavigate();
@@ -105,7 +100,13 @@ export default function DoctorProfile() {
   };
 
   const navigateToBooking = () => {
-    navigate('/booking', {
+    // BUG011: this used to navigate to '/booking', a path no route matches
+    // (only '/appointments/book' and the redirect-only '/booking/search'
+    // exist) -- every real "Book Appointment" click on a real doctor profile
+    // 404'd. '/appointments/book' itself has no :clinicianId route param, so
+    // the id has to travel as the ?doctor= query string that page actually
+    // reads, with router state kept only for the date/time/type pre-fill.
+    navigate(`/appointments/book?doctor=${id}`, {
       state: {
         clinicianId: id,
         date: selectedDate.format('YYYY-MM-DD'),
@@ -118,8 +119,12 @@ export default function DoctorProfile() {
   const availableSlots = useMemo(() => {
     if (!data?.getClinicianAvailability || !selectedDate) return [];
 
-    const dayName = getDayOfWeekString(selectedDate.day());
-    const dayAvailabilities = data.getClinicianAvailability.filter(a => a.dayOfWeek === dayName);
+    // BUG011: dayOfWeek is a real Int (0=Sunday..6=Saturday) from the
+    // backend, not a day-name string -- this comparison could never match.
+    const dow = selectedDate.day();
+    const dayAvailabilities = data.getClinicianAvailability.filter(
+      a => Number(a.dayOfWeek) === dow || a.recurrenceType === 'daily'
+    );
 
     let slots = [];
     dayAvailabilities.forEach(avail => {
