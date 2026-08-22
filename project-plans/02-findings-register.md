@@ -688,11 +688,24 @@ whoever extends the matrix:
    detect a defect eventually gets edited to agree with it. This is the strongest
    argument for the matrix, stronger than the missing coverage itself.
 
-**Not closed by this:** coverage is 12 of 22 tenant-scoped domains, with the
-other ten declared in a frozen `KNOWN_GAPS` list that the suite asserts by exact
-equality; the ten latent fixes are not matrix-proven (their role gates make them
-unreachable today); and the suite needs `--forceExit` (see F-29), which must be
-resolved before F-26.
+**Not closed by this (at the time):** coverage was 12 of 22 tenant-scoped
+domains, with the other ten declared in a frozen `KNOWN_GAPS` list that the
+suite asserts by exact equality; the ten latent fixes were not matrix-proven
+(their role gates made them unreachable then); and the suite needed
+`--forceExit` (see F-29), which had to be resolved before F-26.
+
+**KNOWN_GAPS closed 2026-08-23 — `BUG012`/`PLAN033`/`TP060`/`TR059`.** All
+ten remaining domains classified: `reviews`, `cancellation-rules`,
+`availability`, `analytics`, `blocks`, `dashboard`, and `services` got real
+matrix cases; `organizations`, `org-settings`, and `notifications` moved to
+`EXEMPT` (none fits the matrix's generic same-org-sees-same-row shape — see
+`BUG012` for why each specifically doesn't). Writing the three real cases
+found three more real, previously-unfixed gaps of the same shape as this
+finding's own — `availabilities` and `spacerBlocks`/`roomBlocks` had no
+`@Auth()` at all, and `getSpacerBlocks` had neither auth nor any scoping,
+a live cross-tenant IDOR. `KNOWN_GAPS` is now `[]`. This closes the specific
+gap `project-plans/06-execution-plan.md`'s P1.3 DoD ("the tenancy matrix
+covers every domain") required.
 
 ### F-26 · S2 · No CI — ✅ CLOSED 2026-08-22
 **Evidence:** `.github/workflows` does not exist.

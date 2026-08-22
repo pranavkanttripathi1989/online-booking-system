@@ -14,6 +14,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG012 | bug | The tenancy matrix's 10 KNOWN_GAPS domains are closed, and three real auth gaps found closing them | done | 2026-08-23 | 2026-08-23 | REQ035 | [BUG012-platform-nfr-2026-08-23-tenancy-matrix-known-gaps-closed.md](./bug/BUG012-platform-nfr-2026-08-23-tenancy-matrix-known-gaps-closed.md) |
 | BUG010 | bug | The live browser pass BUG009 couldn't run found three real defects | done | 2026-08-23 | 2026-08-23 | REQ035 | [BUG010-platform-nfr-2026-08-23-live-browser-pass-found-three-real-defects.md](./bug/BUG010-platform-nfr-2026-08-23-live-browser-pass-found-three-real-defects.md) |
 | BUG009 | bug | Seven routed pages rendered fabricated data while their backend sat unused (F-18) | done | 2026-08-22 | 2026-08-23 | REQ035 | [BUG009-platform-nfr-2026-08-22-seven-fabricated-pages-with-real-backends.md](./bug/BUG009-platform-nfr-2026-08-22-seven-fabricated-pages-with-real-backends.md) |
 | BUG008 | bug | No CI, so "verify before you commit" was a convention rather than a control (F-26) | done | 2026-08-22 | 2026-08-22 | REQ035 | [BUG008-platform-nfr-2026-08-22-no-ci-verify-before-commit-is-unenforceable.md](./bug/BUG008-platform-nfr-2026-08-22-no-ci-verify-before-commit-is-unenforceable.md) |

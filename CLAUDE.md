@@ -58,7 +58,7 @@ fixing those defects ~40 times instead of once.
 | F-02 `BUG003` | Frontend mock-auth bypass deleted (`MOCK_USERS`, `login-legacy.jsx`, the `mock_` token branch) | never reintroduce a client-side auth fallback; a failed `me` query logs out |
 | F-01 `BUG004` | `backend/src/common/scoping/tenant-scope.ts` — `orgScope`, `orgScopeVia`, `isPlatformOperator`, `assertSameOrg` | **use these in every new tenant-scoped query.** Never write `user.client_org_id ? {...} : undefined` — that ternary is the bug: it makes "no org" mean "see everything". The helper fails closed on a `__no_org__` sentinel |
 | F-13 `BUG005` | 69 indexes across 30 models (`20260822130000_add_indexes`) | index from the real `where`/`orderBy`, equality columns first and the range/sort column last. **Do not lead a composite with `client_org_id`** — measured, it matches ~20% of rows and the planner correctly ignores it; lead with the selective column (`clinician_id`, `clinic_id`, `patient_id`). Note `appointment_time`, not `appointment_date`, is the hot column |
-| F-25 `BUG007` | Integration harness + tenancy matrix (`backend/test/integration/`, `npm run test:int`) | **use it.** Real `AppModule`, real PostgreSQL (`postgres_test`, port 5433), real JWTs through the real guard chain. Adding a domain is one row in `setup/domain-cases.ts` — and `matrix-coverage.int-spec.ts` FAILS if you add a resolver domain without classifying it |
+| F-25 `BUG007`, `BUG012` | Integration harness + tenancy matrix (`backend/test/integration/`, `npm run test:int`) | **use it.** Real `AppModule`, real PostgreSQL (`postgres_test`, port 5433), real JWTs through the real guard chain. Adding a domain is one row in `setup/domain-cases.ts` — and `matrix-coverage.int-spec.ts` FAILS if you add a resolver domain without classifying it. `KNOWN_GAPS` is `[]` as of 2026-08-23 (`BUG012`) — all 21 tenant-scoped domains now covered or exempt with a stated reason |
 | F-01 residue `BUG006` | 12 more services migrated onto the scoping helpers; new `orgIdForWrite()` | the defect has **four** spellings, not one — see below |
 | F-26 `BUG008` | `.github/workflows/ci.yml` — 5 jobs; `scripts/check-page-data-wiring.mjs` | every CI command is one you can run locally. **Run `npm test` + `npm run test:int` + `npm run lint` before committing** — CI runs exactly those |
 | F-22/F-29 `BUG008` | frontend lint works at all; backend suite safe to run unattended | `npm test` is `jest --runInBand` — **do not "optimise" it to parallel workers**, measured: default OOM-kills (exit 137), 2 workers 182s + a bogus leak warning, 1 process 118s |
@@ -97,9 +97,18 @@ client you add needs the same, or `app.close()` will hang again.
 
 ### What Phase F did NOT close — read before assuming coverage
 
-- **Tenancy matrix covers 12 of 22 tenant-scoped domains.** The other ten sit in a
-  frozen `KNOWN_GAPS` list asserted by exact equality, so the debt cannot grow
-  silently — but it is debt, not coverage.
+- **Tenancy matrix now covers all 21 tenant-scoped domains** (closed
+  2026-08-23, `BUG012`) — this used to say "12 of 22" here; it doesn't
+  anymore. `KNOWN_GAPS` is `[]`. What Phase F's own closure still did NOT
+  reach is `project-plans/06-execution-plan.md`'s P1 items **1.5** (a
+  realistic seed dataset + a separately seeded e2e database) and **1.6**
+  (frontend unit tests for `AuthContext`/`ProtectedRoute`/booking-wizard
+  validation/currency-date utils) — both still open, sequenced as their own
+  future slices. `project-plans/technical-plans/00-foundation-hardening.md`
+  is "Phase F" in that root's own language (`07-prd-gap-analysis-and-roadmap.md`:
+  "Phase F = `project-plans/06-execution-plan.md` P0 + P1, unchanged") — read
+  it, not just this file, before treating Phase F as fully closed; P1 isn't,
+  yet.
 - **e2e is not in CI**, deliberately (F-27: smoke-weighted, no negative-RBAC;
   F-28: runs against the dev database and leaves rows behind). A check allowed to
   fail reads as coverage while proving nothing.
