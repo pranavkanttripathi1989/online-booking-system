@@ -16,9 +16,8 @@ import EditRoundedIcon      from '@mui/icons-material/EditRounded'
 import SaveRoundedIcon      from '@mui/icons-material/SaveRounded'
 
 import { UPDATE_CLINICIAN_MUTATION }  from '../../graphql/mutations'
-import { CLINICIAN_DETAIL_QUERY, CLINICS_QUERY, CLINICIAN_TYPES_QUERY, SERVICES_QUERY } from '../../graphql/queries'
+import { CLINICIAN_DETAIL_QUERY, CLINICS_QUERY, CLINICIAN_TYPES_QUERY, SERVICES_QUERY, CLINICIANS_QUERY } from '../../graphql/queries'
 import * as MockStore from '../../mocks/store'
-import { useMockData } from '../../mocks/useMockData'
 import ErrorBoundary from '../../components/ErrorBoundary'
 
 const LANGUAGE_OPTIONS = ['English','Spanish','French','German','Arabic','Mandarin','Hindi','Urdu','Portuguese','Italian']
@@ -77,7 +76,13 @@ function EditClinicianPageContent() {
   const { data: clinicsData }       = useQuery(CLINICS_QUERY)
   const { data: typesData }         = useQuery(CLINICIAN_TYPES_QUERY)
   const { data: servicesData }      = useQuery(SERVICES_QUERY)
-  const { data: allClinicians }     = useMockData((store) => (store.getClinicians?.() ?? []).filter((c) => c.id !== id))
+  // Real clinicians list for the "who is this locum covering for" picker --
+  // this used to be a useMockData() hook with zero real GraphQL call, so it
+  // always showed fabricated names regardless of the org's real clinicians
+  // (same bug fixed in CreateClinicianPage.jsx, Priority 3 sweep 2026-08-22).
+  const { data: cliniciansListData, error: cliniciansListError } = useQuery(CLINICIANS_QUERY, { variables: { first: 100 } })
+  const allClinicians = (cliniciansListError ? MockStore.getClinicians() : (cliniciansListData?.clinicians?.data ?? []))
+    .filter((c) => c.id !== id)
   // BUG-CLIN-006 fix: fall back to MockStore for dropdown options when backend offline
   const clinics  = (clinicsData?.clinics?.length ? clinicsData.clinics : MockStore.getClinics()).filter(c => c.is_active)
   const types    = typesData?.clinicianTypes ?? MockStore.getClinicianTypes()

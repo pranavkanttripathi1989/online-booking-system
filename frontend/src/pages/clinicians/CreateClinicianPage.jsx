@@ -16,9 +16,8 @@ import PersonAddRoundedIcon  from '@mui/icons-material/PersonAddRounded'
 import SaveRoundedIcon       from '@mui/icons-material/SaveRounded'
 
 import { CREATE_CLINICIAN_MUTATION }  from '../../graphql/mutations'
-import { CLINICS_QUERY, CLINICIAN_TYPES_QUERY, SERVICES_QUERY } from '../../graphql/queries'
+import { CLINICS_QUERY, CLINICIAN_TYPES_QUERY, SERVICES_QUERY, CLINICIANS_QUERY } from '../../graphql/queries'
 import * as MockStore from '../../mocks/store'
-import { useMockData } from '../../mocks/useMockData'
 import ErrorBoundary from '../../components/ErrorBoundary'
 
 const LANGUAGE_OPTIONS = ['English','Spanish','French','German','Arabic','Mandarin','Hindi','Urdu','Portuguese','Italian']
@@ -54,14 +53,19 @@ function CreateClinicianPageContent() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
 
-  const { data: clinicsData }  = useQuery(CLINICS_QUERY)
-  const { data: typesData }    = useQuery(CLINICIAN_TYPES_QUERY)
-  const { data: servicesData } = useQuery(SERVICES_QUERY)
-  const { data: allClinicians } = useMockData((store) => store.getClinicians?.() ?? [])
-  // BUG-CLIN-005 fix: fall back to mock data for dropdowns when backend is offline
-  const clinics   = (clinicsData?.clinics ?? MockStore.getClinics()).filter(c => c.is_active)
-  const types     = typesData?.clinicianTypes ?? MockStore.getClinicianTypes()
-  const services  = servicesData?.services ?? MockStore.getServices()
+  const { data: clinicsData, error: clinicsError }     = useQuery(CLINICS_QUERY)
+  const { data: typesData, error: typesError }         = useQuery(CLINICIAN_TYPES_QUERY)
+  const { data: servicesData, error: servicesError }   = useQuery(SERVICES_QUERY)
+  // Real clinicians list, for the "who is this locum covering for" picker
+  // below -- this used to be a useMockData() hook with zero real GraphQL
+  // call at all, so that dropdown always showed fabricated names regardless
+  // of the org's actual clinicians.
+  const { data: cliniciansData, error: cliniciansError } = useQuery(CLINICIANS_QUERY, { variables: { first: 100 } })
+  // Fall back to mock data for dropdowns only on a real query error.
+  const clinics       = (clinicsError ? MockStore.getClinics() : (clinicsData?.clinics ?? [])).filter(c => c.is_active)
+  const types          = typesError ? MockStore.getClinicianTypes() : (typesData?.clinicianTypes ?? [])
+  const services        = servicesError ? MockStore.getServices() : (servicesData?.services ?? [])
+  const allClinicians  = cliniciansError ? MockStore.getClinicians() : (cliniciansData?.clinicians?.data ?? [])
 
   const [createClinician, { loading }] = useMutation(CREATE_CLINICIAN_MUTATION, {
     onCompleted: (d) => {
@@ -84,31 +88,18 @@ function CreateClinicianPageContent() {
 
   const isLocum = watch('is_locum')
 
+  // Priority 3 mock-removal sweep (2026-08-22) — this handler previously had
+  // `const useMock = true // always use mock in dev for now` unconditionally
+  // short-circuiting to MockStore.createClinician(), leaving the real
+  // createClinician mutation right below it as dead, unreachable code: every
+  // "new clinician" created through this page never actually existed in the
+  // real database, despite a real success toast and navigation to a
+  // (fake-id) detail URL. is_locum/locum_for/locum_start_date/locum_end_date
+  // are collected by this form but CreateClinicianInput has no matching
+  // fields on the backend yet -- a real, separate, pre-existing gap (not
+  // introduced by this fix), logged in context/open-questions.md rather than
+  // silently dropped from the input payload or silently kept as if it worked.
   const onSubmit = (form) => {
-    const useMock = true // always use mock in dev for now
-    if (useMock) {
-      const newClinician = MockStore.createClinician({
-        first_name: form.first_name, last_name: form.last_name,
-        email: form.email, phone: form.phone,
-        gender: form.gender, bio: form.bio,
-        consultation_fee: form.consultation_fee ? parseFloat(form.consultation_fee) : undefined,
-        clinician_type_id: form.clinician_type_id || undefined,
-        specialties: form.specialties,
-        qualifications: form.qualifications,
-        registration_number: form.registration_number,
-        clinic_ids: form.clinic_ids.length > 0 ? form.clinic_ids : undefined,
-        service_ids: form.service_ids.length > 0 ? form.service_ids : undefined,
-        languages: form.languages.length > 0 ? form.languages : undefined,
-        is_active: form.is_active,
-        is_locum: form.is_locum,
-        locum_for: form.locum_for || undefined,
-        locum_start_date: form.locum_start_date || undefined,
-        locum_end_date: form.locum_end_date || undefined,
-      })
-      enqueueSnackbar('Clinician created successfully', { variant: 'success' })
-      navigate(`/clinicians/${newClinician.id}`)
-      return
-    }
     createClinician({ variables: { input: {
       first_name: form.first_name, last_name: form.last_name,
       email: form.email, phone: form.phone || undefined,
