@@ -2,14 +2,39 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| insurance-claims | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [insurance-claims](./insurance-claims/README.md) |
+| clinical-records | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinical-records](./clinical-records/README.md) |
+| scheduling-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [scheduling-engine](./scheduling-engine/README.md) |
+| pharmacy | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [pharmacy](./pharmacy/README.md) |
+| prescriptions | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [prescriptions](./prescriptions/README.md) |
+| queue-management | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [queue-management](./queue-management/README.md) |
+| appointments | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [appointments](./appointments/README.md) |
+| organizations | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [organizations](./organizations/README.md) |
+| catalog-master-data | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [catalog-master-data](./catalog-master-data/README.md) |
+| abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |
+| compliance-dpdp | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [compliance-dpdp](./compliance-dpdp/README.md) |
+| telemedicine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [telemedicine](./telemedicine/README.md) |
+| patient-portal | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [patient-portal](./patient-portal/README.md) |
+| messaging | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [messaging](./messaging/README.md) |
+| analytics-reporting | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [analytics-reporting](./analytics-reporting/README.md) |
+| platform-integrations | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-integrations](./platform-integrations/README.md) |
+| subscription-plan-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
+| platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |
+| platform-nfr | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-nfr](./platform-nfr/README.md) |
+| security | 3 | 0 | 3 | 2 | 4 | 2026-08-22 | [security](./security/README.md) |
+| notifications | 2 | 0 | 0 | 1 | 1 | 2026-08-22 | [notifications](./notifications/README.md) |
+| patient-payments | 2 | 0 | 0 | 1 | 1 | 2026-08-22 | [patient-payments](./patient-payments/README.md) |
 | communications-policies | 1 | 2 | 0 | 0 | 3 | 2026-08-22 | [communications-policies](./communications-policies/README.md) |
 | test-coverage-audit | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
-| notifications | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [notifications](./notifications/README.md) |
 | organization-branding | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
-| security | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [security](./security/README.md) |
 | settings | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
-| patient-payments | 1 | 0 | 0 | 0 | 1 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |
 | semble-competitive-gap | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [semble-competitive-gap](./semble-competitive-gap/README.md) |
+
+## PRD-derived requirements (2026-08-22)
+
+The 22 `draft`-status requirements above (`REQ014`–`REQ035`, 19 new feature slugs plus extensions to `security`, `patient-payments`, and `notifications`) were derived from a full read of `PRD-Healthcare-Booking-SaaS-India.md` ("CareOS") against the current codebase. Each document includes a current-state-vs-PRD gap analysis, a phase assignment (PRD Phase 1/MVP, Phase 2/V1 GA, Phase 3/V2), user stories with Given/When/Then acceptance criteria traced back to the PRD's own `FR-*` IDs, and data-model impact.
+
+These are genuinely new product scope, not a rewrite of what's already built — see `project-plans/07-prd-gap-analysis-and-roadmap.md` for the consolidated cross-feature phase roadmap, sequencing rationale, and how this new scope relates to the pre-existing engineering-hardening work in `project-plans/01`–`06`. **`project-plans` P0 (tenant-isolation and database-index fixes) is a hard prerequisite for this entire set** — `REQ035` (Platform NFRs) makes that dependency an explicit, standing constraint on every other requirement here, not an informal recommendation.

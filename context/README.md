@@ -4,6 +4,30 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| insurance-claims-2026-08-22 | insurance-claims | 2026-08-22 | REQ031 | in-progress | [manifest.md](./insurance-claims-2026-08-22/manifest.md) |
+| clinical-records-2026-08-22 | clinical-records | 2026-08-22 | REQ020 | in-progress | [manifest.md](./clinical-records-2026-08-22/manifest.md) |
+| scheduling-engine-2026-08-22 | scheduling-engine | 2026-08-22 | REQ017 | in-progress | [manifest.md](./scheduling-engine-2026-08-22/manifest.md) |
+| pharmacy-2026-08-22 | pharmacy | 2026-08-22 | REQ022 | in-progress | [manifest.md](./pharmacy-2026-08-22/manifest.md) |
+| prescriptions-2026-08-22 | prescriptions | 2026-08-22 | REQ021 | in-progress | [manifest.md](./prescriptions-2026-08-22/manifest.md) |
+| queue-management-2026-08-22 | queue-management | 2026-08-22 | REQ019 | in-progress | [manifest.md](./queue-management-2026-08-22/manifest.md) |
+| appointments-2026-08-22 | appointments | 2026-08-22 | REQ018 | in-progress | [manifest.md](./appointments-2026-08-22/manifest.md) |
+| organizations-2026-08-22-prd | organizations | 2026-08-22 | REQ014 | in-progress | [manifest.md](./organizations-2026-08-22-prd/manifest.md) |
+| catalog-master-data-2026-08-22 | catalog-master-data | 2026-08-22 | REQ016 | in-progress | [manifest.md](./catalog-master-data-2026-08-22/manifest.md) |
+| abdm-interop-2026-08-22 | abdm-interop | 2026-08-22 | REQ028 | in-progress | [manifest.md](./abdm-interop-2026-08-22/manifest.md) |
+| compliance-dpdp-2026-08-22 | compliance-dpdp | 2026-08-22 | REQ034 | in-progress | [manifest.md](./compliance-dpdp-2026-08-22/manifest.md) |
+| telemedicine-2026-08-22 | telemedicine | 2026-08-22 | REQ026 | in-progress | [manifest.md](./telemedicine-2026-08-22/manifest.md) |
+| patient-portal-2026-08-22 | patient-portal | 2026-08-22 | REQ027 | in-progress | [manifest.md](./patient-portal-2026-08-22/manifest.md) |
+| messaging-2026-08-22 | messaging | 2026-08-22 | REQ024 | in-progress | [manifest.md](./messaging-2026-08-22/manifest.md) |
+| analytics-reporting-2026-08-22 | analytics-reporting | 2026-08-22 | REQ029 | in-progress | [manifest.md](./analytics-reporting-2026-08-22/manifest.md) |
+| platform-integrations-2026-08-22 | platform-integrations | 2026-08-22 | REQ030 | in-progress | [manifest.md](./platform-integrations-2026-08-22/manifest.md) |
+| subscription-plan-engine-2026-08-22 | subscription-plan-engine | 2026-08-22 | REQ032 | in-progress | [manifest.md](./subscription-plan-engine-2026-08-22/manifest.md) |
+| platform-billing-2026-08-22 | platform-billing | 2026-08-22 | REQ033 | in-progress | [manifest.md](./platform-billing-2026-08-22/manifest.md) |
+| platform-nfr-2026-08-22 | platform-nfr | 2026-08-22 | REQ035 | in-progress | [manifest.md](./platform-nfr-2026-08-22/manifest.md) |
+| security-2026-08-22-f01 | security | 2026-08-22 | BUG004 | done | [manifest.md](./security-2026-08-22-f01/manifest.md) |
+| security-2026-08-22-f02 | security | 2026-08-22 | BUG003 | done | [manifest.md](./security-2026-08-22-f02/manifest.md) |
+| security-2026-08-22 | security | 2026-08-22 | REQ015 | in-progress | [manifest.md](./security-2026-08-22/manifest.md) |
+| patient-payments-2026-08-22 | patient-payments | 2026-08-22 | REQ023 | in-progress | [manifest.md](./patient-payments-2026-08-22/manifest.md) |
+| notifications-2026-08-22 | notifications | 2026-08-22 | REQ025 | in-progress | [manifest.md](./notifications-2026-08-22/manifest.md) |
 | organizations-2026-08-22 | organizations | 2026-08-22 | REQ013, TP052, TR051 | done | [manifest.md](./organizations-2026-08-22/manifest.md) |
 | public-2026-08-22 | public | 2026-08-22 | REQ013, TP053, TR052 | done | [manifest.md](./public-2026-08-22/manifest.md) |
 | test-coverage-audit-2026-08-22 | test-coverage-audit | 2026-08-22 | REQ013, PLAN023, PLAN024, PLAN025, PLAN026 | done | [manifest.md](./test-coverage-audit-2026-08-22/manifest.md) |

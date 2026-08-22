@@ -1,0 +1,671 @@
+<title>MediBook Audit</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Archivo:wght@500;600;700;800&family=Source+Serif+4:ital,opsz,wght@0,8..60,400;0,8..60,600;1,8..60,400&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+<style>
+  /* ============ TOKENS ============ */
+  :root{
+    --ink:      #0F3D3E;
+    --ink-2:    #14484A;
+    --paper:    #F4F6F4;
+    --surface:  #FFFFFF;
+    --slate:    #56676A;
+    --slate-2:  #7C8B8C;
+    --accent:   #1B8073;
+    --amber:    #B8791E;
+    --line:     #D8DED9;
+    --line-2:   #E8ECE9;
+
+    --sev-1:    #C81E3A;
+    --sev-1-bg: #FCEAEC;
+    --sev-2:    #E0722A;
+    --sev-2-bg: #FCEFE3;
+    --sev-3:    #B8901A;
+    --sev-3-bg: #FBF3DD;
+    --sev-4:    #7C8B8C;
+    --sev-4-bg: #EEF1F1;
+
+    --text:     var(--ink);
+    --text-soft:var(--slate);
+    --bg:       var(--paper);
+    --surface-bg: var(--surface);
+    --border:   var(--line);
+    --border-soft: var(--line-2);
+    --focus:    var(--accent);
+
+    --font-display: 'Archivo', 'Helvetica Neue', Arial, sans-serif;
+    --font-body: 'Source Serif 4', Georgia, 'Times New Roman', serif;
+    --font-mono: 'IBM Plex Mono', 'SFMono-Regular', Menlo, Consolas, monospace;
+  }
+
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --ink:      #EAF3F1;
+      --ink-2:    #C9DEDA;
+      --paper:    #0B1615;
+      --surface:  #101F1E;
+      --slate:    #9DB2AF;
+      --slate-2:  #7C9491;
+      --accent:   #4FCBB8;
+      --amber:    #E3A94B;
+      --line:     #233937;
+      --line-2:   #1B2E2C;
+
+      --sev-1-bg: #2A1418;
+      --sev-2-bg: #2A1D10;
+      --sev-3-bg: #29220E;
+      --sev-4-bg: #1B2624;
+      --sev-1:    #F1607B;
+      --sev-2:    #F09A5C;
+      --sev-3:    #E0C15C;
+      --sev-4:    #9DB2AF;
+
+      --text: var(--ink);
+      --text-soft: var(--slate);
+      --bg: var(--paper);
+      --surface-bg: var(--surface);
+      --border: var(--line);
+      --border-soft: var(--line-2);
+      --focus: var(--accent);
+    }
+  }
+  :root[data-theme="dark"]{
+    --ink:      #EAF3F1;
+    --ink-2:    #C9DEDA;
+    --paper:    #0B1615;
+    --surface:  #101F1E;
+    --slate:    #9DB2AF;
+    --slate-2:  #7C9491;
+    --accent:   #4FCBB8;
+    --amber:    #E3A94B;
+    --line:     #233937;
+    --line-2:   #1B2E2C;
+
+    --sev-1-bg: #2A1418;
+    --sev-2-bg: #2A1D10;
+    --sev-3-bg: #29220E;
+    --sev-4-bg: #1B2624;
+    --sev-1:    #F1607B;
+    --sev-2:    #F09A5C;
+    --sev-3:    #E0C15C;
+    --sev-4:    #9DB2AF;
+
+    --text: var(--ink);
+    --text-soft: var(--slate);
+    --bg: var(--paper);
+    --surface-bg: var(--surface);
+    --border: var(--line);
+    --border-soft: var(--line-2);
+    --focus: var(--accent);
+  }
+
+  /* ============ RESET-ish ============ */
+  *{ box-sizing: border-box; }
+  html{ scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce){ html{ scroll-behavior: auto; } *{ animation-duration: 0.001ms !important; transition-duration: 0.001ms !important; } }
+
+  body{
+    margin:0;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-body);
+    font-size: 17px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  h1,h2,h3,h4{ font-family: var(--font-display); text-wrap: balance; margin: 0; color: var(--text); }
+  a{ color: var(--accent); text-decoration-thickness: 1px; }
+  code, .mono{ font-family: var(--font-mono); }
+  :focus-visible{ outline: 2px solid var(--focus); outline-offset: 2px; border-radius: 2px; }
+
+  .measure{ max-width: 700px; }
+  .wide{ max-width: 1080px; margin-inline:auto; }
+  .container{ max-width: 1080px; margin-inline:auto; padding: 0 clamp(16px, 4vw, 40px); }
+
+  /* ============ MASTHEAD ============ */
+  .masthead{
+    border-bottom: 1px solid var(--border);
+    background: linear-gradient(180deg, var(--surface-bg), var(--bg) 140%);
+    padding: clamp(28px,5vw,56px) 0 28px;
+  }
+  .eyebrow{
+    font-family: var(--font-mono);
+    font-size: 12.5px;
+    letter-spacing: .09em;
+    text-transform: uppercase;
+    color: var(--accent);
+    display:flex; align-items:center; gap:10px;
+  }
+  .eyebrow .dot{ width:6px;height:6px;border-radius:50%;background:var(--accent); }
+  .masthead h1{
+    font-size: clamp(28px, 4.4vw, 44px);
+    font-weight: 800;
+    letter-spacing: -0.01em;
+    margin-top: 10px;
+    max-width: 16ch;
+  }
+  .masthead .dek{
+    font-size: 18px;
+    color: var(--text-soft);
+    max-width: 62ch;
+    margin-top: 12px;
+  }
+  .stat-strip{
+    display:grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px,1fr));
+    gap:1px;
+    margin-top: 28px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    background: var(--border);
+  }
+  .stat{
+    background: var(--surface-bg);
+    padding: 14px 16px;
+  }
+  .stat .n{ font-family: var(--font-mono); font-size: 22px; font-weight: 600; font-variant-numeric: tabular-nums; }
+  .stat .l{ font-size: 12px; color: var(--text-soft); margin-top:2px; letter-spacing:.01em; }
+  .stat.crit .n{ color: var(--sev-1); }
+
+  /* ============ NAV ============ */
+  nav.tabs{
+    position: sticky; top:0; z-index: 40;
+    background: color-mix(in srgb, var(--surface-bg) 92%, transparent);
+    backdrop-filter: blur(8px);
+    border-bottom: 1px solid var(--border);
+  }
+  nav.tabs .container{ display:flex; gap: 4px; overflow-x:auto; padding-top:0; padding-bottom:0; }
+  nav.tabs a{
+    flex: 0 0 auto;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 13.5px;
+    text-decoration:none;
+    color: var(--text-soft);
+    padding: 14px 14px 12px;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  nav.tabs a:hover{ color: var(--text); }
+  nav.tabs a.active{ color: var(--accent); border-bottom-color: var(--accent); }
+
+  /* ============ SECTIONS ============ */
+  section{ padding: 56px 0; border-bottom: 1px solid var(--border-soft); }
+  section:last-of-type{ border-bottom:none; }
+  .sec-head{ display:flex; align-items:baseline; gap:14px; margin-bottom: 8px; flex-wrap:wrap; }
+  .sec-head .idx{ font-family:var(--font-mono); color: var(--accent); font-size:14px; }
+  .sec-head h2{ font-size: clamp(22px,3vw,30px); }
+  .sec-sub{ color: var(--text-soft); max-width: 68ch; margin-top: 10px; font-size:16px; }
+
+  p{ margin: 0 0 1em; }
+  .prose p, .prose li{ max-width: 700px; }
+  .prose h3{ font-size: 19px; margin: 1.6em 0 .5em; font-weight:700; }
+  .prose ul{ padding-left: 1.2em; }
+  .prose strong{ font-weight:600; }
+
+  /* ============ CALLOUT ============ */
+  .callout{
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    background: var(--surface-bg);
+    border-radius: 4px;
+    padding: 18px 20px;
+    margin: 20px 0;
+  }
+  .callout.warn{ border-left-color: var(--sev-1); }
+  .callout .k{ font-family:var(--font-mono); font-size:11.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--sev-1); }
+  .callout.info .k{ color: var(--accent); }
+
+  pre{
+    background: var(--ink);
+    color: var(--paper);
+    border-radius: 6px;
+    padding: 16px 18px;
+    overflow-x: auto;
+    font-family: var(--font-mono);
+    font-size: 13.5px;
+    line-height:1.55;
+    margin: 14px 0;
+  }
+  :root[data-theme="dark"] pre, :root:not([data-theme="light"]) pre{
+    background: #06110F; color: #CDE9E3;
+  }
+  @media (prefers-color-scheme: light){ :root:not([data-theme="dark"]) pre{ background: var(--ink); color: var(--paper); } }
+
+  table{ width:100%; border-collapse: collapse; font-size: 15px; }
+  .tblwrap{ overflow-x:auto; border:1px solid var(--border); border-radius:6px; margin: 16px 0; }
+  th,td{ text-align:left; padding: 9px 12px; border-bottom: 1px solid var(--border-soft); vertical-align:top; }
+  thead th{ font-family: var(--font-display); font-size:12.5px; text-transform:uppercase; letter-spacing:.04em; color:var(--text-soft); background: var(--surface-bg); }
+  tbody tr:last-child td{ border-bottom:none; }
+  tbody{ background: var(--surface-bg); }
+  td .mono, th .mono{ font-size: 13.5px; }
+
+  .grid2{ display:grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+  @media (max-width: 720px){ .grid2{ grid-template-columns: 1fr; } }
+
+  .pill{
+    display:inline-flex; align-items:center; gap:6px;
+    font-family: var(--font-mono); font-size: 11.5px; font-weight:600;
+    padding: 3px 9px; border-radius: 100px; letter-spacing:.02em;
+  }
+  .pill.s1{ background:var(--sev-1-bg); color:var(--sev-1); }
+  .pill.s2{ background:var(--sev-2-bg); color:var(--sev-2); }
+  .pill.s3{ background:var(--sev-3-bg); color:var(--sev-3); }
+  .pill.s4{ background:var(--sev-4-bg); color:var(--sev-4); }
+  .pill.ok{ background: color-mix(in srgb, var(--accent) 16%, transparent); color: var(--accent); }
+
+  /* ============ FINDINGS ============ */
+  .filterbar{ display:flex; gap:8px; flex-wrap:wrap; margin: 18px 0 22px; }
+  .filterbar button{
+    font-family: var(--font-mono); font-size:12.5px; font-weight:600;
+    border: 1px solid var(--border); background: var(--surface-bg); color: var(--text-soft);
+    padding: 7px 13px; border-radius: 100px; cursor:pointer;
+  }
+  .filterbar button[aria-pressed="true"]{ background: var(--ink); color: var(--paper); border-color: var(--ink); }
+  .filterbar button:hover{ border-color: var(--accent); color: var(--text); }
+  .filterbar button[aria-pressed="true"]:hover{ color: var(--paper); }
+
+  .finding{
+    border:1px solid var(--border); border-radius:6px; background: var(--surface-bg);
+    margin-bottom: 10px; overflow:hidden;
+  }
+  .finding[hidden]{ display:none; }
+  .finding > summary{
+    list-style:none; cursor:pointer;
+    display:grid; grid-template-columns: 4px auto 1fr auto; align-items:center; gap: 14px;
+    padding: 12px 16px;
+  }
+  .finding > summary::-webkit-details-marker{ display:none; }
+  .finding .stripe{ align-self:stretch; border-radius:2px; }
+  .finding.s1 .stripe{ background: var(--sev-1); }
+  .finding.s2 .stripe{ background: var(--sev-2); }
+  .finding.s3 .stripe{ background: var(--sev-3); }
+  .finding.s4 .stripe{ background: var(--sev-4); }
+  .finding .fid{ font-family: var(--font-mono); font-size: 13px; color: var(--text-soft); min-width: 3.4em; }
+  .finding .ftitle{ font-family: var(--font-display); font-weight:600; font-size: 15px; }
+  .finding .fmore{ font-size:12px; color:var(--text-soft); font-family: var(--font-mono); }
+  .finding .body{ padding: 0 16px 18px 34px; border-top:1px solid var(--border-soft); }
+  .finding .body dl{ display:grid; grid-template-columns: max-content 1fr; gap: 6px 14px; margin: 12px 0; font-size: 14.5px; }
+  .finding .body dt{ font-family:var(--font-mono); font-size:11.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--text-soft); padding-top:2px; }
+  .finding .body dd{ margin:0; }
+  .finding .body .file{ font-family: var(--font-mono); font-size: 13.5px; color: var(--accent); }
+
+  /* ============ PHASE ROADMAP ============ */
+  .phase{ display:grid; grid-template-columns: 100px 1fr; gap: 20px; padding: 18px 0; border-top:1px solid var(--border-soft); }
+  .phase:first-of-type{ border-top:none; }
+  .phase .tag{ font-family:var(--font-mono); font-size:13px; color:var(--accent); font-weight:600; }
+  .phase .dur{ font-size:12px; color:var(--text-soft); margin-top:4px; }
+  .phase h4{ font-size:17px; margin-bottom:6px; }
+  .phase ul{ margin:8px 0 0; padding-left:1.1em; font-size:15px; color: var(--text); }
+  .phase li{ margin-bottom:4px; }
+  .phase li .mono{ font-size:12.5px; color:var(--text-soft); }
+
+  /* ============ COMPETITIVE ============ */
+  .tier{ margin-bottom: 26px; }
+  .tier h3{ display:flex; align-items:center; gap:10px; }
+  .tier .n{ font-family:var(--font-mono); font-size:13px; background:var(--ink); color:var(--paper); border-radius:100px; width:22px;height:22px; display:inline-flex; align-items:center; justify-content:center; }
+  .reclist{ list-style:none; margin:12px 0 0; padding:0; display:grid; gap:10px; }
+  .reclist li{ border:1px solid var(--border); background:var(--surface-bg); border-radius:6px; padding:12px 14px; font-size:15px; }
+  .reclist b{ font-family:var(--font-display); }
+
+  footer{ padding: 40px 0 60px; color: var(--text-soft); font-size:13.5px; }
+  footer .mono{ color: var(--text-soft); }
+
+  ::selection{ background: color-mix(in srgb, var(--accent) 30%, transparent); }
+</style>
+
+<div class="masthead">
+  <div class="container">
+    <div class="eyebrow"><span class="dot"></span>Full codebase &amp; documentation audit · 2026-08-22</div>
+    <h1>MediBook / HealthSync<br>Engineering Audit</h1>
+    <p class="dek">A verified read of every backend module, frontend page, migration, test file, and requirement document — plus live probes against the running stack — with a ranked backlog and a phased plan to close it.</p>
+    <div class="stat-strip">
+      <div class="stat"><div class="n">1,485</div><div class="l">files reviewed</div></div>
+      <div class="stat"><div class="n">602 / 602</div><div class="l">backend tests, green</div></div>
+      <div class="stat"><div class="n">32</div><div class="l">findings logged</div></div>
+      <div class="stat crit"><div class="n">3</div><div class="l">ship-blockers (S1)</div></div>
+      <div class="stat"><div class="n">0</div><div class="l">indexes in the DB</div></div>
+      <div class="stat"><div class="n">14</div><div class="l">pages with fake data</div></div>
+    </div>
+  </div>
+</div>
+
+<nav class="tabs">
+  <div class="container">
+    <a href="#overview" class="active">Overview</a>
+    <a href="#findings">Findings</a>
+    <a href="#security">Security proof</a>
+    <a href="#testing">Testing</a>
+    <a href="#competitive">Competitive</a>
+    <a href="#plan">Execution plan</a>
+  </div>
+</nav>
+
+<main>
+
+<section id="overview">
+  <div class="container">
+    <div class="sec-head"><span class="idx">01</span><h2>What's actually here</h2></div>
+    <p class="sec-sub">The backend is genuinely well-built at the level of individual resolvers. The problems are all at the seams between correct decisions.</p>
+
+    <div class="prose" style="margin-top:28px;">
+      <div class="callout warn">
+        <div class="k">Headline</div>
+        <p style="margin-top:8px; margin-bottom:0;">A self-registered patient account — one public API call, no verification — can read every tenant's clinics, service catalogue with prices, products, rooms, and clinician roster. Reproduced live in this audit; the 602-test suite passes clean because it mocks the database that would have caught it. Full transcript in <a href="#security">Security proof</a>.</p>
+      </div>
+
+      <div class="grid2" style="margin-top:24px;">
+        <div>
+          <h3>What holds</h3>
+          <ul>
+            <li>Fail-closed auth by default — verified live, anonymous queries reject</li>
+            <li>Correct, load-bearing global-guard ordering (throttle → auth → roles → IP)</li>
+            <li>Timing-safe login, bcrypt cost 12, Redis lockout before password check</li>
+            <li>Real TOTP 2FA with single-use backup codes</li>
+            <li>AES-256-GCM at rest for secrets, fails loudly rather than falling back to plaintext</li>
+            <li>Self-scoping uses fail-closed sentinels, not omitted filters</li>
+            <li>Real Razorpay integration — HMAC verification with <code>timingSafeEqual</code></li>
+          </ul>
+        </div>
+        <div>
+          <h3>What breaks</h3>
+          <ul>
+            <li>Org-less callers (a category self-registration now creates on demand) read every tenant's catalogue</li>
+            <li>Frontend accepts a forgeable <code>mock_</code>-prefixed token as a full <code>super_admin</code> session</li>
+            <li><code>@@index</code> count across 41 Prisma models: <strong>zero</strong></li>
+            <li>14 routed pages render fabricated data with no GraphQL call at all — 11 have a real backend already sitting unused</li>
+            <li>The RBAC permission matrix is stored and editable; nothing reads it to authorise anything</li>
+            <li>No CI pipeline exists — "verify before commit" is a convention, not a control</li>
+          </ul>
+        </div>
+      </div>
+
+      <h3>Measured vs. documented</h3>
+      <div class="tblwrap"><table>
+        <thead><tr><th>Claim in CLAUDE.md</th><th>Measured this session</th></tr></thead>
+        <tbody>
+          <tr><td>Backend suite: 405 tests, 37 suites</td><td class="mono">602 tests, 49 suites — green, 140s</td></tr>
+          <tr><td>Frontend lint passes (Hard Rule 3)</td><td class="mono"><code>npm run lint</code> exits 1 immediately — broken script</td></tr>
+          <tr><td>Priority 3 mock-removal sweep: complete</td><td class="mono">True for files grep could see; 14 pages with inline mock data were structurally invisible to that method</td></tr>
+          <tr><td>16 <code>@Public()</code> operations</td><td class="mono">Confirmed exactly 16 — the one number that checked out precisely</td></tr>
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+<section id="findings">
+  <div class="container">
+    <div class="sec-head"><span class="idx">02</span><h2>Findings register</h2></div>
+    <p class="sec-sub">32 findings — 3 ship-blockers, 12 must-fix-before-pilot, 14 next-few-slices, 3 cleanup. Each carries the file, the evidence, and the specific fix; the full write-up for every item lives in <span class="mono">02-findings-register.md</span>.</p>
+
+    <div class="filterbar" role="group" aria-label="Filter findings by severity">
+      <button type="button" data-filter="all" aria-pressed="true">All 32</button>
+      <button type="button" data-filter="s1" aria-pressed="false">S1 · Blocker (3)</button>
+      <button type="button" data-filter="s2" aria-pressed="false">S2 · Before pilot (12)</button>
+      <button type="button" data-filter="s3" aria-pressed="false">S3 · Next slices (14)</button>
+      <button type="button" data-filter="s4" aria-pressed="false">S4 · Cleanup (3)</button>
+    </div>
+
+    <div id="findings-list"></div>
+  </div>
+</section>
+
+<section id="security">
+  <div class="container">
+    <div class="sec-head"><span class="idx">03</span><h2>Security proof — reproduced live</h2></div>
+    <p class="sec-sub">Not a theoretical read of the code. A throwaway account was created against the running backend and used to probe every domain.</p>
+
+    <div class="prose">
+      <h3>Step 1 — mint an org-less account, one call, no verification</h3>
+      <pre>mutation { register(input: {
+  email: "probe@example.test", password: "Probe1234",
+  first_name: "P", last_name: "Q"
+}) { access_token user { roles { name } client_org_id } } }
+
+→ user.roles: ["patient"]   user.client_org_id: null</pre>
+
+      <h3>Step 2 — read across tenants with that token</h3>
+      <div class="tblwrap"><table>
+        <thead><tr><th>Query</th><th>Result as this account</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">clinics</td><td><span class="pill s1">leaked</span> 4 clinics across 3 organisations, with city</td></tr>
+          <tr><td class="mono">services</td><td><span class="pill s1">leaked</span> full catalogue including prices (e.g. GP Consultation ₹499)</td></tr>
+          <tr><td class="mono">products, rooms, clinicians</td><td><span class="pill s1">leaked</span> every tenant's inventory and 8-clinician roster</td></tr>
+          <tr><td class="mono">languages, roomTypes, clinicianTypes</td><td><span class="pill s1">leaked</span> full reference data</td></tr>
+          <tr><td class="mono">patients, appointments, testResults</td><td><span class="pill ok">held</span> — correctly returned empty</td></tr>
+          <tr><td class="mono">reviews, getUsers, getAuditLogs, myOrgSecuritySettings</td><td><span class="pill ok">held</span> — correctly <code>FORBIDDEN</code></td></tr>
+        </tbody>
+      </table></div>
+      <p>Role gating and self-scoping both work correctly. What fails is specifically the catalogue-shaped queries that scope tenancy with <code>user.client_org_id ? {…} : {}</code> and carry no <code>@Auth()</code> — a pattern written for platform admins that a public registration endpoint now satisfies for anyone.</p>
+
+      <h3>The frontend compounds it</h3>
+      <p>Two <code>localStorage</code> writes and a reload grant a full, forged <code>super_admin</code> client-side session — a <code>mock_</code>-prefixed token is trusted wholesale, and a failed session-check falls back to the cached (and therefore forgeable) user rather than logging out. The backend still rejects the resulting API calls, but every admin route renders, and any surviving mock fallback fills it with data that looks real.</p>
+    </div>
+  </div>
+</section>
+
+<section id="testing">
+  <div class="container">
+    <div class="sec-head"><span class="idx">04</span><h2>Why 602 green tests missed a live data leak</h2></div>
+    <p class="sec-sub">Every backend spec replaces PostgreSQL with a mock and asserts the shape of the filter object it was handed — never whether that filter, run against a real database, actually isolates anything.</p>
+
+    <div class="tblwrap"><table>
+      <thead><tr><th>Layer</th><th>Measured</th><th>Verdict</th></tr></thead>
+      <tbody>
+        <tr><td>Backend unit</td><td class="mono">49 suites · 602 tests · green · 140s</td><td>Broad, but structurally can't test isolation</td></tr>
+        <tr><td>Backend integration / API</td><td class="mono">0</td><td>Missing — this is where the real bugs live</td></tr>
+        <tr><td>Frontend unit</td><td class="mono">1 suite · 4 tests</td><td>Effectively absent</td></tr>
+        <tr><td>Playwright e2e</td><td class="mono">31 files · 66 tests · 218 assertions</td><td>160 (73%) are <code>toBeVisible</code></td></tr>
+        <tr><td>CI</td><td class="mono">none</td><td>"Verify before commit" is unenforceable</td></tr>
+      </tbody>
+    </table></div>
+
+    <div class="prose">
+      <div class="callout info">
+        <div class="k">Highest-leverage fix</div>
+        <p style="margin-top:8px;margin-bottom:0;">One integration suite: a real Postgres, two seeded organisations, and a matrix of <strong>8 caller archetypes × every domain</strong>, asserting own-org read succeeds and cross-org read returns empty. This single suite would have caught the leak above, the two patient-scoping gaps, and the dead test-result linkage — together — the day they were introduced.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section id="competitive">
+  <div class="container">
+    <div class="sec-head"><span class="idx">05</span><h2>Competitive position &amp; recommendations</h2></div>
+    <p class="sec-sub">Built for the Indian market, but benchmarked internally against a UK product. The real competitive set is Practo, Eka Care, and Bajaj Finserv Health, with Cliniko/Jane/SimplePractice as the quality bar and Zocdoc/NexHealth/Phreesia as the access-layer reference. Confirm current vendor feature sets independently — this reflects general market positioning, not a sourced snapshot.</p>
+
+    <div class="prose">
+      <p><strong>The scheduling engine is genuinely competitive</strong> — availability templates, blocks, real-time slot updates, multi-tenant from the ground up. <strong>The product is one layer short of a system of record</strong> — no clinical notes, no prescriptions, no ABDM/ABHA. <strong>The India-specific gaps are the cheap ones</strong> — they attach to infrastructure that already exists.</p>
+    </div>
+
+    <div class="tier">
+      <h3><span class="n">1</span>High impact, low effort, distinctly Indian — next quarter</h3>
+      <ul class="reclist">
+        <li><b>WhatsApp as a notification provider.</b> Highest ROI in this audit — the pluggable provider registry and per-org encrypted credentials already exist for MSG91/Gupshup/Twilio; this is the same shape.</li>
+        <li><b>Appointment-reminder scheduler.</b> BullMQ and Redis are already provisioned; this is the missing piece that makes WhatsApp actually reduce no-shows.</li>
+        <li><b>Deposits at booking.</b> Razorpay is already integrated — the most direct no-show lever available.</li>
+        <li><b>Waitlist with auto-fill</b> on cancellation, using the existing slot-availability engine.</li>
+        <li><b>Review submission.</b> The review flywheel is missing its first step — there is currently no way for a patient to submit one at all.</li>
+        <li><b>GST-compliant patient invoices</b> — a statutory requirement, currently impossible for patient (Razorpay) payments.</li>
+      </ul>
+    </div>
+    <div class="tier">
+      <h3><span class="n">2</span>The moat — 2–3 quarters</h3>
+      <ul class="reclist">
+        <li><b>Clinical MVP:</b> consultation notes, diagnosis coding, structured e-prescriptions. The patient detail page already has the UI shell, driven by nothing.</li>
+        <li><b>ABDM / ABHA integration.</b> Long certification lead time — start the paperwork now regardless of build sequencing.</li>
+        <li><b>Real teleconsultation</b> behind the existing, unimplemented video route.</li>
+        <li><b>Make RBAC real.</b> Currently a hard procurement blocker dressed as a shipped feature.</li>
+      </ul>
+    </div>
+    <div class="tier">
+      <h3><span class="n">3</span>Parity &amp; platform — ongoing</h3>
+      <ul class="reclist">
+        <li>Digital intake, kiosk check-in, and patient journey — turning two mock-only pages into a real domain.</li>
+        <li>Insurance / TPA and cashless workflows for mid-market clinics.</li>
+        <li>True slot-capacity utilisation, replacing the documented completion-rate proxy.</li>
+        <li>Plan-tier entitlement enforcement, observability, and the DPDP Act 2023 compliance programme.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section id="plan">
+  <div class="container">
+    <div class="sec-head"><span class="idx">06</span><h2>Execution plan</h2></div>
+    <p class="sec-sub">Six phases, sequenced so later work can't silently undo earlier fixes. P0 blocks everything else — none of this is safe to demonstrate to a real clinic until it lands.</p>
+
+    <div id="phases"></div>
+
+    <div class="prose" style="margin-top:32px;">
+      <h3>The first ten commits</h3>
+      <div class="tblwrap"><table>
+        <tbody id="commits"></tbody>
+      </table></div>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container">
+    <p>Full detail for every section — the complete architecture read, all 32 findings in full prose, the security audit, the test strategy, the competitive analysis, and the phased plan with per-phase Definition of Done — lives in <span class="mono">project-plans/01</span> through <span class="mono">06</span> alongside this dashboard. Produced 2026-08-22 by reading every source, test, and requirement file, executing the backend and frontend suites, and probing the live stack.</p>
+  </div>
+</footer>
+
+<script>
+(function(){
+  var FINDINGS = [
+    {id:"F-01",sev:"s1",title:"Public registration mints org-less accounts that read every tenant",file:"backend/src/auth/auth.service.ts:282",area:"security",evidence:"A self-registered patient account (client_org_id: null) reads clinics, services+prices, products, rooms and clinicians across every organisation. Reproduced live.",fix:"Replace the null-org “sees everything” convention with an explicit platform-operator check; add @Auth() to the catalogue queries."},
+    {id:"F-02",sev:"s1",title:"Client-side authentication and role bypass in the frontend",file:"frontend/src/context/AuthContext.jsx:78",area:"security",evidence:"Any mock_-prefixed token is accepted as fully authenticated with roles taken verbatim from localStorage; a failed session check falls back to the cached user instead of logging out; demo passwords ship unconditionally.",fix:"Delete the mock_ branch and MOCK_USERS fallback; log out on ME_QUERY failure; gate demo accounts behind DEV."},
+    {id:"F-13",sev:"s1",title:"Zero indexes across 41 Prisma models",file:"backend/prisma/schema.prisma",area:"performance",evidence:"grep -c \"@@index\" → 0. Live \\d \"Appointments\" shows only the primary key. Postgres does not auto-index foreign keys.",fix:"One migration adding indexes on every scoping column and hot query path; verify with EXPLAIN ANALYZE against a seeded volume."},
+    {id:"F-03",sev:"s2",title:"The RBAC permission matrix is stored but never enforced",file:"backend/src/users/users.service.ts:76",area:"security",evidence:"RolePermissions is read only by the admin UI that edits it. RolesGuard checks role names only. hasPermission() always returns false.",fix:"Populate effective permissions in the auth payload; add a PermissionsGuard and migrate resolvers domain by domain."},
+    {id:"F-04",sev:"s2",title:"createPatient has no caller context and no org linkage",file:"backend/src/patients/patients.service.ts:149",area:"patients",evidence:"No @CurrentUser(); Patients has no client_org_id, and a patient with zero appointments is visible to staff in any org until their first booking.",fix:"Add client_org_id to Patients, stamp it at create time, scope on the direct column."},
+    {id:"F-05",sev:"s2",title:"Patient.appointments resolve-field is unscoped",file:"backend/src/patients/patients.resolver.ts:28",area:"patients",evidence:"No @CurrentUser(); filters only on patient_id, exposing a cross-org patient's full appointment history to a clinician at either org.",fix:"Thread @CurrentUser() through and apply the same orgScope/selfScope the top-level query uses."},
+    {id:"F-06",sev:"s2",title:"Admin RBAC mutations take no caller context",file:"backend/src/users/users.service.ts:92",area:"security",evidence:"updateRolePermissions lacks the is_system guard updateRole/deleteRole have — a system role's permissions can be stripped entirely. No id validation on permissionIds.",fix:"Add the is_system guard; validate ids against Permissions before write; thread @CurrentUser() through; scope getAuditLogs by org."},
+    {id:"F-07",sev:"s3",title:"Razorpay order creation is anonymous",file:"backend/src/appointment-payments/appointment-payments.resolver.ts:20",area:"payments",evidence:"createRazorpayOrder is @Public(). Confirmed live — an anonymous call reaches the service.",fix:"Require authentication and ownership; add the missing webhook for reconciliation of uncallback'd payments."},
+    {id:"F-08",sev:"s3",title:"orderTest never sets patient_id — self-scoping is dead code",file:"backend/src/test-results/test-results.service.ts:71",area:"test-results",evidence:"Results carry no patient linkage at all, so a patient can never see their own lab results and the scoping filter never matches anything.",fix:"Add a patient picker to the order flow and require patient_id on the input."},
+    {id:"F-09",sev:"s3",title:"JWTs in localStorage, no CSP",file:"frontend/src/apollo/client.js:26",area:"security",evidence:"Any XSS yields a working token and, via the cached user, a persistent session. No Content-Security-Policy anywhere in the stack.",fix:"Move the refresh token to an HttpOnly cookie; add helmet + CSP immediately as a cheap interim step."},
+    {id:"F-10",sev:"s3",title:"Audit log records too little to be an audit trail",file:"backend/src/common/interceptors/audit-log.interceptor.ts:70",area:"security",evidence:"Only user_id/action/resource/ip are written; resource_id and details sit empty; a success and a rejected attempt write the identical row.",fix:"Capture resource_id, outcome, sanitised details, user_agent; add the two missing indexes."},
+    {id:"F-11",sev:"s2",title:"Default signing secrets in docker-compose.yml",file:"docker-compose.yml:33",area:"security",evidence:"JWT_ACCESS_SECRET/JWT_REFRESH_SECRET both default to a known placeholder string; the root .env.example still describes the abandoned MySQL/Nginx stack.",fix:"Remove the fallback defaults so the container refuses to boot without real secrets; rewrite .env.example for the real stack."},
+    {id:"F-12",sev:"s3",title:"Coarse rate limiting on the auth family",file:"backend/src/app.module.ts",area:"security",evidence:"One global 100-req/60s bucket; register, login, requestOtp and requestPasswordReset have no tighter limit.",fix:"Per-operation throttles on the auth family; assert NODE_ENV at boot."},
+    {id:"F-14",sev:"s2",title:"Unbounded list resolvers",file:"backend/src/*/*.resolver.ts",area:"performance",evidence:"clinics, rooms, services, products, testResults, notifications, threads, languages and more return plain arrays with no pagination.",fix:"Adopt the existing {data, paginatorInfo} convention or enforce a server-side max take, matching each page's real contract."},
+    {id:"F-15",sev:"s3",title:"N+1 patterns and JS-side aggregation",file:"backend/src/public/public.service.ts:40",area:"performance",evidence:"A per-clinician query inside a map(); dashboard and analytics counting loop over full result sets in JavaScript instead of using SQL aggregates.",fix:"Batch the clinician fan-out into one query; move counting into Prisma groupBy/count."},
+    {id:"F-16",sev:"s2",title:"Double-booking is prevented only in application code",file:"backend/src/appointments/appointments.service.ts:195",area:"appointments",evidence:"The overlap check is a findFirst inside the same READ COMMITTED transaction as the insert — no unique or exclusion constraint backs it.",fix:"Add a database exclusion constraint on (clinician_id, time range) with btree_gist; keep the app check as the fast path."},
+    {id:"F-17",sev:"s3",title:"Patient payments carry no GST fields",file:"backend/prisma/schema.prisma",area:"patient-payments",evidence:"GST fields exist on the SaaS-billing table (PaymentTransactions) but not on AppointmentPayments — patient consultation payments.",fix:"Mirror the GST fields onto AppointmentPayments; add a per-org invoice sequence."},
+    {id:"F-18",sev:"s2",title:"14 routed pages render fabricated data with no GraphQL call",file:"frontend/src/pages/*",area:"frontend",evidence:"Includes a 1,013-line patient clinical-detail page driven by useState([]). 11 of the 14 already have a real backend module sitting unused.",fix:"Wire the 11 with a backend; build or remove the 3 that are genuinely backend-less; add a structural CI gate."},
+    {id:"F-19",sev:"s3",title:"Branding doesn't reach 88 of 122 UI files",file:"frontend/src/pages, /components",area:"organization-branding",evidence:"88 JSX files hardcode hex colours; the shipped branding feature only propagates into the app shell's sidebar and top nav.",fix:"Theme-token sweep driven from ThemeContext; add a no-hardcoded-colors lint rule."},
+    {id:"F-20",sev:"s3",title:"Three tables still lack TableContainer",file:"frontend/src/pages/settings/index.jsx",area:"frontend",evidence:"Same overflow bug class already found and fixed once in staff/index.jsx, now recurring in 3 more files.",fix:"Add the wrapper; re-verify at 360/768/1280px."},
+    {id:"F-21",sev:"s3",title:"Global cache-first + errorPolicy 'all' hides failure",file:"frontend/src/apollo/client.js:88",area:"frontend-platform",evidence:"Lists serve stale data after mutations unless refetch is explicit; partial GraphQL errors resolve as success.",fix:"Default lists to cache-and-network; surface partial errors instead of swallowing them."},
+    {id:"F-22",sev:"s2",title:"npm run lint is broken, hiding 12 real errors",file:"frontend/package.json",area:"frontend-platform",evidence:"The script passes --ext, rejected by the flat-config ESLint in use — exits 1 before linting anything. A correct run surfaces 11× jsx-a11y/no-autofocus and 1× jsx-a11y/media-has-caption.",fix:"Fix the script; add eslint-plugin-react to the flat config; fix the 12 real errors."},
+    {id:"F-23",sev:"s3",title:"forgot-password simulates success with no real call",file:"frontend/src/pages/auth/forgot-password.jsx",area:"auth",evidence:"No GraphQL operation at all, despite a real requestPasswordReset resolver existing.",fix:"Wire the page to the real mutation."},
+    {id:"F-24",sev:"s2",title:"Frontend unit coverage is one component",file:"frontend/jest.config.cjs",area:"test-coverage-audit",evidence:"1 suite, 4 tests, covering a single 51-line component; no collectCoverageFrom or thresholds set, so --coverage reports 100% of almost nothing.",fix:"Set real collectCoverageFrom; add tests for AuthContext, route guards, and the booking wizard."},
+    {id:"F-25",sev:"s2",title:"No integration tests — tenancy is proven against a mock",file:"backend/src/**/*.spec.ts",area:"test-coverage-audit",evidence:"All 49 suites replace PrismaService with jest.fn(); F-01, F-04 and F-05 are all invisible to this design by construction.",fix:"Add a real-Postgres tenancy matrix: every domain × every caller archetype, own-org vs. other-org."},
+    {id:"F-26",sev:"s2",title:"No CI pipeline",file:".github/workflows (absent)",area:"ci-cd",evidence:"Lint, typecheck, unit and e2e are all manual. \"Verify before commit\" cannot be enforced or audited.",fix:"One required workflow: lint + typecheck + unit + schema + integration + e2e."},
+    {id:"F-27",sev:"s3",title:"E2E is smoke-weighted and leaves data behind",file:"frontend/e2e/*.spec.js",area:"test-coverage-audit",evidence:"160 of 218 assertions are toBeVisible; no negative-RBAC test; specs create records with no cleanup, already the cause of two documented false failures.",fix:"Add negative-RBAC specs, value assertions, and teardown or unique-per-run tenants."},
+    {id:"F-28",sev:"s3",title:"The development database is the test database",file:"live Postgres",area:"test-coverage-audit",evidence:"4 appointments, 4 patients, 3 rooms live — most e2e specs prove empty-state rendering, and test runs mutate the dataset other tests depend on.",fix:"A deterministic two-org seed script; a separate database for e2e with reset between runs."},
+    {id:"F-29",sev:"s3",title:"Backend Jest leaks a worker",file:"backend Jest run",area:"test-coverage-audit",evidence:"Run ends with \"A worker process has failed to exit gracefully\" — an unref'd timer or open handle.",fix:"Run with --detectOpenHandles and unref() the source; this will hang CI otherwise."},
+    {id:"F-30",sev:"s4",title:"Documented status drifts from measured status",file:"CLAUDE.md",area:"test-coverage-audit",evidence:"405/37 tests documented vs. 602/49 measured — the claim is directionally right but the numbers are stale and get cited as coverage evidence.",fix:"Have CI emit a generated status file and link it instead of hand-writing counts."},
+    {id:"F-31",sev:"s4",title:"Repository root noise",file:"repo root",area:"repo-hygiene",evidence:"~15 large pre-pivot planning documents, a 3.9MB pptx, a 128-entry .playwright-mcp/, three untracked .env.bak files, and a Makefile targeting the abandoned Laravel/MySQL stack.",fix:"Archive the historical docs, delete the stale Makefile, extend .gitignore."},
+    {id:"F-32",sev:"s4",title:"Backend test suite is unusably slow inside the container",file:"docker exec medibook_backend",area:"repo-hygiene",evidence:"A single spec file exceeded 400s in the container vs. 42s on the host; full suite is 140s on the host.",fix:"Raise the container's resource allocation or run the suite on the host as the default loop."}
+  ];
+
+  var SEV_LABEL = {s1:"S1 · Blocker", s2:"S2 · Before pilot", s3:"S3 · Next slices", s4:"S4 · Cleanup"};
+
+  var list = document.getElementById('findings-list');
+  var html = FINDINGS.map(function(f){
+    return '<details class="finding '+f.sev+'" data-sev="'+f.sev+'">'
+      + '<summary>'
+      + '<span class="stripe" aria-hidden="true"></span>'
+      + '<span class="fid">'+f.id+'</span>'
+      + '<span class="ftitle">'+f.title+'</span>'
+      + '<span class="fmore"><span class="pill '+f.sev+'">'+SEV_LABEL[f.sev]+'</span></span>'
+      + '</summary>'
+      + '<div class="body"><dl>'
+      + '<dt>File</dt><dd class="file">'+f.file+'</dd>'
+      + '<dt>Evidence</dt><dd>'+f.evidence+'</dd>'
+      + '<dt>Fix</dt><dd>'+f.fix+'</dd>'
+      + '</dl></div>'
+      + '</details>';
+  }).join('');
+  list.innerHTML = html;
+
+  var buttons = document.querySelectorAll('.filterbar button');
+  buttons.forEach(function(btn){
+    btn.addEventListener('click', function(){
+      buttons.forEach(function(b){ b.setAttribute('aria-pressed','false'); });
+      btn.setAttribute('aria-pressed','true');
+      var f = btn.getAttribute('data-filter');
+      document.querySelectorAll('.finding').forEach(function(el){
+        el.hidden = !(f === 'all' || el.getAttribute('data-sev') === f);
+      });
+    });
+  });
+
+  var PHASES = [
+    {tag:"P0", dur:"~2 weeks", title:"Stabilise and secure — blocks everything", items:[
+      "Remove default JWT secrets; rewrite the stale root .env.example — F-11",
+      "Delete the frontend mock-auth path entirely — F-02",
+      "Central orgScope() helper; @Auth() on catalogue queries — F-01",
+      "Index migration across all 41 models, verified with EXPLAIN ANALYZE — F-13",
+      "CI pipeline: lint, typecheck, unit, schema, e2e — F-26, F-29, F-22",
+      "Scoping holes: createPatient, Patient.appointments, RBAC guards, Razorpay auth — F-04–F-08"
+    ]},
+    {tag:"P1", dur:"~1.5 weeks", title:"Prove the boundary", items:[
+      "Real Postgres test fixture with two seeded organisations — F-25, F-28",
+      "Tenancy matrix: every domain × 8 caller archetypes — F-25",
+      "Booking-concurrency test — expected to fail until P3 — F-16",
+      "Frontend units where risk concentrates: AuthContext, route guards, wizard — F-24"
+    ]},
+    {tag:"P2", dur:"~3 weeks", title:"Truth in the UI", items:[
+      "Wire the 11 fabricated pages that already have a real backend — F-18",
+      "Decide and act on the 3 genuinely backend-less pages — F-18",
+      "Structural CI gate: no page may render data with no GraphQL call — F-18",
+      "Theme-token sweep across 88 hardcoded-colour files — F-19",
+      "Apollo cache policy: cache-and-network for lists — F-21"
+    ]},
+    {tag:"P3", dur:"~2.5 weeks", title:"Booking integrity and scale", items:[
+      "Database exclusion constraint closes the double-booking race — F-16",
+      "Pagination on every unbounded list resolver — F-14",
+      "Razorpay webhook + reconciliation job — F-07",
+      "Security headers, CSP, and auth-family throttling — F-09, F-12"
+    ]},
+    {tag:"P4", dur:"~2 weeks", title:"Make RBAC real", items:[
+      "Effective permissions resolved into the auth payload — F-03",
+      "PermissionsGuard migrated domain by domain, report-only first — F-03",
+      "UI reflects real permissions instead of a constant false — F-03"
+    ]},
+    {tag:"P5", dur:"8–10 weeks, parallel", title:"India go-to-market", items:[
+      "WhatsApp provider, reminder scheduler, deposits, waitlist, review submission, GST invoices",
+      "Clinical MVP, real teleconsultation, ABDM/ABHA programme kickoff",
+      "Digital intake, insurance/TPA, real utilisation metrics, entitlement enforcement, DPDP programme"
+    ]}
+  ];
+
+  document.getElementById('phases').innerHTML = PHASES.map(function(p){
+    return '<div class="phase"><div><div class="tag">'+p.tag+'</div><div class="dur">'+p.dur+'</div></div>'
+      + '<div><h4>'+p.title+'</h4><ul>'+p.items.map(function(i){return '<li>'+i+'</li>';}).join('')+'</ul></div></div>';
+  }).join('');
+
+  var COMMITS = [
+    ["fix(infra)","remove default JWT secrets from docker-compose; require real env","F-11"],
+    ["fix(frontend)","remove mock-token auth bypass and demo password fallback","F-02"],
+    ["fix(frontend)","repair the lint script; add eslint-plugin-react to the flat config","F-22"],
+    ["fix(frontend)","resolve the 12 real a11y lint errors","F-22"],
+    ["feat(backend)","central orgScope/isPlatformOperator; fail closed for org-less callers","F-01"],
+    ["perf(db)","add indexes across all 41 models","F-13"],
+    ["ci","add lint, typecheck, unit, schema, and e2e pipeline","F-26"],
+    ["fix(backend)","tenant-stamp createPatient; scope Patient.appointments","F-04, F-05"],
+    ["test(backend)","tenancy matrix over a real Postgres with two seeded orgs","F-25"],
+    ["fix(backend)","guard updateRolePermissions against system roles; validate ids","F-06"]
+  ];
+  document.getElementById('commits').innerHTML = COMMITS.map(function(c,i){
+    return '<tr><td class="mono" style="color:var(--text-soft)">'+(i+1)+'</td><td class="mono">'+c[0]+':</td><td>'+c[1]+'</td><td class="mono" style="color:var(--text-soft)">'+c[2]+'</td></tr>';
+  }).join('');
+})();
+</script>

@@ -24,6 +24,32 @@ Read these indexes before planning or implementing anything, then open the speci
 
 Read-order rule: ACTIVE documents are authoritative. Consult `context/archive/README.md` and `test-results/_archive/` ONLY when the active tree does not answer the question (e.g. tracing why a decision was made, or auditing a historical test run). Never treat an archived document as current.
 
+### Product direction: the CareOS PRD and its technical plans
+
+`PRD-Healthcare-Booking-SaaS-India.md` (repo root) is the product spec for
+"CareOS" — a materially larger product than what's built today: 17 functional
+modules, ~200 `FR-*` requirements, three release phases. It was analysed
+end-to-end on 2026-08-22 and turned into two layers of planning:
+
+@project-plans/README.md
+@project-plans/technical-plans/README.md
+
+- **`requirements/REQ014`–`REQ035`** — 22 requirement documents (19 new feature slugs plus extensions to `security`/`patient-payments`/`notifications`) covering *what* each PRD module needs, with user stories, Given/When/Then acceptance criteria, and `FR-*` traceability.
+- **`project-plans/technical-plans/`** — *how* to build them: phase-wise schema DDL, migration order, module layout, constraint decisions, and per-phase DoD. Seven documents: `00-foundation-hardening` (Phase F), `01-phase1-mvp`, `02-phase2-v1-ga`, `03-phase3-v2`, `04-data-model-evolution`, `05-cross-cutting-conventions`, and `06-frontend-architecture-and-mobile` (read this before touching anything under `frontend/src` — it carries the responsive **tiering** model, the design-system/typography rules, PWA budgets, and the frontend hard rules `FE-1`–`FE-6`).
+- **`project-plans/01`–`07`** — the codebase audit those plans are grounded in: 33 findings with live-reproduced evidence (`02-findings-register.md`), the security/tenancy audit, test strategy, competitive analysis, and the consolidated roadmap.
+
+**These do not replace `implementation-plans/`.** The working loop below still
+requires plan mode and reading the real code before writing a `PLAN###` for a
+specific slice — the technical plans give that step a starting architecture so
+each slice doesn't re-derive it.
+
+**Phase F (`technical-plans/00-foundation-hardening.md`) blocks the rest.** The
+PRD adds ~40 new tenant-scoped tables; every one inherits the `client_org_id`
+scoping bug class (F-01/F-04/F-05) and the zero-index defect (F-13) unless the
+shared `orgScope()` helper, the index migration, and the tenancy-matrix
+integration test land first. Building Phase 1 on the current foundation means
+fixing those defects ~40 times instead of once.
+
 Directory contract:
 - `<root>/<feature-name>/{requirement,improvement,bug}/*.md` across all five roots.
 - The same `feature` slug and the same parent ID thread a work item through every root and its `context/` bundle.
@@ -45,7 +71,11 @@ Working loop for all future work in this repo:
 2. **Test before you claim done.** "I wrote the resolver" is not done — "the test suite proves the resolver works, including tenant-isolation and validation-failure cases" is done. Every new or touched resolver/service gets unit tests; every user-facing flow gets an integration/e2e test (`npm run e2e` in `frontend/`, Playwright). All 22 backend domains now have `.spec.ts` coverage (see Current priorities) — the remaining Priority 1 gap is per-domain e2e coverage, not unit coverage.
 3. **Verify before you commit.** Run lint + typecheck + the full test suite (backend `npm test`, frontend `npm test` and `npm run e2e` for touched flows) and confirm green before every commit. Never commit red.
 4. **Commit per vertical slice, same branch.** After a slice is built, tested, and verified, commit it with a conventional-commit message (`feat(backend): ...`, `test(backend): ...`, `feat(integration): ...`). Stay on the current branch unless explicitly told otherwise. Small, frequent, verified commits — not one giant commit at the end.
-5. **Mobile-first responsiveness is mandatory, not polish.** Any screen you touch must be checked at 360px, 768px, and 1280px using MUI breakpoints (`xs/sm/md/lg`). Overflow or breakage on mobile is a bug.
+5. **Responsiveness is tiered and mandatory, not polish.** Full detail and the measured audit behind this live in `project-plans/technical-plans/06-frontend-architecture-and-mobile.md`; the rules in short:
+   - **Declare the screen's tier and verify at that tier's widths.** *Mobile-first* (public booking, patient PWA, QR check-in, patient portal) — designed for 360px, full function, verify 360/414/768. *Tablet-first* (clinician consult, Rx builder, clinician calendar) — designed for 1024px, verify 768/1024/1280; on a phone it must be readable and scrollable, not necessarily efficient. *Desktop-dense* (front desk, billing, admin, reports, pharmacy POS) — designed for density, verify 1280/1440; at 360px scrolling is fine but **truncated data is not**. A flat "check 360/768/1280 everywhere" rule asked the billing console to meet the patient booking page's bar, and so got ignored — this replaces it.
+   - **No silent truncation, ever.** Content wider than its container must *scroll*, not clip. `overflow-x: hidden` on an ancestor of tabular or form content is a bug, and every `<Table>` needs a `<TableContainer>`. This has now been violated three times; two were found by accident. **`document.scrollWidth > clientWidth` does NOT catch it** — it reports clean on both live-confirmed defects (a truncated column on `/dashboard`, and the entire unreachable "In-App" column on `/settings`). Use the element-level probe in `06-frontend-architecture-and-mobile.md` §7.
+   - **Theme tokens only — no `#RRGGBB` literals** in `pages/`, `components/`, `layouts/`. 87 of 122 files currently bypass the real theme that already exists (`#006D77` appears 264 times), which is why `REQ002`'s shipped org-branding feature cannot actually re-theme the product.
+   - **Type and touch floors:** patient-facing ≥16px body text and ≥44×44px touch targets (WCAG 2.5.5, and the PRD's own §13 commitment); staff-facing may go denser but never below 14px/36px.
 6. **Multi-tenancy is a security boundary, not a filter.** Every tenant-scoped query/mutation filters by `req.user.client_org_id` from the JWT — never a client-supplied `client_org_id`/`org_id` argument (see Architecture). Write at least one test per resolver proving cross-tenant access is rejected. This applies to **every** write path, not just reads: a `create*` mutation that takes a `clinic_id` in its input must validate that clinic belongs to the caller's org — a real, repeated bug class found across five different domains (`createAvailability`, `createSpacerBlock`/`createRoomBlock`, `createClinician`, `createAppointment`) where `update`/`delete` had the check (they look up an existing record first) but `create` didn't, since it had no natural place to hang the check without deliberately adding one.
 7. **Match the existing contract, don't invent a "reasonable" one.** Before writing or changing a resolver, check `frontend/src/graphql/*.js` (or the page's inline `gql`) verbatim for field names, nullability, argument shape, and which of the three mutation-response conventions the consuming page already expects (see Architecture). Skipping this has caused real bugs before.
 8. **Don't silently paper over the mock fallback.** Once a domain has a real backend module, the frontend should call it for real. If you find a page still falling back to `mocks/store.js` for a domain that now has a backend module, that's a bug to flag and fix, not something to leave alone.
@@ -142,11 +172,41 @@ Razorpay (patient payments) · Stripe (kept only for tenant SaaS-subscription bi
 
 ### Where to go deeper
 
-`context/README.md` indexes everything: `context/backend-hard-rules.md` and `context/frontend-hard-rules.md` are the fuller mandatory-rules documents this section summarizes (multi-tenancy, DTO validation, error formatting, Prisma transaction discipline, responsiveness breakpoints, accessibility, mock-vs-real-data hygiene — each grounded in a real finding, not generic advice). `context/backend-api-requirements-master-plan.md` is the full per-file frontend audit and cross-cutting conflict list. `context/next-10-features-implementation-plan.md` and the `phase*-implementation-plan.md` files document what was built, in what order, and why, per domain. `context/open-questions.md` logs genuinely unresolved ambiguities (rule 10). Manual QA history lives in `test-plan/`, `test-result/`, `test-suggestion/` (one set of three files per feature, reused as acceptance criteria rather than re-derived); a separate, more formal pre-backend spec suite lives in `test-cases/` (15 domains × Unit/Backend-API/Functional-E2E/Frontend sections, each domain increasingly carrying an explicit RBAC matrix table plus real fixed/pre-existing/still-open status annotations per case — not just narrative). `QA-TESTING-EXECUTION-PROMPT.md` (repo root) is the active full-system QA/security-audit brief driving that RBAC-matrix work; `context/qa-full-inventory.md` is its running Phase 1 inventory + live-findings log (resolver/DB/role inventory, every `@Auth()` gap already flagged, Chrome MCP live-verification results) — check it before assuming a domain's access-control has already been audited.
+**For new PRD-derived work**, start at `project-plans/technical-plans/README.md` —
+`05-cross-cutting-conventions.md` (module scaffolding, dialect/response decision
+tables, per-slice DoD) is the shortest and everything else assumes it, then the
+phase document you're working in, plus `04-data-model-evolution.md` whenever you
+touch `schema.prisma`.
 
-### `.claude/skills/` — vendored reference skills, not installed via a marketplace
+**For what's already built**, `context/README.md` indexes everything: `context/backend-hard-rules.md` and `context/frontend-hard-rules.md` are the fuller mandatory-rules documents this section summarizes (multi-tenancy, DTO validation, error formatting, Prisma transaction discipline, responsiveness breakpoints, accessibility, mock-vs-real-data hygiene — each grounded in a real finding, not generic advice). `context/backend-api-requirements-master-plan.md` is the full per-file frontend audit and cross-cutting conflict list. `context/next-10-features-implementation-plan.md` and the `phase*-implementation-plan.md` files document what was built, in what order, and why, per domain. `context/open-questions.md` logs genuinely unresolved ambiguities (rule 10). Manual QA history lives in `test-plan/`, `test-result/`, `test-suggestion/` (one set of three files per feature, reused as acceptance criteria rather than re-derived); a separate, more formal pre-backend spec suite lives in `test-cases/` (15 domains × Unit/Backend-API/Functional-E2E/Frontend sections, each domain increasingly carrying an explicit RBAC matrix table plus real fixed/pre-existing/still-open status annotations per case — not just narrative). `QA-TESTING-EXECUTION-PROMPT.md` (repo root) is the active full-system QA/security-audit brief driving that RBAC-matrix work; `context/qa-full-inventory.md` is its running Phase 1 inventory + live-findings log (resolver/DB/role inventory, every `@Auth()` gap already flagged, Chrome MCP live-verification results) — check it before assuming a domain's access-control has already been audited.
 
-Several `SKILL.md` reference files live under `.claude/skills/` (NestJS, React, PostgreSQL, GraphQL architecture, security review, error handling, TypeScript, etc.) — content pulled directly from specific, individually-vetted MIT-licensed GitHub sources (not installed through a skill-marketplace CLI, which turned out to have no working install artifacts for anything relevant at the time). Each file's `metadata.vetted` field records where it was reviewed from, its license, and — importantly — where its guidance **doesn't** match this project's actual conventions (e.g. the React skill's Next.js/RSC sections don't apply to this Vite SPA; the Postgres skill's bigint-PK recommendation conflicts with this schema's established UUID convention). Read that field before treating a skill's advice as this project's own convention.
+### `.claude/skills/` — two kinds, and they carry different authority
+
+**Project-specific skills (authoritative — these ARE this project's conventions).**
+Written from this repo's own audit findings and architecture, not vendored.
+Prefer these over any generic guidance when they conflict:
+
+| Skill | Load it when |
+|---|---|
+| `medibook-tenant-scoping` | Writing/reviewing any resolver, service, or Prisma query. Carries the `orgScope`/`selfScope` patterns, the five known `create*` bug instances, and the one live-exploited leak. |
+| `medibook-prisma-migrations` | Touching `schema.prisma`. Hand-written-SQL workflow (`prisma migrate dev` cannot run here), naming conventions, index discipline, the restart-after-`generate` rule. |
+| `medibook-graphql-contracts` | Writing/changing a resolver, entity, or DTO. The two dialects, the three mutation-response conventions, guard defaults, pagination. |
+| `careos-phase-planning` | "What should we build next", mapping a PRD `FR-*` onto this codebase, checking what blocks what. |
+| `medibook-responsive-mobile` | Touching any screen under `frontend/src`. The tiering model, the element-level overflow probe (the standard `scrollWidth` check provably misses real truncation here), touch/type floors, PWA gaps. |
+| `medibook-design-system` | Picking a colour or font size, styling a component, branding/white-label work. Theme tokens vs. the 87 files that bypass them, and why `REQ002` branding is currently inert. |
+| `medibook-frontend-data-wiring` | Building/reviewing a page that displays data, or investigating wrong/empty/stale values. The fabricated-page detection method, the no-mock-fallback rule, Apollo's `cache-first`/`errorPolicy` traps. |
+
+**Vendored reference skills (advisory — verify against this project first).**
+The rest (NestJS, React, PostgreSQL, GraphQL architecture, security review, error
+handling, TypeScript, etc.) is content pulled directly from specific,
+individually-vetted MIT-licensed GitHub sources — not installed through a
+skill-marketplace CLI, which had no working install artifacts for anything
+relevant at the time. Each file's `metadata.vetted` field records where it was
+reviewed from, its license, and — importantly — where its guidance **doesn't**
+match this project's conventions (e.g. the React skill's Next.js/RSC sections
+don't apply to this Vite SPA; the Postgres skill's bigint-PK recommendation
+conflicts with this schema's established UUID convention). Read that field before
+treating a vendored skill's advice as this project's own convention.
 
 ## Current priorities (work through in order; each is a vertical slice with its own DoD)
 
