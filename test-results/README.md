@@ -2,15 +2,20 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
-| public | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [public](./public/README.md) |
-| organizations | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [organizations](./organizations/README.md) |
-| organization-branding | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [organization-branding](./organization-branding/README.md) |
-| products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
+| appointments | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [appointments](./appointments/README.md) |
+| clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
+| organizations | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [organizations](./organizations/README.md) |
+| public | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [public](./public/README.md) |
 | communications-policies | 2 | 2 | 0 | 4 | 0 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
-| patient-payments | 2 | 0 | 0 | 0 | 2 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |
+| dashboard | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
+| notifications | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [notifications](./notifications/README.md) |
+| organization-branding | 1 | 0 | 0 | 1 | 0 | 2026-08-21 | [organization-branding](./organization-branding/README.md) |
+| products | 0 | 0 | 1 | 1 | 0 | 2026-08-21 | [products](./products/README.md) |
+| security | 1 | 0 | 0 | 1 | 0 | 2026-08-21 | [security](./security/README.md) |
 | settings | 3 | 0 | 0 | 2 | 1 | 2026-08-21 | [settings](./settings/README.md) |
+| staff | 1 | 1 | 0 | 1 | 1 | 2026-08-21 | [staff](./staff/README.md) |
+| patient-payments | 2 | 0 | 0 | 2 | 0 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |
 | clinician-availability | 1 | 0 | 0 | 0 | 1 | 2026-08-19 | [clinician-availability](./clinician-availability/README.md) |
-| appointments | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [appointments](./appointments/README.md) |
 | auth | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [auth](./auth/README.md) |
 | patients | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [patients](./patients/README.md) |
 | phase4-5-increment3 | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
@@ -20,9 +25,6 @@
 | calendar | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [calendar](./calendar/README.md) |
 | clinician-dashboard | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [clinician-dashboard](./clinician-dashboard/README.md) |
 | clinician-patients | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [clinician-patients](./clinician-patients/README.md) |
-| clinicians | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [clinicians](./clinicians/README.md) |
-| dashboard | 2 | 0 | 0 | 0 | 2 | 2026-08-21 | [dashboard](./dashboard/README.md) |
-| security | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [security](./security/README.md) |
 | date-time-format | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [date-time-format](./date-time-format/README.md) |
 | header-navigation | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [header-navigation](./header-navigation/README.md) |
 | manager | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [manager](./manager/README.md) |
@@ -35,12 +37,10 @@
 | manager-rooms | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [manager-rooms](./manager-rooms/README.md) |
 | manager-services | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [manager-services](./manager-services/README.md) |
 | messages | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [messages](./messages/README.md) |
-| notifications | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [notifications](./notifications/README.md) |
 | patient-appointments | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [patient-appointments](./patient-appointments/README.md) |
 | patient-dashboard | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [patient-dashboard](./patient-dashboard/README.md) |
 | profile | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [profile](./profile/README.md) |
 | reviews | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [reviews](./reviews/README.md) |
-| staff | 1 | 1 | 0 | 1 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | staff-appointments | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [staff-appointments](./staff-appointments/README.md) |
 | staff-dashboard | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [staff-dashboard](./staff-dashboard/README.md) |
 | admin | 1 | 0 | 0 | 0 | 1 | 2026-03-24 | [admin](./admin/README.md) |

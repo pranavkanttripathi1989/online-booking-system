@@ -3,15 +3,17 @@ id: REQ006
 type: requirement
 feature: communications-policies
 created: 2026-08-20
-updated: 2026-08-21
-status: in-progress
+updated: 2026-08-22
+status: done
 parent: null
-related: [PLAN009, PLAN011]
+related: [PLAN009, PLAN011, REQ008, REQ010, REQ011, REQ012]
 ---
 
 # Communications & Policies — Backend Requirements
 
-**Progress (2026-08-21):** Cancellation Rules (`PLAN009`) and Booking Policies + Email settings (`PLAN011`) are done and tested. Still open: `admin/Communications.jsx`'s SMS Settings card (blocked on `context/open-questions.md` #6 — its Twilio/Vonage picker contradicts the fixed MSG91/Gupshup vendor rule; now visibly disabled rather than silently non-functional) and Policies' Cancellation Policy/Late-Fee sliders (blocked on `context/open-questions.md` #7 — likely duplicate of Cancellation Rules; also visibly disabled). Not yet started at all, not even blocked: the "Notification Templates" tab (this doc's own Open Question 1 — possible duplicate of the already-real `admin/EmailTemplates.jsx`, unresolved) and Policies' "Security settings" tab (this doc's Open Question 2 — possible overlap with `REQ005`'s Account & Security tab, unresolved).
+**Closed 2026-08-22 (found while closing `REQ013` Phase C — see `PLAN025`):** every item this requirement scoped, and every open question it deferred, is now done. Cancellation Rules (`PLAN009`) and Booking Policies + Email settings (`PLAN011`) were done and tested as of 2026-08-21. The four items left open at that point were each resolved as their own dedicated slice rather than folded back into this one: the SMS Settings card / Twilio-Vonage-vs-fixed-vendor conflict (Open Question below, `context/open-questions.md` #6) by `REQ008` (per-org-configurable OTP/SMS provider registry, MSG91/Gupshup/Twilio/AWS SNS); the Cancellation Policy/Late-Fee slider duplication (Open Question below, `context/open-questions.md` #7) by `REQ010` (sliders removed, tab redirects to the real Cancellation Rules feature); the "Notification Templates" tab vs. `admin/EmailTemplates.jsx` overlap (Open Question 1 below) by `REQ011` (rebuilt onto the real, shared `email-templates` module); and Policies' "Security settings" tab vs. `REQ005`'s Account & Security tab (Open Question 2 below) by `REQ012` (confirmed a distinct, non-duplicate scope — org-wide policy vs. per-user account security — and built for real). No remaining scope under this requirement's own acceptance criteria is outstanding.
+
+**Progress (2026-08-21, kept for history):** Cancellation Rules (`PLAN009`) and Booking Policies + Email settings (`PLAN011`) are done and tested. Still open: `admin/Communications.jsx`'s SMS Settings card (blocked on `context/open-questions.md` #6 — its Twilio/Vonage picker contradicts the fixed MSG91/Gupshup vendor rule; now visibly disabled rather than silently non-functional) and Policies' Cancellation Policy/Late-Fee sliders (blocked on `context/open-questions.md` #7 — likely duplicate of Cancellation Rules; also visibly disabled). Not yet started at all, not even blocked: the "Notification Templates" tab (this doc's own Open Question 1 — possible duplicate of the already-real `admin/EmailTemplates.jsx`, unresolved) and Policies' "Security settings" tab (this doc's Open Question 2 — possible overlap with `REQ005`'s Account & Security tab, unresolved).
 
 **Why this exists (original, 2026-08-20):** two admin pages, three tabs each, all currently mock or partially-mock: `admin/Communications.jsx` (route `/admin/communications`) and `admin/Policies.jsx` (route `/admin/policies`).
 

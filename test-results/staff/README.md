@@ -10,7 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| TR046 | improvement | Test result — Staff since/status/password-reset | passed | 2026-08-21 | 2026-08-21 | REQ009 | [TR046-staff-2026-08-21-since-and-password-reset.md](./improvement/TR046-staff-2026-08-21-since-and-password-reset.md) |
+| TR046 | improvement | Test result — Staff since/status/password-reset (REQ009/PLAN018/TP047) | passed | 2026-08-21 | 2026-08-21 | REQ009 | [TR046-staff-2026-08-21-since-and-password-reset.md](./improvement/TR046-staff-2026-08-21-since-and-password-reset.md) |
 
 ## bug
 

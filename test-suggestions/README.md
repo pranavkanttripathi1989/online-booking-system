@@ -2,6 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| organization-onboarding | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [organization-onboarding](./organization-onboarding/README.md) |
 | clinician-availability | 1 | 0 | 0 | 1 | 0 | 2026-08-19 | [clinician-availability](./clinician-availability/README.md) |
 | appointments | 1 | 0 | 0 | 1 | 0 | 2026-08-18 | [appointments](./appointments/README.md) |
 | patients | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [patients](./patients/README.md) |
@@ -12,7 +13,6 @@
 | date-time-format | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [date-time-format](./date-time-format/README.md) |
 | header-navigation | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [header-navigation](./header-navigation/README.md) |
 | notifications | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [notifications](./notifications/README.md) |
-| organization-onboarding | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [organization-onboarding](./organization-onboarding/README.md) |
 | patient-appointments | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [patient-appointments](./patient-appointments/README.md) |
 | patient-dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [patient-dashboard](./patient-dashboard/README.md) |
 | patient-profile | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [patient-profile](./patient-profile/README.md) |

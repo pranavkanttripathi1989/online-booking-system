@@ -2,10 +2,12 @@
 feature: communications-policies
 date: 2026-08-20
 ids: [REQ006, PLAN009, TP039, TR038, PLAN011, TP041, TR040]
-status: in-progress
+status: done
 ---
 
 # communications-policies — 2026-08-20
+
+**Closed 2026-08-22 (`REQ013` Phase C, `PLAN025`):** `REQ006` is now `done` — its last two open questions (Notification Templates vs. `EmailTemplates`, Policies' Security-settings overlap with `REQ005`) were resolved as `REQ011`/`REQ012` respectively (see their own 2026-08-21 bundles), and the SMS-vendor/cancellation-slider blockers were resolved as `REQ008`/`REQ010`. Nothing in this bundle's own scope remains open.
 
 Requirement written, grounded in `admin/Communications.jsx` (3 tabs, all mock) and `admin/Policies.jsx` (3 tabs; cancellation-rules tab already has real-looking inline `gql`, but direct check of `backend/src/schema.gql` confirmed none of those resolvers actually exist — only a read-only public-dialect type for the patient-facing booking flow).
 

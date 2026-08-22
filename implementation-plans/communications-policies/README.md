@@ -11,8 +11,8 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| PLAN019 | improvement | Implementation plan — remove duplicate Cancellation Policy sliders | done | 2026-08-21 | 2026-08-21 | REQ010 | [PLAN019-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md](./improvement/PLAN019-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md) |
-| PLAN020 | improvement | Implementation plan — Notification Templates real backend | done | 2026-08-21 | 2026-08-21 | REQ011 | [PLAN020-communications-policies-2026-08-21-notification-templates-real-backend.md](./improvement/PLAN020-communications-policies-2026-08-21-notification-templates-real-backend.md) |
+| PLAN019 | improvement | Implementation plan — remove duplicate Cancellation Policy sliders (REQ010) | done | 2026-08-21 | 2026-08-21 | REQ010 | [PLAN019-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md](./improvement/PLAN019-communications-policies-2026-08-21-remove-cancellation-policy-duplication.md) |
+| PLAN020 | improvement | Implementation plan — Notification Templates real backend (REQ011) | done | 2026-08-21 | 2026-08-21 | REQ011 | [PLAN020-communications-policies-2026-08-21-notification-templates-real-backend.md](./improvement/PLAN020-communications-policies-2026-08-21-notification-templates-real-backend.md) |
 
 ## bug
 
