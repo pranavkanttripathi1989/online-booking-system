@@ -411,36 +411,38 @@ export default function CalendarPage() {
   }, [filterClinician, filterClinic, filterStatus])
 
   // ── Appointments query ────────────────────────────────────────────────────
-  const { data, loading, refetch, client } = useQuery(APPOINTMENTS_QUERY, {
+  const { data, loading, error, refetch, client } = useQuery(APPOINTMENTS_QUERY, {
     variables:   { filters: buildFilters(), first: 500, page: 1 },
     fetchPolicy: 'cache-and-network',
     pollInterval: 30_000,
   })
 
   // ── Clinicians + Clinics ──────────────────────────────────────────────────
-  const { data: cliniciansData } = useQuery(CLINICIANS_QUERY, { variables: { first: 100, is_active: true } })
-  const { data: clinicsData }    = useQuery(CLINICS_QUERY)
-  // Always show options — fall back to MockStore when GraphQL offline
-  const clinicians = cliniciansData?.clinicians?.data?.length
-    ? cliniciansData.clinicians.data
-    : MockStore.getClinicians()
+  const { data: cliniciansData, error: cliniciansError } = useQuery(CLINICIANS_QUERY, { variables: { first: 100, is_active: true } })
+  const { data: clinicsData, error: clinicsError }       = useQuery(CLINICS_QUERY)
+  // Fall back to mock options only on a real query error -- a genuinely
+  // empty real list (e.g. an org with zero active clinicians/clinics) is a
+  // valid state, not a reason to populate filters with fake entities.
+  const clinicians = cliniciansError
+    ? MockStore.getClinicians()
+    : (cliniciansData?.clinicians?.data ?? [])
   const rawClinics = clinicsData?.clinics ?? []
   const MOCK_CLINICS = [
     { id: 'clinic-1', name: 'Meridian Central', is_active: true },
     { id: 'clinic-2', name: 'Northside Medical', is_active: true },
     { id: 'clinic-3', name: 'Eastbrook Health', is_active: true },
   ]
-  const clinics = (rawClinics.length ? rawClinics : MOCK_CLINICS).filter(c => c.is_active)
+  const clinics = (clinicsError ? MOCK_CLINICS : rawClinics).filter(c => c.is_active)
 
   // ── Rooms (for Room View) ─────────────────────────────────────────────────
-  const { data: roomsData } = useQuery(ROOMS_QUERY, {
+  const { data: roomsData, error: roomsError } = useQuery(ROOMS_QUERY, {
     variables: { clinic_id: roomViewClinicId || undefined },
     skip: !isRoomView,
   })
   const rawRooms  = (roomsData?.rooms ?? []).filter(r => r.is_active)
-  // Fallback to mock rooms when backend not available
+  // Fallback to mock rooms only on a real query error, same reasoning.
   const MOCK_ROOM_OBJECTS = MOCK_ROOMS.map((name, i) => ({ id: `mock-room-${name.replace(/\s/g,'-')}`, name, is_active: true }))
-  const allRooms    = rawRooms.length > 0 ? rawRooms : MOCK_ROOM_OBJECTS
+  const allRooms    = roomsError ? MOCK_ROOM_OBJECTS : rawRooms
   const visibleRooms = roomViewRoomIds.length > 0
     ? allRooms.filter(r => roomViewRoomIds.includes(r.id))
     : allRooms
@@ -481,9 +483,13 @@ export default function CalendarPage() {
   })
 
   // ── Events ────────────────────────────────────────────────────────────────
+  // Fall back to generated mock events only on a real query error -- a
+  // legitimately empty real result (e.g. every appointment filtered out by
+  // clinician/clinic/status) is a valid "nothing scheduled" calendar state,
+  // not a reason to pad it with a month of fabricated events.
   const appointments = data?.appointments?.data ?? []
   const realEvents   = appointments.map(toCalendarEvent)
-  const events       = realEvents.length > 0 ? realEvents : generateMockCalendarData()
+  const events       = error ? generateMockCalendarData() : realEvents
 
   // ── Status counts ─────────────────────────────────────────────────────────
   const realAppts   = events.filter(e => !e.extendedProps?.isBlocked)

@@ -38,7 +38,7 @@ import SmsRoundedIcon             from '@mui/icons-material/SmsRounded'
 
 
 import { APPOINTMENT_DETAIL_QUERY } from '../../graphql/queries'
-import { CANCEL_APPOINTMENT_MUTATION, COMPLETE_APPOINTMENT_MUTATION, MARK_NO_SHOW_MUTATION } from '../../graphql/mutations'
+import { CANCEL_APPOINTMENT_MUTATION, COMPLETE_APPOINTMENT_MUTATION, MARK_NO_SHOW_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations'
 import * as MockStore from '../../mocks/store'
 import CancelDialog from '../../components/Appointments/CancelDialog'
 
@@ -340,6 +340,7 @@ export default function AppointmentDetailPage() {
   const [cancelAppointment]   = useMutation(CANCEL_APPOINTMENT_MUTATION, {
     onCompleted: () => { setCancelOpen(false); refetch() }
   })
+  const [updateAppointment]   = useMutation(UPDATE_APPOINTMENT_MUTATION)
 
   // NEW-APPT-004: Send Reminder with channel selection
   const handleSendReminder = (channel) => {
@@ -354,18 +355,21 @@ export default function AppointmentDetailPage() {
     }, 1500)
   }
 
-  // SUG-APPT-010: Reschedule handler — updates MockStore optimistically
-  const handleReschedule = (newStart, newEnd) => {
-    setRescheduleOpen(false)
-    if (apt) {
-      MockStore.updateAppointment?.(apt.id, {
-        start_datetime: newStart.toISOString(),
-        end_datetime: newEnd.toISOString(),
-        status: 'rescheduled',
-      })
+  // SUG-APPT-010: Reschedule handler — real updateAppointment mutation.
+  // end_datetime isn't a directly settable input (appointments.service.ts's
+  // update() recomputes it server-side from the service's duration_minutes
+  // once start_datetime moves), and the resolver runs a real slot-conflict
+  // check (assertSlotFree) the old MockStore-only version never did.
+  const handleReschedule = async (newStart) => {
+    if (!apt) return
+    try {
+      await updateAppointment({ variables: { id: apt.id, input: { start_datetime: newStart.toISOString() } } })
+      setRescheduleOpen(false)
+      enqueueSnackbar('Appointment rescheduled successfully.', { variant: 'success' })
+      navigate('/appointments')
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to reschedule appointment', { variant: 'error' })
     }
-    enqueueSnackbar('Appointment rescheduled successfully.', { variant: 'success' })
-    navigate('/appointments')
   }
 
   const initials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? '?'

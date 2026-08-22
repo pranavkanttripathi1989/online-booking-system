@@ -164,7 +164,7 @@ export default function AppointmentsPage() {
   }, [dateFrom, dateTo, status, clinicianId, search])
 
   // ── Queries ───────────────────────────────────────────────────────────────
-  const { data, loading, refetch } = useQuery(APPOINTMENTS_QUERY, {
+  const { data, loading, error, refetch } = useQuery(APPOINTMENTS_QUERY, {
     variables: {
       filters: buildFilters(),
       first: paginationModel.pageSize,
@@ -173,7 +173,7 @@ export default function AppointmentsPage() {
     fetchPolicy: 'cache-and-network',
   })
 
-  const { data: cliniciansData } = useQuery(CLINICIANS_QUERY, {
+  const { data: cliniciansData, error: cliniciansError } = useQuery(CLINICIANS_QUERY, {
     variables: { first: 100, is_active: true },
   })
 
@@ -332,20 +332,26 @@ export default function AppointmentsPage() {
   const tabDateFrom = viewTab === 'upcoming' ? now.format('YYYY-MM-DDTHH:mm') : undefined
   const tabDateTo   = viewTab === 'past'     ? now.format('YYYY-MM-DDTHH:mm')  : undefined
 
-  // Fall back to 35 plan-compliant mock rows when backend is offline
+  // Fall back to 35 plan-compliant mock rows only when the real query
+  // genuinely fails (network/GraphQL error) -- the previous `apiRows.length
+  // > 0 ? apiRows : mockRows` fell back on any empty *result* too, which
+  // silently replaced a real, valid "no appointments match this filter"
+  // state with 35 fabricated rows (confirmed live: filtering status=no_show,
+  // which has zero real matches for this org, rendered three fake patients
+  // -- Kavya Nair, Ingrid Larsson, Hassan Malik -- as if they were real).
   const mockRows = useMemo(() => {
-    let baseRows = MockStore.getAppointments({
+    if (!error) return []
+    return MockStore.getAppointments({
       status: status !== 'all' ? status : undefined,
       clinicianId: clinicianId || undefined,
       search: search || undefined,
       dateFrom: dateFrom ? dayjs(dateFrom).format('YYYY-MM-DD') : tabDateFrom,
       dateTo:   dateTo   ? dayjs(dateTo).format('YYYY-MM-DD')   : tabDateTo,
     })
-    return baseRows
-  }, [status, clinicianId, search, dateFrom, dateTo, tabDateFrom, tabDateTo])
+  }, [error, status, clinicianId, search, dateFrom, dateTo, tabDateFrom, tabDateTo])
 
-  const rows  = apiRows.length > 0 ? apiRows : mockRows
-  const total = apiRows.length > 0 ? (data?.appointments?.paginatorInfo?.total ?? 0) : mockRows.length
+  const rows  = error ? mockRows : apiRows
+  const total = error ? mockRows.length : (data?.appointments?.paginatorInfo?.total ?? 0)
 
   // SUG-APPT-002 + SUG-APPT-005: Apply optimistic cancellations and inline status overrides
   const displayRows = useMemo(() =>
@@ -359,9 +365,12 @@ export default function AppointmentsPage() {
 
   // Detect if any filter is active (for contextual empty state)
   const hasActiveFilters = !!(search || status !== 'all' || clinicianId || dateFrom || dateTo || viewTab !== 'all')
-  const clinicians = cliniciansData?.clinicians?.data?.length > 0
-    ? cliniciansData.clinicians.data
-    : MockStore.getClinicians({ isActive: true })
+  // Same error-only fallback reasoning as rows/mockRows above -- an org with
+  // genuinely zero active clinicians is a valid real state, not a reason to
+  // populate the filter dropdown with fake clinicians.
+  const clinicians = cliniciansError
+    ? MockStore.getClinicians({ isActive: true })
+    : (cliniciansData?.clinicians?.data ?? [])
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
