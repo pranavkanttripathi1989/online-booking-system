@@ -105,16 +105,20 @@ client you add needs the same, or `app.close()` will hang again.
   fail reads as coverage while proving nothing.
 - **The CI workflow has never executed on GitHub.** Every command in it passes
   locally; the pipeline itself is unproven.
-- **10 pages render fabricated data**, and 7 of those were found by
-  `scripts/check-page-data-wiring.mjs` on its first run — `analytics`,
-  `clinician/Patients`, `manager/Billing`, `patient/Appointments`,
-  `public/landing`, `staff/Appointments`, `staff/Dashboard`. **Every one has a
-  real backend module it simply never calls.** Four earlier grep-based audits
-  missed them because they search for `mocks/store` imports and these declare
-  their own `MOCK_*` arrays instead. They are allowlisted, not fixed — wiring
-  them is open work.
-- 197 frontend lint warnings (ratcheted, may only go down) and 33 lines of
-  schema-vs-database drift remain.
+- **3 pages render fabricated data** — `onboarding`, `tasks`, `waiting-room` —
+  and only because **no backend domain exists** for them (Priority 2). The other
+  seven the gate found were wired in `BUG009`; `manager/Billing` was deleted and
+  `/manager/billing` now redirects to `/finances`, which it duplicated.
+  **Those six wired pages have had no live browser pass** — they compile, lint,
+  build and query a schema-valid contract, and the backend contracts are covered
+  by the integration suite, but nobody has driven the routes against real data.
+  Do that before trusting them end to end.
+- **`scripts/check-page-data-wiring.mjs` is the tool that found them.** Run it
+  before claiming a page is real. It asks "does a file that renders data have
+  *any* route to real data", which is what four `mocks/store` greps could not —
+  those pages declare their own `MOCK_*` arrays.
+- 177 frontend lint warnings (ratcheted, may only go down — 197 before BUG009)
+  and 33 lines of schema-vs-database drift remain.
 
 Directory contract:
 - `<root>/<feature-name>/{requirement,improvement,bug}/*.md` across all five roots.
@@ -322,6 +326,46 @@ For each remaining gap: audit the frontend's existing `gql` calls for that domai
 5. Not started — final summary commit for the sweep as a whole still pending; each fix above was committed individually per Hard Rule 4.
 
 **DoD:** no page silently falls back to mock data for a domain with a real backend (✅ for every page/component actually touched this pass — the 3 still-fully-mock pages with no backend at all remain a Priority 2 concern, not this DoD); full test suite green end to end (backend unaffected — this pass was frontend-only; frontend e2e green for every touched spec); final commit summarizing the sweep — pending.
+
+## Picking this up on another machine
+
+Last session ended 2026-08-23 with Phase F complete and `BUG009` (the seven
+fabricated pages) closed. To get running:
+
+```bash
+docker compose up -d                                 # dev stack
+docker compose --profile test up -d postgres_test    # needed for `npm run test:int`
+cd backend  && npm ci && npx prisma generate && npx prisma migrate deploy
+cd frontend && npm ci
+```
+
+Node: **v24.19.0** (nvm, Latest LTS). The old system Node 18.13.0 was removed —
+the CLAUDE.md note about `npm run e2e` needing `nvm use 20` is now obsolete on
+the original machine, but has **not been re-verified** against a real Playwright
+run; treat it as unconfirmed either way.
+
+Verify green before starting (these are exactly what CI runs):
+
+```bash
+cd backend  && npm test && npm run test:int && npx eslint "{src,apps,libs,test}/**/*.ts" && npx tsc --noEmit
+cd frontend && npm run lint && npm test && npm run build
+node scripts/check-page-data-wiring.mjs
+```
+
+**The two highest-value things left**, both recorded in `TR056` and
+`context/open-questions.md`:
+
+1. **Drive the six newly-wired pages in a browser.** `/analytics`,
+   `/clinician/patients`, `/patient/appointments`, `/staff/appointments`,
+   `/staff/dashboard` and the public landing page were wired against real
+   contracts and are fully green in CI terms, but nobody has looked at them
+   against real data. This is the one gap in that slice.
+2. **Answer open questions #10 and #11** — video captions, patient check-in, and
+   the patient `status`/`condition` definitions. Each is blocking UI that was
+   deliberately removed rather than faked.
+
+Also unproven: **the CI workflow has never executed on GitHub.** The first push
+will be its first real run.
 
 ## Session resume protocol
 

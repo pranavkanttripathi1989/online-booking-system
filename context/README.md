@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| platform-nfr-2026-08-22-f18 | platform-nfr | 2026-08-22 | BUG009, PLAN030, TP057, TR056 | done | [manifest.md](./platform-nfr-2026-08-22-f18/manifest.md) |
 | platform-nfr-2026-08-22-f26 | platform-nfr | 2026-08-22 | BUG008, PLAN029, TP056, TR055 | done | [manifest.md](./platform-nfr-2026-08-22-f26/manifest.md) |
 | platform-nfr-2026-08-22-f25 | platform-nfr | 2026-08-22 | BUG006, BUG007, PLAN028, TP055, TR054 | done | [manifest.md](./platform-nfr-2026-08-22-f25/manifest.md) |
 | platform-nfr-2026-08-22-f13 | platform-nfr | 2026-08-22 | BUG005, PLAN027, TP054, TR053 | done | [manifest.md](./platform-nfr-2026-08-22-f13/manifest.md) |

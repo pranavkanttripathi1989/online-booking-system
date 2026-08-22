@@ -34,6 +34,49 @@ The mock UI also renders Date of Birth, Gender, a full street/city/state/ZIP add
 
 **Decision needed from the user:** whether/when to build the actual event→notification trigger pipeline (a real, separate, larger feature spanning every domain that should produce a notification) that would make these preferences meaningful, versus leaving them as inert-but-correct user-configurable settings for now.
 
+## 11. Two staff/clinician concepts were removed when their pages were wired, because nothing backs them
+
+**Status:** Open, raised 2026-08-22 while closing `BUG009`.
+
+Wiring the seven fabricated pages meant deleting UI that had no backend. Two of
+those deletions are visible losses of apparent functionality and need a product
+decision before they can come back.
+
+**(a) Patient check-in.** `staff/Dashboard.jsx` had a "Check In" button and a
+"Checked In" KPI. `Appointments.status` is `scheduled | completed | cancelled |
+no_show` — there is no `checked_in` state anywhere in the schema, so the button
+wrote nowhere and the KPI counted a field that does not exist. Both were removed
+rather than left as a control that silently does nothing.
+
+This is not a wiring gap; it is `REQ019` (queue management), still `draft`. The
+decision is whether check-in is a lightweight extra `Appointments.status` value
+(cheap, and enough for a front desk to mark arrivals) or the full queue/token
+model the PRD describes. Those are materially different builds.
+
+**(b) Patient `status` and `condition`.** `clinician/Patients.jsx` had columns
+for a clinical `condition` and an `active`/`new`/`inactive` status, plus filter
+chips driven by them. Neither exists in the schema.
+
+`condition` is genuinely absent — the closest column is `Patients.medical_notes`,
+free text, which is not the same thing and would be misleading rendered as a
+single-value column. `REQ020` (clinical records) is where a real problem list
+belongs.
+
+`status` is the more interesting one, because it *could* be derived from data
+that already exists: "new" if the patient has one visit, "inactive" if their last
+visit is older than N months. It was **not** derived, because N is a
+clinical/business rule nobody has set, and picking one would be exactly the
+"invent a reasonable contract" that Hard Rule 7 forbids — the number would then
+quietly become the product's definition of a lapsed patient.
+
+**Decision needed from the user:** for (a), whether check-in is a status value or
+the full `REQ019` queue; for (b), the actual thresholds for new/inactive (and
+whether "condition" should wait for `REQ020` or be dropped from the page's design
+entirely). Both columns and the check-in control return the moment there is a
+real definition to render.
+
+---
+
 ## 10. The telemedicine video call has no captions track, and the PRD commits to accessibility
 
 **Status:** Open, raised 2026-08-22 while fixing F-22.

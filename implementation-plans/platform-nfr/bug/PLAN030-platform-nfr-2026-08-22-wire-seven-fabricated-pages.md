@@ -3,8 +3,8 @@ id: PLAN030
 type: bug
 feature: platform-nfr
 created: 2026-08-22
-updated: 2026-08-22
-status: in-progress
+updated: 2026-08-23
+status: done
 parent: BUG009
 related: [F-18, BUG008, TP057, TR056]
 ---

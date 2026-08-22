@@ -513,7 +513,7 @@ work already scoped out of `REQ002`.
 
 ## Frontend and product integrity
 
-### F-18 · S2 · Fourteen routed pages render fabricated data with no GraphQL
+### F-18 · S2 · Fourteen routed pages render fabricated data with no GraphQL — ✅ LARGELY CLOSED 2026-08-22
 Full table in `01-codebase-analysis.md §3.2`. Eleven of the fourteen have a real
 backend module already built and unused.
 
@@ -535,6 +535,23 @@ under `src/pages` that renders a list or detail view must reference a GraphQL
 operation. Grep for `mocks/store` was never sufficient.
 
 **File as:** bug, feature per page (`analytics`, `patients`, `staff`, …).
+
+
+**Closed for 7 of the pages** as `BUG009` / `PLAN030` / `TP057` / `TR056`, and
+the count in this entry was low: the structural gate built for F-26 found seven
+that no prior audit had, on top of the ones already known.
+
+**The detection method is the transferable part.** Four grep-based audits swept
+for `mocks/store` imports and missed every one of the seven, because none of them
+import it — they declare their own `MOCK_*` arrays.
+`scripts/check-page-data-wiring.mjs` inverts the question ("does a file that
+renders data have *any* route to real data") and now fails the build on a new
+one.
+
+**Still open:** three pages (`onboarding`, `tasks`, `waiting-room`) remain
+fabricated because no backend domain exists for them — Priority 2 feature work,
+not a wiring gap. And the six wired pages have had **no live browser
+verification**; that gap is recorded in `TR056` rather than glossed.
 
 ### F-19 · S3 · Branding does not reach 88 of 122 UI files
 **Evidence:** 88 JSX files contain literal hex colours; `REQ002`'s branding
