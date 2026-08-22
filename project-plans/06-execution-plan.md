@@ -61,7 +61,7 @@ correct today and unverifiable tomorrow — which is exactly how `F-01` survived
 | 1.3 | **Tenancy matrix**: parameterised over 29 domains × 8 caller archetypes, asserting own-org read succeeds and cross-org read returns empty or `FORBIDDEN` | F-25 | ✅ done 2026-08-23 (`BUG012`) — all 21 tenant-scoped domains now classified (covered or exempt with a stated reason); `KNOWN_GAPS` is `[]` |
 | 1.4 | Booking concurrency test: N simultaneous bookings on one slot, exactly one succeeds (expected to fail until P3) | F-16 | ✅ exists (`booking-concurrency.int-spec.ts`), deliberately `it.failing` pending P3's exclusion constraint — no further P1 work needed here |
 | 1.5 | Seed script: 2 orgs, ~5 clinicians, ~200 patients, ~2,000 appointments, payments, messages; separate e2e database with reset between runs | F-28 | ⬜ not started |
-| 1.6 | Frontend unit tests where risk concentrates: `AuthContext`, `ProtectedRoute`/`RoleGuard`, booking-wizard validation, currency/date utils; real `collectCoverageFrom` and thresholds | F-24 | ⬜ not started |
+| 1.6 | Frontend unit tests where risk concentrates: `AuthContext`, `ProtectedRoute`/`RoleGuard`, booking-wizard validation, currency/date utils; real `collectCoverageFrom` and thresholds | F-24 | ✅ done 2026-08-23 (`BUG013`) — guards (94.1% branch) and formatters (97.9% branch) both clear 90%; `collectCoverageFrom` now measures the whole tree with a ratchet-floor `global` threshold |
 
 **DoD.** The tenancy matrix covers every domain and is required in CI. Adding a
 new domain without a matrix entry fails the build. Frontend coverage is measured
@@ -69,11 +69,11 @@ against the whole source tree, with guards and formatters above 90%. The
 concurrency test exists and its current failure is recorded as the acceptance
 criterion for P3.
 
-**P1 status as of 2026-08-23: partially done.** 1.1–1.4 are satisfied; 1.5 and
-1.6 remain, sequenced as their own slices (see `BUG012` for the tenancy-matrix
-closure detail). `07-prd-gap-analysis-and-roadmap.md`'s "P0–P1 must complete
-before any REQ014–035 implementation planning begins" still holds until both
-are done.
+**P1 status as of 2026-08-23: 1.1–1.4 and 1.6 done; 1.5 remains** (a realistic
+seed dataset + a separately seeded e2e database — see `BUG012`/`BUG013` for
+the closed items' detail). `07-prd-gap-analysis-and-roadmap.md`'s "P0–P1 must
+complete before any REQ014–035 implementation planning begins" still holds
+until 1.5 is done too.
 
 ---
 

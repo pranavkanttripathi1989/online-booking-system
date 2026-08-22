@@ -12,6 +12,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR060 | bug | Frontend unit-test slice results | pass | 2026-08-23 | 2026-08-23 | TP061 | [TR060](./bug/TR060-platform-nfr-2026-08-23-frontend-unit-tests-verification.md) |
 | TR059 | bug | Tenancy matrix KNOWN_GAPS closure results | pass | 2026-08-23 | 2026-08-23 | TP060 | [TR059](./bug/TR059-platform-nfr-2026-08-23-tenancy-matrix-known-gaps-verification.md) |
 | TR057 | bug | Live-browser defect fixes results | pass | 2026-08-23 | 2026-08-23 | TP058 | [TR057](./bug/TR057-platform-nfr-2026-08-23-live-browser-defect-fixes-verification.md) |
 | TR056 | bug | Fabricated-page wiring results | pass | 2026-08-22 | 2026-08-23 | BUG009 | [TR056](./bug/TR056-platform-nfr-2026-08-22-fabricated-page-wiring-verification.md) |
