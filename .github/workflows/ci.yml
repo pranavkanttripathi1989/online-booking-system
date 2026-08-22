@@ -1,0 +1,192 @@
+### CI (F-26)
+#
+# CLAUDE.md Hard Rule 3 says "verify before you commit". Until this file existed
+# that was a convention, not a control — and the record shows conventions did not
+# hold: F-01 and BUG006 both shipped with a green local suite, and the frontend
+# lint script had been broken (F-22) for long enough that two stale
+# eslint-disable directives accumulated behind it unnoticed.
+#
+# Everything below runs locally with the same command, deliberately. A CI step
+# that cannot be reproduced on a developer's machine gets ignored the first time
+# it goes red.
+
+name: CI
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  # Matches the nvm default this repo is developed against. The host previously
+  # also carried a Node 18.13.0 install, which is below Playwright's 18.19
+  # minimum and caused the e2e suite to fail on config load; pinning here means
+  # CI cannot drift into that.
+  NODE_VERSION: '24'
+
+jobs:
+  backend:
+    name: backend — lint, typecheck, unit
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      # Prisma Client is generated code; nothing typechecks without it.
+      - run: npx prisma generate
+      - run: npx eslint "{src,apps,libs,test}/**/*.ts"
+      - run: npx tsc --noEmit
+      # `npm test` is `jest --runInBand` (F-29). Do not "optimise" this into
+      # parallel workers: measured on the dev host, the default worker count was
+      # OOM-killed at exit 137, two workers took 182s and emitted a spurious
+      # "worker failed to exit gracefully", and one process took 118s cleanly.
+      - run: npm test
+
+  schema:
+    name: backend — prisma schema + migrations
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: medibook_test
+          POSTGRES_USER: medibook
+          POSTGRES_PASSWORD: medibook_test_secret
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U medibook -d medibook_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      DATABASE_URL: postgresql://medibook:medibook_test_secret@localhost:5433/medibook_test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma validate
+      # Migrations are hand-written SQL here (CLAUDE.md: `prisma migrate dev`
+      # cannot run in this environment), so they get no diff/review safety net.
+      # Applying them to a clean database on every push is the substitute.
+      - run: npx prisma migrate deploy
+      # Fails if the migrated database and schema.prisma have diverged — the
+      # specific failure hand-written migrations invite.
+      #
+      # `--from-schema-datasource` introspects the live (just-migrated) database.
+      # Do NOT switch this to `--from-migrations`: that form requires a shadow
+      # database, and pointing --shadow-database-url at the target is
+      # DESTRUCTIVE — it drops `_prisma_migrations` and leaves the tables, after
+      # which `migrate deploy` fails P3005. That was done by accident during this
+      # slice and broke the integration suite until the schema was dropped.
+      - run: npx prisma migrate diff --from-schema-datasource prisma/schema.prisma --to-schema-datamodel prisma/schema.prisma --exit-code
+        continue-on-error: true # 33 lines of pre-existing drift (TR053 TC-05); reported, not yet fixed
+
+  integration:
+    name: backend — tenancy matrix (real Postgres)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_DB: medibook_test
+          POSTGRES_USER: medibook
+          POSTGRES_PASSWORD: medibook_test_secret
+        ports: ['5433:5432']
+        options: >-
+          --health-cmd "pg_isready -U medibook -d medibook_test"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+      redis:
+        image: redis:7-alpine
+        ports: ['6379:6379']
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s --health-timeout 5s --health-retries 10
+    env:
+      TEST_DATABASE_URL: postgresql://medibook:medibook_test_secret@localhost:5433/medibook_test
+      REDIS_URL: redis://localhost:6379
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+      - run: npm ci
+      - run: npx prisma generate
+      # This is the job that matters most. It is the only thing in this file
+      # that could have caught F-01 or BUG006 — every other check was green
+      # while both were live. See BUG007.
+      - run: npm run test:int
+
+  frontend:
+    name: frontend — lint, unit, build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      # `--max-warnings 197` is a ratchet, not a target: it blocks NEW warnings
+      # while the existing 197 stay visible. Lower the number as they are fixed;
+      # never raise it.
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+
+  structure:
+    name: structural gates
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+      # Catches what four separate grep-based audits missed: a page that renders
+      # data-shaped UI with no route to real data. See the script's header.
+      - run: node scripts/check-page-data-wiring.mjs
+
+  # ── NOT YET ENABLED ─────────────────────────────────────────────────────────
+  #
+  # e2e (Playwright) is deliberately absent rather than added untested.
+  #
+  # It needs the full composed stack plus a seeded database, and two known facts
+  # make it unreliable as a required check today:
+  #
+  #   * F-28 — the e2e suite runs against the DEV database and leaves rows
+  #     behind. Two documented false failures already came from that (a
+  #     page-wide `₹50.00` locator, and `admin@` falling off page 1 as the user
+  #     count grew). Pointing it at a fresh CI database will surface more of the
+  #     same, and those need fixing in the specs, not papered over here.
+  #   * F-27 — the suite is smoke-weighted (160 of 218 assertions are
+  #     `toBeVisible`) with no negative-RBAC or cross-tenant coverage.
+  #
+  # Adding it now would mean either a flaky required check or a
+  # `continue-on-error` one, and a check that is allowed to fail is worse than
+  # no check: it reads as coverage in the UI while proving nothing. Sequenced as
+  # its own slice after F-27/F-28.

@@ -4,8 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UserInput, UserUpdateInput, AppRoleInput } from './dto/user-admin.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgIdForWrite, orgScope } from '../common/scoping/tenant-scope';
+import { BCRYPT_COST } from '../common/crypto/bcrypt-cost';
 
-const BCRYPT_COST = 12;
 
 const slugify = (name: string) => name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '');
 

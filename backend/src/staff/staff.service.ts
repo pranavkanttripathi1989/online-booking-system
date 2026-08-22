@@ -4,8 +4,8 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateStaffInput, UpdateStaffInput } from './dto/staff.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgIdForWrite, orgScope } from '../common/scoping/tenant-scope';
+import { BCRYPT_COST } from '../common/crypto/bcrypt-cost';
 
-const BCRYPT_COST = 12;
 
 @Injectable()
 export class StaffService {

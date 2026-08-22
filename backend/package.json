@@ -11,13 +11,13 @@
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
-    "test": "jest",
+    "test": "jest --runInBand",
     "test:watch": "jest --watch",
-    "test:cov": "jest --coverage",
+    "test:cov": "jest --coverage --runInBand",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:seed": "ts-node prisma/seed.ts",
-    "test:int": "jest --config jest.integration.config.js --runInBand --forceExit"
+    "test:int": "jest --config jest.integration.config.js --runInBand"
   },
   "dependencies": {
     "@apollo/server": "^4.10.4",

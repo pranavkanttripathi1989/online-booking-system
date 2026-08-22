@@ -567,7 +567,7 @@ swallowing them. Also drop the "Backend offline — using mock data" `console.de
 once the mock fallbacks are gone.
 **File as:** improvement, feature `frontend-platform`.
 
-### F-22 · S2 · `npm run lint` is broken in the frontend, hiding 12 real errors
+### F-22 · S2 · `npm run lint` is broken in the frontend, hiding 12 real errors — ✅ CLOSED 2026-08-22
 **Evidence:** `npm run lint` exits 1 immediately — the script passes `--ext`,
 rejected by the installed ESLint because the project uses flat
 `eslint.config.js`. Running ESLint correctly yields 2,911 problems, of which
@@ -580,6 +580,35 @@ commit.
 `jsx-uses-vars`/`jsx-uses-react` to the flat config, then fix the 12 real errors
 and set `--max-warnings` to a real budget.
 **File as:** bug, feature `frontend-platform`.
+
+**Closed** with `BUG008`. Measured counts differed slightly from this entry —
+2,892 problems, of which 2,862 were the spurious `no-unused-vars` — but the
+diagnosis was exactly right, including the missing `eslint-plugin-react` as the
+cause and the 11 + 1 breakdown behind the noise.
+
+**One correction to the prescribed fix.** "Fix the 12 real errors" assumes they
+are defects; they are not. All 11 `no-autofocus` sites were read individually and
+every one is correct focus management the rule cannot see in context — 4 inside
+modal `Dialog`s (WAI-ARIA APG *requires* focus to move into an open dialog),
+3 on user-initiated inline add/edit rows, and 4 on step transitions of the
+multi-step login wizard. Removing `autoFocus` would have been a usability
+regression justified by a linter.
+
+Inline disables were attempted and rejected: the violation is reported on the
+`autoFocus` prop's own line, which sits inside a JSX opening tag where neither
+`//` nor `{/* */}` comments are valid. The rule is a warning now, with the
+per-category reasoning recorded in `eslint.config.js`.
+
+The 12th, `media-has-caption`, is the opposite — **a genuine accessibility gap**
+(the telemedicine `<video>` has no `<track>`), unfixable by lint because live
+captioning needs a real service. Logged as `context/open-questions.md` #10 rather
+than silenced.
+
+Fixing the script also surfaced **two stale `eslint-disable` directives** that
+had accumulated precisely because the script could never run — the clearest
+evidence of the "satisfied vacuously" blast radius this entry predicted.
+
+Final state: **0 errors, 197 warnings**, ceiling pinned at 197 as a ratchet.
 
 ### F-23 · S3 · `forgot-password` simulates success while a real resolver exists
 `pages/auth/forgot-password.jsx` has no GraphQL call; the backend exposes a real
@@ -648,13 +677,31 @@ equality; the ten latent fixes are not matrix-proven (their role gates make them
 unreachable today); and the suite needs `--forceExit` (see F-29), which must be
 resolved before F-26.
 
-### F-26 · S2 · No CI
+### F-26 · S2 · No CI — ✅ CLOSED 2026-08-22
 **Evidence:** `.github/workflows` does not exist.
 **Fix:** one workflow: backend lint + `tsc --noEmit` + Jest; frontend lint +
 Jest; `prisma validate` + `migrate deploy` against a service container;
 Playwright against a composed stack. Make it required on the default branch.
 Without this, "verify before you commit" is a convention, not a control.
 **File as:** requirement, feature `ci-cd` (new slug).
+
+**Closed** as `BUG008` / `PLAN029` / `TP056` / `TR055`, filed under
+`platform-nfr` rather than a new `ci-cd` slug — the two prerequisites turned out
+to be platform defects, not pipeline configuration, and splitting them across
+roots would have hidden that.
+
+**Both prerequisites were real defects, and F-29's root cause was a production
+bug.** `RedisModule` created an ioredis client and never closed it, so `SIGTERM`
+left the connection dangling and `app.close()` never resolved — the Jest warning
+was a symptom of a shutdown path that was broken in production too.
+
+**e2e is deliberately NOT in the workflow.** F-27 and F-28 make it unreliable as
+a required check today, and a `continue-on-error` job reads as coverage in the UI
+while proving nothing. Sequenced as its own slice after those two.
+
+**The workflow has never executed on GitHub.** Every command in it passes locally
+with the identical invocation and the YAML parses; the pipeline itself is
+unproven. Stated here so nobody reads "CI exists" as "CI is green".
 
 ### F-27 · S3 · E2E is smoke-weighted and leaves data behind
 **Evidence:** 218 assertions, 160 of them (73%) `toBeVisible`. No negative-RBAC
@@ -677,7 +724,7 @@ patients, ~2,000 appointments across a date range, payments, messages) plus a
 separate database for e2e and a reset between runs.
 **File as:** requirement, feature `test-coverage-audit`.
 
-### F-29 · S3 · Backend Jest leaks a worker
+### F-29 · S3 · Backend Jest leaks a worker — ✅ CLOSED 2026-08-22
 **Evidence:** the run ends with `A worker process has failed to exit gracefully
 and has been force exited`.
 **Fix:** run `--detectOpenHandles`, `.unref()` the offending timer (likely a
@@ -694,6 +741,39 @@ this host** (exit 137) before finishing, and at `--maxWorkers=2` the `account`
 and `staff` suites intermittently time out on bcrypt under contention while
 passing in isolation. All three are the same underlying problem — the backend
 suite is not currently safe to run unattended, which blocks F-26.
+
+**Closed 2026-08-22** with `BUG008` / `PLAN029`. Four symptoms, one
+investigation, and the guessed cause in the Fix line above was wrong in an
+instructive way.
+
+**It was not a timer needing `.unref()`.** `--detectOpenHandles` — the prescribed
+first step — *hung* on both the full suite and a single spec, producing nothing.
+Reasoning about candidates beat re-running it: `PrismaService` had
+`onModuleDestroy`; `RedisModule` had **no lifecycle hook at all**, and
+`new Redis(url)` holds a socket plus reconnect timers for the life of the
+process.
+
+**That made it a production bug, not a test artifact.** `SIGTERM` left Redis
+open and `app.close()` never resolved, so containers relied on the
+orchestrator's kill timeout. `main.ts` also lacked `enableShutdownHooks()`, so
+Nest never listened for the signal in the first place.
+
+**`--forceExit` is still set on the integration config, and that is now
+evidence-backed rather than a shrug.** After the fix Jest still printed "did not
+exit"; a direct `process._getActiveHandles()` probe after `app.close()` returned
+exactly two entries — stdout (fd 1) and stderr (fd 2) — and `--detectOpenHandles`
+independently reported zero. The residue is Jest's own module-registry teardown
+exceeding its one-second wait (~15s dead time). The flag sits in the config with
+that diagnosis beside it, because Jest's wording ("tests leaking due to improper
+teardown") will otherwise send the next reader hunting a leak that is not there.
+
+**The other two symptoms.** bcrypt cost 12 was declared independently in three
+services; centralised into `common/crypto/bcrypt-cost.ts`, overridable for tests,
+and refusing to start below 12 when `NODE_ENV=production`, with five tests
+pinning that. Worker count was measured rather than assumed: default → OOM
+(exit 137), 2 workers → 182s plus the spurious warning, `--runInBand` → **118s
+clean**. Fewer workers is both safer and faster here, so `npm test` now defaults
+to it.
 
 ### F-30 · S4 · Documented status drifts from measured status
 `CLAUDE.md` cited 405 tests / 37 suites when this register measured 602 / 49; as

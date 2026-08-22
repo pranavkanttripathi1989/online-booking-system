@@ -11,8 +11,8 @@ import { RegisterInput } from './dto/register.input';
 import { RefreshInput } from './dto/refresh.input';
 import { AuthPayloadType, TotpChallengeType } from './entities/auth-payload.entity';
 import { decrypt } from '../common/crypto/secrets';
+import { BCRYPT_COST } from '../common/crypto/bcrypt-cost';
 
-const BCRYPT_COST = 12;
 const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
 const LOCKOUT_MAX_ATTEMPTS = 5;

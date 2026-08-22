@@ -26,6 +26,13 @@ async function bootstrap() {
     }),
   );
 
+  // F-29. Without this, Nest never listens for SIGTERM/SIGINT, so
+  // onApplicationShutdown / onModuleDestroy never run on a container stop —
+  // the Redis client and Prisma pool are torn down by process death rather
+  // than closed. `app.close()` (which the integration harness calls) triggers
+  // the same hooks; this is what wires them to real signals in production.
+  app.enableShutdownHooks();
+
   const port = process.env.PORT ?? 4000;
   await app.listen(port);
   // eslint-disable-next-line no-console

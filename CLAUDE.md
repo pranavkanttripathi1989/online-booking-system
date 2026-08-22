@@ -50,8 +50,7 @@ shared `orgScope()` helper, the index migration, and the tenancy-matrix
 integration test land first. Building Phase 1 on the current foundation means
 fixing those defects ~40 times instead of once.
 
-**Phase F status (2026-08-22) — five of six items done; only CI remains.**
-Every S1 finding is closed:
+**Phase F status (2026-08-22) — COMPLETE.** All six items closed:
 
 | | What landed | Use it like this |
 |---|---|---|
@@ -61,6 +60,8 @@ Every S1 finding is closed:
 | F-13 `BUG005` | 69 indexes across 30 models (`20260822130000_add_indexes`) | index from the real `where`/`orderBy`, equality columns first and the range/sort column last. **Do not lead a composite with `client_org_id`** — measured, it matches ~20% of rows and the planner correctly ignores it; lead with the selective column (`clinician_id`, `clinic_id`, `patient_id`). Note `appointment_time`, not `appointment_date`, is the hot column |
 | F-25 `BUG007` | Integration harness + tenancy matrix (`backend/test/integration/`, `npm run test:int`) | **use it.** Real `AppModule`, real PostgreSQL (`postgres_test`, port 5433), real JWTs through the real guard chain. Adding a domain is one row in `setup/domain-cases.ts` — and `matrix-coverage.int-spec.ts` FAILS if you add a resolver domain without classifying it |
 | F-01 residue `BUG006` | 12 more services migrated onto the scoping helpers; new `orgIdForWrite()` | the defect has **four** spellings, not one — see below |
+| F-26 `BUG008` | `.github/workflows/ci.yml` — 5 jobs; `scripts/check-page-data-wiring.mjs` | every CI command is one you can run locally. **Run `npm test` + `npm run test:int` + `npm run lint` before committing** — CI runs exactly those |
+| F-22/F-29 `BUG008` | frontend lint works at all; backend suite safe to run unattended | `npm test` is `jest --runInBand` — **do not "optimise" it to parallel workers**, measured: default OOM-kills (exit 137), 2 workers 182s + a bogus leak warning, 1 process 118s |
 
 **The scoping bug has four spellings. Grepping for one finds a third of them.**
 `BUG004` fixed the `client_org_id ? {...} : {}` ternary and left twelve
@@ -86,17 +87,34 @@ else with no org. Better still, add a matrix row: a mocked-Prisma test asserts t
 `where` a service *built* and can never fail an isolation check, which is exactly
 how F-01 and all twelve of BUG006 shipped green.
 
-**One Phase F item remains: there is no CI (F-26)**, so "verify before you commit"
-is a convention rather than a control, and nothing runs the tenancy matrix on the
-default branch. Two things block it, both measured: **F-29** — the backend suite
-is not safe to run unattended (bare `npm test` is OOM-killed at exit 137; the
-integration suite needs `--forceExit`; `account`/`staff` time out on bcrypt under
-`--maxWorkers=2` contention while passing in isolation) — and **F-22**, where
-`frontend/`'s `npm run lint` exits 1 immediately.
+**Never lower `BCRYPT_COST`.** It lives in `common/crypto/bcrypt-cost.ts`, is
+overridable only so the test suite can stop timing out, and refuses to start
+below 12 when `NODE_ENV=production`.
 
-Matrix coverage is **12 of 22** tenant-scoped domains. The other ten are declared
-in a frozen `KNOWN_GAPS` list asserted by exact equality, so the debt is visible
-and cannot grow silently — but it is debt, not coverage.
+**Redis and Prisma both close on shutdown now** (`redis.module.ts`
+`onApplicationShutdown`, `main.ts` `enableShutdownHooks()`). Any new long-lived
+client you add needs the same, or `app.close()` will hang again.
+
+### What Phase F did NOT close — read before assuming coverage
+
+- **Tenancy matrix covers 12 of 22 tenant-scoped domains.** The other ten sit in a
+  frozen `KNOWN_GAPS` list asserted by exact equality, so the debt cannot grow
+  silently — but it is debt, not coverage.
+- **e2e is not in CI**, deliberately (F-27: smoke-weighted, no negative-RBAC;
+  F-28: runs against the dev database and leaves rows behind). A check allowed to
+  fail reads as coverage while proving nothing.
+- **The CI workflow has never executed on GitHub.** Every command in it passes
+  locally; the pipeline itself is unproven.
+- **10 pages render fabricated data**, and 7 of those were found by
+  `scripts/check-page-data-wiring.mjs` on its first run — `analytics`,
+  `clinician/Patients`, `manager/Billing`, `patient/Appointments`,
+  `public/landing`, `staff/Appointments`, `staff/Dashboard`. **Every one has a
+  real backend module it simply never calls.** Four earlier grep-based audits
+  missed them because they search for `mocks/store` imports and these declare
+  their own `MOCK_*` arrays instead. They are allowlisted, not fixed — wiring
+  them is open work.
+- 197 frontend lint warnings (ratcheted, may only go down) and 33 lines of
+  schema-vs-database drift remain.
 
 Directory contract:
 - `<root>/<feature-name>/{requirement,improvement,bug}/*.md` across all five roots.

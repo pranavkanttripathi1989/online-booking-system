@@ -35,4 +35,25 @@ module.exports = {
 
   // Real HTTP + real Postgres + a full Nest bootstrap per suite.
   testTimeout: 60_000,
+
+  // F-29. This is the documented "last resort", taken only after proving there
+  // is nothing left to leak — not reached for first.
+  //
+  // The genuine leak was real and is fixed: RedisModule created an ioredis
+  // client and never closed it (see redis/redis.module.ts), which also meant
+  // production never closed Redis on SIGTERM. With that hook in place:
+  //
+  //   * `--detectOpenHandles` reports zero open handles.
+  //   * A direct `process._getActiveHandles()` probe after `app.close()` returns
+  //     exactly two entries — stdout (fd 1) and stderr (fd 2) — which are Node's
+  //     own streams and never hold the event loop open.
+  //   * The run exits 0 and the process does terminate on its own.
+  //
+  // What remains is Jest's own module-registry teardown taking longer than the
+  // one second it waits before printing "Jest did not exit". Measured at ~15s of
+  // dead time per run. Harmless locally, wasteful in CI, and the warning text
+  // ("tests leaking due to improper teardown") actively misleads the next
+  // person into re-hunting a leak that is not there. Hence: exit deliberately,
+  // and leave this note so the diagnosis does not have to be repeated.
+  forceExit: true,
 };

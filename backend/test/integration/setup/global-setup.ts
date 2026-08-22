@@ -16,6 +16,32 @@ import { buildFixture } from './fixture';
 export default async function globalSetup(): Promise<void> {
   process.env.DATABASE_URL = TEST_DATABASE_URL;
 
+  // Drop and recreate the schema before migrating. The suite owns this database
+  // outright and rebuilds it every run, so starting from empty costs nothing and
+  // removes a whole class of "works on my machine".
+  //
+  // It also self-heals a specific poisoning that actually happened: running
+  // `prisma migrate diff` with this database as its --shadow-database-url wiped
+  // `_prisma_migrations` while leaving the tables, after which `migrate deploy`
+  // refused with P3005 ("database schema is not empty") and the suite could not
+  // start at all until the schema was dropped by hand.
+  const reset = new PrismaClient({ datasources: { db: { url: TEST_DATABASE_URL } } });
+  try {
+    // One statement per call: Prisma sends these as prepared statements, and a
+    // semicolon-separated pair is rejected rather than run as two.
+    await reset.$executeRawUnsafe('DROP SCHEMA IF EXISTS public CASCADE');
+    await reset.$executeRawUnsafe('CREATE SCHEMA public');
+  } catch (e: any) {
+    // Do not swallow this. If the reset silently fails, `migrate deploy` reports
+    // P3005 ("schema is not empty") and the real cause is two steps away.
+    throw new Error(
+      `Could not reset the integration test database at ${TEST_DATABASE_URL}.\n\n` +
+        `Is it running?  docker compose --profile test up -d postgres_test\n\n${e?.message ?? e}`,
+    );
+  } finally {
+    await reset.$disconnect();
+  }
+
   try {
     execSync('npx prisma migrate deploy', {
       stdio: 'pipe',

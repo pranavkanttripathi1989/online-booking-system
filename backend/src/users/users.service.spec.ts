@@ -4,6 +4,7 @@ import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { BCRYPT_COST } from '../common/crypto/bcrypt-cost';
 
 jest.mock('bcrypt', () => ({ hash: jest.fn().mockResolvedValue('hashed-password') }));
 
@@ -227,7 +228,7 @@ describe('UsersService', () => {
         orgAUser,
       );
 
-      expect(bcrypt.hash).toHaveBeenCalledWith('password1', 12);
+      expect(bcrypt.hash).toHaveBeenCalledWith('password1', BCRYPT_COST);
       expect(tx.userProfiles.create).toHaveBeenCalledWith(
         expect.objectContaining({
           data: expect.objectContaining({
@@ -265,7 +266,7 @@ describe('UsersService', () => {
       prisma.userProfiles.findUnique.mockResolvedValue(userA);
       prisma.userProfiles.update.mockResolvedValue({ ...userA, role: { name: 'Manager' } });
       await service.updateUser('user-a1', { password: 'newpassword1' } as any);
-      expect(bcrypt.hash).toHaveBeenCalledWith('newpassword1', 12);
+      expect(bcrypt.hash).toHaveBeenCalledWith('newpassword1', BCRYPT_COST);
       const call = prisma.userProfiles.update.mock.calls[0][0];
       expect(call.data.password).toBe('hashed-password');
     });

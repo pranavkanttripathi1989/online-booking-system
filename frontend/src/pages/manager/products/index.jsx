@@ -126,7 +126,7 @@ function ManagerProducts() {
   // GAP-PRD-002 FIX — reset subcategory_id when category changes to avoid stale selection
   useEffect(() => {
     setPForm(p => ({ ...p, subcategory_id: '' }))
-  }, [pForm.category_id]) // eslint-disable-line
+  }, [pForm.category_id])
 
   // ── Product CRUD ──────────────────────────────────────────────────────────
   const resetPForm = () => { setPForm(dfProduct); setVariations([]); setEditProduct(null); setShowPForm(false); setFormError(null) }
