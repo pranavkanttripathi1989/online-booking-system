@@ -13,6 +13,25 @@ export async function loginAs(page, roleLabel) {
   // away immediately races the token write and lands back on a guarded
   // /login redirect. Wait for the real post-login redirect first.
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 })
+
+  // ...and then wait for the token to actually be durably in storage before
+  // returning. Waiting on the URL alone is NOT sufficient: the redirect is a
+  // client-side navigate(), so it can win the race against the LOGIN_MUTATION
+  // response being committed. A caller's subsequent hard page.goto() then
+  // cancels the in-flight request (confirmed in a real run: the Login GraphQL
+  // request shows as "canceled" in the network log), leaving no token. Every
+  // query on the destination page is then unauthenticated and returns empty —
+  // and because several pages still carry an `apiRows.length === 0 → render
+  // MOCK_DATA` fallback (project-plans/02-findings-register.md F-18/F-21),
+  // the page renders fabricated rows instead of failing loudly. That is how
+  // this race surfaced: specs asserting on real seeded names (e.g. "MG Road
+  // Clinic") timed out while the page confidently displayed London mock
+  // clinics. Deterministic wait, so the failure mode can't recur.
+  await page.waitForFunction(
+    () => !!(localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')),
+    null,
+    { timeout: 15_000 },
+  )
 }
 
 const GRAPHQL_URL = process.env.E2E_GRAPHQL_URL || 'http://localhost:4000/graphql'
