@@ -170,7 +170,7 @@ function CardSkeleton() {
 export default function CliniciansPage() {
   const { user } = useAuth()
   const navigate  = useNavigate()
-  const isAdmin = user?.roles?.some((r) => ['admin','super_admin','receptionist'].includes(r.name))
+  const isAdmin = user?.roles?.some((r) => ['admin','super_admin','manager','staff'].includes(r.name))
 
   // Filters
   const [filterClinic,   setFilterClinic]   = useState('')

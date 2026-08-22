@@ -334,10 +334,11 @@ export default function PatientAppointments() {
         <AppointmentsListSkeleton />
       ) : filtered.length === 0 ? (
         <EmptyState
-          icon={<CalendarMonthIcon sx={{ fontSize: 48 }} />}
+          icon={CalendarMonthIcon}
           title={tab === 0 ? 'No upcoming appointments' : 'No past appointments'}
-          description={tab === 0 ? "Book your first appointment to get started." : "Your completed appointments will appear here."}
-          action={tab === 0 ? { label: 'Book Appointment', onClick: () => navigate('/appointments/book') } : null}
+          subtitle={tab === 0 ? "Book your first appointment to get started." : "Your completed appointments will appear here."}
+          actionLabel={tab === 0 ? 'Book Appointment' : undefined}
+          onAction={tab === 0 ? () => navigate('/appointments/book') : undefined}
         />
       ) : (
         <Stack spacing={2}>

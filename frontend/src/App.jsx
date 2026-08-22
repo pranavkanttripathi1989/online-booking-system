@@ -22,6 +22,24 @@ function RoleHomeRedirect() {
   return <Navigate to={getPostLoginRedirect(user)} replace />
 }
 
+// "/" itself, not just the AppShell index route below, has to decide between
+// Landing (anonymous) and a role dashboard (authenticated) — a pathless
+// `index` route nested under ProtectedRoute/AppShell used to also claim "/"
+// for this, but React Router v6 scores index routes higher than an explicit
+// `path="/"` route on an otherwise-tied match, so that index route silently
+// won every time: authenticated visitors got bounced to their dashboard
+// (harmless-looking) but anonymous visitors got bounced through
+// ProtectedRoute straight to /login — the public marketing/booking landing
+// page was unreachable for anyone, ever. Fixed by making "/" itself
+// auth-aware (matching the OptionalAuthShell pattern already used for
+// /appointments/book) instead of relying on two routes to both resolve "/".
+function RootRoute() {
+  const { isAuthenticated, isLoading } = useAuth()
+  if (isLoading) return <FullPageLoader />
+  if (isAuthenticated) return <RoleHomeRedirect />
+  return <Suspense fallback={<FullPageLoader />}><Landing /></Suspense>
+}
+
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const Login              = lazy(() => import('./pages/auth/login'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password'))
@@ -168,9 +186,7 @@ function App() {
     <Routes>
       {/* ── Public — with header/footer ──────────────────────────────── */}
       <Route element={<PublicLayout />}>
-        <Route path="/" element={
-          <Suspense fallback={<FullPageLoader />}><Landing /></Suspense>
-        } />
+        <Route path="/" element={<RootRoute />} />
         <Route path="/doctor/:id" element={
           <Suspense fallback={<FullPageLoader />}><DoctorProfile /></Suspense>
         } />
@@ -217,7 +233,14 @@ function App() {
       {/* ── Protected + AppShell ─────────────────────────────────────── */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
-          <Route index element={<RoleHomeRedirect />} />
+          {/* No index route here — "/" itself is handled by RootRoute above,
+              which is what an authenticated visitor to "/" actually hits
+              first (see RootRoute's comment). An index route nested this
+              deep also ambiguously matches "/" itself in React Router v6
+              (a pathless layout chain doesn't consume a path segment), and
+              index routes are scored higher than an explicit path="/" route
+              on a tie — that mismatch previously made the public landing
+              page unreachable. */}
 
           {/* ── Core shared ───────────────────────────────────────────── */}
           {/* /dashboard is shared by admin/super_admin/staff (AppShell.jsx NAV_CONFIG's

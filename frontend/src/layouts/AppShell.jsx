@@ -168,7 +168,12 @@ const ROLE_COLORS = {
   super_admin:  { bg: '#7C3AED', label: 'Super Admin' },
   manager:      { bg: '#3A86FF', label: 'Manager' },
   clinician:    { bg: '#2DC653', label: 'Clinician' },
-  receptionist: { bg: '#F9AB00', label: 'Staff' },
+  // 'staff' is the real seeded role name — RolesGuard never sees
+  // 'receptionist' (see NAV_CONFIG's own comment on the same dead name a
+  // few lines below). Keying this map by the dead name meant every real
+  // staff/receptionist account fell through to the ROLE_COLORS.patient
+  // fallback and showed a "Patient" badge in the sidebar/topbar.
+  staff:        { bg: '#F9AB00', label: 'Staff' },
   patient:      { bg: '#80868B', label: 'Patient' },
 }
 
