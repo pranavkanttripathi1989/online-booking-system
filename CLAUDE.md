@@ -337,8 +337,11 @@ For each remaining gap: audit the frontend's existing `gql` calls for that domai
 
 ## Picking this up on another machine
 
-Last session ended 2026-08-23 with Phase F complete and `BUG009` (the seven
-fabricated pages) closed. To get running:
+Last session ended 2026-08-23 with Phase F complete, `BUG009` (the seven
+fabricated pages) closed, `BUG010` (live-browser verification of those pages)
+closed, and `BUG011` (the public booking wizard never showed real data, in
+three compounding ways — see `requirements/appointments/bug/BUG011-*.md`)
+closed. To get running:
 
 ```bash
 docker compose up -d                                 # dev stack
@@ -346,6 +349,40 @@ docker compose --profile test up -d postgres_test    # needed for `npm run test:
 cd backend  && npm ci && npx prisma generate && npx prisma migrate deploy && npx prisma db seed
 cd frontend && npm ci
 ```
+
+**Then restore the e2e fixture dump.** `prisma db seed` only creates the 5
+demo accounts, roles, permissions, email templates, and the two tenant orgs —
+it does **not** create the clinician/patient/appointment/availability rows
+(`Sarah Mitchell`, id `8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7`; `Anita Sharma`)
+that 8 of the 22 e2e specs hardcode. That data was created ad hoc through the
+live UI in an earlier session and is only reproducible from
+`db-dumps/medibook_db_2026-08-23.sql` — restore it per `db-dumps/README.md`
+before trusting any of those 8 specs' results on a fresh machine:
+
+```bash
+docker cp db-dumps/medibook_db_2026-08-23.sql medibook_postgres:/tmp/dump.sql
+docker exec medibook_postgres psql -U medibook -d medibook_db -f /tmp/dump.sql
+```
+
+(On Windows Git Bash, prefix both `docker cp`/`docker exec` commands touching
+`/tmp/...` with `MSYS_NO_PATHCONV=1` — otherwise Git Bash rewrites the
+in-container path as a host Windows path before Docker ever sees it.)
+
+**Windows without Developer Mode: `.claude/skills/*` symlinks silently don't
+work.** Several project skills (`caveman`, `cavecrew`, `investigate-first`,
+`lean-build`, `migration`, `safe-refactor`, `surgical-patch`,
+`verify-and-stop`, ...) are committed as real symlinks into `.agents/skills/`.
+Git can't create a real symlink on Windows without either Developer Mode
+enabled or an elevated process — without it, checkout silently writes a
+Cygwin-style `XSym` placeholder text file instead, and the skill just doesn't
+load, with no error anywhere. Confirmed live 2026-08-23. Fix in order of
+preference: (1) enable Developer Mode (Settings → Privacy & Security → For
+Developers) once, then `git checkout -- .claude/skills/` to get real
+symlinks; (2) if that's not available, replace the affected paths with NTFS
+junctions instead (`New-Item -ItemType Junction`, no elevation required) —
+works immediately but makes `git status` show those paths as permanently
+modified/deleted on this machine specifically, so never stage
+`.claude/skills/` there.
 
 Confirmed 2026-08-23: a genuinely fresh `postgres_data` volume (new machine, or
 after `docker volume rm`) has zero tables until `migrate deploy` runs, and zero
@@ -375,17 +412,20 @@ cd frontend && npm run lint && npm test && npm run build
 node scripts/check-page-data-wiring.mjs
 ```
 
-**The two highest-value things left**, both recorded in `TR056` and
-`context/open-questions.md`:
+**Done since:** the six newly-wired pages have now been driven live in a
+browser (`BUG010`), and the public booking wizard's own three-defect chain —
+never read `?doctor=`, "Book Appointment" 404'd, day-of-week never matched —
+is fixed (`BUG011`). Both closed 2026-08-23.
 
-1. **Drive the six newly-wired pages in a browser.** `/analytics`,
-   `/clinician/patients`, `/patient/appointments`, `/staff/appointments`,
-   `/staff/dashboard` and the public landing page were wired against real
-   contracts and are fully green in CI terms, but nobody has looked at them
-   against real data. This is the one gap in that slice.
-2. **Answer open questions #10 and #11** — video captions, patient check-in, and
+**What's still open**, recorded in `context/open-questions.md`:
+
+1. **Answer open questions #10 and #11** — video captions, patient check-in, and
    the patient `status`/`condition` definitions. Each is blocking UI that was
    deliberately removed rather than faked.
+2. **`BUG011`'s own residue** — `doctor-profile.jsx` and `booking/index.jsx`
+   render their slot-button times in two different formats (`HH:mm` vs
+   `h:mm A`); neither page has unit-level coverage for clinician-id
+   resolution or day-of-week filtering, only e2e.
 
 Also unproven: **the CI workflow has never executed on GitHub.** The first push
 will be its first real run.

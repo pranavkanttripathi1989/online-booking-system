@@ -12,5 +12,7 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR058 | test-result | Results for the public booking wizard chain fix | pass | 2026-08-23 | 2026-08-23 | TP059 | [TR058-appointments-2026-08-23-public-booking-wizard-chain-verification.md](./bug/TR058-appointments-2026-08-23-public-booking-wizard-chain-verification.md) |
 

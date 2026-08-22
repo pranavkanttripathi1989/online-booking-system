@@ -12,4 +12,6 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| BUG011 | bug | The public booking wizard never showed real data, and its own e2e coverage never caught it | done | 2026-08-23 | 2026-08-23 | REQ018 | [BUG011-appointments-2026-08-23-public-booking-wizard-never-showed-real-data.md](./bug/BUG011-appointments-2026-08-23-public-booking-wizard-never-showed-real-data.md) |
