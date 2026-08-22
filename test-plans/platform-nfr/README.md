@@ -12,6 +12,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP058 | bug | Live-browser defect fixes verification | approved | 2026-08-23 | 2026-08-23 | BUG010 | [TP058](./bug/TP058-platform-nfr-2026-08-23-live-browser-defect-fixes-verification.md) |
 | TP057 | bug | Fabricated-page wiring verification | approved | 2026-08-22 | 2026-08-23 | BUG009 | [TP057](./bug/TP057-platform-nfr-2026-08-22-fabricated-page-wiring-verification.md) |
 | TP056 | bug | CI pipeline and prerequisite verification | approved | 2026-08-22 | 2026-08-22 | BUG008 | [TP056](./bug/TP056-platform-nfr-2026-08-22-ci-pipeline-verification.md) |
 | TP055 | bug | Integration harness and tenancy matrix verification | approved | 2026-08-22 | 2026-08-22 | BUG007 | [TP055](./bug/TP055-platform-nfr-2026-08-22-tenancy-matrix-verification.md) |

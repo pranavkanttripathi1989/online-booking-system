@@ -2,7 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
-| platform-nfr | 0 | 0 | 4 | 0 | 4 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
+| platform-nfr | 0 | 0 | 5 | 0 | 5 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
 | test-coverage-audit | 4 | 0 | 0 | 0 | 4 | 2026-08-22 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | communications-policies | 2 | 2 | 0 | 0 | 4 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
