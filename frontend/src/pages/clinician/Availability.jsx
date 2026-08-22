@@ -103,8 +103,11 @@ const MOCK_LUNCHES = [
 function findOverlap(newSlot, existingSlots) {
   return existingSlots.find(slot => {
     if (slot.id === newSlot.id) return false;
+    // slot.dayOfWeek is a real number (backend Int); newSlot.dayOfWeek comes
+    // from formData.day_of_week, a string -- Number() both sides so this
+    // conflict check actually fires instead of silently never matching.
     const sameDay =
-      slot.dayOfWeek === newSlot.dayOfWeek ||
+      Number(slot.dayOfWeek) === Number(newSlot.dayOfWeek) ||
       slot.recurrenceType === 'daily' ||
       newSlot.recurrenceType === 'daily';
     if (!sameDay) return false;
@@ -165,9 +168,17 @@ export default function ClinicianAvailability() {
   const [deleteLunchTarget,setDeleteLunchTarget]= useState(null);
 
   // ── Queries ────────────────────────────────────────────────────────────
-  // BUG-CLIN-007 fix: fall back to a mock clinician ID so the query never skips
-  // entirely when user.id is undefined (e.g. admin visiting /clinician/availability in dev)
-  const clinicianId = user?.id ?? 'clin-1';
+  // Real fix (found during REQ013/PLAN023 Phase A re-audit): this used to read
+  // user?.id, which is the caller's own UserProfiles id (the JWT subject) --
+  // never the same value as Clinicians.id (its own independent UUID PK, see
+  // schema.prisma). Every real, linked clinician's Availability page was
+  // silently querying/writing under the wrong id: getClinicianAvailability
+  // returned a real, empty (not mocked) result for a real clinician with real
+  // configured availability, live-confirmed via a real login (Sarah Mitchell,
+  // 2 real slots) -- user.id got 0 rows, user.clinician.id got both. The
+  // 'clin-1' dev/demo fallback (for a non-clinician role, e.g. an admin
+  // visiting this route) is kept as-is.
+  const clinicianId = user?.clinician?.id ?? 'clin-1';
   const { data: avData, loading: avLoading, error: avError, refetch } = useQuery(GET_AVAILABILITY_DATA, {
     variables: { clinicianId },
     fetchPolicy: 'cache-and-network',
@@ -268,7 +279,7 @@ export default function ClinicianAvailability() {
     setSaving(true);
     try {
       const input = {
-        clinicianId:    user.id,
+        clinicianId,
         recurrenceType: formData.recurrence_type,
         dayOfWeek:      formData.day_of_week,
         startTime:      formData.start_time.format('HH:mm'),
@@ -329,7 +340,7 @@ export default function ClinicianAvailability() {
     setSavingLunch(true);
     try {
       const input = {
-        clinicianId: user.id,
+        clinicianId,
         dayOfWeek:   lunchForm.day_of_week,
         startTime:   lunchForm.start_time.format('HH:mm'),
         endTime:     lunchForm.end_time.format('HH:mm'),
@@ -368,16 +379,23 @@ export default function ClinicianAvailability() {
     lunchForm.end_time.isBefore(lunchForm.start_time);
 
   // ── Render helpers ────────────────────────────────────────────────────
+  // Real fix (found during REQ013/PLAN023 Phase A re-audit): dayOfWeek comes
+  // back from the real backend as a nullable Int (ClinicianAvailabilitySlotType/
+  // LunchBreakSlotType), never as the stringified digit or 'daily' sentinel
+  // used only on the *write* side (ClinicianAvailabilityInput/LunchBreakInput,
+  // both plain String). The old String(dayIndex)/dayName/'daily' comparisons
+  // never matched real numeric data at all -- every weekly (non-daily)
+  // availability slot silently never appeared in this grid, live-confirmed via
+  // a real linked clinician login (2 real weekly slots, day_of_week 1 and 2,
+  // neither rendered). A lunch break's "every day" is dayOfWeek: null on read
+  // (see saveLunchBreak: isDaily ? null : parseInt(...)) -- availability slots
+  // instead carry an explicit, independently-set recurrenceType for that.
   const renderDaySchedule = (dayName, dayIndex) => {
     const matchingAvails = availabilities.filter(a =>
-      a.dayOfWeek === String(dayIndex) ||
-      a.dayOfWeek === dayName ||
-      a.recurrenceType === 'daily'
+      a.recurrenceType === 'daily' || a.dayOfWeek === dayIndex
     );
     const matchingLunches = lunchBreaks.filter(lb =>
-      lb.dayOfWeek === String(dayIndex) ||
-      lb.dayOfWeek === dayName ||
-      lb.dayOfWeek === 'daily'
+      lb.dayOfWeek == null || lb.dayOfWeek === dayIndex
     );
     const sortedItems = [...matchingAvails, ...matchingLunches].sort((a, b) =>
       a.startTime.localeCompare(b.startTime)
@@ -543,7 +561,7 @@ export default function ClinicianAvailability() {
                 </ListItemAvatar>
                 <ListItemText
                   primary={<Typography variant="subtitle2" fontWeight={600}>{dayjs(`2000-01-01T${lb.startTime}`).format('h:mm A')} — {dayjs(`2000-01-01T${lb.endTime}`).format('h:mm A')}</Typography>}
-                  secondary={<Typography variant="caption" color="text.secondary">Every {lb.dayOfWeek === 'daily' ? 'Day' : DAYS[lb.dayOfWeek] || lb.dayOfWeek}</Typography>}
+                  secondary={<Typography variant="caption" color="text.secondary">Every {lb.dayOfWeek == null ? 'Day' : (DAYS[lb.dayOfWeek] ?? lb.dayOfWeek)}</Typography>}
                 />
                 <Chip size="small" label="Recurring" color="default" variant="outlined" />
                 <IconButton size="small" sx={{ ml: 2 }} onClick={() => handleOpenLunchDrawer(lb)}>

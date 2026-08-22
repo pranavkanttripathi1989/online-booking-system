@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import {
   Box, Grid, Typography, Stack, Button, Chip, Avatar,
   IconButton, Tooltip, Drawer, Popover, Divider,
@@ -24,14 +24,29 @@ import { useAuth } from '../../hooks/useAuth';
 dayjs.extend(isSameOrBefore);
 dayjs.extend(weekOfYear);
 
-// ─── GraphQL (SUG-CLCAL-012) ───────────────────────────────────────────────────
-// Real query attempt; apollo/client.js aborts after 2s so the mock fallback below
-// renders immediately when there is no live backend (same pattern as clinician Dashboard).
-const GET_CLINICIAN_SCHEDULE = gql`
-  query GetClinicianSchedule($clinicianId: ID!, $weekStart: String!, $weekEnd: String!) {
-    getClinicianSchedule(clinicianId: $clinicianId, weekStart: $weekStart, weekEnd: $weekEnd) {
-      id day start end patient type status patientId service duration room color
+// ─── GraphQL ────────────────────────────────────────────────────────────────
+// REQ013/PLAN023 Phase A re-audit fix: getClinicianSchedule was never a real
+// backend field at all -- no resolver of this name exists anywhere in
+// backend/src/schema.gql, so this page fell back to MOCK_EVENTS 100% of the
+// time, for every real clinician, regardless of their actual appointments.
+// Replaced with the real appointments query (self-scoped to the caller's own
+// clinician_id server-side, appointments.service.ts's selfScope()) plus the
+// real getLunchBreaks query already used correctly by clinician/Availability.jsx.
+const GET_WEEK_APPOINTMENTS = gql`
+  query GetWeekAppointments($dateFrom: String!, $dateTo: String!) {
+    appointments(filters: { date_from: $dateFrom, date_to: $dateTo }, first: 200) {
+      data {
+        id start_datetime end_datetime status duration_minutes
+        patient { id full_name }
+        service { name }
+        room { name }
+      }
     }
+  }
+`;
+const GET_LUNCH_BREAKS = gql`
+  query GetLunchBreaksForCalendar($clinicianId: ID!) {
+    getLunchBreaks(clinicianId: $clinicianId) { id dayOfWeek startTime endTime }
   }
 `;
 
@@ -46,8 +61,10 @@ const GRID_START_HOUR = 9;
 const STATUS_CFG = {
   confirmed:  { label: 'Confirmed',  bg: '#E6F4EA', color: '#137333', border: '#CEEAD6' },
   scheduled:  { label: 'Scheduled',  bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA' },
+  pending:    { label: 'Pending',    bg: '#FEF7E0', color: '#8A4700', border: '#FDD663' },
   completed:  { label: 'Completed',  bg: '#E8F8F9', color: '#006D77', border: '#B2DFDB' },
   cancelled:  { label: 'Cancelled',  bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2' },
+  no_show:    { label: 'No Show',    bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED' },
   break:      { label: 'Break',      bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
 };
 
@@ -266,18 +283,82 @@ export default function ClinicianCalendar() {
   const clinicianName = user?.clinician?.full_name || user?.name || 'Dr. Sarah Mitchell';
   const clinicName    = user?.organisation?.name || user?.clinic?.name || 'Clinic';
 
-  // SUG-CLCAL-012: attempt the real query first; fall back to MOCK_EVENTS (filtered
-  // by weekOffset, as before) whenever the backend is unreachable — same "real query
-  // + mock fallback" pattern already used on the clinician Dashboard page.
-  const { data } = useQuery(GET_CLINICIAN_SCHEDULE, {
+  // Real query first; fall back to MOCK_EVENTS only on a genuine query error
+  // (offline/unreachable backend), not on a real-but-empty week -- matching
+  // the error-only fallback convention established this session (see
+  // appointments/index.jsx, calendar/index.jsx).
+  const { data, error } = useQuery(GET_WEEK_APPOINTMENTS, {
     variables: {
-      clinicianId: user?.id,
-      weekStart: monday.format('YYYY-MM-DD'),
-      weekEnd: monday.add(6, 'day').format('YYYY-MM-DD'),
+      dateFrom: monday.format('YYYY-MM-DD'),
+      dateTo: monday.add(6, 'day').format('YYYY-MM-DD'),
     },
     skip: !user?.id,
   });
-  const weekEvents = data?.getClinicianSchedule || MOCK_EVENTS.filter(e => e.week === weekOffset);
+  const { data: lunchData } = useQuery(GET_LUNCH_BREAKS, {
+    variables: { clinicianId: user?.clinician?.id },
+    skip: !user?.clinician?.id,
+  });
+
+  const weekEvents = useMemo(() => {
+    if (error) return MOCK_EVENTS.filter(e => e.week === weekOffset);
+
+    const apptEvents = (data?.appointments?.data ?? []).map((a) => {
+      const start = dayjs(a.start_datetime);
+      const end   = dayjs(a.end_datetime);
+      // Monday=0..Sunday=6, matching DAYS/monday above.
+      const day   = (start.day() + 6) % 7;
+      const sc    = STATUS_CFG[a.status] ?? STATUS_CFG.confirmed;
+      return {
+        id: a.id,
+        day,
+        start: start.hour() + start.minute() / 60,
+        end:   end.hour()   + end.minute()   / 60,
+        patient: a.patient?.full_name ?? 'Patient',
+        // No real in-person/video distinction exists on the backend Appointment
+        // type -- every real appointment renders as 'in-person' rather than
+        // fabricating a channel the schema doesn't track (see open-questions.md #8
+        // for the same "drop rather than fake" call on clinician detail fields).
+        type: 'in-person',
+        status: a.status,
+        patientId: a.patient?.id ?? null,
+        service: a.service?.name ?? null,
+        duration: a.duration_minutes,
+        room: a.room?.name ?? null,
+        color: sc.color,
+      };
+    });
+
+    // Real recurring weekly lunch breaks, expanded onto the days of the
+    // currently-viewed week. getLunchBreaks returns dayOfWeek as a nullable
+    // Int, already Monday=0-based to match this app's own DAYS array (not
+    // ISO/JS-Date Sunday=0) -- confirmed against clinician/Availability.jsx's
+    // own write path (day_of_week: String(dayIndex) from the same DAYS.map
+    // iteration). null means every day (saveLunchBreak's 'daily' input
+    // sentinel is stored as a null day_of_week column, not the literal string).
+    const lunchEvents = (lunchData?.getLunchBreaks ?? []).flatMap((lb) => {
+      const days = lb.dayOfWeek == null
+        ? [0, 1, 2, 3, 4, 5, 6]
+        : [Number(lb.dayOfWeek)];
+      const [sh, sm] = lb.startTime.split(':').map(Number);
+      const [eh, em] = lb.endTime.split(':').map(Number);
+      return days.map((day) => ({
+        id: `lunch-${lb.id}-${day}`,
+        day,
+        start: sh + sm / 60,
+        end:   eh + em / 60,
+        patient: 'LUNCH',
+        type: 'break',
+        status: 'break',
+        patientId: null,
+        service: null,
+        duration: (eh * 60 + em) - (sh * 60 + sm),
+        room: null,
+        color: STATUS_CFG.break.color,
+      }));
+    });
+
+    return [...apptEvents, ...lunchEvents];
+  }, [data, lunchData, error, weekOffset]);
 
   const isPatientAppt = selected && selected.type !== 'break' && selected.type !== 'block';
   const statusCfg     = selected ? (STATUS_CFG[selected.status] ?? STATUS_CFG.confirmed) : null;
