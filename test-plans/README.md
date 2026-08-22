@@ -44,4 +44,6 @@
 | staff-dashboard | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [staff-dashboard](./staff-dashboard/README.md) |
 | admin | 1 | 0 | 0 | 1 | 0 | 2026-03-24 | [admin](./admin/README.md) |
 | clinician-calendar | 1 | 0 | 0 | 1 | 0 | 2026-03-20 | [clinician-calendar](./clinician-calendar/README.md) |
-| booking-wizard | 1 | 0 | 0 | 1 | 0 | 2026-03-19 | [booking-wizard](./booking-wizard/README.md) |
+| public | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [public](./public/README.md) |
+| organizations | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [organizations](./organizations/README.md) |
+| booking-wizard | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [booking-wizard](./booking-wizard/README.md) |

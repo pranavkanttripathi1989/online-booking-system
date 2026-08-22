@@ -2,6 +2,8 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| public | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [public](./public/README.md) |
+| organizations | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [organizations](./organizations/README.md) |
 | organization-branding | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
 | communications-policies | 2 | 2 | 0 | 4 | 0 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |

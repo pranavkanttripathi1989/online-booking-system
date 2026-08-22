@@ -3,11 +3,13 @@ id: TS025
 type: test-suggestion
 feature: organization-onboarding
 created: 2026-08-17
-updated: 2026-08-17
+updated: 2026-08-22
 status: in-progress
 parent: unknown
-related: []
+related: [REQ013]
 ---
+
+**2026-08-22 (`REQ013` Finding 1, Phase B):** re-checked and confirmed still fully accurate — no `startOrganizationOnboarding`/`selectOnboardingPlan`/`addOnboardingFirstClinic`/`completeOrganizationOnboarding` resolver exists anywhere in the backend; `pages/onboarding/index.jsx` is still 100% `useMockData`/`useMockMutation`. **Deliberately not promoted to a `test-plans/` entry** — promoting an unreviewed suggestion to an approved test plan implies the underlying feature is built and ready to verify, and it isn't. This is a genuine product-scope decision (does self-serve tenant sign-up ship at all, and on what timeline), not a documentation or testing gap that can be closed by writing more docs. Left `in-progress` on purpose; will be ready for promotion only once a real backend exists to test against.
 
 # Organization Onboarding — Feature Suggestions
 

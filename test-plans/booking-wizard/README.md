@@ -4,7 +4,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| TP005 | test-plan | Booking Wizard — Test Plan | approved | 2026-03-19 | 2026-03-19 | unknown | [booking-wizard-test-plan.md](./requirement/booking-wizard-test-plan.md) |
+| TP005 | test-plan | Booking Wizard — Test Plan | superseded | 2026-03-19 | 2026-08-22 | unknown | [booking-wizard-test-plan.md](./requirement/booking-wizard-test-plan.md) |
 
 ## improvement
 

@@ -6,7 +6,7 @@ created: 2026-08-22
 updated: 2026-08-22
 status: approved
 parent: null
-related: [PLAN023]
+related: [PLAN023, PLAN024]
 ---
 
 # Test documentation coverage — gap analysis & closure requirements
@@ -88,7 +88,7 @@ This isn't necessarily wrong — an experienced reviewer synthesizing plan and s
 Given the size of the gap, this requirement is scoped to be closed in phases rather than one slice — each phase gets its own implementation-plan (`PLAN###`) against this requirement's `parent`, per `CLAUDE.md`'s normal workflow, not bundled into a single mega-PR:
 
 1. **Phase A (Finding 2 — correctness risk):** TP003 and TP011 rewritten to match the real, current backend/frontend contract (post-Priority-3-sweep), with the previously-mock-endorsed behaviors explicitly called out as the bug they turned out to be, not silently swapped. `TR003`/`TR010` re-issued against the rewritten plans with real live verification, not just a timestamp bump.
-2. **Phase B (Finding 1 — real gaps):** a real `test-plans/public/` entry covering the actual `backend/src/public/**` contract (superseding TP005, which should be marked superseded/archived rather than left as the only doc pointing at this surface under the wrong name); a `test-plans/organizations/` entry for admin org CRUD; TS025 either promoted to a real `test-plans/organization-onboarding/` entry or explicitly re-scoped if the onboarding flow itself is being reconsidered.
+2. **Phase B (Finding 1 — real gaps) — done 2026-08-22, `PLAN024`.** `TP053`/`TR052` written for `backend/src/public/**` (`TP005` marked superseded in place, not deleted); `TP052`/`TR051` written for admin org CRUD; `TS025` re-checked and deliberately **not** promoted (no self-serve onboarding backend exists at all — a product-scope decision, not a doc gap), left `in-progress` with a note explaining why. No bugs found in either `organizations` or `public` — both were already correctly implemented, including a real, previously-fixed `getAppointment` IDOR that this pass live-re-verified rather than took on faith.
 3. **Phase C (Findings 4–5 — hygiene):** every dangling `in-progress` bundle in Finding 4 reviewed and closed or justified; `REQ006` resolved to a real status; a decision made on whether `test-results/_archive/` should exist for real or `CLAUDE.md`'s reference to it should be corrected.
 4. **Phase D (Finding 6 — process):** an explicit decision recorded (in `context/open-questions.md` if not resolved immediately) on whether the suggestion-stage is still required for new features going forward, and `CLAUDE.md` updated to match whichever way that's decided.
 

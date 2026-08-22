@@ -3,11 +3,13 @@ id: TP005
 type: test-plan
 feature: booking-wizard
 created: 2026-03-19
-updated: 2026-03-19
-status: approved
+updated: 2026-08-22
+status: superseded
 parent: unknown
-related: []
+related: [REQ013, TP053]
 ---
+
+> **Superseded 2026-08-22 (`REQ013` Finding 1, Phase B).** Written against `MockStore` before `backend/src/public/**` existed, and never executed even against that mock version. The real backend now behind this route is `getClinician`/`getAppointments`/`bookPatientAppointment` (the "public/patient-self-serve" camelCase dialect), documented for real in [`test-plans/public/requirement/TP053-public-2026-08-22-patient-self-serve-booking.md`](../../public/requirement/TP053-public-2026-08-22-patient-self-serve-booking.md). Kept here as historical record, not deleted — the `booking-wizard` feature slug itself isn't reused going forward; new work in this area belongs under `public`.
 
 # Booking Wizard — Test Plan
 
