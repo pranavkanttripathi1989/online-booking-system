@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Feature-Scoped Docs Architecture — Interactive Flow</title>
+<style>
+  * { box-sizing: border-box; }
+  html, body { margin:0; padding:0; height:100%; }
+  body {
+    background:#0d0f14; color:#e8eaf0;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,sans-serif;
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  header { padding:13px 20px 9px; border-bottom:1px solid #23283a; flex:0 0 auto; }
+  h1 { margin:0 0 3px; font-size:15.5px; font-weight:600; letter-spacing:.2px; }
+  .sub { margin:0; font-size:12.5px; color:#8e97ab; }
+  .toolbar { display:flex; align-items:center; gap:7px; padding:8px 20px; border-bottom:1px solid #23283a; flex:0 0 auto; flex-wrap:wrap; }
+  button {
+    background:#1a1f2e; color:#cdd4e2; border:1px solid #313a52; border-radius:6px;
+    padding:5px 11px; font-size:12px; cursor:pointer; font-family:inherit; white-space:nowrap;
+  }
+  button:hover { background:#232a3d; border-color:#414d6b; }
+  button:active { transform:translateY(1px); }
+  .hint { color:#69718a; font-size:11.5px; margin-left:6px; }
+  main { flex:1 1 auto; display:flex; min-height:0; }
+  #stage {
+    flex:1 1 auto; position:relative; overflow:hidden; cursor:grab; min-width:0;
+    background:radial-gradient(circle at 18% 8%, #12161f 0%, #0d0f14 62%);
+  }
+  #stage.dragging { cursor:grabbing; }
+  svg { display:block; width:100%; height:100%; }
+  aside {
+    flex:0 0 306px; border-left:1px solid #23283a; background:#11141c;
+    padding:15px 17px; overflow-y:auto;
+  }
+  aside.hidden { display:none; }
+  aside h2 { font-size:13.5px; margin:0 0 5px; letter-spacing:.2px; }
+  aside .kicker { font-size:10px; text-transform:uppercase; letter-spacing:1px; color:#7b85a0; margin:0 0 9px; font-weight:600; }
+  aside p { font-size:12.5px; line-height:1.55; color:#b9c1d2; margin:0 0 10px; }
+  aside code {
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11.5px; background:#191e2b; border:1px solid #2a3145; border-radius:4px;
+    padding:1px 5px; color:#9fd8e8; word-break:break-all;
+  }
+  aside .block {
+    font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;
+    font-size:11px; line-height:1.62; background:#161a25; border:1px solid #262d3f;
+    border-radius:6px; padding:10px 11px; color:#a9b4c9; white-space:pre; overflow-x:auto; margin:0 0 11px;
+  }
+  aside .rule {
+    border-left:3px solid #d6a029; background:#1d1a12; padding:8px 11px;
+    font-size:12px; line-height:1.5; color:#e6d3a8; border-radius:0 5px 5px 0; margin:0 0 10px;
+  }
+  aside .warn { border-left-color:#c9607f; background:#1f1418; color:#efc0ce; }
+  aside .ok { border-left-color:#4caf7d; background:#121d17; color:#bfe6d0; }
+  .legend {
+    display:flex; gap:13px; flex-wrap:wrap; padding:8px 20px 11px; font-size:11px;
+    color:#7b85a0; border-top:1px solid #23283a; flex:0 0 auto;
+  }
+  .legend i { display:inline-block; width:9px; height:9px; border-radius:2px; margin-right:5px; vertical-align:middle; }
+  .nd { cursor:pointer; }
+  .nd rect.body { transition:filter .12s; }
+  .nd:hover rect.body { filter:brightness(1.4); }
+  .nd.sel rect.body { stroke-width:3; }
+  .dim { opacity:.14; }
+  text { font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+  .phase { font-size:17px; letter-spacing:1.6px; fill:#5e6883; font-weight:700; }
+  .nlab { font-size:21px; fill:#eceef4; }
+  .nlab.mono { font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace; font-size:18px; fill:#c8d2e4; }
+  .elab { font-size:15px; fill:#9aa4bc; }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Feature-scoped docs architecture — how work flows through the repo</h1>
+  <p class="sub">Left to right: session start → triage → spec → plan → test design → build → verify → close → archive. Click any box for its path, rules and guardrails.</p>
+</header>
+
+<div class="toolbar">
+  <button id="fit">Fit all</button>
+  <button id="zin">Zoom +</button>
+  <button id="zout">Zoom −</button>
+  <button id="togglePanel">Hide details</button>
+  <span class="hint">Drag to pan · scroll to zoom · hover to isolate a step · click for detail</span>
+</div>
+
+<main>
+  <div id="stage">
+    <svg id="canvas" preserveAspectRatio="xMidYMid meet" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <marker id="ar" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#5c6580"/>
+        </marker>
+        <marker id="ar-back" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#c9903a"/>
+        </marker>
+        <marker id="ar-sync" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#8d6fb0"/>
+        </marker>
+        <marker id="ar-arch" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+          <path d="M 0 0 L 10 5 L 0 10 z" fill="#a2607d"/>
+        </marker>
+      </defs>
+      <g id="gBands"></g>
+      <g id="gEdges"></g>
+      <g id="gNodes"></g>
+    </svg>
+  </div>
+
+  <aside id="panel"></aside>
+</main>
+
+<div class="legend">
+  <span><i style="background:#0e7f96"></i>session / system</span>
+  <span><i style="background:#c9903a"></i>decision gate</span>
+  <span><i style="background:#4b7fbe"></i>spec — living, never archived</span>
+  <span><i style="background:#8b6bc1"></i>implementation plan</span>
+  <span><i style="background:#2f9e8f"></i>tests</span>
+  <span><i style="background:#5b6478"></i>build</span>
+  <span><i style="background:#4caf7d"></i>result / done</span>
+  <span><i style="background:#9673a6"></i>context bundle</span>
+  <span><i style="background:#a2607d"></i>archive · 15+ days</span>
+</div>
+
+<script>
+/* ================= layout constants ================= */
+var COL_W = 248, COL_GAP = 56, ROW_H = 94, ROW_STEP = 120, X0 = 48, Y0 = 96;
+function colX(c){ return X0 + c * (COL_W + COL_GAP); }
+function rowY(r){ return Y0 + r * ROW_STEP; }
+
+var KINDS = {
+  sys:    { fill:'#12303a', stroke:'#0e7f96' },
+  gate:   { fill:'#2c2313', stroke:'#c9903a' },
+  spec:   { fill:'#16263a', stroke:'#4b7fbe' },
+  plan:   { fill:'#221a33', stroke:'#8b6bc1' },
+  test:   { fill:'#122a28', stroke:'#2f9e8f' },
+  build:  { fill:'#1b1f29', stroke:'#5b6478' },
+  result: { fill:'#13291f', stroke:'#4caf7d' },
+  bundle: { fill:'#241a2e', stroke:'#9673a6' },
+  arch:   { fill:'#2a1720', stroke:'#a2607d' },
+  note:   { fill:'#15181f', stroke:'#39415a' }
+};
+
+var PHASES = ['SESSION START','TRIAGE','SPEC','PLAN','TEST DESIGN','BUILD','VERIFY','CLOSE','ARCHIVE'];
+
+/* ================= nodes ================= */
+var NODES = [
+  { id:'start', col:0, row:0.3, kind:'sys', lines:['Session start'],
+    t:'Session start', k:'Entry point',
+    body:'<p>Every session opens with housekeeping before any feature work, so Claude never plans against a stale or bloated view of the repo.</p>' },
+
+  { id:'sweep', col:0, row:1.3, kind:'sys', mono:1, lines:['archive-sweep.mjs','(dry-run first)'],
+    t:'Archive sweep', k:'scripts/archive-sweep.mjs',
+    body:'<p>A deterministic Node script — not a judgment call. Having the model eyeball file dates every session is slow, costs tokens, and gives different answers on different runs.</p>'
+      +'<div class="block">node scripts/archive-sweep.mjs\nnode scripts/archive-sweep.mjs --apply</div>'
+      +'<p>Uses <code>git mv</code> when the tree is clean so history follows the file, rewrites every affected index, and exits quietly when there is nothing to do.</p>'
+      +'<div class="rule">Dry-run is the default. Nothing moves until you pass <code>--apply</code>.</div>' },
+
+  { id:'verifycmd', col:0, row:2.3, kind:'note', mono:1, lines:['verify CLAUDE.md','@imports resolve'],
+    t:'Verify CLAUDE.md content', k:'Session-start guardrail',
+    body:'<p>The same script run also checks CLAUDE.md itself — parses every <code>@path</code> import line and confirms it still resolves to a file on disk, printing <code>WARN: broken import &lt;path&gt;</code> for any that don’t. Pure check, never edits the file.</p>'
+      +'<p>This runs twice in the lifecycle: once as a one-time audit during initial setup (Step 0 catches pre-existing broken imports, duplicated instructions, or doc content pasted directly into CLAUDE.md), and once every session after, so a renamed or deleted index is caught immediately instead of Claude silently working from a stale map.</p>'
+      +'<div class="warn rule">A broken import is surfaced, not assumed fixed — resolve it before trusting that section of context.</div>' },
+
+  { id:'claudemd', col:0, row:3.3, kind:'sys', lines:['CLAUDE.md loads','6 active indexes'],
+    t:'CLAUDE.md', k:'Loaded every session',
+    body:'<p>CLAUDE.md carries pointers and rules only — never document content. It <code>@import</code>s six indexes so Claude starts with a map instead of nothing:</p>'
+      +'<div class="block">@requirements/README.md\n@implementation-plans/README.md\n@test-plans/README.md\n@test-results/README.md\n@test-suggestions/README.md\n@context/README.md</div>'
+      +'<p>Each index is counts plus links, so the map stays cheap. Individual documents get opened on demand.</p>' },
+
+  { id:'readorder', col:0, row:4.3, kind:'note', lines:['ACTIVE first —','archive on demand'],
+    t:'Active before archive', k:'Read-order rule',
+    body:'<p>Active documents are authoritative. <code>context/archive/</code> and <code>test-results/_archive/</code> get consulted <em>only</em> when the active tree cannot answer the question — tracing an old decision, auditing a historical run.</p>'
+      +'<div class="warn rule">An archived document is never treated as current.</div>' },
+
+  { id:'work', col:1, row:0.3, kind:'sys', lines:['New work arrives'],
+    t:'New work arrives', k:'Trigger',
+    body:'<p>A request, an idea, or a defect report. The <code>feature-lifecycle</code> skill picks it up from phrasing like “start bug: CSV export drops the last row” or “advance REQ057 to testing”.</p>' },
+
+  { id:'classify', col:1, row:1.3, kind:'gate', lines:['requirement /','improvement / bug?'],
+    t:'Classify the work', k:'Decision',
+    body:'<p>Every document lands in one of three category directories, so type is decided up front rather than inferred later:</p>'
+      +'<div class="block">requirement/  new capability\nimprovement/  change to existing\nbug/          defect vs shipped spec</div>'
+      +'<p>The category drives the ID prefix: <code>REQ###</code>, <code>IMPR###</code>, <code>BUG###</code>.</p>' },
+
+  { id:'slug', col:1, row:2.3, kind:'gate', lines:['resolve feature slug'],
+    t:'Resolve the feature slug', k:'Decision',
+    body:'<p>The kebab-case slug (<code>billing-export</code>) is the spine of the architecture — the same slug names the feature directory in all five roots and in the context bundle.</p>'
+      +'<div class="rule">Reuse an existing slug wherever possible. Create a new feature directory only when the work genuinely belongs to no existing feature.</div>' },
+
+  { id:'req', col:2, row:1.3, kind:'spec', mono:1, lines:['requirements/','  <feature>/<cat>/','    REQ###-….md'],
+    t:'Write the spec', k:'requirements/',
+    body:'<p>The authoritative statement of what should be true. Opens with mandatory frontmatter:</p>'
+      +'<div class="block">---\nid: REQ057\ntype: requirement\nfeature: billing-export\ncreated: 2026-08-20\nupdated: 2026-08-20\nstatus: draft\nparent: null\nrelated: []\n---</div>'
+      +'<div class="ok rule">Living spec — never archived by age. A requirement written months ago is often still the current truth.</div>' },
+
+  { id:'planmode', col:3, row:0.45, kind:'plan', lines:['plan mode:','explore code first'],
+    t:'Plan mode', k:'Before any edit',
+    body:'<p>Read-only exploration precedes implementation. This is where the plan gets grounded in what the code actually does, rather than what the requirement assumes.</p>'
+      +'<div class="rule">No implementation before the plan exists. Non-trivial work that skips this step is the main source of rework.</div>' },
+
+  { id:'plan', col:3, row:1.55, kind:'plan', mono:1, lines:['implementation-plans/','  <feature>/<cat>/','    PLAN###-….md'],
+    t:'Record the plan', k:'implementation-plans/',
+    body:'<p>Approach, files touched, risks, open questions, ordered task list. Frontmatter <code>parent</code> points at the requirement ID — that is what makes the chain traceable.</p>'
+      +'<div class="ok rule">Living document — never archived by age.</div>' },
+
+  { id:'ts', col:4, row:0.45, kind:'test', mono:1, lines:['test-suggestions/','  TS###  UNREVIEWED'],
+    t:'Draft candidate tests', k:'test-suggestions/',
+    body:'<p>AI- or tool-generated test ideas, staged for human review. Deliberately a separate root so nothing unreviewed can be mistaken for coverage.</p>'
+      +'<div class="warn rule">Never treat a test-suggestion as an approved test. It proves nothing until promoted.</div>' },
+
+  { id:'gate1', col:4, row:1.55, kind:'gate', lines:['human review','approved?'],
+    t:'Review gate', k:'Decision',
+    body:'<p>The one point in the loop that requires a person. Suggestions needing changes cycle back; approved ones are promoted with a fresh <code>TP###</code> ID and <code>parent</code> set.</p>' },
+
+  { id:'tp', col:4, row:2.65, kind:'test', mono:1, lines:['test-plans/','  TP###  APPROVED'],
+    t:'Approved test plan', k:'test-plans/',
+    body:'<p>The reviewed, authoritative test definition: preconditions, steps, expected result, type. This is what gets run, and what results are measured against.</p>'
+      +'<div class="ok rule">Living document — never archived by age.</div>' },
+
+  { id:'impl', col:5, row:1.55, kind:'build', lines:['implement per plan'],
+    t:'Implement', k:'Build',
+    body:'<p>Code is written against the recorded plan. Where reality forces a deviation, write it back into the plan document rather than leaving the plan stale.</p>' },
+
+  { id:'run', col:5, row:2.65, kind:'build', lines:['run approved','test-plans'],
+    t:'Run the tests', k:'Build',
+    body:'<p>Execute the approved <code>TP###</code> plans — not the suggestions, and not ad-hoc checks invented after the fact to match whatever got built.</p>' },
+
+  { id:'tr', col:6, row:1.55, kind:'result', mono:1, lines:['test-results/','  TR### + commit SHA'],
+    t:'Record the outcome', k:'test-results/',
+    body:'<p>A dated log entry: what ran, pass/fail, environment, commit SHA, notes on failures. <code>parent</code> links it back to the requirement.</p>'
+      +'<div class="rule">This root <em>is</em> archivable — it is a time series, not a spec.</div>' },
+
+  { id:'gate2', col:6, row:2.65, kind:'gate', lines:['all linked tests','passing?'],
+    t:'Verification gate', k:'Decision',
+    body:'<p>Failures loop straight back to implementation. Nothing advances to “done” on a partial pass.</p>' },
+
+  { id:'done', col:7, row:0.5, kind:'result', lines:['status: done'],
+    t:'Close the item', k:'Terminal state',
+    body:'<div class="warn rule">A requirement is never marked <code>done</code> until a passing <code>test-results</code> document exists and is linked from the context bundle.</div>'
+      +'<p>Status accuracy matters more than it looks, because the archive sweep reads it. A stale <code>in-progress</code> means the bundle never ages out; a premature <code>done</code> means it ages out early.</p>' },
+
+  { id:'arch1', col:8, row:0.5, kind:'arch', mono:1, lines:['context/archive/','  <feature>-<date>/','  done + 15 days'],
+    t:'Archive the bundle', k:'context/archive/',
+    body:'<p>A bundle moves here when <strong>both</strong> hold:</p>'
+      +'<div class="block">status is done or wont-do\n  AND\ndate is 15+ days old</div>'
+      +'<div class="warn rule">An open bundle is never archived, at any age — draft, approved, in-progress, blocked and unknown all stay active.</div>' },
+
+  { id:'arch2', col:8, row:1.55, kind:'arch', mono:1, lines:['test-results/_archive/','  <feature>/<cat>/','  superseded + 15d'], w:266,
+    t:'Archive superseded results', k:'test-results/_archive/',
+    body:'<p>A result moves here when <strong>both</strong> hold:</p>'
+      +'<div class="block">15+ days old\n  AND\nnot the latest result\n  for its parent ID</div>'
+      +'<div class="ok rule">The most recent result per requirement always stays active, whatever its age — otherwise “is REQ057 actually tested?” stops being answerable from the active tree.</div>' },
+
+  { id:'never', col:8, row:2.7, kind:'note', lines:['4 roots NEVER swept'],
+    t:'What is never archived', k:'Guardrail',
+    body:'<p>Four of the five roots are exempt from the sweep entirely:</p>'
+      +'<div class="block">requirements/         never\nimplementation-plans/ never\ntest-plans/           never\ntest-suggestions/     never</div>'
+      +'<p>These are living specs. Age says nothing about whether they are current, and auto-archiving them would hide the authoritative spec from Claude at exactly the moment it is needed.</p>' },
+
+  { id:'bundle', col:3.35, row:4.2, kind:'bundle', w:760, mono:1,
+    lines:['context/<feature>-<yyyy-mm-dd>/manifest.md','kept in sync at every step above'],
+    t:'The context bundle', k:'context/<feature>-<date>/manifest.md',
+    body:'<p>One bundle per work item, holding <strong>links, never copies</strong>. Opening one file shows the whole chain for that item.</p>'
+      +'<div class="block">frontmatter:\n  feature, date, ids[], status\n\nbody:\n  status summary (one paragraph)\n  → requirement / improvement / bug\n  → implementation plan\n  → test-suggestions\n  → approved test-plans\n  → test-results</div>'
+      +'<div class="rule">Update the bundle in the same change that touches any of the five roots, or it drifts out of sync and stops being trustworthy.</div>' }
+];
+
+/* ================= edges ================= */
+var EDGES = [
+  ['start','sweep','down'], ['sweep','verifycmd','down'], ['verifycmd','claudemd','down'], ['claudemd','readorder','down'],
+  ['claudemd','work','fwd'],
+  ['work','classify','down'], ['classify','slug','down'],
+  ['slug','req','fwd'],
+  ['req','planmode','fwd'], ['planmode','plan','down'],
+  ['plan','ts','fwd'], ['ts','gate1','down'],
+  ['gate1','tp','down','approved'], ['gate1','ts','loopL','rework'],
+  ['tp','impl','fwd'], ['impl','run','down'],
+  ['run','tr','fwd'], ['tr','gate2','down'],
+  ['gate2','done','fwd','yes'], ['gate2','impl','back','no'],
+  ['done','arch1','arch'],
+  ['tr','arch2','arch'],
+  ['req','bundle','sync'], ['plan','bundle','sync'], ['tp','bundle','sync'],
+  ['tr','bundle','sync'], ['done','bundle','sync']
+];
+
+/* ================= build ================= */
+var byId = {};
+NODES.forEach(function(n){
+  n.w = n.w || COL_W; n.h = n.h || ROW_H;
+  n.x = colX(n.col); n.y = rowY(n.row);
+  byId[n.id] = n;
+});
+
+var W = colX(8) + COL_W + 48;
+var H = Math.max(rowY(4.2), rowY(4.3)) + ROW_H + 60;
+
+var svg = document.getElementById('canvas');
+var gB = document.getElementById('gBands'),
+    gE = document.getElementById('gEdges'),
+    gN = document.getElementById('gNodes');
+
+function el(t, a){
+  var e = document.createElementNS('http://www.w3.org/2000/svg', t);
+  for (var k in a) e.setAttribute(k, a[k]);
+  return e;
+}
+
+/* phase bands */
+PHASES.forEach(function(p, i){
+  if (i % 2 === 0){
+    gB.appendChild(el('rect', {
+      x: colX(i) - 20, y: 44, width: COL_W + 40, height: H - 76,
+      fill:'#ffffff', opacity:.018, rx:12
+    }));
+  }
+  var t = el('text', { x: colX(i) + COL_W/2, y: 70, 'text-anchor':'middle', class:'phase' });
+  t.textContent = p;
+  gB.appendChild(t);
+});
+
+function R(n){ return { x:n.x + n.w, y:n.y + n.h/2 }; }
+function L(n){ return { x:n.x, y:n.y + n.h/2 }; }
+function T(n){ return { x:n.x + n.w/2, y:n.y }; }
+function B(n){ return { x:n.x + n.w/2, y:n.y + n.h }; }
+
+function pathFor(a, b, mode){
+  var s, e, mx, my;
+  if (mode === 'down'){
+    s = B(a); e = T(b);
+    if (Math.abs(s.x - e.x) < 1) return 'M' + s.x + ',' + s.y + ' L' + e.x + ',' + e.y;
+    my = (s.y + e.y) / 2;
+    return 'M' + s.x + ',' + s.y + ' L' + s.x + ',' + my + ' L' + e.x + ',' + my + ' L' + e.x + ',' + e.y;
+  }
+  if (mode === 'fwd' || mode === 'arch'){
+    s = R(a); e = L(b); mx = (s.x + e.x) / 2;
+    if (Math.abs(s.y - e.y) < 1) return 'M' + s.x + ',' + s.y + ' L' + e.x + ',' + e.y;
+    return 'M' + s.x + ',' + s.y + ' L' + mx + ',' + s.y + ' L' + mx + ',' + e.y + ' L' + e.x + ',' + e.y;
+  }
+  if (mode === 'loopL'){
+    s = L(a); e = L(b);
+    var ox = Math.min(s.x, e.x) - 26;
+    return 'M' + s.x + ',' + s.y + ' L' + ox + ',' + s.y + ' L' + ox + ',' + e.y + ' L' + e.x + ',' + e.y;
+  }
+  if (mode === 'back'){
+    s = B(a); e = B(b);
+    var ly = Math.max(s.y, e.y) + 30;
+    return 'M' + s.x + ',' + s.y + ' L' + s.x + ',' + ly + ' L' + e.x + ',' + ly + ' L' + e.x + ',' + e.y;
+  }
+  if (mode === 'sync'){
+    s = B(a); e = T(b);
+    my = e.y - 24;
+    return 'M' + s.x + ',' + s.y + ' L' + s.x + ',' + my + ' L' + e.x + ',' + my + ' L' + e.x + ',' + e.y;
+  }
+  return '';
+}
+
+var edgeEls = [];
+EDGES.forEach(function(ed){
+  var a = byId[ed[0]], b = byId[ed[1]], mode = ed[2], label = ed[3];
+  var stroke = '#5c6580', marker = 'ar', dash = null;
+  if (mode === 'back' || mode === 'loopL'){ stroke = '#c9903a'; marker = 'ar-back'; }
+  if (mode === 'sync'){ stroke = '#8d6fb0'; marker = 'ar-sync'; dash = '6 5'; }
+  if (mode === 'arch'){ stroke = '#a2607d'; marker = 'ar-arch'; dash = '7 5'; }
+
+  var attrs = {
+    d: pathFor(a, b, mode), fill:'none', stroke:stroke,
+    'stroke-width': 2, 'marker-end':'url(#' + marker + ')'
+  };
+  if (dash) attrs['stroke-dasharray'] = dash;
+  var p = el('path', attrs);
+  gE.appendChild(p);
+  edgeEls.push({ el:p, a:ed[0], b:ed[1] });
+
+  if (label){
+    var pt = p.getPointAtLength(p.getTotalLength() * 0.5);
+    var tw = label.length * 8.2 + 14;
+    var bg = el('rect', { x: pt.x - tw/2, y: pt.y - 21, width: tw, height: 19, rx:4, fill:'#0d0f14', opacity:.92 });
+    var t = el('text', { x: pt.x, y: pt.y - 7, 'text-anchor':'middle', class:'elab' });
+    t.textContent = label;
+    gE.appendChild(bg); gE.appendChild(t);
+    edgeEls.push({ el:bg, a:ed[0], b:ed[1] });
+    edgeEls.push({ el:t, a:ed[0], b:ed[1] });
+  }
+});
+
+var nodeEls = {};
+NODES.forEach(function(n){
+  var k = KINDS[n.kind];
+  var g = el('g', { class:'nd', 'data-id':n.id });
+  g.appendChild(el('rect', {
+    class:'body', x:n.x, y:n.y, width:n.w, height:n.h, rx:9,
+    fill:k.fill, stroke:k.stroke, 'stroke-width':2
+  }));
+  g.appendChild(el('rect', { x:n.x, y:n.y, width:5, height:n.h, rx:2.5, fill:k.stroke, opacity:.9 }));
+
+  var lh = n.mono ? 24 : 26;
+  var startY = n.y + n.h/2 - (n.lines.length * lh)/2 + (n.mono ? 17 : 19);
+  n.lines.forEach(function(line, i){
+    var t = el('text', { x:n.x + 17, y:startY + i * lh, class:'nlab' + (n.mono ? ' mono' : '') });
+    t.textContent = line;
+    g.appendChild(t);
+  });
+
+  if (n.kind === 'gate'){
+    var d = el('text', { x:n.x + n.w - 13, y:n.y + 24, 'text-anchor':'end', fill:'#c9903a', 'font-size':'16' });
+    d.textContent = '◆';
+    g.appendChild(d);
+  }
+
+  gN.appendChild(g);
+  nodeEls[n.id] = g;
+  g.addEventListener('click', function(ev){ ev.stopPropagation(); select(n.id); });
+  g.addEventListener('mouseenter', function(){ highlight(n.id); });
+  g.addEventListener('mouseleave', clearHighlight);
+});
+
+/* ================= highlight ================= */
+function highlight(id){
+  var keep = {}; keep[id] = 1;
+  edgeEls.forEach(function(e){ if (e.a === id || e.b === id){ keep[e.a] = 1; keep[e.b] = 1; } });
+  Object.keys(nodeEls).forEach(function(k){ nodeEls[k].classList.toggle('dim', !keep[k]); });
+  edgeEls.forEach(function(e){ e.el.classList.toggle('dim', !(e.a === id || e.b === id)); });
+}
+function clearHighlight(){
+  Object.keys(nodeEls).forEach(function(k){ nodeEls[k].classList.remove('dim'); });
+  edgeEls.forEach(function(e){ e.el.classList.remove('dim'); });
+}
+
+/* ================= detail panel ================= */
+var panel = document.getElementById('panel');
+var OVERVIEW =
+  '<p class="kicker">Overview</p><h2>The architecture</h2>'
+  + '<p>Five documentation roots, each with identical feature/category nesting, plus a context layer that links one work item end to end.</p>'
+  + '<div class="block">requirements/\n├── README.md         ← index\n├── &lt;feature-name&gt;/\n│   ├── README.md     ← index\n│   ├── requirement/ *.md\n│   ├── improvement/ *.md\n│   └── bug/         *.md\n└── ...\n\nimplementation-plans/  same shape\ntest-plans/            same shape\ntest-suggestions/      same shape\ntest-results/          + _archive/\n\ncontext/\n├── README.md         ← ACTIVE\n├── &lt;feature&gt;-&lt;date&gt;/\n│   └── manifest.md\n└── archive/\n    ├── README.md     ← on demand\n    └── &lt;feature&gt;-&lt;date&gt;/</div>'
+  + '<p class="kicker">ID scheme</p>'
+  + '<div class="block">REQ###   requirement\nIMPR###  improvement\nBUG###   bug\nPLAN###  implementation plan\nTP###    test plan\nTR###    test result\nTS###    test suggestion</div>'
+  + '<p>Every downstream document carries its parent <code>REQ###</code> / <code>IMPR###</code> / <code>BUG###</code> in frontmatter. That, plus a shared feature slug, is what makes the chain traceable across all five roots.</p>'
+  + '<div class="ok rule">Click any box in the flow for its exact path, rules and guardrails.</div>';
+
+function select(id){
+  Object.keys(nodeEls).forEach(function(k){ nodeEls[k].classList.toggle('sel', k === id); });
+  if (!id){ panel.innerHTML = OVERVIEW; return; }
+  var n = byId[id];
+  panel.innerHTML = '<p class="kicker">' + n.k + '</p><h2>' + n.t + '</h2>' + n.body;
+  panel.scrollTop = 0;
+}
+
+/* ================= viewBox pan + zoom ================= */
+var stage = document.getElementById('stage');
+var vb = { x:0, y:0, w:W, h:H };
+
+function applyVB(){
+  svg.setAttribute('viewBox', vb.x + ' ' + vb.y + ' ' + vb.w + ' ' + vb.h);
+}
+function effScale(){
+  var r = stage.getBoundingClientRect();
+  return Math.min(r.width / vb.w, r.height / vb.h);
+}
+function toUser(cx, cy){
+  var r = stage.getBoundingClientRect(), s = effScale();
+  var ox = (r.width - vb.w * s) / 2, oy = (r.height - vb.h * s) / 2;
+  return { x: (cx - r.left - ox) / s + vb.x, y: (cy - r.top - oy) / s + vb.y };
+}
+function zoomAt(f, cx, cy){
+  var u = toUser(cx, cy);
+  var nw = vb.w / f, nh = vb.h / f;
+  if (nw < W * 0.12 || nw > W * 4) return;
+  vb.x = u.x - (u.x - vb.x) / f;
+  vb.y = u.y - (u.y - vb.y) / f;
+  vb.w = nw; vb.h = nh;
+  applyVB();
+}
+function fitAll(){ vb = { x:0, y:0, w:W, h:H }; applyVB(); }
+
+document.getElementById('fit').onclick = fitAll;
+document.getElementById('zin').onclick = function(){
+  var r = stage.getBoundingClientRect();
+  zoomAt(1.25, r.left + r.width/2, r.top + r.height/2);
+};
+document.getElementById('zout').onclick = function(){
+  var r = stage.getBoundingClientRect();
+  zoomAt(1/1.25, r.left + r.width/2, r.top + r.height/2);
+};
+document.getElementById('togglePanel').onclick = function(){
+  var a = document.getElementById('panel');
+  a.classList.toggle('hidden');
+  this.textContent = a.classList.contains('hidden') ? 'Show details' : 'Hide details';
+  applyVB();
+};
+
+stage.addEventListener('wheel', function(ev){
+  ev.preventDefault();
+  zoomAt(ev.deltaY < 0 ? 1.12 : 1/1.12, ev.clientX, ev.clientY);
+}, { passive:false });
+
+var drag = null;
+stage.addEventListener('mousedown', function(ev){
+  drag = { cx:ev.clientX, cy:ev.clientY, vx:vb.x, vy:vb.y, s:effScale() };
+  stage.classList.add('dragging');
+});
+window.addEventListener('mousemove', function(ev){
+  if (!drag) return;
+  vb.x = drag.vx - (ev.clientX - drag.cx) / drag.s;
+  vb.y = drag.vy - (ev.clientY - drag.cy) / drag.s;
+  applyVB();
+});
+window.addEventListener('mouseup', function(){ drag = null; stage.classList.remove('dragging'); });
+
+svg.addEventListener('click', function(ev){
+  if (ev.target === svg || ev.target.parentNode === gB) select(null);
+});
+
+select(null);
+fitAll();
+</script>
+</body>
+</html>
