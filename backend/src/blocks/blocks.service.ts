@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSpacerBlockInput, CreateRoomBlockInput } from './dto/block.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScopeVia } from '../common/scoping/tenant-scope';
 
 @Injectable()
 export class BlocksService {
@@ -53,7 +54,7 @@ export class BlocksService {
 
   async spacerBlocks(limit: number | undefined, user: JwtPayload) {
     const rows = await this.prisma.spacerBlocks.findMany({
-      where: { is_deleted: false, clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined },
+      where: { is_deleted: false, ...orgScopeVia(user, 'clinic') },
       include: { clinician: true, clinic: true, room: true },
       take: limit,
       orderBy: { created_at: 'desc' },
@@ -63,7 +64,7 @@ export class BlocksService {
 
   async roomBlocks(limit: number | undefined, user: JwtPayload) {
     const rows = await this.prisma.roomBlocks.findMany({
-      where: { is_deleted: false, clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined },
+      where: { is_deleted: false, ...orgScopeVia(user, 'clinic') },
       include: { room: true, clinic: true },
       take: limit,
       orderBy: { created_at: 'desc' },

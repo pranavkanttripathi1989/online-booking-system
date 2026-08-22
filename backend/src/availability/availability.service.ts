@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateAvailabilityInput, ClinicianAvailabilityInput, LunchBreakInput } from './dto/availability.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScopeVia, assertSameOrg } from '../common/scoping/tenant-scope';
 
 const INCLUDE = { clinician: true, clinic: true, room: true };
 
@@ -33,7 +34,7 @@ export class AvailabilityService {
 
   async findAll(limit: number | undefined, user: JwtPayload) {
     const rows = await this.prisma.clinicianAvailability.findMany({
-      where: { is_deleted: false, clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined },
+      where: { is_deleted: false, ...orgScopeVia(user, 'clinic') },
       include: INCLUDE,
       take: limit,
       orderBy: { created_at: 'desc' },
@@ -160,9 +161,12 @@ export class AvailabilityService {
     if (user.roles.includes('clinician') && targetClinicianId !== user.clinician_id) {
       throw new NotFoundException('Clinician not found');
     }
-    if (user.client_org_id && clinicClientOrgId !== user.client_org_id) {
-      throw new NotFoundException('Clinician not found');
-    }
+    // F-01: was `if (user.client_org_id && clinicClientOrgId !== user.client_org_id)`,
+    // which fell through (allowed) for a caller with no org of their own.
+    // Not exploitable here — every caller of this is @Auth-gated to
+    // manager/admin/super_admin/clinician — but it is the same latent
+    // pattern, so it uses the shared fail-closed check like everything else.
+    assertSameOrg(user, clinicClientOrgId, 'Clinician');
   }
 
   async saveClinicianAvailability(input: ClinicianAvailabilityInput, user: JwtPayload) {
