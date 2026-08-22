@@ -6,7 +6,7 @@ created: 2026-08-22
 updated: 2026-08-22
 status: approved
 parent: null
-related: []
+related: [PLAN023]
 ---
 
 # Test documentation coverage — gap analysis & closure requirements

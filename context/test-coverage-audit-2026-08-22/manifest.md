@@ -1,7 +1,7 @@
 ---
 feature: test-coverage-audit
 date: 2026-08-22
-ids: [REQ013]
+ids: [REQ013, PLAN023]
 status: in-progress
 ---
 
@@ -13,7 +13,11 @@ Scoped into four closure phases (A–D) rather than one slice, each to get its o
 
 ## Requirement
 
-- [REQ013 — Test documentation coverage: gap analysis & closure requirements](../../requirements/test-coverage-audit/requirement/REQ013-test-coverage-audit-2026-08-22-documentation-gap-analysis.md) — approved, phases A–D not yet started
+- [REQ013 — Test documentation coverage: gap analysis & closure requirements](../../requirements/test-coverage-audit/requirement/REQ013-test-coverage-audit-2026-08-22-documentation-gap-analysis.md) — approved, Phase A planned, Phases B–D not yet started
+
+## Implementation plan
+
+- [PLAN023 — Phase A: rewrite the mock-era test-plans that now endorse fixed bugs](../../implementation-plans/test-coverage-audit/requirement/PLAN023-test-coverage-audit-2026-08-22-phase-a-rewrite-mock-era-plans.md) — approved, not yet executed. Scopes an in-place rewrite of `TP003`/`TP011` (appointments/clinicians), triaged case-by-case against what's factually wrong (endorses since-fixed bugs) vs. still valid vs. already covered by this session's real e2e specs, plus a re-audit of two clinician-portal pages (`Calendar.jsx`, `Availability.jsx`) never checked for mock fallbacks this session.
 
 ## Related
 
