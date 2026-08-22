@@ -220,6 +220,14 @@ The host's default `node` may be older than Playwright's ESM config loader requi
 
 Backend domain modules that exist today (`backend/src/`): `auth`, `account`, `clinics`, `rooms`, `lookups`, `organizations`, `languages`, `email-templates`, `services`, `clinicians`, `test-results`, `patients`, `appointments`, `appointment-payments`, `availability`, `blocks`, `users`, `staff`, `notifications`, `notification-preferences`, `reviews`, `messages`, `public`, `products`, `analytics`, `dashboard`, `org-settings`, `cancellation-rules`. Each follows the same file layout: `<domain>.module.ts`, `<domain>.resolver.ts`, `<domain>.service.ts`, `dto/*.input.ts` (validated `@InputType()` classes), `entities/*.entity.ts` (`@ObjectType()` classes, GraphQL type names sometimes deliberately differ from the Prisma model name — see below). This list drifts as new domains land each session — cross-check `ls backend/src/` before trusting it for a "does X have a backend" question. Priority 2 is now fully complete (as of 2026-08-21) — organization Branding (`REQ002`), Communications' own "Notification Templates" tab (`REQ011`), and admin's "Security settings" tab (`REQ012`) are all closed, see Priority 2 below.
 
+### `App.jsx`'s route tree has one path claimed twice — know this before adding a pathless layout route
+
+`/` was unreachable end-to-end until fixed 2026-08-23: it's declared explicitly (`<Route path="/" element={<Landing/>}>` under `PublicLayout`) *and* implicitly, by a pathless `<Route index element={<RoleHomeRedirect/>}>` nested three layout-routes deep under `<Route element={<ProtectedRoute/>}><Route element={<AppShell/>}>` — neither of those wrapping routes declares its own `path`, so they don't consume a URL segment, and the `index` route ends up matching "/" too. React Router v6 scores `index` routes higher than an explicit `path="/"` route on an otherwise-tied match, so the index route always won: an authenticated visitor to "/" got silently redirected to their dashboard (looked correct, wasn't), an anonymous one got bounced through `ProtectedRoute` straight to `/login` — the public marketing/booking landing page was unreachable for anyone, ever, and no test caught it because every e2e spec logs in and lands on a role-specific path first. Fixed by making the root route itself auth-aware (`RootRoute`, mirroring the existing `OptionalAuthShell` pattern used for `/appointments/book`) instead of relying on two separately-declared routes to both resolve "/". **The lesson, not just the fix:** any new pathless layout `<Route element={...}>` added directly under `<Routes>` (not nested under an already-pathed route) is a candidate to silently collide with whatever else claims that same effective path — check what it actually resolves to, don't assume route declaration order or explicitness wins.
+
+### `receptionist` is a dead role name — the real seeded role is `staff`, and the mistake recurs
+
+`backend/prisma/seed.ts`'s `ROLES` array and every real JWT/RBAC check use `staff`, never `receptionist` — but `receptionist` keeps getting reintroduced as if it were the real name, because it reads like a plausible one. Confirmed live 2026-08-23 in three separate places, each a real bug, not dead code: `layouts/AppShell.jsx`'s `ROLE_COLORS` map (keyed `receptionist`, missing `staff` → every staff/receptionist account's sidebar badge silently fell back to `ROLE_COLORS.patient` and showed "Patient"); `pages/admin/users/index.jsx`'s `ROLE_STYLES` map (same shape, plus `admin`/`super_admin`/`manager` were *also* missing under stale `system_admin`/`clinic_manager` keys — falls back to a grey "Unknown" chip); `pages/clinicians/index.jsx`'s inline `isAdmin` role check (missing `staff` entirely → the "Add Clinician" button silently didn't appear for staff users). `App.jsx`'s `NAV_CONFIG` already lists both `'receptionist'` and `'staff'` in its role arrays — harmless there since `'staff'` is also present — but don't copy that array as a template assuming `'receptionist'` is a name worth keeping; it's dead everywhere it isn't paired with `'staff'`. When adding a new role-keyed map, key it from `backend/prisma/seed.ts`'s `ROLES` array, not from an existing frontend map — several of the existing ones are themselves wrong.
+
 ### Auth is a global guard, fail-closed by default
 
 Three `APP_GUARD`s run in this exact order (`backend/src/app.module.ts`): `GqlThrottlerGuard` → `GqlAuthGuard` → `RolesGuard`. **This ordering is load-bearing** — NestJS always runs `APP_GUARD`-registered global guards before any handler-level `@UseGuards()`, regardless of decorator order at the call site, so `GqlAuthGuard` itself had to become global (not just paired per-handler) to guarantee `req.user` is populated before `RolesGuard` checks it. Every new resolver is authenticated by default; add `@Public()` (`common/decorators/public.decorator.ts`) only for a resolver that must genuinely work logged-out (verify this is actually true — it's the one annotation that removes a security guarantee). `@Auth('role', ...)` (alias for `@Roles()`) gates by role on top. `JwtPayload` (`auth/strategies/jwt.strategy.ts`) carries `{ sub, roles, client_org_id, patient_id, clinician_id }` — `client_org_id` is `null` for platform-wide roles (admin/super_admin), not just absent; `patient_id`/`clinician_id` are `null` for every role except the one they apply to, and for a `patient`/`clinician` account not yet linked to a `Patients`/`Clinicians` row (both seeded demo accounts are currently in this unlinked state — self-scoped queries correctly return empty for them, not "everyone," see below).
@@ -335,9 +343,24 @@ fabricated pages) closed. To get running:
 ```bash
 docker compose up -d                                 # dev stack
 docker compose --profile test up -d postgres_test    # needed for `npm run test:int`
-cd backend  && npm ci && npx prisma generate && npx prisma migrate deploy
+cd backend  && npm ci && npx prisma generate && npx prisma migrate deploy && npx prisma db seed
 cd frontend && npm ci
 ```
+
+Confirmed 2026-08-23: a genuinely fresh `postgres_data` volume (new machine, or
+after `docker volume rm`) has zero tables until `migrate deploy` runs, and zero
+demo accounts until `db seed` runs on top of that — the seed step is easy to
+forget since most sessions inherit an already-seeded volume. Skipping it doesn't
+fail loudly: the demo-account login buttons submit fine and the backend throws a
+raw `PrismaClientKnownRequestError` (`table public.UserProfiles does not exist`)
+straight to the browser instead of a clean error. Run both `prisma migrate
+deploy` and `db seed` inside the container (`docker exec medibook_backend npx
+prisma ...`), not from the host — the host's `backend/.env` `DATABASE_URL` points
+at `localhost:5432`, which is only correct if nothing else on the machine has
+already claimed that port (see `POSTGRES_PORT`/`REDIS_PORT` in
+`docker-compose.yml` if it has — override them in the gitignored root `.env`,
+not `docker-compose.yml` itself, and only the container's own internal
+`postgres:5432` address is guaranteed correct).
 
 Node: **v24.19.0** (nvm, Latest LTS). The old system Node 18.13.0 was removed —
 the CLAUDE.md note about `npm run e2e` needing `nvm use 20` is now obsolete on
