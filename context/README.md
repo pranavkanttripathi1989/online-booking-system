@@ -6,7 +6,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 |---|---|---|---|---|---|
 | organizations-2026-08-22 | organizations | 2026-08-22 | REQ013, TP052, TR051 | done | [manifest.md](./organizations-2026-08-22/manifest.md) |
 | public-2026-08-22 | public | 2026-08-22 | REQ013, TP053, TR052 | done | [manifest.md](./public-2026-08-22/manifest.md) |
-| test-coverage-audit-2026-08-22 | test-coverage-audit | 2026-08-22 | REQ013, PLAN023, PLAN024, PLAN025 | in-progress | [manifest.md](./test-coverage-audit-2026-08-22/manifest.md) |
+| test-coverage-audit-2026-08-22 | test-coverage-audit | 2026-08-22 | REQ013, PLAN023, PLAN024, PLAN025, PLAN026 | done | [manifest.md](./test-coverage-audit-2026-08-22/manifest.md) |
 | communications-policies-2026-08-21 | communications-policies | 2026-08-21 | REQ010, PLAN019, TP048, TR047, REQ011, PLAN020, TP049, TR048 | done | [manifest.md](./communications-policies-2026-08-21/manifest.md) |
 | dashboard-2026-08-21 | dashboard | 2026-08-21 | REQ007, PLAN014, TP044, TR043 | done | [manifest.md](./dashboard-2026-08-21/manifest.md) |
 | notifications-2026-08-21 | notifications | 2026-08-21 | REQ008, PLAN017, TP046, TR045 | done | [manifest.md](./notifications-2026-08-21/manifest.md) |

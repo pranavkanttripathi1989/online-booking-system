@@ -4,9 +4,9 @@ type: requirement
 feature: test-coverage-audit
 created: 2026-08-22
 updated: 2026-08-22
-status: approved
+status: done
 parent: null
-related: [PLAN023, PLAN024, PLAN025]
+related: [PLAN023, PLAN024, PLAN025, PLAN026]
 ---
 
 # Test documentation coverage — gap analysis & closure requirements
@@ -90,6 +90,8 @@ Given the size of the gap, this requirement is scoped to be closed in phases rat
 1. **Phase A (Finding 2 — correctness risk):** TP003 and TP011 rewritten to match the real, current backend/frontend contract (post-Priority-3-sweep), with the previously-mock-endorsed behaviors explicitly called out as the bug they turned out to be, not silently swapped. `TR003`/`TR010` re-issued against the rewritten plans with real live verification, not just a timestamp bump.
 2. **Phase B (Finding 1 — real gaps) — done 2026-08-22, `PLAN024`.** `TP053`/`TR052` written for `backend/src/public/**` (`TP005` marked superseded in place, not deleted); `TP052`/`TR051` written for admin org CRUD; `TS025` re-checked and deliberately **not** promoted (no self-serve onboarding backend exists at all — a product-scope decision, not a doc gap), left `in-progress` with a note explaining why. No bugs found in either `organizations` or `public` — both were already correctly implemented, including a real, previously-fixed `getAppointment` IDOR that this pass live-re-verified rather than took on faith.
 3. **Phase C (Findings 4–5 — hygiene) — done 2026-08-22, `PLAN025`.** Of the 11 dangling bundles: `REQ006` and its bundle closed for real (its two open questions were already resolved on 2026-08-21 by `REQ011`/`REQ012`, and its SMS-vendor/cancellation-slider blockers by `REQ008`/`REQ010` — nobody had gone back to flip `REQ006` itself); 7 more (`auth-2026-08-18`, `phase4-5-increment3-2026-08-17`, `phase4-backend-integration-2026-08-17`, `analytics-finances-2026-04-02`, `calendar-2026-04-02`, `clinician-patients-2026-04-02`, `dashboard-2026-04-02`) closed to `done` — each had an already-`approved`/`done` test-plan/test-result pair, sitting `in-progress` only because the paired `test-suggestions` doc's own status field was never flipped (Finding 6's process drift, not open work); 2 (`clinician-availability-2026-08-19`, `organization-onboarding-2026-08-17`) reconfirmed as already correctly justified per Finding 4(b) and left as-is; 1 (`appointments-2026-08-18`) was already closed in Phase A. On Finding 5: `context/archive/`'s sweep mechanism was found to be correct but had never actually been run with `--apply` in any prior session despite `CLAUDE.md` instructing it at every session start — ran it for real, archiving 6 eligible bundles in one pass. `test-results/_archive/` has legitimately never had anything to archive (this repo supersedes test-results by editing the file in place, not by adding a dated second file), so a real `README.md` stub was created there rather than leaving `CLAUDE.md`'s reference to it resolve to nothing on disk.
-4. **Phase D (Finding 6 — process):** an explicit decision recorded (in `context/open-questions.md` if not resolved immediately) on whether the suggestion-stage is still required for new features going forward, and `CLAUDE.md` updated to match whichever way that's decided.
+4. **Phase D (Finding 6 — process) — done 2026-08-22, `PLAN026`.** Put the decision to the user directly (`CLAUDE.md` Hard Rule 10) rather than picking unilaterally: made the suggestion stage conditional — required only for genuinely exploratory/ambiguous features, skippable for a well-scoped slice against an already-proven pattern. Recorded in `context/open-questions.md` #9; `CLAUDE.md`'s working loop step 4 rewritten to state the conditional rule directly.
 
-No phase's requirement item may be marked `done` without a corresponding `test-results/` entry proving it, per `CLAUDE.md` hard rule 7 — this requirement is itself subject to the same rule it's auditing everyone else against.
+No phase's requirement item may be marked `done` without a corresponding `test-results/` entry proving it, per `CLAUDE.md` hard rule 7 — Phases A and B are code/document-content changes and have real `TR###` entries; Phases C and D are pure documentation/process-state changes with no application behavior to test, so their acceptance criteria are self-evidencing in the state produced (each phase's `PLAN###` "Verification" section spells out exactly what that means), the same allowance `PLAN025`/`PLAN026` document explicitly rather than silently treating hard rule 7 as inapplicable.
+
+All four phases are now done — this requirement is closed.

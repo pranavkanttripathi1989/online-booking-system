@@ -176,6 +176,16 @@ placeholder waiting on this decision.
 
 ---
 
+## 9. `CLAUDE.md`'s working loop describes a mandatory suggestion-review stage every real-era feature has actually been skipping
+
+**Status:** ~~Open~~ — **resolved 2026-08-22** (`REQ013` Phase D, `PLAN026`), by explicit user direction: made the suggestion stage conditional rather than restoring it as mandatory or removing it outright. `CLAUDE.md`'s working loop step 4 now says a genuinely exploratory/ambiguous feature (new domain, unclear contract, first-of-its-kind UX) still needs a `test-suggestions/` doc reviewed and promoted before a `test-plans/` doc exists; a well-scoped slice against an already-proven pattern (a routine CRUD domain matching an existing contract, a bug fix, a small additive change) may go straight to a test-plan — the human-review gate stays either way, only the intermediate unreviewed-suggestion artifact is optional.
+
+`REQ013`'s Finding 6 found that the mock-era generation (`TP001`–`TP038`) paired a suggestion/plan/result under one ID in a single pass (no real review gate between suggestion and plan), and every real-era feature since (`communications-policies`, `organization-branding`, `patient-payments`, `products`, `security`) has zero `test-suggestions/` entries at all — going straight from a requirement to an already-approved test-plan. `CLAUDE.md`'s documented 5-step loop still described the suggestion stage as a universal step 4, which no longer matched actual practice.
+
+**Resolution:** this document's own decision — no code change, just `CLAUDE.md`'s process description now matching (and codifying, going forward) what disciplined engineering judgment was already doing case-by-case.
+
+---
+
 ## Resolved
 
 ### manager/Dashboard.jsx KPIs, charts, and clinic filter (resolved 2026-08-18)
