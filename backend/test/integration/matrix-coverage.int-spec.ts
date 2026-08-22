@@ -24,6 +24,12 @@ const EXEMPT: Record<string, string> = {
   languages: 'Global reference table, shared by every tenant by design (see BUG005 — deliberately unindexed for the same reason).',
   lookups: 'Global reference data (room types, clinician types).',
   'email-templates': 'Global reference table; templates are seed-created, not tenant-created.',
+  // BUG012 — three more, none of which fits the matrix's generic
+  // same-org-sees-same-row shape (every org-A actor sees the identical row;
+  // a platform operator sees both).
+  organizations: "organizationsPaginated is platform-wide by design — isPlatformOperator callers are meant to see every org, not just their own. There is no 'org A caller' for this domain.",
+  'org-settings': "myOrgBranding (and its siblings) return literally the caller's own org, keyed by JWT client_org_id — nullable:true, so a platform operator (no org) gets null, not the union of every org's branding.",
+  notifications: 'Scoped by specific user_id, not org (see notification-preferences above) — every org-A actor other than the exact row owner would see an empty result, not the same row, which the matrix cannot express.',
 };
 
 /**
@@ -33,19 +39,14 @@ const EXEMPT: Record<string, string> = {
  * list exactly, so the backlog cannot grow silently, and closing an entry means
  * deleting a line here. This is a stated debt, not a claim of coverage — TR054
  * reports it as such rather than implying the matrix is exhaustive.
+ *
+ * BUG012 closed all ten entries that were here: `analytics`, `availability`,
+ * `blocks`, `cancellation-rules`, `dashboard`, `reviews`, and `services` are
+ * now real CASES entries; `organizations`, `org-settings`, and `notifications`
+ * moved to EXEMPT instead, since none of the three fits this matrix's generic
+ * same-org-sees-same-row shape.
  */
-const KNOWN_GAPS = [
-  'analytics',
-  'availability',
-  'blocks',
-  'cancellation-rules',
-  'dashboard',
-  'notifications',
-  'org-settings',
-  'organizations',
-  'reviews',
-  'services',
-].sort();
+const KNOWN_GAPS: string[] = [];
 
 function resolverDomains(): string[] {
   const srcDir = join(__dirname, '..', '..', 'src');

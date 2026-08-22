@@ -73,6 +73,20 @@ export const IDS = {
   // where there is none. These two are never used as callers.
   userExtraA: u('u09'),
   userExtraB: u('u10'),
+
+  // BUG012 — the 4 tables added to close the tenancy matrix's remaining
+  // KNOWN_GAPS domains that actually fit its same-org-sees-same-row shape
+  // (reviews, cancellation-rules, availability, blocks). `notifications` is
+  // scoped by specific user_id, not org, so it's EXEMPT instead — no
+  // fixture rows needed for it here.
+  reviewA: u('c01'),
+  reviewB: u('c02'),
+  cancellationRuleA: u('c03'),
+  cancellationRuleB: u('c04'),
+  clinicianAvailabilityA: u('c05'),
+  clinicianAvailabilityB: u('c06'),
+  spacerBlockA: u('c07'),
+  spacerBlockB: u('c08'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -262,6 +276,39 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
       { thread_id: IDS.threadA, user_id: IDS.userManagerA },
       { thread_id: IDS.threadA, user_id: IDS.userClinicianA },
       { thread_id: IDS.threadB, user_id: IDS.userManagerB },
+    ],
+  });
+
+  // BUG012 — fixture rows for the 5 domains closing the tenancy matrix's
+  // remaining KNOWN_GAPS (reviews, cancellation-rules, availability, blocks,
+  // notifications).
+  await prisma.reviews.createMany({
+    data: [
+      { id: IDS.reviewA, appointment_id: IDS.appointmentA, patient_id: IDS.patientA, clinician_id: IDS.clinicianA, clinic_id: IDS.clinicA, stars: 5, comment: 'Great visit, org A' },
+      { id: IDS.reviewB, appointment_id: IDS.appointmentB, patient_id: IDS.patientB, clinician_id: IDS.clinicianB, clinic_id: IDS.clinicB, stars: 4, comment: 'Good visit, org B' },
+    ],
+  });
+
+  // clinic-scoped, not product-scoped -- ProductCancellationRules_scope_check
+  // forbids setting product_id and clinic_id together.
+  await prisma.productCancellationRules.createMany({
+    data: [
+      { id: IDS.cancellationRuleA, name: 'Standard cancellation A', clinic_id: IDS.clinicA, client_org_id: IDS.orgA, fee_type: 'fixed', fee_amount: 5000 },
+      { id: IDS.cancellationRuleB, name: 'Standard cancellation B', clinic_id: IDS.clinicB, client_org_id: IDS.orgB, fee_type: 'fixed', fee_amount: 6000 },
+    ],
+  });
+
+  await prisma.clinicianAvailability.createMany({
+    data: [
+      { id: IDS.clinicianAvailabilityA, clinician_id: IDS.clinicianA, clinic_id: IDS.clinicA, day_of_week: 1, start_time: '09:00', end_time: '17:00' },
+      { id: IDS.clinicianAvailabilityB, clinician_id: IDS.clinicianB, clinic_id: IDS.clinicB, day_of_week: 1, start_time: '09:00', end_time: '17:00' },
+    ],
+  });
+
+  await prisma.spacerBlocks.createMany({
+    data: [
+      { id: IDS.spacerBlockA, clinician_id: IDS.clinicianA, clinic_id: IDS.clinicA, start_time: new Date('1970-01-01T12:00:00.000Z'), end_time: new Date('1970-01-01T12:15:00.000Z'), reason: 'prep time A' },
+      { id: IDS.spacerBlockB, clinician_id: IDS.clinicianB, clinic_id: IDS.clinicB, start_time: new Date('1970-01-01T12:00:00.000Z'), end_time: new Date('1970-01-01T12:15:00.000Z'), reason: 'prep time B' },
     ],
   });
 }

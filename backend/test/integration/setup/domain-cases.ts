@@ -142,6 +142,81 @@ export const CASES: DomainCase[] = [
     bId: IDS.paymentB,
     allowedRoles: ['super_admin', 'admin', 'manager'],
   },
+  // BUG012 — closes the tenancy matrix's remaining 10 KNOWN_GAPS domains.
+  // `organizations`, `org-settings`, and `notifications` are deliberately
+  // NOT here — see matrix-coverage.int-spec.ts's EXEMPT for why none of the
+  // three fits this generic same-org-sees-same-row shape.
+  {
+    domain: 'reviews',
+    what: 'reviews',
+    query: `{ reviews { id } }`,
+    ids: (d) => (d.reviews ?? []).map((x: any) => x.id),
+    aId: IDS.reviewA,
+    bId: IDS.reviewB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    domain: 'cancellation-rules',
+    what: 'cancellationRules',
+    query: `{ cancellationRules { id } }`,
+    ids: (d) => (d.cancellationRules ?? []).map((x: any) => x.id),
+    aId: IDS.cancellationRuleA,
+    bId: IDS.cancellationRuleB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    // BUG012: this query had no @Auth() at all before this fix. 'staff' is
+    // included alongside manager/admin/super_admin because calendar/index.jsx
+    // (nav-listed for staff, no RoleGuard) is a real caller.
+    domain: 'availability',
+    what: 'availabilities',
+    query: `{ availabilities { id } }`,
+    ids: (d) => (d.availabilities ?? []).map((x: any) => x.id),
+    aId: IDS.clinicianAvailabilityA,
+    bId: IDS.clinicianAvailabilityB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
+  },
+  {
+    domain: 'analytics',
+    what: 'getClinics',
+    query: `{ getClinics { id } }`,
+    ids: (d) => (d.getClinics ?? []).map((x: any) => x.id),
+    aId: IDS.clinicA,
+    bId: IDS.clinicB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    // BUG012: this query had no @Auth() at all before this fix.
+    domain: 'blocks',
+    what: 'spacerBlocks',
+    query: `{ spacerBlocks { id } }`,
+    ids: (d) => (d.spacerBlocks ?? []).map((x: any) => x.id),
+    aId: IDS.spacerBlockA,
+    bId: IDS.spacerBlockB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    // 'manager' is deliberately excluded — dashboard.resolver.ts's real
+    // @Auth() list is admin/super_admin/staff only.
+    domain: 'dashboard',
+    what: 'dashboard.upcoming_appointments',
+    query: `{ dashboard { upcoming_appointments { id } } }`,
+    ids: (d) => (d.dashboard?.upcoming_appointments ?? []).map((x: any) => x.id),
+    aId: IDS.appointmentA,
+    bId: IDS.appointmentB,
+    allowedRoles: ['super_admin', 'admin', 'staff'],
+  },
+  {
+    // Same underlying Products rows the 'products' case above already
+    // covers, via a different resolver/type — ungated like its sibling.
+    domain: 'services',
+    what: 'services',
+    query: `{ services { id } }`,
+    ids: (d) => (d.services ?? []).map((x: any) => x.id),
+    aId: IDS.productA,
+    bId: IDS.productB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff', 'patient'],
+  },
 ];
 
 /** Domains covered by this matrix — read by matrix-coverage.int-spec.ts. */
