@@ -20,6 +20,12 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 export class AvailabilityResolver {
   constructor(private readonly availabilityService: AvailabilityService) {}
 
+  // BUG012: this had no @Auth() at all -- any authenticated role (including
+  // patient/clinician) could list every availability template in their org.
+  // 'staff' is included alongside the mutations' manager/admin/super_admin
+  // because calendar/index.jsx (nav-listed for staff, no RoleGuard) is a
+  // real caller of this exact query.
+  @Auth('manager', 'admin', 'super_admin', 'staff')
   @Query(() => [AvailabilityType])
   availabilities(@Args('search', { nullable: true }) search: SearchInput, @CurrentUser() user: JwtPayload) {
     return this.availabilityService.findAll(search?.limit, user);

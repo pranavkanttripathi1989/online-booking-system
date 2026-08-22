@@ -1,8 +1,8 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateSpacerBlockInput, CreateRoomBlockInput } from './dto/block.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScopeVia } from '../common/scoping/tenant-scope';
+import { orgScopeVia, assertSameOrg } from '../common/scoping/tenant-scope';
 
 @Injectable()
 export class BlocksService {
@@ -72,7 +72,18 @@ export class BlocksService {
     return rows.map((r) => this.roomBlockToGraphQL(r));
   }
 
-  async getSpacerBlocks(clinicianId: string, date: string) {
+  // BUG012: previously took no `user` at all -- zero self- or org-scoping,
+  // so any authenticated caller could pass an arbitrary clinicianId and read
+  // that clinician's block schedule across organizations. Mirrors
+  // availability.service.ts's assertClinicianAccess pattern.
+  async getSpacerBlocks(clinicianId: string, date: string, user: JwtPayload) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: clinicianId }, include: { clinic: true } });
+    if (!clinician || clinician.is_deleted) throw new NotFoundException('Clinician not found');
+    if (user.roles.includes('clinician') && clinicianId !== user.clinician_id) {
+      throw new NotFoundException('Clinician not found');
+    }
+    assertSameOrg(user, clinician.clinic?.client_org_id ?? null, 'Clinician');
+
     const dayStart = new Date(`${date}T00:00:00.000Z`);
     const dayEnd = new Date(`${date}T23:59:59.999Z`);
     const rows = await this.prisma.spacerBlocks.findMany({

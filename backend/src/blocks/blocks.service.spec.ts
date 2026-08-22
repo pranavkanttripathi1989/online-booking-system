@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException } from '@nestjs/common';
 import { BlocksService } from './blocks.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -63,5 +64,54 @@ describe('BlocksService — create-path org scoping', () => {
     const result = await service.createSpacerBlock(spacerInput as any, orgLessAdmin);
     expect(result.success).toBe(true);
     expect(prisma.clinics.findUnique).not.toHaveBeenCalled();
+  });
+});
+
+// BUG012: getSpacerBlocks previously took no `user` at all -- zero self- or
+// org-scoping, so any authenticated caller could pass an arbitrary
+// clinicianId and read that clinician's block schedule across
+// organizations. Mirrors availability.service.ts's assertClinicianAccess.
+describe('BlocksService.getSpacerBlocks — self/org scoping', () => {
+  let service: BlocksService;
+  let prisma: { clinicians: { findUnique: jest.Mock }; spacerBlocks: { findMany: jest.Mock } };
+
+  const clinicianSelf: JwtPayload = { sub: 'u-1', roles: ['clinician'], client_org_id: 'org-1', clinician_id: 'cln-1' } as JwtPayload;
+  const clinicianOther: JwtPayload = { sub: 'u-2', roles: ['clinician'], client_org_id: 'org-1', clinician_id: 'cln-OTHER' } as JwtPayload;
+  const managerOtherOrg: JwtPayload = { sub: 'u-3', roles: ['manager'], client_org_id: 'org-2' } as JwtPayload;
+  const managerSameOrg: JwtPayload = { sub: 'u-4', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
+
+  beforeEach(async () => {
+    prisma = {
+      clinicians: { findUnique: jest.fn().mockResolvedValue({ id: 'cln-1', is_deleted: false, clinic: { client_org_id: 'org-1' } }) },
+      spacerBlocks: { findMany: jest.fn().mockResolvedValue([]) },
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [BlocksService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(BlocksService);
+  });
+
+  it('allows a clinician to fetch their own block schedule', async () => {
+    await expect(service.getSpacerBlocks('cln-1', '2026-01-01', clinicianSelf)).resolves.toEqual([]);
+    expect(prisma.spacerBlocks.findMany).toHaveBeenCalled();
+  });
+
+  it('rejects a clinician fetching a DIFFERENT clinician\'s block schedule', async () => {
+    await expect(service.getSpacerBlocks('cln-1', '2026-01-01', clinicianOther)).rejects.toThrow(NotFoundException);
+    expect(prisma.spacerBlocks.findMany).not.toHaveBeenCalled();
+  });
+
+  it('rejects a manager from a different org', async () => {
+    await expect(service.getSpacerBlocks('cln-1', '2026-01-01', managerOtherOrg)).rejects.toThrow(NotFoundException);
+    expect(prisma.spacerBlocks.findMany).not.toHaveBeenCalled();
+  });
+
+  it('allows a manager from the same org', async () => {
+    await expect(service.getSpacerBlocks('cln-1', '2026-01-01', managerSameOrg)).resolves.toEqual([]);
+  });
+
+  it('rejects an unknown clinician id', async () => {
+    prisma.clinicians.findUnique.mockResolvedValue(null);
+    await expect(service.getSpacerBlocks('cln-missing', '2026-01-01', managerSameOrg)).rejects.toThrow(NotFoundException);
   });
 });

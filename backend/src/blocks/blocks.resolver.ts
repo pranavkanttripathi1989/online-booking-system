@@ -11,19 +11,33 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 export class BlocksResolver {
   constructor(private readonly blocksService: BlocksService) {}
 
+  // BUG012: neither list query had @Auth() -- any authenticated role could
+  // read every spacer/room block in their org. Both are only ever called by
+  // manager/Blocks.jsx, itself gated to manager/admin/super_admin by App.jsx's
+  // RoleGuard on /manager/blocks.
+  @Auth('manager', 'admin', 'super_admin')
   @Query(() => [SpacerBlockType])
   spacerBlocks(@Args('search', { nullable: true }) search: SearchInput, @CurrentUser() user: JwtPayload) {
     return this.blocksService.spacerBlocks(search?.limit, user);
   }
 
+  @Auth('manager', 'admin', 'super_admin')
   @Query(() => [RoomBlockType])
   roomBlocks(@Args('search', { nullable: true }) search: SearchInput, @CurrentUser() user: JwtPayload) {
     return this.blocksService.roomBlocks(search?.limit, user);
   }
 
+  // BUG012: this had no @Auth() AND no scoping of any kind in the service --
+  // any authenticated caller could pass an arbitrary clinicianId and read
+  // that clinician's block schedule (reasons, times) across organizations.
+  // clinician/Dashboard.jsx is a real self-service caller, so 'clinician' is
+  // included alongside the manager/admin/super_admin the sibling list
+  // queries use; the service now enforces the clinician can only ever fetch
+  // their own id, matching availability.service.ts's assertClinicianAccess.
+  @Auth('manager', 'admin', 'super_admin', 'clinician')
   @Query(() => [ClinicianSpacerBlockType])
-  getSpacerBlocks(@Args('clinicianId', { type: () => ID }) clinicianId: string, @Args('date') date: string) {
-    return this.blocksService.getSpacerBlocks(clinicianId, date);
+  getSpacerBlocks(@Args('clinicianId', { type: () => ID }) clinicianId: string, @Args('date') date: string, @CurrentUser() user: JwtPayload) {
+    return this.blocksService.getSpacerBlocks(clinicianId, date, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')

@@ -48,8 +48,16 @@ describe('AvailabilityResolver', () => {
   });
 
   describe('role gating (@Auth annotations) — everything else unaffected by the fix above', () => {
-    it('leaves reads ungated for any authenticated role', () => {
-      expect(reflector.get(ROLES_KEY, AvailabilityResolver.prototype.availabilities)).toBeUndefined();
+    // BUG012: `availabilities` previously had no @Auth() at all -- any
+    // authenticated role, including patient/clinician, could list every
+    // availability template in their org. 'staff' is included alongside the
+    // mutations' manager/admin/super_admin because calendar/index.jsx (a
+    // real, nav-listed caller with no RoleGuard) depends on it.
+    it('gates availabilities to manager/admin/super_admin/staff', () => {
+      expect(reflector.get(ROLES_KEY, AvailabilityResolver.prototype.availabilities)).toEqual(['manager', 'admin', 'super_admin', 'staff']);
+    });
+
+    it('leaves getLunchBreaks/getRooms/availableSlots ungated for any authenticated role', () => {
       expect(reflector.get(ROLES_KEY, AvailabilityResolver.prototype.getLunchBreaks)).toBeUndefined();
       expect(reflector.get(ROLES_KEY, AvailabilityResolver.prototype.getRooms)).toBeUndefined();
       expect(reflector.get(ROLES_KEY, AvailabilityResolver.prototype.availableSlots)).toBeUndefined();
