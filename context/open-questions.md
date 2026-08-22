@@ -148,6 +148,34 @@ simplify `staff/new.jsx` by removing those now-inert controls instead of leaving
 
 ---
 
+## 8. Clinician detail page dropped rating/review count/patient count/years of experience/education/reviews — no backing data model
+
+**Status:** Open — found and worked around (not fixed) 2026-08-22 during the Priority 3 mock-removal sweep.
+
+`pages/clinicians/detail.jsx` was previously a single hardcoded `MOCK_CLINICIAN` object ("Dr. Jane Smith") with
+zero real GraphQL call at all — every clinician's detail page, for every real clinician, showed the exact same
+fabricated profile regardless of the `:id` in the URL. Rewired onto the real `CLINICIAN_DETAIL_QUERY` (the same
+query `components/Clinicians/ClinicianProfileDrawer.jsx` already used successfully elsewhere), which fixes the
+core identity/contact/schedule/services fields. But several fields the old mock displayed have no real
+counterpart anywhere in the schema and were dropped rather than faked:
+
+- `rating` / `review_count` / `recent_reviews` — `reviews.resolver.ts`'s `reviews` query has no clinician-scoped
+  filter (`ReviewFilterInput` is `stars`/`search` only, and `ReviewType.clinician_name` is a display string, not
+  an id to join on) and is admin/manager-only anyway, so there's no way to fetch "this clinician's reviews" at all
+  without a backend change.
+- `total_patients` / `appointments_this_month` — no aggregate field on `ClinicianType`; buildable from the real
+  `appointments` query filtered by `clinician_id` plus a date range, but that's new aggregation logic, not a
+  wiring fix.
+- `years_experience` / `education` — no matching column on the `Clinicians` Prisma model at all; entirely a UI-only
+  concept that was never real.
+
+**Decision needed from the user:** whether any of these are worth building for real (a `clinician_id` filter on
+`ReviewFilterInput` plus a real join is the smallest of the three), or whether the detail page should stay
+without them — the current fix (drop them silently rather than fake them) is a safe default either way, not a
+placeholder waiting on this decision.
+
+---
+
 ## Resolved
 
 ### manager/Dashboard.jsx KPIs, charts, and clinic filter (resolved 2026-08-18)
