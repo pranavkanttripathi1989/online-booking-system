@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| test-coverage-audit-2026-08-22 | test-coverage-audit | 2026-08-22 | REQ013 | in-progress | [manifest.md](./test-coverage-audit-2026-08-22/manifest.md) |
 | organization-branding-2026-08-21 | organization-branding | 2026-08-21 | REQ002, PLAN022, TP051, TR050 | done | [manifest.md](./organization-branding-2026-08-21/manifest.md) |
 | products-2026-08-21 | products | 2026-08-21 | BUG001, PLAN015, TP045, TR044 | done | [manifest.md](./products-2026-08-21/manifest.md) |
 | dashboard-2026-08-21 | dashboard | 2026-08-21 | REQ007, PLAN014, TP044, TR043 | done | [manifest.md](./dashboard-2026-08-21/manifest.md) |
