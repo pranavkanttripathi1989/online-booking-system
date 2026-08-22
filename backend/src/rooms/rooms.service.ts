@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { RoomInput } from './dto/room.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScopeVia, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
 
 // Rooms carries no client_org_id of its own — scoped indirectly through its
 // clinic, the same pattern already documented for Patients (05-patients test-cases.md
@@ -40,7 +41,7 @@ export class RoomsService {
       where: {
         is_deleted: false,
         ...(clinicId ? { clinic_id: clinicId } : {}),
-        clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined,
+        ...orgScopeVia(user, 'clinic'),
       },
       include: { clinic: true },
       orderBy: { created_at: 'asc' },
@@ -57,7 +58,7 @@ export class RoomsService {
     const skip = offset ?? 0;
     const where = {
       is_deleted: false,
-      clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined,
+      ...orgScopeVia(user, 'clinic'),
       ...(search ? { room_number: { contains: search, mode: 'insensitive' as const } } : {}),
     };
     const [total, rows] = await this.prisma.$transaction([
@@ -81,9 +82,7 @@ export class RoomsService {
     if (!room || room.is_deleted) {
       throw new NotFoundException('Room not found');
     }
-    if (user.client_org_id && room.clinic.client_org_id !== user.client_org_id) {
-      throw new NotFoundException('Room not found');
-    }
+    assertSameOrg(user, room.clinic.client_org_id, 'Room');
     return this.toGraphQL(room);
   }
 
@@ -92,7 +91,7 @@ export class RoomsService {
     if (!clinic || clinic.is_deleted) {
       throw new BadRequestException('Clinic not found');
     }
-    if (user.client_org_id && clinic.client_org_id !== user.client_org_id) {
+    if (!isSameOrg(user, clinic.client_org_id)) {
       throw new BadRequestException('Clinic not found');
     }
     return clinic;
@@ -122,9 +121,7 @@ export class RoomsService {
     if (!existing || existing.is_deleted) {
       throw new NotFoundException('Room not found');
     }
-    if (user.client_org_id && existing.clinic.client_org_id !== user.client_org_id) {
-      throw new NotFoundException('Room not found');
-    }
+    assertSameOrg(user, existing.clinic.client_org_id, 'Room');
     if (input.clinic_id && input.clinic_id !== existing.clinic_id) {
       await this.assertClinicInScope(input.clinic_id, user);
     }
@@ -150,7 +147,7 @@ export class RoomsService {
     if (!existing || existing.is_deleted) {
       return { success: false, userErrors: [{ message: 'Room not found' }] };
     }
-    if (user.client_org_id && existing.clinic.client_org_id !== user.client_org_id) {
+    if (!isSameOrg(user, existing.clinic.client_org_id)) {
       return { success: false, userErrors: [{ message: 'Room not found' }] };
     }
     await this.prisma.rooms.update({ where: { id }, data: { is_deleted: true } });

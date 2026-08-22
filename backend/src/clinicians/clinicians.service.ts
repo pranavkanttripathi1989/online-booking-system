@@ -2,6 +2,7 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { ClinicianInput } from './dto/clinician.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScopeVia, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
 
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
@@ -56,7 +57,7 @@ export class CliniciansService {
       is_deleted: false,
       ...(clinicId ? { clinic_id: clinicId } : {}),
       ...(isActive !== undefined ? { is_active: isActive } : {}),
-      clinic: user.client_org_id ? { client_org_id: user.client_org_id } : undefined,
+      ...orgScopeVia(user, 'clinic'),
     };
     const currentPage = page && page > 0 ? page : 1;
     const perPage = first && first > 0 ? first : 20;
@@ -91,9 +92,7 @@ export class CliniciansService {
     if (!clinician || clinician.is_deleted) {
       throw new NotFoundException('Clinician not found');
     }
-    if (user.client_org_id && clinician.clinic && clinician.clinic.client_org_id !== user.client_org_id) {
-      throw new NotFoundException('Clinician not found');
-    }
+    assertSameOrg(user, clinician.clinic?.client_org_id ?? null, 'Clinician');
     return this.toGraphQL(clinician);
   }
 
@@ -125,11 +124,9 @@ export class CliniciansService {
     }
     const clinicId = input.clinic_ids?.[0];
     if (!clinicId) throw new BadRequestException('At least one clinic_id is required');
-    if (user.client_org_id) {
-      const clinic = await this.prisma.clinics.findUnique({ where: { id: clinicId } });
-      if (!clinic || clinic.client_org_id !== user.client_org_id) {
-        throw new BadRequestException('Clinic not found');
-      }
+    const targetClinic = await this.prisma.clinics.findUnique({ where: { id: clinicId } });
+    if (!targetClinic || !isSameOrg(user, targetClinic.client_org_id)) {
+      throw new BadRequestException('Clinic not found');
     }
     const languageIds = await this.resolveLanguageIds(input.languages ?? []);
 
@@ -161,7 +158,14 @@ export class CliniciansService {
       return clinician.id;
     });
 
-    return this.findOne(clinicianId, { client_org_id: null } as JwtPayload);
+    // F-01 fix: this used to read back the just-created record with a
+    // synthetic `{ client_org_id: null }` payload — which relied on the OLD
+    // buggy `user.client_org_id ? ... : {}` check in findOne() short-
+    // circuiting to "no scope check" for a null org. findOne() is fail-closed
+    // now, so that synthetic bypass would incorrectly reject this read. The
+    // real caller's own JWT is always sufficient here: the clinic above was
+    // already verified to be in their org (or they're a platform operator).
+    return this.findOne(clinicianId, user);
   }
 
   async update(id: string, input: ClinicianInput, user: JwtPayload) {
@@ -218,9 +222,7 @@ export class CliniciansService {
     if (!existing || existing.is_deleted) {
       throw new NotFoundException('Clinician not found');
     }
-    if (user.client_org_id && existing.clinic && existing.clinic.client_org_id !== user.client_org_id) {
-      throw new NotFoundException('Clinician not found');
-    }
+    assertSameOrg(user, existing.clinic?.client_org_id ?? null, 'Clinician');
     const clinician = await this.prisma.clinicians.update({
       where: { id },
       data: { is_active: !existing.is_active },

@@ -12,6 +12,8 @@ describe('ServicesService', () => {
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'u2', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
+  // F-01: org-less but NOT a platform role — the self-registered-account shape.
+  const selfRegisteredPatient: JwtPayload = { sub: 'u3', roles: ['patient'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
 
   const scopedService = {
     id: 'svc-a1',
@@ -46,9 +48,20 @@ describe('ServicesService', () => {
     it('does not scope by org for a platform-wide caller', async () => {
       prisma.products.findMany.mockResolvedValue([]);
       await service.findAll(undefined, undefined, platformUser);
-      expect(prisma.products.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ client_org_id: undefined }) }),
-      );
+      const where = prisma.products.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBeUndefined();
+    });
+
+    // F-01 regression test: before the fix, `client_org_id: user.client_org_id
+    // ?? undefined` was Prisma's "ignore this filter" shape for an org-less
+    // caller too, not just for a platform operator — a self-registered
+    // account saw every tenant's service catalogue with prices.
+    it('does NOT fall through to seeing every org for an org-less non-operator (F-01)', async () => {
+      prisma.products.findMany.mockResolvedValue([]);
+      await service.findAll(undefined, undefined, selfRegisteredPatient);
+      const where = prisma.products.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBeTruthy();
+      expect(where.client_org_id).not.toBe('org-a');
     });
 
     it('applies clinicId and is_active filters additively', async () => {
@@ -104,6 +117,15 @@ describe('ServicesService', () => {
     it('a platform-wide caller can still read an org-less service', async () => {
       prisma.products.findUnique.mockResolvedValue(orgLessService);
       await expect(service.findOne('svc-none', platformUser)).resolves.toMatchObject({ id: 'svc-none' });
+    });
+
+    // F-01 regression test, single-record path: an org-less non-operator
+    // must never match anything, including another org-less (legacy) record.
+    it('rejects an org-less non-operator reading ANY service, even an org-less one (F-01)', async () => {
+      prisma.products.findUnique.mockResolvedValue(scopedService);
+      await expect(service.findOne('svc-a1', selfRegisteredPatient)).rejects.toThrow(NotFoundException);
+      prisma.products.findUnique.mockResolvedValue(orgLessService);
+      await expect(service.findOne('svc-none', selfRegisteredPatient)).rejects.toThrow(NotFoundException);
     });
   });
 

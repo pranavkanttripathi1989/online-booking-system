@@ -14,6 +14,8 @@ describe('ProductsService', () => {
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'u2', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
+  // F-01: org-less but NOT a platform role — the self-registered-account shape.
+  const selfRegisteredPatient: JwtPayload = { sub: 'u3', roles: ['patient'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
 
   const scopedProduct = {
     id: 'prod-a1',
@@ -57,9 +59,20 @@ describe('ProductsService', () => {
     it('does not scope by org for a platform-wide caller', async () => {
       prisma.products.findMany.mockResolvedValue([]);
       await service.findAll(undefined, undefined, platformUser);
-      expect(prisma.products.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ client_org_id: undefined }) }),
-      );
+      const where = prisma.products.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBeUndefined();
+    });
+
+    // F-01 regression test: before the fix, `client_org_id: user.client_org_id
+    // ?? undefined` was Prisma's "ignore this filter" shape for an org-less
+    // caller too, not just for a platform operator — a self-registered
+    // account saw every tenant's product catalogue with prices.
+    it('does NOT fall through to seeing every org for an org-less non-operator (F-01)', async () => {
+      prisma.products.findMany.mockResolvedValue([]);
+      await service.findAll(undefined, undefined, selfRegisteredPatient);
+      const where = prisma.products.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBeTruthy();
+      expect(where.client_org_id).not.toBe('org-a');
     });
   });
 
@@ -98,6 +111,15 @@ describe('ProductsService', () => {
     it('a platform-wide caller can still read an org-less product', async () => {
       prisma.products.findUnique.mockResolvedValue(orgLessProduct);
       await expect(service.findOne('prod-none', platformUser)).resolves.toMatchObject({ id: 'prod-none' });
+    });
+
+    // F-01 regression test, single-record path: an org-less non-operator
+    // must never match anything, including another org-less (legacy) record.
+    it('rejects an org-less non-operator reading ANY product, even an org-less one (F-01)', async () => {
+      prisma.products.findUnique.mockResolvedValue(scopedProduct);
+      await expect(service.findOne('prod-a1', selfRegisteredPatient)).rejects.toThrow(NotFoundException);
+      prisma.products.findUnique.mockResolvedValue(orgLessProduct);
+      await expect(service.findOne('prod-none', selfRegisteredPatient)).rejects.toThrow(NotFoundException);
     });
   });
 
@@ -215,6 +237,22 @@ describe('ProductsService', () => {
       );
     });
 
+    // F-01 regression test.
+    it('does NOT fall through to seeing every org for an org-less non-operator (F-01)', async () => {
+      prisma.productCategories.findMany.mockResolvedValue([]);
+      await service.categories(selfRegisteredPatient);
+      const where = prisma.productCategories.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBeTruthy();
+      expect(where.client_org_id).not.toBe('org-a');
+    });
+
+    it('rejects an org-less non-operator updating/deleting ANY category (F-01)', async () => {
+      prisma.productCategories.findUnique.mockResolvedValue({ id: 'cat-1', is_deleted: false, client_org_id: 'org-a' });
+      const result = await service.updateCategory('cat-1', { name: 'Hijack' } as any, selfRegisteredPatient);
+      expect(result).toEqual({ success: false, userErrors: [{ message: 'Category not found' }] });
+      expect(prisma.productCategories.update).not.toHaveBeenCalled();
+    });
+
     it('updateCategory returns {success:false} for a missing category', async () => {
       prisma.productCategories.findUnique.mockResolvedValue(null);
       const result = await service.updateCategory('missing', { name: 'X' } as any, orgAUser);
@@ -262,6 +300,15 @@ describe('ProductsService', () => {
       expect(prisma.productSubcategories.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ client_org_id: 'org-a' }) }),
       );
+    });
+
+    // F-01 regression test.
+    it('does NOT fall through to seeing every org for an org-less non-operator (F-01)', async () => {
+      prisma.productSubcategories.findMany.mockResolvedValue([]);
+      await service.subcategories(selfRegisteredPatient);
+      const where = prisma.productSubcategories.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBeTruthy();
+      expect(where.client_org_id).not.toBe('org-a');
     });
 
     it('updateSubcategory returns {success:false} for a missing subcategory', async () => {

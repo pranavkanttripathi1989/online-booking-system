@@ -16,6 +16,8 @@ describe('RoomsService', () => {
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'u2', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
+  // F-01: org-less but NOT a platform role — the self-registered-account shape.
+  const selfRegisteredPatient: JwtPayload = { sub: 'u3', roles: ['patient'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
 
   const clinicA = { id: 'clinic-a', client_org_id: 'org-a', is_deleted: false };
   const clinicB = { id: 'clinic-b', client_org_id: 'org-b', is_deleted: false };
@@ -58,8 +60,12 @@ describe('RoomsService', () => {
     it('does not scope by org for a platform-wide caller', async () => {
       prisma.rooms.findMany.mockResolvedValue([]);
       await service.findAll(undefined, platformUser);
+      // orgScopeVia returns {} for a platform operator, so no `clinic` key is
+      // present at all now (previously an explicit `clinic: undefined`) —
+      // functionally identical to Prisma, which ignores an absent key the
+      // same way it ignores an explicit `undefined` value.
       expect(prisma.rooms.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: expect.objectContaining({ clinic: undefined }) }),
+        expect.objectContaining({ where: { is_deleted: false } }),
       );
     });
 
@@ -69,6 +75,18 @@ describe('RoomsService', () => {
       expect(prisma.rooms.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: expect.objectContaining({ clinic_id: 'clinic-a' }) }),
       );
+    });
+
+    // F-01 regression test: before the fix, `clinic: user.client_org_id ? {...} : undefined`
+    // gave an org-less non-operator the SAME "no clinic filter" shape as a
+    // platform operator, exposing every tenant's rooms.
+    it('does NOT fall through to seeing every org for an org-less non-operator (F-01)', async () => {
+      prisma.rooms.findMany.mockResolvedValue([]);
+      await service.findAll(undefined, selfRegisteredPatient);
+      const where = prisma.rooms.findMany.mock.calls[0][0].where;
+      expect(where.clinic).toBeDefined();
+      expect(where.clinic.client_org_id).toBeTruthy();
+      expect(where.clinic.client_org_id).not.toBe('org-a');
     });
 
     it('shapes room_number into both name and room_number, resolving type names', async () => {
@@ -132,6 +150,12 @@ describe('RoomsService', () => {
     it('rejects when the room does not exist', async () => {
       prisma.rooms.findUnique.mockResolvedValue(null);
       await expect(service.findOne('missing', orgAUser)).rejects.toThrow(NotFoundException);
+    });
+
+    // F-01 regression test, single-record path.
+    it('rejects an org-less non-operator reading ANY room by id (F-01)', async () => {
+      prisma.rooms.findUnique.mockResolvedValue(roomA);
+      await expect(service.findOne('room-a1', selfRegisteredPatient)).rejects.toThrow(NotFoundException);
     });
   });
 

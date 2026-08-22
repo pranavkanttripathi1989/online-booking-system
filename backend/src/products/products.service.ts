@@ -9,6 +9,7 @@ import {
   UpdateProductSubcategoryInput,
 } from './dto/product.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScope, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
@@ -41,7 +42,7 @@ export class ProductsService {
         is_deleted: false,
         clinic_id: clinicId ?? undefined,
         category_id: categoryId ?? undefined,
-        client_org_id: user.client_org_id ?? undefined,
+        ...orgScope(user),
       },
       include: this.include(),
       orderBy: { order_by: 'asc' },
@@ -52,9 +53,7 @@ export class ProductsService {
   async findOne(id: string, user: JwtPayload) {
     const row = await this.prisma.products.findUnique({ where: { id }, include: this.include() });
     if (!row || row.is_deleted) throw new NotFoundException('Product not found');
-    if (user.client_org_id && row.client_org_id !== user.client_org_id) {
-      throw new NotFoundException('Product not found');
-    }
+    assertSameOrg(user, row.client_org_id, 'Product');
     return this.toGraphQL(row);
   }
 
@@ -113,7 +112,7 @@ export class ProductsService {
 
   async categories(user: JwtPayload) {
     const rows = await this.prisma.productCategories.findMany({
-      where: { is_deleted: false, client_org_id: user.client_org_id ?? undefined },
+      where: { is_deleted: false, ...orgScope(user) },
       orderBy: { name: 'asc' },
     });
     return rows;
@@ -126,7 +125,7 @@ export class ProductsService {
   private async findCategoryScoped(id: string, user: JwtPayload) {
     const existing = await this.prisma.productCategories.findUnique({ where: { id } });
     if (!existing || existing.is_deleted) return null;
-    if (user.client_org_id && existing.client_org_id !== user.client_org_id) return null;
+    if (!isSameOrg(user, existing.client_org_id)) return null;
     return existing;
   }
 
@@ -157,7 +156,7 @@ export class ProductsService {
 
   async subcategories(user: JwtPayload) {
     const rows = await this.prisma.productSubcategories.findMany({
-      where: { is_deleted: false, client_org_id: user.client_org_id ?? undefined },
+      where: { is_deleted: false, ...orgScope(user) },
       orderBy: { name: 'asc' },
     });
     return rows;
@@ -167,7 +166,7 @@ export class ProductsService {
   private async findSubcategoryScoped(id: string, user: JwtPayload) {
     const existing = await this.prisma.productSubcategories.findUnique({ where: { id } });
     if (!existing || existing.is_deleted) return null;
-    if (user.client_org_id && existing.client_org_id !== user.client_org_id) return null;
+    if (!isSameOrg(user, existing.client_org_id)) return null;
     return existing;
   }
 

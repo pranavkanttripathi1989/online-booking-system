@@ -2,6 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ServiceInput } from './dto/service.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScope, assertSameOrg } from '../common/scoping/tenant-scope';
 
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
@@ -43,7 +44,7 @@ export class ServicesService {
         is_deleted: false,
         ...(clinicId ? { clinic_id: clinicId } : {}),
         ...(isActive !== undefined ? { is_active: isActive } : {}),
-        client_org_id: user.client_org_id ?? undefined,
+        ...orgScope(user),
       },
       include: this.include(),
       orderBy: { order_by: 'asc' },
@@ -56,9 +57,7 @@ export class ServicesService {
     if (!product || product.is_deleted) {
       throw new NotFoundException('Service not found');
     }
-    if (user.client_org_id && product.client_org_id !== user.client_org_id) {
-      throw new NotFoundException('Service not found');
-    }
+    assertSameOrg(user, product.client_org_id, 'Service');
     return this.toGraphQL(product);
   }
 

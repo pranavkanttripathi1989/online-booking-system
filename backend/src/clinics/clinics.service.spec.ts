@@ -34,6 +34,17 @@ describe('ClinicsService', () => {
     clinician_id: null,
   } as JwtPayload;
 
+  // F-01 (project-plans/02-findings-register.md): the exact shape a
+  // self-registered account has — org-less, but NOT a platform role. This is
+  // the account type that made "org-less caller sees everything" exploitable.
+  const selfRegisteredPatient: JwtPayload = {
+    sub: 'user-patient',
+    roles: ['patient'],
+    client_org_id: null,
+    patient_id: null,
+    clinician_id: null,
+  } as JwtPayload;
+
   beforeEach(async () => {
     prisma = {
       clinics: {
@@ -66,6 +77,22 @@ describe('ClinicsService', () => {
       expect(prisma.clinics.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { is_deleted: false } }),
       );
+    });
+
+    // F-01 regression test — this is the actual live-exploited bug. Before
+    // the fix, an org-less NON-operator (a self-registered patient) fell into
+    // the same "no filter at all" branch as a platform operator, because the
+    // old code only asked "does this caller have an org", never "is this
+    // caller allowed to see every org". Confirmed live: a fresh
+    // self-registered account read every tenant's clinics.
+    it('does NOT fall through to seeing everything for an org-less non-operator (F-01)', async () => {
+      prisma.clinics.findMany.mockResolvedValue([]);
+      await service.findAll(selfRegisteredPatient);
+      const where = prisma.clinics.findMany.mock.calls[0][0].where;
+      expect(where).not.toEqual({ is_deleted: false }); // must not be the platform-operator shape
+      expect(where.client_org_id).toBeTruthy();
+      expect(where.client_org_id).not.toBe('org-a');
+      expect(where.client_org_id).not.toBe('org-b');
     });
 
     it('passes an explicit limit through to take', async () => {
@@ -101,6 +128,15 @@ describe('ClinicsService', () => {
       prisma.clinics.findUnique.mockResolvedValue(orgBClinic);
       const result = await service.findOne('clinic-b1', platformUser);
       expect(result).toEqual(orgBClinic);
+    });
+
+    // F-01 regression test, single-record path: the old
+    // `user.client_org_id && clinic.client_org_id !== user.client_org_id`
+    // check only threw when the CALLER had a real org — an org-less
+    // non-operator caller fell through and could read any clinic by id.
+    it('rejects an org-less non-operator reading ANY clinic by id (F-01)', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(orgAClinic);
+      await expect(service.findOne('clinic-a1', selfRegisteredPatient)).rejects.toThrow(NotFoundException);
     });
   });
 
