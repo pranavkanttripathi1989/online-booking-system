@@ -169,8 +169,15 @@ frontend/*.tsbuildinfo
 .playwright-mcp/
 
 # ── Database dumps ────────────────────────────────────────────────────────────
-# Kept out of git deliberately: a dump carries real user rows (emails, bcrypt
-# password hashes, patient records) and would put them in the repository
-# history permanently. Move dumps between machines out-of-band, not via git.
-db-dumps/
+# `db-dumps/` IS tracked, deliberately: the dev database holds only synthetic
+# data (every address is @medibook.dev / @test.dev / @example.com, and the
+# bcrypt hashes are the seeded demo passwords already printed in CLAUDE.md), so
+# committing it costs nothing and makes the dev dataset portable between
+# machines.
+#
+# That reasoning stops the moment the database holds a real patient. A dump of
+# production, or of any environment with real people in it, must NEVER be
+# committed — git history keeps it after the file is deleted. Binary/custom
+# format dumps stay ignored regardless.
 *.dump
+*.dump.gz
