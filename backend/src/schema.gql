@@ -57,6 +57,7 @@ input AppRoleInput {
 
 type Appointment {
   booked_by_user: AppointmentBookedByUser
+  booking_mode: String!
   cancellation_reason: String
   clinic: AppointmentClinic!
   clinician: AppointmentClinician!
@@ -73,6 +74,7 @@ type Appointment {
   status: String!
   status_logs: [AppointmentStatusLog!]!
   tenant_id: String
+  token_no: Int
   type: String
   updated_at: DateTime!
 }
@@ -113,6 +115,7 @@ input AppointmentInput {
   clinician_id: String!
   notes: String
   patient_id: String!
+  resource_ids: [String!]
   service_id: String!
   slot_id: String
   start_datetime: String!
@@ -238,6 +241,7 @@ type AuthPayload {
 }
 
 type Availability {
+  capacity: Int
   clinic: AvailabilityClinic!
   clinicId: ID!
   clinician: AvailabilityClinician!
@@ -249,6 +253,8 @@ type Availability {
   excludeWeekends: Boolean!
   id: ID!
   isActive: Boolean!
+  mode: String!
+  overbookAllowance: Int!
   recurrenceType: String!
   room: AvailabilityRoom
   roomId: ID
@@ -418,10 +424,13 @@ type Clinician {
 }
 
 input ClinicianAvailabilityInput {
+  capacity: Int
   clinicianId: String!
   dayOfWeek: String
   endTime: String!
   id: String
+  mode: String
+  overbookAllowance: Int
   recurrenceType: String!
   roomId: String
   startTime: String!
@@ -430,9 +439,11 @@ input ClinicianAvailabilityInput {
 }
 
 type ClinicianAvailabilitySlot {
+  capacity: Int
   dayOfWeek: Int
   endTime: String!
   id: ID!
+  mode: String
   recurrenceType: String!
   roomId: ID
   startTime: String!
@@ -521,6 +532,7 @@ input ConfirmTotpEnrollmentInput {
 }
 
 input CreateAvailabilityInput {
+  capacity: Int
   clinic_id: String!
   clinician_id: String!
   custom_dates: String
@@ -530,11 +542,14 @@ input CreateAvailabilityInput {
   exclude_sunday: Boolean
   exclude_weekends: Boolean
   is_active: Boolean
+  mode: String
+  overbook_allowance: Int
   recurrence_type: String!
   room_id: String
   start_time: String!
   valid_from: String
   valid_until: String
+  walkin_ratio: Int
 }
 
 input CreateCancellationRuleInput {
@@ -876,6 +891,7 @@ type Mutation {
   createProductCategory(input: CreateProductCategoryInput!): ProductCategoryMutationResult!
   createProductSubcategory(input: CreateProductSubcategoryInput!): ProductSubcategoryMutationResult!
   createRazorpayOrder(appointmentId: ID!): RazorpayOrderResult!
+  createResource(input: ResourceInput!): Resource!
   createRole(input: AppRoleInput!): AppRole!
   createRoom(input: RoomInput!): Room!
   createRoomBlock(input: CreateRoomBlockInput!): RoomBlockMutationResult!
@@ -899,6 +915,7 @@ type Mutation {
   deleteProduct(id: ID!): ProductMutationResult!
   deleteProductCategory(id: ID!): ProductCategoryMutationResult!
   deleteProductSubcategory(id: ID!): ProductSubcategoryMutationResult!
+  deleteResource(id: ID!): ResourceMutationResult!
   deleteReview(id: ID!): ReviewMutationResult!
   deleteRole(id: ID!): Boolean!
   deleteRoom(id: ID!): RoomMutationResult!
@@ -951,6 +968,7 @@ type Mutation {
   updateProduct(id: ID!, input: UpdateProductInput!): ProductMutationResult!
   updateProductCategory(id: ID!, input: UpdateProductCategoryInput!): ProductCategoryMutationResult!
   updateProductSubcategory(id: ID!, input: UpdateProductSubcategoryInput!): ProductSubcategoryMutationResult!
+  updateResource(id: ID!, input: ResourceInput!): Resource!
   updateRole(id: ID!, input: AppRoleInput!): AppRole!
   updateRolePermissions(permissionIds: [ID!]!, roleId: ID!): Boolean!
   updateRoom(id: ID!, input: RoomInput!): Room!
@@ -1522,6 +1540,8 @@ type Query {
   productCategories: [ProductCategory!]!
   productSubcategories: [ProductSubcategory!]!
   products(category_id: ID, clinic_id: ID): [Product!]!
+  resource(id: ID!): Resource
+  resources(clinic_id: ID): [Resource!]!
   reviews(filter: ReviewFilterInput): [Review!]!
   roles: [AppRole!]!
   room(id: ID!): Room
@@ -1531,6 +1551,7 @@ type Query {
   roomsPaginated(search: SearchInput): RoomPaginated!
   service(id: ID!): Service
   services(clinic_id: ID, is_active: Boolean): [Service!]!
+  sessionAvailability(clinician_id: ID!, date: Date!, service_id: ID): SessionAvailability
   spacerBlocks(search: SearchInput): [SpacerBlock!]!
   staff(department: String, search: String, status: String): [Staff!]!
   staffMember(id: ID!): Staff!
@@ -1567,6 +1588,30 @@ input RequestOtpInput {
 input ResetPasswordInput {
   new_password: String!
   token: String!
+}
+
+type Resource {
+  clinic: Clinic
+  id: ID!
+  is_bookable: Boolean!
+  name: String!
+  type: String!
+}
+
+input ResourceInput {
+  clinic_id: ID
+  is_bookable: Boolean
+  name: String!
+  type: String
+}
+
+type ResourceMutationResult {
+  success: Boolean!
+  userErrors: [ResourceUserError!]!
+}
+
+type ResourceUserError {
+  message: String!
 }
 
 type RevenueByClinicPoint {
@@ -1727,6 +1772,18 @@ type Session {
   id: ID!
 }
 
+type SessionAvailability {
+  bookedCount: Int!
+  capacity: Int!
+  endTime: String!
+  estimatedWaitMinutes: Int!
+  isFull: Boolean!
+  mode: String!
+  overbookAllowance: Int!
+  remaining: Int!
+  startTime: String!
+}
+
 type SpacerBlock {
   block_date: DateTime
   clinic: BlockClinic!
@@ -1874,6 +1931,7 @@ type TransactionProduct {
 }
 
 input UpdateAvailabilityInput {
+  capacity: Int
   clinic_id: String!
   clinician_id: String!
   custom_dates: String
@@ -1883,11 +1941,14 @@ input UpdateAvailabilityInput {
   exclude_sunday: Boolean
   exclude_weekends: Boolean
   is_active: Boolean
+  mode: String
+  overbook_allowance: Int
   recurrence_type: String!
   room_id: String
   start_time: String!
   valid_from: String
   valid_until: String
+  walkin_ratio: Int
 }
 
 input UpdateCancellationRuleInput {

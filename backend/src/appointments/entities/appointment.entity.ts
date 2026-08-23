@@ -89,6 +89,11 @@ export class AppointmentType {
   // distinction. Nullable because the column is, with "in_person" as the
   // database default.
   @Field({ nullable: true }) type?: string;
+  // REQ017 dual-mode scheduling: 'slot' (default, unchanged) | 'session' |
+  // 'hybrid'. token_no is this appointment's sequential position within its
+  // session/hybrid window; null for slot mode.
+  @Field() booking_mode: string;
+  @Field(() => Int, { nullable: true }) token_no?: number;
   @Field({ nullable: true }) notes?: string;
   @Field({ nullable: true }) cancellation_reason?: string;
   @Field({ nullable: true }) reminder_sent_at?: Date;

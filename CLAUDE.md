@@ -95,6 +95,23 @@ below 12 when `NODE_ENV=production`.
 `onApplicationShutdown`, `main.ts` `enableShutdownHooks()`). Any new long-lived
 client you add needs the same, or `app.close()` will hang again.
 
+**Phase G (PRD MVP core) is now underway — one requirement in, five to go.**
+`project-plans/07-prd-gap-analysis-and-roadmap.md` §3's Phase G sequence is
+`REQ017 → REQ020 → REQ021 → REQ019 → REQ018 → REQ032` (dependency order,
+`REQ017` first since it's the critical path both `REQ018`/`REQ019` need).
+`REQ017`'s P0 scope (session/token scheduling mode, multi-resource booking,
+mode-aware slot-integrity constraint) shipped 2026-08-24 — see
+`requirements/scheduling-engine/`, `PLAN055`/`TP082`/`TR081`,
+`context/scheduling-engine-2026-08-24-req017/manifest.md`. `REQ017`'s own P1
+scope (hybrid-mode interleaving, waitlist, delay broadcast, bulk-reschedule,
+the live-throughput ETA refinement) is explicitly deferred, not silently
+dropped — each needs its own future `PLAN###`, sequenced after `REQ019`/
+`REQ020` land (the ETA refinement specifically needs their real
+`checked_in→completed` data to mean anything). The remaining five
+requirements in this pass (`REQ020`/`REQ021`/`REQ019`/`REQ018`/`REQ032`) are
+each still `draft`/unstarted as of this note — resume with `REQ020`
+(clinical records) next, per the dependency order above.
+
 ### What Phase F did NOT close — read before assuming coverage
 
 - **Tenancy matrix now covers all 21 tenant-scoped domains** (closed

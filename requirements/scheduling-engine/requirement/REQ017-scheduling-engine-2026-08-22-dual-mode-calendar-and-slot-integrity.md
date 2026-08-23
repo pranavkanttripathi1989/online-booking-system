@@ -3,11 +3,28 @@ id: REQ017
 type: requirement
 feature: scheduling-engine
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: null
-related: [REQ014]
+related: [REQ014, PLAN055, TP082, TR081]
 ---
+
+## Status (2026-08-24)
+
+**P0 shipped** (`PLAN055`/`TP082`/`TR081`): session/token mode alongside
+existing slot mode, multi-resource intersection booking (US-CAL-05), the
+slot-integrity DB exclusion constraints re-scoped to be mode-aware
+(US-CAL-09), sequential token numbering, and a simple booked-count-based
+wait estimate (the simple half of US-CAL-01/02/03).
+
+**P1 still open**, per this requirement's own phase assignment below —
+not silently dropped, each needs its own future `PLAN###`: hybrid-mode
+walk-in interleaving (US-CAL-04, schema-only so far — `walkin_ratio` exists,
+no runtime logic), waitlist with claim-links (US-CAL-06), delay broadcast
+(US-CAL-07), bulk-reschedule-with-accept (US-CAL-08), and the rolling-median
+`SessionThroughput` live-ETA refinement (needs `REQ019`/`REQ020`'s real
+`checked_in→completed` data to mean anything — those are picked up next in
+the current Phase 1 pass).
 
 # Dual-mode scheduling: session/token mode, multi-resource booking, and slot-integrity
 

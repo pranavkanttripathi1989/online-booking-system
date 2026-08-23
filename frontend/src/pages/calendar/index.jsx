@@ -78,9 +78,14 @@ const ROOM_VIEW_HOURS = Array.from({ length: 15 }, (_, i) => i + 7) // 07–21
 
 // ─── Map appointment → FullCalendar event ────────────────────────────────────
 function toCalendarEvent(apt) {
+  // REQ017: session/hybrid-mode appointments share a start time with many
+  // others in the same session -- the token number is what distinguishes
+  // them on the calendar (a real live queue board is REQ019's job, not
+  // this page's).
+  const tokenPrefix = apt.token_no ? `#${apt.token_no} — ` : ''
   return {
     id:    apt.id,
-    title: apt.patient?.full_name ?? 'Unknown',
+    title: `${tokenPrefix}${apt.patient?.full_name ?? 'Unknown'}`,
     start: apt.start_datetime,
     end:   apt.end_datetime,
     extendedProps: {
@@ -91,6 +96,8 @@ function toCalendarEvent(apt) {
       roomId:      apt.room?.id,
       status:      apt.status,
       clinicianId: apt.clinician?.id,
+      tokenNo:     apt.token_no ?? undefined,
+      bookingMode: apt.booking_mode,
     },
   }
 }

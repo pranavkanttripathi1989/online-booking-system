@@ -26,6 +26,9 @@ export class AvailabilityService {
       validFrom: a.valid_from,
       validUntil: a.valid_until ?? undefined,
       isActive: a.is_active,
+      mode: a.mode,
+      capacity: a.capacity ?? undefined,
+      overbookAllowance: a.overbook_allowance,
       clinician: { id: a.clinician.id, firstName: a.clinician.first_name, lastName: a.clinician.last_name },
       clinic: { id: a.clinic.id, name: a.clinic.name },
       room: a.room ? { id: a.room.id, roomNumber: a.room.room_number } : undefined,
@@ -58,6 +61,10 @@ export class AvailabilityService {
       valid_from: input.valid_from ? new Date(input.valid_from) : new Date(),
       valid_until: input.valid_until ? new Date(input.valid_until) : null,
       is_active: input.is_active ?? true,
+      mode: input.mode ?? 'slot',
+      capacity: input.capacity ?? null,
+      overbook_allowance: input.overbook_allowance ?? 0,
+      walkin_ratio: input.walkin_ratio ?? null,
     };
   }
 
@@ -127,6 +134,8 @@ export class AvailabilityService {
       validFrom: r.valid_from ?? undefined,
       validUntil: r.valid_until ?? undefined,
       roomId: r.room_id ?? undefined,
+      mode: r.mode,
+      capacity: r.capacity ?? undefined,
     }));
   }
 
@@ -188,6 +197,9 @@ export class AvailabilityService {
       valid_from: input.validFrom ? new Date(input.validFrom) : new Date(),
       valid_until: input.validUntil ? new Date(input.validUntil) : null,
       is_active: true,
+      mode: input.mode ?? 'slot',
+      capacity: input.capacity ?? null,
+      overbook_allowance: input.overbookAllowance ?? 0,
     };
     const row = input.id
       ? await this.prisma.clinicianAvailability.update({ where: { id: input.id }, data })
@@ -279,7 +291,11 @@ export class AvailabilityService {
       }),
     ]);
 
-    const validAvailability = availabilityRows.filter((a) => !a.valid_until || a.valid_until >= dayStart);
+    // REQ017: session/hybrid-mode windows have no discrete time slots to
+    // offer — they're exposed separately via sessionAvailability() below.
+    const validAvailability = availabilityRows.filter(
+      (a) => a.mode === 'slot' && (!a.valid_until || a.valid_until >= dayStart),
+    );
 
     const busy: Array<{ start: number; end: number }> = [
       ...lunchBreaks.map((l) => ({
@@ -318,6 +334,65 @@ export class AvailabilityService {
       }
     }
     return slots;
+  }
+
+  // ── REQ017: session/hybrid mode — US-CAL-01/02/03 ─────────────────────────
+  // Session/hybrid windows have no discrete slots (see availableSlots()
+  // above); a patient joins the session and gets a token number instead.
+  // This returns the capacity/remaining/estimate the booking UI needs
+  // before submitting createAppointment. estimated_wait_minutes is a real,
+  // simple booked-count * duration estimate — the more sophisticated
+  // rolling-median-throughput refinement (US-CAL-02's "recalculates as the
+  // clinic actually runs") needs REQ019/REQ020's real checked_in→completed
+  // data to mean anything and is deliberately out of scope for this slice.
+  async sessionAvailability(clinicianId: string, date: string, serviceId: string | undefined) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: clinicianId } });
+    if (!clinician) throw new BadRequestException('Clinician not found');
+
+    const durationMinutes = serviceId
+      ? (await this.prisma.products.findUnique({ where: { id: serviceId } }))?.duration_minutes ?? 30
+      : 30;
+
+    const dayStart = new Date(`${date}T00:00:00.000Z`);
+    const dayEnd = new Date(`${date}T23:59:59.999Z`);
+    const dow = dayStart.getUTCDay();
+
+    const window = await this.prisma.clinicianAvailability.findFirst({
+      where: {
+        clinician_id: clinicianId,
+        is_deleted: false,
+        is_active: true,
+        mode: { in: ['session', 'hybrid'] },
+        OR: [{ day_of_week: dow }, { recurrence_type: 'daily' }],
+        valid_from: { lte: dayEnd },
+      },
+    });
+    if (!window || (window.valid_until && window.valid_until < dayStart)) return null;
+
+    const sessionStart = new Date(`${date}T${window.start_time}:00.000Z`);
+    const bookedCount = await this.prisma.appointments.count({
+      where: {
+        clinician_id: clinicianId,
+        is_deleted: false,
+        status: { notIn: ['cancelled', 'no_show'] },
+        booking_mode: { not: 'slot' },
+        appointment_time: sessionStart,
+      },
+    });
+
+    const capacity = window.capacity ?? 0;
+    const totalAllowed = capacity + window.overbook_allowance;
+    return {
+      mode: window.mode,
+      capacity,
+      overbookAllowance: window.overbook_allowance,
+      bookedCount,
+      remaining: Math.max(0, totalAllowed - bookedCount),
+      isFull: bookedCount >= totalAllowed,
+      estimatedWaitMinutes: bookedCount * durationMinutes,
+      startTime: window.start_time,
+      endTime: window.end_time,
+    };
   }
 
   private hhmmToMinutes(hhmm: string) {

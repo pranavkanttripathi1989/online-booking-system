@@ -17,8 +17,12 @@ describe('AppointmentsService — access scoping', () => {
     appointmentStatusLogs: { findMany: jest.Mock; create: jest.Mock };
     clinics: { findUnique: jest.Mock };
     products: { findUnique: jest.Mock };
-    rooms: { findFirst: jest.Mock };
+    rooms: { findFirst: jest.Mock; findUnique: jest.Mock };
     userProfiles: { findFirst: jest.Mock };
+    clinicianAvailability: { findFirst: jest.Mock };
+    resources: { count: jest.Mock };
+    appointmentResources: { findFirst: jest.Mock; createMany: jest.Mock; deleteMany: jest.Mock; updateMany: jest.Mock };
+    $executeRawUnsafe: jest.Mock;
     $transaction: jest.Mock;
   };
   let notificationTrigger: { dispatch: jest.Mock };
@@ -51,8 +55,14 @@ describe('AppointmentsService — access scoping', () => {
       appointmentStatusLogs: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
       clinics: { findUnique: jest.fn() },
       products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 30 }) },
-      rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }) },
+      rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }), findUnique: jest.fn().mockResolvedValue({ id: 'room-1' }) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
+      // REQ017: default to "no session/hybrid window" so every pre-existing
+      // slot-mode test in this file keeps exercising slot mode unchanged.
+      clinicianAvailability: { findFirst: jest.fn().mockResolvedValue(null) },
+      resources: { count: jest.fn().mockResolvedValue(0) },
+      appointmentResources: { findFirst: jest.fn().mockResolvedValue(null), createMany: jest.fn(), deleteMany: jest.fn(), updateMany: jest.fn() },
+      $executeRawUnsafe: jest.fn(),
       $transaction: jest.fn((ops) => (typeof ops === 'function' ? ops(prisma) : Promise.all(ops))),
     };
     notificationTrigger = { dispatch: jest.fn() };
@@ -259,6 +269,120 @@ describe('AppointmentsService — access scoping', () => {
     it('checkIn is rejected for a patient calling on someone else\'s appointment (self-scoping)', async () => {
       prisma.appointments.findUnique.mockResolvedValue({ ...baseAppointmentRow, patient_id: 'pat-2' });
       await expect(service.checkIn('appt-1', patientUser)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // REQ017 — session/hybrid mode capacity enforcement. Session mode
+  // deliberately bypasses assertSlotFree/the DB exclusion constraint (many
+  // tokens legitimately share the same clinician/room/time) — capacity is
+  // enforced by a pg_advisory_xact_lock-guarded count-then-insert instead.
+  describe('create — session/hybrid mode (REQ017)', () => {
+    const sessionInput = { clinician_id: 'cln-1', clinic_id: 'clinic-1', patient_id: 'pat-1', service_id: 'svc-1', start_datetime: '2026-08-24T18:00:00.000Z', notes: '' };
+    const sessionWindow = { mode: 'session', capacity: 40, overbook_allowance: 3, room_id: null };
+
+    beforeEach(() => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+      prisma.clinicianAvailability.findFirst.mockResolvedValue(sessionWindow);
+    });
+
+    it('does not run the slot-conflict check for a session-mode booking', async () => {
+      await service.create(sessionInput as any, staffUser);
+      // assertSlotFree queries appointments.findFirst with booking_mode:
+      // 'slot' — session mode must never call it at all.
+      expect(prisma.appointments.findFirst).not.toHaveBeenCalled();
+    });
+
+    it('assigns sequential token_no from the current booked count', async () => {
+      prisma.appointments.count.mockResolvedValue(5);
+      await service.create(sessionInput as any, staffUser);
+      expect(prisma.appointments.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ booking_mode: 'session', token_no: 6 }) }),
+      );
+    });
+
+    it('rejects once capacity + overbook_allowance is reached', async () => {
+      prisma.appointments.count.mockResolvedValue(43); // 40 capacity + 3 overbook
+      await expect(service.create(sessionInput as any, staffUser)).rejects.toThrow('This session is fully booked');
+      expect(prisma.appointments.create).not.toHaveBeenCalled();
+    });
+
+    it('accepts the last overbook slot (one below the reject threshold)', async () => {
+      prisma.appointments.count.mockResolvedValue(42);
+      await expect(service.create(sessionInput as any, staffUser)).resolves.toBeDefined();
+    });
+
+    it('serializes the count-then-insert with a Postgres advisory lock', async () => {
+      await service.create(sessionInput as any, staffUser);
+      expect(prisma.$executeRawUnsafe).toHaveBeenCalledWith(
+        expect.stringContaining('pg_advisory_xact_lock'),
+        expect.any(String),
+      );
+    });
+
+    it('uses the session window\'s own configured room when set, instead of the first-active-room fallback', async () => {
+      prisma.clinicianAvailability.findFirst.mockResolvedValue({ ...sessionWindow, room_id: 'room-configured' });
+      prisma.rooms.findUnique.mockResolvedValue({ id: 'room-configured' });
+      await service.create(sessionInput as any, staffUser);
+      expect(prisma.rooms.findUnique).toHaveBeenCalledWith({ where: { id: 'room-configured' } });
+      expect(prisma.rooms.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // REQ017 US-CAL-05 — multi-resource intersection booking, slot mode only.
+  describe('create — multi-resource booking (REQ017)', () => {
+    const baseInput = { clinician_id: 'cln-1', clinic_id: 'clinic-1', patient_id: 'pat-1', service_id: 'svc-1', start_datetime: new Date().toISOString(), notes: '', resource_ids: ['res-1', 'res-2'] };
+
+    beforeEach(() => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+      prisma.resources.count.mockResolvedValue(2); // both resource_ids belong to the caller's org
+    });
+
+    it('rejects when a required resource belongs to a different org', async () => {
+      prisma.resources.count.mockResolvedValue(1); // only one of the two resolves to this org
+      await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('Resource not found');
+      expect(prisma.appointments.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects when a required resource is already booked for the requested window', async () => {
+      prisma.appointmentResources.findFirst.mockResolvedValue({ id: 'ar-1', resource_id: 'res-1' });
+      await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('This time slot is no longer available');
+      expect(prisma.appointments.create).not.toHaveBeenCalled();
+    });
+
+    it('creates AppointmentResources rows for every free required resource', async () => {
+      await service.create(baseInput as any, staffUser);
+      expect(prisma.appointmentResources.createMany).toHaveBeenCalledWith({
+        data: [
+          expect.objectContaining({ appointment_id: 'appt-new', resource_id: 'res-1' }),
+          expect.objectContaining({ appointment_id: 'appt-new', resource_id: 'res-2' }),
+        ],
+      });
+    });
+
+    it('does not touch AppointmentResources at all when no resource_ids are given (regression: existing slot-mode bookings unaffected)', async () => {
+      const { resource_ids, ...withoutResources } = baseInput;
+      await service.create(withoutResources as any, staffUser);
+      expect(prisma.appointmentResources.createMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('transitionStatus — frees attached resources on cancel/no_show (REQ017)', () => {
+    it('deletes AppointmentResources rows when an appointment is cancelled', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      await service.cancel('appt-1', 'patient request', staffUser);
+      expect(prisma.appointmentResources.deleteMany).toHaveBeenCalledWith({ where: { appointment_id: 'appt-1' } });
+    });
+
+    it('deletes AppointmentResources rows when an appointment is marked no_show', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      await service.markNoShow('appt-1', staffUser);
+      expect(prisma.appointmentResources.deleteMany).toHaveBeenCalledWith({ where: { appointment_id: 'appt-1' } });
+    });
+
+    it('does not touch AppointmentResources on an unrelated transition (e.g. completing)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      await service.complete('appt-1', staffUser);
+      expect(prisma.appointmentResources.deleteMany).not.toHaveBeenCalled();
     });
   });
 

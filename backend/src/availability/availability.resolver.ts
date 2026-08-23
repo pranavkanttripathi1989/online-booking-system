@@ -7,6 +7,7 @@ import {
   LunchBreakSlotType,
   SavedIdResultType,
   AvailabilityRoomOptionType,
+  SessionAvailabilityType,
 } from './entities/availability.entity';
 import { CreateAvailabilityInput, UpdateAvailabilityInput, ClinicianAvailabilityInput, LunchBreakInput, SearchInput } from './dto/availability.input';
 import { AvailableSlotType } from './entities/available-slot.entity';
@@ -110,5 +111,18 @@ export class AvailabilityResolver {
     @Args('service_id', { type: () => ID, nullable: true }) serviceId?: string,
   ) {
     return this.availabilityService.availableSlots(clinicianId, date, serviceId);
+  }
+
+  // Public to match getClinicianAvailability's own precedent — the public
+  // booking wizard needs this pre-login to decide whether to render the
+  // slot grid or the session "join" card for a given day.
+  @Public()
+  @Query(() => SessionAvailabilityType, { nullable: true })
+  sessionAvailability(
+    @Args('clinician_id', { type: () => ID }) clinicianId: string,
+    @Args('date', { type: () => DateOnlyMarker }) date: string,
+    @Args('service_id', { type: () => ID, nullable: true }) serviceId?: string,
+  ) {
+    return this.availabilityService.sessionAvailability(clinicianId, date, serviceId);
   }
 }

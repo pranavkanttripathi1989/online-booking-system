@@ -50,6 +50,8 @@ const GET_CLINICIAN_AND_PRODUCTS = gql`
       dayOfWeek
       startTime
       endTime
+      recurrenceType
+      mode
     }
     getProducts(clinicianId: $id) {
       id
@@ -74,6 +76,26 @@ const GET_APPOINTMENTS = gql`
   query GetAppointments($clinicianId: ID!, $date: String!) {
     getAppointments(clinicianId: $clinicianId, date: $date) {
       id
+      startTime
+      endTime
+    }
+  }
+`;
+
+// REQ017 — session/token mode. A session/hybrid-mode day has no discrete
+// slots to offer (see availability.service.ts's availableSlots(), which
+// deliberately skips generating them for these windows); this is what
+// drives the "join this session" card in place of the time-slot grid.
+const SESSION_AVAILABILITY_QUERY = gql`
+  query GetSessionAvailability($clinician_id: ID!, $date: Date!, $service_id: ID) {
+    sessionAvailability(clinician_id: $clinician_id, date: $date, service_id: $service_id) {
+      mode
+      capacity
+      overbookAllowance
+      bookedCount
+      remaining
+      isFull
+      estimatedWaitMinutes
       startTime
       endTime
     }
@@ -363,6 +385,23 @@ export default function BookingWizard() {
     skip: !clinicianId || !bookingData.date || activeStep !== 0,
   });
 
+  // REQ017: does the selected date fall on a session/hybrid-mode window for
+  // this clinician? availableSlots-style day-of-week matching, mirroring
+  // availability.service.ts's own filter so the two never disagree.
+  const isSessionDay = useMemo(() => {
+    if (!qData?.getClinicianAvailability?.length) return false;
+    const dow = bookingData.date.day();
+    return qData.getClinicianAvailability.some(
+      (a) => (Number(a.dayOfWeek) === dow || a.recurrenceType === 'daily') && a.mode && a.mode !== 'slot',
+    );
+  }, [qData, bookingData.date]);
+
+  const { data: sessionData, loading: sessionLoading } = useQuery(SESSION_AVAILABILITY_QUERY, {
+    variables: { clinician_id: clinicianId, date: bookingData.date.format('YYYY-MM-DD'), service_id: bookingData.product?.id },
+    skip: !clinicianId || !bookingData.date || activeStep !== 0 || !isSessionDay,
+    fetchPolicy: 'network-only',
+  });
+
   const handleNext = () => setActiveStep((prev) => prev + 1);
   const handleBack = () => setActiveStep((prev) => prev - 1);
 
@@ -386,6 +425,52 @@ export default function BookingWizard() {
       default:
         return 'Unknown step';
     }
+  };
+
+  // REQ017 US-CAL-01/02/03 — session/token mode has no discrete time slot to
+  // pick; the patient joins the session and gets a token number once
+  // booked, with a simple booked-count-based wait estimate shown up front
+  // (the more sophisticated live-throughput ETA needs REQ019/REQ020's real
+  // checked_in→completed data and is out of scope for this slice).
+  const renderSessionCard = () => {
+    const session = sessionData?.sessionAvailability;
+    if (sessionLoading) {
+      return <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>;
+    }
+    if (!session) {
+      return <Alert severity="info" sx={{ mt: 1 }}>No session available on this date. Please select another date.</Alert>;
+    }
+    const joined = bookingData.slot === session.startTime;
+    return (
+      <Card variant="outlined" sx={{ borderRadius: 3, borderColor: joined ? 'primary.main' : 'divider' }}>
+        <CardContent>
+          <Typography variant="subtitle1" fontWeight={700}>
+            {dayjs(`2000-01-01T${session.startTime}`).format('h:mm A')} – {dayjs(`2000-01-01T${session.endTime}`).format('h:mm A')} session
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Token-based — you'll get a queue number, not a fixed appointment time
+          </Typography>
+          <Box display="flex" gap={1} mb={2} flexWrap="wrap">
+            <Chip
+              size="small"
+              label={session.isFull ? 'Fully booked' : `${session.remaining} spot${session.remaining === 1 ? '' : 's'} left`}
+              color={session.isFull ? 'error' : 'success'}
+            />
+            {!session.isFull && (
+              <Chip size="small" variant="outlined" label={`Token #${session.bookedCount + 1} · ~${session.estimatedWaitMinutes} min wait`} />
+            )}
+          </Box>
+          <Button
+            fullWidth
+            variant={joined ? 'contained' : 'outlined'}
+            disabled={session.isFull}
+            onClick={() => setBookingData({ ...bookingData, slot: session.startTime })}
+          >
+            {session.isFull ? 'Session full' : joined ? 'Session selected' : 'Join this session'}
+          </Button>
+        </CardContent>
+      </Card>
+    );
   };
 
   const renderStep0 = () => {
@@ -459,7 +544,9 @@ export default function BookingWizard() {
           </Grid>
           <Grid item xs={12} md={6}>
             <Box>
-              {slots.length > 0 ? (
+              {isSessionDay ? (
+                renderSessionCard()
+              ) : slots.length > 0 ? (
                 <Grid container spacing={1}>
                   {slots.map(slot => (
                     <Grid item xs={4} sm={3} md={4} key={slot}>

@@ -41,6 +41,9 @@ export class AvailabilityType {
   @Field() validFrom: Date;
   @Field({ nullable: true }) validUntil?: Date;
   @Field() isActive: boolean;
+  @Field() mode: string;
+  @Field(() => Int, { nullable: true }) capacity?: number;
+  @Field(() => Int) overbookAllowance: number;
   @Field(() => AvailabilityClinicianType) clinician: AvailabilityClinicianType;
   @Field(() => AvailabilityClinicType) clinic: AvailabilityClinicType;
   @Field(() => AvailabilityRoomType, { nullable: true }) room?: AvailabilityRoomType;
@@ -71,6 +74,25 @@ export class ClinicianAvailabilitySlotType {
   @Field({ nullable: true }) validFrom?: Date;
   @Field({ nullable: true }) validUntil?: Date;
   @Field(() => ID, { nullable: true }) roomId?: string;
+  @Field({ nullable: true }) mode?: string;
+  @Field(() => Int, { nullable: true }) capacity?: number;
+}
+
+// REQ017 US-CAL-01/02/03: what the booking UI needs to render a "join this
+// session" card in place of a discrete time-slot grid. Nullable at the
+// resolver level — no matching session/hybrid window on this date is a
+// real, expected "not applicable" outcome, not an error.
+@ObjectType('SessionAvailability')
+export class SessionAvailabilityType {
+  @Field() mode: string;
+  @Field(() => Int) capacity: number;
+  @Field(() => Int) overbookAllowance: number;
+  @Field(() => Int) bookedCount: number;
+  @Field(() => Int) remaining: number;
+  @Field() isFull: boolean;
+  @Field(() => Int) estimatedWaitMinutes: number;
+  @Field() startTime: string;
+  @Field() endTime: string;
 }
 
 @ObjectType('LunchBreakSlot')

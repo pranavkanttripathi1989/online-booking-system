@@ -22,7 +22,7 @@ The PRD organizes the product into 17 functional modules (M1–M17) plus a Super
 | M1 Tenant Onboarding & Org Mgmt | `organizations` | Partial — org/branch/clinic CRUD real; no Department/Resource, onboarding wizard is mock | REQ014 |
 | M2 Identity, Auth & Security | `security` | Strong auth fundamentals real; RBAC enforcement is the known F-03 gap; SSO/API-keys/clinician-verification net-new | REQ015 |
 | M3 Master Data Catalogues | `catalog-master-data` | Partial — services/products real; packages, drug master, tiered pricing net-new | REQ016 |
-| M4 Scheduling/Calendar Engine | `scheduling-engine` | Partial, wrong model — slot-mode-only; session/token mode (the PRD's stated "heart of the product") is net-new | REQ017 |
+| M4 Scheduling/Calendar Engine | `scheduling-engine` | Partial — P0 shipped 2026-08-24 (session/token mode, multi-resource booking, mode-aware slot-integrity constraint, `PLAN055`); hybrid interleaving, waitlist, delay broadcast, bulk-reschedule, and the live-throughput ETA refinement remain P1 | REQ017 |
 | M5 Booking Engine | `appointments` | Strong core — state machine already matches PRD; dedup/family/widget net-new | REQ018 |
 | M6 Check-in & Queue | `queue-management` | **Absent** — mock-only page, no backend at all | REQ019 |
 | M7 Consultation & EMR | `clinical-records` | **Absent** — no clinical-note model of any kind | REQ020 |
@@ -72,6 +72,16 @@ The PRD's own Q1–Q2 roadmap milestones. Sequencing within this phase follows t
 7. **REQ021** (prescriptions) — depends on REQ020 and REQ016.
 8. **REQ023** (billing depth) — extends the already-real payment integration; can run in parallel with 2–7.
 9. **REQ032** (subscription plan engine v1) — the PRD names this an explicit MVP-GA exit criterion; can run in parallel with 2–8 since it has no dependency on the clinical stack.
+
+**Status (2026-08-24):** item 2 (`REQ017`'s P0 scope) shipped — see
+`requirements/scheduling-engine/`, `PLAN055`/`TP082`/`TR081`,
+`context/scheduling-engine-2026-08-24-req017/manifest.md`. A session is
+currently working this Phase G sequence in order: `REQ017` (done, P0) →
+`REQ020` → `REQ021` → `REQ019` → `REQ018` → `REQ032` — a 6-requirement pass
+through this list's critical path plus the two parallel-eligible items
+(`REQ016`'s catalog/drug-master piece is already done from an earlier
+session, so it's not repeated in this pass; `REQ023`/`REQ014`'s remaining
+scope is not part of this specific pass and stays open).
 
 ### Phase H — V1 GA ("sellable to chains")
 The PRD's own Q3–Q4 roadmap milestones:

@@ -116,3 +116,92 @@ describe('AvailabilityService — clinician self-service access scoping', () => 
     });
   });
 });
+
+// REQ017 — dual-mode scheduling (session/token mode). availableSlots()'s
+// slot-generation algorithm and the new sessionAvailability() method had no
+// prior test coverage at all (only the security/self-scoping suite above
+// existed for this service) — this describe block is the first coverage
+// for the actual scheduling logic.
+describe('AvailabilityService — REQ017 session/hybrid mode', () => {
+  let service: AvailabilityService;
+  let prisma: {
+    clinicians: { findUnique: jest.Mock };
+    products: { findUnique: jest.Mock };
+    clinicianAvailability: { findMany: jest.Mock; findFirst: jest.Mock; create: jest.Mock };
+    lunchBreaks: { findMany: jest.Mock };
+    spacerBlocks: { findMany: jest.Mock };
+    appointments: { findMany: jest.Mock; count: jest.Mock };
+  };
+
+  const clinician = { id: 'cln-1', first_name: 'Sarah', last_name: 'Mitchell' };
+
+  beforeEach(async () => {
+    prisma = {
+      clinicians: { findUnique: jest.fn().mockResolvedValue(clinician) },
+      products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 15 }) },
+      clinicianAvailability: { findMany: jest.fn().mockResolvedValue([]), findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      lunchBreaks: { findMany: jest.fn().mockResolvedValue([]) },
+      spacerBlocks: { findMany: jest.fn().mockResolvedValue([]) },
+      appointments: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [AvailabilityService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(AvailabilityService);
+  });
+
+  describe('availableSlots — skips non-slot windows', () => {
+    it('does not generate discrete slots for a session-mode window', async () => {
+      prisma.clinicianAvailability.findMany.mockResolvedValue([
+        { mode: 'session', start_time: '18:00', end_time: '21:00', valid_until: null, day_of_week: 1, recurrence_type: 'weekly' },
+      ]);
+      const slots = await service.availableSlots('cln-1', '2026-08-24', undefined);
+      expect(slots).toEqual([]);
+    });
+
+    it('still generates discrete slots for a slot-mode window (regression: extension must not break existing behavior)', async () => {
+      prisma.clinicianAvailability.findMany.mockResolvedValue([
+        { mode: 'slot', start_time: '09:00', end_time: '09:30', valid_until: null, day_of_week: 1, recurrence_type: 'weekly' },
+      ]);
+      const slots = await service.availableSlots('cln-1', '2026-08-24', undefined);
+      expect(slots.length).toBe(1);
+    });
+  });
+
+  describe('sessionAvailability', () => {
+    const sessionWindow = {
+      mode: 'session', start_time: '18:00', end_time: '21:00', capacity: 40, overbook_allowance: 3, valid_until: null,
+    };
+
+    it('returns null when no session/hybrid window matches this clinician/date', async () => {
+      prisma.clinicianAvailability.findFirst.mockResolvedValue(null);
+      const result = await service.sessionAvailability('cln-1', '2026-08-24', undefined);
+      expect(result).toBeNull();
+    });
+
+    it('computes remaining/estimate correctly from the current booked count', async () => {
+      prisma.clinicianAvailability.findFirst.mockResolvedValue(sessionWindow);
+      prisma.appointments.count.mockResolvedValue(10);
+      const result = await service.sessionAvailability('cln-1', '2026-08-24', 'svc-1');
+      expect(result).toMatchObject({
+        mode: 'session', capacity: 40, overbookAllowance: 3, bookedCount: 10, remaining: 33, isFull: false,
+        estimatedWaitMinutes: 150, // 10 * 15 (the mocked service's duration_minutes)
+      });
+    });
+
+    it('reports isFull once capacity + overbook_allowance is reached', async () => {
+      prisma.clinicianAvailability.findFirst.mockResolvedValue(sessionWindow);
+      prisma.appointments.count.mockResolvedValue(43);
+      const result = await service.sessionAvailability('cln-1', '2026-08-24', undefined);
+      expect(result!.remaining).toBe(0);
+      expect(result!.isFull).toBe(true);
+    });
+
+    it('only counts non-slot-mode appointments toward the session count', async () => {
+      prisma.clinicianAvailability.findFirst.mockResolvedValue(sessionWindow);
+      await service.sessionAvailability('cln-1', '2026-08-24', undefined);
+      const where = prisma.appointments.count.mock.calls[0][0].where;
+      expect(where.booking_mode).toEqual({ not: 'slot' });
+    });
+  });
+});

@@ -173,6 +173,15 @@ buildable and testable; do not block the phase on the licensing decision.
 
 ## 3. REQ017 — Scheduling engine: the critical path
 
+**Status (2026-08-24): §3.1–3.3 shipped** (`PLAN055`/`TP082`/`TR081`, real
+migration `20260824000000_scheduling_engine_session_mode`). One deliberate
+deviation from this section's own sketch, recorded in `PLAN055`: `Resources`
+uses `clinic_id` (this codebase's real branch-entity FK name everywhere
+else), not `branch_id` as sketched below. §3.4 (timezone model) was **not**
+touched — `appointment_date`/`appointment_time` remain two independent
+zone-less timestamps; this stayed out of scope for the P0 slice and is still
+open. §3.5–3.6 are P1, not built (see `REQ017`'s own status note).
+
 ### 3.1 Mode discriminator on existing availability
 
 The existing `ClinicianAvailability` is a correctly-built **slot-mode-only**

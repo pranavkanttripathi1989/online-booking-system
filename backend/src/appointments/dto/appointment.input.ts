@@ -17,6 +17,11 @@ export class AppointmentInput {
   @Field({ nullable: true }) @IsOptional() slot_id?: string;
   @Field() @IsISO8601() start_datetime: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
+  // REQ017 US-CAL-05, slot mode only — every listed resource must also be
+  // free for the requested window (in addition to the clinician and room),
+  // or the booking is rejected. Ignored for session/hybrid mode bookings in
+  // this slice (out of scope — see PLAN under REQ017).
+  @Field(() => [String], { nullable: true }) @IsOptional() resource_ids?: string[];
 }
 
 // Matches appointments/edit.jsx's submitted shape exactly — a partial update,

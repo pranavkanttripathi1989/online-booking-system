@@ -118,6 +118,7 @@ const EditClinicPage   = lazy(() => import('./pages/manager/clinics/edit'))
 
 // ─── Manager: Rooms (feature folder) ─────────────────────────────────────────
 const ManagerRooms   = lazy(() => import('./pages/manager/rooms/index'))
+const ManagerResources = lazy(() => import('./pages/manager/resources/index'))
 const RoomDetailPage = lazy(() => import('./pages/manager/rooms/detail'))
 const CreateRoomPage = lazy(() => import('./pages/manager/rooms/create'))
 const EditRoomPage   = lazy(() => import('./pages/manager/rooms/edit'))
@@ -331,6 +332,7 @@ function App() {
             <Route path="/manager/rooms/new"         element={<Suspense fallback={<ShellPageLoader />}><CreateRoomPage /></Suspense>} />
             <Route path="/manager/rooms/:id"         element={<Suspense fallback={<ShellPageLoader />}><RoomDetailPage /></Suspense>} />
             <Route path="/manager/rooms/:id/edit"    element={<Suspense fallback={<ShellPageLoader />}><EditRoomPage /></Suspense>} />
+            <Route path="/manager/resources"         element={<Suspense fallback={<ShellPageLoader />}><ManagerResources /></Suspense>} />
             {/* Services CRUD */}
             <Route path="/manager/services"          element={<Suspense fallback={<ShellPageLoader />}><ServiceCatalog /></Suspense>} />
             <Route path="/manager/services/new"      element={<Suspense fallback={<ShellPageLoader />}><CreateServicePage /></Suspense>} />

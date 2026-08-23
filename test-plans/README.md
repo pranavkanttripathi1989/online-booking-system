@@ -2,6 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| scheduling-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
 | messaging | 1 | 0 | 0 | 1 | 0 | 2026-08-23 | [messaging](./messaging/README.md) |
 | queue-management | 0 | 1 | 0 | 1 | 0 | 2026-08-23 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 4 | 11 | 15 | 0 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |

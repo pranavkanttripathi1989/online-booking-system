@@ -125,6 +125,13 @@ const MOCK_AVAILABILITIES = [
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const RECURRENCE_TYPES = ['daily', 'weekly', 'monthly', 'custom']
+// REQ017 dual-mode scheduling. 'hybrid' is selectable (schema exists) but
+// its walk-in interleaving logic is P1, not built yet — the form says so.
+const SCHEDULING_MODES = [
+  { value: 'slot', label: 'Fixed slots' },
+  { value: 'session', label: 'Session / token' },
+  { value: 'hybrid', label: 'Hybrid (booked + walk-in)' },
+]
 
 const GET_AVAILABILITY_DATA = gql`
   query GetManagerAvailabilityData {
@@ -143,6 +150,9 @@ const GET_AVAILABILITY_DATA = gql`
       validFrom
       validUntil
       isActive
+      mode
+      capacity
+      overbookAllowance
       clinician { id firstName lastName }
       clinic    { id name }
       room      { id roomNumber }
@@ -211,6 +221,9 @@ const defaultForm = {
   custom_dates: '',
   valid_from: new Date().toISOString().split('T')[0],
   valid_until: '',
+  mode: 'slot',
+  capacity: '',
+  overbook_allowance: 0,
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -275,6 +288,9 @@ export default function ManagerAvailability() {
       custom_dates:     '',
       valid_from:       avail.validFrom ? avail.validFrom.split('T')[0] : '',
       valid_until:      avail.validUntil ? avail.validUntil.split('T')[0] : '',
+      mode:             avail.mode || 'slot',
+      capacity:         avail.capacity ?? '',
+      overbook_allowance: avail.overbookAllowance ?? 0,
     })
     setShowForm(true)
     setFormError(null)
@@ -320,6 +336,9 @@ export default function ManagerAvailability() {
     if (form.valid_from && form.valid_until && form.valid_until < form.valid_from) {
       setFormError('"Valid Until" cannot be before "Valid From".'); return
     }
+    if (form.mode !== 'slot' && (!form.capacity || parseInt(form.capacity, 10) < 1)) {
+      setFormError('Session/hybrid mode needs a capacity of at least 1 token.'); return
+    }
     // SUG-AVAIL-008 — Validate custom dates format (YYYY-MM-DD per date, comma-separated)
     if (form.recurrence_type === 'custom' && form.custom_dates?.trim()) {
       const dates = form.custom_dates.split(',').map(d => d.trim()).filter(Boolean)
@@ -343,6 +362,9 @@ export default function ManagerAvailability() {
       custom_dates:     form.recurrence_type === 'custom' ? form.custom_dates || null : null,
       valid_from:       form.valid_from || null,
       valid_until:      form.valid_until || null,
+      mode:             form.mode,
+      capacity:         form.mode !== 'slot' ? parseInt(form.capacity, 10) : null,
+      overbook_allowance: form.mode !== 'slot' ? (parseInt(form.overbook_allowance, 10) || 0) : 0,
     }
     try {
       if (editingId) {
@@ -439,6 +461,44 @@ export default function ManagerAvailability() {
                     </Select>
                   </FormControl>
                 </Grid>
+
+                {/* Scheduling mode (REQ017) */}
+                <Grid item xs={12} sm={6}>
+                  <FormControl fullWidth required size="small">
+                    <InputLabel>Scheduling Mode</InputLabel>
+                    <Select label="Scheduling Mode" value={form.mode}
+                      onChange={e => setField('mode', e.target.value)}>
+                      {SCHEDULING_MODES.map(m => (
+                        <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                </Grid>
+
+                {form.mode !== 'slot' && (
+                  <>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth required size="small" type="number" label="Capacity (tokens)"
+                        inputProps={{ min: 1 }}
+                        value={form.capacity}
+                        onChange={e => setField('capacity', e.target.value)} />
+                    </Grid>
+                    <Grid item xs={6} sm={3}>
+                      <TextField fullWidth size="small" type="number" label="Overbook allowance"
+                        inputProps={{ min: 0 }}
+                        value={form.overbook_allowance}
+                        onChange={e => setField('overbook_allowance', e.target.value)}
+                        helperText="Extra bookings allowed past capacity" />
+                    </Grid>
+                    {form.mode === 'hybrid' && (
+                      <Grid item xs={12}>
+                        <Alert severity="info" sx={{ py: 0.5 }}>
+                          Walk-in interleaving for hybrid mode is not built yet — this window will behave like a session for now.
+                        </Alert>
+                      </Grid>
+                    )}
+                  </>
+                )}
 
                 {/* Recurrence type */}
                 <Grid item xs={12} sm={6}>
@@ -598,6 +658,12 @@ export default function ManagerAvailability() {
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
                     <Typography variant="body2">{avail.startTime} – {avail.endTime}</Typography>
+                    {avail.mode && avail.mode !== 'slot' && (
+                      <Chip
+                        label={avail.mode === 'session' ? `Session · ${avail.capacity ?? '?'} tokens` : `Hybrid · ${avail.capacity ?? '?'} tokens`}
+                        size="small" color="info" sx={{ mt: 0.5 }}
+                      />
+                    )}
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
                     <Chip label={avail.recurrenceType || 'weekly'} size="small" sx={{ textTransform: 'capitalize', mr: 0.5 }} />

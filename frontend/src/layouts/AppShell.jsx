@@ -41,6 +41,7 @@ import PolicyIcon               from '@mui/icons-material/Policy'
 import MedicalServicesIcon      from '@mui/icons-material/MedicalServices'
 import NotificationsIcon        from '@mui/icons-material/Notifications'
 import MeetingRoomIcon          from '@mui/icons-material/MeetingRoom'
+import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing'
 import InventoryIcon            from '@mui/icons-material/Inventory2'
 import BlockIcon                from '@mui/icons-material/Block'
 import EventAvailableIcon       from '@mui/icons-material/EventAvailable'
@@ -151,6 +152,7 @@ const MANAGER_CHILDREN = [
   { label: 'Availability', path: '/manager/availability', icon: <EventAvailableIcon /> },
   { label: 'Blocks',       path: '/manager/blocks',       icon: <BlockIcon /> },
   { label: 'Rooms',        path: '/manager/rooms',        icon: <MeetingRoomIcon /> },
+  { label: 'Resources',    path: '/manager/resources',    icon: <PrecisionManufacturingIcon /> },
   { label: 'Products',     path: '/manager/products',     icon: <InventoryIcon /> },
   { label: 'Services',     path: '/manager/services',     icon: <MedicalServicesIcon /> },
 ]

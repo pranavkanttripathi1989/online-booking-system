@@ -164,11 +164,12 @@ model RoomTypeModel {
 }
 
 // Two Postgres EXCLUDE constraints (GiST, requires btree_gist) prevent two
-// non-cancelled, non-deleted rows from having overlapping
-// [appointment_time, appointment_time + duration_minutes) ranges for the
-// same clinician_id, and separately for the same room_id -- added in this
-// model's own migrations (20260823030000/20260823031500_..._exclusion_
-// constraint), not expressible declaratively here (Prisma has no
+// non-cancelled, non-deleted, booking_mode='slot' rows from having
+// overlapping [appointment_time, appointment_time + duration_minutes)
+// ranges for the same clinician_id, and separately for the same room_id --
+// added in this model's own migrations (20260823030000/20260823031500_
+// ..._exclusion_constraint, narrowed to booking_mode='slot' by REQ017's
+// migration), not expressible declaratively here (Prisma has no
 // EXCLUDE-constraint syntax). This is the P3.1/F-16 fix for
 // booking-concurrency.int-spec.ts: the application-level assertSlotFree()
 // check and the later create() are two separate statements, so N
@@ -176,7 +177,11 @@ model RoomTypeModel {
 // the database itself is now the only thing that can make "is this slot
 // free" atomic. The room constraint is a data-integrity backstop only --
 // create()'s own room *selection* still has no availability check at all
-// (see open question #14).
+// (see open question #14). Session/hybrid mode (booking_mode != 'slot')
+// deliberately falls outside both constraints -- many tokens in one
+// session legitimately share the same clinician/room/time; that mode's
+// capacity guarantee is a pg_advisory_xact_lock-guarded count check in
+// appointments.service.ts instead (REQ017).
 model Appointments {
   id                  String   @id @default(uuid())
   clinic_id           String
@@ -203,6 +208,16 @@ model Appointments {
   // both expect an appointment "type" (in_person/video/home_visit) — no
   // column existed for it (a pre-existing gap flagged in the master plan).
   type                String?  @default("in_person")
+  // REQ017: denormalized copy of the matching ClinicianAvailability.mode at
+  // booking time. Exists so the two overlap-exclusion constraints below can
+  // exclude session/hybrid rows via their WHERE clause — many tokens in one
+  // session legitimately share the same clinician/room/start time, which
+  // the constraints must NOT reject; session/hybrid capacity is enforced in
+  // application code instead (pg_advisory_xact_lock-guarded count check in
+  // appointments.service.ts), a different but equally real guarantee.
+  booking_mode        String   @default("slot")
+  // Sequential 1..N within one session/hybrid window. Null for slot mode.
+  token_no            Int?
 
   clinic              Clinics               @relation(fields: [clinic_id], references: [id])
   room                Rooms                 @relation(fields: [room_id], references: [id])
@@ -214,6 +229,7 @@ model Appointments {
   reviews             Reviews[]
   status_logs         AppointmentStatusLogs[]
   payments            AppointmentPayments[]
+  resources           AppointmentResources[]
 
   @@index([clinician_id, appointment_time])
   @@index([clinic_id, appointment_time])
@@ -364,6 +380,7 @@ model ClientOrganizations {
   productSubcategories   ProductSubcategories[]
   drugs                  Drugs[]
   notificationProviderConfigs NotificationProviderConfig[]
+  resources              Resources[]
 }
 
 model ClinicianAvailability {
@@ -386,6 +403,14 @@ model ClinicianAvailability {
   created_at        DateTime @default(now())
   updated_at        DateTime @default(now()) @updatedAt
   room_id           String?
+  // REQ017 (dual-mode scheduling): 'slot' (existing, default, unchanged
+  // behavior) | 'session' | 'hybrid'. capacity/overbook_allowance only
+  // apply to session/hybrid; walkin_ratio is schema-only for now — the
+  // hybrid walk-in interleaving algorithm itself is P1, not built yet.
+  mode               String  @default("slot")
+  capacity           Int?
+  overbook_allowance Int     @default(0)
+  walkin_ratio       Int?
 
   clinician Clinicians @relation(fields: [clinician_id], references: [id])
   clinic    Clinics    @relation(fields: [clinic_id], references: [id])
@@ -475,6 +500,7 @@ model Clinics {
 
   clinicians         Clinicians[]
   rooms              Rooms[]
+  resources          Resources[]
   availability       ClinicianAvailability[]
   lunchBreaks        LunchBreaks[]
   spacerBlocks       SpacerBlocks[]
@@ -1071,6 +1097,63 @@ model Rooms {
   spacerBlocks SpacerBlocks[]
 
   @@index([clinic_id, is_deleted])
+}
+
+// REQ017 multi-resource booking. Unlike Rooms (scoped only via its clinic
+// relation), Resources owns client_org_id directly, matching REQ014's own
+// spec for this table -- a resource (e.g. an ECG machine) is an org-level
+// asset assigned to one clinic, not a clinic-owned concept the way a room
+// is. `type` is free text (e.g. 'equipment'|'chair'|'machine'|'bay'),
+// following the same "lookup value stored as text" convention already used
+// for Rooms.room_type/Clinicians.clinician_type, not a Prisma relation.
+model Resources {
+  id            String   @id @default(uuid())
+  client_org_id String
+  clinic_id     String
+  name          String
+  type          String   @default("equipment")
+  is_bookable   Boolean  @default(true)
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  client_organization ClientOrganizations     @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics                 @relation(fields: [clinic_id], references: [id])
+  appointmentResources AppointmentResources[]
+
+  @@index([client_org_id, clinic_id])
+  @@index([clinic_id, is_bookable, is_deleted])
+}
+
+// Join table for multi-resource intersection booking (REQ017 US-CAL-05).
+// start_at/end_at are a denormalized copy of the parent appointment's own
+// time range, set at insert time -- Postgres EXCLUDE predicates can only
+// reference the constrained table's own columns, so this table needs its
+// own range rather than joining to Appointments inside the constraint.
+// Rows are deleted (not status-filtered) when the parent appointment is
+// cancelled/no_show'd/soft-deleted, so "no row for this resource at this
+// time" needs no status column at all. Resource assignment is immutable
+// after creation in this slice; a reschedule that changes the parent
+// appointment's time also updates these rows' start_at/end_at in the same
+// transaction so the exclusion constraint stays meaningful (see
+// appointments.service.ts and open question #14, the same already-accepted
+// gap for room reassignment on reschedule).
+//
+// The actual `EXCLUDE USING gist (resource_id WITH =, tsrange(start_at,
+// end_at, '[)') WITH &&)` constraint is added in this model's own
+// migration (Prisma has no EXCLUDE-constraint syntax) -- see
+// backend/prisma/migrations/<ts>_scheduling_engine_session_mode.
+model AppointmentResources {
+  id             String   @id @default(uuid())
+  appointment_id String
+  resource_id    String
+  start_at       DateTime
+  end_at         DateTime
+
+  appointment Appointments @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+  resource    Resources    @relation(fields: [resource_id], references: [id])
+
+  @@unique([appointment_id, resource_id])
+  @@index([resource_id])
 }
 
 model SpacerBlocks {

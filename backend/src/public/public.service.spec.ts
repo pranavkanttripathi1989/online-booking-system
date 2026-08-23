@@ -116,3 +116,86 @@ describe('PublicService — getClinicians rating batching (P3.4)', () => {
     expect(prisma.reviews.groupBy).not.toHaveBeenCalled();
   });
 });
+
+// REQ017 — bookPatientAppointment is this dialect's own, separate
+// appointment-creation path from AppointmentsService.create() (see
+// CLAUDE.md's note on the two GraphQL dialects being kept deliberately
+// separate) — session/token mode logic is duplicated here, not shared, so
+// it needs its own coverage rather than relying on appointments.service.spec.ts.
+describe('PublicService — bookPatientAppointment session mode (REQ017)', () => {
+  let service: PublicService;
+  let prisma: {
+    clinicians: { findUnique: jest.Mock };
+    productVariations: { findUnique: jest.Mock };
+    products: { findUnique: jest.Mock };
+    patients: { findFirst: jest.Mock; create: jest.Mock };
+    clinicianAvailability: { findFirst: jest.Mock };
+    appointments: { findFirst: jest.Mock; count: jest.Mock; create: jest.Mock };
+    rooms: { findFirst: jest.Mock; findUnique: jest.Mock };
+    $executeRawUnsafe: jest.Mock;
+    $transaction: jest.Mock;
+  };
+
+  const baseInput = {
+    clinicianId: 'cln-1', productId: 'svc-1', date: '2026-08-24', startTime: '18:00',
+    patientId: 'pat-1',
+  };
+
+  beforeEach(async () => {
+    prisma = {
+      clinicians: { findUnique: jest.fn().mockResolvedValue({ id: 'cln-1', clinic_id: 'clinic-1' }) },
+      productVariations: { findUnique: jest.fn().mockResolvedValue(null) },
+      products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 15 }) },
+      patients: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      // Default: no session/hybrid window, so pre-existing slot-mode tests
+      // (if any are added later) keep exercising slot mode unchanged.
+      clinicianAvailability: { findFirst: jest.fn().mockResolvedValue(null) },
+      appointments: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({ id: 'appt-new' }),
+      },
+      rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }), findUnique: jest.fn().mockResolvedValue({ id: 'room-1' }) },
+      $executeRawUnsafe: jest.fn(),
+      $transaction: jest.fn((fn) => fn(prisma)),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [PublicService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(PublicService);
+  });
+
+  const sessionWindow = { mode: 'session', capacity: 40, overbook_allowance: 3, room_id: null };
+
+  it('does not run the naive equality conflict check for a session-mode booking', async () => {
+    prisma.clinicianAvailability.findFirst.mockResolvedValue(sessionWindow);
+    await service.bookPatientAppointment(baseInput as any);
+    expect(prisma.appointments.findFirst).not.toHaveBeenCalled();
+  });
+
+  it('assigns sequential token_no from the current booked count', async () => {
+    prisma.clinicianAvailability.findFirst.mockResolvedValue(sessionWindow);
+    prisma.appointments.count.mockResolvedValue(7);
+    await service.bookPatientAppointment(baseInput as any);
+    expect(prisma.appointments.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ booking_mode: 'session', token_no: 8 }) }),
+    );
+  });
+
+  it('rejects once capacity + overbook_allowance is reached', async () => {
+    prisma.clinicianAvailability.findFirst.mockResolvedValue(sessionWindow);
+    prisma.appointments.count.mockResolvedValue(43);
+    await expect(service.bookPatientAppointment(baseInput as any)).rejects.toThrow('This session is fully booked');
+    expect(prisma.appointments.create).not.toHaveBeenCalled();
+  });
+
+  it('still runs the slot-conflict check for an ordinary slot-mode booking (regression)', async () => {
+    await service.bookPatientAppointment(baseInput as any);
+    expect(prisma.appointments.findFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ booking_mode: 'slot' }) }),
+    );
+    expect(prisma.appointments.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ booking_mode: 'slot', token_no: undefined }) }),
+    );
+  });
+});

@@ -20,6 +20,8 @@ export const APPOINTMENT_FIELDS = gql`
     duration_minutes
     status
     type
+    booking_mode
+    token_no
     notes
     cancellation_reason
     reminder_sent_at

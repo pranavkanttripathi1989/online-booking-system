@@ -24,7 +24,7 @@ import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
 const GET_AVAILABILITY_DATA = gql`
   query GetAvailabilityData($clinicianId: ID!) {
     getClinicianAvailability(clinicianId: $clinicianId) {
-      id dayOfWeek startTime endTime recurrenceType validFrom validUntil roomId
+      id dayOfWeek startTime endTime recurrenceType validFrom validUntil roomId mode capacity
     }
     getLunchBreaks(clinicianId: $clinicianId) {
       id dayOfWeek startTime endTime
@@ -125,6 +125,9 @@ const defaultSlotForm = () => ({
   valid_from: null,
   valid_until: null,
   exclude_weekends: false,
+  mode: 'slot',
+  capacity: '',
+  overbook_allowance: 0,
 });
 
 const defaultLunchForm = () => ({
@@ -251,6 +254,9 @@ export default function ClinicianAvailability() {
         valid_from:      slot.validFrom  ? dayjs(slot.validFrom)  : null,
         valid_until:     slot.validUntil ? dayjs(slot.validUntil) : null,
         exclude_weekends: false,
+        mode:            slot.mode || 'slot',
+        capacity:        slot.capacity ?? '',
+        overbook_allowance: 0,
       });
     } else {
       setEditSlot(null);
@@ -276,6 +282,10 @@ export default function ClinicianAvailability() {
   };
 
   const handleSave = async () => {
+    if (formData.mode !== 'slot' && (!formData.capacity || Number(formData.capacity) < 1)) {
+      enqueueSnackbar('Session/hybrid mode needs a capacity of at least 1 token.', { variant: 'error' });
+      return;
+    }
     setSaving(true);
     try {
       const input = {
@@ -287,6 +297,9 @@ export default function ClinicianAvailability() {
         roomId:         formData.room_id || null,
         validFrom:      formData.valid_from  ? formData.valid_from.format('YYYY-MM-DD')  : null,
         validUntil:     formData.valid_until ? formData.valid_until.format('YYYY-MM-DD') : null,
+        mode:           formData.mode,
+        capacity:       formData.mode !== 'slot' ? Number(formData.capacity) : null,
+        overbookAllowance: formData.mode !== 'slot' ? (Number(formData.overbook_allowance) || 0) : 0,
       };
       if (editSlot) input.id = editSlot.id;
       await saveAvailability({ variables: { input } });
@@ -659,6 +672,32 @@ export default function ClinicianAvailability() {
                       {formData.end_time ? formData.end_time.format('h:mm A') : '—'}
                     </Typography>
                   </Box>
+                )}
+              </Box>
+
+              {/* REQ017: scheduling mode */}
+              <Box>
+                <Typography variant="subtitle2" fontWeight={700} gutterBottom>Scheduling Mode</Typography>
+                <RadioGroup row value={formData.mode}
+                  onChange={(e) => handleChange('mode', e.target.value)}
+                  sx={{ bgcolor: '#f8fafc', p: 1, borderRadius: 2, border: '1px solid', borderColor: 'divider',
+                        '& .MuiFormControlLabel-root': { flex: 1, m: 0 } }}>
+                  <FormControlLabel value="slot"    control={<Radio size="small" />} label={<Typography variant="body2">Fixed slots</Typography>} />
+                  <FormControlLabel value="session" control={<Radio size="small" />} label={<Typography variant="body2">Session / token</Typography>} />
+                </RadioGroup>
+                {formData.mode === 'session' && (
+                  <Grid container spacing={2} sx={{ mt: 0.5 }}>
+                    <Grid item xs={6}>
+                      <TextField fullWidth size="small" type="number" label="Capacity (tokens)"
+                        inputProps={{ min: 1 }} value={formData.capacity}
+                        onChange={(e) => handleChange('capacity', e.target.value)} />
+                    </Grid>
+                    <Grid item xs={6}>
+                      <TextField fullWidth size="small" type="number" label="Overbook allowance"
+                        inputProps={{ min: 0 }} value={formData.overbook_allowance}
+                        onChange={(e) => handleChange('overbook_allowance', e.target.value)} />
+                    </Grid>
+                  </Grid>
                 )}
               </Box>
 

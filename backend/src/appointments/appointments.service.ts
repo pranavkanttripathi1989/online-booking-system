@@ -22,7 +22,13 @@ export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 // Prisma does not map to one of its own known error codes -- it arrives as
 // a PrismaClientUnknownRequestError with the raw driver message, matched
 // here by constraint name rather than parsing the SQLSTATE out of free text.
-const OVERLAP_CONSTRAINT_NAMES = ['appointments_no_overlapping_booking', 'appointments_no_overlapping_room_booking'];
+const OVERLAP_CONSTRAINT_NAMES = [
+  'appointments_no_overlapping_booking',
+  'appointments_no_overlapping_room_booking',
+  // REQ017 US-CAL-05 — resource-level exclusion constraint on the new
+  // AppointmentResources join table, same friendly-error mapping.
+  'appointment_resources_no_overlap',
+];
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
@@ -63,6 +69,8 @@ export class AppointmentsService {
       duration_minutes: a.duration_minutes,
       status: a.status,
       type: a.type ?? 'in_person',
+      booking_mode: a.booking_mode ?? 'slot',
+      token_no: a.token_no ?? undefined,
       notes: a.notes || undefined,
       cancellation_reason: a.cancellation_reason ?? undefined,
       reminder_sent_at: a.reminder_sent_at ?? undefined,
@@ -217,6 +225,11 @@ export class AppointmentsService {
         clinician_id: clinicianId,
         is_deleted: false,
         status: { notIn: ['cancelled', 'no_show'] },
+        // REQ017: session/hybrid-mode rows legitimately share a clinician
+        // and start time with many other rows — they are not "slots" and
+        // must never be treated as a conflict here, matching the DB
+        // exclusion constraint's own booking_mode='slot' WHERE clause.
+        booking_mode: 'slot',
         id: excludeAppointmentId ? { not: excludeAppointmentId } : undefined,
         appointment_time: { lt: end },
       },
@@ -241,6 +254,37 @@ export class AppointmentsService {
   // mutation in the "public dialect" (see CLAUDE.md's two-dialect note),
   // which by design lets a patient book across any clinic on the platform;
   // this fix does not touch that path.
+  // REQ017: a session/hybrid window is identified by an exact match on
+  // clinician + start_time HH:MM (UTC, matching availability.service.ts's
+  // own sessionAvailability()/availableSlots() convention) + day-of-week —
+  // the frontend's session-booking flow always submits the window's own
+  // start_time as start_datetime, so this never has to guess.
+  private async findGoverningSessionWindow(clinicianId: string, start: Date) {
+    const hh = String(start.getUTCHours()).padStart(2, '0');
+    const mm = String(start.getUTCMinutes()).padStart(2, '0');
+    const dow = start.getUTCDay();
+    return this.prisma.clinicianAvailability.findFirst({
+      where: {
+        clinician_id: clinicianId,
+        is_deleted: false,
+        is_active: true,
+        mode: { in: ['session', 'hybrid'] },
+        start_time: `${hh}:${mm}`,
+        OR: [{ day_of_week: dow }, { recurrence_type: 'daily' }],
+      },
+    });
+  }
+
+  // REQ017 US-CAL-05, slot mode only. Application-level pre-check mirroring
+  // assertSlotFree()'s own pattern — the resource-level EXCLUDE constraint
+  // (appointment_resources_no_overlap) is the actual race-safe backstop.
+  private async assertResourcesFree(resourceIds: string[], start: Date, end: Date) {
+    const conflict = await this.prisma.appointmentResources.findFirst({
+      where: { resource_id: { in: resourceIds }, start_at: { lt: end }, end_at: { gt: start } },
+    });
+    if (conflict) throw new BadRequestException('This time slot is no longer available');
+  }
+
   async create(input: AppointmentInput, user: JwtPayload) {
     if (user.client_org_id) {
       const clinic = await this.prisma.clinics.findUnique({ where: { id: input.clinic_id } });
@@ -254,16 +298,62 @@ export class AppointmentsService {
     const durationMinutes = service.duration_minutes ?? 30;
     const end = new Date(start.getTime() + durationMinutes * 60000);
 
-    await this.assertSlotFree(input.clinician_id, start, end);
+    const sessionWindow = await this.findGoverningSessionWindow(input.clinician_id, start);
+    const bookingMode = sessionWindow?.mode ?? 'slot';
 
-    const room = await this.prisma.rooms.findFirst({
-      where: { clinic_id: input.clinic_id, is_active: true, is_deleted: false },
-    });
+    if (bookingMode === 'slot') {
+      await this.assertSlotFree(input.clinician_id, start, end);
+      if (input.resource_ids?.length) {
+        if (user.client_org_id) {
+          const ownedCount = await this.prisma.resources.count({
+            where: { id: { in: input.resource_ids }, client_org_id: user.client_org_id, is_deleted: false },
+          });
+          if (ownedCount !== input.resource_ids.length) throw new BadRequestException('Resource not found');
+        }
+        await this.assertResourcesFree(input.resource_ids, start, end);
+      }
+    }
+
+    const room = sessionWindow?.room_id
+      ? await this.prisma.rooms.findUnique({ where: { id: sessionWindow.room_id } })
+      : await this.prisma.rooms.findFirst({
+          where: { clinic_id: input.clinic_id, is_active: true, is_deleted: false },
+        });
     if (!room) throw new BadRequestException('No active room available at this clinic');
 
     let created;
     try {
       created = await this.prisma.$transaction(async (tx) => {
+        // REQ017: session/hybrid capacity is a count-then-insert guarded by
+        // a Postgres advisory lock, not the DB exclusion constraint (many
+        // tokens deliberately share the same clinician/room/time — the
+        // exclusion constraint's WHERE clause excludes booking_mode='slot'
+        // rows for exactly this reason). The lock serializes concurrent
+        // bookings for the same session so the count-then-insert can never
+        // race past capacity, the same guarantee class as the exclusion
+        // constraint gives slot mode, just enforced differently because the
+        // invariant itself ("don't exceed capacity") is different from
+        // "don't overlap in time".
+        let tokenNo: number | undefined;
+        if (bookingMode !== 'slot' && sessionWindow) {
+          const lockKey = `${input.clinician_id}|${input.start_datetime}`;
+          await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', lockKey);
+          const bookedCount = await tx.appointments.count({
+            where: {
+              clinician_id: input.clinician_id,
+              is_deleted: false,
+              status: { notIn: ['cancelled', 'no_show'] },
+              booking_mode: { not: 'slot' },
+              appointment_time: start,
+            },
+          });
+          const totalAllowed = (sessionWindow.capacity ?? 0) + sessionWindow.overbook_allowance;
+          if (bookedCount >= totalAllowed) {
+            throw new BadRequestException('This session is fully booked');
+          }
+          tokenNo = bookedCount + 1;
+        }
+
         const appointment = await tx.appointments.create({
           data: {
             clinic_id: input.clinic_id,
@@ -278,9 +368,21 @@ export class AppointmentsService {
             notes: input.notes ?? '',
             product_id: input.service_id,
             booked_by_user_id: user.sub,
+            booking_mode: bookingMode,
+            token_no: tokenNo,
           },
           include: INCLUDE,
         });
+        if (bookingMode === 'slot' && input.resource_ids?.length) {
+          await tx.appointmentResources.createMany({
+            data: input.resource_ids.map((resourceId) => ({
+              appointment_id: appointment.id,
+              resource_id: resourceId,
+              start_at: start,
+              end_at: end,
+            })),
+          });
+        }
         await tx.appointmentStatusLogs.create({
           data: { appointment_id: appointment.id, status: 'scheduled', changed_by_user_id: user.sub },
         });
@@ -327,6 +429,13 @@ export class AppointmentsService {
         },
         include: INCLUDE,
       });
+      // REQ017: a cancelled/no_show appointment frees its resources —
+      // AppointmentResources rows are deleted (not status-filtered), since
+      // "no row for this resource at this time" is what the exclusion
+      // constraint relies on to know the resource is free again.
+      if (status === 'cancelled' || status === 'no_show') {
+        await tx.appointmentResources.deleteMany({ where: { appointment_id: id } });
+      }
       await tx.appointmentStatusLogs.create({
         data: { appointment_id: id, status, reason, changed_by_user_id: user.sub },
       });
@@ -392,10 +501,21 @@ export class AppointmentsService {
 
     let appointmentDate = existing.appointment_date;
     let appointmentTime = existing.appointment_time;
+    const timeChanged = !!input.start_datetime;
     if (input.start_datetime) {
       appointmentTime = new Date(input.start_datetime);
       appointmentDate = new Date(appointmentTime.toDateString());
-      await this.assertSlotFree(input.clinician_id ?? existing.clinician_id, appointmentTime, new Date(appointmentTime.getTime() + existing.duration_minutes * 60000), id);
+      // REQ017: session/hybrid-mode appointments are not "slots" — many
+      // rows legitimately share a clinician/time, so the slot-conflict
+      // check doesn't apply to them (matches create()'s own branching and
+      // the DB exclusion constraint's booking_mode='slot' WHERE clause).
+      // Rescheduling a session/hybrid appointment's capacity is out of
+      // scope for this slice — resource_ids/token_no reassignment aren't
+      // supported here either, matching the already-accepted room-
+      // reassignment-on-reschedule gap (open question #14).
+      if (existing.booking_mode === 'slot') {
+        await this.assertSlotFree(input.clinician_id ?? existing.clinician_id, appointmentTime, new Date(appointmentTime.getTime() + existing.duration_minutes * 60000), id);
+      }
     }
 
     const updated = await this.prisma.$transaction(async (tx) => {
@@ -413,6 +533,17 @@ export class AppointmentsService {
         },
         include: INCLUDE,
       });
+      if (input.status === 'cancelled' || input.status === 'no_show') {
+        await tx.appointmentResources.deleteMany({ where: { appointment_id: id } });
+      } else if (timeChanged) {
+        // Keep any attached resources' denormalized time range in sync so
+        // the exclusion constraint stays meaningful — which resources are
+        // attached still cannot change via update() in this slice.
+        await tx.appointmentResources.updateMany({
+          where: { appointment_id: id },
+          data: { start_at: appointmentTime, end_at: new Date(appointmentTime.getTime() + existing.duration_minutes * 60000) },
+        });
+      }
       if (input.status && input.status !== existing.status) {
         await tx.appointmentStatusLogs.create({
           data: { appointment_id: id, status: input.status, reason: input.cancellation_reason, changed_by_user_id: user.sub },

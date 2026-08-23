@@ -10,6 +10,7 @@ import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
 import { ClinicsModule } from './clinics/clinics.module';
 import { RoomsModule } from './rooms/rooms.module';
+import { ResourcesModule } from './resources/resources.module';
 import { LookupsModule } from './lookups/lookups.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { LanguagesModule } from './languages/languages.module';
@@ -93,6 +94,7 @@ import { PubSubModule } from './common/pubsub.module';
     AuthModule,
     ClinicsModule,
     RoomsModule,
+    ResourcesModule,
     LookupsModule,
     OrganizationsModule,
     OrganizationOnboardingModule,

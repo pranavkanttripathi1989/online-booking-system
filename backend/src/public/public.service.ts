@@ -212,34 +212,82 @@ export class PublicService {
       }
     }
 
-    const conflict = await this.prisma.appointments.findFirst({
+    // REQ017: this public/patient-self-serve dialect has its own, separate
+    // appointment-creation path from AppointmentsService.create() (the
+    // canonical staff-facing dialect) — see CLAUDE.md's note on the two
+    // dialects being kept deliberately separate. Session/token mode is
+    // duplicated here rather than extracted into a shared service, matching
+    // that same established precedent (the two dialects already don't share
+    // implementation, only the underlying Appointments table).
+    const dow = start.getUTCDay();
+    const hh = String(start.getUTCHours()).padStart(2, '0');
+    const mm = String(start.getUTCMinutes()).padStart(2, '0');
+    const sessionWindow = await this.prisma.clinicianAvailability.findFirst({
       where: {
         clinician_id: input.clinicianId,
         is_deleted: false,
-        status: { notIn: ['cancelled', 'no_show'] },
-        appointment_time: start,
+        is_active: true,
+        mode: { in: ['session', 'hybrid'] },
+        start_time: `${hh}:${mm}`,
+        OR: [{ day_of_week: dow }, { recurrence_type: 'daily' }],
       },
     });
-    if (conflict) throw new BadRequestException('This time slot is no longer available');
+    const bookingMode = sessionWindow?.mode ?? 'slot';
 
-    const room = await this.prisma.rooms.findFirst({ where: { clinic_id: clinician.clinic_id, is_active: true, is_deleted: false } });
+    if (bookingMode === 'slot') {
+      const conflict = await this.prisma.appointments.findFirst({
+        where: {
+          clinician_id: input.clinicianId,
+          is_deleted: false,
+          status: { notIn: ['cancelled', 'no_show'] },
+          booking_mode: 'slot',
+          appointment_time: start,
+        },
+      });
+      if (conflict) throw new BadRequestException('This time slot is no longer available');
+    }
+
+    const room = sessionWindow?.room_id
+      ? await this.prisma.rooms.findUnique({ where: { id: sessionWindow.room_id } })
+      : await this.prisma.rooms.findFirst({ where: { clinic_id: clinician.clinic_id, is_active: true, is_deleted: false } });
     if (!room) throw new BadRequestException('No active room available at this clinic');
 
-    const appointment = await this.prisma.appointments.create({
-      data: {
-        clinic_id: clinician.clinic_id,
-        room_id: room.id,
-        clinician_id: input.clinicianId,
-        patient_id: patientId,
-        appointment_date: new Date(input.date),
-        appointment_time: start,
-        duration_minutes: durationMinutes,
-        status: 'scheduled',
-        reason: '',
-        product_id: input.productId,
-        product_variation_id: input.variationId ?? undefined,
-        type: input.type ?? 'in_person',
-      },
+    const appointment = await this.prisma.$transaction(async (tx) => {
+      let tokenNo: number | undefined;
+      if (bookingMode !== 'slot' && sessionWindow) {
+        const lockKey = `${input.clinicianId}|${start.toISOString()}`;
+        await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', lockKey);
+        const bookedCount = await tx.appointments.count({
+          where: {
+            clinician_id: input.clinicianId,
+            is_deleted: false,
+            status: { notIn: ['cancelled', 'no_show'] },
+            booking_mode: { not: 'slot' },
+            appointment_time: start,
+          },
+        });
+        const totalAllowed = (sessionWindow.capacity ?? 0) + sessionWindow.overbook_allowance;
+        if (bookedCount >= totalAllowed) throw new BadRequestException('This session is fully booked');
+        tokenNo = bookedCount + 1;
+      }
+      return tx.appointments.create({
+        data: {
+          clinic_id: clinician.clinic_id,
+          room_id: room.id,
+          clinician_id: input.clinicianId,
+          patient_id: patientId,
+          appointment_date: new Date(input.date),
+          appointment_time: start,
+          duration_minutes: durationMinutes,
+          status: 'scheduled',
+          reason: '',
+          product_id: input.productId,
+          product_variation_id: input.variationId ?? undefined,
+          type: input.type ?? 'in_person',
+          booking_mode: bookingMode,
+          token_no: tokenNo,
+        },
+      });
     });
     return { id: appointment.id };
   }

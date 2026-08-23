@@ -32,6 +32,12 @@ export class CreateAvailabilityInput {
   @Field({ nullable: true }) @IsOptional() @IsString() valid_until?: string;
   @Field({ nullable: true }) @IsOptional() @IsBoolean() is_active?: boolean;
   @Field({ nullable: true }) @IsOptional() @IsString() custom_dates?: string;
+  // REQ017 dual-mode scheduling. mode defaults to 'slot' on the backend
+  // (schema default) when omitted, preserving today's behavior exactly.
+  @Field({ nullable: true }) @IsOptional() @IsIn(['slot', 'session', 'hybrid']) mode?: string;
+  @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(1) capacity?: number;
+  @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(0) overbook_allowance?: number;
+  @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(1) walkin_ratio?: number;
 }
 
 @InputType('UpdateAvailabilityInput')
@@ -51,6 +57,9 @@ export class ClinicianAvailabilityInput {
   @Field({ nullable: true }) @IsOptional() roomId?: string;
   @Field({ nullable: true }) @IsOptional() validFrom?: string;
   @Field({ nullable: true }) @IsOptional() validUntil?: string;
+  @Field({ nullable: true }) @IsOptional() @IsIn(['slot', 'session', 'hybrid']) mode?: string;
+  @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(1) capacity?: number;
+  @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(0) overbookAllowance?: number;
 }
 
 @InputType('LunchBreakInput')

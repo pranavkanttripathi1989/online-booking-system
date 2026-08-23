@@ -13,7 +13,7 @@ const DOCTOR_ID = 'doc-1'
 
 const GET_CLINICIAN_AND_PRODUCTS_SHAPE = {
   getClinician: { id: DOCTOR_ID, name: 'Sarah Mitchell', clinicianType: 'General Physician', clinic: { id: 'clinic-1', name: 'MG Road Clinic' } },
-  getClinicianAvailability: [{ id: 'av-1', dayOfWeek: dayjs().day(), startTime: '09:00', endTime: '17:00' }],
+  getClinicianAvailability: [{ id: 'av-1', dayOfWeek: dayjs().day(), startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly', mode: 'slot' }],
   getProducts: [
     { id: 'prod-simple', name: 'General Consultation', description: '30-minute visit', price: 500, product_type: 'simple', variations: [], cancellation_rules: null },
     {
@@ -38,7 +38,7 @@ function buildMocks({ availability = GET_CLINICIAN_AND_PRODUCTS_SHAPE.getClinici
   const GET_CLINICIAN_AND_PRODUCTS = gql`
     query GetClinicianAndProducts($id: ID!) {
       getClinician(id: $id) { id name clinicianType clinic { id name } }
-      getClinicianAvailability(clinicianId: $id) { id dayOfWeek startTime endTime }
+      getClinicianAvailability(clinicianId: $id) { id dayOfWeek startTime endTime recurrenceType mode }
       getProducts(clinicianId: $id) { id name description price product_type variations { id name price } cancellation_rules { id hoursNoticeRequired } }
     }
   `
