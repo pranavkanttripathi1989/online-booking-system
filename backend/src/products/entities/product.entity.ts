@@ -37,6 +37,8 @@ export class ProductType {
   @Field(() => Float, { nullable: true }) price?: number;
   @Field(() => Int, { nullable: true }) stock_quantity?: number;
   @Field() is_active: boolean;
+  @Field({ nullable: true }) hsn?: string;
+  @Field() is_tax_exempt: boolean;
   @Field(() => ProductCategoryType, { nullable: true }) category?: ProductCategoryType;
   @Field(() => ProductSubcategoryType, { nullable: true }) subcategory?: ProductSubcategoryType;
 }

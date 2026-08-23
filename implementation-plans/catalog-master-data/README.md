@@ -2,7 +2,9 @@
 
 ## requirement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN049 | requirement | Tax depth (HSN, GST exemption) | done | 2026-08-23 | 2026-08-23 | REQ046 | [PLAN049-catalog-master-data-2026-08-23-tax-depth-hsn-and-exemption.md](./requirement/PLAN049-catalog-master-data-2026-08-23-tax-depth-hsn-and-exemption.md) |
 
 ## improvement
 

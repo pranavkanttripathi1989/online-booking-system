@@ -70,6 +70,10 @@ export class ProductsService {
           subcategory_id: input.subcategory_id || undefined,
           product_type: (input.product_type ?? 'simple') as any,
           is_active: input.is_active ?? true,
+          hsn: input.hsn,
+          // REQ046 — a retail/pharmacy item is taxable by default; explicit
+          // input always wins.
+          is_tax_exempt: input.is_tax_exempt ?? false,
           // BUG006 — `?? undefined` silently created an ORG-LESS product, which
           // before orgScope() landed was then visible to every tenant.
           client_org_id: orgIdForWrite(user, 'product'),
@@ -96,6 +100,8 @@ export class ProductsService {
           subcategory_id: input.subcategory_id || undefined,
           product_type: input.product_type ? (input.product_type as any) : undefined,
           is_active: input.is_active,
+          hsn: input.hsn,
+          is_tax_exempt: input.is_tax_exempt,
         },
       });
       return { success: true, userErrors: [], product: { id: row.id } };

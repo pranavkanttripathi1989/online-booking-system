@@ -185,6 +185,25 @@ describe('ProductsService', () => {
       const result = await service.create({ name: 'X', sku: 'S1' } as any, orgAUser);
       expect(result.userErrors).toEqual([{ message: 'db unavailable' }]);
     });
+
+    // REQ046 (US-CAT-06) — a retail/pharmacy item created through the
+    // Products path is taxable by default, unlike a clinical service
+    // created through ServicesService (see services.service.spec.ts).
+    it('defaults is_tax_exempt to false when not supplied', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'prod-new' });
+      await service.create({ name: 'Paracetamol 500mg', sku: 'S1' } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ is_tax_exempt: false }) }),
+      );
+    });
+
+    it('honours an explicit is_tax_exempt: true override', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'prod-new' });
+      await service.create({ name: 'X', sku: 'S1', is_tax_exempt: true, hsn: '9993' } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ is_tax_exempt: true, hsn: '9993' }) }),
+      );
+    });
   });
 
   describe('update — tenant isolation enforced via findOne before any write', () => {

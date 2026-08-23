@@ -77,6 +77,10 @@ export class ServicesService {
         duration_minutes: input.duration_minutes,
         price: RUPEES_TO_PAISE(input.price),
         is_active: input.is_active ?? true,
+        hsn: input.hsn,
+        // REQ046 — a healthcare consultation service is GST-exempt by
+        // default under current Indian tax treatment; explicit input wins.
+        is_tax_exempt: input.is_tax_exempt ?? true,
         product_type: 'simple',
         sku: this.generateSku(input.name),
         // BUG006 — `?? undefined` silently created an ORG-LESS service.
@@ -97,6 +101,8 @@ export class ServicesService {
         duration_minutes: input.duration_minutes,
         price: RUPEES_TO_PAISE(input.price),
         is_active: input.is_active,
+        hsn: input.hsn,
+        is_tax_exempt: input.is_tax_exempt,
       },
       include: this.include(),
     });

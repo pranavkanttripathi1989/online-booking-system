@@ -953,6 +953,15 @@ model Products {
   is_active         Boolean  @default(true)
   is_deleted        Boolean  @default(false)
   created_at        DateTime @default(now())
+  // REQ046 (US-CAT-06) — GST classification. hsn is free text (no HSN master
+  // table yet); is_tax_exempt defaults per creation path, not per row: a
+  // clinical service (services.service.ts) defaults true (healthcare
+  // consultations are GST-exempt under current Indian tax treatment), a
+  // retail/pharmacy product (products.service.ts) defaults false — either is
+  // explicitly overridable per item, the default only fills in what an admin
+  // didn't set.
+  hsn               String?
+  is_tax_exempt     Boolean  @default(false)
 
   clinic            Clinics? @relation(fields: [clinic_id], references: [id])
   client_org        ClientOrganizations? @relation(fields: [client_org_id], references: [id])

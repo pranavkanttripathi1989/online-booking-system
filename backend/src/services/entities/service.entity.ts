@@ -28,6 +28,8 @@ export class ServiceType {
   // and displays — converted at the resolver boundary, not in the schema.
   @Field(() => Float, { nullable: true }) price?: number;
   @Field() is_active: boolean;
+  @Field({ nullable: true }) hsn?: string;
+  @Field() is_tax_exempt: boolean;
   @Field(() => ServiceCategoryType, { nullable: true }) category?: ServiceCategoryType;
   @Field(() => [ServiceClinicianType]) clinicians: ServiceClinicianType[];
 }

@@ -154,6 +154,25 @@ describe('ServicesService', () => {
         expect.objectContaining({ data: expect.objectContaining({ client_org_id: 'org-a' }) }),
       );
     });
+
+    // REQ046 (US-CAT-06) — a healthcare consultation created through the
+    // Services path is GST-exempt by default, the opposite default from
+    // ProductsService's retail path (see products.service.spec.ts).
+    it('defaults is_tax_exempt to true when not supplied', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
+      await service.create({ name: 'General Consultation', duration_minutes: 20, price: 300 } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ is_tax_exempt: true }) }),
+      );
+    });
+
+    it('honours an explicit is_tax_exempt: false override', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
+      await service.create({ name: 'X', duration_minutes: 20, price: 300, is_tax_exempt: false, hsn: '9993' } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ is_tax_exempt: false, hsn: '9993' }) }),
+      );
+    });
   });
 
   describe('update — tenant isolation enforced via findOne before any write', () => {

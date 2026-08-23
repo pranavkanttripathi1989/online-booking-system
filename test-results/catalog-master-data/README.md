@@ -2,7 +2,9 @@
 
 ## requirement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR075 | requirement | Tax depth (HSN, GST exemption) results | pass | 2026-08-23 | 2026-08-23 | TP076 | [TR075-catalog-master-data-2026-08-23-tax-depth-hsn-and-exemption.md](./requirement/TR075-catalog-master-data-2026-08-23-tax-depth-hsn-and-exemption.md) |
 
 ## improvement
 

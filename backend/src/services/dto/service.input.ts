@@ -14,4 +14,8 @@ export class ServiceInput {
   @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(1) duration_minutes?: number;
   @Field(() => Float, { nullable: true }) @IsOptional() @IsNumber() @Min(0) price?: number;
   @Field({ nullable: true }) @IsOptional() @IsBoolean() is_active?: boolean;
+  // REQ046 (US-CAT-06). Omitted on create → defaults to true (a healthcare
+  // consultation service is GST-exempt by default); always explicit on update.
+  @Field({ nullable: true }) @IsOptional() hsn?: string;
+  @Field({ nullable: true }) @IsOptional() @IsBoolean() is_tax_exempt?: boolean;
 }

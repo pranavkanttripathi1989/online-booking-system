@@ -2,7 +2,9 @@
 
 ## requirement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP076 | requirement | Tax depth (HSN, GST exemption) | approved | 2026-08-23 | 2026-08-23 | REQ046 | [TP076-catalog-master-data-2026-08-23-tax-depth-hsn-and-exemption.md](./requirement/TP076-catalog-master-data-2026-08-23-tax-depth-hsn-and-exemption.md) |
 
 ## improvement
 

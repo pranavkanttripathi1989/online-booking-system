@@ -17,6 +17,10 @@ export class CreateProductInput {
   @Field({ nullable: true }) @IsOptional() subcategory_id?: string;
   @Field({ nullable: true }) @IsOptional() @IsIn(['simple', 'variable', 'service']) product_type?: string;
   @Field({ nullable: true }) @IsOptional() @IsBoolean() is_active?: boolean;
+  // REQ046 (US-CAT-06). Omitted on create → defaults to false (a retail/
+  // pharmacy item is taxable by default); always explicit on update.
+  @Field({ nullable: true }) @IsOptional() hsn?: string;
+  @Field({ nullable: true }) @IsOptional() @IsBoolean() is_tax_exempt?: boolean;
 }
 
 @InputType('UpdateProductInput')
