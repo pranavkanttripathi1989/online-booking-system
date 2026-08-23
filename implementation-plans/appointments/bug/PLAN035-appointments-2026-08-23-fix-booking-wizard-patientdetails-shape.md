@@ -35,6 +35,21 @@ could be created.
   `reason`) — removing or relabeling those fields is a product decision
   tied to the same open question, not part of this fix.
 
+## 2. `type` sent the toggle group's own local value, not a value the DTO accepts
+
+**Approach:** `bookingData.appointmentType`'s stored value is `'inperson'`
+(the `ToggleButtonGroup`'s own convention, no underscore); the real
+`BookPatientAppointmentInput.type` validates against
+`['in_person', 'video', 'home_visit']`. Found the same way as defect 1 — a
+live-reported error from manual testing, immediately after defect 1 was
+fixed and a real submission reached this field for the first time.
+
+- Map at the mutation-call boundary only:
+  `type: bookingData.appointmentType === 'inperson' ? 'in_person' : bookingData.appointmentType`.
+- Did not rename the stored value itself — `appointmentType` also feeds a
+  `textTransform: capitalize` summary label elsewhere on the page; renaming
+  to `'in_person'` would render as "In_person Consultation".
+
 ## Verification plan
 
 See `TP062`.

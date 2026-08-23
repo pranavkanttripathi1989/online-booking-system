@@ -160,7 +160,10 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
             date: bookingData.date.format('YYYY-MM-DD'),
             startTime: bookingData.slot,
             endTime: dayjs(`${bookingData.date.format('YYYY-MM-DD')}T${bookingData.slot}`).add(30, 'minute').format('HH:mm'),
-            type: bookingData.appointmentType,
+            // BookPatientAppointmentInput.type only accepts in_person/video/
+            // home_visit; the toggle group's own local value is 'inperson'
+            // (no underscore), which always failed this DTO's @IsIn check.
+            type: bookingData.appointmentType === 'inperson' ? 'in_person' : bookingData.appointmentType,
             // PatientDetailsInput only defines firstName/lastName/email/phone —
             // dateOfBirth/reason/notes have nowhere to go on the real schema
             // (the resolver hardcodes reason: '' server-side either way) and

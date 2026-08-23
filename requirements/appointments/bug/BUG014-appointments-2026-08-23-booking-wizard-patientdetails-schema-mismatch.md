@@ -17,9 +17,11 @@ S1. `BUG011` fixed the wizard so it fetches and renders real clinician/
 availability data, but the mutation that actually books the appointment —
 the entire point of the flow — always errored out for every real user, on
 every attempt, both before and after that fix. Live-reported by the user
-pasting a real GraphQL error from manual testing.
+pasting a real GraphQL error from manual testing, in two separate rounds —
+fixing the first defect below (`patientDetails`) surfaced the second
+(`type`) as soon as a real submission got past it.
 
-## The defect
+## Defect 1 — extra fields on `patientDetails`
 
 `pages/booking/index.jsx`'s `handlePayAndBook()` sent the entire local
 `bookingData.patient` object as the mutation's `patientDetails` variable:
@@ -63,7 +65,7 @@ patient is required to type is captured locally and then discarded, never
 reaching the database. Same for `dateOfBirth`/`notes`: captured, never sent,
 never stored anywhere.
 
-## Fix
+## Fix (defect 1)
 
 `pages/booking/index.jsx`'s `handlePayAndBook()` now builds `patientDetails`
 explicitly from only the four fields the real schema defines:
@@ -77,17 +79,40 @@ patientDetails: {
 },
 ```
 
+## Defect 2 — `type` sent an unrecognized value
+
+Same file, one field over: `type: bookingData.appointmentType` sends the
+`ToggleButtonGroup`'s own local value (`'inperson'`, no underscore, from the
+`<ToggleButton value="inperson">` at line 458 and the `bookingData` default
+at line 311) straight through. `BookPatientAppointmentInput.type` validates
+with `@IsIn(['in_person', 'video', 'home_visit'])` — `'inperson'` isn't a
+member, so the DTO's `ValidationPipe` rejected the request with
+`BAD_REQUEST`/`type must be one of the following values: in_person, video,
+home_visit`. `'video'` (the toggle group's other option) already matched by
+coincidence, which is why this stayed hidden until the user specifically
+tried the in-person path after `patientDetails` was fixed.
+
+## Fix (defect 2)
+
+Map at the same mutation-call boundary, not by renaming the UI's internal
+state everywhere (`appointmentType` also drives a `textTransform: capitalize`
+summary label at line 696 — switching the stored value to `'in_person'`
+would render as "In_person Consultation"):
+
+```js
+type: bookingData.appointmentType === 'inperson' ? 'in_person' : bookingData.appointmentType,
+```
+
 ## Verification
 
-Live GraphQL call against the real backend with the exact fixed payload
-shape (real seeded clinician `8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7`, a real
-linked product) returned a real created appointment id with zero errors.
-The pre-fix shape (with `dateOfBirth`/`reason`/`notes` present, including a
-`null`-valued `dateOfBirth`) was independently reproduced against the same
-live backend first, confirming the exact error the user reported. The
-verification appointment/patient rows were deleted from the dev database
-afterward — this was an ad hoc live-verification call, not a seeded fixture.
-See `TR061`.
+Both defects independently reproduced and independently fixed against the
+real running backend (not a mock/isolated environment) — same method both
+times: reproduce the exact reported error via a direct `curl` GraphQL call
+with the pre-fix payload shape, apply the fix, re-run the identical call
+with the corrected shape and confirm a real created appointment id. Both
+rounds' verification appointment/patient rows were deleted from the dev
+database afterward — these were ad hoc live-verification calls, not seeded
+fixtures. See `TR061`.
 
 ## What this does not close
 
