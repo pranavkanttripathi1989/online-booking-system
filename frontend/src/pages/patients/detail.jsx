@@ -6,7 +6,7 @@ import { useSnackbar } from 'notistack'
 import {
   Box, Button, Avatar, Typography, Chip, Tabs, Tab, Grid, Card, CardContent,
   Stack, Divider, IconButton, Tooltip, Paper, Table, TableBody, TableCell,
-  TableHead, TableRow, LinearProgress, Badge, Dialog, DialogTitle, DialogContent,
+  TableContainer, TableHead, TableRow, LinearProgress, Badge, Dialog, DialogTitle, DialogContent,
   DialogActions, List, ListItem, ListItemIcon, ListItemText, Switch,
   FormControlLabel, TextField, MenuItem, RadioGroup, Radio, FormControl, FormLabel,
 } from '@mui/material'
@@ -559,29 +559,31 @@ export default function PatientDetailPage() {
 
           {/* ── Appointments ─────────────────────────────────────────────── */}
           <TabPanel value={tab} index={2}>
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ '& th': { fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', bgcolor: '#F8FAFC' } }}>
-                  <TableCell>Date & Time</TableCell>
-                  <TableCell>Clinician</TableCell>
-                  <TableCell>Service</TableCell>
-                  <TableCell>Status</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {MOCK_APPOINTMENTS.map((a) => {
-                  const Icon = STATUS_ICONS[a.status] || CheckCircleRoundedIcon
-                  return (
-                    <TableRow key={a.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{dayjs(a.date).format('DD/MM/YYYY, h:mm A')}</TableCell>
-                      <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.clinician}</TableCell>
-                      <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.service}</TableCell>
-                      <TableCell><Chip icon={<Icon sx={{ fontSize: '0.85rem !important' }} />} label={a.status} color={STATUS_COLORS[a.status] || 'default'} size="small" sx={{ fontWeight: 700, textTransform: 'capitalize', fontSize: '0.72rem' }} /></TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ '& th': { fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', textTransform: 'uppercase', letterSpacing: '0.06em', bgcolor: '#F8FAFC' } }}>
+                    <TableCell>Date & Time</TableCell>
+                    <TableCell>Clinician</TableCell>
+                    <TableCell>Service</TableCell>
+                    <TableCell>Status</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {MOCK_APPOINTMENTS.map((a) => {
+                    const Icon = STATUS_ICONS[a.status] || CheckCircleRoundedIcon
+                    return (
+                      <TableRow key={a.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{dayjs(a.date).format('DD/MM/YYYY, h:mm A')}</TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.clinician}</TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.service}</TableCell>
+                        <TableCell><Chip icon={<Icon sx={{ fontSize: '0.85rem !important' }} />} label={a.status} color={STATUS_COLORS[a.status] || 'default'} size="small" sx={{ fontWeight: 700, textTransform: 'capitalize', fontSize: '0.72rem' }} /></TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </TabPanel>
 
           {/* ── Test Results ────────────────────────────────────────────── */}

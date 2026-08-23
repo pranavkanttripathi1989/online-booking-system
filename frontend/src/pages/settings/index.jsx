@@ -6,7 +6,7 @@ import {
   Box, Button, Typography, Tabs, Tab, Grid, Card, CardContent, Stack, Divider,
   TextField, Avatar, Switch, FormControlLabel, Paper, IconButton,
   Slider, Radio, RadioGroup, FormControl, FormLabel, MenuItem, Alert,
-  Tooltip, Table, TableBody, TableCell, TableHead, TableRow,
+  Tooltip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions,
 } from '@mui/material'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
@@ -687,34 +687,40 @@ export default function SettingsPage() {
           {/* ── Notifications ────────────────────────────────────────────── */}
           <TabPanel value={tab} index={2}>
             <Typography variant="body2" sx={{ color: 'text.secondary', mb: 3 }}>Choose how you want to be notified for each event type.</Typography>
-            <Paper variant="outlined" sx={{ borderRadius: 2.5, overflow: 'hidden' }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ '& th': { fontWeight: 800, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.10em', bgcolor: '#F8F9FA', color: '#9AA0A6' } }}>
-                    <TableCell sx={{ width: '50%' }}>Event</TableCell>
-                    <TableCell align="center">Email</TableCell>
-                    <TableCell align="center">SMS</TableCell>
-                    <TableCell align="center">In-App</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {NOTIF_ROWS.map((row) => (
-                    <TableRow key={row.event_type} sx={{ '&:last-child td': { border: 0 } }}>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{row.label}</TableCell>
-                      {['email', 'sms', 'app'].map(ch => (
-                        <TableCell key={ch} align="center">
-                          <Switch
-                            size="small"
-                            checked={!!notifPrefs[row.event_type]?.[`${ch}_enabled`]}
-                            onChange={() => toggleNotif(row.event_type, ch)}
-                            color="success"
-                          />
-                        </TableCell>
-                      ))}
+            <Paper variant="outlined" sx={{ borderRadius: 2.5 }}>
+              {/* P2.6: this Paper's own overflow:'hidden' was clipping the
+                  "In-App" column outright at narrow widths -- CLAUDE.md's
+                  documented case where document.scrollWidth>clientWidth does
+                  NOT catch the defect. TableContainer now owns the scroll. */}
+              <TableContainer sx={{ borderRadius: 2.5 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ '& th': { fontWeight: 800, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.10em', bgcolor: '#F8F9FA', color: '#9AA0A6' } }}>
+                      <TableCell sx={{ width: '50%' }}>Event</TableCell>
+                      <TableCell align="center">Email</TableCell>
+                      <TableCell align="center">SMS</TableCell>
+                      <TableCell align="center">In-App</TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHead>
+                  <TableBody>
+                    {NOTIF_ROWS.map((row) => (
+                      <TableRow key={row.event_type} sx={{ '&:last-child td': { border: 0 } }}>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{row.label}</TableCell>
+                        {['email', 'sms', 'app'].map(ch => (
+                          <TableCell key={ch} align="center">
+                            <Switch
+                              size="small"
+                              checked={!!notifPrefs[row.event_type]?.[`${ch}_enabled`]}
+                              onChange={() => toggleNotif(row.event_type, ch)}
+                              color="success"
+                            />
+                          </TableCell>
+                        ))}
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </Paper>
             <Button variant="contained" disabled={savingNotifs} startIcon={<SaveRoundedIcon />} onClick={handleSaveNotifications}
               sx={{ mt: 3, borderRadius: 2.5, textTransform: 'none', fontWeight: 700,

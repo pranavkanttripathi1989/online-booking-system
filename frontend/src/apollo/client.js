@@ -49,7 +49,7 @@ const authLink = setContext((_, { headers }) => {
 // blank /login with no visible feedback. Now only auto-logs-out when a
 // token was actually present (i.e. an established session's token was
 // rejected mid-use) — a pre-auth failure has no token to invalidate.
-const errorLink = onError(({ graphQLErrors, networkError }) => {
+const errorLink = onError(({ graphQLErrors }) => {
   if (graphQLErrors) {
     graphQLErrors.forEach(({ extensions }) => {
       if (extensions?.code === 'UNAUTHENTICATED' && localStorage.getItem('medibook_token')) {
@@ -59,10 +59,11 @@ const errorLink = onError(({ graphQLErrors, networkError }) => {
       }
     })
   }
-  if (networkError) {
-    // Silently swallow network errors when backend is offline (demo mode)
-    console.debug('[MediBook] Backend offline — using mock data.')
-  }
+  // P2.7: removed the "Backend offline — using mock data" debug line.
+  // errorPolicy: 'all' below already lets a query's own error surface to
+  // its component (partial data + a real error, not silently swallowed) --
+  // this handler's job is only the auto-logout above, not narrating a
+  // fallback that most domains no longer have.
 })
 
 const apolloClient = new ApolloClient({

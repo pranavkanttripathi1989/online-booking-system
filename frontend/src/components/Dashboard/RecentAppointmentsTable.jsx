@@ -1,5 +1,5 @@
 import {
-  Table, TableHead, TableBody, TableRow, TableCell,
+  Table, TableContainer, TableHead, TableBody, TableRow, TableCell,
   Chip, IconButton, Typography, Box, Tooltip, Avatar, Button,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
@@ -43,30 +43,6 @@ function StatusBadge({ status }) {
   )
 }
 
-// ─── Mock data ─────────────────────────────────────────────────────────────────
-const MOCK = [
-  { id: '1', start_datetime: new Date().toISOString(),                    status: 'confirmed',
-    patient:  { id: '1', full_name: 'Alice Johnson' },
-    clinician:{ id: '1', full_name: 'Dr Smith' },
-    service:  { id: '1', name: 'General Consultation' } },
-  { id: '2', start_datetime: new Date(Date.now() + 3600000).toISOString(), status: 'pending',
-    patient:  { id: '2', full_name: 'Bob Williams' },
-    clinician:{ id: '2', full_name: 'Dr Patel' },
-    service:  { id: '2', name: 'Physiotherapy' } },
-  { id: '3', start_datetime: new Date(Date.now() + 7200000).toISOString(), status: 'cancelled',
-    patient:  { id: '3', full_name: 'Carol Davis' },
-    clinician:{ id: '3', full_name: 'Dr Nguyen' },
-    service:  { id: '3', name: 'Dental Check-up' } },
-  { id: '4', start_datetime: new Date(Date.now() + 10800000).toISOString(), status: 'confirmed',
-    patient:  { id: '4', full_name: 'David Martinez' },
-    clinician:{ id: '1', full_name: 'Dr Smith' },
-    service:  { id: '1', name: 'General Consultation' } },
-  { id: '5', start_datetime: new Date(Date.now() + 14400000).toISOString(), status: 'no_show',
-    patient:  { id: '5', full_name: 'Emma Wilson' },
-    clinician:{ id: '2', full_name: 'Dr Patel' },
-    service:  { id: '4', name: 'Cardiology Review' } },
-]
-
 // ─── Table ─────────────────────────────────────────────────────────────────────
 export default function RecentAppointmentsTable({ appointments }) {
   const navigate = useNavigate()
@@ -74,9 +50,13 @@ export default function RecentAppointmentsTable({ appointments }) {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const isTablet = useMediaQuery(theme.breakpoints.down('md'))
 
-  const rows = (appointments && appointments.length > 0)
-    ? appointments.slice(0, 5)
-    : MOCK
+  // P2.7/F-15-adjacent fix: this used to fall back to 5 fabricated rows
+  // ("Emma Wilson"/"Dr Smith"/...) whenever `appointments` was a real but
+  // empty array -- an empty result, not an error, treated as "no backend"
+  // (the same defect class BUG009 already fixed in appointments/index.jsx
+  // and calendar/index.jsx). A dashboard with genuinely zero upcoming
+  // appointments now shows a real empty state instead of fake ones.
+  const rows = (appointments ?? []).slice(0, 5)
 
   return (
     <Box>
@@ -91,6 +71,12 @@ export default function RecentAppointmentsTable({ appointments }) {
         </Button>
       </Box>
 
+      {rows.length === 0 ? (
+        <Box sx={{ py: 5, textAlign: 'center', color: 'text.secondary' }}>
+          <Typography variant="body2">No upcoming appointments.</Typography>
+        </Box>
+      ) : (
+      <TableContainer>
       <Table size="small">
         <TableHead>
           <TableRow>
@@ -159,6 +145,8 @@ export default function RecentAppointmentsTable({ appointments }) {
           ))}
         </TableBody>
       </Table>
+      </TableContainer>
+      )}
     </Box>
   )
 }
