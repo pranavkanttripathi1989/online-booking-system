@@ -50,6 +50,34 @@ fixed and a real submission reached this field for the first time.
   `textTransform: capitalize` summary label elsewhere on the page; renaming
   to `'in_person'` would render as "In_person Consultation".
 
+## 3. The wizard was fully bookable with no real clinician/products behind it
+
+**Approach:** the exact payload the user pasted (`clinicianId:
+"mock-clinician"`, `productId: "svc-1"`) traced back to two independent
+mock-fallback branches — a hardcoded fake clinician object (duplicated in
+`renderStep0` and `renderStep3`) reachable whenever `/appointments/book` is
+visited with no `?doctor=` id, and a hardcoded fake 3-service list in
+`renderStep2` reachable whenever a real clinician's real `getProducts`
+result is a genuinely empty array (an empty result, not an error — the same
+defect class `BUG009` already fixed elsewhere). Neither branch stopped a
+visitor from completing the entire wizard against fake data; the only
+enforcement was the real backend rejecting the fake ids at the final
+mutation.
+
+- Add a single top-level guard in `BookingWizard`: `!clinicianId` renders a
+  "No doctor selected" notice with a link to `/`, before the stepper (and
+  the mock branches inside it) ever renders.
+- Delete both `mock-clinician` object literals and the mock-slots fallback
+  in `availableSlots()` — all three become unreachable dead code once the
+  guard makes `clinicianId` (and therefore a populated `qData`) always real
+  by the time the stepper renders.
+- Replace `renderStep2`'s mock-products fallback with a real
+  "no bookable services configured" info state on a genuinely empty
+  `getProducts` result, rather than substituting fake services.
+- Did not build a real "browse all doctors" page for the guard's CTA to
+  link to instead of `/` — no such page exists yet, and building one is new
+  scope, not part of this fix.
+
 ## Verification plan
 
 See `TP062`.

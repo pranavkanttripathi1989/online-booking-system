@@ -389,30 +389,13 @@ export default function BookingWizard() {
   };
 
   const renderStep0 = () => {
-    // BUG-005 fix: when navigated from /appointments/book (no :clinicianId in URL),
-    // qData will be undefined (query is skipped). Fall back to mock clinician data.
-    const clinician = qData?.getClinician ?? (
-      !clinicianId ? {
-        id: 'mock-clinician',
-        name: 'Dr. Sarah Mitchell',
-        clinicianType: 'General Practitioner',
-        clinic: { id: 'clinic-1', name: 'HealthSync Medical Centre' },
-      } : null
-    );
+    // clinicianId is always real by this point -- the top-level !clinicianId
+    // guard above returns before the stepper ever renders.
+    const clinician = qData?.getClinician;
     if (!clinician) return <Alert severity="warning">Clinician not found</Alert>;
 
     const availableSlots = () => {
-      // BUG-005: if no backend availability, generate mock slots (09:00–17:00, 30-min intervals)
-      if (!qData?.getClinicianAvailability || !bookingData.date) {
-        const mockSlots = [];
-        let current = dayjs(`${bookingData.date.format('YYYY-MM-DD')}T09:00`);
-        const end    = dayjs(`${bookingData.date.format('YYYY-MM-DD')}T17:00`);
-        while (current.isBefore(end)) {
-          mockSlots.push(current.format('HH:mm'));
-          current = current.add(30, 'minute');
-        }
-        return mockSlots;
-      }
+      if (!qData?.getClinicianAvailability?.length) return [];
       // BUG011: getClinicianAvailability returns dayOfWeek as a real Int
       // (0=Sunday..6=Saturday, matching dayjs().day() and the backend's own
       // availableSlots() getUTCDay() convention) -- this used to compare it
@@ -541,14 +524,17 @@ export default function BookingWizard() {
   );
 
   const renderStep2 = () => {
-    const products = qData?.getProducts?.length
-      ? qData.getProducts
-      // BUG-005 mock fallback: provide demo services when backend not available
-      : [
-          { id: 'svc-1', name: 'General Consultation',      description: 'Standard 30-minute consultation with Dr. Sarah Mitchell.', price: 75,  product_type: 'simple',   variations: [], cancellation_rules: { hoursNoticeRequired: 24 } },
-          { id: 'svc-2', name: 'Video Consultation',         description: 'Remote 30-minute video call consultation.',                  price: 60,  product_type: 'simple',   variations: [], cancellation_rules: { hoursNoticeRequired: 12 } },
-          { id: 'svc-3', name: 'Extended Consultation',      description: '60-minute in-depth appointment for complex cases.',          price: 120, product_type: 'simple',   variations: [], cancellation_rules: { hoursNoticeRequired: 48 } },
-        ];
+    // Previously fell back to 3 fake services (ids 'svc-1'/'svc-2'/'svc-3',
+    // none of which exist in the database) whenever this real clinician had
+    // zero linked products -- an empty real result, not an error, silently
+    // treated as "backend unavailable". Selecting one of those and
+    // continuing always failed at the final step with "Product not found",
+    // the same failure class as the clinicianId bug above.
+    const products = qData?.getProducts ?? [];
+
+    if (!products.length) {
+      return <Alert severity="info">This doctor has no bookable services configured yet.</Alert>;
+    }
 
     return (
       <Box>
@@ -614,16 +600,11 @@ export default function BookingWizard() {
   };
 
   const renderStep3 = () => {
-    // BUG-005: same mock clinician fallback as renderStep0
-    const clinician = qData?.getClinician ?? (
-      !clinicianId ? {
-        id: 'mock-clinician',
-        name: 'Dr. Sarah Mitchell',
-        clinic: { name: 'HealthSync Medical Centre' },
-      } : null
-    );
+    // clinicianId is always real by this point -- see the top-level
+    // !clinicianId guard.
+    const clinician = qData?.getClinician;
 
-    const price = bookingData.variation 
+    const price = bookingData.variation
       ? bookingData.variation.price 
       : bookingData.product?.price || 0;
 
@@ -649,6 +630,23 @@ export default function BookingWizard() {
   };
 
   const activePrice = bookingData.variation ? bookingData.variation.price : (bookingData.product?.price || 0);
+
+  // No ?doctor= id at all -- this route is only ever meant to be reached
+  // with one (from DoctorProfile's "Book Appointment" button, or a shared
+  // booking link). Previously fell through to a hardcoded 'mock-clinician'/
+  // 'Dr. Sarah Mitchell' object that let a visitor complete the entire
+  // wizard and only fail at the final "Confirm and Pay" step
+  // (bookPatientAppointment rejecting the fake id with "Clinician not
+  // found") -- every field filled in for nothing. Stop before the wizard
+  // starts instead.
+  if (!clinicianId) {
+    return (
+      <Box p={4} maxWidth="sm" mx="auto" textAlign="center">
+        <Alert severity="warning" sx={{ mb: 3 }}>No doctor selected. Please choose a doctor to book an appointment with.</Alert>
+        <Button variant="contained" onClick={() => navigate('/')}>Find a Doctor</Button>
+      </Box>
+    );
+  }
 
   if (qLoading) return <Box p={5} display="flex" justifyContent="center"><CircularProgress /></Box>;
   if (qError) return <Box p={4}><Alert severity="error">Failed to load data: {qError.message}</Alert></Box>;

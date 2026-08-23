@@ -24,14 +24,19 @@ real `medibook_db`), on `master`.
 | TC-04 pre-fix `type` reproduces the reported error | **pass** | `curl` with `type: "in person"`-style invalid value reproduced `BAD_REQUEST`: `type must be one of the following values: in_person, video, home_visit` — matches the user's second pasted report exactly |
 | TC-05 fixed `type` succeeds | **pass** | `curl` with `type: "in_person"`, real clinician, real linked product — returned `{"data":{"bookPatientAppointment":{"id":"d69b7a0b-5150-42d7-a49a-5048ac68cb57"}}}`, zero errors |
 | TC-06 cleanup | **pass** | The verification appointment (`d69b7a0b-...`) and patient (`verify-fix2@medibook.dev`) rows deleted from `medibook_db` immediately after TC-05 |
+| TC-07 real data behind the guard | **pass** | `curl` query for clinician `8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7` returned `{"getClinician":{"id":"8e9ed6bf-...","name":"Sarah Mitchell"},"getProducts":[{"id":"caa89f8e-...","name":"GP Consultation","price":499}]}` — real data, confirming the wizard's real path still works after removing the mock branches |
+| TC-08 lint | **pass** | `npx eslint src/pages/booking/index.jsx`: 0 errors, 2 pre-existing warnings (`useMemo` unused import, a `useEffect` exhaustive-deps note) confirmed via `git diff` to predate this change |
 
 ## Static checks
 
-Two small, localized changes (`patientDetails` object construction, one
-ternary on `type`), no new imports, no lint-relevant surface change beyond
-the touched lines.
+Five changes to the same file: `patientDetails` object construction, a
+ternary on `type`, a top-level `!clinicianId` guard, and removal of three
+now-dead/now-wrong mock-fallback branches (`renderStep0`, `renderStep2`,
+`renderStep3`, `availableSlots()`). No new imports beyond what already
+existed.
 
 ## Commits
 
-`a038e5b` (defect 1 — `patientDetails` shape), plus a follow-up commit for
-defect 2 (`type` value mapping) — see git log for the exact SHA.
+`a038e5b` (defect 1 — `patientDetails` shape), `78c64cb` (defect 2 — `type`
+value mapping), plus a follow-up commit for defect 3 (the mock-fallback
+removal) — see git log for the exact SHA.

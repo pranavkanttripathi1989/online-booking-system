@@ -14,12 +14,11 @@ related: [BUG011]
 ## Severity
 
 S1. `BUG011` fixed the wizard so it fetches and renders real clinician/
-availability data, but the mutation that actually books the appointment —
-the entire point of the flow — always errored out for every real user, on
-every attempt, both before and after that fix. Live-reported by the user
-pasting a real GraphQL error from manual testing, in two separate rounds —
-fixing the first defect below (`patientDetails`) surfaced the second
-(`type`) as soon as a real submission got past it.
+availability data when reached with a real `?doctor=` id, but three
+independent defects in the same file still let every real submission fail
+or let a fake one through undetected. Live-reported by the user pasting
+three separate real GraphQL errors from manual testing — fixing each
+surfaced the next as soon as a real submission got past it.
 
 ## Defect 1 — extra fields on `patientDetails`
 
@@ -103,16 +102,66 @@ would render as "In_person Consultation"):
 type: bookingData.appointmentType === 'inperson' ? 'in_person' : bookingData.appointmentType,
 ```
 
+## Defect 3 — the wizard was fully bookable with zero real data behind it
+
+The root cause of the exact payload the user pasted
+(`clinicianId: "mock-clinician"`, `productId: "svc-1"`): `/appointments/book`
+visited with no `?doctor=` query string (`clinicianId` is `undefined`) fell
+back to a hardcoded `{id: 'mock-clinician', name: 'Dr. Sarah Mitchell', ...}`
+object in `renderStep0`, and a *second*, independently-hardcoded copy of the
+same fake clinician in `renderStep3` (used by `PaymentForm`). Neither
+`GET_CLINICIAN_AND_PRODUCTS` query was skipped only when
+`clinicianId` was falsy, but the mock object was rendered in its place, and
+nothing anywhere blocked the wizard from being filled out and submitted
+against it. A separate mock-fallback in `renderStep2` compounded this: three
+hardcoded fake services (`svc-1`/`svc-2`/`svc-3`) rendered whenever
+`qData?.getProducts` was an empty array — an empty *real* result, not a
+query error, treated the same as "no backend" (the same defect class
+`BUG009`'s Priority 3 sweep already found and fixed in
+`appointments/index.jsx`/`calendar/index.jsx`). A visitor could fill in
+every step of a fully fake booking and only discover it was fake at the
+very last click, `bookPatientAppointment` rejecting the fabricated
+`clinicianId`/`productId` with `BAD_REQUEST`/`Clinician not found` (or,
+had that check not existed, `Product not found` next).
+
+## Fix (defect 3)
+
+- Added a top-level guard in `BookingWizard`: if `clinicianId` is falsy,
+  render a "No doctor selected" notice with a link back to `/`, before the
+  stepper (and therefore the mock branches) ever render. `/appointments/book`
+  is only ever meant to be reached with a `?doctor=` id (from
+  `DoctorProfile`'s button, or a shared link) — there is deliberately no
+  "browse all doctors then book" flow to redirect to instead, since no real
+  public doctor-directory page exists yet (`pages/public/landing.jsx` is
+  still 100% mock, a separate, pre-existing, already-documented gap).
+- Removed both now-unreachable `mock-clinician` object literals
+  (`renderStep0`, `renderStep3`) — dead code once the guard above makes
+  `clinicianId` always real by the time either renders.
+- Removed the mock-slots fallback in `availableSlots()` similarly — it
+  checked `!qData?.getClinicianAvailability`, which (once `qLoading`/`qError`
+  have already returned) can only be true if the field itself is missing,
+  not merely empty; with `clinicianId` always real now, `qData` is always
+  populated and this branch was already effectively dead. A real empty
+  array now correctly falls through to the page's pre-existing "No
+  availability for this date" empty state.
+- Replaced `renderStep2`'s mock-products fallback (triggered on any real
+  empty `getProducts` result, not just an error) with a real
+  "no bookable services configured" info state — matching the fix pattern
+  already established for the same "empty vs. error" defect class elsewhere
+  in this codebase.
+
 ## Verification
 
-Both defects independently reproduced and independently fixed against the
-real running backend (not a mock/isolated environment) — same method both
-times: reproduce the exact reported error via a direct `curl` GraphQL call
-with the pre-fix payload shape, apply the fix, re-run the identical call
-with the corrected shape and confirm a real created appointment id. Both
-rounds' verification appointment/patient rows were deleted from the dev
-database afterward — these were ad hoc live-verification calls, not seeded
-fixtures. See `TR061`.
+Defects 1 and 2 independently reproduced and fixed against the real running
+backend — reproduce the exact reported error via a direct `curl` GraphQL
+call with the pre-fix payload shape, apply the fix, re-run the identical
+call with the corrected shape and confirm a real created appointment id.
+Both rounds' verification rows were deleted from the dev database
+afterward. Defect 3 confirmed via a direct query for the real demo
+clinician's `getClinician`/`getProducts` fields (both populated — the real
+data the wizard now renders once past the guard) plus a full-file `eslint`
+pass (0 errors; the 2 remaining warnings pre-exist this change, confirmed
+via `git diff`). See `TR061`.
 
 ## What this does not close
 
@@ -126,11 +175,18 @@ fixtures. See `TR061`.
   change, and not attempted here. Logged as an open question below rather
   than guessed at.
 - No unit test exists for `handlePayAndBook`'s mutation-variable
-  construction — only this ad hoc live-verification call and the pre-existing
-  e2e specs, neither of which exercised this exact path before. A future
-  change reintroducing an extra field on `bookingData.patient` (or on the
-  mutation call) would not be caught by the current test suite.
+  construction, `renderStep2`'s empty-products state, or the top-level
+  `!clinicianId` guard — only ad hoc live-verification calls and the
+  pre-existing e2e specs, none of which exercised any of these three paths
+  before. A future change could reintroduce any of them with no unit-level
+  guard rail; only e2e coverage would catch it.
 - Did not audit whether `bookAppointment`/`createAppointment` (the
   authenticated, non-public booking paths) have the same class of "extra
-  local-state field sent verbatim" risk — out of scope for this specific
-  live-reported error.
+  local-state field sent verbatim" or "empty-result-treated-as-mock-fallback"
+  risk — out of scope for this specific live-reported chain, but the same
+  pattern is worth checking there.
+- No real public "find/browse a doctor" page exists to link the new
+  "No doctor selected" guard's CTA to something more specific than `/` —
+  it links to the landing page, which is itself still 100% mock
+  (pre-existing, documented separately in `CLAUDE.md`'s frontend
+  mock-fallback section). Not addressed here.
