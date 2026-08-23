@@ -172,11 +172,19 @@ export class MessagesService {
     });
     if (!participant) throw new NotFoundException('Thread not found');
 
-    const assignee = await this.prisma.userProfiles.findFirst({ where: { id: assigneeUserId, is_deleted: false } });
-    if (!assignee) throw new NotFoundException('Assignee not found');
-
     const thread = await this.prisma.messageThreads.findUnique({ where: { id: threadId } });
     if (!thread) throw new NotFoundException('Thread not found');
+
+    // Cross-tenant gap: the assignee lookup had no org check at all, so any
+    // thread participant could assign (and thereby grant thread-read access
+    // to, via the participant upsert below) a user from a completely
+    // different org. Same not-found rejection for "doesn't exist" and
+    // "exists but wrong org" -- never confirm cross-tenant existence,
+    // matching assertSameOrg()'s convention elsewhere in this codebase.
+    const assignee = await this.prisma.userProfiles.findFirst({ where: { id: assigneeUserId, is_deleted: false } });
+    if (!assignee || assignee.client_org_id !== thread.client_org_id) {
+      throw new NotFoundException('Assignee not found');
+    }
 
     await this.prisma.$transaction(async (tx) => {
       await tx.messageThreads.update({

@@ -2,6 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| messaging | 1 | 0 | 0 | 0 | 1 | 2026-08-23 | [messaging](./messaging/README.md) |
 | catalog-master-data | 1 | 1 | 0 | 0 | 2 | 2026-08-23 | [catalog-master-data](./catalog-master-data/README.md) |
 | organizations | 1 | 1 | 0 | 0 | 2 | 2026-08-23 | [organizations](./organizations/README.md) |
 | queue-management | 0 | 1 | 0 | 0 | 1 | 2026-08-23 | [queue-management](./queue-management/README.md) |

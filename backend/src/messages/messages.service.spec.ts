@@ -218,7 +218,10 @@ describe('MessagesService', () => {
   });
 
   describe('assignThread (REQ043)', () => {
-    const assigneeProfile = { id: 'user-other', is_deleted: false };
+    // Same org as thread1 ('org-a') -- represents the real happy-path
+    // assignee. Tests exercising the cross-tenant rejection below override
+    // client_org_id explicitly rather than relying on this default.
+    const assigneeProfile = { id: 'user-other', is_deleted: false, client_org_id: 'org-a' };
 
     it('rejects a caller who is not a participant of the thread', async () => {
       prisma.messageParticipants.findUnique.mockResolvedValue(null);
@@ -227,8 +230,24 @@ describe('MessagesService', () => {
 
     it('rejects an assignee that does not exist', async () => {
       prisma.messageParticipants.findUnique.mockResolvedValue(participantRow('user-me'));
+      prisma.messageThreads.findUnique.mockResolvedValue(thread1);
       prisma.userProfiles.findFirst.mockResolvedValue(null);
       await expect(service.assignThread('thread-1', 'user-ghost', meUser)).rejects.toThrow(NotFoundException);
+    });
+
+    // REQ043 cross-tenant fix: assignThread's assignee lookup had no org
+    // check at all -- any thread participant could assign (and thereby
+    // grant thread-read access to, via the participant upsert) a user from
+    // a completely different org. Same rejection as "assignee doesn't
+    // exist" -- never confirm cross-tenant existence.
+    it('rejects an assignee who belongs to a different org than the thread, never confirming they exist', async () => {
+      prisma.messageParticipants.findUnique.mockResolvedValue(participantRow('user-me'));
+      prisma.messageThreads.findUnique.mockResolvedValue(thread1); // client_org_id: 'org-a'
+      prisma.userProfiles.findFirst.mockResolvedValue({ id: 'user-other-org', is_deleted: false, client_org_id: 'org-b' });
+
+      await expect(service.assignThread('thread-1', 'user-other-org', meUser)).rejects.toThrow(
+        new NotFoundException('Assignee not found'),
+      );
     });
 
     it('sets assigned_to_user_id and starts the SLA clock on first assignment', async () => {
