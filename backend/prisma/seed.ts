@@ -68,14 +68,40 @@ async function main() {
     'products', 'billing', 'reviews', 'messages', 'roles', 'settings', 'reports',
   ];
   const PERMISSION_ACTIONS = ['view', 'create', 'edit', 'delete', 'export'];
+  const allPermissionIds: string[] = [];
   for (const resource of PERMISSION_RESOURCES) {
     for (const action of PERMISSION_ACTIONS) {
       const name = `${resource}.${action}`;
-      await prisma.permissions.upsert({
+      const permission = await prisma.permissions.upsert({
         where: { name },
         update: {},
         create: { name, resource, action, description: `${action.charAt(0).toUpperCase()}${action.slice(1)} ${resource.replace('_', ' ')}` },
       });
+      allPermissionIds.push(permission.id);
+    }
+  }
+
+  // REQ049/REQ015 (US-SEC-02) -- RolePermissions itself was never seeded
+  // either, which is *why* nothing ever enforced it (nothing to enforce).
+  // admin/super_admin get every seeded permission: they are the platform-
+  // wide operator roles (client_org_id: null, see orgScope()'s own
+  // isPlatformOperator concept) who already reach every mutation these
+  // permissions gate via their existing @Auth('admin','super_admin') role
+  // checks -- granting the matching permissions preserves today's real
+  // access exactly, it does not add a new capability. `manager` is
+  // deliberately NOT granted a blanket set here: which of the 60
+  // permissions a manager should hold is a real product decision (Hard
+  // Rule 10), not something to invent while wiring the guard itself.
+  console.log('Seeding role permissions (admin/super_admin get every seeded permission)...');
+  for (const roleName of ['admin', 'super_admin']) {
+    const role = roleRecords[roleName];
+    for (const permissionId of allPermissionIds) {
+      const existing = await prisma.rolePermissions.findFirst({
+        where: { role_id: role.id, permission_id: permissionId },
+      });
+      if (!existing) {
+        await prisma.rolePermissions.create({ data: { role_id: role.id, permission_id: permissionId } });
+      }
     }
   }
 

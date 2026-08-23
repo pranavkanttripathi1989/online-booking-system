@@ -64,6 +64,20 @@ export class AuthService {
     return `auth:user:${userId}:refresh_tokens`;
   }
 
+  // REQ049/REQ015 (US-SEC-02) — resolved once per login/refresh, embedded in
+  // the JWT (common/guards/permissions.guard.ts reads it from there, never
+  // re-queries this table per-request). A role with no RolePermissions rows
+  // at all (every non-system, not-yet-configured custom role) correctly
+  // resolves to an empty list, not "every permission" -- there is no
+  // ternary here to get backwards the way the client_org_id one was (F-01).
+  private async resolvePermissions(roleId: string): Promise<string[]> {
+    const grants = await this.prisma.rolePermissions.findMany({
+      where: { role_id: roleId, is_deleted: false },
+      include: { permission: true },
+    });
+    return grants.map((g) => g.permission.name);
+  }
+
   // Builds the exact `user { ... }` shape frontend/src/graphql/mutations.js's
   // LOGIN_MUTATION requests — including the nested clinician/clinician_type
   // object, which doesn't map to a real FK yet (see user.entity.ts comment).
@@ -134,6 +148,7 @@ export class AuthService {
       email: string;
       first_name: string;
       last_name: string;
+      role_id: string;
       role: { name: string };
       clinician_id: string | null;
       client_org_id: string | null;
@@ -142,12 +157,14 @@ export class AuthService {
     },
     userAgent?: string,
   ): Promise<AuthPayloadType> {
+    const permissions = await this.resolvePermissions(userProfile.role_id);
     const payload = {
       sub: userProfile.id,
       roles: [userProfile.role.name],
       client_org_id: userProfile.client_org_id,
       patient_id: userProfile.patient_id ?? null,
       clinician_id: userProfile.clinician_id ?? null,
+      permissions,
     };
     const access_token = this.jwt.sign(payload, {
       secret: process.env.JWT_ACCESS_SECRET,

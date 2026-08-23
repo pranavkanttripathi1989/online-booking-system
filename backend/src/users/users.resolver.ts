@@ -4,6 +4,7 @@ import { AdminUserType, PermissionType, RolePermissionType, AuditLogType, AppRol
 import { UserInput, UserUpdateInput, AppRoleInput } from './dto/user-admin.input';
 import { AuthUserType, RoleType } from '../auth/entities/user.entity';
 import { Auth } from '../common/decorators/auth.decorator';
+import { RequirePermission } from '../common/decorators/permissions.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
@@ -95,7 +96,15 @@ export class UsersResolver {
     return this.usersService.updateRole(id, input);
   }
 
+  // REQ049/REQ015 (US-SEC-02) -- the one mutation this session wires as
+  // proof the guard is real, not just declared. @Auth already restricts
+  // this to admin/super_admin; @RequirePermission adds a second, genuinely
+  // independent check against the caller's actual granted permissions
+  // (seed.ts grants both roles every permission today, so this changes
+  // nothing about who can call it right now -- it changes what happens
+  // once a real deployment edits RolePermissions to narrow that).
   @Auth('admin', 'super_admin')
+  @RequirePermission('roles.delete')
   @Mutation(() => Boolean)
   deleteRole(@Args('id', { type: () => ID }) id: string) {
     return this.usersService.deleteRole(id);

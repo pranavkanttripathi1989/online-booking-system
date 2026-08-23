@@ -38,6 +38,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DrugsModule } from './drugs/drugs.module';
 import { OrganizationOnboardingModule } from './organization-onboarding/organization-onboarding.module';
 import { RolesGuard } from './common/guards/roles.guard';
+import { PermissionsGuard } from './common/guards/permissions.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { GqlAuthGuard } from './common/guards/gql-auth.guard';
 import { IpWhitelistGuard } from './common/guards/ip-whitelist.guard';
@@ -128,6 +129,11 @@ import { PubSubModule } from './common/pubsub.module';
     { provide: APP_GUARD, useClass: GqlThrottlerGuard },
     { provide: APP_GUARD, useClass: GqlAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    // REQ049/REQ015 — runs after role-check (a caller who already failed
+    // @Roles() never reaches here), enforces @RequirePermission() against
+    // the caller's real, server-resolved permission set. A resolver with
+    // neither decorator is unaffected by either guard.
+    { provide: APP_GUARD, useClass: PermissionsGuard },
     // REQ012/PLAN021 — runs last (req.user and its role are already
     // verified), enforces the org's own IP whitelist for manager-role
     // callers only. See the guard's own file for the deliberate

@@ -18,6 +18,7 @@ describe('AuthService', () => {
   let prisma: {
     userProfiles: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     userRoles: { findFirst: jest.Mock; create: jest.Mock };
+    rolePermissions: { findMany: jest.Mock };
     clinicians: { findUnique: jest.Mock };
     patients: { findUnique: jest.Mock };
     users: { create: jest.Mock };
@@ -48,6 +49,7 @@ describe('AuthService', () => {
     phone: '+919810000000',
     password_reset_token: null,
     password_reset_expires: null,
+    role_id: 'role-manager',
     role: { name: 'manager' },
     ...overrides,
   });
@@ -56,6 +58,10 @@ describe('AuthService', () => {
     prisma = {
       userProfiles: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
       userRoles: { findFirst: jest.fn(), create: jest.fn() },
+      // REQ049/REQ015 — defaults to no grants so every pre-existing test in
+      // this file (none of which care about permissions) gets an empty
+      // array rather than a crash on an unmocked call.
+      rolePermissions: { findMany: jest.fn().mockResolvedValue([]) },
       clinicians: { findUnique: jest.fn() },
       patients: { findUnique: jest.fn() },
       users: { create: jest.fn() },
@@ -157,6 +163,39 @@ describe('AuthService', () => {
         expect.objectContaining({ sub: 'user-1', client_org_id: 'org-tenant-a' }),
         expect.anything(),
       );
+    });
+
+    // REQ049/REQ015 (US-SEC-02) — the whole point of the guard is that it
+    // reads this array, not the role name; if resolvePermissions() silently
+    // resolved from the wrong role_id or dropped the join, the guard would
+    // pass or fail every request for the wrong reason.
+    it("resolves the caller's granted permissions from RolePermissions/Permissions and embeds them in the signed JWT", async () => {
+      redis.get.mockResolvedValueOnce(null);
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ role_id: 'role-manager' }));
+      prisma.rolePermissions.findMany.mockResolvedValue([
+        { permission: { name: 'roles.view' } },
+        { permission: { name: 'roles.edit' } },
+      ]);
+
+      await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+
+      expect(prisma.rolePermissions.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ role_id: 'role-manager', is_deleted: false }) }),
+      );
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ permissions: ['roles.view', 'roles.edit'] }),
+        expect.anything(),
+      );
+    });
+
+    it('embeds an empty permissions array for a role with zero RolePermissions rows, not undefined or every permission', async () => {
+      redis.get.mockResolvedValueOnce(null);
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile());
+      prisma.rolePermissions.findMany.mockResolvedValue([]);
+
+      await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+
+      expect(jwt.sign).toHaveBeenCalledWith(expect.objectContaining({ permissions: [] }), expect.anything());
     });
 
     it("embeds the caller's own patient_id/clinician_id in the signed JWT (TC-AUTH-UNIT-003) -- the entire patient/clinician self-scoping fix (TC-AUTH-API-008/009) rests on these being correct, not just present", async () => {

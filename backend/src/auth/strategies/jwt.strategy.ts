@@ -14,6 +14,12 @@ export interface JwtPayload {
   // Same pattern, for the 'clinician' role (TC-APPT-API-010: a clinician's
   // appointments query must default to their own schedule, not the whole org's).
   clinician_id?: string | null;
+  // REQ049/REQ015 (US-SEC-02) — the caller's role's granted Permissions.name
+  // values, resolved once at token-issuance time (auth.service.ts). Never
+  // recomputed mid-token-lifetime: a permission change takes effect on the
+  // caller's next login/refresh, same staleness window client_org_id/roles
+  // already have.
+  permissions?: string[];
 }
 
 @Injectable()

@@ -7,6 +7,7 @@
 | REQ015 | requirement | Identity platform extensions: custom-role enforcement, SSO, clinician verification, API keys | draft | 2026-08-22 | 2026-08-22 | REQ001 | [REQ015-security-2026-08-22-identity-platform-extensions.md](./requirement/REQ015-security-2026-08-22-identity-platform-extensions.md) |
 | REQ012 | requirement | Org-level Security & Privacy: real enforcement (not just persisted toggles) | done | 2026-08-21 | 2026-08-21 | — | [REQ012-security-2026-08-21-org-security-privacy-enforcement.md](./requirement/REQ012-security-2026-08-21-org-security-privacy-enforcement.md) |
 | REQ001 | requirement | Security Requirements — MediBook/HealthSync Backend | approved | 2026-08-17 | 2026-08-17 | — | [security-requirements.md](./requirement/security-requirements.md) |
+| REQ049 | requirement | A real PermissionsGuard enforcing the stored role/permission rows | done | 2026-08-23 | 2026-08-23 | REQ015 | [REQ049-security-2026-08-23-permissions-guard-enforcement.md](./requirement/REQ049-security-2026-08-23-permissions-guard-enforcement.md) |
 
 ## improvement
 
