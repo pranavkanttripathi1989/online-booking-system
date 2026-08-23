@@ -159,3 +159,107 @@ services:
       - backend
     networks:
       - medibook_network
+
+  # ── Isolated e2e stack (F-28 / project-plans/06-execution-plan.md P1.5) ────────
+  # A full second backend+frontend, not just a second database: the backend is a
+  # single process bound to one DATABASE_URL, and the frontend's VITE_GRAPHQL_URL
+  # is baked in at dev-server-start time, so neither can be pointed at a
+  # different target per test run without a second instance of each. Never
+  # started by a bare `up -d` (profile: e2e). Bring up fresh before a run:
+  #   docker compose --profile e2e up -d --force-recreate
+  # `--force-recreate` matters, not just `up -d`: postgres_e2e's tmpfs is only
+  # wiped on container recreation, and that wipe is what makes backend_e2e's
+  # startup command below re-run migrate+seed against a genuinely empty schema
+  # instead of a leftover one from the last run.
+  postgres_e2e:
+    image: postgres:16-alpine
+    container_name: medibook_postgres_e2e
+    profiles: ["e2e"]
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_E2E_PORT:-5435}:5432"
+    environment:
+      POSTGRES_DB: medibook_e2e
+      POSTGRES_USER: medibook
+      POSTGRES_PASSWORD: medibook_e2e_secret
+      POSTGRES_HOST_AUTH_METHOD: trust
+    tmpfs:
+      - /var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U medibook -d medibook_e2e"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 5s
+    networks:
+      - medibook_network
+
+  backend_e2e:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: development
+    container_name: medibook_backend_e2e
+    profiles: ["e2e"]
+    restart: unless-stopped
+    working_dir: /app
+    volumes:
+      - ./backend:/app
+      - /app/node_modules
+    ports:
+      - "${BACKEND_E2E_PORT:-4001}:4000"
+    # migrate deploy + seed-e2e run on every (re)start, not as a separate
+    # one-shot service — simpler than a compose service_completed_successfully
+    # dependency, and idempotent against a fresh tmpfs schema either way.
+    command: sh -c "npx prisma migrate deploy && npx ts-node prisma/seed-e2e.ts && npm run start:dev"
+    environment:
+      - NODE_ENV=development
+      - PORT=4000
+      - DATABASE_URL=postgresql://medibook:medibook_e2e_secret@postgres_e2e:5432/medibook_e2e
+      # Same Redis container as the dev stack, but a distinct logical database
+      # (index 1) -- so e2e's own login-rate-limit/BullMQ traffic can never
+      # collide with the dev stack's, without needing a whole second Redis.
+      - REDIS_URL=redis://redis:6379/1
+      # Reused from the dev stack's own secrets: a throwaway, tmpfs-backed e2e
+      # database has no need for unique secrets, only non-empty ones --
+      # jwt.strategy.ts throws on boot otherwise (F-11).
+      - JWT_ACCESS_SECRET=${JWT_ACCESS_SECRET}
+      - JWT_REFRESH_SECRET=${JWT_REFRESH_SECRET}
+      - FRONTEND_URL=${FRONTEND_E2E_URL:-http://localhost:3101}
+      - SETTINGS_ENCRYPTION_KEY=${SETTINGS_ENCRYPTION_KEY}
+      - RAZORPAY_KEY_ID=${RAZORPAY_KEY_ID}
+      - RAZORPAY_KEY_SECRET=${RAZORPAY_KEY_SECRET}
+      - OTP_TTL_SECONDS=${OTP_TTL_SECONDS:-300}
+      - OTP_MAX_ATTEMPTS=${OTP_MAX_ATTEMPTS:-3}
+    depends_on:
+      postgres_e2e:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - medibook_network
+
+  frontend_e2e:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: medibook_frontend_e2e
+    profiles: ["e2e"]
+    restart: unless-stopped
+    ports:
+      - "${FRONTEND_E2E_PORT:-3101}:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - NODE_ENV=development
+      - VITE_GRAPHQL_URL=http://localhost:${BACKEND_E2E_PORT:-4001}/graphql
+      - VITE_GRAPHQL_WS_URL=ws://localhost:${BACKEND_E2E_PORT:-4001}/graphql
+      - VITE_PUSHER_KEY=${VITE_PUSHER_KEY}
+      - VITE_PUSHER_CLUSTER=${VITE_PUSHER_CLUSTER:-mt1}
+      - VITE_APP_NAME=MediBook
+    depends_on:
+      - backend_e2e
+    networks:
+      - medibook_network

@@ -35,6 +35,12 @@ import { loginAs } from './helpers.js'
 
 const GRAPHQL_URL = process.env.E2E_GRAPHQL_URL || 'http://localhost:4000/graphql'
 const REAL_CLINICIAN_ID = '8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7' // Sarah Mitchell, real seeded clinician
+// project-plans/06-execution-plan.md P1.5 (F-28): defaults to the shared dev
+// stack's container/database, overridable so this same spec also works
+// unchanged against the isolated e2e stack (scripts/run-e2e-isolated.js
+// sets both to the e2e container/database).
+const DB_CONTAINER = process.env.E2E_DB_CONTAINER || 'medibook_postgres'
+const DB_NAME = process.env.E2E_DB_NAME || 'medibook_db'
 
 async function gql(request, token, query, variables) {
   const res = await request.post(GRAPHQL_URL, {
@@ -60,7 +66,7 @@ test.beforeAll(async ({ playwright }) => {
   managerToken = authData.login.access_token
 
   execSync(
-    `docker exec medibook_postgres psql -U medibook -d medibook_db -c "UPDATE \\"UserProfiles\\" SET clinician_id = '${REAL_CLINICIAN_ID}' WHERE email = 'clinician@medibook.dev';"`,
+    `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET clinician_id = '${REAL_CLINICIAN_ID}' WHERE email = 'clinician@medibook.dev';"`,
   )
 
   // A weekly Thursday slot, distinct time from any real seeded data.
@@ -102,7 +108,7 @@ test.afterAll(async ({ playwright }) => {
   }
   await request.dispose()
   execSync(
-    `docker exec medibook_postgres psql -U medibook -d medibook_db -c "UPDATE \\"UserProfiles\\" SET clinician_id = NULL WHERE email = 'clinician@medibook.dev';"`,
+    `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET clinician_id = NULL WHERE email = 'clinician@medibook.dev';"`,
   )
 })
 

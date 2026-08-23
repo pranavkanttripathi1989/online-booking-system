@@ -60,7 +60,7 @@ correct today and unverifiable tomorrow — which is exactly how `F-01` survived
 | 1.2 | `supertest` GraphQL integration harness | F-25 | ✅ done (`BUG007`) |
 | 1.3 | **Tenancy matrix**: parameterised over 29 domains × 8 caller archetypes, asserting own-org read succeeds and cross-org read returns empty or `FORBIDDEN` | F-25 | ✅ done 2026-08-23 (`BUG012`) — all 21 tenant-scoped domains now classified (covered or exempt with a stated reason); `KNOWN_GAPS` is `[]` |
 | 1.4 | Booking concurrency test: N simultaneous bookings on one slot, exactly one succeeds (expected to fail until P3) | F-16 | ✅ **done (`BUG017`)** — flipped from `it.failing` to a real, green `it` once P3.1's exclusion constraint landed. Its own input shape was found stale (never matched the real `AppointmentInput` contract — failing GraphQL validation, not the intended assertion) and fixed in the same slice |
-| 1.5 | Seed script: 2 orgs, ~5 clinicians, ~200 patients, ~2,000 appointments, payments, messages; separate e2e database with reset between runs | F-28 | ⬜ not started |
+| 1.5 | Seed script: 2 orgs, ~5 clinicians, ~200 patients, ~2,000 appointments, payments, messages; separate e2e database with reset between runs | F-28 | ✅ **done (`PLAN043`/`BUG018`)** — new `docker-compose.yml` `e2e` profile (`postgres_e2e` tmpfs + `backend_e2e` + `frontend_e2e`, ports 5435/4001/3101), `backend/prisma/seed-e2e.ts` (2 orgs, 5 clinicians, 200 patients, 2,000 appointments across a -30..+60 day window, payments, messages — one clinician fixture kept identical to the dev DB so 8 pre-existing specs needed zero edits), `npm run e2e:isolated`. Building it at real volume found two real exclusion-constraint collisions in the seed script's own slot generation (room-level and clinician-level, `BUG018`) and a genuine `test-results` scoping gap — plus, running the full suite against it, a real, previously-invisible app bug (`BUG019`: no date filter + `desc` ordering hides "today" once there are enough rows) that 4-row dev-stack testing could never have surfaced. See `TR069` for the full run results |
 | 1.6 | Frontend unit tests where risk concentrates: `AuthContext`, `ProtectedRoute`/`RoleGuard`, booking-wizard validation, currency/date utils; real `collectCoverageFrom` and thresholds | F-24 | ✅ done 2026-08-23 (`BUG013`) — guards (94.1% branch) and formatters (97.9% branch) both clear 90%; `collectCoverageFrom` now measures the whole tree with a ratchet-floor `global` threshold |
 
 **DoD.** The tenancy matrix covers every domain and is required in CI. Adding a
@@ -69,11 +69,12 @@ against the whole source tree, with guards and formatters above 90%. The
 concurrency test exists and its current failure is recorded as the acceptance
 criterion for P3.
 
-**P1 status as of 2026-08-23: 1.1–1.4 and 1.6 done; 1.5 remains** (a realistic
-seed dataset + a separately seeded e2e database — see `BUG012`/`BUG013` for
-the closed items' detail). `07-prd-gap-analysis-and-roadmap.md`'s "P0–P1 must
-complete before any REQ014–035 implementation planning begins" still holds
-until 1.5 is done too.
+**P1 status as of 2026-08-23: complete — 1.1–1.6 all done.** 1.5 (the
+isolated e2e stack + realistic seed dataset) was the last item, closed by
+`PLAN043`/`BUG018`/`BUG019` (see that row's detail above). P1 as a whole is
+now closed, so `07-prd-gap-analysis-and-roadmap.md`'s "P0–P1 must complete
+before any REQ014–035 implementation planning begins" gate is satisfied —
+REQ014–REQ035 implementation planning may proceed.
 
 ---
 

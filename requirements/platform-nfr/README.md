@@ -19,6 +19,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG018 | bug | The new e2e seed script's own generated data collided with the exclusion constraints it was seeded against | done | 2026-08-23 | 2026-08-23 | REQ035 | [BUG018-platform-nfr-2026-08-23-seed-script-exclusion-constraint-collision.md](./bug/BUG018-platform-nfr-2026-08-23-seed-script-exclusion-constraint-collision.md) |
 | BUG017 | bug | Concurrent bookings for the same slot could all succeed | done | 2026-08-23 | 2026-08-23 | REQ035 | [BUG017-platform-nfr-2026-08-23-booking-concurrency-exclusion-constraint.md](./bug/BUG017-platform-nfr-2026-08-23-booking-concurrency-exclusion-constraint.md) |
 | BUG016 | bug | Two more fabricated pages wired to real data; a real gap found and closed along the way | done | 2026-08-23 | 2026-08-23 | REQ035 | [BUG016-platform-nfr-2026-08-23-wire-patient-profile-and-forgot-password.md](./bug/BUG016-platform-nfr-2026-08-23-wire-patient-profile-and-forgot-password.md) |
 | BUG015 | bug | P2 "Truth in the UI" quick wins: TableContainer wrappers, dead mock component, stale debug line | done | 2026-08-23 | 2026-08-23 | REQ035 | [BUG015-platform-nfr-2026-08-23-p2-ui-truth-quick-wins.md](./bug/BUG015-platform-nfr-2026-08-23-p2-ui-truth-quick-wins.md) |

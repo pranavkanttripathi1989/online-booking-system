@@ -17,6 +17,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP070 | bug | Isolated e2e stack verification | approved | 2026-08-23 | 2026-08-23 | BUG018 | [TP070](./bug/TP070-platform-nfr-2026-08-23-isolated-e2e-stack-verification.md) |
 | TP068 | bug | Booking-concurrency exclusion constraint verification | approved | 2026-08-23 | 2026-08-23 | BUG017 | [TP068](./bug/TP068-platform-nfr-2026-08-23-booking-concurrency-exclusion-constraint-verification.md) |
 | TP064 | bug | Wire patient/Profile.jsx and auth/forgot-password.jsx verification | approved | 2026-08-23 | 2026-08-23 | BUG016 | [TP064](./bug/TP064-platform-nfr-2026-08-23-wire-patient-profile-and-forgot-password-verification.md) |
 | TP063 | bug | P2 UI-truth quick wins verification | approved | 2026-08-23 | 2026-08-23 | BUG015 | [TP063](./bug/TP063-platform-nfr-2026-08-23-p2-ui-truth-quick-wins-verification.md) |

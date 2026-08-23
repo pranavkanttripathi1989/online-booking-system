@@ -8,7 +8,7 @@
 | pharmacy | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [prescriptions](./prescriptions/README.md) |
 | queue-management | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [queue-management](./queue-management/README.md) |
-| appointments | 1 | 0 | 1 | 1 | 1 | 2026-08-23 | [appointments](./appointments/README.md) |
+| appointments | 1 | 0 | 3 | 2 | 2 | 2026-08-23 | [appointments](./appointments/README.md) |
 | organizations | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [organizations](./organizations/README.md) |
 | catalog-master-data | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [catalog-master-data](./catalog-master-data/README.md) |
 | abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |
@@ -20,7 +20,7 @@
 | platform-integrations | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-integrations](./platform-integrations/README.md) |
 | subscription-plan-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |
-| platform-nfr | 1 | 4 | 10 | 1 | 14 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
+| platform-nfr | 1 | 4 | 11 | 1 | 15 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
 | security | 3 | 0 | 4 | 2 | 5 | 2026-08-22 | [security](./security/README.md) |
 | notifications | 2 | 0 | 0 | 1 | 1 | 2026-08-22 | [notifications](./notifications/README.md) |
 | patient-payments | 2 | 0 | 0 | 1 | 1 | 2026-08-22 | [patient-payments](./patient-payments/README.md) |
