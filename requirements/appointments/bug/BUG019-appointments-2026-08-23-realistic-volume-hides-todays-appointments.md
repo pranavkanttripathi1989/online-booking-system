@@ -3,11 +3,73 @@ id: BUG019
 type: bug
 feature: appointments
 created: 2026-08-23
-updated: 2026-08-23
-status: open
+updated: 2026-08-24
+status: done
 parent: REQ018
-related: [BUG011, BUG014]
+related: [BUG011, BUG014, BUG020]
 ---
+
+## Resolution (2026-08-24, `PLAN054`)
+
+Fixed exactly along the "suggested direction" below, without touching the
+shared resolver's `orderBy`/default window:
+
+- `calendar/index.jsx` now wires FullCalendar's own `datesSet` visible-range
+  callback (added as a new `onDatesSet` prop on `CalendarView.jsx`, alongside
+  the existing `onViewChange`) into `date_from`/`date_to` on every query —
+  the calendar always requests exactly what it's showing, not a flat
+  `first: 500` with no date bound.
+- `appointments/index.jsx`'s Upcoming/Past/All tabs now set a real default
+  date window in `buildFilters()` (previously `tabDateFrom`/`tabDateTo` were
+  computed but only ever reached the mock-fallback branch, never the real
+  query). "Upcoming" floors at today, "Past" caps at today. "All" needed a
+  second iteration: an initial `today-30d .. today+30d` window still put
+  far-future rows on page 1 under the shared `desc` ordering once verified
+  against the realistic dataset (~20 appointments/day) — capping the upper
+  bound *at* today (not into the future) is what actually guarantees
+  today's rows sort first within the window; a true "current and upcoming"
+  view needs an ascending sort option on the resolver, which is the
+  deliberately out-of-scope resolver change this bug already flagged.
+- Backend `date_from`/`date_to` → `where.appointment_time` construction had
+  zero test coverage despite this whole fix depending on it; added 5 cases
+  to `appointments.service.spec.ts` (`date filtering (BUG019)`).
+- `calendar/index.jsx` gained a `data-testid="today-schedule-panel"` on its
+  Today's Schedule sidebar, and `calendar.spec.js`'s two assertions were
+  re-scoped to it: at realistic daily density (~18-20 appointments on a
+  single day), FullCalendar's own `dayMaxEvents={3}` legitimately collapses
+  a day cell to "+N more" — a specific appointment can be correctly *in the
+  fetched data* yet not *visible* in the month grid without ever opening the
+  popover. The sidebar is the one place on the page designed to list a full,
+  untruncated day, and is what BUG019's own acceptance criterion actually
+  cared about ("Anita Sharma's fixture appointment visible on /calendar").
+
+**Verification:** `appointments.service.spec.ts` — 31/31 passing including
+the 5 new cases (`npx jest --maxWorkers=2 appointments.service`). Backend
+lint/`tsc --noEmit` clean; frontend lint clean on all touched files (only
+pre-existing unrelated warnings). E2e verification against the isolated
+stack's realistic dataset directly confirmed the fix via GraphQL response
+inspection (the `appointments()` query now returns real, correctly
+date-bounded rows for both pages, in place of the old unbounded `first: 500`
+call) and one full live-browser pass where `Anita Sharma`'s fixture rendered
+correctly in the Today's Schedule sidebar. Repeated automated Playwright
+runs after that point hit a real, fully-diagnosed, and unrelated
+environmental artifact rather than a code defect — see `context/open-questions.md`
+#15: the isolated stack's `backend_e2e` container runs in UTC with no `TZ`
+set, and testing happened to fall within the ~5.5-hour nightly window after
+IST midnight where UTC hasn't yet rolled to the same calendar day. Anita's
+fixture, seeded at the backend's UTC "today", ended up one calendar day
+behind the browser's IST "today" — confirmed directly via
+`psql`: her `appointment_time` is literally `2026-08-23 10:00:00` while the
+browser's `dayjs()` correctly computed "today" as `2026-08-24`. The fix
+correctly excluded a genuinely not-today appointment; this is not a
+regression, and self-resolves once UTC crosses the same boundary (or once
+the isolated stack is reseeded after that point). Filed as `open-questions.md`
+#15 rather than silently working around it, since fixing it for real means
+deciding backend container timezone policy for the whole product, well
+beyond this bug's frontend date-filter scope. `BUG020` was filed separately
+for one more unrelated finding hit during the same verification pass (a
+different test's "zero no-show appointments" assumption breaking at real
+volume).
 
 # BUG019 — At realistic data volume, today's appointments can fall outside the default list/calendar window
 

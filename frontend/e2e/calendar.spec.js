@@ -12,16 +12,23 @@ test('calendar shows real seeded appointments, not fabricated ones', async ({ pa
   await loginAs(page, 'Manager')
   await page.goto('/calendar')
 
-  // Anita Sharma is a real seeded appointment; none of the mock generator's
-  // fabricated names (John Miller, Sarah Evans, ...) should ever appear.
-  await expect(page.getByText('Anita Sharma').first()).toBeVisible({ timeout: 15_000 })
+  // Anita Sharma is a real seeded appointment for today. At realistic data
+  // volume (BUG019) today's day cell in the month grid holds far more than
+  // FullCalendar's dayMaxEvents={3}, so her event is legitimately collapsed
+  // behind a "+N more" link there -- assert against the Today's Schedule
+  // sidebar instead, which is the one place on this page designed to list
+  // the full, untruncated day. None of the mock generator's fabricated
+  // names (John Miller, Sarah Evans, ...) should ever appear.
+  const todayPanel = page.getByTestId('today-schedule-panel')
+  await expect(todayPanel.getByText('Anita Sharma').first()).toBeVisible({ timeout: 15_000 })
   await expect(page.getByText('John Miller')).not.toBeVisible()
 })
 
 test('a real filter with zero matches shows a real empty calendar, not fabricated events', async ({ page }) => {
   await loginAs(page, 'Manager')
   await page.goto('/calendar')
-  await expect(page.getByText('Anita Sharma').first()).toBeVisible({ timeout: 15_000 })
+  const todayPanel = page.getByTestId('today-schedule-panel')
+  await expect(todayPanel.getByText('Anita Sharma').first()).toBeVisible({ timeout: 15_000 })
 
   const gqlPromise = page.waitForResponse(
     (res) => res.url().includes('/graphql') && res.request().postData()?.includes('appointments('),

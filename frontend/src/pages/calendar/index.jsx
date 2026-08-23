@@ -401,14 +401,31 @@ export default function CalendarPage() {
   const [jumpDateOpen, setJumpDateOpen] = useState(false)
   const jumpInputRef                    = useRef(null)
 
+  // ── BUG019: visible date range, reported by FullCalendar's own datesSet
+  // callback. Seeded to the current month so the very first query is already
+  // bounded, before FullCalendar fires its own callback on mount.
+  const [dateRange, setDateRange] = useState(() => ({
+    from: dayjs().startOf('month').format('YYYY-MM-DD'),
+    to:   dayjs().endOf('month').format('YYYY-MM-DD'),
+  }))
+  const handleVisibleRangeChange = useCallback((dateInfo) => {
+    setDateRange({
+      from: dayjs(dateInfo.start).format('YYYY-MM-DD'),
+      // FullCalendar's `end` is exclusive (midnight of the day after the
+      // visible range); using it as-is over-includes by one day rather than
+      // risking hiding events on the last visible day.
+      to: dayjs(dateInfo.end).format('YYYY-MM-DD'),
+    })
+  }, [])
+
   // ── Build GraphQL filters ─────────────────────────────────────────────────
   const buildFilters = useCallback(() => {
-    const f = {}
+    const f = { date_from: dateRange.from, date_to: dateRange.to }
     if (filterClinician) f.clinician_id = filterClinician
     if (filterClinic)    f.clinic_id    = filterClinic
     if (filterStatus)    f.status       = filterStatus
-    return Object.keys(f).length ? f : undefined
-  }, [filterClinician, filterClinic, filterStatus])
+    return f
+  }, [dateRange, filterClinician, filterClinic, filterStatus])
 
   // ── Appointments query ────────────────────────────────────────────────────
   const { data, loading, error, refetch, client } = useQuery(APPOINTMENTS_QUERY, {
@@ -923,6 +940,7 @@ export default function CalendarPage() {
                 onSlotClick={handleSlotClick}
                 currentView={currentView}
                 onViewChange={setCurrentView}
+                onDatesSet={handleVisibleRangeChange}
               />
             )}
           </Box>
@@ -931,7 +949,7 @@ export default function CalendarPage() {
           <Collapse in={todayOpen && !isMobile} orientation="horizontal" unmountOnExit
             sx={{ flexShrink: 0, '& .MuiCollapse-wrapperInner': { width: 272 } }}
           >
-            <Box sx={{
+            <Box data-testid="today-schedule-panel" sx={{
               width: 272, height: '100%',
               bgcolor: '#FFFFFF', borderRadius: 3,
               border: '1px solid #E8EAED',

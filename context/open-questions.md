@@ -358,6 +358,45 @@ just `create()`'s room pick in isolation.
 
 ---
 
+## 15. Backend containers run in UTC with no `TZ` set — "today" can disagree with IST by a full day near midnight
+
+**Status:** Open, raised 2026-08-24 while verifying `BUG019`'s e2e fix against the isolated stack.
+
+Verifying `BUG019` (wiring `date_from`/`date_to` into `/calendar` and
+`/appointments`) hit a reproducible false failure right at the IST/UTC day
+boundary: `docker exec medibook_backend date` and `docker exec
+medibook_backend_e2e date` both return UTC (`Sun Aug 23 19:06:32 UTC 2026`
+at a moment when the host/IST clock already read `Mon, Aug 24, 00:19`) —
+grep confirms no `TZ` is set anywhere in `docker-compose.yml`, for any
+backend service, dev or e2e. `backend/prisma/seed-e2e.ts`'s `daysFromNow(0)`
+helper computes "today" via a bare `new Date()`, so during the ~5.5-hour
+window after IST midnight where UTC hasn't yet rolled over, a fixture
+seeded as "today" lands on what IST already considers "yesterday" —
+confirmed live: `Anita Sharma`'s fixture appointment was seeded at
+`2026-08-23 10:00:00` (backend's UTC "today" at seed time), while the
+browser's `dayjs()` — and therefore `BUG019`'s own new date-window
+logic — correctly computed "today" as `2026-08-24` (IST, from the host
+OS). The fix's logic was not wrong; it correctly excluded a genuinely
+not-today appointment. But this is a live illustration of a **real**
+latent bug class for a product whose entire market is India: any backend
+code that computes "today" server-side (a default date window like this
+one, `appointment_reminder` scheduling per open question #5, cancellation
+deadlines, GST invoice dating) can silently disagree with what every
+patient/clinician/manager's clock and calendar actually says, for up to
+5.5 hours every night.
+
+**Decision needed from the user:** (a) set `TZ=Asia/Kolkata` on the backend
+containers in `docker-compose.yml` (simplest, makes `new Date()` agree with
+users everywhere backend code doesn't explicitly reason about timezones —
+but changes what "midnight" means for every existing UTC-anchored
+migration/log-timestamp comparison, so needs a quick audit first), or (b)
+keep containers in UTC and require any "today"-anchored backend logic to
+explicitly convert via a fixed `Asia/Kolkata` offset rather than relying on
+the container's local `Date`. Not fixed here — this is infrastructure/
+architecture scope well beyond `BUG019`'s frontend date-filter wiring, and
+picking wrong could have quiet correctness implications elsewhere in the
+codebase this session hasn't audited.
+
 ## Resolved
 
 ### manager/Dashboard.jsx KPIs, charts, and clinic filter (resolved 2026-08-18)

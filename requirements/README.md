@@ -8,7 +8,7 @@
 | pharmacy | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [prescriptions](./prescriptions/README.md) |
 | queue-management | 1 | 1 | 0 | 1 | 1 | 2026-08-23 | [queue-management](./queue-management/README.md) |
-| appointments | 1 | 0 | 3 | 2 | 2 | 2026-08-23 | [appointments](./appointments/README.md) |
+| appointments | 1 | 0 | 4 | 2 | 3 | 2026-08-24 | [appointments](./appointments/README.md) |
 | organizations | 2 | 1 | 0 | 1 | 2 | 2026-08-23 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 1 | 0 | 1 | 2 | 2026-08-23 | [catalog-master-data](./catalog-master-data/README.md) |
 | abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |

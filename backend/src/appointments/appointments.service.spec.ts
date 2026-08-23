@@ -275,4 +275,42 @@ describe('AppointmentsService — access scoping', () => {
       expect(where.clinic_id).toBeUndefined();
     });
   });
+
+  // BUG019: date_from/date_to construction had zero coverage even though the
+  // frontend fix (calendar + appointments list date-window wiring) depends
+  // entirely on this existing behavior working as documented.
+  describe('findAll — date_from/date_to filter (BUG019)', () => {
+    it('date_from alone sets a lower bound only', async () => {
+      await service.findAll({ date_from: '2026-08-01' } as any, 20, 1, staffUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.appointment_time.gte).toEqual(new Date('2026-08-01'));
+      expect(where.appointment_time.lte).toBeUndefined();
+    });
+
+    it('date_to alone sets an inclusive end-of-day upper bound only', async () => {
+      await service.findAll({ date_to: '2026-08-23' } as any, 20, 1, staffUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.appointment_time.lte).toEqual(new Date('2026-08-23T23:59:59.999Z'));
+      expect(where.appointment_time.gte).toBeUndefined();
+    });
+
+    it('date_from and date_to together set both bounds', async () => {
+      await service.findAll({ date_from: '2026-08-01', date_to: '2026-08-23' } as any, 20, 1, staffUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.appointment_time.gte).toEqual(new Date('2026-08-01'));
+      expect(where.appointment_time.lte).toEqual(new Date('2026-08-23T23:59:59.999Z'));
+    });
+
+    it('omits any date bound when neither is provided — no implicit default window', async () => {
+      await service.findAll(undefined, 20, 1, staffUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.appointment_time).toBeUndefined();
+    });
+
+    it('orders results by appointment_time descending, unconditionally', async () => {
+      await service.findAll(undefined, 20, 1, staffUser);
+      const args = prisma.appointments.findMany.mock.calls[0][0];
+      expect(args.orderBy).toEqual({ appointment_time: 'desc' });
+    });
+  });
 });

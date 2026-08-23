@@ -153,15 +153,41 @@ export default function AppointmentsPage() {
   }
 
   // ── Build variables ───────────────────────────────────────────────────────
+  // BUG019: at realistic data volume, the backend's unfiltered desc-ordered
+  // page 1 can miss "today" entirely once the manual date pickers below are
+  // left unset. Anchor each tab to a sensible default date window so it
+  // actually reflects "upcoming"/"past"/"current-and-recent" against the
+  // real backend — a manually-picked date always overrides the tab default.
   const buildFilters = useCallback(() => {
     const f = {}
-    if (dateFrom) f.date_from = dayjs(dateFrom).format('YYYY-MM-DD')
-    if (dateTo) f.date_to = dayjs(dateTo).format('YYYY-MM-DD')
+    const today = dayjs().format('YYYY-MM-DD')
+    let effectiveFrom = dateFrom ? dayjs(dateFrom).format('YYYY-MM-DD') : undefined
+    let effectiveTo   = dateTo   ? dayjs(dateTo).format('YYYY-MM-DD')   : undefined
+    if (!dateFrom && !dateTo) {
+      if (viewTab === 'upcoming') effectiveFrom = today
+      else if (viewTab === 'past') effectiveTo = today
+      else if (viewTab === 'all') {
+        // Results are ordered desc by appointment_time with no page-size
+        // awareness of "today" — at realistic density (~20 appointments/day
+        // in the isolated e2e dataset) even a same-day future extension puts
+        // more rows between "today" and the window's far edge than fit on
+        // page 1, so any upper bound beyond today re-buries it. Capping the
+        // upper bound AT today (not into the future) is what actually
+        // guarantees today's rows sort first within this window — "current
+        // and recent", not "current and upcoming" (that needs an ascending
+        // sort option on the resolver, deliberately out of scope here, see
+        // BUG019's own note on not touching the shared resolver's ordering).
+        effectiveFrom = dayjs().subtract(30, 'day').format('YYYY-MM-DD')
+        effectiveTo = today
+      }
+    }
+    if (effectiveFrom) f.date_from = effectiveFrom
+    if (effectiveTo) f.date_to = effectiveTo
     if (status !== 'all') f.status = status
     if (clinicianId) f.clinician_id = clinicianId
     if (search) f.patient_name = search
     return Object.keys(f).length ? f : undefined
-  }, [dateFrom, dateTo, status, clinicianId, search])
+  }, [dateFrom, dateTo, viewTab, status, clinicianId, search])
 
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data, loading, error, refetch } = useQuery(APPOINTMENTS_QUERY, {

@@ -112,8 +112,9 @@ function EventContent({ eventInfo }) {
  *   onSlotClick   : (dateStr: string) => void
  *   currentView   : string — controlled view type from parent
  *   onViewChange  : (viewType: string) => void
+ *   onDatesSet    : (dateInfo: { start: Date, end: Date, ... }) => void — FullCalendar's own visible-range callback, forwarded as-is
  */
-export default function CalendarView({ calendarRef, events, onEventClick, onSlotClick, currentView, onViewChange }) {
+export default function CalendarView({ calendarRef, events, onEventClick, onSlotClick, currentView, onViewChange, onDatesSet }) {
   const internalRef = useRef(null)
   const ref = calendarRef ?? internalRef
 
@@ -157,6 +158,7 @@ export default function CalendarView({ calendarRef, events, onEventClick, onSlot
 
   const handleDatesSet = (dateInfo) => {
     onViewChange?.(dateInfo.view.type)
+    onDatesSet?.(dateInfo)
   }
 
   const defaultView = isMobile ? 'timeGridDay' : isTablet ? 'timeGridWeek' : 'dayGridMonth'
