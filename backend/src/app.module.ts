@@ -36,6 +36,7 @@ import { ProductsModule } from './products/products.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DrugsModule } from './drugs/drugs.module';
+import { OrganizationOnboardingModule } from './organization-onboarding/organization-onboarding.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { GqlAuthGuard } from './common/guards/gql-auth.guard';
@@ -93,6 +94,7 @@ import { PubSubModule } from './common/pubsub.module';
     RoomsModule,
     LookupsModule,
     OrganizationsModule,
+    OrganizationOnboardingModule,
     LanguagesModule,
     EmailTemplatesModule,
     ServicesModule,

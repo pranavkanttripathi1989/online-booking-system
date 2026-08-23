@@ -208,6 +208,40 @@ async function main() {
     console.log(`  created: ${drug.name}`);
   }
 
+  // REQ045 — the self-serve onboarding wizard's plan-picker step reads this
+  // table for real; it was live in the schema since Phase 3.5 but never
+  // seeded, so the step always rendered empty against a real backend.
+  console.log('Seeding subscription plans (onboarding wizard)...');
+  const PLANS = [
+    {
+      name: 'Starter', description: 'For a single clinic just getting started.',
+      price_monthly: 249900, price_yearly: 2499000, max_clinics: 1, max_users: 5,
+      features: ['1 clinic location', 'Up to 5 staff/clinician accounts', 'Online booking & calendar', 'Email reminders', 'Basic reporting'],
+    },
+    {
+      name: 'Pro', description: 'For growing multi-clinic practices.',
+      price_monthly: 699900, price_yearly: 6999000, max_clinics: 5, max_users: 25,
+      features: ['Up to 5 clinic locations', 'Up to 25 staff/clinician accounts', 'SMS + email reminders', 'Patient reviews & messaging', 'Advanced analytics', 'Razorpay payment collection'],
+    },
+    {
+      // price 0 signals "Contact sales" — see organization-onboarding.entity.ts.
+      // max_clinics/max_users are non-nullable Int columns (no "unlimited"
+      // representation) — 999999 is a documented sentinel, not a real cap.
+      name: 'Enterprise', description: 'For hospital groups and large chains.',
+      price_monthly: 0, price_yearly: 0, max_clinics: 999999, max_users: 999999,
+      features: ['Unlimited clinics & staff', 'Dedicated account manager', 'Custom integrations', 'Priority support & SLA', 'GST-compliant multi-branch invoicing'],
+    },
+  ];
+  for (const plan of PLANS) {
+    const existing = await prisma.subscriptionPlans.findUnique({ where: { name: plan.name } });
+    if (existing) {
+      console.log(`  skip (exists): ${plan.name}`);
+      continue;
+    }
+    await prisma.subscriptionPlans.create({ data: plan });
+    console.log(`  created: ${plan.name}`);
+  }
+
   console.log('Seed complete.');
 }
 

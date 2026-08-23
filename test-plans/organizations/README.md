@@ -5,6 +5,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TP052 | test-plan | Organizations — admin tenant CRUD — Test Plan | approved | 2026-08-22 | 2026-08-22 | REQ013 | [TP052-organizations-2026-08-22-admin-org-crud.md](./requirement/TP052-organizations-2026-08-22-admin-org-crud.md) |
+| TP075 | requirement | Onboarding wizard, real backend | approved | 2026-08-23 | 2026-08-23 | REQ045 | [TP075-organizations-2026-08-23-onboarding-wizard-real-backend.md](./requirement/TP075-organizations-2026-08-23-onboarding-wizard-real-backend.md) |
 
 ## improvement
 

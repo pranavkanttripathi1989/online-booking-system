@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| organizations-2026-08-23-req045 | organizations | 2026-08-23 | REQ045, PLAN048, TP075, TR074 | done | [manifest.md](./organizations-2026-08-23-req045/manifest.md) |
 | catalog-master-data-2026-08-23-req044 | catalog-master-data | 2026-08-23 | REQ044, PLAN047, TP074, TR073 | done | [manifest.md](./catalog-master-data-2026-08-23-req044/manifest.md) |
 | organizations-2026-08-23-req041 | organizations | 2026-08-23 | REQ041, PLAN046, TP073, TR072 | done | [manifest.md](./organizations-2026-08-23-req041/manifest.md) |
 | queue-management-2026-08-23-req042 | queue-management | 2026-08-23 | REQ042, PLAN045, TP072, TR071 | done | [manifest.md](./queue-management-2026-08-23-req042/manifest.md) |

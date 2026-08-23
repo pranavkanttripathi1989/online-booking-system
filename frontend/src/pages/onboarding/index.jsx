@@ -1,14 +1,13 @@
 /**
  * Organization Onboarding Wizard — self-serve SaaS tenant signup.
- * See context/backend-implementation-plan.md Phase 3.5 and
- * test-suggestion/organization-onboarding-test-suggestion.md (SUG-ONBOARD-001/002/003).
- *
- * BACKEND SWAP: replace the useMockMutation calls below with real GraphQL mutations
- * (startOnboarding / selectPlan / addFirstClinic / inviteTeam / completeOnboarding)
- * once the OrganizationOnboardingModule exists on the backend.
+ * REQ045: wired to the real backend (organization-onboarding module) —
+ * see requirements/organizations/requirement/REQ045-*.md. Anonymous/public
+ * GraphQL operations (camelCase, matches the public/self-serve dialect —
+ * see CLAUDE.md's "two competing GraphQL naming dialects").
  */
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useQuery, useMutation, gql } from '@apollo/client';
 import {
   Box, Container, Paper, Stepper, Step, StepLabel, Typography, TextField, Grid,
   Button, Card, CardContent, Chip, Stack, Alert, RadioGroup, FormControlLabel, Radio,
@@ -16,12 +15,66 @@ import {
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import BusinessIcon from '@mui/icons-material/Business';
-import { useMockMutation, useMockData } from '../../mocks/useMockData';
-import * as MockStore from '../../mocks/store';
 
 const STEPS = ['Organization', 'Choose plan', 'First clinic', 'Done'];
 
-const formatINR = (paise) => paise == null ? 'Custom' : `₹${(paise / 100).toLocaleString('en-IN')}`;
+const formatINR = (paise) => !paise ? 'Custom' : `₹${(paise / 100).toLocaleString('en-IN')}`;
+
+const GET_SUBSCRIPTION_PLANS = gql`
+  query GetSubscriptionPlans {
+    subscriptionPlans {
+      id
+      name
+      description
+      priceMonthly
+      priceYearly
+      maxClinics
+      maxUsers
+      features
+    }
+  }
+`;
+
+const START_ORGANIZATION_ONBOARDING = gql`
+  mutation StartOrganizationOnboarding($input: StartOnboardingInput!) {
+    startOrganizationOnboarding(input: $input) {
+      id
+      name
+      code
+      onboardingStatus
+      onboardingStep
+    }
+  }
+`;
+
+const SELECT_ONBOARDING_PLAN = gql`
+  mutation SelectOnboardingPlan($orgId: String!, $planId: String!) {
+    selectOnboardingPlan(orgId: $orgId, planId: $planId) {
+      id
+      onboardingStep
+      trialEndsAt
+    }
+  }
+`;
+
+const ADD_ONBOARDING_FIRST_CLINIC = gql`
+  mutation AddOnboardingFirstClinic($orgId: String!, $input: AddOnboardingClinicInput!) {
+    addOnboardingFirstClinic(orgId: $orgId, input: $input) {
+      id
+      name
+    }
+  }
+`;
+
+const COMPLETE_ORGANIZATION_ONBOARDING = gql`
+  mutation CompleteOrganizationOnboarding($orgId: String!) {
+    completeOrganizationOnboarding(orgId: $orgId) {
+      id
+      name
+      onboardingStatus
+    }
+  }
+`;
 
 export default function OnboardingWizard() {
   const navigate = useNavigate();
@@ -29,19 +82,22 @@ export default function OnboardingWizard() {
   const [org, setOrg] = useState(null);
   const [error, setError] = useState(null);
 
-  const { data: plans } = useMockData((store) => store.getSubscriptionPlans());
+  const { data: plansData } = useQuery(GET_SUBSCRIPTION_PLANS);
+  const plans = plansData?.subscriptionPlans || [];
 
   const [orgDetails, setOrgDetails] = useState({ orgName: '', slug: '', contactEmail: '', ownerName: '', ownerPassword: '' });
-  const [selectedPlan, setSelectedPlan] = useState('pro');
+  const [selectedPlanId, setSelectedPlanId] = useState('');
   const [clinicDetails, setClinicDetails] = useState({ name: '', address: '', city: '', state: '', pincode: '', phone: '' });
 
-  const [startOnboarding, { loading: startingOrg }] = useMockMutation(MockStore.startOrganizationOnboarding);
-  const [selectPlan, { loading: selectingPlan }]   = useMockMutation(MockStore.selectOnboardingPlan);
-  const [addClinic, { loading: addingClinic }]     = useMockMutation(MockStore.addOnboardingFirstClinic);
-  const [complete, { loading: completing }]        = useMockMutation(MockStore.completeOrganizationOnboarding);
+  const [startOnboarding, { loading: startingOrg }] = useMutation(START_ORGANIZATION_ONBOARDING);
+  const [selectPlan, { loading: selectingPlan }] = useMutation(SELECT_ONBOARDING_PLAN);
+  const [addClinic, { loading: addingClinic }] = useMutation(ADD_ONBOARDING_FIRST_CLINIC);
+  const [complete, { loading: completing }] = useMutation(COMPLETE_ORGANIZATION_ONBOARDING);
 
   const setOrgField = (k) => (e) => setOrgDetails((p) => ({ ...p, [k]: e.target.value }));
   const setClinicField = (k) => (e) => setClinicDetails((p) => ({ ...p, [k]: e.target.value }));
+
+  const selectedPlan = plans.find((p) => p.id === selectedPlanId);
 
   const handleStep1Submit = async () => {
     setError(null);
@@ -49,16 +105,28 @@ export default function OnboardingWizard() {
       setError('Please fill in all required fields.');
       return;
     }
-    const slug = orgDetails.slug || orgDetails.orgName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
-    const { data: newOrg } = await startOnboarding({ ...orgDetails, slug });
-    setOrg(newOrg);
-    setActiveStep(1);
+    try {
+      const slug = orgDetails.slug || orgDetails.orgName.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+      const { data } = await startOnboarding({ variables: { input: { ...orgDetails, slug } } });
+      setOrg(data.startOrganizationOnboarding);
+      setActiveStep(1);
+    } catch (e) {
+      setError(e.graphQLErrors?.[0]?.message || e.message || 'Could not create your organization. Please try again.');
+    }
   };
 
   const handleStep2Submit = async () => {
     setError(null);
-    await selectPlan(org.id, selectedPlan);
-    setActiveStep(2);
+    if (!selectedPlanId) {
+      setError('Please choose a plan.');
+      return;
+    }
+    try {
+      await selectPlan({ variables: { orgId: org.id, planId: selectedPlanId } });
+      setActiveStep(2);
+    } catch (e) {
+      setError(e.graphQLErrors?.[0]?.message || e.message || 'Could not save your plan. Please try again.');
+    }
   };
 
   const handleStep3Submit = async () => {
@@ -67,9 +135,13 @@ export default function OnboardingWizard() {
       setError('Clinic name and city are required.');
       return;
     }
-    await addClinic(org.id, clinicDetails);
-    await complete(org.id);
-    setActiveStep(3);
+    try {
+      await addClinic({ variables: { orgId: org.id, input: clinicDetails } });
+      await complete({ variables: { orgId: org.id } });
+      setActiveStep(3);
+    } catch (e) {
+      setError(e.graphQLErrors?.[0]?.message || e.message || 'Could not finish setup. Please try again.');
+    }
   };
 
   return (
@@ -109,26 +181,26 @@ export default function OnboardingWizard() {
             <Stack spacing={2}>
               <Typography variant="h6" fontWeight={700}>Choose your plan</Typography>
               <Typography variant="body2" color="text.secondary">All plans start with a 14-day free trial. You can change plans anytime.</Typography>
-              <RadioGroup value={selectedPlan} onChange={(e) => setSelectedPlan(e.target.value)}>
+              <RadioGroup value={selectedPlanId} onChange={(e) => setSelectedPlanId(e.target.value)}>
                 <Grid container spacing={1.5}>
-                  {(plans || []).map((plan) => (
+                  {plans.map((plan) => (
                     <Grid item xs={12} key={plan.id}>
                       <Card
                         variant="outlined"
-                        onClick={() => setSelectedPlan(plan.code)}
+                        onClick={() => setSelectedPlanId(plan.id)}
                         sx={{
                           borderRadius: 2, cursor: 'pointer',
-                          borderColor: selectedPlan === plan.code ? '#006D77' : '#E8EAED',
-                          borderWidth: selectedPlan === plan.code ? 2 : 1,
+                          borderColor: selectedPlanId === plan.id ? '#006D77' : '#E8EAED',
+                          borderWidth: selectedPlanId === plan.id ? 2 : 1,
                         }}
                       >
                         <CardContent sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5 }}>
-                          <FormControlLabel value={plan.code} control={<Radio />} label="" sx={{ mr: 0 }} />
+                          <FormControlLabel value={plan.id} control={<Radio />} label="" sx={{ mr: 0 }} />
                           <Box sx={{ flex: 1 }}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center">
                               <Typography fontWeight={700}>{plan.name}</Typography>
                               <Typography fontWeight={800} sx={{ color: '#006D77' }}>
-                                {formatINR(plan.price_monthly)}{plan.price_monthly != null && <Typography component="span" variant="caption" color="text.secondary">/mo</Typography>}
+                                {formatINR(plan.priceMonthly)}{!!plan.priceMonthly && <Typography component="span" variant="caption" color="text.secondary">/mo</Typography>}
                               </Typography>
                             </Stack>
                             <List dense sx={{ py: 0 }}>
@@ -177,7 +249,7 @@ export default function OnboardingWizard() {
               <Typography variant="h6" fontWeight={700}>You're all set, {orgDetails.ownerName}!</Typography>
               <Stack direction="row" spacing={0.75} alignItems="center" flexWrap="wrap" justifyContent="center">
                 <Typography variant="body2" color="text.secondary">
-                  {org?.name} is live on your {selectedPlan} trial.
+                  {org?.name} is live on your {selectedPlan?.name || ''} trial.
                 </Typography>
                 <Chip size="small" label="14-day trial" />
               </Stack>
