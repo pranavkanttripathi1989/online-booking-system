@@ -20,6 +20,7 @@ describe('AppointmentPaymentsService', () => {
       aggregate: jest.Mock;
     };
     userProfiles: { findFirst: jest.Mock };
+    auditLogs: { create: jest.Mock };
   };
   let fetchMock: jest.Mock;
   let notificationTrigger: { dispatch: jest.Mock };
@@ -40,6 +41,7 @@ describe('AppointmentPaymentsService', () => {
         aggregate: jest.fn(),
       },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
+      auditLogs: { create: jest.fn() },
     };
     fetchMock = jest.fn();
     (global as any).fetch = fetchMock;
@@ -355,6 +357,91 @@ describe('AppointmentPaymentsService', () => {
         { month: 'Jul 2026', revenue: 100 },
         { month: 'Aug 2026', revenue: 100 },
       ]);
+    });
+  });
+
+  describe('handleRazorpayWebhook (REQ040)', () => {
+    const webhookSecret = 'whsec_fake';
+    function sign(body: string) {
+      return crypto.createHmac('sha256', webhookSecret).update(body).digest('hex');
+    }
+
+    beforeEach(() => {
+      process.env = { ...process.env, RAZORPAY_WEBHOOK_SECRET: webhookSecret };
+    });
+
+    it('rejects when RAZORPAY_WEBHOOK_SECRET is not configured, without touching the database', async () => {
+      process.env.RAZORPAY_WEBHOOK_SECRET = '';
+      const body = Buffer.from('{}');
+      await expect(service.handleRazorpayWebhook(body, 'anything')).rejects.toThrow(/not configured/i);
+      expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
+      expect(prisma.auditLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ outcome: 'not_configured' }) }));
+    });
+
+    it('rejects a missing signature header', async () => {
+      const body = Buffer.from('{}');
+      await expect(service.handleRazorpayWebhook(body, undefined)).rejects.toThrow(/missing/i);
+      expect(prisma.auditLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ outcome: 'missing_signature' }) }));
+    });
+
+    it('rejects a tampered/incorrect signature, without touching the payment row', async () => {
+      const body = Buffer.from(JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_1', order_id: 'order_1' } } } }));
+      await expect(service.handleRazorpayWebhook(body, sign('a different body'))).rejects.toThrow(/invalid.*signature/i);
+      expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
+      expect(prisma.auditLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ outcome: 'invalid_signature' }) }));
+    });
+
+    it('rejects an unparseable body even with a signature that matches its own (garbage) bytes', async () => {
+      const body = Buffer.from('not json');
+      await expect(service.handleRazorpayWebhook(body, sign('not json'))).rejects.toThrow(/unparseable/i);
+    });
+
+    it('acknowledges but ignores an event type this codebase does not act on (e.g. refund.processed)', async () => {
+      const body = Buffer.from(JSON.stringify({ event: 'refund.processed', payload: {} }));
+      const result = await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(result).toEqual({ acknowledged: true });
+      expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
+      expect(prisma.auditLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ outcome: 'ignored' }) }));
+    });
+
+    it('acknowledges a payment.captured event for an order this system has no record of', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(null);
+      const body = Buffer.from(JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_1', order_id: 'order_unknown' } } } }));
+      const result = await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(result).toEqual({ acknowledged: true });
+      expect(prisma.appointmentPayments.update).not.toHaveBeenCalled();
+    });
+
+    it('marks a pending payment succeeded on payment.captured, recording the real payment id', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', status: 'pending', razorpay_payment_id: null });
+      const body = Buffer.from(JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_real_1', order_id: 'order_1' } } } }));
+      const result = await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(result).toEqual({ acknowledged: true });
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({
+        where: { id: 'pay-row-1' },
+        data: { status: 'succeeded', razorpay_payment_id: 'pay_real_1' },
+      });
+    });
+
+    it('is idempotent -- a payment.captured delivered twice for an already-succeeded row does not re-write it', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', status: 'succeeded', razorpay_payment_id: 'pay_real_1' });
+      const body = Buffer.from(JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_real_1', order_id: 'order_1' } } } }));
+      await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(prisma.appointmentPayments.update).not.toHaveBeenCalled();
+    });
+
+    it('marks a pending payment failed on payment.failed', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', status: 'pending' });
+      const body = Buffer.from(JSON.stringify({ event: 'payment.failed', payload: { payment: { entity: { id: 'pay_real_1', order_id: 'order_1' } } } }));
+      await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({ where: { id: 'pay-row-1' }, data: { status: 'failed' } });
+    });
+
+    it('never regresses an already-succeeded row on a late payment.failed delivery', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', status: 'succeeded' });
+      const body = Buffer.from(JSON.stringify({ event: 'payment.failed', payload: { payment: { entity: { id: 'pay_real_1', order_id: 'order_1' } } } }));
+      await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(prisma.appointmentPayments.update).not.toHaveBeenCalled();
     });
   });
 });

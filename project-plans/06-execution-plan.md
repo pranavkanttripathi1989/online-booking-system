@@ -117,7 +117,7 @@ concurrency and viable under load.
 | 3.2 | Decide and implement the timezone model — `appointment_date` + `appointment_time` are currently two zone-less timestamps, which will not survive a multi-city tenant | F-16 | ⬜ not started — `schema.prisma`'s `Appointments.appointment_date`/`appointment_time` are still plain `DateTime` (`TIMESTAMP(3)`, not `TIMESTAMPTZ`, confirmed in the `init` migration SQL); no decision recorded anywhere |
 | 3.3 | Pagination on every unbounded list resolver, matching each consumer's existing contract; server-side default and maximum `take` | F-14 | ⚠️ **partial — safety net done (`REQ039`), the real fix is not.** A Prisma `$use` middleware now clamps every `findMany` with no explicit `take` to 200 rows — no resolver can return a genuinely unbounded collection anymore, live-verified against a real unbounded query (`languages`) and against explicit/default-limit queries (unaffected). **Still open**: `patients`/`appointments`/`clinicians` already paginate for real (`take`/`skip` in their own GraphQL contract); ~19 other services (`staff`, `reviews`, `messages`, `products`, `rooms`, `services`, `test-results`, `notifications`, `lookups`, `languages`, `public`, `account`, `email-templates`, `notification-preferences`, `cancellation-rules`, ...) still have no real paginated contract a frontend could page through past 200 rows — each needs its own contract change matched against its actual consumer (Hard Rule 7), not attempted this session |
 | 3.4 | Kill the N+1s: batch the `public` clinician fan-out; move dashboard/analytics counting into Prisma `groupBy`/`count` aggregates | F-15 | ✅ **done (`REQ036`)** — `dashboard.service.ts`/`analytics.service.ts` were already batched. `public.service.ts`'s `getClinicians()` now batches every clinician's rating into one `reviews.groupBy` call instead of one `reviews.aggregate()` per row |
-| 3.5 | Razorpay webhook endpoint with signature verification, plus a reconciliation job for `pending` rows | F-07 | ⬜ not started — no REST webhook controller exists anywhere in the backend (only 2 `@Controller`s total, neither payments-related); the signature verification that does exist (`appointment-payments.service.ts`) is the client-driven checkout-confirmation mutation, not a server-to-server webhook Razorpay calls independently. No reconciliation job/cron/queue of any kind |
+| 3.5 | Razorpay webhook endpoint with signature verification, plus a reconciliation job for `pending` rows | F-07 | ✅ **done (`REQ040`/`PLAN044`)** — new `POST /webhooks/razorpay` (REST, `@Public()` — confirmed live that the global `GqlAuthGuard` genuinely 401s an unauthenticated REST request the same as GraphQL, not something to assume from a stale comment), HMAC-SHA256-verified against a real live-computed signature, idempotent by construction. New `@nestjs/schedule` `@Cron('*/15 * * * *')` reconciliation sweep for stale `pending` rows via Razorpay's own Payments API. F-07's full text (not just this row's own summary) also flagged `createRazorpayOrder`/`verifyRazorpayPayment` as unauthenticated abuse surface — kept `@Public()` (the anonymous public booking wizard genuinely needs it, per this session's own `BUG011`) but added a 10/60s throttle instead of an auth requirement. 38 new unit tests, 708/708 full suite green, live-verified end to end (a real signed webhook call flips a real `pending` row to `succeeded`) |
 | 3.6 | Audit-log completeness: `resource_id`, `outcome`, sanitised `details`, `user_agent`, plus the two indexes | F-10 | ✅ **done (`REQ037`)** — `outcome`/`user_agent` columns added (migration `20260823020000`); the interceptor now populates `resource_id` (from the caller's own `id` arg, or the created entity's), sanitised `details` (a deny-list redacts password/token/OTP/secret-shaped keys), `outcome`, and `user_agent` on every row. Exposed on `AuditLogType` and the admin UI, which previously had no way to see any of it. The 3 pre-existing indexes already exceeded the "two indexes" ask |
 | 3.7 | `helmet` + CSP + HSTS; per-operation throttles on `register`/`requestOtp`/`requestPasswordReset`; boot-time `NODE_ENV` assertion | F-09, F-12 | ✅ **done (`REQ038`)** — `helmet` added (CSP production-only to not break the Apollo Sandbox dev landing page; CORP relaxed to `cross-origin` so cross-origin avatar/logo `<img>` loads keep working — both deviations live-verified, not assumed). Boot-time `assertKnownNodeEnv()` throws on an unset/unrecognized value. Throttle redesigned rather than reinstated at the same value: `login`/`verifyTotpLogin` 20/60s, `requestOtp`/`forgotPassword` 10/60s (tighter — cost-bearing sends), `register` 10/60s (**new** — never had one, despite this item's own wording naming it). Live-verified: 15 rapid login attempts produce zero `ThrottlerException` now |
 
@@ -130,9 +130,10 @@ present on every response.
 ### P2/P3 status as of 2026-08-23 — what's deliberately still open, and why
 
 **P2: 3/7 done (2.3, 2.4, 2.6), 2/7 partial (2.1, 2.7), 2/7 not started
-(2.2, 2.5). P3: 4/7 done (3.1, 3.4, 3.6, 3.7), 1/7 partial (3.3), 2/7 not
-started (3.2, 3.5).** The items below were deliberately not attempted this
-session — each is genuinely separate, larger-scoped work, not an oversight:
+(2.2, 2.5). P3: 5/7 done (3.1, 3.4, 3.5, 3.6, 3.7), 1/7 partial (3.3), 1/7
+not started (3.2).** 3.5 (`REQ040`/`PLAN044`) closed 2026-08-23. The items
+below remain deliberately not attempted — each is genuinely separate,
+larger-scoped work, not an oversight:
 
 - **P2.2 (the 3 backend-less pages — `tasks`, `waiting-room`, `onboarding`).**
   "Build the domain or remove the route" is doing a lot of work in that
@@ -166,10 +167,6 @@ session — each is genuinely separate, larger-scoped work, not an oversight:
   expects (Hard Rule 7), the same discipline every other domain in this
   codebase already got. Not something to rush through as one more bullet
   in a hardening pass.
-- **P3.5 (Razorpay webhook + reconciliation job)** was not attempted this
-  session either — not because it's out of scope, simply not reached in
-  the sequence this pass worked through (P3.1/3.4/3.6/3.7 first). Still
-  fully open, no different from before this session started.
 
 ---
 

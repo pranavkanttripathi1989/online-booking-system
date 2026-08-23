@@ -13,7 +13,7 @@
 | security | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [security](./security/README.md) |
 | settings | 2 | 0 | 0 | 0 | 2 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
-| patient-payments | 2 | 0 | 0 | 0 | 2 | 2026-08-20 | [patient-payments](./patient-payments/README.md) |
+| patient-payments | 2 | 1 | 0 | 0 | 3 | 2026-08-23 | [patient-payments](./patient-payments/README.md) |
 | next-10-features | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [next-10-features](./next-10-features/README.md) |
 | backend-api-requirements | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [backend-api-requirements](./backend-api-requirements/README.md) |
 | backend-master-plan | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [backend-master-plan](./backend-master-plan/README.md) |

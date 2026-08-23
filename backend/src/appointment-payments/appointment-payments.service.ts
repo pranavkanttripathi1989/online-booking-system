@@ -1,4 +1,5 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { VerifyRazorpayPaymentInput } from './dto/appointment-payment.input';
@@ -125,6 +126,92 @@ export class AppointmentPaymentsService {
     }
 
     return { success: true };
+  }
+
+  // REQ040/F-07 — Razorpay calls this server-to-server; there is no JWT to
+  // check, so the signature itself is the authentication. `rawBody` must be
+  // the exact bytes Razorpay signed (see appointment-payments-webhook.controller.ts),
+  // not a re-serialized parse of the body -- key order/whitespace
+  // differences would break the HMAC even for a genuine delivery.
+  //
+  // Throws (→ HTTP 400) rather than returning acknowledged:false for
+  // configuration/signature/parse failures -- a webhook that always answers
+  // 200 regardless of outcome would hide a misconfigured secret or a broken
+  // integration from Razorpay's own delivery-failure monitoring. Every
+  // event this codebase *understands and chooses not to act on* still gets
+  // a real 200 (see below) -- only genuine failures get a non-2xx.
+  async handleRazorpayWebhook(rawBody: Buffer, signatureHeader: string | undefined) {
+    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
+    if (!webhookSecret) {
+      await this.logWebhookAudit(null, 'razorpay_webhook', 'not_configured', {});
+      throw new BadRequestException('Razorpay webhooks are not configured');
+    }
+    if (!signatureHeader) {
+      await this.logWebhookAudit(null, 'razorpay_webhook', 'missing_signature', {});
+      throw new BadRequestException('Missing webhook signature');
+    }
+
+    const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
+    const expected = Buffer.from(expectedSignature, 'hex');
+    const actual = Buffer.from(signatureHeader, 'hex');
+    const matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+    if (!matches) {
+      await this.logWebhookAudit(null, 'razorpay_webhook', 'invalid_signature', {});
+      throw new BadRequestException('Invalid webhook signature');
+    }
+
+    let event: { event?: string; payload?: { payment?: { entity?: { id?: string; order_id?: string } } } };
+    try {
+      event = JSON.parse(rawBody.toString('utf8'));
+    } catch {
+      await this.logWebhookAudit(null, 'razorpay_webhook', 'unparseable_body', {});
+      throw new BadRequestException('Unparseable webhook body');
+    }
+
+    const eventType = event.event;
+    const orderId = event.payload?.payment?.entity?.order_id;
+    const paymentId = event.payload?.payment?.entity?.id;
+
+    // Every event type is acknowledged (200 -- Razorpay stops retrying) even
+    // when unhandled: refunds/disputes have no schema anywhere in this
+    // codebase yet (REQ040), so silently accepting and ignoring them is the
+    // honest behavior, not a mishandled event.
+    if (eventType !== 'payment.captured' && eventType !== 'payment.failed') {
+      await this.logWebhookAudit(null, 'razorpay_webhook', 'ignored', { event: eventType });
+      return { acknowledged: true };
+    }
+    if (!orderId) {
+      await this.logWebhookAudit(null, 'razorpay_webhook', 'no_order_id', { event: eventType });
+      return { acknowledged: true };
+    }
+
+    const payment = await this.prisma.appointmentPayments.findFirst({ where: { razorpay_order_id: orderId } });
+    if (!payment) {
+      await this.logWebhookAudit(null, 'razorpay_webhook', 'order_not_found', { event: eventType, orderId });
+      return { acknowledged: true };
+    }
+
+    // Idempotent by construction -- applying the same delivery twice (Razorpay
+    // retries at-least-once) lands on the same end state, so no separate
+    // event-dedup table is needed. A late `payment.failed` must never regress
+    // a row a captured event (or the reconciliation job) already resolved.
+    if (eventType === 'payment.captured' && payment.status !== 'succeeded') {
+      await this.prisma.appointmentPayments.update({
+        where: { id: payment.id },
+        data: { status: 'succeeded', razorpay_payment_id: paymentId ?? payment.razorpay_payment_id },
+      });
+    } else if (eventType === 'payment.failed' && payment.status === 'pending') {
+      await this.prisma.appointmentPayments.update({ where: { id: payment.id }, data: { status: 'failed' } });
+    }
+
+    await this.logWebhookAudit(payment.id, 'razorpay_webhook', 'success', { event: eventType, orderId, paymentId });
+    return { acknowledged: true };
+  }
+
+  private async logWebhookAudit(resourceId: string | null, action: string, outcome: string, details: Record<string, unknown>) {
+    await this.prisma.auditLogs.create({
+      data: { user_id: null, action, resource: 'appointment_payment', resource_id: resourceId, outcome, details: details as Prisma.InputJsonValue },
+    });
   }
 
   private toTransaction(row: any) {

@@ -9,7 +9,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ040 | improvement | Razorpay webhook, pending-payment reconciliation, and order-creation abuse hardening | done | 2026-08-23 | 2026-08-23 | REQ004 | [REQ040-patient-payments-2026-08-23-razorpay-webhook-and-order-abuse-hardening.md](./improvement/REQ040-patient-payments-2026-08-23-razorpay-webhook-and-order-abuse-hardening.md) |
 
 ## bug
 

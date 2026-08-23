@@ -247,6 +247,14 @@ public only if the checkout callback genuinely cannot carry a token — and if s
 rate-limit it per order id. Separately, add the missing webhook endpoint so a
 succeeded-but-uncallback'd payment reconciles instead of sitting `pending`.
 
+**Closed 2026-08-23 (`REQ040`/`PLAN044`)** — with a deliberate deviation from
+the literal suggested fix: auth was NOT added to `createRazorpayOrder`
+(confirmed live that `booking/index.jsx`'s anonymous public booking wizard
+depends on calling it unauthenticated, per this session's own `BUG011`);
+throttled both mutations 10/60s instead. The webhook endpoint and a
+`@Cron` reconciliation sweep both now exist and are live-verified (a real
+HMAC-signed webhook call flips a real `pending` row to `succeeded`).
+
 **File as:** bug, feature `patient-payments`.
 
 ### F-08 · S3 · `orderTest` never sets `patient_id`, so patient self-scoping is dead code

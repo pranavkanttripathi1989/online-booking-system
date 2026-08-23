@@ -10,7 +10,12 @@ import { assertKnownNodeEnv } from './common/utils/assert-known-node-env';
 async function bootstrap() {
   assertKnownNodeEnv(process.env.NODE_ENV);
 
-  const app = await NestFactory.create<NestExpressApplication>(AppModule);
+  // rawBody: true (REQ040) -- preserves req.rawBody as a Buffer alongside
+  // the normally-parsed JSON body on every request. Needed by
+  // appointment-payments-webhook.controller.ts: Razorpay's webhook HMAC is
+  // computed over the exact raw request bytes, and re-serializing the
+  // parsed object would not reliably reproduce the same byte sequence.
+  const app = await NestFactory.create<NestExpressApplication>(AppModule, { rawBody: true });
 
   // P3.7/F-09: contentSecurityPolicy is limited to production -- Apollo
   // Server's dev-only Sandbox landing page (auto-enabled whenever
