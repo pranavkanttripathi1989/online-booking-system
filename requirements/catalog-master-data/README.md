@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ044 | improvement | Drug master reference table | done | 2026-08-23 | 2026-08-23 | REQ016 | [REQ044-catalog-master-data-2026-08-23-drug-master-reference-table.md](./improvement/REQ044-catalog-master-data-2026-08-23-drug-master-reference-table.md) |
 
 ## bug
 

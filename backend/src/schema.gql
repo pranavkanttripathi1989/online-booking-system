@@ -715,6 +715,30 @@ input DisableTotpInput {
   password: String!
 }
 
+type Drug {
+  composition: String
+  form: String
+  gst_rate: Float
+  hsn: String
+  id: ID!
+  is_platform_seeded: Boolean!
+  manufacturer: String
+  name: String!
+  schedule_class: String
+  strength: String
+}
+
+input DrugInput {
+  composition: String
+  form: String
+  gst_rate: Float
+  hsn: String
+  manufacturer: String
+  name: String!
+  schedule_class: String
+  strength: String
+}
+
 type EmailTemplate {
   body: String!
   id: ID!
@@ -827,6 +851,7 @@ type Mutation {
   createClinic(input: ClinicInput!): Clinic!
   createClinician(input: ClinicianInput!): Clinician!
   createClinicianType(input: CreateClinicianTypeInput!): LookupMutationResult!
+  createDrug(input: DrugInput!): Drug!
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
@@ -849,6 +874,7 @@ type Mutation {
   deleteCancellationRule(id: ID!): CancellationRuleMutationResult!
   deleteClinicianAvailability(id: ID!): Boolean!
   deleteClinicianType(id: ID!): LookupMutationResult!
+  deleteDrug(id: ID!): Boolean!
   deleteLanguage(id: ID!): LookupMutationResult!
   deleteLunchBreak(id: ID!): Boolean!
   deleteNotification(id: ID!): NotificationMutationResult!
@@ -891,6 +917,7 @@ type Mutation {
   updateClinic(id: ID!, input: ClinicInput!): Clinic!
   updateClinician(id: ID!, input: ClinicianInput!): Clinician!
   updateClinicianType(id: ID!, input: UpdateClinicianTypeInput!): LookupMutationResult!
+  updateDrug(id: ID!, input: DrugInput!): Drug!
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
   updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
   updateMyNotificationPreferences(input: [NotificationPreferenceInput!]!): GenericResult!
@@ -1419,6 +1446,8 @@ type Query {
   clinicians(clinic_id: ID, first: Int = 20, is_active: Boolean, page: Int): ClinicianPaginated!
   clinics(search: SearchInput): [Clinic!]!
   dashboard: Dashboard!
+  drug(id: ID!): Drug
+  drugs(search: String): [Drug!]!
   emailTemplates: [EmailTemplate!]!
   getAppointment(id: ID!): PublicAppointmentDetail!
   getAppointmentStats(clinicId: ID, endDate: String!, startDate: String!): AppointmentStats!

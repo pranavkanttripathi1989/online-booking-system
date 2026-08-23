@@ -362,6 +362,7 @@ model ClientOrganizations {
   products               Products[]
   productCategories      ProductCategories[]
   productSubcategories   ProductSubcategories[]
+  drugs                  Drugs[]
   notificationProviderConfigs NotificationProviderConfig[]
 }
 
@@ -903,6 +904,34 @@ model ProductVariations {
   appointments Appointments[]
 
   @@index([product_id])
+}
+
+// REQ044/REQ016 -- first slice of catalog-master-data's drug master.
+// client_org_id null = platform-seeded reference data, visible to every
+// tenant; non-null = a tenant's own custom addition, visible only to that
+// tenant (never leaking into another org's catalogue, per REQ016's own
+// acceptance criteria). No real licensed drug database is wired up yet --
+// PRD §19 Open Question 4 (sourcing) is unresolved -- so this ships the
+// schema plus a small manually-curated seed set, matching REQ016's own
+// explicit fallback recommendation for the interim.
+model Drugs {
+  id             String   @id @default(uuid())
+  client_org_id  String?
+  name           String
+  composition    String?
+  strength       String?
+  form           String?
+  schedule_class String?
+  hsn            String?
+  gst_rate       Float?
+  manufacturer   String?
+  is_deleted     Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @default(now())
+
+  client_organization ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+
+  @@index([client_org_id, is_deleted])
 }
 
 model Products {

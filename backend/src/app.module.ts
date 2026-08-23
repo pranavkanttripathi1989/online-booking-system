@@ -35,6 +35,7 @@ import { PublicModule } from './public/public.module';
 import { ProductsModule } from './products/products.module';
 import { AnalyticsModule } from './analytics/analytics.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { DrugsModule } from './drugs/drugs.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
 import { GqlAuthGuard } from './common/guards/gql-auth.guard';
@@ -115,6 +116,7 @@ import { PubSubModule } from './common/pubsub.module';
     ProductsModule,
     AnalyticsModule,
     DashboardModule,
+    DrugsModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

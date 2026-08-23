@@ -2,6 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| catalog-master-data | 0 | 1 | 0 | 0 | 1 | 2026-08-23 | [catalog-master-data](./catalog-master-data/README.md) |
 | organizations | 0 | 1 | 0 | 0 | 1 | 2026-08-23 | [organizations](./organizations/README.md) |
 | queue-management | 0 | 1 | 0 | 0 | 1 | 2026-08-23 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 4 | 11 | 0 | 15 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |

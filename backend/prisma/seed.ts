@@ -183,6 +183,31 @@ async function main() {
     console.log(`  created: ${tpl.name}`);
   }
 
+  // REQ044/REQ016 -- a small, manually-curated set of platform-seeded
+  // (client_org_id: null) drugs, standing in for a real licensed drug
+  // database until that sourcing decision is made (PRD Open Question 4,
+  // still unresolved). schedule_class follows India's Drugs and Cosmetics
+  // Rules schedule letters (H = prescription-only, H1 = stricter
+  // prescription tracking, OTC = no schedule).
+  console.log('Seeding drug master (platform-seeded reference data)...');
+  const DRUGS = [
+    { name: 'Paracetamol', composition: 'Paracetamol', strength: '500mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Amoxicillin', composition: 'Amoxicillin', strength: '500mg', form: 'Capsule', schedule_class: 'H', hsn: '30041020', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Metformin', composition: 'Metformin Hydrochloride', strength: '500mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Amlodipine', composition: 'Amlodipine Besylate', strength: '5mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Cetirizine', composition: 'Cetirizine Hydrochloride', strength: '10mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Azithromycin', composition: 'Azithromycin', strength: '500mg', form: 'Tablet', schedule_class: 'H1', hsn: '30041020', gst_rate: 12, manufacturer: 'Generic' },
+  ];
+  for (const drug of DRUGS) {
+    const existing = await prisma.drugs.findFirst({ where: { name: drug.name, client_org_id: null } });
+    if (existing) {
+      console.log(`  skip (exists): ${drug.name}`);
+      continue;
+    }
+    await prisma.drugs.create({ data: drug });
+    console.log(`  created: ${drug.name}`);
+  }
+
   console.log('Seed complete.');
 }
 
