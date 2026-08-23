@@ -10,6 +10,7 @@ import { msg91Provider } from './msg91.provider';
 import { gupshupProvider } from './gupshup.provider';
 import { twilioProvider } from './twilio.provider';
 import { awsSnsProvider } from './aws-sns.provider';
+import { gupshupWhatsappProvider } from './gupshup-whatsapp.provider';
 
 const originalFetch = global.fetch;
 
@@ -19,10 +20,13 @@ describe('provider registry', () => {
     jest.restoreAllMocks();
   });
 
-  it('lists all 4 registered providers, each declaring the sms channel', () => {
+  it('lists all 5 registered providers -- 4 sms, 1 whatsapp (REQ025)', () => {
     const providers = listProviders();
-    expect(providers.map((p) => p.id).sort()).toEqual(['aws_sns', 'gupshup', 'msg91', 'twilio']);
-    expect(providers.every((p) => p.channel === 'sms')).toBe(true);
+    expect(providers.map((p) => p.id).sort()).toEqual([
+      'aws_sns', 'gupshup', 'gupshup_whatsapp', 'msg91', 'twilio',
+    ]);
+    expect(providers.filter((p) => p.channel === 'sms')).toHaveLength(4);
+    expect(providers.filter((p) => p.channel === 'whatsapp')).toHaveLength(1);
   });
 
   it('getProvider resolves a known id and returns undefined for an unknown one', () => {
@@ -53,6 +57,11 @@ describe('provider registry', () => {
       expect(validateCredentials(awsSnsProvider, { access_key_id: 'a' })).toContain('Secret Access Key');
       expect(
         validateCredentials(awsSnsProvider, { access_key_id: 'a', secret_access_key: 's', region: 'ap-south-1' }),
+      ).toBeNull();
+
+      expect(validateCredentials(gupshupWhatsappProvider, { apikey: 'k' })).toContain('WhatsApp Source Number');
+      expect(
+        validateCredentials(gupshupWhatsappProvider, { apikey: 'k', source: '+919810000000', app_name: 'HealthSync' }),
       ).toBeNull();
     });
   });
@@ -111,6 +120,49 @@ describe('provider registry', () => {
       );
       expect(result.sent).toBe(false);
       expect(result.error).toBe('The security token included in the request is invalid');
+    });
+
+    it('gupshup_whatsapp reports success when Gupshup accepts the message', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ status: 'submitted' }) });
+      const result = await gupshupWhatsappProvider.send(
+        { apikey: 'k', source: '+919810000000', app_name: 'HealthSync' },
+        '+919810000001',
+        'hi',
+      );
+      expect(result.sent).toBe(true);
+    });
+
+    it('gupshup_whatsapp reports a non-ok HTTP response as a failed (not thrown) send', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 401, text: () => Promise.resolve('bad apikey') });
+      const result = await gupshupWhatsappProvider.send(
+        { apikey: 'bad', source: '+919810000000', app_name: 'HealthSync' },
+        '+919810000001',
+        'hi',
+      );
+      expect(result.sent).toBe(false);
+      expect(result.error).toContain('401');
+    });
+
+    it('gupshup_whatsapp treats a non-"submitted" status body as a failed send, not just a non-ok status', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, json: () => Promise.resolve({ status: 'error' }) });
+      const result = await gupshupWhatsappProvider.send(
+        { apikey: 'k', source: '+919810000000', app_name: 'HealthSync' },
+        '+919810000001',
+        'hi',
+      );
+      expect(result.sent).toBe(false);
+      expect(result.error).toContain('error');
+    });
+
+    it('gupshup_whatsapp never throws when the underlying request rejects (e.g. network failure)', async () => {
+      global.fetch = jest.fn().mockRejectedValue(new Error('ECONNREFUSED'));
+      const result = await gupshupWhatsappProvider.send(
+        { apikey: 'k', source: '+919810000000', app_name: 'HealthSync' },
+        '+919810000001',
+        'hi',
+      );
+      expect(result.sent).toBe(false);
+      expect(result.error).toBe('ECONNREFUSED');
     });
   });
 });

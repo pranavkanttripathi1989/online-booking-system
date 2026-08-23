@@ -22,7 +22,7 @@ describe('NotificationProviderConfigService', () => {
   describe('providers', () => {
     it('lists the registered providers without requiring auth (public catalog, no credentials attached)', () => {
       const result = service.providers();
-      expect(result.map((p) => p.id).sort()).toEqual(['aws_sns', 'gupshup', 'msg91', 'twilio']);
+      expect(result.map((p) => p.id).sort()).toEqual(['aws_sns', 'gupshup', 'gupshup_whatsapp', 'msg91', 'twilio']);
     });
   });
 

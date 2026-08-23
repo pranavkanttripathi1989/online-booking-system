@@ -17,7 +17,12 @@ export interface SendResult {
 export interface NotificationProvider {
   id: string;
   label: string;
-  channel: 'sms';
+  // REQ025 — widened from the original 'sms'-only union. Adding the
+  // whatsapp value here is genuinely the whole schema/type impact of
+  // adding a channel: NotificationProviderConfig.channel is already a
+  // plain, un-enum'd String column (see schema.prisma), and every service/
+  // resolver method already takes `channel: string` generically.
+  channel: 'sms' | 'whatsapp';
   fields: ProviderField[];
   // Every implementation catches its own errors and returns {sent:false} --
   // a failed/misconfigured send must never throw into (and break) the
