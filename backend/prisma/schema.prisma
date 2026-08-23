@@ -487,6 +487,7 @@ model Clinics {
   reviews            Reviews[]
   cancellationRules  ProductCancellationRules[]
   payments           AppointmentPayments[]
+  invoiceSequences   InvoiceSequences[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -715,6 +716,14 @@ model AppointmentPayments {
   cgst_amount         Int?
   sgst_amount         Int?
   igst_amount         Int?
+  // REQ047 (US-BIL-09). place_of_supply has no reliable source yet --
+  // Clinics has no state column (CLAUDE.md's own documented flat-address
+  // inconsistency) -- so it stays null unless supplied explicitly; nothing
+  // in this slice invents one. invoice_number is always real: assigned
+  // gaplessly per clinic from InvoiceSequences the moment a payment
+  // succeeds, never left null for a completed payment.
+  place_of_supply     String?
+  invoice_number      String?
   metadata            Json     @default("{}")
   created_at          DateTime @default(now())
   updated_at          DateTime @default(now())
@@ -730,6 +739,26 @@ model AppointmentPayments {
   @@index([appointment_id])
   @@index([patient_id])
   @@index([clinic_id])
+}
+
+// REQ047 (US-BIL-09) -- gapless, per-branch invoice numbering ("PRD §14.2's
+// explicit constraint"). One row per (clinic, series, financial_year);
+// `last_number` only ever increments via a single atomic UPDATE/upsert, so
+// two concurrent payments for the same clinic can never be assigned the same
+// number or leave a gap. `series` defaults to "APPT" (this slice's own
+// numbering stream) so a future pharmacy invoice stream (REQ022) can share
+// this same table under a different series without colliding.
+model InvoiceSequences {
+  id             String   @id @default(uuid())
+  clinic_id      String
+  series         String   @default("APPT")
+  financial_year String   // e.g. "2026-27" (April-March)
+  last_number    Int      @default(0)
+  updated_at     DateTime @updatedAt
+
+  clinic Clinics @relation(fields: [clinic_id], references: [id])
+
+  @@unique([clinic_id, series, financial_year])
 }
 
 model Reviews {

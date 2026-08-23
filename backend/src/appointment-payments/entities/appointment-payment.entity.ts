@@ -68,6 +68,9 @@ export class FinanceTransactionType {
   @Field() patient_name: string;
   @Field({ nullable: true }) product_name?: string;
   @Field() method: string;
+  // REQ047 (US-BIL-09) -- null for a payment that hasn't succeeded yet
+  // (pending/failed rows never get one); always set once status is succeeded.
+  @Field({ nullable: true }) invoice_number?: string;
 }
 
 @ObjectType('FinanceMonthlyPoint')

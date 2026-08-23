@@ -19,6 +19,7 @@ describe('AppointmentPaymentsService', () => {
       count: jest.Mock;
       aggregate: jest.Mock;
     };
+    invoiceSequences: { upsert: jest.Mock };
     userProfiles: { findFirst: jest.Mock };
     auditLogs: { create: jest.Mock };
   };
@@ -40,6 +41,7 @@ describe('AppointmentPaymentsService', () => {
         count: jest.fn(),
         aggregate: jest.fn(),
       },
+      invoiceSequences: { upsert: jest.fn().mockResolvedValue({ last_number: 1 }) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
       auditLogs: { create: jest.fn() },
     };
@@ -125,7 +127,15 @@ describe('AppointmentPaymentsService', () => {
   });
 
   describe('verifyRazorpayPayment — real HMAC verification', () => {
-    const pendingPayment = { id: 'pay-1', razorpay_order_id: 'order_1', status: 'pending', patient_id: 'pat-1', amount: 49900 };
+    const pendingPayment = {
+      id: 'pay-1',
+      razorpay_order_id: 'order_1',
+      status: 'pending',
+      patient_id: 'pat-1',
+      amount: 49900,
+      clinic_id: 'clinic-1',
+      appointment_id: 'appt-1',
+    };
 
     const validSignatureFor = (orderId: string, paymentId: string, secret = 'fake_secret') =>
       crypto.createHmac('sha256', secret).update(`${orderId}|${paymentId}`).digest('hex');
@@ -133,6 +143,7 @@ describe('AppointmentPaymentsService', () => {
     it('accepts a correctly-computed signature and marks the payment succeeded', async () => {
       prisma.appointmentPayments.findFirst.mockResolvedValue(pendingPayment);
       prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: null });
       const signature = validSignatureFor('order_1', 'pay_1');
 
       const result = await service.verifyRazorpayPayment({
@@ -144,8 +155,88 @@ describe('AppointmentPaymentsService', () => {
       expect(result.success).toBe(true);
       expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({
         where: { id: 'pay-1' },
-        data: { status: 'succeeded', razorpay_payment_id: 'pay_1', razorpay_signature: signature },
+        data: expect.objectContaining({
+          status: 'succeeded',
+          razorpay_payment_id: 'pay_1',
+          razorpay_signature: signature,
+          invoice_number: expect.stringMatching(/^INV\/\d{4}-\d{2}\/CLINIC-1\/00001$/),
+        }),
       });
+    });
+
+    // REQ047 (US-BIL-09) -- a confirmed-exempt product (REQ046) gets real
+    // zeros, not just a stored invoice number.
+    it('zeroes GST amounts for a confirmed tax-exempt product and copies its HSN', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(pendingPayment);
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: { hsn: '9993', is_tax_exempt: true } });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: signature,
+      });
+
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({
+        where: { id: 'pay-1' },
+        data: expect.objectContaining({
+          hsn_sac_code: '9993',
+          gst_rate: 0,
+          cgst_amount: 0,
+          sgst_amount: 0,
+          igst_amount: 0,
+        }),
+      });
+    });
+
+    // A non-exempt product has no real GST rate anywhere in this schema to
+    // source from (Products has no gst_rate column, no org-level GSTIN
+    // config table) -- leaving these null is the honest behavior, not a
+    // bug: asserting it here pins that decision against an accidental
+    // future "just default to 18%" fix.
+    it('leaves GST amount fields null for a non-exempt product rather than guessing a rate', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(pendingPayment);
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: { hsn: '3004', is_tax_exempt: false } });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: signature,
+      });
+
+      const data = prisma.appointmentPayments.update.mock.calls[0][0].data;
+      expect(data.hsn_sac_code).toBe('3004');
+      expect(data.gst_rate).toBeUndefined();
+      expect(data.cgst_amount).toBeUndefined();
+    });
+
+    // Each clinic's numbering is independent and gapless -- a second
+    // invoice for the same clinic/financial-year increments rather than
+    // restarting or colliding.
+    it('assigns a gapless, incrementing invoice number per clinic via upsert', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(pendingPayment);
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: null });
+      prisma.invoiceSequences.upsert.mockResolvedValue({ last_number: 7 });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: signature,
+      });
+
+      expect(prisma.invoiceSequences.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { clinic_id_series_financial_year: expect.objectContaining({ clinic_id: 'clinic-1', series: 'APPT' }) },
+          update: { last_number: { increment: 1 } },
+        }),
+      );
+      const data = prisma.appointmentPayments.update.mock.calls[0][0].data;
+      expect(data.invoice_number).toMatch(/00007$/);
     });
 
     // REQ008/PLAN017
@@ -413,13 +504,24 @@ describe('AppointmentPaymentsService', () => {
     });
 
     it('marks a pending payment succeeded on payment.captured, recording the real payment id', async () => {
-      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', status: 'pending', razorpay_payment_id: null });
+      prisma.appointmentPayments.findFirst.mockResolvedValue({
+        id: 'pay-row-1',
+        status: 'pending',
+        razorpay_payment_id: null,
+        clinic_id: 'clinic-1',
+        appointment_id: 'appt-1',
+      });
+      prisma.appointments.findUnique.mockResolvedValue({ product: null });
       const body = Buffer.from(JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_real_1', order_id: 'order_1' } } } }));
       const result = await service.handleRazorpayWebhook(body, sign(body.toString()));
       expect(result).toEqual({ acknowledged: true });
       expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({
         where: { id: 'pay-row-1' },
-        data: { status: 'succeeded', razorpay_payment_id: 'pay_real_1' },
+        data: expect.objectContaining({
+          status: 'succeeded',
+          razorpay_payment_id: 'pay_real_1',
+          invoice_number: expect.stringMatching(/^INV\//),
+        }),
       });
     });
 

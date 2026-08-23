@@ -23,7 +23,7 @@
 | platform-nfr | 1 | 4 | 11 | 1 | 15 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
 | security | 3 | 0 | 4 | 2 | 5 | 2026-08-22 | [security](./security/README.md) |
 | notifications | 2 | 0 | 0 | 1 | 1 | 2026-08-22 | [notifications](./notifications/README.md) |
-| patient-payments | 2 | 1 | 0 | 1 | 2 | 2026-08-23 | [patient-payments](./patient-payments/README.md) |
+| patient-payments | 3 | 1 | 0 | 1 | 3 | 2026-08-23 | [patient-payments](./patient-payments/README.md) |
 | communications-policies | 1 | 2 | 0 | 0 | 3 | 2026-08-22 | [communications-policies](./communications-policies/README.md) |
 | test-coverage-audit | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |

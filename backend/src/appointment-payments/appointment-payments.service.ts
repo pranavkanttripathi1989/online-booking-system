@@ -9,6 +9,14 @@ import { NotificationTriggerService } from '../notifications/notification-trigge
 
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
 
+// Indian financial year: April 1 -- March 31. A payment captured in
+// Jan-Mar 2027 belongs to FY "2026-27", not "2027-28".
+function financialYearFor(date: Date): string {
+  const month = date.getMonth() + 1; // 1-12
+  const startYear = month >= 4 ? date.getFullYear() : date.getFullYear() - 1;
+  return `${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`;
+}
+
 @Injectable()
 export class AppointmentPaymentsService {
   constructor(
@@ -75,6 +83,47 @@ export class AppointmentPaymentsService {
     };
   }
 
+  // REQ047 (US-BIL-09) -- assigned once, the moment a payment succeeds
+  // (called from both verifyRazorpayPayment and the webhook's
+  // payment.captured branch, so whichever path lands first is authoritative
+  // and the other is a no-op re-write of the same values on retry).
+  //
+  // gst_rate/cgst/sgst/igst are only ever set to real zeros for a
+  // confirmed-exempt product (Products.is_tax_exempt, REQ046) -- a
+  // non-exempt item is left with all four null rather than guessing a GST
+  // rate this schema has nowhere to source from (no per-product gst_rate,
+  // no org-level GSTIN config table; see the schema.prisma comment on
+  // PaymentTransactions). Logged as an open gap in REQ047, not silently
+  // invented.
+  private async nextInvoiceNumber(clinicId: string, series = 'APPT'): Promise<string> {
+    const financialYear = financialYearFor(new Date());
+    const sequence = await this.prisma.invoiceSequences.upsert({
+      where: { clinic_id_series_financial_year: { clinic_id: clinicId, series, financial_year: financialYear } },
+      create: { clinic_id: clinicId, series, financial_year: financialYear, last_number: 1 },
+      update: { last_number: { increment: 1 } },
+    });
+    return `INV/${financialYear}/${clinicId.slice(0, 8).toUpperCase()}/${String(sequence.last_number).padStart(5, '0')}`;
+  }
+
+  private async invoiceDetailsForSuccess(clinicId: string, appointmentId: string) {
+    const appointment = await this.prisma.appointments.findUnique({
+      where: { id: appointmentId },
+      include: { product: true },
+    });
+    const product = appointment?.product;
+    const invoiceNumber = await this.nextInvoiceNumber(clinicId);
+
+    const gst: Record<string, unknown> = { invoice_number: invoiceNumber };
+    if (product?.hsn) gst.hsn_sac_code = product.hsn;
+    if (product?.is_tax_exempt) {
+      gst.gst_rate = 0;
+      gst.cgst_amount = 0;
+      gst.sgst_amount = 0;
+      gst.igst_amount = 0;
+    }
+    return gst;
+  }
+
   // Razorpay's documented client-integration verification pattern (distinct
   // from webhooks, which need a publicly reachable URL this local sandbox
   // doesn't have): recompute the HMAC server-side and compare with a
@@ -103,12 +152,14 @@ export class AppointmentPaymentsService {
       return { success: false, message: 'Payment verification failed' };
     }
 
+    const invoiceDetails = await this.invoiceDetailsForSuccess(payment.clinic_id, payment.appointment_id);
     await this.prisma.appointmentPayments.update({
       where: { id: payment.id },
       data: {
         status: 'succeeded',
         razorpay_payment_id: input.razorpay_payment_id,
         razorpay_signature: input.razorpay_signature,
+        ...invoiceDetails,
       },
     });
 
@@ -196,9 +247,10 @@ export class AppointmentPaymentsService {
     // event-dedup table is needed. A late `payment.failed` must never regress
     // a row a captured event (or the reconciliation job) already resolved.
     if (eventType === 'payment.captured' && payment.status !== 'succeeded') {
+      const invoiceDetails = await this.invoiceDetailsForSuccess(payment.clinic_id, payment.appointment_id);
       await this.prisma.appointmentPayments.update({
         where: { id: payment.id },
-        data: { status: 'succeeded', razorpay_payment_id: paymentId ?? payment.razorpay_payment_id },
+        data: { status: 'succeeded', razorpay_payment_id: paymentId ?? payment.razorpay_payment_id, ...invoiceDetails },
       });
     } else if (eventType === 'payment.failed' && payment.status === 'pending') {
       await this.prisma.appointmentPayments.update({ where: { id: payment.id }, data: { status: 'failed' } });
@@ -284,6 +336,7 @@ export class AppointmentPaymentsService {
       // slice doesn't need -- "Razorpay" is the accurate processor name,
       // not a fabricated card-brand-level detail.
       method: 'Razorpay',
+      invoice_number: r.invoice_number ?? undefined,
     }));
   }
 
