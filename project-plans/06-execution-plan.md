@@ -126,6 +126,50 @@ the ten hottest queries shows index usage at the seeded volume. Every mutation
 produces an audit row that names its target and its outcome. Security headers
 present on every response.
 
+### P2/P3 status as of 2026-08-23 — what's deliberately still open, and why
+
+**P2: 3/7 done (2.3, 2.4, 2.6), 2/7 partial (2.1, 2.7), 2/7 not started
+(2.2, 2.5). P3: 4/7 done (3.1, 3.4, 3.6, 3.7), 1/7 partial (3.3), 2/7 not
+started (3.2, 3.5).** The items below were deliberately not attempted this
+session — each is genuinely separate, larger-scoped work, not an oversight:
+
+- **P2.2 (the 3 backend-less pages — `tasks`, `waiting-room`, `onboarding`).**
+  "Build the domain or remove the route" is doing a lot of work in that
+  sentence: each of these three is its own real domain (queue/check-in
+  management, an org-onboarding wizard, a generic task system) with no
+  schema, no resolver, and no settled product definition yet — `tasks` and
+  `waiting-room` both trace to open questions already logged (`open-questions.md`
+  #11) about what "checked in" or a task even means here. Each needs its
+  own requirement + plan cycle, not a shared page-wiring pass.
+- **P2.5 (the theme-token sweep — 88 files, 2,084 raw hex occurrences).**
+  A large, mechanical, but non-trivial sweep: `#RRGGBB` literals have to be
+  mapped to the *correct* theme token per use (not a blind find-replace —
+  `#006D77` alone appears 264 times across genuinely different semantic
+  roles), plus a new `no-hardcoded-colors` lint rule to keep it from
+  regressing. Big enough to deserve its own dedicated pass and its own
+  verification (a re-theme actually re-themes the whole app, not just the
+  files touched), not bundleable into this session's per-bug slices.
+- **P3.2 (the timezone model).** `appointment_date`/`appointment_time` are
+  zone-less `TIMESTAMP`, not `TIMESTAMPTZ`. Deciding to store UTC and
+  convert at the boundary is the right long-term answer for a product that
+  may eventually span more than one Indian timezone-adjacent market, but
+  it's a product/architecture decision with broad blast radius — every
+  appointment query, every existing row, every display format across the
+  frontend. Not something to decide unilaterally inside an unattended
+  hardening sweep; logged as still open, not guessed at.
+- **P3.3, the real fix (per-resolver pagination).** This session shipped
+  the safety-net half only (`REQ039` — no resolver can return an unbounded
+  collection). The actual fix — a real paginated GraphQL contract on each
+  of ~19 services — is per-domain, requirement-sized work: each one needs
+  its contract checked against what its actual frontend consumer currently
+  expects (Hard Rule 7), the same discipline every other domain in this
+  codebase already got. Not something to rush through as one more bullet
+  in a hardening pass.
+- **P3.5 (Razorpay webhook + reconciliation job)** was not attempted this
+  session either — not because it's out of scope, simply not reached in
+  the sequence this pass worked through (P3.1/3.4/3.6/3.7 first). Still
+  fully open, no different from before this session started.
+
 ---
 
 ## P4 — Make RBAC real · ~2 weeks
