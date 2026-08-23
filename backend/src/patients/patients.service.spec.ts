@@ -10,7 +10,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('PatientsService — access scoping', () => {
   let service: PatientsService;
   let prisma: {
-    patients: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock };
+    patients: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     appointments: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -22,7 +22,7 @@ describe('PatientsService — access scoping', () => {
 
   beforeEach(async () => {
     prisma = {
-      patients: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), findUnique: jest.fn() },
+      patients: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), findUnique: jest.fn(), update: jest.fn() },
       appointments: { findFirst: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn((ops) => Promise.all(ops)),
     };
@@ -79,6 +79,27 @@ describe('PatientsService — access scoping', () => {
       prisma.patients.findUnique.mockResolvedValue({ id: 'pat-9', is_deleted: false, first_name: 'A', last_name: 'B' });
       prisma.appointments.findFirst.mockResolvedValue(null); // no shared appointment
       await expect(service.findOne('pat-9', clinicianUser)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // update() delegates its scoping entirely to findOne() (called first, before
+  // any write) -- these two cases confirm that delegation actually blocks a
+  // cross-patient write, now that updatePatient's resolver gate was opened up
+  // to the 'patient' role for profile self-service (pages/patient/Profile.jsx).
+  describe('update', () => {
+    const validInput = { first_name: 'A', last_name: 'B', email: 'a@b.com', phone: '123', date_of_birth: '1990-01-01' };
+
+    it('a patient caller can update their own record', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, first_name: 'A', last_name: 'B' });
+      prisma.patients.update.mockResolvedValue({ id: 'pat-1', first_name: 'A', last_name: 'B' });
+      await expect(service.update('pat-1', validInput as any, patientUser)).resolves.toBeDefined();
+      expect(prisma.patients.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'pat-1' } }));
+    });
+
+    it('a patient caller is rejected updating a different patient record, and no write is attempted', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-2', is_deleted: false, first_name: 'A', last_name: 'B' });
+      await expect(service.update('pat-2', validInput as any, patientUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.patients.update).not.toHaveBeenCalled();
     });
   });
 });

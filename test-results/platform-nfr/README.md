@@ -12,6 +12,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR063 | bug | Wire patient/Profile.jsx and auth/forgot-password.jsx results | pass | 2026-08-23 | 2026-08-23 | TP064 | [TR063](./bug/TR063-platform-nfr-2026-08-23-wire-patient-profile-and-forgot-password-verification.md) |
 | TR062 | bug | P2 UI-truth quick wins results | pass | 2026-08-23 | 2026-08-23 | TP063 | [TR062](./bug/TR062-platform-nfr-2026-08-23-p2-ui-truth-quick-wins-verification.md) |
 | TR060 | bug | Frontend unit-test slice results | pass | 2026-08-23 | 2026-08-23 | TP061 | [TR060](./bug/TR060-platform-nfr-2026-08-23-frontend-unit-tests-verification.md) |
 | TR059 | bug | Tenancy matrix KNOWN_GAPS closure results | pass | 2026-08-23 | 2026-08-23 | TP060 | [TR059](./bug/TR059-platform-nfr-2026-08-23-tenancy-matrix-known-gaps-verification.md) |

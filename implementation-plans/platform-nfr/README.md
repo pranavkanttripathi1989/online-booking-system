@@ -12,6 +12,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN037 | bug | Wire patient/Profile.jsx and auth/forgot-password.jsx | done | 2026-08-23 | 2026-08-23 | BUG016 | [PLAN037](./bug/PLAN037-platform-nfr-2026-08-23-wire-patient-profile-and-forgot-password.md) |
 | PLAN036 | bug | P2 UI-truth quick wins | done | 2026-08-23 | 2026-08-23 | BUG015 | [PLAN036](./bug/PLAN036-platform-nfr-2026-08-23-p2-ui-truth-quick-wins.md) |
 | PLAN034 | bug | Frontend unit tests: guards, AuthContext, booking-wizard validation, formatters | done | 2026-08-23 | 2026-08-23 | BUG013 | [PLAN034](./bug/PLAN034-platform-nfr-2026-08-23-frontend-unit-tests.md) |
 | PLAN033 | bug | Close the tenancy matrix's 10 KNOWN_GAPS domains | done | 2026-08-23 | 2026-08-23 | BUG012 | [PLAN033](./bug/PLAN033-platform-nfr-2026-08-23-close-tenancy-matrix-known-gaps.md) |

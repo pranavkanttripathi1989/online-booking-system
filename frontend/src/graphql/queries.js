@@ -102,6 +102,10 @@ export const ME_QUERY = gql`
         avatar_url
         clinician_type { id name }
       }
+      patient {
+        id
+        full_name
+      }
     }
   }
   ${USER_FIELDS}

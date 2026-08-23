@@ -1202,6 +1202,11 @@ input PatientDetailsInput {
   phone: String!
 }
 
+type PatientInfo {
+  full_name: String!
+  id: String!
+}
+
 input PatientInput {
   address: String
   date_of_birth: String!
@@ -1917,6 +1922,7 @@ type User {
   id: String!
   isActive: Boolean
   name: String!
+  patient: PatientInfo
   roles: [Role!]!
 }
 

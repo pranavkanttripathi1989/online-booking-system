@@ -37,6 +37,15 @@ export class ClinicianTypeInfoType {
   description?: string;
 }
 
+@ObjectType('PatientInfo')
+export class PatientInfoType {
+  @Field()
+  id: string;
+
+  @Field()
+  full_name: string;
+}
+
 @ObjectType('ClinicianInfo')
 export class ClinicianInfoType {
   @Field()
@@ -77,6 +86,12 @@ export class AuthUserType {
 
   @Field(() => ClinicianInfoType, { nullable: true })
   clinician?: ClinicianInfoType | null;
+
+  // A logged-in patient previously had no way to learn their own patient_id
+  // from `me` at all (only `clinician` was exposed) -- pages/patient/Profile.jsx
+  // needs it to query the real self-scoped `patient(id)` field.
+  @Field(() => PatientInfoType, { nullable: true })
+  patient?: PatientInfoType | null;
 
   @Field({ nullable: true })
   client_org_id?: string;

@@ -1,129 +1,169 @@
 import React, { useState, useEffect } from 'react';
+import { useQuery, useMutation, gql } from '@apollo/client';
 import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Avatar,
-  Divider, TextField, Paper, IconButton, Alert, Switch, FormControlLabel,
-  InputAdornment, MenuItem,
+  Divider, TextField, Alert, Switch, FormControlLabel,
+  MenuItem, CircularProgress,
 } from '@mui/material';
 import EditIcon from '@mui/icons-material/Edit';
 import SaveIcon from '@mui/icons-material/Save';
 import CancelIcon from '@mui/icons-material/Cancel';
-import ShieldIcon from '@mui/icons-material/Shield';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
-import AddIcon from '@mui/icons-material/Add';
-import CheckIcon from '@mui/icons-material/Check';
 import { useAuth } from '../../hooks/useAuth';
 
-// SUG-PTPROF-009: PatientAvatar unused import removed
-
-// SUG-PTPROF-011: Controlled dropdown options for Blood Type / Gender
-const BLOOD_TYPES = ['A+', 'A-', 'B+', 'B-', 'O+', 'O-', 'AB+', 'AB-'];
+// SUG-PTPROF-011: Controlled dropdown options for Gender
 const GENDER_OPTIONS = ['Male', 'Female', 'Non-binary', 'Prefer not to say'];
 // SUG-PTPROF-013: Loose E.164-style phone validator (allows spaces/dashes/parens)
 const PHONE_RE = /^\+?[0-9()\- ]{7,20}$/;
 
-const INITIAL = {
-  firstName: 'Emma',   lastName: 'Wilson',
-  email: 'emma.wilson@email.com', phone: '+44 7700 123456',
-  dob: '1990-04-12',  gender: 'Female', bloodType: 'A+',
-  address: '14 Maple Street, London, W1A 1AA',
-  allergies: ['Penicillin', 'Latex'],
-  conditions: ['Hypertension', 'Asthma'],
-  insurance: { provider: 'Bupa Health', policyNo: 'BP-2026-44812', expires: '2027-01-01' },
-  notifications: { email: true, sms: true, reminders: true, newsletter: false },
-};
+// This page previously showed the exact same hardcoded "Emma Wilson" profile
+// (fake DOB/phone/address/allergies/insurance) to every logged-in patient,
+// regardless of who they actually were -- a real fabricated-data bug, not
+// just a placeholder. Now backed by the real `patient(id)` query, gated on
+// `me.patient.id` (added to AuthUserType/ME_QUERY specifically for this).
+const PATIENT_PROFILE_QUERY = gql`
+  query PatientProfileSelf($id: ID!) {
+    patient(id: $id) {
+      id first_name last_name email phone date_of_birth gender address notes
+    }
+  }
+`;
+const UPDATE_PATIENT_PROFILE = gql`
+  mutation UpdatePatientProfileSelf($id: ID!, $input: PatientInput!) {
+    updatePatient(id: $id, input: $input) {
+      id first_name last_name email phone date_of_birth gender address notes
+    }
+  }
+`;
+// Same real contract settings/index.jsx already uses for account-wide
+// notification preferences (REQ008) -- wired here too since this page is a
+// separate, patient-specific surface, not a redirect to Settings.
+const NOTIF_ROWS = [
+  { event_type: 'new_appointment',       label: 'New appointment booked' },
+  { event_type: 'appointment_reminder',  label: 'Appointment reminder (24h)' },
+  { event_type: 'appointment_cancelled', label: 'Appointment cancelled' },
+  { event_type: 'new_message',           label: 'New message received' },
+  { event_type: 'payment_received',      label: 'Payment received' },
+];
+const MY_NOTIFICATION_PREFERENCES_QUERY = gql`
+  query MyNotificationPreferencesSelf { myNotificationPreferences { event_type email_enabled sms_enabled app_enabled } }
+`;
+const UPDATE_MY_NOTIFICATION_PREFERENCES = gql`
+  mutation UpdateMyNotificationPreferencesSelf($input: [NotificationPreferenceInput!]!) {
+    updateMyNotificationPreferences(input: $input) { success message }
+  }
+`;
+
+const EMPTY_DRAFT = { first_name: '', last_name: '', email: '', phone: '', date_of_birth: '', gender: '', address: '', notes: '' };
 
 export default function PatientProfile() {
-  // SUG-PTPROF-004: Use auth context to seed profile name/email where available
   const { user } = useAuth();
+  const patientId = user?.patient?.id;
 
-  const seedFromAuth = () => {
-    if (!user) return INITIAL;
-    const [first = '', ...rest] = (user.name || '').split(' ');
-    return {
-      ...INITIAL,
-      firstName: user.firstName || first || INITIAL.firstName,
-      lastName: user.lastName || rest.join(' ') || INITIAL.lastName,
-      email: user.email || INITIAL.email,
-    };
+  const { data, loading, error, refetch } = useQuery(PATIENT_PROFILE_QUERY, {
+    variables: { id: patientId },
+    skip: !patientId,
+    fetchPolicy: 'cache-and-network',
+  });
+  const [updatePatientProfile, { loading: saving }] = useMutation(UPDATE_PATIENT_PROFILE);
+
+  const { data: notifData, loading: notifLoading } = useQuery(MY_NOTIFICATION_PREFERENCES_QUERY, { fetchPolicy: 'cache-and-network' });
+  const [updateNotifPrefs, { loading: savingNotifs }] = useMutation(UPDATE_MY_NOTIFICATION_PREFERENCES);
+  const [notifPrefs, setNotifPrefs] = useState({});
+  const [notifSaveOk, setNotifSaveOk] = useState(false);
+  useEffect(() => {
+    if (notifData?.myNotificationPreferences) {
+      setNotifPrefs(Object.fromEntries(notifData.myNotificationPreferences.map((p) => [p.event_type, p])));
+    }
+  }, [notifData]);
+  const toggleNotif = (eventType, channel) => {
+    setNotifPrefs((prev) => ({
+      ...prev,
+      [eventType]: { ...prev[eventType], event_type: eventType, [`${channel}_enabled`]: !prev[eventType]?.[`${channel}_enabled`] },
+    }));
+  };
+  const handleSaveNotifications = async () => {
+    const input = NOTIF_ROWS.map((r) => ({
+      event_type: r.event_type,
+      email_enabled: !!notifPrefs[r.event_type]?.email_enabled,
+      sms_enabled: !!notifPrefs[r.event_type]?.sms_enabled,
+      app_enabled: !!notifPrefs[r.event_type]?.app_enabled,
+    }));
+    const { data: res } = await updateNotifPrefs({ variables: { input } });
+    if (res?.updateMyNotificationPreferences?.success) {
+      setNotifSaveOk(true);
+      setTimeout(() => setNotifSaveOk(false), 3000);
+    }
   };
 
-  const SEEDED = seedFromAuth();
-  const [profile, setProfile] = useState(SEEDED);
   const [editing, setEditing] = useState(false);
-  const [draft, setDraft]     = useState(SEEDED);
-  const [saveOk, setSaveOk]   = useState(false);
-
-  // SUG-PTPROF-001/005: Add/delete allergy state
-  const [newAllergy, setNewAllergy]               = useState('');
-  const [showAllergyInput, setShowAllergyInput]   = useState(false);
-  const [newCondition, setNewCondition]           = useState('');
-  const [showConditionInput, setShowConditionInput] = useState(false);
-
-  // SUG-PTPROF-013: Phone format validation
+  const [draft, setDraft] = useState(EMPTY_DRAFT);
+  const [saveOk, setSaveOk] = useState(false);
+  const [saveError, setSaveError] = useState('');
   const [phoneError, setPhoneError] = useState('');
 
-  const handleSave = () => {
+  // No structured backend exists yet for allergies/conditions (Patients has
+  // only a single free-text medical_notes field) -- shown read-only from
+  // `notes` rather than as fabricated editable chips attributed to a real
+  // person. See requirements REQ020 (clinical-records, draft) and
+  // open-questions.md.
+  const profile = data?.patient;
+
+  useEffect(() => {
+    if (profile && !editing) {
+      setDraft({
+        first_name: profile.first_name || '',
+        last_name: profile.last_name || '',
+        email: profile.email || '',
+        phone: profile.phone || '',
+        date_of_birth: profile.date_of_birth ? profile.date_of_birth.slice(0, 10) : '',
+        gender: profile.gender || '',
+        address: profile.address || '',
+        notes: profile.notes || '',
+      });
+    }
+  }, [profile, editing]);
+
+  const handleSave = async () => {
     if (draft.phone && !PHONE_RE.test(draft.phone.trim())) {
       setPhoneError('Enter a valid phone number (e.g. +44 7700 123456)');
       return;
     }
     setPhoneError('');
-    setProfile(draft);
-    setEditing(false);
-    setSaveOk(true);
-    setTimeout(() => setSaveOk(false), 3000);
+    setSaveError('');
+    try {
+      await updatePatientProfile({ variables: { id: patientId, input: { ...draft } } });
+      await refetch();
+      setEditing(false);
+      setSaveOk(true);
+      setTimeout(() => setSaveOk(false), 3000);
+    } catch (err) {
+      setSaveError(err.message || 'Failed to save profile');
+    }
   };
-
-  // SUG-PTPROF-010: Unsaved changes guard — warn on tab close/refresh while editing
-  const isDirty = editing && JSON.stringify(draft) !== JSON.stringify(profile);
-  useEffect(() => {
-    const handler = (e) => { if (isDirty) { e.preventDefault(); e.returnValue = ''; } };
-    window.addEventListener('beforeunload', handler);
-    return () => window.removeEventListener('beforeunload', handler);
-  }, [isDirty]);
 
   const handleDiscard = () => {
     setEditing(false);
-    setDraft(profile);
-    setShowAllergyInput(false);
-    setShowConditionInput(false);
-    setNewAllergy('');
-    setNewCondition('');
     setPhoneError('');
-  };
-
-  // SUG-PTPROF-001: Add allergy handler
-  const handleAddAllergy = () => {
-    if (newAllergy.trim()) {
-      setDraft({ ...draft, allergies: [...draft.allergies, newAllergy.trim()] });
-      setNewAllergy('');
-      setShowAllergyInput(false);
+    setSaveError('');
+    if (profile) {
+      setDraft({
+        first_name: profile.first_name || '', last_name: profile.last_name || '',
+        email: profile.email || '', phone: profile.phone || '',
+        date_of_birth: profile.date_of_birth ? profile.date_of_birth.slice(0, 10) : '',
+        gender: profile.gender || '', address: profile.address || '', notes: profile.notes || '',
+      });
     }
   };
 
-  // SUG-PTPROF-001: Add condition handler
-  const handleAddCondition = () => {
-    if (newCondition.trim()) {
-      setDraft({ ...draft, conditions: [...draft.conditions, newCondition.trim()] });
-      setNewCondition('');
-      setShowConditionInput(false);
-    }
-  };
-
-  // Personal info field helper
-  // SUG-PTPROF-011: optional `options` param renders a controlled Select in edit mode
-  // SUG-PTPROF-013: optional `error`/`helperText` for inline validation (phone)
-  const field = (label, key, type = 'text', options = null, error = '') => (
+  const field = (label, key, type = 'text', options = null, err = '') => (
     <Box>
       <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>{label}</Typography>
       {editing
         ? options
           ? (
-            <TextField
-              select fullWidth size="small" value={draft[key] || ''}
-              onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}
-            >
+            <TextField select fullWidth size="small" value={draft[key] || ''} onChange={(e) => setDraft({ ...draft, [key]: e.target.value })}>
               {options.map((o) => <MenuItem key={o} value={o}>{o}</MenuItem>)}
             </TextField>
           )
@@ -131,30 +171,30 @@ export default function PatientProfile() {
             <TextField
               fullWidth size="small" type={type} value={draft[key] || ''}
               onChange={(e) => { setDraft({ ...draft, [key]: e.target.value }); if (key === 'phone') setPhoneError(''); }}
-              error={!!error} helperText={error || ' '}
+              error={!!err} helperText={err || ' '}
+              InputLabelProps={type === 'date' ? { shrink: true } : undefined}
             />
           )
-        : <Typography variant="body2" fontWeight={500}>{profile[key] || '—'}</Typography>
+        : <Typography variant="body2" fontWeight={500}>{profile?.[key] || '—'}</Typography>
       }
     </Box>
   );
 
-  // SUG-PTPROF-003: Insurance field helper (editable in edit mode)
-  const insuranceField = (label, key) => (
-    <Box>
-      <Typography variant="caption" color="text.secondary">{label}</Typography>
-      {editing
-        ? <TextField fullWidth size="small" value={draft.insurance[key] || ''} onChange={(e) => setDraft({ ...draft, insurance: { ...draft.insurance, [key]: e.target.value } })} sx={{ mt: 0.5 }} />
-        : <Typography fontWeight={600}>{profile.insurance[key]}</Typography>
-      }
-    </Box>
-  );
+  if (!patientId) {
+    return (
+      <Box sx={{ p: 4 }}>
+        <Alert severity="info">
+          Your account isn't linked to a patient record yet. Contact your clinic to have your account linked before editing your profile.
+        </Alert>
+      </Box>
+    );
+  }
+  if (loading && !data) return <Box sx={{ p: 5, display: 'flex', justifyContent: 'center' }}><CircularProgress /></Box>;
+  if (error) return <Box sx={{ p: 4 }}><Alert severity="error">Failed to load your profile: {error.message}</Alert></Box>;
+  if (!profile) return <Box sx={{ p: 4 }}><Alert severity="warning">Patient record not found.</Alert></Box>;
 
-  // SUG-PTPROF-002: Safe initials with null guard
-  const initials = `${profile.firstName?.[0] ?? '?'}${profile.lastName?.[0] ?? ''}`;
-  const displayName = (profile.firstName || profile.lastName)
-    ? `${profile.firstName} ${profile.lastName}`.trim()
-    : 'Unknown Patient';
+  const initials = `${profile.first_name?.[0] ?? '?'}${profile.last_name?.[0] ?? ''}`;
+  const displayName = `${profile.first_name} ${profile.last_name}`.trim() || 'Unknown Patient';
 
   return (
     <Box>
@@ -162,8 +202,8 @@ export default function PatientProfile() {
         <Typography variant="h2" fontWeight={700}>My Profile</Typography>
         {editing ? (
           <Stack direction="row" spacing={1}>
-            <Button variant="outlined" startIcon={<CancelIcon />} onClick={handleDiscard} aria-label="Discard changes">Discard</Button>
-            <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} aria-label="Save profile changes">Save Changes</Button>
+            <Button variant="outlined" startIcon={<CancelIcon />} onClick={handleDiscard} disabled={saving} aria-label="Discard changes">Discard</Button>
+            <Button variant="contained" startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />} onClick={handleSave} disabled={saving} aria-label="Save profile changes">Save Changes</Button>
           </Stack>
         ) : (
           <Button variant="outlined" startIcon={<EditIcon />} onClick={() => setEditing(true)} aria-label="Edit profile">Edit Profile</Button>
@@ -171,12 +211,12 @@ export default function PatientProfile() {
       </Stack>
 
       {saveOk && <Alert severity="success" sx={{ mb: 2 }}>Profile updated successfully!</Alert>}
+      {saveError && <Alert severity="error" sx={{ mb: 2 }}>{saveError}</Alert>}
 
       <Grid container spacing={3}>
         {/* Left — avatar card */}
         <Grid item xs={12} md={3}>
           <Card sx={{ textAlign: 'center', p: 3 }}>
-            {/* SUG-PTPROF-002: Null-guarded avatar initials */}
             <Avatar sx={{ width: 80, height: 80, bgcolor: '#006D77', fontSize: '1.8rem', fontWeight: 800, mx: 'auto', mb: 2 }}>
               {initials}
             </Avatar>
@@ -186,9 +226,8 @@ export default function PatientProfile() {
             <Divider sx={{ my: 2 }} />
             <Stack spacing={0.75} sx={{ textAlign: 'left' }}>
               {[
-                { label: 'Blood Type', value: profile.bloodType },
-                { label: 'Date of Birth', value: profile.dob },
-                { label: 'Gender', value: profile.gender },
+                { label: 'Date of Birth', value: profile.date_of_birth ? profile.date_of_birth.slice(0, 10) : '—' },
+                { label: 'Gender', value: profile.gender || '—' },
               ].map(({ label, value }) => (
                 <Box key={label}>
                   <Typography variant="caption" color="text.secondary">{label}</Typography>
@@ -207,159 +246,73 @@ export default function PatientProfile() {
               <CardContent sx={{ p: 2.5 }}>
                 <Typography variant="h5" fontWeight={700} sx={{ mb: 2.5 }}>Personal Information</Typography>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={6}>{field('First Name', 'firstName')}</Grid>
-                  <Grid item xs={12} sm={6}>{field('Last Name', 'lastName')}</Grid>
+                  <Grid item xs={12} sm={6}>{field('First Name', 'first_name')}</Grid>
+                  <Grid item xs={12} sm={6}>{field('Last Name', 'last_name')}</Grid>
                   <Grid item xs={12} sm={6}>{field('Email Address', 'email', 'email')}</Grid>
-                  {/* SUG-PTPROF-013: inline phone format validation */}
                   <Grid item xs={12} sm={6}>{field('Phone Number', 'phone', 'tel', null, phoneError)}</Grid>
-                  <Grid item xs={12} sm={6}>{field('Date of Birth', 'dob', 'date')}</Grid>
-                  {/* SUG-PTPROF-011: Gender as controlled Select */}
+                  <Grid item xs={12} sm={6}>{field('Date of Birth', 'date_of_birth', 'date')}</Grid>
                   <Grid item xs={12} sm={6}>{field('Gender', 'gender', 'text', GENDER_OPTIONS)}</Grid>
-                  {/* SUG-PTPROF-006 / SUG-PTPROF-011: Blood Type now editable here as a Select (mirrors avatar card) */}
-                  <Grid item xs={12} sm={6}>{field('Blood Type', 'bloodType', 'text', BLOOD_TYPES)}</Grid>
                   <Grid item xs={12}>{field('Home Address', 'address')}</Grid>
                 </Grid>
               </CardContent>
             </Card>
 
-            {/* Medical Info */}
+            {/* Medical Notes — free text only; no structured allergy/condition
+                model exists yet (see REQ020, open-questions.md) */}
             <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.5 }}>
                   <MedicalServicesIcon sx={{ color: '#006D77', fontSize: 20 }} />
-                  <Typography variant="h5" fontWeight={700}>Medical Information</Typography>
+                  <Typography variant="h5" fontWeight={700}>Medical Notes</Typography>
                 </Stack>
-                <Grid container spacing={2}>
-                  {/* Allergies */}
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>Allergies</Typography>
-                    <Stack direction="row" flexWrap="wrap" gap={0.75}>
-                      {(editing ? draft.allergies : profile.allergies).map((a) => (
-                        <Chip
-                          key={a} label={a} size="small" color="error" variant="outlined"
-                          /* SUG-PTPROF-005: Delete button in edit mode */
-                          onDelete={editing ? () => setDraft({ ...draft, allergies: draft.allergies.filter(x => x !== a) }) : undefined}
-                        />
-                      ))}
-                      {/* SUG-PTPROF-001: Wired "+ Add" for allergies */}
-                      {editing && (
-                        showAllergyInput ? (
-                          <Stack direction="row" gap={0.5} alignItems="center">
-                            <TextField
-                              size="small" value={newAllergy}
-                              onChange={(e) => setNewAllergy(e.target.value)}
-                              placeholder="e.g. Peanuts"
-                              onKeyDown={(e) => e.key === 'Enter' && handleAddAllergy()}
-                              inputProps={{ 'aria-label': 'New allergy name' }}
-                              sx={{ width: 130 }}
-                            />
-                            <IconButton size="small" onClick={handleAddAllergy} aria-label="Confirm add allergy" color="primary">
-                              <CheckIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={() => { setShowAllergyInput(false); setNewAllergy(''); }} aria-label="Cancel add allergy">
-                              <CancelIcon fontSize="small" />
-                            </IconButton>
-                          </Stack>
-                        ) : (
-                          <Chip
-                            label="+ Add" size="small" variant="outlined"
-                            sx={{ cursor: 'pointer' }}
-                            onClick={() => setShowAllergyInput(true)}
-                            aria-label="Add new allergy"
-                          />
-                        )
-                      )}
-                    </Stack>
-                  </Grid>
-
-                  {/* Conditions */}
-                  <Grid item xs={12} sm={6}>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>Existing Conditions</Typography>
-                    <Stack direction="row" flexWrap="wrap" gap={0.75}>
-                      {(editing ? draft.conditions : profile.conditions).map((c) => (
-                        <Chip
-                          key={c} label={c} size="small" color="warning" variant="outlined"
-                          /* SUG-PTPROF-005: Delete button for conditions */
-                          onDelete={editing ? () => setDraft({ ...draft, conditions: draft.conditions.filter(x => x !== c) }) : undefined}
-                        />
-                      ))}
-                      {editing && (
-                        showConditionInput ? (
-                          <Stack direction="row" gap={0.5} alignItems="center">
-                            <TextField
-                              size="small" value={newCondition}
-                              onChange={(e) => setNewCondition(e.target.value)}
-                              placeholder="e.g. Diabetes"
-                              onKeyDown={(e) => e.key === 'Enter' && handleAddCondition()}
-                              inputProps={{ 'aria-label': 'New condition name' }}
-                              sx={{ width: 130 }}
-                            />
-                            <IconButton size="small" onClick={handleAddCondition} aria-label="Confirm add condition" color="primary">
-                              <CheckIcon fontSize="small" />
-                            </IconButton>
-                            <IconButton size="small" onClick={() => { setShowConditionInput(false); setNewCondition(''); }} aria-label="Cancel add condition">
-                              <CancelIcon fontSize="small" />
-                            </IconButton>
-                          </Stack>
-                        ) : (
-                          <Chip
-                            label="+ Add" size="small" variant="outlined"
-                            sx={{ cursor: 'pointer' }}
-                            onClick={() => setShowConditionInput(true)}
-                            aria-label="Add new condition"
-                          />
-                        )
-                      )}
-                    </Stack>
-                  </Grid>
-                </Grid>
+                {editing
+                  ? <TextField fullWidth multiline minRows={3} value={draft.notes} onChange={(e) => setDraft({ ...draft, notes: e.target.value })} placeholder="Allergies, ongoing conditions, or anything your clinic should know" />
+                  : <Typography variant="body2" color={profile.notes ? 'text.primary' : 'text.secondary'}>{profile.notes || 'No medical notes on file.'}</Typography>
+                }
               </CardContent>
             </Card>
 
-            {/* Insurance — SUG-PTPROF-003: Now editable */}
-            <Card>
-              <CardContent sx={{ p: 2.5 }}>
-                <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.5 }}>
-                  <ShieldIcon sx={{ color: '#006D77', fontSize: 20 }} />
-                  <Typography variant="h5" fontWeight={700}>Insurance</Typography>
-                </Stack>
-                <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}>{insuranceField('Provider', 'provider')}</Grid>
-                  <Grid item xs={12} sm={4}>{insuranceField('Policy Number', 'policyNo')}</Grid>
-                  <Grid item xs={12} sm={4}>{insuranceField('Expires', 'expires')}</Grid>
-                </Grid>
-              </CardContent>
-            </Card>
-
-            {/* Notifications */}
+            {/* Notifications — real myNotificationPreferences (REQ008),
+                same contract settings/index.jsx already uses */}
             <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
                   <NotificationsIcon sx={{ color: '#006D77', fontSize: 20 }} />
                   <Typography variant="h5" fontWeight={700}>Notification Preferences</Typography>
                 </Stack>
-                <Grid container spacing={1}>
-                  {[
-                    { key: 'email',     label: 'Email notifications' },
-                    { key: 'sms',       label: 'SMS reminders' },
-                    { key: 'reminders', label: '24h appointment reminders' },
-                    { key: 'newsletter',label: 'Health tips newsletter' },
-                  ].map(({ key, label }) => (
-                    <Grid item xs={12} sm={6} key={key}>
-                      <FormControlLabel
-                        control={
-                          <Switch
-                            checked={editing ? draft.notifications[key] : profile.notifications[key]}
-                            onChange={(e) => setDraft({ ...draft, notifications: { ...draft.notifications, [key]: e.target.checked } })}
-                            disabled={!editing}
-                            inputProps={{ 'aria-label': label }}
-                          />
-                        }
-                        label={<Typography variant="body2">{label}</Typography>}
-                      />
-                    </Grid>
-                  ))}
-                </Grid>
+                {notifSaveOk && <Alert severity="success" sx={{ mb: 2 }}>Notification preferences saved!</Alert>}
+                {notifLoading && !notifData ? <CircularProgress size={20} /> : (
+                  <>
+                    <Stack spacing={1.5}>
+                      {NOTIF_ROWS.map((row) => (
+                        <Box key={row.event_type}>
+                          <Typography variant="body2" fontWeight={600} sx={{ mb: 0.5 }}>{row.label}</Typography>
+                          <Stack direction="row" spacing={2}>
+                            {['email', 'sms', 'app'].map((ch) => (
+                              <FormControlLabel
+                                key={ch}
+                                control={
+                                  <Switch
+                                    size="small"
+                                    checked={!!notifPrefs[row.event_type]?.[`${ch}_enabled`]}
+                                    onChange={() => toggleNotif(row.event_type, ch)}
+                                  />
+                                }
+                                label={<Typography variant="caption">{ch === 'app' ? 'In-App' : ch.toUpperCase()}</Typography>}
+                              />
+                            ))}
+                          </Stack>
+                        </Box>
+                      ))}
+                    </Stack>
+                    <Button
+                      variant="contained" startIcon={<SaveIcon />} onClick={handleSaveNotifications} disabled={savingNotifs}
+                      sx={{ mt: 2.5, textTransform: 'none', fontWeight: 700 }}
+                    >
+                      {savingNotifs ? 'Saving…' : 'Save Preferences'}
+                    </Button>
+                  </>
+                )}
               </CardContent>
             </Card>
           </Stack>

@@ -40,7 +40,12 @@ export class PatientsResolver {
     return this.patientsService.create(input);
   }
 
-  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')
+  // 'patient' added so a patient can edit their own profile
+  // (pages/patient/Profile.jsx) -- safe because update() already calls
+  // findOne() first, which throws NotFound for any id that isn't the
+  // caller's own patient_id when the caller's role is 'patient'. No new
+  // scoping logic needed, just the missing role on the gate.
+  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist', 'patient')
   @Mutation(() => PatientType)
   updatePatient(@Args('id', { type: () => ID }) id: string, @Args('input') input: PatientInput, @CurrentUser() user: JwtPayload) {
     return this.patientsService.update(id, input, user);

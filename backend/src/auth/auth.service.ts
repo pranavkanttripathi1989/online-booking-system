@@ -74,6 +74,7 @@ export class AuthService {
     last_name: string;
     role: { name: string };
     clinician_id: string | null;
+    patient_id?: string | null;
     client_org_id: string | null;
   }) {
     let clinician: AuthPayloadType['user']['clinician'] = null;
@@ -89,12 +90,21 @@ export class AuthService {
       }
     }
 
+    let patient: { id: string; full_name: string } | null = null;
+    if (userProfile.patient_id) {
+      const record = await this.prisma.patients.findUnique({ where: { id: userProfile.patient_id } });
+      if (record && !record.is_deleted) {
+        patient = { id: record.id, full_name: `${record.first_name} ${record.last_name}` };
+      }
+    }
+
     return {
       id: userProfile.id,
       email: userProfile.email,
       name: `${userProfile.first_name} ${userProfile.last_name}`,
       roles: [{ name: userProfile.role.name }],
       clinician,
+      patient,
       client_org_id: userProfile.client_org_id ?? undefined,
     };
   }

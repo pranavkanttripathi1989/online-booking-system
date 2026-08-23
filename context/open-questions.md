@@ -101,6 +101,32 @@ where `dateOfBirth` writes). If no, the form fields should be removed (or at
 minimum the `required` gate on "Reason for visit" dropped) rather than left
 silently discarding what the patient is required to type.
 
+## 13. `pages/patients/detail.jsx` is a single page standing in for at least four unbuilt PRD features
+
+**Status:** Open, raised 2026-08-23 while closing `BUG016` (`06-execution-plan.md` P2.1).
+
+Auditing this page to decide whether it could be wired for real found it's
+1,000+ lines across 8 tabs, and only 3 (Overview's identity fields,
+Appointments, Test Results) have any real backend equivalent at all. The
+other 5 — Letters (with a Draft/Pending Review/Approved workflow),
+patient membership plans, an intake questionnaire, document upload/storage,
+a communication log, structured allergy/diagnosis records, related-account
+linking — are all local `useState` only, each already explicitly commented
+as tracing to `requirements/semble-competitive-gap-analysis-requirements.md`'s
+phased plan, and each is genuinely a separate feature's worth of schema +
+resolver + UI work, not a page-wiring bug fix. `patients/detail.jsx`'s
+"(demo mode)" toasts already disclose this locally, but the page as a whole
+still reads as one coherent, real patient record.
+
+**Decision needed from the user:** which of these 5 sub-features are real,
+prioritized requirements for an upcoming release (each would get its own
+`REQ*` doc — clinical-records `REQ020` already covers the structured
+allergy/diagnosis piece) versus which should be removed from this page
+entirely until built for real, rather than left as permanently-local,
+never-persisted UI. Until that's decided, the page is intentionally left
+as-is beyond its `TableContainer` fix (`BUG015`) and is not claimed as
+"wired" anywhere in `project-plans/06-execution-plan.md`.
+
 ---
 
 ## 10. The telemedicine video call has no captions track, and the PRD commits to accessibility

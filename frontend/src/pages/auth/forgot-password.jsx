@@ -1,8 +1,8 @@
 import React, { useState } from 'react';
-import { useNavigate, Link as RouterLink } from 'react-router-dom';
+import { Link as RouterLink } from 'react-router-dom';
+import { useMutation, gql } from '@apollo/client';
 import {
   Box, Button, TextField, Typography, Alert, CircularProgress,
-  Stack, Paper,
 } from '@mui/material';
 import { Helmet } from 'react-helmet-async';
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
@@ -10,20 +10,33 @@ import EmailIcon from '@mui/icons-material/Email';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 
+// Real @Public() mutation (backend/src/auth/auth.resolver.ts) -- this page
+// previously just await'd a 1200ms setTimeout and always showed "sent",
+// never calling it. Deliberately generic success regardless of whether the
+// email exists (see the resolver's own comment) -- the UI must not leak
+// account existence either, so a real failure is only ever a genuine
+// network/server error, not "email not found".
+const FORGOT_PASSWORD_MUTATION = gql`
+  mutation ForgotPassword($input: ForgotPasswordInput!) {
+    forgotPassword(input: $input) { success message }
+  }
+`;
+
 export default function ForgotPasswordPage() {
-  const navigate = useNavigate();
   const [email, setEmail]     = useState('');
-  const [loading, setLoading] = useState(false);
   const [sent, setSent]       = useState(false);
   const [error, setError]     = useState(null);
+  const [forgotPassword, { loading }] = useMutation(FORGOT_PASSWORD_MUTATION);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError(null);
-    setLoading(true);
-    await new Promise((r) => setTimeout(r, 1200));
-    setLoading(false);
-    setSent(true);
+    try {
+      await forgotPassword({ variables: { input: { email } } });
+      setSent(true);
+    } catch (err) {
+      setError(err.message || 'Something went wrong. Please try again.');
+    }
   };
 
   return (

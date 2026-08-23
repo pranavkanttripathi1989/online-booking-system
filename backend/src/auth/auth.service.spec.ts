@@ -19,6 +19,7 @@ describe('AuthService', () => {
     userProfiles: { findUnique: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     userRoles: { findFirst: jest.Mock; create: jest.Mock };
     clinicians: { findUnique: jest.Mock };
+    patients: { findUnique: jest.Mock };
     users: { create: jest.Mock };
     clientOrganizations: { findUnique: jest.Mock };
     $transaction: jest.Mock;
@@ -56,6 +57,7 @@ describe('AuthService', () => {
       userProfiles: { findUnique: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
       userRoles: { findFirst: jest.fn(), create: jest.fn() },
       clinicians: { findUnique: jest.fn() },
+      patients: { findUnique: jest.fn() },
       users: { create: jest.fn() },
       // REQ012/PLAN021 — defaults to org-less (null) so every pre-existing
       // test in this file (none of which set client_org_id) keeps hitting
@@ -169,6 +171,39 @@ describe('AuthService', () => {
         expect.objectContaining({ patient_id: 'pat-42', clinician_id: 'cln-7' }),
         expect.anything(),
       );
+    });
+
+    it("populates user.patient from patient_id, matching the existing user.clinician pattern -- pages/patient/Profile.jsx has no other way to learn its own caller's patient id", async () => {
+      redis.get.mockResolvedValueOnce(null);
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ patient_id: 'pat-42' }));
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-42', first_name: 'Priya', last_name: 'Sharma', is_deleted: false });
+
+      const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+
+      if (!('access_token' in result)) throw new Error('expected AuthPayloadType');
+      expect(result.user.patient).toEqual({ id: 'pat-42', full_name: 'Priya Sharma' });
+    });
+
+    it('user.patient stays null for a role with no patient_id link', async () => {
+      redis.get.mockResolvedValueOnce(null);
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile()); // default fixture: patient_id null
+
+      const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+
+      if (!('access_token' in result)) throw new Error('expected AuthPayloadType');
+      expect(result.user.patient).toBeNull();
+      expect(prisma.patients.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('user.patient stays null when patient_id points to a soft-deleted patient record', async () => {
+      redis.get.mockResolvedValueOnce(null);
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ patient_id: 'pat-42' }));
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-42', first_name: 'Priya', last_name: 'Sharma', is_deleted: true });
+
+      const result = await service.login({ email: 'sarah@medibook.dev', password: 'CorrectPassword1!' });
+
+      if (!('access_token' in result)) throw new Error('expected AuthPayloadType');
+      expect(result.user.patient).toBeNull();
     });
 
     it('signs patient_id/clinician_id as null (not omitted/undefined) for a role linked to neither, so downstream selfScope() checks never accidentally skip themselves via a missing key', async () => {
