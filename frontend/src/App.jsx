@@ -105,6 +105,8 @@ const ClinicianCalendar     = lazy(() => import('./pages/clinician/Calendar'))
 const ClinicianAvailability = lazy(() => import('./pages/clinician/Availability'))
 const ClinicianPatients     = lazy(() => import('./pages/clinician/Patients'))
 const EncounterWorkspace    = lazy(() => import('./pages/clinician/EncounterWorkspace'))
+const PrescriptionBuilder   = lazy(() => import('./pages/clinician/PrescriptionBuilder'))
+const PrescriptionPrint     = lazy(() => import('./pages/prescriptions/PrescriptionPrint'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
 const ManagerDashboard    = lazy(() => import('./pages/manager/Dashboard'))
@@ -232,6 +234,15 @@ function App() {
         } />
       </Route>
 
+      {/* ── Prescription print view — auth required, no AppShell chrome ──
+          Same "protected but bare" shape as /video/:id above: one rendering
+          path for both on-screen preview and window.print() (REQ021 US-RX-03). */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/prescriptions/:id/print" element={
+          <Suspense fallback={<FullPageLoader />}><PrescriptionPrint /></Suspense>
+        } />
+      </Route>
+
       {/* ── Protected + AppShell ─────────────────────────────────────── */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
@@ -299,6 +310,7 @@ function App() {
           <Route path="/clinician/availability" element={<Suspense fallback={<ShellPageLoader />}><ClinicianAvailability /></Suspense>} />
           <Route path="/clinician/patients"     element={<Suspense fallback={<ShellPageLoader />}><ClinicianPatients /></Suspense>} />
           <Route path="/clinician/encounters/:appointmentId" element={<Suspense fallback={<ShellPageLoader />}><EncounterWorkspace /></Suspense>} />
+          <Route path="/clinician/prescriptions/new" element={<Suspense fallback={<ShellPageLoader />}><PrescriptionBuilder /></Suspense>} />
 
           {/* ── Staff ─────────────────────────────────────────────────── */}
           {/* Guarded to match the backend: dashboard.resolver.ts is

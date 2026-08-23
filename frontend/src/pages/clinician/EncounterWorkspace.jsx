@@ -13,6 +13,7 @@ import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
 import NoteAddRoundedIcon from '@mui/icons-material/NoteAddRounded'
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded'
 import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded'
+import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded'
 import { useAuth } from '../../hooks/useAuth'
 import ErrorBoundary from '../../components/ErrorBoundary'
 
@@ -209,7 +210,7 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum }) {
 }
 
 // ─── Right pane: templates, attachments, sign-off ──────────────────────────
-function ActionsPane({ encounter, onApplyTemplate, onSign, onUpload }) {
+function ActionsPane({ encounter, onApplyTemplate, onSign, onUpload, onNewPrescription }) {
   const { data: templatesData } = useQuery(ENCOUNTER_TEMPLATES)
   const templates = templatesData?.encounterTemplates ?? []
   const [signOpen, setSignOpen] = useState(false)
@@ -253,6 +254,17 @@ function ActionsPane({ encounter, onApplyTemplate, onSign, onUpload }) {
       </Stack>
 
       <Divider sx={{ my: 2 }} />
+
+      {/* REQ021: prescription builder entry point. Independent of the
+          encounter's own lock state -- issuing a script and signing the
+          encounter are separate actions (see PLAN057). */}
+      <Button
+        fullWidth variant="outlined" startIcon={<MedicationRoundedIcon />}
+        onClick={onNewPrescription}
+        sx={{ mb: 2 }}
+      >
+        New Prescription
+      </Button>
 
       <Button
         fullWidth variant="contained" color="success" startIcon={<DoneAllRoundedIcon />}
@@ -423,6 +435,7 @@ function EncounterWorkspace() {
                 onApplyTemplate={handleApplyTemplate}
                 onSign={handleSign}
                 onUpload={handleUpload}
+                onNewPrescription={() => navigate(`/clinician/prescriptions/new?encounterId=${encounter.id}&patientId=${encounter.patient_id}`)}
               />
             </Grid>
           </Grid>

@@ -609,6 +609,20 @@ input CreateLanguageInput {
   name: String!
 }
 
+input CreatePrescriptionInput {
+  encounter_id: ID!
+  items: [PrescriptionItemInput!]!
+  language: String
+  repeated_from_id: ID
+}
+
+input CreatePrescriptionSetInput {
+  items: [PrescriptionItemInput!]!
+  name: String!
+  org_shared: Boolean
+  specialty: String
+}
+
 input CreateProductCategoryInput {
   description: String
   name: String!
@@ -985,6 +999,8 @@ type Mutation {
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
+  createPrescription(input: CreatePrescriptionInput!): Prescription!
+  createPrescriptionSet(input: CreatePrescriptionSetInput!): PrescriptionSet!
   createProduct(input: CreateProductInput!): ProductMutationResult!
   createProductCategory(input: CreateProductCategoryInput!): ProductCategoryMutationResult!
   createProductSubcategory(input: CreateProductSubcategoryInput!): ProductSubcategoryMutationResult!
@@ -1428,6 +1444,92 @@ type Permission {
   resource: String!
 }
 
+type Prescription {
+  clinician_id: ID!
+  encounter_id: ID!
+  id: ID!
+  issued_at: DateTime!
+  items: [PrescriptionItem!]!
+  language: String!
+  mode: String!
+  patient_id: ID!
+  repeated_from_id: ID
+}
+
+type PrescriptionDraft {
+  items: [PrescriptionItem!]!
+  repeated_from_id: ID!
+}
+
+type PrescriptionItem {
+  dose: String!
+  drug_id: ID!
+  drug_name: String!
+  duration_days: Int
+  frequency: String!
+  id: ID!
+  instructions: String
+  qty: Int
+  route: String
+  substitutable: Boolean!
+}
+
+input PrescriptionItemInput {
+  dose: String!
+  drug_id: ID!
+  duration_days: Int
+  frequency: String!
+  instructions: String
+  route: String
+  substitutable: Boolean
+}
+
+type PrescriptionPrintClinic {
+  address: String
+  contact_phone: String
+  logo_url: String
+  name: String!
+}
+
+type PrescriptionPrintClinician {
+  full_name: String!
+  qualifications: String
+  registration_number: String
+}
+
+type PrescriptionPrintPatient {
+  date_of_birth: DateTime!
+  full_name: String!
+  gender: String
+}
+
+type PrescriptionPrintPayload {
+  clinic: PrescriptionPrintClinic!
+  clinician: PrescriptionPrintClinician!
+  is_reprint: Boolean!
+  patient: PrescriptionPrintPatient!
+  prescription: Prescription!
+}
+
+type PrescriptionSet {
+  clinician_id: ID
+  id: ID!
+  items: [PrescriptionSetItem!]!
+  name: String!
+  specialty: String
+}
+
+type PrescriptionSetItem {
+  dose: String!
+  drug_id: ID!
+  drug_name: String!
+  duration_days: Int
+  frequency: String!
+  id: ID!
+  instructions: String
+  route: String
+}
+
 type Product {
   category: ProductCategory
   category_id: ID
@@ -1586,6 +1688,7 @@ type PublicProductVariation {
 }
 
 type Query {
+  applyPrescriptionSet(set_id: ID!): [PrescriptionItem!]!
   appointment(id: ID!): Appointment
   appointments(filters: AppointmentFilters, first: Int! = 20, page: Int! = 1): AppointmentPaginated!
   availabilities(search: SearchInput): [Availability!]!
@@ -1640,12 +1743,18 @@ type Query {
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
   patientAllergyBanner(patient_id: ID!): [Diagnosis!]!
+  patientPrescriptions(patient_id: ID!): [Prescription!]!
   patientTimeline(patient_id: ID!): [TimelineEvent!]!
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
+  prescription(id: ID!): Prescription
+  prescriptionSets(specialty: String): [PrescriptionSet!]!
+  prescriptions: [Prescription!]!
+  printPrescription(id: ID!): PrescriptionPrintPayload!
   product(id: ID!): Product
   productCategories: [ProductCategory!]!
   productSubcategories: [ProductSubcategory!]!
   products(category_id: ID, clinic_id: ID): [Product!]!
+  repeatPrescription(source_id: ID!): PrescriptionDraft!
   resource(id: ID!): Resource
   resources(clinic_id: ID): [Resource!]!
   reviews(filter: ReviewFilterInput): [Review!]!

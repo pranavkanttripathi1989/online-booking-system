@@ -296,6 +296,7 @@ model Encounters {
   addenda             EncounterAddenda[]
   diagnoses           Diagnoses[]
   attachments         Attachments[]
+  prescriptions       Prescriptions[]
 
   @@index([client_org_id, patient_id])
   @@index([clinician_id])
@@ -402,6 +403,96 @@ model EncounterTemplates {
 
   @@index([client_org_id])
   @@index([clinician_id])
+}
+
+// REQ021 (Phase 1, slice 3) -- prescription builder, print view, and
+// repeat-Rx, P0 subset. Issued from within an Encounter (REQ020's own
+// dependency). Has no client_org_id of its own -- scoped indirectly via
+// encounter.client_org_id, same reasoning as every other model here that
+// hangs off Encounters rather than duplicating the column.
+//
+// Never updated after creation: no lock/trigger needed the way Encounters
+// does, since there is no edit mutation to guard against in the first
+// place. reprint_count distinguishes the original print (count stays 0 on
+// first fetch) from a later reprint (incremented on every fetch after the
+// first), which the frontend reads to render a "DUPLICATE" watermark.
+model Prescriptions {
+  id               String    @id @default(uuid())
+  encounter_id     String
+  patient_id       String
+  clinician_id     String
+  mode             String    @default("in_person") // in_person|video|audio|text
+  issued_at        DateTime  @default(now())
+  language         String    @default("en")
+  repeated_from_id String?
+  reprint_count    Int       @default(0)
+
+  encounter      Encounters      @relation(fields: [encounter_id], references: [id])
+  patient        Patients        @relation(fields: [patient_id], references: [id])
+  clinician      Clinicians      @relation(fields: [clinician_id], references: [id])
+  repeated_from  Prescriptions?  @relation("PrescriptionRepeat", fields: [repeated_from_id], references: [id])
+  repeats        Prescriptions[] @relation("PrescriptionRepeat")
+  items          PrescriptionItems[]
+
+  @@index([patient_id, issued_at])
+  @@index([encounter_id])
+}
+
+model PrescriptionItems {
+  id              String   @id @default(uuid())
+  prescription_id String
+  drug_id         String
+  dose            String
+  frequency       String   // OD|BD|TDS|QID|HS|SOS
+  route           String?
+  duration_days   Int?
+  qty             Int?     // server-calculated from frequency x duration; null for SOS (as-needed)
+  instructions    String?
+  substitutable   Boolean  @default(true)
+
+  prescription Prescriptions @relation(fields: [prescription_id], references: [id], onDelete: Cascade)
+  drug         Drugs         @relation(fields: [drug_id], references: [id])
+
+  @@index([prescription_id])
+}
+
+// US-RX-02: saved drug-set favourites. Mirrors EncounterTemplates' exact
+// shape (client_org_id/clinician_id both nullable, clinician_id set = a
+// personal favourite, null = org-shared) -- the requirement's own Data
+// Model Impact section lists no favourites table at all, the identical gap
+// EncounterTemplates had in REQ020, resolved the same way. Structured
+// SetItems rather than a JSON blob (unlike EncounterTemplates.sections_json)
+// because each line needs a real drug_id FK, not free text.
+model PrescriptionSets {
+  id            String   @id @default(uuid())
+  client_org_id String?
+  clinician_id  String?
+  specialty     String?
+  name          String
+  created_at    DateTime @default(now())
+
+  client_organization ClientOrganizations?    @relation(fields: [client_org_id], references: [id])
+  clinician           Clinicians?             @relation(fields: [clinician_id], references: [id])
+  items               PrescriptionSetItems[]
+
+  @@index([client_org_id])
+  @@index([clinician_id])
+}
+
+model PrescriptionSetItems {
+  id                  String  @id @default(uuid())
+  prescription_set_id String
+  drug_id             String
+  dose                String
+  frequency           String
+  route               String?
+  duration_days       Int?
+  instructions        String?
+
+  set  PrescriptionSets @relation(fields: [prescription_set_id], references: [id], onDelete: Cascade)
+  drug Drugs            @relation(fields: [drug_id], references: [id])
+
+  @@index([prescription_set_id])
 }
 
 model AuditLogs {
@@ -530,6 +621,7 @@ model ClientOrganizations {
   resources              Resources[]
   encounters             Encounters[]
   encounterTemplates     EncounterTemplates[]
+  prescriptionSets       PrescriptionSets[]
 }
 
 model ClinicianAvailability {
@@ -585,6 +677,12 @@ model Clinicians {
   bio               String?
   avatar_url        String?
   consultation_fee  Int?     // paise — GraphQL exposes this as rupees, converted at the resolver
+  // REQ021 — absent from this model entirely before this slice; needed on
+  // a printed prescription's letterhead per the requirement's own
+  // acceptance criteria. Both nullable: most seeded clinicians won't have
+  // one set yet, matching bio/avatar_url's own nullability.
+  registration_number String?
+  qualifications       String?
   is_active      Boolean  @default(true)
   is_deleted     Boolean  @default(false)
   created_at     DateTime @default(now())
@@ -601,6 +699,8 @@ model Clinicians {
   reviews             Reviews[]
   encounters          Encounters[]
   encounterTemplates  EncounterTemplates[]
+  prescriptions       Prescriptions[]
+  prescriptionSets    PrescriptionSets[]
 
   @@index([clinic_id, is_deleted, is_active])
 }
@@ -804,6 +904,7 @@ model Patients {
   testResults  TestResults[]
   payments     AppointmentPayments[]
   encounters   Encounters[]
+  prescriptions Prescriptions[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1145,6 +1246,8 @@ model Drugs {
   updated_at     DateTime @default(now())
 
   client_organization ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  prescriptionItems    PrescriptionItems[]
+  prescriptionSetItems PrescriptionSetItems[]
 
   @@index([client_org_id, is_deleted])
 }

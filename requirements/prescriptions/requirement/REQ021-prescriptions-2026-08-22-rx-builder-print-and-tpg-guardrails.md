@@ -3,11 +3,41 @@ id: REQ021
 type: requirement
 feature: prescriptions
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ020
-related: [REQ020, REQ016, REQ026, REQ022]
+related: [REQ020, REQ016, REQ026, REQ022, PLAN057, TP084, TR083]
 ---
+
+## Status (2026-08-24)
+
+**P0 shipped** (`PLAN057`/`TP084`/`TR083`): drug search with auto-calculated
+quantity from frequency × duration (`US-RX-01`), saved favourite drug-sets
+(`US-RX-02`), a print view with clinic letterhead/clinician/patient
+demographics and the drug table, one rendering path shared by preview and
+`window.print()` (`US-RX-03` subset), and repeat-from-history with a
+server-side reprint counter that watermarks every view after the first as
+"DUPLICATE" (`US-RX-05`). New `backend/src/prescriptions/` module,
+`frontend/src/pages/clinician/PrescriptionBuilder.jsx`,
+`frontend/src/pages/prescriptions/PrescriptionPrint.jsx`.
+
+**P1 still open**, per this requirement's own phase assignment below — not
+silently dropped: WhatsApp/OTP-gated sharing (`US-RX-04`), Telemedicine
+Practice Guidelines drug-list enforcement (`US-RX-06`, correctly gated
+behind `REQ026`'s not-yet-built `consultation_mode` column — a hard blocker
+for that requirement's own GA), regional-language PDF rendering
+(`US-RX-07`), digital signature + tamper-evident hash (`US-RX-08`), and the
+pharmacy dispense-queue handoff (`US-RX-09`, blocked on `REQ022` not
+existing yet). A5/thermal print formats are also deferred with `US-RX-03`'s
+remainder. Each gets its own future `PLAN###` when picked up.
+
+**One architectural decision recorded, not guessed at** (see `PLAN057`):
+the print view uses a single browser-print rendering path (no server-side
+PDF pipeline) — this codebase's only two prior print precedents
+(`appointments/detail.jsx`, `finances/index.jsx`) both do the same, and a
+real PDF pipeline is a multi-day investment that belongs with the deferred
+`US-RX-07`/`08` (which need font embedding and a hash respectively) rather
+than this P0 slice.
 
 # Prescription builder, print/share, and Telemedicine Practice Guidelines enforcement
 

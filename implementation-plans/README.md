@@ -2,6 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| prescriptions | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [prescriptions](./prescriptions/README.md) |
 | clinical-records | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
 | messaging | 1 | 0 | 0 | 0 | 1 | 2026-08-23 | [messaging](./messaging/README.md) |

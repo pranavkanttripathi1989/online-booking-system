@@ -97,6 +97,8 @@ export const IDS = {
   encounterB: u('d04'),
   drugA: u('d05'),
   drugB: u('d06'),
+  prescriptionA: u('d07'),
+  prescriptionB: u('d08'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -111,6 +113,8 @@ const TABLES = [
   'EncounterNotes',
   'Diagnoses',
   'Attachments',
+  'PrescriptionItems',
+  'Prescriptions',
   'Encounters',
   'Resources',
   'Drugs',
@@ -353,6 +357,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.drugA, client_org_id: IDS.orgA, name: 'OrgA Custom Drug' },
       { id: IDS.drugB, client_org_id: IDS.orgB, name: 'OrgB Custom Drug' },
+    ],
+  });
+
+  // REQ021 -- one prescription per org, issued from that org's encounter.
+  await prisma.prescriptions.createMany({
+    data: [
+      { id: IDS.prescriptionA, encounter_id: IDS.encounterA, patient_id: IDS.patientA, clinician_id: IDS.clinicianA },
+      { id: IDS.prescriptionB, encounter_id: IDS.encounterB, patient_id: IDS.patientB, clinician_id: IDS.clinicianB },
     ],
   });
 }

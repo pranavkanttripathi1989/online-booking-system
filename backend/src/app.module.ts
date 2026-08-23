@@ -39,6 +39,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DrugsModule } from './drugs/drugs.module';
 import { OrganizationOnboardingModule } from './organization-onboarding/organization-onboarding.module';
 import { EncountersModule } from './encounters/encounters.module';
+import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
@@ -109,6 +110,7 @@ import { PubSubModule } from './common/pubsub.module';
     AvailabilityModule,
     BlocksModule,
     EncountersModule,
+    PrescriptionsModule,
     CancellationRulesModule,
     AccountModule,
     NotificationPreferencesModule,
