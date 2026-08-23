@@ -6,7 +6,9 @@ _none yet_
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN038 | improvement | Batch `getClinicians`' per-clinician rating lookup | done | 2026-08-23 | 2026-08-23 | REQ036 | [PLAN038](./improvement/PLAN038-platform-nfr-2026-08-23-getclinicians-n-plus-1.md) |
 
 ## bug
 

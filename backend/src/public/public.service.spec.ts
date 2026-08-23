@@ -62,3 +62,57 @@ describe('PublicService — getAppointment access scoping', () => {
     await expect(service.getAppointment('appt-1', platformAdmin)).resolves.toBeDefined();
   });
 });
+
+// P3.4: getClinicians() used to call reviews.aggregate() once per clinician
+// in a .map() -- one extra round-trip per row. Now batches every
+// clinician's rating into a single reviews.groupBy() call.
+describe('PublicService — getClinicians rating batching (P3.4)', () => {
+  let service: PublicService;
+  let prisma: { clinicians: { findMany: jest.Mock }; reviews: { groupBy: jest.Mock } };
+
+  const clinicianRow = (id: string) => ({
+    id, first_name: 'A', last_name: 'B', clinician_type: 'GP', bio: null, is_active: true,
+    clinic: { name: 'Clinic' }, clinicianLanguages: [], clinicianServices: [],
+  });
+
+  beforeEach(async () => {
+    prisma = {
+      clinicians: { findMany: jest.fn().mockResolvedValue([clinicianRow('cln-1'), clinicianRow('cln-2')]) },
+      reviews: {
+        groupBy: jest.fn().mockResolvedValue([
+          { clinician_id: 'cln-1', _avg: { stars: 4.5 }, _count: { stars: 10 } },
+          // cln-2 has zero reviews -- absent from groupBy's result entirely,
+          // not a zero-count row. Must still resolve to {rating: undefined, reviews: 0}.
+        ]),
+      },
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [PublicService, { provide: PrismaService, useValue: prisma }],
+    }).compile();
+    service = module.get(PublicService);
+  });
+
+  it('calls reviews.groupBy exactly once regardless of clinician count, not once per clinician', async () => {
+    await service.getClinicians(undefined);
+    expect(prisma.reviews.groupBy).toHaveBeenCalledTimes(1);
+    expect(prisma.reviews.groupBy).toHaveBeenCalledWith(
+      expect.objectContaining({ where: expect.objectContaining({ clinician_id: { in: ['cln-1', 'cln-2'] } }) }),
+    );
+  });
+
+  it('maps each clinician to their own rating from the batched result', async () => {
+    const result = await service.getClinicians(undefined);
+    expect(result.find((c) => c.id === 'cln-1')).toMatchObject({ rating: 4.5, reviews: 10 });
+  });
+
+  it("a clinician absent from groupBy's result (zero reviews) gets reviews: 0, not undefined/crash", async () => {
+    const result = await service.getClinicians(undefined);
+    expect(result.find((c) => c.id === 'cln-2')).toMatchObject({ rating: undefined, reviews: 0 });
+  });
+
+  it('does not call reviews.groupBy at all when there are no clinicians', async () => {
+    prisma.clinicians.findMany.mockResolvedValue([]);
+    await service.getClinicians(undefined);
+    expect(prisma.reviews.groupBy).not.toHaveBeenCalled();
+  });
+});

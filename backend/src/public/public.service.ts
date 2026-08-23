@@ -18,6 +18,28 @@ export class PublicService {
     return { rating: agg._avg.stars ?? undefined, reviews: agg._count.stars };
   }
 
+  // P3.4: getClinicians() used to call ratingFor() once per clinician in a
+  // map -- one reviews.aggregate() round-trip per row, N+1 on every listing
+  // request. groupBy does it in a single query; a clinician with zero
+  // reviews (absent from the groupBy result, not a zero-row group) still
+  // gets a defined {rating: undefined, reviews: 0} via the Map's default.
+  private async ratingsFor(clinicianIds: string[]) {
+    if (clinicianIds.length === 0) return new Map<string, { rating?: number; reviews: number }>();
+    const groups = await this.prisma.reviews.groupBy({
+      by: ['clinician_id'],
+      where: { clinician_id: { in: clinicianIds }, is_deleted: false },
+      _avg: { stars: true },
+      _count: { stars: true },
+    });
+    const byClinicianId = new Map(
+      groups.map((g) => [g.clinician_id, { rating: g._avg.stars ?? undefined, reviews: g._count.stars }]),
+    );
+    return clinicianIds.reduce((map, id) => {
+      map.set(id, byClinicianId.get(id) ?? { rating: undefined, reviews: 0 });
+      return map;
+    }, new Map<string, { rating?: number; reviews: number }>());
+  }
+
   async getClinicians(search: PublicClinicianSearchInput | undefined) {
     const clinicians = await this.prisma.clinicians.findMany({
       where: {
@@ -36,26 +58,26 @@ export class PublicService {
       },
     });
 
-    return Promise.all(
-      clinicians.map(async (c) => {
-        const { rating, reviews } = await this.ratingFor(c.id);
-        const prices = c.clinicianServices.map((cs) => cs.product.price).filter((p): p is number => p != null);
-        return {
-          id: c.id,
-          name: `${c.first_name} ${c.last_name}`,
-          specialty: c.clinician_type,
-          clinic: c.clinic?.name,
-          rating,
-          reviews,
-          price: prices.length ? PAISE_TO_RUPEES(Math.min(...prices)) : undefined,
-          languages: c.clinicianLanguages.map((cl) => cl.language.name),
-          bio: c.bio ?? undefined,
-          initials: `${c.first_name[0] ?? ''}${c.last_name[0] ?? ''}`.toUpperCase(),
-          videoEnabled: true,
-          verified: c.is_active,
-        };
-      }),
-    );
+    const ratings = await this.ratingsFor(clinicians.map((c) => c.id));
+
+    return clinicians.map((c) => {
+      const { rating, reviews } = ratings.get(c.id) ?? { rating: undefined, reviews: 0 };
+      const prices = c.clinicianServices.map((cs) => cs.product.price).filter((p): p is number => p != null);
+      return {
+        id: c.id,
+        name: `${c.first_name} ${c.last_name}`,
+        specialty: c.clinician_type,
+        clinic: c.clinic?.name,
+        rating,
+        reviews,
+        price: prices.length ? PAISE_TO_RUPEES(Math.min(...prices)) : undefined,
+        languages: c.clinicianLanguages.map((cl) => cl.language.name),
+        bio: c.bio ?? undefined,
+        initials: `${c.first_name[0] ?? ''}${c.last_name[0] ?? ''}`.toUpperCase(),
+        videoEnabled: true,
+        verified: c.is_active,
+      };
+    });
   }
 
   async getClinician(id: string) {

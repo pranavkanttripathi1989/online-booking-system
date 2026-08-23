@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ036 | improvement | `getClinicians` issued one extra query per row instead of one query total | done | 2026-08-23 | 2026-08-23 | REQ035 | [REQ036-platform-nfr-2026-08-23-getclinicians-n-plus-1.md](./improvement/REQ036-platform-nfr-2026-08-23-getclinicians-n-plus-1.md) |
 
 ## bug
 

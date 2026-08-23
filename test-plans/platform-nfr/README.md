@@ -6,7 +6,9 @@ _none yet_
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP065 | improvement | `getClinicians` N+1 fix verification | approved | 2026-08-23 | 2026-08-23 | REQ036 | [TP065](./improvement/TP065-platform-nfr-2026-08-23-getclinicians-n-plus-1-verification.md) |
 
 ## bug
 
