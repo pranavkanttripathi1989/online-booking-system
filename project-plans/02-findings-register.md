@@ -369,10 +369,22 @@ failed 50/66 on this, not browser contention). The global 100-req/60s bucket
 (`GqlThrottlerGuard`) and the separate per-account Redis lockout
 (`auth.service.ts`, 5 failed attempts / 15 min, untouched by this change) are
 still in effect — this reversion only removed the *additional*, tighter
-per-mutation layer. **F-12's rate-limiting half is open again.** Re-adding it
-needs a design that survives real usage and e2e load without retuning the
-same failing value — e.g. a higher limit, a per-IP+per-account split, or an
-environment-aware exemption — not a re-application of the same `5/60s`.
+per-mutation layer.
+
+**Update 2026-08-23 (later same day) — re-added, redesigned (`REQ038`).**
+Not a re-application of the same value: `login`/`verifyTotpLogin` now
+`20/60s` (4x), `requestOtp`/`forgotPassword` `10/60s` (differentiated,
+tighter — both are cost-bearing sends once a real provider is wired), and
+`register` gained a throttle for the first time (`10/60s` — it had none at
+all before, despite this finding's own fix text naming it). Live-verified:
+15 rapid wrong-password login attempts produce zero `ThrottlerException`
+(the separate per-account lockout takes over instead, unaffected either
+way) — the exact failure mode that forced the reversion is confirmed gone
+at the new value. **F-12's rate-limiting half is closed.** The
+introspection/`NODE_ENV` half was already closed by `formatError`'s
+production gating; `REQ038` additionally added a boot-time assertion that
+`NODE_ENV` itself is a known value, closing the "silently defaults to
+permissive" gap in that gate.
 
 ## Data model and performance
 

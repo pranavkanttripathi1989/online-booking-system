@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP067 | improvement | Security headers, NODE_ENV assertion, throttle redesign verification | approved | 2026-08-23 | 2026-08-23 | REQ038 | [TP067](./improvement/TP067-platform-nfr-2026-08-23-helmet-csp-hsts-node-env-assertion-throttle-redesign-verification.md) |
 | TP066 | improvement | Audit-log completeness verification | approved | 2026-08-23 | 2026-08-23 | REQ037 | [TP066](./improvement/TP066-platform-nfr-2026-08-23-audit-log-completeness-verification.md) |
 | TP065 | improvement | `getClinicians` N+1 fix verification | approved | 2026-08-23 | 2026-08-23 | REQ036 | [TP065](./improvement/TP065-platform-nfr-2026-08-23-getclinicians-n-plus-1-verification.md) |
 
