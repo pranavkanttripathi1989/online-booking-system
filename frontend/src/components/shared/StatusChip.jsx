@@ -4,6 +4,9 @@ import { Chip } from '@mui/material';
 const STATUS_CONFIG = {
   scheduled:   { label: 'Scheduled',   color: 'info' },
   confirmed:   { label: 'Confirmed',   color: 'primary' },
+  // REQ042 — front-desk queue tracking (waiting-room/index.jsx).
+  checked_in:      { label: 'Checked In',    color: 'primary' },
+  in_consultation: { label: 'With Clinician', color: 'secondary' },
   completed:   { label: 'Completed',   color: 'success' },
   cancelled:   { label: 'Cancelled',   color: 'error' },
   // The backend emits `no_show` (Appointments.status, underscore). The hyphen

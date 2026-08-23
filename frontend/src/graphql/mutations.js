@@ -164,6 +164,37 @@ export const MARK_NO_SHOW_MUTATION = gql`
   }
 `
 
+// REQ042 — waiting-room/index.jsx front-desk queue actions.
+export const CHECK_IN_APPOINTMENT_MUTATION = gql`
+  mutation CheckInAppointment($id: ID!) {
+    checkInAppointment(id: $id) {
+      id
+      status
+      updated_at
+    }
+  }
+`
+
+export const START_CONSULTATION_MUTATION = gql`
+  mutation StartConsultation($id: ID!) {
+    startConsultation(id: $id) {
+      id
+      status
+      updated_at
+    }
+  }
+`
+
+export const RESET_APPOINTMENT_JOURNEY_MUTATION = gql`
+  mutation ResetAppointmentJourney($id: ID!) {
+    resetAppointmentJourney(id: $id) {
+      id
+      status
+      updated_at
+    }
+  }
+`
+
 // ─── Clinicians ───────────────────────────────────────────────────────────────
 
 export const CREATE_CLINICIAN_MUTATION = gql`

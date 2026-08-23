@@ -42,16 +42,25 @@ Wiring the seven fabricated pages meant deleting UI that had no backend. Two of
 those deletions are visible losses of apparent functionality and need a product
 decision before they can come back.
 
-**(a) Patient check-in.** `staff/Dashboard.jsx` had a "Check In" button and a
-"Checked In" KPI. `Appointments.status` is `scheduled | completed | cancelled |
-no_show` — there is no `checked_in` state anywhere in the schema, so the button
-wrote nowhere and the KPI counted a field that does not exist. Both were removed
+**(a) Patient check-in.** ~~Open~~ — **resolved 2026-08-23, by `REQ042`**.
+`staff/Dashboard.jsx` had a "Check In" button and a "Checked In" KPI.
+`Appointments.status` was `scheduled | completed | cancelled | no_show` — no
+`checked_in` state existed anywhere in the schema, so the button wrote
+nowhere and the KPI counted a field that did not exist. Both were removed
 rather than left as a control that silently does nothing.
 
-This is not a wiring gap; it is `REQ019` (queue management), still `draft`. The
-decision is whether check-in is a lightweight extra `Appointments.status` value
-(cheap, and enough for a front desk to mark arrivals) or the full queue/token
-model the PRD describes. Those are materially different builds.
+The decision (lightweight extra `Appointments.status` values vs. the full
+queue/token model the PRD describes) is now made: went lightweight.
+`checked_in`/`in_consultation` are additive status values, real
+`checkInAppointment`/`startConsultation`/`resetAppointmentJourney`
+mutations exist, and `waiting-room/index.jsx` (previously 100% mock) is
+wired to them. The full queue/token/wait-time-estimation model `REQ019`
+also describes remains unbuilt — that half is still genuinely open, tied to
+`REQ017`/`REQ020` per `REQ019`'s own text — but the specific "check-in
+button wrote nowhere" gap this entry was about is closed. `staff/Dashboard.jsx`'s
+removed button/KPI were not restored in this pass — the waiting-room page
+is the canonical place for check-in now; restoring a duplicate control on
+the dashboard is a follow-up, not a blocker.
 
 **(b) Patient `status` and `condition`.** `clinician/Patients.jsx` had columns
 for a clinical `condition` and an `active`/`new`/`inactive` status, plus filter

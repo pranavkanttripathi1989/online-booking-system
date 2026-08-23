@@ -7,7 +7,7 @@
 | scheduling-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [scheduling-engine](./scheduling-engine/README.md) |
 | pharmacy | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [prescriptions](./prescriptions/README.md) |
-| queue-management | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [queue-management](./queue-management/README.md) |
+| queue-management | 1 | 1 | 0 | 1 | 1 | 2026-08-23 | [queue-management](./queue-management/README.md) |
 | appointments | 1 | 0 | 3 | 2 | 2 | 2026-08-23 | [appointments](./appointments/README.md) |
 | organizations | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [organizations](./organizations/README.md) |
 | catalog-master-data | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [catalog-master-data](./catalog-master-data/README.md) |

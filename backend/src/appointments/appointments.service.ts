@@ -141,6 +141,7 @@ export class AppointmentsService {
     const where: any = { is_deleted: false, ...this.orgScope(user), ...this.selfScope(user) };
     if (filters?.status) where.status = filters.status;
     if (filters?.clinician_id) where.clinician_id = filters.clinician_id;
+    if (filters?.clinic_id) where.clinic_id = filters.clinic_id;
     if (filters?.date_from || filters?.date_to) {
       where.appointment_time = {};
       if (filters.date_from) where.appointment_time.gte = new Date(filters.date_from);
@@ -361,6 +362,29 @@ export class AppointmentsService {
 
   markNoShow(id: string, user: JwtPayload) {
     return this.transitionStatus(id, 'no_show', undefined, user);
+  }
+
+  // REQ042/BUG019-adjacent — front-desk queue tracking (waiting-room/index.jsx).
+  // `status` stays a free-text column (see the model's own comment), so
+  // 'checked_in'/'in_consultation' are additive convention values, not a
+  // schema/enum migration.
+  checkIn(id: string, user: JwtPayload) {
+    return this.transitionStatus(id, 'checked_in', undefined, user);
+  }
+
+  startConsultation(id: string, user: JwtPayload) {
+    return this.transitionStatus(id, 'in_consultation', undefined, user);
+  }
+
+  // Front desk's own "Undo" action -- reverts a no_show/completed
+  // mis-click back to the head of the queue. Deliberately narrow: only
+  // from a terminal-but-recent state back to 'scheduled', not a general
+  // "set to any status" escape hatch (that already exists via
+  // createAppointment's sibling `update()` for other fields, and an
+  // unrestricted status-setter would let 'checked_in'/'in_consultation'
+  // become reachable from role gates that shouldn't have them).
+  resetAppointmentJourney(id: string, user: JwtPayload) {
+    return this.transitionStatus(id, 'scheduled', undefined, user);
   }
 
   async update(id: string, input: AppointmentUpdateInput, user: JwtPayload) {

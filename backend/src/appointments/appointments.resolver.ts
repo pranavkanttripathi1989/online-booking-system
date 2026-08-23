@@ -78,4 +78,23 @@ export class AppointmentsResolver {
   markNoShow(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
     return this.appointmentsService.markNoShow(id, user);
   }
+
+  // REQ042 — waiting-room/index.jsx queue actions.
+  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')
+  @Mutation(() => AppointmentType)
+  checkInAppointment(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.appointmentsService.checkIn(id, user);
+  }
+
+  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')
+  @Mutation(() => AppointmentType)
+  startConsultation(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.appointmentsService.startConsultation(id, user);
+  }
+
+  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')
+  @Mutation(() => AppointmentType)
+  resetAppointmentJourney(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.appointmentsService.resetAppointmentJourney(id, user);
+  }
 }

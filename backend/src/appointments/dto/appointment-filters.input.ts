@@ -11,4 +11,8 @@ export class AppointmentFiltersInput {
   @Field({ nullable: true }) @IsOptional() @IsString() status?: string;
   @Field({ nullable: true }) @IsOptional() @IsString() clinician_id?: string;
   @Field({ nullable: true }) @IsOptional() @IsString() patient_name?: string;
+  // REQ042 — waiting-room/index.jsx scopes the queue to one clinic (a front
+  // desk works at a specific location, not across an org's whole clinic
+  // fan-out the way a manager's appointments list does).
+  @Field({ nullable: true }) @IsOptional() @IsString() clinic_id?: string;
 }

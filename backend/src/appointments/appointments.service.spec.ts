@@ -13,7 +13,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('AppointmentsService — access scoping', () => {
   let service: AppointmentsService;
   let prisma: {
-    appointments: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock; findFirst: jest.Mock; create: jest.Mock };
+    appointments: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock; findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
     appointmentStatusLogs: { findMany: jest.Mock; create: jest.Mock };
     clinics: { findUnique: jest.Mock };
     products: { findUnique: jest.Mock };
@@ -29,10 +29,19 @@ describe('AppointmentsService — access scoping', () => {
   const clinicianUser: JwtPayload = { sub: 'user-3', roles: ['clinician'], client_org_id: 'org-1', clinician_id: 'cln-1' } as JwtPayload;
   const unlinkedClinicianUser: JwtPayload = { sub: 'user-4', roles: ['clinician'], client_org_id: 'org-1', clinician_id: null } as JwtPayload;
 
+  const baseAppointmentRow = {
+    id: 'appt-1', is_deleted: false, patient_id: 'pat-1', clinician_id: 'cln-1',
+    clinic: { client_org_id: 'org-1' },
+    patient: { id: 'pat-1', first_name: 'A', last_name: 'B', date_of_birth: new Date() },
+    clinician: { id: 'cln-1', first_name: 'X', last_name: 'Y' },
+    room: {}, appointment_time: new Date(), duration_minutes: 30, status: 'scheduled',
+  };
+
   beforeEach(async () => {
     prisma = {
       appointments: {
         findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), findUnique: jest.fn(), findFirst: jest.fn().mockResolvedValue(null),
+        update: jest.fn().mockImplementation((args) => Promise.resolve({ ...baseAppointmentRow, ...args.data })),
         create: jest.fn().mockResolvedValue({
           id: 'appt-new', patient_id: 'pat-1', clinician_id: 'cln-1', clinic: { client_org_id: 'org-1' },
           patient: { id: 'pat-1', first_name: 'A', last_name: 'B', date_of_birth: new Date() },
@@ -209,6 +218,61 @@ describe('AppointmentsService — access scoping', () => {
     it('a clinician caller is rejected loading another clinician\'s appointment (TC-APPT-API-010)', async () => {
       prisma.appointments.findUnique.mockResolvedValue(baseAppointment({ clinician_id: 'cln-2' }));
       await expect(service.findOne('appt-1', clinicianUser)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('checkIn / startConsultation / resetAppointmentJourney (REQ042)', () => {
+    beforeEach(() => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...baseAppointmentRow });
+    });
+
+    it('checkIn transitions a scheduled appointment to checked_in and logs the change', async () => {
+      const result = await service.checkIn('appt-1', staffUser);
+      expect(result.status).toBe('checked_in');
+      expect(prisma.appointments.update).toHaveBeenCalledWith(expect.objectContaining({ where: { id: 'appt-1' }, data: expect.objectContaining({ status: 'checked_in' }) }));
+      expect(prisma.appointmentStatusLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ appointment_id: 'appt-1', status: 'checked_in', changed_by_user_id: staffUser.sub }) }));
+    });
+
+    it('startConsultation transitions to in_consultation', async () => {
+      const result = await service.startConsultation('appt-1', staffUser);
+      expect(result.status).toBe('in_consultation');
+    });
+
+    it('resetAppointmentJourney transitions back to scheduled', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...baseAppointmentRow, status: 'no_show' });
+      const result = await service.resetAppointmentJourney('appt-1', staffUser);
+      expect(result.status).toBe('scheduled');
+    });
+
+    it('checkIn is rejected for a cross-org caller (tenant isolation)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...baseAppointmentRow, clinic: { client_org_id: 'org-2' } });
+      await expect(service.checkIn('appt-1', staffUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+    });
+
+    it('checkIn is rejected for a clinician who is not on this appointment (self-scoping)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...baseAppointmentRow, clinician_id: 'cln-2' });
+      await expect(service.checkIn('appt-1', clinicianUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+    });
+
+    it('checkIn is rejected for a patient calling on someone else\'s appointment (self-scoping)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...baseAppointmentRow, patient_id: 'pat-2' });
+      await expect(service.checkIn('appt-1', patientUser)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  describe('findAll — clinic_id filter (REQ042)', () => {
+    it('scopes to a single clinic when clinic_id is provided', async () => {
+      await service.findAll({ clinic_id: 'clinic-a' } as any, 20, 1, staffUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.clinic_id).toBe('clinic-a');
+    });
+
+    it('omits the clinic filter entirely when not provided', async () => {
+      await service.findAll(undefined, 20, 1, staffUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.clinic_id).toBeUndefined();
     });
   });
 });

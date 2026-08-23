@@ -1,9 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
+import { useQuery, useMutation } from '@apollo/client'
+import { useSnackbar } from 'notistack'
 import dayjs from 'dayjs'
 import {
-  Avatar, Box, Button, Card, CardContent, Chip, Paper, Stack, TextField, Tooltip, Typography,
+  Avatar, Box, Button, Card, CardContent, Chip, Paper, Stack, TextField, Tooltip, Typography, CircularProgress,
 } from '@mui/material'
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded'
 import MedicalServicesRoundedIcon from '@mui/icons-material/MedicalServicesRounded'
@@ -15,19 +17,22 @@ import HourglassEmptyRoundedIcon from '@mui/icons-material/HourglassEmptyRounded
 
 import ErrorBoundary from '../../components/ErrorBoundary'
 import EmptyState from '../../components/shared/EmptyState'
-import { useMockData, useMockMutation } from '../../mocks/useMockData'
-import * as MockStore from '../../mocks/store'
+import { APPOINTMENTS_QUERY } from '../../graphql/queries'
+import {
+  CHECK_IN_APPOINTMENT_MUTATION, START_CONSULTATION_MUTATION, COMPLETE_APPOINTMENT_MUTATION,
+  MARK_NO_SHOW_MUTATION, RESET_APPOINTMENT_JOURNEY_MUTATION,
+} from '../../graphql/mutations'
 
-// ─── Journey stage derivation ──────────────────────────────────────────────────
-// Mirrors Semble's Journey object (arrived/consultation/departed/dna), nested on Booking.
-// requirements/semble-competitive-gap-analysis-requirements.md — Scheduling table + Phase 3.
-function journeyStage(journey) {
-  if (!journey) return 'not_arrived'
-  if (journey.dna) return 'dna'
-  if (journey.departed) return 'departed'
-  if (journey.consultation) return 'in_consultation'
-  if (journey.arrived) return 'arrived'
-  return 'not_arrived'
+// REQ042 — real backend statuses replace the old MockStore `journey` object
+// (arrived/consultation/departed/dna). `checked_in`/`in_consultation` are
+// additive Appointments.status values (appointments.service.ts); `completed`
+// and `no_show` already existed.
+function journeyStage(status) {
+  if (status === 'no_show') return 'dna'
+  if (status === 'completed') return 'departed'
+  if (status === 'in_consultation') return 'in_consultation'
+  if (status === 'checked_in') return 'arrived'
+  return 'not_arrived' // scheduled, confirmed, or anything else pre-arrival
 }
 
 const STAGE_META = {
@@ -40,39 +45,40 @@ const STAGE_META = {
 
 function WaitingRoomContent() {
   const navigate = useNavigate()
+  const { enqueueSnackbar } = useSnackbar()
+  const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
 
-  // Seed data lives around March 2026 (see mocks/data/appointments.js) rather than the
-  // real system date, so default to whichever date has the most bookings instead of
-  // hard-filtering to "today" and showing an empty room.
-  const defaultDate = useMemo(() => {
-    const counts = {}
-    MockStore.getAppointments().forEach((a) => {
-      const d = a.start_datetime?.slice(0, 10)
-      if (d) counts[d] = (counts[d] ?? 0) + 1
-    })
-    const busiest = Object.entries(counts).sort((a, b) => b[1] - a[1])[0]?.[0]
-    return busiest ?? dayjs().format('YYYY-MM-DD')
-  }, [])
+  const { data, loading, error, refetch } = useQuery(APPOINTMENTS_QUERY, {
+    variables: { filters: { date_from: selectedDate, date_to: selectedDate }, first: 200, page: 1 },
+    fetchPolicy: 'cache-and-network',
+  })
 
-  const [selectedDate, setSelectedDate] = useState(defaultDate)
+  const mutationOpts = { onCompleted: () => refetch(), onError: (e) => enqueueSnackbar(e.message, { variant: 'error' }) }
+  const [checkIn] = useMutation(CHECK_IN_APPOINTMENT_MUTATION, mutationOpts)
+  const [startConsult] = useMutation(START_CONSULTATION_MUTATION, mutationOpts)
+  const [checkOut] = useMutation(COMPLETE_APPOINTMENT_MUTATION, mutationOpts)
+  const [markDna] = useMutation(MARK_NO_SHOW_MUTATION, mutationOpts)
+  const [resetJourney] = useMutation(RESET_APPOINTMENT_JOURNEY_MUTATION, mutationOpts)
 
-  const { data: appointments } = useMockData((store) =>
-    store.getAppointments({ dateFrom: selectedDate, dateTo: selectedDate })
-      .filter((a) => a.status !== 'cancelled')
+  const list = useMemo(
+    () => (data?.appointments?.data ?? []).filter((a) => a.status !== 'cancelled'),
+    [data],
   )
-
-  const [checkIn]     = useMockMutation(MockStore.checkInPatient)
-  const [startConsult] = useMockMutation(MockStore.markConsultationStarted)
-  const [checkOut]    = useMockMutation(MockStore.checkOutPatient)
-  const [markDna]     = useMockMutation(MockStore.markPatientDidNotAttend)
-  const [resetJourney] = useMockMutation(MockStore.resetPatientJourney)
-
-  const list = appointments ?? []
   const counts = useMemo(() => {
     const c = { not_arrived: 0, arrived: 0, in_consultation: 0, departed: 0, dna: 0 }
-    list.forEach((a) => { c[journeyStage(a.journey)]++ })
+    list.forEach((a) => { c[journeyStage(a.status)]++ })
     return c
   }, [list])
+
+  if (error) {
+    return (
+      <EmptyState
+        icon={HourglassEmptyRoundedIcon}
+        title="Couldn't load the waiting room"
+        subtitle={error.message}
+      />
+    )
+  }
 
   return (
     <Box className="page-enter" sx={{ pb: 4 }}>
@@ -86,7 +92,7 @@ function WaitingRoomContent() {
         <Box>
           <Typography variant="h4" fontWeight={800} sx={{ fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>Waiting Room</Typography>
           <Typography variant="body2" color="text.secondary">
-            Front-desk view of patient arrival, consultation and departure — mirrors Semble's Journey tracking.
+            Front-desk view of real patient arrival, consultation and departure.
           </Typography>
         </Box>
         <TextField
@@ -107,7 +113,9 @@ function WaitingRoomContent() {
         ))}
       </Stack>
 
-      {list.length === 0 ? (
+      {loading && list.length === 0 ? (
+        <Stack alignItems="center" sx={{ py: 6 }}><CircularProgress /></Stack>
+      ) : list.length === 0 ? (
         <EmptyState
           icon={HourglassEmptyRoundedIcon}
           title="No appointments for this date"
@@ -116,7 +124,7 @@ function WaitingRoomContent() {
       ) : (
         <Stack spacing={1.5}>
           {list.map((appt) => {
-            const stage = journeyStage(appt.journey)
+            const stage = journeyStage(appt.status)
             const meta = STAGE_META[stage]
             return (
               <Card key={appt.id} variant="outlined" sx={{ borderRadius: 2.5 }}>
@@ -147,7 +155,7 @@ function WaitingRoomContent() {
                         <>
                           <Button
                             size="small" variant="contained" startIcon={<PersonAddAltRoundedIcon />}
-                            onClick={() => checkIn(appt.id)}
+                            onClick={() => checkIn({ variables: { id: appt.id } })}
                             sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}
                           >
                             Check In
@@ -155,7 +163,7 @@ function WaitingRoomContent() {
                           <Tooltip title="Mark as did-not-attend">
                             <Button
                               size="small" color="error" variant="outlined" startIcon={<EventBusyRoundedIcon />}
-                              onClick={() => markDna(appt.id)}
+                              onClick={() => markDna({ variables: { id: appt.id } })}
                               sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700 }}
                             >
                               No-show
@@ -166,7 +174,7 @@ function WaitingRoomContent() {
                       {stage === 'arrived' && (
                         <Button
                           size="small" variant="contained" startIcon={<MedicalServicesRoundedIcon />}
-                          onClick={() => startConsult(appt.id)}
+                          onClick={() => startConsult({ variables: { id: appt.id } })}
                           sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700, bgcolor: '#7B3FE4', '&:hover': { bgcolor: '#6329D1' } }}
                         >
                           Start Consultation
@@ -175,7 +183,7 @@ function WaitingRoomContent() {
                       {stage === 'in_consultation' && (
                         <Button
                           size="small" variant="contained" startIcon={<LogoutRoundedIcon />}
-                          onClick={() => checkOut(appt.id)}
+                          onClick={() => checkOut({ variables: { id: appt.id } })}
                           sx={{ textTransform: 'none', borderRadius: 2, fontWeight: 700, bgcolor: '#188038', '&:hover': { bgcolor: '#12652C' } }}
                         >
                           Check Out
@@ -191,7 +199,7 @@ function WaitingRoomContent() {
                           />
                           <Tooltip title="Undo — reset this patient's journey status">
                             <Button
-                              size="small" onClick={() => resetJourney(appt.id)}
+                              size="small" onClick={() => resetJourney({ variables: { id: appt.id } })}
                               startIcon={<UndoRoundedIcon />}
                               sx={{ textTransform: 'none', color: 'text.secondary' }}
                               aria-label={`Reset journey status for ${appt.patient?.full_name}`}

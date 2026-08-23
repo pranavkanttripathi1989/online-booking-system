@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ042 | improvement | Real check-in status tracking and a real waiting-room queue | done | 2026-08-23 | 2026-08-23 | REQ019 | [REQ042-queue-management-2026-08-23-checkin-status-and-waiting-room-queue.md](./improvement/REQ042-queue-management-2026-08-23-checkin-status-and-waiting-room-queue.md) |
 
 ## bug
 

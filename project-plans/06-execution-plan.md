@@ -90,7 +90,7 @@ inferred from this doc's own prior wording — see per-row evidence):
 | # | Item | Finding | Status |
 |---|---|---|---|
 | 2.1 | Wire the eleven fabricated pages that already have a backend: `analytics`, `patients/detail`, `clinician/Patients`, `staff/Dashboard`, `staff/Appointments`, `patient/Appointments`, `patient/Profile`, `manager/Billing`, `auth/forgot-password`, `Settings/NotificationTemplates`, `public/landing` | F-18, F-23 | ⚠️ **partial, 10/11 resolved (`BUG009`, `BUG016`)** — 7 wired by `BUG009`; `manager/Billing` deleted (redirects to `/finances`); `patient/Profile.jsx` and `auth/forgot-password.jsx` wired by `BUG016` (the former surfaced and closed a real gap: `me` had no way to expose a patient's own `patient_id`, and `updatePatient` had no patient-self-service path at all); `Settings/NotificationTemplates.jsx` deleted as dead code (never routed, superseded by `admin/EmailTemplates.jsx`/`REQ011`). **Only `patients/detail.jsx` remains** — audited and found to be its own much larger, multi-domain feature (8 tabs, most backed by nothing — letters, membership, intake forms, structured allergy/diagnosis records — tied to `REQ020` and others), not a bug-fix-sized wire-up. Deliberately left open rather than half-wired; only its `TableContainer` fix landed (`BUG015`) |
-| 2.2 | Decide and act on the three genuinely backend-less pages — `tasks`, `waiting-room`, `onboarding`: build the domain or remove the route. Do not leave them reachable | F-18 | ⬜ not started — confirmed no `tasks`/`waiting-room`/`onboarding` module under `backend/src`; all three routes still reachable and still allowlisted as known-fabricated in `check-page-data-wiring.mjs` |
+| 2.2 | Decide and act on the three genuinely backend-less pages — `tasks`, `waiting-room`, `onboarding`: build the domain or remove the route. Do not leave them reachable | F-18 | ⚠️ **partial — `waiting-room` done (`REQ042`/`PLAN045`), `tasks`/`onboarding` still not started.** `waiting-room` now has a real backend (check-in/consultation/reset status transitions on `Appointments`) and is off `check-page-data-wiring.mjs`'s allowlist. `tasks` and `onboarding` remain confirmed backend-less — both still trace to the same open product-definition questions this row originally cited |
 | 2.3 | `GlobalSearch`: add a real cross-domain search resolver, or remove the component from the shell | F-18 | ✅ **done (`BUG015`)** — deleted; a real cross-domain search resolver is separate, larger scope not attempted |
 | 2.4 | Structural CI gate: fail if a page under `src/pages` renders a list/detail view with no GraphQL reference | F-18 | ✅ **done** — `scripts/check-page-data-wiring.mjs`, wired into `.github/workflows/ci.yml`'s structural-gates job. Its `useParams` "external source" heuristic is a known, documented false-negative (misses `patients/detail.jsx` above) — a gate-quality gap, not a CI-wiring gap |
 | 2.5 | Theme-token sweep across the 88 files with hardcoded hex; drive the MUI theme from org branding at `ThemeContext`; add a `no-hardcoded-colors` lint rule | F-19 | ⬜ not started — re-measured 2026-08-23: 88 files, 2,084 raw hex occurrences (essentially unchanged from the figure this doc already cites); no lint rule exists |
@@ -129,20 +129,21 @@ present on every response.
 
 ### P2/P3 status as of 2026-08-23 — what's deliberately still open, and why
 
-**P2: 3/7 done (2.3, 2.4, 2.6), 2/7 partial (2.1, 2.7), 2/7 not started
-(2.2, 2.5). P3: 5/7 done (3.1, 3.4, 3.5, 3.6, 3.7), 1/7 partial (3.3), 1/7
-not started (3.2).** 3.5 (`REQ040`/`PLAN044`) closed 2026-08-23. The items
-below remain deliberately not attempted — each is genuinely separate,
-larger-scoped work, not an oversight:
+**P2: 3/7 done (2.3, 2.4, 2.6), 3/7 partial (2.1, 2.2, 2.7), 1/7 not started
+(2.5). P3: 5/7 done (3.1, 3.4, 3.5, 3.6, 3.7), 1/7 partial (3.3), 1/7 not
+started (3.2).** 3.5 (`REQ040`/`PLAN044`) and 2.2's `waiting-room` third
+(`REQ042`/`PLAN045`) closed 2026-08-23. The items below remain deliberately
+not attempted — each is genuinely separate, larger-scoped work, not an
+oversight:
 
-- **P2.2 (the 3 backend-less pages — `tasks`, `waiting-room`, `onboarding`).**
-  "Build the domain or remove the route" is doing a lot of work in that
-  sentence: each of these three is its own real domain (queue/check-in
-  management, an org-onboarding wizard, a generic task system) with no
-  schema, no resolver, and no settled product definition yet — `tasks` and
-  `waiting-room` both trace to open questions already logged (`open-questions.md`
-  #11) about what "checked in" or a task even means here. Each needs its
-  own requirement + plan cycle, not a shared page-wiring pass.
+- **P2.2, remaining two (`tasks`, `onboarding`).** `waiting-room` is closed
+  (`REQ042`) — it turned out to have a genuinely small answer (an additive
+  `Appointments.status` extension), not the full queue/token PRD scope
+  `open-questions.md` #11(a) worried it might need. `tasks` and `onboarding`
+  are different: each is its own real domain (a generic task system, an
+  org-onboarding wizard) with no schema, no resolver, and no settled
+  product definition yet. Each still needs its own requirement + plan
+  cycle, not a shared page-wiring pass.
 - **P2.5 (the theme-token sweep — 88 files, 2,084 raw hex occurrences).**
   A large, mechanical, but non-trivial sweep: `#RRGGBB` literals have to be
   mapped to the *correct* theme token per use (not a blind find-replace —

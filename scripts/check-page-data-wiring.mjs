@@ -26,8 +26,18 @@
 
 import { readdirSync, readFileSync, statSync } from 'fs';
 import { join, relative } from 'path';
+import { fileURLToPath } from 'url';
 
-const ROOT = new URL('..', import.meta.url).pathname;
+// fileURLToPath, not `new URL(...).pathname` -- .pathname on a Windows
+// file:// URL returns a POSIX-shaped path with a leading slash before the
+// drive letter (e.g. "/D:/online-booking-system/"), which path.join/fs then
+// treat as drive-relative rather than absolute, silently prepending cwd
+// again on the next join and producing a doubled "D:\D:\..." that fails
+// scandir. Confirmed live: this script had never actually run successfully
+// on a native Windows host before (only inside Linux containers, which
+// don't hit this). fileURLToPath handles the platform-specific conversion
+// correctly on both.
+const ROOT = fileURLToPath(new URL('..', import.meta.url));
 const PAGES = join(ROOT, 'frontend', 'src', 'pages');
 
 /** Renders something that displays a collection or a record. */
@@ -66,7 +76,10 @@ const ALLOWED = new Set([
   // known gap, not a regression.
   'onboarding/index.jsx',
   'tasks/index.jsx',
-  'waiting-room/index.jsx',
+
+  // waiting-room/index.jsx is gone from this list too (REQ042) — wired onto
+  // the real appointments() query plus checkInAppointment/startConsultation/
+  // completeAppointment/markNoShow/resetAppointmentJourney mutations.
 
   // The seven pages that were here — analytics, clinician/Patients,
   // manager/Billing, patient/Appointments, public/landing, staff/Appointments
