@@ -163,6 +163,20 @@ model RoomTypeModel {
   @@map("room_types")
 }
 
+// Two Postgres EXCLUDE constraints (GiST, requires btree_gist) prevent two
+// non-cancelled, non-deleted rows from having overlapping
+// [appointment_time, appointment_time + duration_minutes) ranges for the
+// same clinician_id, and separately for the same room_id -- added in this
+// model's own migrations (20260823030000/20260823031500_..._exclusion_
+// constraint), not expressible declaratively here (Prisma has no
+// EXCLUDE-constraint syntax). This is the P3.1/F-16 fix for
+// booking-concurrency.int-spec.ts: the application-level assertSlotFree()
+// check and the later create() are two separate statements, so N
+// concurrent requests could all pass the check before any of them wrote --
+// the database itself is now the only thing that can make "is this slot
+// free" atomic. The room constraint is a data-integrity backstop only --
+// create()'s own room *selection* still has no availability check at all
+// (see open question #14).
 model Appointments {
   id                  String   @id @default(uuid())
   clinic_id           String

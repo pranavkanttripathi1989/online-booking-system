@@ -314,6 +314,41 @@ placeholder waiting on this decision.
 
 ---
 
+## 14. `createAppointment`'s room assignment has no availability check at all — a data-integrity backstop was added, the underlying selection logic was not
+
+**Status:** Open, raised 2026-08-23 while closing `BUG017` (booking-concurrency exclusion constraint).
+
+`appointments.service.ts`'s `create()` picks a room via
+`rooms.findFirst({clinic_id, is_active, is_deleted})` — no ordering, no
+availability check, no regard for whether that room is already booked at
+the requested time. It deterministically returns whichever room comes
+first for the clinic, every time. Confirmed live: MG Road Clinic has 2
+active rooms, so two different clinicians' appointments could both be
+silently assigned the same room at overlapping times.
+
+A second `EXCLUDE` constraint (`appointments_no_overlapping_room_booking`,
+migration `20260823031500`) was added as a data-integrity backstop — a
+genuine room double-booking now fails loudly with the same clean "This
+time slot is no longer available" message, matching
+`technical-plans/01-phase1-mvp.md` §3.3's own design (it specifies the
+clinician and room constraints as a pair, "do this once, for both modes").
+This closes the *data-corruption* risk. It does not fix the *actual*
+problem: a clinic with 2+ rooms still cannot genuinely double-book a room
+by luck, but a legitimate booking attempt for clinician B can now be
+rejected outright (told "no longer available") when room A is busy, even
+if room B (or C, ...) is sitting idle — `create()` has no logic to try a
+different room, only to reject.
+
+**Decision needed from the user:** is real room-availability-aware
+assignment (try the next active room if the first candidate is booked at
+this time, rather than only ever trying one) in scope as a follow-up? This
+is genuinely separate, larger scope than the concurrency-safety fix itself
+— it needs its own requirement, and likely touches the slot-search/
+availability-calculation logic the booking wizard already relies on, not
+just `create()`'s room pick in isolation.
+
+---
+
 ## Resolved
 
 ### manager/Dashboard.jsx KPIs, charts, and clinic filter (resolved 2026-08-18)

@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { AppointmentsService } from './appointments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
@@ -126,6 +127,51 @@ describe('AppointmentsService — access scoping', () => {
       const orgLessPatient: JwtPayload = { sub: 'p-1', roles: ['patient'], client_org_id: null, patient_id: 'pat-1' } as JwtPayload;
       await expect(service.create(baseInput as any, orgLessPatient)).resolves.toBeDefined();
       expect(prisma.clinics.findUnique).not.toHaveBeenCalled();
+    });
+
+    // P3.1/F-16: the database-level EXCLUDE constraint
+    // (appointments_no_overlapping_booking) is the real fix for
+    // booking-concurrency.int-spec.ts; these confirm the raw Postgres error
+    // it (or a related deadlock under real contention) surfaces as gets
+    // mapped to the existing clean message, never leaked to the caller.
+    describe('overlap-constraint error mapping', () => {
+      it('maps the exclusion-violation error to "This time slot is no longer available"', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        prisma.$transaction.mockRejectedValueOnce(
+          new Prisma.PrismaClientUnknownRequestError(
+            'conflicting key value violates exclusion constraint "appointments_no_overlapping_booking"',
+            { clientVersion: 'test' },
+          ),
+        );
+        await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('This time slot is no longer available');
+      });
+
+      it('also maps the room-overlap exclusion-violation error to the same message', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        prisma.$transaction.mockRejectedValueOnce(
+          new Prisma.PrismaClientUnknownRequestError(
+            'conflicting key value violates exclusion constraint "appointments_no_overlapping_room_booking"',
+            { clientVersion: 'test' },
+          ),
+        );
+        await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('This time slot is no longer available');
+      });
+
+      it('also maps a deadlock (two truly-concurrent inserts on overlapping GiST pages) to the same message', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        prisma.$transaction.mockRejectedValueOnce(
+          new Prisma.PrismaClientUnknownRequestError('deadlock detected', { clientVersion: 'test' }),
+        );
+        await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('This time slot is no longer available');
+      });
+
+      it('does not swallow an unrelated database error behind the same friendly message', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        prisma.$transaction.mockRejectedValueOnce(
+          new Prisma.PrismaClientUnknownRequestError('connection terminated unexpectedly', { clientVersion: 'test' }),
+        );
+        await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('connection terminated unexpectedly');
+      });
     });
   });
 

@@ -1,5 +1,6 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput } from './dto/appointment.input';
@@ -9,6 +10,19 @@ import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
+
+// P3.1/F-16: matches the two constraint names in
+// 20260823030000_appointments_no_overlap_exclusion_constraint/migration.sql
+// (clinician) and 20260823031500_...room_exclusion_constraint/migration.sql
+// (room) exactly -- assertSlotFree() below still runs first (fails fast,
+// gives a clean message for the common case), but these constraints are
+// what actually close the race: two requests can both pass that check
+// before either writes, since it's a separate statement from the insert.
+// Postgres surfaces an exclusion violation as error code 23P01, which
+// Prisma does not map to one of its own known error codes -- it arrives as
+// a PrismaClientUnknownRequestError with the raw driver message, matched
+// here by constraint name rather than parsing the SQLSTATE out of free text.
+const OVERLAP_CONSTRAINT_NAMES = ['appointments_no_overlapping_booking', 'appointments_no_overlapping_room_booking'];
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
@@ -246,29 +260,49 @@ export class AppointmentsService {
     });
     if (!room) throw new BadRequestException('No active room available at this clinic');
 
-    const created = await this.prisma.$transaction(async (tx) => {
-      const appointment = await tx.appointments.create({
-        data: {
-          clinic_id: input.clinic_id,
-          room_id: room.id,
-          clinician_id: input.clinician_id,
-          patient_id: input.patient_id,
-          appointment_date: new Date(start.toDateString()),
-          appointment_time: start,
-          duration_minutes: durationMinutes,
-          status: 'scheduled',
-          reason: input.notes ?? '',
-          notes: input.notes ?? '',
-          product_id: input.service_id,
-          booked_by_user_id: user.sub,
-        },
-        include: INCLUDE,
+    let created;
+    try {
+      created = await this.prisma.$transaction(async (tx) => {
+        const appointment = await tx.appointments.create({
+          data: {
+            clinic_id: input.clinic_id,
+            room_id: room.id,
+            clinician_id: input.clinician_id,
+            patient_id: input.patient_id,
+            appointment_date: new Date(start.toDateString()),
+            appointment_time: start,
+            duration_minutes: durationMinutes,
+            status: 'scheduled',
+            reason: input.notes ?? '',
+            notes: input.notes ?? '',
+            product_id: input.service_id,
+            booked_by_user_id: user.sub,
+          },
+          include: INCLUDE,
+        });
+        await tx.appointmentStatusLogs.create({
+          data: { appointment_id: appointment.id, status: 'scheduled', changed_by_user_id: user.sub },
+        });
+        return appointment;
       });
-      await tx.appointmentStatusLogs.create({
-        data: { appointment_id: appointment.id, status: 'scheduled', changed_by_user_id: user.sub },
-      });
-      return appointment;
-    });
+    } catch (error) {
+      // Two genuinely concurrent inserts hitting overlapping GiST index
+      // pages can surface as a deadlock (Postgres 40P01, "deadlock
+      // detected") instead of a clean exclusion-constraint violation
+      // (23P01) -- confirmed live under real concurrency (5 truly-parallel
+      // requests), not a hypothetical. Both mean exactly the same thing
+      // from the caller's side: someone else got this slot. Retrying this
+      // specific transaction would not help either way -- the constraint
+      // is deterministic once the row that "won" has committed -- so both
+      // map to the same clean message rather than one leaking a raw error.
+      if (
+        error instanceof Prisma.PrismaClientUnknownRequestError &&
+        (OVERLAP_CONSTRAINT_NAMES.some((name) => error.message.includes(name)) || error.message.includes('deadlock detected'))
+      ) {
+        throw new BadRequestException('This time slot is no longer available');
+      }
+      throw error;
+    }
 
     const result = this.toGraphQL(created);
     await this.notifyLinkedProfile('clinician_id', created.clinician_id, 'new_appointment', {
