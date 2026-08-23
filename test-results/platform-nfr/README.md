@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR068 | improvement | Pagination safety-net middleware results | pass | 2026-08-23 | 2026-08-23 | TP069 | [TR068](./improvement/TR068-platform-nfr-2026-08-23-pagination-safety-net-middleware-verification.md) |
 | TR066 | improvement | Security headers, NODE_ENV assertion, throttle redesign results | pass | 2026-08-23 | 2026-08-23 | TP067 | [TR066](./improvement/TR066-platform-nfr-2026-08-23-helmet-csp-hsts-node-env-assertion-throttle-redesign-verification.md) |
 | TR065 | improvement | Audit-log completeness results | pass | 2026-08-23 | 2026-08-23 | TP066 | [TR065](./improvement/TR065-platform-nfr-2026-08-23-audit-log-completeness-verification.md) |
 | TR064 | improvement | `getClinicians` N+1 fix results | pass | 2026-08-23 | 2026-08-23 | TP065 | [TR064](./improvement/TR064-platform-nfr-2026-08-23-getclinicians-n-plus-1-verification.md) |
