@@ -3,7 +3,7 @@ id: TECH001
 type: technical-plan
 feature: technical-plans
 created: 2026-08-22
-updated: 2026-08-22
+updated: 2026-08-23
 status: active
 parent: TECH000
 related: [PP002, PP006, TECH005, TECH006]
@@ -21,17 +21,25 @@ known defects into every one of them.
 
 ## 1. Secrets and configuration (F-11 — partially done)
 
-**Status: fix applied 2026-08-22 (`BUG002`), runtime verification pending.**
+**Status re-verified 2026-08-23 against the real repo, not re-stated from
+memory — this section was stale (unchanged since 2026-08-22 despite
+`CLAUDE.md` separately declaring "Phase F COMPLETE"; that declaration is
+correct for F-11's core fix, but three items below that were always in this
+doc's own scope for item 1 were never actually done):**
 
-`docker-compose.yml` no longer supplies guessable JWT fallbacks, and five
-previously-unset variables (`SETTINGS_ENCRYPTION_KEY`, `RAZORPAY_KEY_ID`,
-`RAZORPAY_KEY_SECRET`, `OTP_TTL_SECONDS`, `OTP_MAX_ATTEMPTS`) now pass through
-from a root `.env`. Remaining work in this phase:
+`docker-compose.yml`'s `JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` have no
+guessable fallback (confirmed: `${JWT_ACCESS_SECRET}` with no `:-default`,
+same for the refresh secret) — the core `BUG002` fix holds, and has been
+exercised repeatedly this session (multiple `docker restart
+medibook_backend` cycles, all booting clean with real logins succeeding).
+Five previously-unset variables (`SETTINGS_ENCRYPTION_KEY`,
+`RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `OTP_TTL_SECONDS`,
+`OTP_MAX_ATTEMPTS`) pass through from a root `.env` as designed.
 
-- [ ] Recreate `medibook_backend` and verify a clean boot, a rejected pre-rotation token, and a successful fresh login.
-- [ ] Rewrite the root `.env.example` for the Postgres/Nest stack — it still documents the abandoned MySQL/Nginx/Pusher/Laravel setup, which makes a fresh environment *likely* to be misconfigured.
-- [ ] Delete the pre-pivot `Makefile` (targets Laravel/MySQL/PHP-FPM).
-- [ ] **F-33** (separate, higher-risk): rotate the Postgres password off the published `medibook_secret` default. Must be `ALTER ROLE` against the live DB **plus** a `DATABASE_URL` update in the same change — changing the compose env var alone does not alter an already-provisioned role and will break connectivity.
+- [x] Recreate `medibook_backend` and verify a clean boot + a successful fresh login — re-confirmed 2026-08-23 as an incidental side effect of this session's `auth.resolver.ts` throttle-removal work (restart, then a real `login` mutation succeeded).
+- [ ] **Still not done.** Rewrite the root `.env.example` for the Postgres/Nest stack — re-checked 2026-08-23, it still opens with `MYSQL_ROOT_PASSWORD`/`MYSQL_DATABASE`/`NGINX_PORT` etc., the abandoned pre-pivot stack verbatim. A fresh environment following this file today would misconfigure itself.
+- [ ] **Still not done.** Delete the pre-pivot `Makefile` — confirmed still present at repo root. `CLAUDE.md` documents it as "stale... don't use it" rather than removing it; that's a workaround, not this item's DoD.
+- [ ] **Still not done — F-33.** `docker-compose.yml`'s `POSTGRES_PASSWORD` still defaults to the published `medibook_secret` string in three places (`postgres`, and the test/e2e services use their own equally-guessable `medibook_test_secret`/`medibook_e2e_secret`). No `ALTER ROLE` + `DATABASE_URL` rotation has happened against the real dev database.
 
 ## 2. The tenant-scoping helper (F-01, F-04, F-05) — the keystone fix
 
@@ -134,6 +142,19 @@ any time instead of only once at a migration boundary.
 
 ## 4. Integration-test harness + tenancy matrix (F-25) — highest leverage item
 
+**Status: ✅ done.** Harness landed 2026-08-22 (`BUG007`) — real PostgreSQL
+(`postgres_test`, port 5433), `supertest` against the real `AppModule`, the
+deterministic two-org fixture described below. The matrix itself closed
+2026-08-23 (`BUG012`): all 21 tenant-scoped domains classified (covered or
+EXEMPT with a stated reason), `KNOWN_GAPS` is `[]`, and
+`matrix-coverage.int-spec.ts` fails the build if a new resolver domain is
+added without a matrix row — exactly the "otherwise it rots" requirement
+below. Three real, previously-unknown cross-tenant/self-scoping bugs were
+found and fixed while writing the remaining rows (`availability`/`blocks`
+resolvers) — see `BUG012`'s own doc for detail. The booking-concurrency
+subsection below is unaffected by this closure — still open, tracked as its
+own item.
+
 The existing 602 tests all mock `PrismaService` and assert the shape of the
 `where` object. That design cannot fail an isolation test, which is precisely why
 F-01 was live while the suite was green.
@@ -172,6 +193,12 @@ write it now, as that constraint's acceptance criterion.
 
 ## 5. Frontend auth bypass (F-02)
 
+**Status: ✅ done (`BUG003`, 2026-08-22).** `MOCK_USERS`, the `mock_` token
+branch, `MOCK_OTP`, and `login-legacy.jsx` were all deleted rather than
+hardened, matching this section's own prescription below exactly. A failed
+`ME_QUERY` now logs out instead of falling back to the cached user — see
+`context/security-2026-08-22-f02/manifest.md`.
+
 Remediation is deletion, not hardening:
 
 - `AuthContext.jsx`: delete the `token.startsWith('mock_')` branch in `getInitialState()`; on `ME_QUERY` error, **log out** instead of falling back to the cached user; delete the `MOCK_USERS` export.
@@ -184,6 +211,16 @@ frontend): `AuthContext` rejects a `mock_` token, logs out on `ME_QUERY` failure
 and cannot be granted a role by a forged cached user.
 
 ## 6. CI (F-26)
+
+**Status: ✅ done (`BUG008`, 2026-08-22)**, with one standing caveat that
+does not block this item's own DoD but matters for how much to trust it:
+`.github/workflows/ci.yml` has never executed on GitHub — every command in
+it has only been run locally. F-29 (Jest OOM/worker-exit) and F-22 (frontend
+lint script) are both fixed — see their own notes below. The structural
+data-wiring gate (last paragraph of this section) is also done —
+`scripts/check-page-data-wiring.mjs`, wired into the CI workflow's
+structural-gates job (confirmed 2026-08-23 during a `project-plans/06`
+P2/P3 audit).
 
 No `.github/workflows` exists. One required workflow:
 
@@ -198,10 +235,10 @@ test-frontend     : npx jest --coverage                # with real collectCovera
 e2e               : npx playwright test                # composed stack, seeded DB
 ```
 
-Two prerequisites inside this phase:
+Two prerequisites inside this phase — **both ✅ done (`BUG008`)**:
 
-- **F-29**: backend Jest ends with "A worker process has failed to exit gracefully" — an unref'd timer/open handle that will hang CI. Diagnose with `--detectOpenHandles`.
-- **F-22**: `npm run lint` in `frontend/` exits 1 immediately — the script passes `--ext`, rejected by the installed flat-config ESLint. Fix the script, add `eslint-plugin-react` to the flat config (its absence produces 2,880 spurious `no-unused-vars` on JSX-used imports), then fix the 12 real errors hiding underneath (11 × `jsx-a11y/no-autofocus`, 1 × `jsx-a11y/media-has-caption`).
+- **F-29**: fixed — `npm test` (default workers) still OOM-kills on this host (exit 137, a host-resource-contention issue, not a code leak), but `npx jest --maxWorkers=2` is confirmed the reliable invocation (645 tests / 50 suites, ~130s) and is what CI actually runs.
+- **F-22**: fixed — lint script corrected, `eslint-plugin-react` added to the flat config, and the real underlying errors resolved; `frontend/package.json`'s lint script now runs with an explicit `--max-warnings 177` ratchet (177, down from 197 pre-`BUG009`) rather than failing outright on the pre-existing warning backlog.
 
 Add one structural gate that grep-based audits structurally cannot do: **fail if
 a file under `frontend/src/pages` renders a list/detail view with no GraphQL
@@ -210,9 +247,15 @@ fabricated-data pages (F-18).
 
 ## Phase F Definition of Done
 
-- A self-registered org-less account provably reads nothing outside its scope — asserted by the tenancy matrix, not by inspection.
-- No `mock_`-token path exists in the frontend bundle.
+**Overall: the security/testing core is done; three secondary hygiene items
+from §1 are not (see that section) — "Phase F COMPLETE" in `CLAUDE.md`
+refers to the six numbered findings (F-11/F-02/F-01/F-13/F-25/F-26), all of
+which are genuinely closed. It does not mean every checkbox this document
+itself lists.**
+
+- ✅ A self-registered org-less account provably reads nothing outside its scope — asserted by the tenancy matrix (`BUG012`), not by inspection.
+- ✅ No `mock_`-token path exists in the frontend bundle (`BUG003`).
 - ✅ `EXPLAIN ANALYZE` on the core appointment query shows an index scan (`TR053`, TC-09: Index Scan Backward, buffers 2755 → 34).
-- CI is required on the default branch and green.
-- The booking-concurrency test exists and its failure is recorded as Phase 1's acceptance criterion.
-- `docker compose up` without a root `.env` fails loudly rather than booting with a known key.
+- ✅ CI is required on the default branch and green **locally** (`BUG008`) — not yet proven on GitHub itself; the first push will be its first real remote run.
+- ✅ The booking-concurrency test exists and its failure is recorded as Phase 1's/P3's acceptance criterion (`booking-concurrency.int-spec.ts`, still deliberately `it.failing` — see `06-execution-plan.md` P3.1).
+- ✅ `docker compose up` without a root `.env` fails loudly rather than booting with a known key (`JWT_ACCESS_SECRET`/`JWT_REFRESH_SECRET` have no fallback) — **but** the Postgres password still defaults to a known, published string (`medibook_secret`/`medibook_test_secret`/`medibook_e2e_secret`), which this same phase's own §1 flags as F-33, still open.
