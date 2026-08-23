@@ -30,6 +30,9 @@ const EXEMPT: Record<string, string> = {
   organizations: "organizationsPaginated is platform-wide by design — isPlatformOperator callers are meant to see every org, not just their own. There is no 'org A caller' for this domain.",
   'org-settings': "myOrgBranding (and its siblings) return literally the caller's own org, keyed by JWT client_org_id — nullable:true, so a platform operator (no org) gets null, not the union of every org's branding.",
   notifications: 'Scoped by specific user_id, not org (see notification-preferences above) — every org-A actor other than the exact row owner would see an empty result, not the same row, which the matrix cannot express.',
+  // Found while classifying REQ020's own new domain (this file's own gate
+  // caught it): shipped without ever being added here.
+  'organization-onboarding': "Entirely @Public() self-serve SaaS signup (organization-onboarding.resolver.ts) — no authenticated tenant-scoped read exists on this resolver at all, same shape as auth's login/register.",
 };
 
 /**

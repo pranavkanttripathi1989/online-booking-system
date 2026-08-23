@@ -744,7 +744,14 @@ export default function AppShell() {
               <Typography variant="h6" fontWeight={700} noWrap sx={{
                 color: '#202124', fontSize: { xs: '0.95rem', sm: '1.0rem', md: '1.05rem' }, letterSpacing: '-0.2px',
               }}>
-                {navItems.find(n => location.pathname.startsWith(n.path))?.label || 'Dashboard'}
+                {/* REQ020: /clinician/encounters/:id has no NAV_CONFIG entry
+                    (reached only via the appointment detail page's "Start
+                    Consultation" button, not the sidebar) -- without this,
+                    the header falsely read "Dashboard" the entire time a
+                    clinician was in the consultation workspace. */}
+                {location.pathname.startsWith('/clinician/encounters')
+                  ? 'Consultation'
+                  : navItems.find(n => location.pathname.startsWith(n.path))?.label || 'Dashboard'}
               </Typography>
             </Box>
 

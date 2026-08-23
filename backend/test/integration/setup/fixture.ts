@@ -87,6 +87,16 @@ export const IDS = {
   clinicianAvailabilityB: u('c06'),
   spacerBlockA: u('c07'),
   spacerBlockB: u('c08'),
+
+  // REQ017/REQ020 -- resources and encounters domains. Added when REQ020's
+  // matrix-coverage pass discovered `resources` (REQ017) had shipped without
+  // ever being classified in this matrix -- both close together here.
+  resourceA: u('d01'),
+  resourceB: u('d02'),
+  encounterA: u('d03'),
+  encounterB: u('d04'),
+  drugA: u('d05'),
+  drugB: u('d06'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -97,6 +107,13 @@ const TABLES = [
   'AppointmentPayments',
   'AppointmentStatusLogs',
   'Reviews',
+  'EncounterAddenda',
+  'EncounterNotes',
+  'Diagnoses',
+  'Attachments',
+  'Encounters',
+  'Resources',
+  'Drugs',
   'Appointments',
   'TestResults',
   'ClinicianServices',
@@ -309,6 +326,33 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.spacerBlockA, clinician_id: IDS.clinicianA, clinic_id: IDS.clinicA, start_time: new Date('1970-01-01T12:00:00.000Z'), end_time: new Date('1970-01-01T12:15:00.000Z'), reason: 'prep time A' },
       { id: IDS.spacerBlockB, clinician_id: IDS.clinicianB, clinic_id: IDS.clinicB, start_time: new Date('1970-01-01T12:00:00.000Z'), end_time: new Date('1970-01-01T12:15:00.000Z'), reason: 'prep time B' },
+    ],
+  });
+
+  // REQ017 -- a bookable org-level asset, one per org.
+  await prisma.resources.createMany({
+    data: [
+      { id: IDS.resourceA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: 'ECG Machine A' },
+      { id: IDS.resourceB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: 'ECG Machine B' },
+    ],
+  });
+
+  // REQ020 -- one encounter per org, tied to that org's appointment.
+  await prisma.encounters.createMany({
+    data: [
+      { id: IDS.encounterA, client_org_id: IDS.orgA, appointment_id: IDS.appointmentA, patient_id: IDS.patientA, clinician_id: IDS.clinicianA },
+      { id: IDS.encounterB, client_org_id: IDS.orgB, appointment_id: IDS.appointmentB, patient_id: IDS.patientB, clinician_id: IDS.clinicianB },
+    ],
+  });
+
+  // REQ016/REQ044 -- one org-owned drug per org (not the null/platform-seeded
+  // shared shape) so the matrix has a real per-org row to isolate. Found and
+  // closed during REQ020's own matrix-coverage pass (drugs shipped without a
+  // matrix row at all).
+  await prisma.drugs.createMany({
+    data: [
+      { id: IDS.drugA, client_org_id: IDS.orgA, name: 'OrgA Custom Drug' },
+      { id: IDS.drugB, client_org_id: IDS.orgB, name: 'OrgB Custom Drug' },
     ],
   });
 }

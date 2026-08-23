@@ -25,7 +25,7 @@ The PRD organizes the product into 17 functional modules (M1–M17) plus a Super
 | M4 Scheduling/Calendar Engine | `scheduling-engine` | Partial — P0 shipped 2026-08-24 (session/token mode, multi-resource booking, mode-aware slot-integrity constraint, `PLAN055`); hybrid interleaving, waitlist, delay broadcast, bulk-reschedule, and the live-throughput ETA refinement remain P1 | REQ017 |
 | M5 Booking Engine | `appointments` | Strong core — state machine already matches PRD; dedup/family/widget net-new | REQ018 |
 | M6 Check-in & Queue | `queue-management` | **Absent** — mock-only page, no backend at all | REQ019 |
-| M7 Consultation & EMR | `clinical-records` | **Absent** — no clinical-note model of any kind | REQ020 |
+| M7 Consultation & EMR | `clinical-records` | Partial — P0 shipped 2026-08-24 (structured notes, templates, allergy banner, sign-off immutability by DB trigger, patient timeline, `PLAN056`); ICD-10 coding, discrete vitals/growth charts, investigation orders, referrals remain P1/P2 | REQ020 |
 | M8 Prescriptions | `prescriptions` | **Absent** | REQ021 |
 | M9 Pharmacy & Inventory | `pharmacy` | **Absent** — Products is retail-catalogue only, no batch/stock ledger | REQ022 |
 | M10 Billing & Payments | `patient-payments` | Partial — real Razorpay integration; counter/mixed-tender, day-end, revenue-share net-new | REQ023 |
@@ -41,7 +41,11 @@ The PRD organizes the product into 17 functional modules (M1–M17) plus a Super
 | §12 DPDP Compliance | `compliance-dpdp` | Partial — encryption/audit exist; consent/rights/breach workflows net-new | REQ034 |
 | §13 Non-Functional Requirements | `platform-nfr` | Partial — adopts `project-plans` F-13/14/15 as standing constraints; offline/i18n/observability net-new | REQ035 |
 
-**Reading this table honestly:** of the 20 rows, **9 modules are "Absent" with zero existing scaffolding** — queue-management, clinical-records, prescriptions, pharmacy, telemedicine, abdm-interop, platform-integrations, insurance-claims, and platform-billing. The remaining **11 are "Partial"** — a real, working foundation with a specific, named gap: organizations, security, catalog-master-data, scheduling-engine, appointments, patient-payments, messaging, notifications, patient-portal, analytics-reporting, compliance-dpdp, subscription-plan-engine, and platform-nfr (13 entries across 11 module rows, since M11 and the NFR/compliance sections each split across more than one feature slug). **No module is "fully satisfied" as the PRD describes it.** This PRD represents the next 12–18 months of the product's life, not a documentation exercise.
+**Reading this table honestly (as originally analysed, 2026-08-22):** of the 20 rows, **9 modules are "Absent" with zero existing scaffolding** — queue-management, clinical-records, prescriptions, pharmacy, telemedicine, abdm-interop, platform-integrations, insurance-claims, and platform-billing. The remaining **11 are "Partial"** — a real, working foundation with a specific, named gap: organizations, security, catalog-master-data, scheduling-engine, appointments, patient-payments, messaging, notifications, patient-portal, analytics-reporting, compliance-dpdp, subscription-plan-engine, and platform-nfr (13 entries across 11 module rows, since M11 and the NFR/compliance sections each split across more than one feature slug). **No module is "fully satisfied" as the PRD describes it.** This PRD represents the next 12–18 months of the product's life, not a documentation exercise.
+
+**Updated (2026-08-24):** `clinical-records` (M7) moved from Absent to
+Partial with `REQ020`'s P0 shipment — 8 modules now Absent, 12 Partial. See
+the M7 row above and `PLAN056` for what shipped versus what remains P1/P2.
 
 The exact split matters less than the shape: the product's booking/scheduling/patient-management core is a genuine asset to build on; the clinical, pharmacy, insurance, and interoperability layers that would make it a full practice-management platform are almost entirely unbuilt.
 
@@ -73,15 +77,22 @@ The PRD's own Q1–Q2 roadmap milestones. Sequencing within this phase follows t
 8. **REQ023** (billing depth) — extends the already-real payment integration; can run in parallel with 2–7.
 9. **REQ032** (subscription plan engine v1) — the PRD names this an explicit MVP-GA exit criterion; can run in parallel with 2–8 since it has no dependency on the clinical stack.
 
-**Status (2026-08-24):** item 2 (`REQ017`'s P0 scope) shipped — see
-`requirements/scheduling-engine/`, `PLAN055`/`TP082`/`TR081`,
-`context/scheduling-engine-2026-08-24-req017/manifest.md`. A session is
+**Status (2026-08-24):** items 2 and 6 (`REQ017`'s and `REQ020`'s P0 scope)
+shipped — see `requirements/scheduling-engine/`, `PLAN055`/`TP082`/`TR081`,
+`context/scheduling-engine-2026-08-24-req017/manifest.md` and
+`requirements/clinical-records/`, `PLAN056`/`TP083`/`TR082`,
+`context/clinical-records-2026-08-24-req020/manifest.md`. A session is
 currently working this Phase G sequence in order: `REQ017` (done, P0) →
-`REQ020` → `REQ021` → `REQ019` → `REQ018` → `REQ032` — a 6-requirement pass
-through this list's critical path plus the two parallel-eligible items
-(`REQ016`'s catalog/drug-master piece is already done from an earlier
-session, so it's not repeated in this pass; `REQ023`/`REQ014`'s remaining
-scope is not part of this specific pass and stays open).
+`REQ020` (done, P0) → `REQ021` → `REQ019` → `REQ018` → `REQ032` — a
+6-requirement pass through this list's critical path plus the two
+parallel-eligible items (`REQ016`'s catalog/drug-master piece is already
+done from an earlier session, so it's not repeated in this pass;
+`REQ023`/`REQ014`'s remaining scope is not part of this specific pass and
+stays open). Classifying `REQ020`'s new tenancy-matrix domain also surfaced
+that `REQ017`'s own `resources` domain had shipped without ever being added
+to `matrix-coverage.int-spec.ts` — closed in the same pass, alongside two
+more pre-existing gaps (`drugs`, `organization-onboarding`) the same gate
+found once exercised.
 
 ### Phase H — V1 GA ("sellable to chains")
 The PRD's own Q3–Q4 roadmap milestones:

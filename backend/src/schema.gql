@@ -2,6 +2,12 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddAddendumInput {
+  content: String!
+  encounter_id: ID!
+  reason: String
+}
+
 input AddOnboardingClinicInput {
   address: String
   city: String!
@@ -53,6 +59,11 @@ input AppRoleInput {
   is_active: Boolean
   name: String!
   permission_ids: [ID!]
+}
+
+input ApplyTemplateInput {
+  encounter_id: ID!
+  template_id: ID!
 }
 
 type Appointment {
@@ -531,6 +542,13 @@ input ConfirmTotpEnrollmentInput {
   code: String!
 }
 
+input CreateAttachmentInput {
+  encounter_id: ID!
+  file_ref: String!
+  mime_type: String!
+  original_filename: String!
+}
+
 input CreateAvailabilityInput {
   capacity: Int
   clinic_id: String!
@@ -567,6 +585,21 @@ input CreateClinicianTypeInput {
   description: String
   is_active: Boolean
   name: String!
+}
+
+input CreateDiagnosisInput {
+  encounter_id: ID!
+  icd10_code: String
+  status: String
+  text: String!
+  type: String
+}
+
+input CreateEncounterTemplateInput {
+  name: String!
+  org_shared: Boolean
+  sections_json: String!
+  specialty: String
 }
 
 input CreateLanguageInput {
@@ -737,6 +770,16 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+type Diagnosis {
+  created_at: DateTime!
+  encounter_id: ID!
+  icd10_code: String
+  id: ID!
+  status: String!
+  text: String!
+  type: String!
+}
+
 input DisableTotpInput {
   password: String!
 }
@@ -779,6 +822,56 @@ type EmailTemplateMutationResult {
   success: Boolean!
   template: EmailTemplate
   userErrors: [UserError!]!
+}
+
+type Encounter {
+  addenda: [EncounterAddendum!]!
+  appointment_id: ID!
+  attachments: [EncounterAttachment!]!
+  clinician_id: ID!
+  created_at: DateTime!
+  diagnoses: [Diagnosis!]!
+  id: ID!
+  locked: Boolean!
+  notes: [EncounterNote!]!
+  patient_id: ID!
+  signed_at: DateTime
+  signed_by_id: ID
+  status: String!
+  updated_at: DateTime!
+}
+
+type EncounterAddendum {
+  author_id: ID!
+  content: String!
+  created_at: DateTime!
+  id: ID!
+  reason: String
+}
+
+type EncounterAttachment {
+  created_at: DateTime!
+  file_ref: String!
+  id: ID!
+  mime_type: String!
+  original_filename: String!
+  uploaded_by_id: ID!
+}
+
+type EncounterNote {
+  content: String!
+  id: ID!
+  section: String!
+  updated_at: DateTime!
+  version: Int!
+}
+
+type EncounterTemplate {
+  clinician_id: ID
+  id: ID!
+  name: String!
+  sections_json: String!
+  specialty: String
 }
 
 type FinanceMonthlyPoint {
@@ -868,7 +961,9 @@ type MessageableContact {
 }
 
 type Mutation {
+  addEncounterAddendum(input: AddAddendumInput!): EncounterAddendum!
   addOnboardingFirstClinic(input: AddOnboardingClinicInput!, orgId: String!): Clinic!
+  applyEncounterTemplate(input: ApplyTemplateInput!): Encounter!
   assignThread(assigneeUserId: ID!, threadId: ID!): MessageThread!
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
   cancelAppointment(id: ID!, reason: String): Appointment!
@@ -883,7 +978,10 @@ type Mutation {
   createClinic(input: ClinicInput!): Clinic!
   createClinician(input: ClinicianInput!): Clinician!
   createClinicianType(input: CreateClinicianTypeInput!): LookupMutationResult!
+  createDiagnosis(input: CreateDiagnosisInput!): Diagnosis!
   createDrug(input: DrugInput!): Drug!
+  createEncounterAttachment(input: CreateAttachmentInput!): EncounterAttachment!
+  createEncounterTemplate(input: CreateEncounterTemplateInput!): EncounterTemplate!
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
@@ -924,6 +1022,7 @@ type Mutation {
   deleteSpacerBlock(id: ID!): SpacerBlockMutationResult!
   disableTotp(input: DisableTotpInput!): GenericResult!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
+  getOrCreateEncounter(appointment_id: ID!): Encounter!
   login(input: LoginInput!): LoginResult!
   logout: Boolean!
   markAllNotificationsRead: NotificationMutationResult!
@@ -939,10 +1038,12 @@ type Mutation {
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
   revokeMySession(id: String!): GenericResult!
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
+  saveEncounterNote(input: SaveEncounterNoteInput!): EncounterNote!
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
   selectOnboardingPlan(orgId: String!, planId: String!): OrganizationOnboarding!
   sendMessage(body: String!, threadId: ID!): MessageThread!
   setHeadOfficeClinic(id: ID!): Clinic!
+  signEncounter(encounter_id: ID!): Encounter!
   startConsultation(id: ID!): Appointment!
   startOrganizationOnboarding(input: StartOnboardingInput!): OrganizationOnboarding!
   startTotpEnrollment: TotpEnrollment!
@@ -1499,6 +1600,9 @@ type Query {
   drug(id: ID!): Drug
   drugs(search: String): [Drug!]!
   emailTemplates: [EmailTemplate!]!
+  encounter(id: ID!): Encounter
+  encounterTemplates(specialty: String): [EncounterTemplate!]!
+  encounters: [Encounter!]!
   getAppointment(id: ID!): PublicAppointmentDetail!
   getAppointmentStats(clinicId: ID, endDate: String!, startDate: String!): AppointmentStats!
   getAppointments(clinicianId: ID!, date: String!): [PublicAppointmentSlot!]!
@@ -1535,6 +1639,8 @@ type Query {
   notifications(filter: String): [Notification!]!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
+  patientAllergyBanner(patient_id: ID!): [Diagnosis!]!
+  patientTimeline(patient_id: ID!): [TimelineEvent!]!
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
   product(id: ID!): Product
   productCategories: [ProductCategory!]!
@@ -1723,6 +1829,12 @@ type RoomUserError {
   message: String!
 }
 
+input SaveEncounterNoteInput {
+  content: String!
+  encounter_id: ID!
+  section: String!
+}
+
 type SavedIdResult {
   id: ID!
 }
@@ -1876,6 +1988,15 @@ type ThreadParticipant {
   id: ID!
   name: String!
   role: String!
+}
+
+type TimelineEvent {
+  date: DateTime!
+  encounter_id: ID
+  id: ID!
+  summary: String
+  title: String!
+  type: String!
 }
 
 type TopClinicianPoint {

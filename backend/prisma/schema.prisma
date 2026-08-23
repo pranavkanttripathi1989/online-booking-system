@@ -230,6 +230,7 @@ model Appointments {
   status_logs         AppointmentStatusLogs[]
   payments            AppointmentPayments[]
   resources           AppointmentResources[]
+  encounter           Encounters?
 
   @@index([clinician_id, appointment_time])
   @@index([clinic_id, appointment_time])
@@ -255,6 +256,152 @@ model AppointmentStatusLogs {
   changed_by_user UserProfiles? @relation("StatusLogChangedBy", fields: [changed_by_user_id], references: [id])
 
   @@index([appointment_id, created_at])
+}
+
+// REQ020 (Phase 1, slice 2) — consultation workspace / clinical records
+// (EMR), P0 subset. One Encounter per Appointment (US-EMR-01's "clinician
+// opens the encounter" from an existing booking). client_org_id is its own
+// column, denormalized from the appointment's clinic at creation -- Patients
+// has no client_org_id of its own (confirmed), so this table needs one for
+// direct orgScope() the same way Resources (REQ017) does.
+//
+// Immutability (US-EMR-06/PRD §14.2, "write-protected by trigger"): once
+// locked=true, EncounterNotes/Diagnoses rows for this encounter are rejected
+// at the DATABASE layer by a BEFORE UPDATE OR DELETE trigger (this model's
+// own migration -- Prisma has no trigger syntax, and this is the first
+// trigger in this codebase). The service layer's own lock check is the fast,
+// friendly-error path in front of it, not a substitute for it -- the PRD
+// explicitly names the trigger as the actual guarantee, not the application
+// check. Correcting a signed encounter goes through EncounterAddenda
+// instead, which is append-only and untouched by the trigger.
+model Encounters {
+  id             String    @id @default(uuid())
+  client_org_id  String
+  appointment_id String    @unique
+  patient_id     String
+  clinician_id   String
+  status         String    @default("in_progress") // in_progress | signed
+  locked         Boolean   @default(false)
+  signed_at      DateTime?
+  signed_by_id   String?
+  created_at     DateTime  @default(now())
+  updated_at     DateTime  @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  appointment         Appointments        @relation(fields: [appointment_id], references: [id])
+  patient             Patients            @relation(fields: [patient_id], references: [id])
+  clinician           Clinicians          @relation(fields: [clinician_id], references: [id])
+  signed_by           UserProfiles?       @relation("EncounterSignedBy", fields: [signed_by_id], references: [id])
+  notes               EncounterNotes[]
+  addenda             EncounterAddenda[]
+  diagnoses           Diagnoses[]
+  attachments         Attachments[]
+
+  @@index([client_org_id, patient_id])
+  @@index([clinician_id])
+  @@index([patient_id, created_at])
+}
+
+// One row per structured section per encounter (US-EMR-02) -- "vitals" is
+// one of these section values, not a separate discrete-reading table this
+// slice (that granular, trendable model is the explicitly-P1 "growth
+// charts" half of FR-EMR-05, see PLAN### for this slice). Upserted on
+// [encounter_id, section]; version increments on every save so a future
+// audit view can show edit history without needing full row versioning.
+model EncounterNotes {
+  id          String   @id @default(uuid())
+  encounter_id String
+  section     String   // complaints|history|exam|vitals|diagnosis|investigations|advice|follow_up
+  content     String   @default("")
+  version     Int      @default(1)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  encounter Encounters @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
+
+  @@unique([encounter_id, section])
+}
+
+// Append-only. The only way to add information to a signed (locked)
+// encounter -- never updated or deleted, so the trigger on EncounterNotes/
+// Diagnoses has no equivalent need here.
+model EncounterAddenda {
+  id           String   @id @default(uuid())
+  encounter_id String
+  author_id    String
+  content      String
+  reason       String?
+  created_at   DateTime @default(now())
+
+  encounter Encounters   @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
+  author    UserProfiles @relation("AddendumAuthor", fields: [author_id], references: [id])
+
+  @@index([encounter_id, created_at])
+}
+
+// Also backs the allergy banner (US-EMR-04): type='allergy' rows, queried
+// across every encounter for the patient (not scoped to the current one) --
+// the requirement's own Data Model Impact section names no separate
+// Allergies table, so this is the specified model doing double duty, not an
+// invented one. icd10_code is nullable/free-text-fallback at MVP per the
+// requirement's own note -- real coding (FR-EMR-03) is P1.
+model Diagnoses {
+  id           String   @id @default(uuid())
+  encounter_id String
+  type         String   @default("diagnosis") // diagnosis | allergy
+  icd10_code   String?
+  text         String
+  status       String   @default("active") // active | resolved
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  encounter Encounters @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
+
+  @@index([encounter_id])
+}
+
+// file_ref is a local-filesystem URL under /uploads/attachments/, written by
+// a REST controller (this codebase's established pattern for uploads --
+// GqlAuthGuard doesn't cover REST routes, so that controller verifies its
+// own bearer token directly, mirroring org-branding.controller.ts) and then
+// persisted here via a separate GraphQL mutation, matching that same
+// controller's two-step split rather than the avatar controller's
+// inline-persist (this row carries more metadata than one column).
+model Attachments {
+  id                String   @id @default(uuid())
+  encounter_id      String
+  file_ref          String
+  mime_type         String
+  original_filename String
+  uploaded_by_id    String
+  created_at        DateTime @default(now())
+
+  encounter   Encounters   @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
+  uploaded_by UserProfiles @relation("AttachmentUploadedBy", fields: [uploaded_by_id], references: [id])
+
+  @@index([encounter_id])
+}
+
+// US-EMR-03: one-click templates. client_org_id null + clinician_id set
+// would be meaningless (a personal favourite with no owning org) in
+// practice every clinician has an org, but both are nullable per the
+// requirement's own spec (a future platform-seeded default set could have
+// client_org_id null too) -- clinician_id set means a personal favourite,
+// null means org-shared.
+model EncounterTemplates {
+  id            String   @id @default(uuid())
+  client_org_id String?
+  clinician_id  String?
+  specialty     String?
+  name          String
+  sections_json Json // { [section]: defaultContent }
+  created_at    DateTime @default(now())
+
+  client_organization ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  clinician           Clinicians?          @relation(fields: [clinician_id], references: [id])
+
+  @@index([client_org_id])
+  @@index([clinician_id])
 }
 
 model AuditLogs {
@@ -381,6 +528,8 @@ model ClientOrganizations {
   drugs                  Drugs[]
   notificationProviderConfigs NotificationProviderConfig[]
   resources              Resources[]
+  encounters             Encounters[]
+  encounterTemplates     EncounterTemplates[]
 }
 
 model ClinicianAvailability {
@@ -450,6 +599,8 @@ model Clinicians {
   clinicianLanguages  ClinicianLanguages[]
   clinicianServices   ClinicianServices[]
   reviews             Reviews[]
+  encounters          Encounters[]
+  encounterTemplates  EncounterTemplates[]
 
   @@index([clinic_id, is_deleted, is_active])
 }
@@ -652,6 +803,7 @@ model Patients {
   reviews      Reviews[]
   testResults  TestResults[]
   payments     AppointmentPayments[]
+  encounters   Encounters[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1321,6 +1473,9 @@ model UserProfiles {
   orderedTestResults TestResults[]
   bookedAppointments Appointments[] @relation("AppointmentBookedBy")
   appointmentStatusLogs AppointmentStatusLogs[] @relation("StatusLogChangedBy")
+  signedEncounters   Encounters[]            @relation("EncounterSignedBy")
+  encounterAddenda   EncounterAddenda[]      @relation("AddendumAuthor")
+  uploadedAttachments Attachments[]          @relation("AttachmentUploadedBy")
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])

@@ -217,6 +217,43 @@ export const CASES: DomainCase[] = [
     bId: IDS.productB,
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff', 'patient'],
   },
+  {
+    // REQ017 shipped this domain without ever adding a matrix row --
+    // discovered and closed during REQ020's own matrix-coverage pass.
+    domain: 'resources',
+    what: 'resources',
+    query: `{ resources { id } }`,
+    ids: (d) => (d.resources ?? []).map((x: any) => x.id),
+    aId: IDS.resourceA,
+    bId: IDS.resourceB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
+  },
+  {
+    // REQ020. clinician_id self-scoping happens to coincide with org
+    // scoping in this one-clinician-per-org fixture, so a clinicianA/
+    // clinicianB actor's "ownOrgOnly" expectation is satisfied either way.
+    domain: 'encounters',
+    what: 'encounters',
+    query: `{ encounters { id } }`,
+    ids: (d) => (d.encounters ?? []).map((x: any) => x.id),
+    aId: IDS.encounterA,
+    bId: IDS.encounterB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
+  },
+  {
+    // REQ016/REQ044 shipped this domain without a matrix row -- discovered
+    // and closed during REQ020's own matrix-coverage pass, alongside
+    // 'resources'. drugs() also returns platform-seeded (client_org_id
+    // null) rows to every org, but the fixture's drugA/drugB are org-owned,
+    // so isolation is still real to assert.
+    domain: 'drugs',
+    what: 'drugs',
+    query: `{ drugs { id } }`,
+    ids: (d) => (d.drugs ?? []).map((x: any) => x.id),
+    aId: IDS.drugA,
+    bId: IDS.drugB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff', 'patient'],
+  },
 ];
 
 /** Domains covered by this matrix — read by matrix-coverage.int-spec.ts. */

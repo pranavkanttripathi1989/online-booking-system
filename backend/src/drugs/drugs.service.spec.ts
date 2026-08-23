@@ -11,7 +11,6 @@ describe('DrugsService (REQ044)', () => {
   };
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
-  const orgBUser: JwtPayload = { sub: 'u2', roles: ['manager'], client_org_id: 'org-b', patient_id: null, clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'u3', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
 
   const platformDrug = { id: 'drug-platform', client_org_id: null, name: 'Paracetamol', is_deleted: false };

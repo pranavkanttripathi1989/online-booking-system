@@ -95,7 +95,7 @@ below 12 when `NODE_ENV=production`.
 `onApplicationShutdown`, `main.ts` `enableShutdownHooks()`). Any new long-lived
 client you add needs the same, or `app.close()` will hang again.
 
-**Phase G (PRD MVP core) is now underway — one requirement in, five to go.**
+**Phase G (PRD MVP core) is now underway — two requirements in, four to go.**
 `project-plans/07-prd-gap-analysis-and-roadmap.md` §3's Phase G sequence is
 `REQ017 → REQ020 → REQ021 → REQ019 → REQ018 → REQ032` (dependency order,
 `REQ017` first since it's the critical path both `REQ018`/`REQ019` need).
@@ -107,16 +107,45 @@ scope (hybrid-mode interleaving, waitlist, delay broadcast, bulk-reschedule,
 the live-throughput ETA refinement) is explicitly deferred, not silently
 dropped — each needs its own future `PLAN###`, sequenced after `REQ019`/
 `REQ020` land (the ETA refinement specifically needs their real
-`checked_in→completed` data to mean anything). The remaining five
-requirements in this pass (`REQ020`/`REQ021`/`REQ019`/`REQ018`/`REQ032`) are
-each still `draft`/unstarted as of this note — resume with `REQ020`
-(clinical records) next, per the dependency order above.
+`checked_in→completed` data to mean anything).
+
+`REQ020`'s P0 scope (structured consultation notes, one-click templates,
+persistent allergy banner, attachments, sign-off immutability enforced by a
+real Postgres trigger — this codebase's first two — and a cross-domain
+patient timeline) also shipped 2026-08-24 — see
+`requirements/clinical-records/`, `PLAN056`/`TP083`/`TR082`,
+`context/clinical-records-2026-08-24-req020/manifest.md`. Two real bugs were
+found and fixed in the process (see `PLAN056` for the full account): a
+missing `class-validator` decorator silently rejected every note save (a
+real clinical-safety data-loss defect — the frontend gave no error feedback
+either, since fixed), and `getOrCreateEncounter`'s find-then-create had a
+genuine concurrency race, reachable from a real double-click or two browser
+tabs, not just React StrictMode's dev-only double-invocation that first
+surfaced it. Classifying `encounters` in the tenancy matrix also found that
+**`test:int` was already red before this slice touched anything** — `REQ017`'s
+own `resources` domain, plus `drugs` (`REQ016`/`REQ044`) and
+`organization-onboarding` (`REQ013`), had shipped without ever being added to
+`matrix-coverage.int-spec.ts`; all three closed alongside `encounters` in the
+same pass (two real `CASES` entries, one honest `EXEMPT`). `REQ020`'s own P1/P2
+scope (ICD-10 coding, discrete vitals for growth charts, investigation
+orders, referrals, voice-to-text, clinical decision support, speciality
+packs) is explicitly deferred, not silently dropped.
+
+The remaining four requirements in this pass (`REQ021`/`REQ019`/`REQ018`/
+`REQ032`) are each still `draft`/unstarted as of this note — resume with
+`REQ021` (prescriptions) next, per the dependency order above.
 
 ### What Phase F did NOT close — read before assuming coverage
 
-- **Tenancy matrix now covers all 21 tenant-scoped domains** (closed
-  2026-08-23, `BUG012`) — this used to say "12 of 22" here; it doesn't
-  anymore. `KNOWN_GAPS` is `[]`. What Phase F's own closure still did NOT
+- **Tenancy matrix now covers 21 tenant-scoped domains plus 8 honestly-EXEMPT
+  ones** (closed 2026-08-23, `BUG012`; grew again 2026-08-24 during `REQ020`'s
+  own matrix-coverage pass, which found `resources`/`drugs`/
+  `organization-onboarding` had shipped unclassified — see the Phase G note
+  above) — this used to say "12 of 22" here; it doesn't anymore. `KNOWN_GAPS`
+  is `[]`. Re-verify this count against `backend/test/integration/setup/
+  domain-cases.ts` before trusting it, not this sentence — it will drift
+  again the next time a new resolver domain ships. What Phase F's own closure
+  still did NOT
   reach is `project-plans/06-execution-plan.md`'s P1 items **1.5** (a
   realistic seed dataset + a separately seeded e2e database) and **1.6**
   (frontend unit tests for `AuthContext`/`ProtectedRoute`/booking-wizard

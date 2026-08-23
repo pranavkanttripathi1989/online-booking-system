@@ -104,6 +104,7 @@ const ClinicianDashboard    = lazy(() => import('./pages/clinician/Dashboard'))
 const ClinicianCalendar     = lazy(() => import('./pages/clinician/Calendar'))
 const ClinicianAvailability = lazy(() => import('./pages/clinician/Availability'))
 const ClinicianPatients     = lazy(() => import('./pages/clinician/Patients'))
+const EncounterWorkspace    = lazy(() => import('./pages/clinician/EncounterWorkspace'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
 const ManagerDashboard    = lazy(() => import('./pages/manager/Dashboard'))
@@ -297,6 +298,7 @@ function App() {
           <Route path="/clinician/calendar"     element={<Suspense fallback={<ShellPageLoader />}><ClinicianCalendar /></Suspense>} />
           <Route path="/clinician/availability" element={<Suspense fallback={<ShellPageLoader />}><ClinicianAvailability /></Suspense>} />
           <Route path="/clinician/patients"     element={<Suspense fallback={<ShellPageLoader />}><ClinicianPatients /></Suspense>} />
+          <Route path="/clinician/encounters/:appointmentId" element={<Suspense fallback={<ShellPageLoader />}><EncounterWorkspace /></Suspense>} />
 
           {/* ── Staff ─────────────────────────────────────────────────── */}
           {/* Guarded to match the backend: dashboard.resolver.ts is

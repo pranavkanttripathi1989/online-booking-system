@@ -3,11 +3,37 @@ id: REQ020
 type: requirement
 feature: clinical-records
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: null
-related: [REQ019, REQ021]
+related: [REQ019, REQ021, PLAN056, TP083, TR082]
 ---
+
+## Status (2026-08-24)
+
+**P0 shipped** (`PLAN056`/`TP083`/`TR082`): structured note capture
+(`US-EMR-01,02`) across 8 sections, one-click templates (`US-EMR-03`),
+persistent allergy/diagnosis banner (`US-EMR-04`), file attachments
+(`US-EMR-09`), sign-off immutability enforced by a database trigger, not just
+an application check (`US-EMR-06`), append-only addenda, and a cross-domain
+patient timeline (`US-EMR-07`) merging Encounters/Diagnoses/Attachments/the
+already-real TestResults. New `backend/src/encounters/` module,
+`frontend/src/pages/clinician/EncounterWorkspace.jsx`, and this codebase's
+first two Postgres triggers.
+
+**P1/P2 still open**, per this requirement's own phase assignment below —
+not silently dropped: ICD-10 coding (real coding, not free text), vitals as
+discrete trendable rows for growth charts, investigation orders, referrals,
+voice-to-text, clinical decision support, speciality packs. Each gets its own
+future `PLAN###` when picked up.
+
+**Two scoping decisions recorded, not guessed at** (see `PLAN056`): "vitals"
+is a note section this slice, not a separate structured table (the PRD's own
+phase-assignment prose vs. its Data Model Impact section disagreed on this —
+resolved in favor of the phase-assignment prose, since "growth charts" is the
+explicitly-P1 half). The allergy banner reuses `Diagnoses` rows
+(`type: 'allergy'`) rather than a new `Allergies` table, since the
+requirement's own Data Model Impact section never lists one.
 
 # Consultation workspace and clinical records (EMR)
 

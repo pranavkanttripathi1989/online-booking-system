@@ -35,12 +35,14 @@ import PrintRoundedIcon            from '@mui/icons-material/PrintRounded'
 import InfoRoundedIcon            from '@mui/icons-material/InfoRounded'
 import EventRepeatRoundedIcon     from '@mui/icons-material/EventRepeatRounded'
 import SmsRoundedIcon             from '@mui/icons-material/SmsRounded'
+import MonitorHeartRoundedIcon     from '@mui/icons-material/MonitorHeartRounded'
 
 
 import { APPOINTMENT_DETAIL_QUERY } from '../../graphql/queries'
 import { CANCEL_APPOINTMENT_MUTATION, COMPLETE_APPOINTMENT_MUTATION, MARK_NO_SHOW_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations'
 import * as MockStore from '../../mocks/store'
 import CancelDialog from '../../components/Appointments/CancelDialog'
+import { useAuth } from '../../hooks/useAuth'
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -308,6 +310,7 @@ function ReminderDialog({ open, onClose, onSend, patientEmail, patientPhone }) {
 export default function AppointmentDetailPage() {
   const { id }   = useParams()
   const navigate = useNavigate()
+  const { hasRole } = useAuth()
   const { enqueueSnackbar } = useSnackbar()
   const [cancelOpen, setCancelOpen] = useState(false)
   const [reminderSending, setReminderSending] = useState(false)
@@ -654,6 +657,19 @@ export default function AppointmentDetailPage() {
                   Actions
                 </Typography>
                 <Stack spacing={1.25}>
+                  {/* REQ020: consultation workspace entry point — clinician-only,
+                      matches EncounterWorkspace's own role gate. */}
+                  {hasRole('clinician') && (
+                    <Button fullWidth variant="contained" startIcon={<MonitorHeartRoundedIcon />}
+                      onClick={() => navigate(`/clinician/encounters/${apt.id}`)}
+                      sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
+                        background: 'linear-gradient(135deg,#006D77,#004E56)',
+                        '&:hover': { background: 'linear-gradient(135deg,#004E56,#003940)' },
+                      }}
+                    >
+                      Start Consultation
+                    </Button>
+                  )}
                   <Button fullWidth variant="contained" startIcon={<TaskAltRoundedIcon />}
                     onClick={() => completeAppointment({ variables: { id: apt.id } })}
                     sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,

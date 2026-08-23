@@ -334,6 +334,21 @@ its own technical spike; do not assume it falls out of Apollo's cache.
 
 ## 6. REQ020 — Clinical records (EMR)
 
+**Status (2026-08-24): shipped** (`PLAN056`/`TP083`/`TR082`, real migration
+`20260824010000_clinical_records_encounters`). Three deliberate deviations
+from this section's own sketch, recorded in `PLAN056`: no separate `Vitals`
+table this slice — "vitals" is one of `EncounterNotes.section`'s values,
+since the granular per-reading model is what the explicitly-P1 "growth
+charts" needs, not P0's structured-note capture; `consultation_mode` was not
+added to `Encounters` (that field belongs to `REQ026`/telemedicine, out of
+this slice's scope — add it when `REQ026` is picked up); `Encounters.status`
+uses `in_progress|signed`, not `draft|signed`, matching `US-EMR-01`'s own
+wording ("clinician opens the encounter" implies a live session, not a
+draft document). Sign-off immutability is enforced by two real Postgres
+triggers exactly as this section specifies below, not just an application
+check — see `PLAN056` for a real bug caught in the trigger's first draft
+before it ever touched a database.
+
 Scope only the PRD's P0 subset: structured notes, templates/favourites, allergy
 banners, attachments, sign-off immutability, patient timeline. ICD-10 coding,
 investigation orders, referrals, voice/AI, CDS and speciality packs are P1/P2 and

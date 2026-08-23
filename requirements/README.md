@@ -3,7 +3,7 @@
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
 | insurance-claims | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [insurance-claims](./insurance-claims/README.md) |
-| clinical-records | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinical-records](./clinical-records/README.md) |
+| clinical-records | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
 | pharmacy | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [prescriptions](./prescriptions/README.md) |
