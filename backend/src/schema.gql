@@ -91,6 +91,7 @@ type AppointmentClinician {
 }
 
 input AppointmentFilters {
+  clinic_id: String
   clinician_id: String
   date_from: String
   date_to: String
@@ -372,6 +373,7 @@ type Clinic {
   email: String!
   id: ID!
   is_active: Boolean!
+  is_primary: Boolean!
   name: String!
   phone: String!
   postcode: String
@@ -816,6 +818,7 @@ type Mutation {
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
   cancelAppointment(id: ID!, reason: String): Appointment!
   changeMyPassword(input: ChangeMyPasswordInput!): GenericResult!
+  checkInAppointment(id: ID!): Appointment!
   completeAppointment(id: ID!): Appointment!
   confirmTotpEnrollment(input: ConfirmTotpEnrollmentInput!): TotpConfirmResult!
   createAppointment(input: AppointmentInput!): Appointment!
@@ -871,12 +874,15 @@ type Mutation {
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
   requestOtp(input: RequestOtpInput!): GenericResult!
+  resetAppointmentJourney(id: ID!): Appointment!
   resetPassword(input: ResetPasswordInput!): GenericResult!
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
   revokeMySession(id: String!): GenericResult!
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
   sendMessage(body: String!, threadId: ID!): MessageThread!
+  setHeadOfficeClinic(id: ID!): Clinic!
+  startConsultation(id: ID!): Appointment!
   startTotpEnrollment: TotpEnrollment!
   toggleClinicianActive(id: ID!): Clinician!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!

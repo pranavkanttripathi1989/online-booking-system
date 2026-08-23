@@ -53,4 +53,30 @@ export class ClinicsService {
     const existing = await this.findOne(id, user); // enforces tenant scoping before any write
     return this.prisma.clinics.update({ where: { id: existing.id }, data: input });
   }
+
+  // REQ041 -- designates this clinic as its org's head office. Explicit
+  // unset-then-set in one transaction, not just relying on the partial
+  // unique index to reject a second true: the index prevents two heads
+  // existing at once, but doesn't by itself move the flag off the
+  // previous holder, which is the actual operation a caller wants.
+  //
+  // Skips the unset step entirely for an org-less clinic (client_org_id
+  // null): the index treats every NULL as distinct, so org-less clinics
+  // were never "sharing" a single head-office slot in the first place --
+  // each is its own unscoped case, not one tenant. Unsetting every other
+  // org-less clinic's is_primary here would incorrectly treat them as one
+  // group.
+  async setHeadOffice(id: string, user: JwtPayload) {
+    const existing = await this.findOne(id, user); // enforces tenant scoping before any write
+    if (!existing.client_org_id) {
+      return this.prisma.clinics.update({ where: { id: existing.id }, data: { is_primary: true } });
+    }
+    return this.prisma.$transaction(async (tx) => {
+      await tx.clinics.updateMany({
+        where: { client_org_id: existing.client_org_id, is_primary: true },
+        data: { is_primary: false },
+      });
+      return tx.clinics.update({ where: { id: existing.id }, data: { is_primary: true } });
+    });
+  }
 }

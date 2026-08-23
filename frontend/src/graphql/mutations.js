@@ -336,6 +336,16 @@ export const UPDATE_CLINIC_MUTATION = gql`
   }
 `
 
+// REQ041 -- designates one clinic per org as the head office.
+export const SET_HEAD_OFFICE_CLINIC_MUTATION = gql`
+  mutation SetHeadOfficeClinic($id: ID!) {
+    setHeadOfficeClinic(id: $id) {
+      id
+      is_primary
+    }
+  }
+`
+
 // ─── Rooms ────────────────────────────────────────────────────────────────────
 
 export const CREATE_ROOM_MUTATION = gql`

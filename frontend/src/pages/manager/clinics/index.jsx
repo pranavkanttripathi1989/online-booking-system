@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery } from '@apollo/client';
+import { useQuery, useMutation } from '@apollo/client';
+import { useSnackbar } from 'notistack';
 import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip,
   IconButton, Divider, Tooltip, Alert,
@@ -13,10 +14,13 @@ import LocationOnIcon from '@mui/icons-material/LocationOn';
 import PhoneIcon from '@mui/icons-material/Phone';
 import PersonIcon from '@mui/icons-material/Person';
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom';
+import StarIcon from '@mui/icons-material/Star';
+import StarOutlineIcon from '@mui/icons-material/StarOutline';
 import { SearchField } from '../../../components/shared';
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog';
 import ErrorBoundary from '../../../components/ErrorBoundary';
 import { CLINICS_QUERY, ROOMS_QUERY } from '../../../graphql/queries';
+import { SET_HEAD_OFFICE_CLINIC_MUTATION } from '../../../graphql/mutations';
 
 const CLINICS_DATA = [
   { id: '1', name: 'City Heart Clinic',        address: '14 Harley Street, London, W1G 9PJ',  phone: '+44 20 7946 0001', manager: 'Dr. Sarah Johnson', clinicians: 4, rooms: 5, status: 'active',   specialties: ['Cardiology','General Medicine'],               todayAppts: 24, monthlyAppts: 312 },
@@ -62,6 +66,9 @@ const toCardClinic = (c) => ({
   specialties: [],
   todayAppts: 0,
   monthlyAppts: 0,
+  // REQ041 -- undefined for a mock-data row (CLINICS_DATA has no such
+  // field), never rendered as a false "not head office" for sample data.
+  is_primary: c.is_primary,
 });
 
 const toCardRoom = (r) => ({
@@ -79,8 +86,14 @@ function ManagerClinicsInner() {
   const [tab, setTab]                 = useState(0);
   const [deleteId, setDeleteId]       = useState(null);
 
+  const { enqueueSnackbar } = useSnackbar();
   const { data: clinicsData, loading: clinicsLoading, error: clinicsError, refetch } = useQuery(CLINICS_QUERY, { errorPolicy: 'all' });
   const { data: roomsData } = useQuery(ROOMS_QUERY, { errorPolicy: 'all' });
+  // REQ041 -- real clinics only; mock rows have no is_primary field to act on.
+  const [setHeadOffice] = useMutation(SET_HEAD_OFFICE_CLINIC_MUTATION, {
+    onCompleted: () => { enqueueSnackbar('Head office updated.', { variant: 'success' }); refetch(); },
+    onError: (e) => enqueueSnackbar(e.message, { variant: 'error' }),
+  });
 
   const apiClinics = clinicsData?.clinics ?? [];
   const useMock = apiClinics.length === 0 && !clinicsLoading;
@@ -193,7 +206,14 @@ function ManagerClinicsInner() {
                 <CardContent sx={{ p: 2.5 }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start" sx={{ mb: 1.5 }}>
                     <Box>
-                      <Typography fontWeight={800} sx={{ fontSize: '1rem' }}>{clinic.name}</Typography>
+                      <Stack direction="row" spacing={0.75} alignItems="center">
+                        <Typography fontWeight={800} sx={{ fontSize: '1rem' }}>{clinic.name}</Typography>
+                        {clinic.is_primary && (
+                          <Tooltip title="Head office">
+                            <StarIcon sx={{ fontSize: 16, color: '#F9AB00' }} aria-label="Head office" />
+                          </Tooltip>
+                        )}
+                      </Stack>
                       <Chip
                         label={clinic.status}
                         size="small"
@@ -206,6 +226,13 @@ function ManagerClinicsInner() {
                       />
                     </Box>
                     <Stack direction="row" spacing={0.5}>
+                      {clinic.is_primary === false && (
+                        <Tooltip title="Set as head office">
+                          <IconButton size="small" aria-label={`Set ${clinic.name} as head office`} onClick={() => setHeadOffice({ variables: { id: clinic.id } })} sx={{ color: '#F9AB00' }}>
+                            <StarOutlineIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                       <Tooltip title="View Clinic">
                         <IconButton size="small" aria-label={`View ${clinic.name}`} onClick={() => navigate(`/manager/clinics/${clinic.id}`)} sx={{ color: '#1A73E8' }}>
                           <VisibilityIcon fontSize="small" />

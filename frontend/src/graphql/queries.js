@@ -353,6 +353,7 @@ export const CLINICS_QUERY = gql`
       email
       timezone
       is_active
+      is_primary
     }
   }
 `

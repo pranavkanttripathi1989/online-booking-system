@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP073 | improvement | Head-office branch designation verification | approved | 2026-08-23 | 2026-08-23 | REQ041 | [TP073-organizations-2026-08-23-head-office-branch-verification.md](./improvement/TP073-organizations-2026-08-23-head-office-branch-verification.md) |
 
 ## bug
 

@@ -446,6 +446,10 @@ model ClinicianServices {
   @@index([product_id])
 }
 
+// REQ041 -- a partial unique index (migration 20260823040000_clinics_one_
+// primary_per_org) enforces at most one is_primary=true, is_deleted=false
+// clinic per client_org_id, not expressible declaratively here (Prisma has
+// no partial-index/WHERE-clause syntax for @@unique).
 model Clinics {
   id           String   @id @default(uuid())
   name         String

@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ041 | improvement | Designate and enforce a head-office branch per organization | done | 2026-08-23 | 2026-08-23 | REQ014 | [REQ041-organizations-2026-08-23-head-office-branch-designation.md](./improvement/REQ041-organizations-2026-08-23-head-office-branch-designation.md) |
 
 ## bug
 

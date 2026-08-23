@@ -12,7 +12,9 @@ describe('ClinicsService', () => {
       findUnique: jest.Mock;
       create: jest.Mock;
       update: jest.Mock;
+      updateMany: jest.Mock;
     };
+    $transaction: jest.Mock;
   };
 
   const orgAClinic = { id: 'clinic-a1', client_org_id: 'org-a', is_deleted: false, name: 'A Clinic' };
@@ -52,7 +54,9 @@ describe('ClinicsService', () => {
         findUnique: jest.fn(),
         create: jest.fn(),
         update: jest.fn(),
+        updateMany: jest.fn(),
       },
+      $transaction: jest.fn((fn: any) => fn(prisma)),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [ClinicsService, { provide: PrismaService, useValue: prisma }],
@@ -176,6 +180,41 @@ describe('ClinicsService', () => {
         NotFoundException,
       );
       expect(prisma.clinics.update).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('setHeadOffice (REQ041)', () => {
+    it('unsets any other primary clinic in the same org before setting the new one', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(orgAClinic);
+      prisma.clinics.update.mockResolvedValue({ ...orgAClinic, is_primary: true });
+      await service.setHeadOffice('clinic-a1', orgAUser);
+      expect(prisma.clinics.updateMany).toHaveBeenCalledWith({
+        where: { client_org_id: 'org-a', is_primary: true },
+        data: { is_primary: false },
+      });
+      expect(prisma.clinics.update).toHaveBeenCalledWith({
+        where: { id: 'clinic-a1' },
+        data: { is_primary: true },
+      });
+    });
+
+    it('skips the unset step for an org-less clinic -- each is its own unscoped case, not one shared slot', async () => {
+      const orgLessClinic = { id: 'clinic-x1', client_org_id: null, is_deleted: false, name: 'Legacy Clinic' };
+      prisma.clinics.findUnique.mockResolvedValue(orgLessClinic);
+      prisma.clinics.update.mockResolvedValue({ ...orgLessClinic, is_primary: true });
+      await service.setHeadOffice('clinic-x1', platformUser);
+      expect(prisma.clinics.updateMany).not.toHaveBeenCalled();
+      expect(prisma.clinics.update).toHaveBeenCalledWith({
+        where: { id: 'clinic-x1' },
+        data: { is_primary: true },
+      });
+    });
+
+    it('rejects a cross-tenant caller without ever calling update or updateMany', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(orgBClinic);
+      await expect(service.setHeadOffice('clinic-b1', orgAUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.clinics.update).not.toHaveBeenCalled();
+      expect(prisma.clinics.updateMany).not.toHaveBeenCalled();
     });
   });
 });

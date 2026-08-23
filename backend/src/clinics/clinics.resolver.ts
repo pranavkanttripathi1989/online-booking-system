@@ -39,4 +39,11 @@ export class ClinicsResolver {
   ) {
     return this.clinicsService.update(id, input, user);
   }
+
+  // REQ041
+  @Auth('manager', 'admin', 'super_admin')
+  @Mutation(() => ClinicType)
+  setHeadOfficeClinic(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.clinicsService.setHeadOffice(id, user);
+  }
 }

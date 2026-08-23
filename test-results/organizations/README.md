@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR072 | improvement | Head-office branch designation results | pass | 2026-08-23 | 2026-08-23 | TP073 | [TR072-organizations-2026-08-23-head-office-branch-verification.md](./improvement/TR072-organizations-2026-08-23-head-office-branch-verification.md) |
 
 ## bug
 

@@ -30,4 +30,9 @@ export class ClinicType {
 
   @Field()
   is_active: boolean;
+
+  // REQ041 -- exactly one true per client_org_id, enforced by a partial
+  // unique index (migration 20260823040000), not just app-level convention.
+  @Field()
+  is_primary: boolean;
 }

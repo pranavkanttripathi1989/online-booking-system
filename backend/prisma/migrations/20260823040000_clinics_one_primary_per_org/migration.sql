@@ -1,0 +1,14 @@
+-- REQ041 -- Clinics.is_primary already existed but was unused for hierarchy
+-- logic anywhere in the service layer, so nothing prevented two clinics in
+-- the same org from both being marked primary. A partial unique index
+-- enforces "at most one head office per org" at the database level, the
+-- same discipline this session already applied to booking overlaps
+-- (BUG017's EXCLUDE constraints) rather than trusting application code
+-- alone to hold the invariant.
+--
+-- client_org_id is nullable (some clinics predate the Organizations module)
+-- -- Postgres treats NULL as distinct from every other NULL in a unique
+-- index, so multiple org-less clinics can each independently be marked
+-- primary without conflict. That is the correct behavior here: an org-less
+-- clinic is not really "one tenant" that needs exactly one head office.
+CREATE UNIQUE INDEX "clinics_one_primary_per_org" ON "Clinics" ("client_org_id") WHERE "is_primary" = true AND "is_deleted" = false;
