@@ -235,6 +235,10 @@ model AuditLogs {
   resource_id String?
   details    Json     @default("{}")
   ip_address String?
+  // Nullable: existing rows predate both columns and genuinely have no
+  // known value -- null means "not recorded", not a backfilled guess.
+  outcome    String?
+  user_agent String?
   is_deleted Boolean  @default(false)
   created_at DateTime @default(now())
 

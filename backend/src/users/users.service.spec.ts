@@ -196,6 +196,28 @@ describe('UsersService', () => {
       const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined);
       expect(result.user).toBeUndefined();
     });
+
+    it('maps outcome and user_agent through to the GraphQL shape (P3.6)', async () => {
+      prisma.auditLogs.findMany.mockResolvedValue([
+        {
+          id: 'log-1', action: 'create', resource: 'Appointment', resource_id: 'appt-1', ip_address: '1.2.3.4',
+          user_agent: 'Mozilla/5.0 test-agent', outcome: 'success',
+          created_at: new Date(), details: {}, user: null,
+        },
+      ]);
+      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined);
+      expect(result.userAgent).toBe('Mozilla/5.0 test-agent');
+      expect(result.outcome).toBe('success');
+    });
+
+    it('a historical row with no outcome/user_agent (predates both columns) maps to undefined, not null/crash', async () => {
+      prisma.auditLogs.findMany.mockResolvedValue([
+        { id: 'log-0', action: 'create', resource: 'Appointment', resource_id: null, ip_address: null, created_at: new Date(), details: null, user: null },
+      ]);
+      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined);
+      expect(result.userAgent).toBeUndefined();
+      expect(result.outcome).toBeUndefined();
+    });
   });
 
   describe('createUser', () => {

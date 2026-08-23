@@ -203,9 +203,11 @@ type AuditLog {
   details: String
   id: ID!
   ipAddress: String
+  outcome: String
   resource: String!
   resourceId: String
   user: AuditLogUser
+  userAgent: String
 }
 
 type AuditLogUser {

@@ -125,6 +125,8 @@ export class UsersService {
       resource: r.resource,
       resourceId: r.resource_id ?? undefined,
       ipAddress: r.ip_address ?? undefined,
+      userAgent: r.user_agent ?? undefined,
+      outcome: r.outcome ?? undefined,
       createdAt: r.created_at,
       details: r.details ? JSON.stringify(r.details) : undefined,
       user: r.user?.userProfiles

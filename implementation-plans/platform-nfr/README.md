@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN039 | improvement | Audit-log completeness | done | 2026-08-23 | 2026-08-23 | REQ037 | [PLAN039](./improvement/PLAN039-platform-nfr-2026-08-23-audit-log-completeness.md) |
 | PLAN038 | improvement | Batch `getClinicians`' per-clinician rating lookup | done | 2026-08-23 | 2026-08-23 | REQ036 | [PLAN038](./improvement/PLAN038-platform-nfr-2026-08-23-getclinicians-n-plus-1.md) |
 
 ## bug

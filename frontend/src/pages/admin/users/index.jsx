@@ -43,7 +43,7 @@ const GET_RBAC_DATA = gql`
 const GET_AUDIT_LOGS = gql`
   query GetAuditLogs($limit: Int, $offset: Int, $action: String, $resource: String) {
     getAuditLogs(limit: $limit, offset: $offset, action: $action, resource: $resource) {
-      id action resource resourceId ipAddress createdAt details
+      id action resource resourceId ipAddress userAgent outcome createdAt details
       user { id firstName lastName email }
     }
   }
@@ -515,11 +515,16 @@ export default function AdminUsers() {
               <TableBody>
                 {auditLoading ? (
                   <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6 }}><CircularProgress size={28} sx={{ color: BRAND }} /></TableCell></TableRow>
-                ) : (auditLogs.length > 0 ? auditLogs : [
-                  { id: '1', createdAt: new Date().toISOString(), action: 'UPDATE', resource: 'User', resourceId: '42', ipAddress: '192.168.1.1', details: '{"field":"role","from":"clinician","to":"clinic_manager"}', user: { email: 's.chen@healthsync.com', id: '1' } },
-                  { id: '2', createdAt: new Date(Date.now() - 300000).toISOString(), action: 'CREATE', resource: 'Appointment', resourceId: '195', ipAddress: '10.0.0.5', details: '{"patientId":"84","clinicianId":"12"}', user: { email: 'm.wright@healthsync.com', id: '2' } },
-                  { id: '3', createdAt: new Date(Date.now() - 600000).toISOString(), action: 'DELETE', resource: 'Availability', resourceId: '88', ipAddress: '172.16.0.3', details: '{"slotId":"88","reason":"Manually removed"}', user: { email: 'admin@healthsync.com', id: '4' } },
-                ]).map(log => {
+                ) : auditLogs.length === 0 ? (
+                  // P3.6: this used to fall back to 3 fabricated rows
+                  // ("s.chen@healthsync.com" etc.) on any real empty result --
+                  // a filter with no matches, or a genuinely quiet org, showed
+                  // fake activity attributed to fake people. getAuditLogs is a
+                  // real, fully-wired query now (AuditLogInterceptor writes a
+                  // real row per mutation); an empty result means no matching
+                  // activity, not "no backend".
+                  <TableRow><TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>No audit log entries match the current filter.</TableCell></TableRow>
+                ) : auditLogs.map(log => {
                   const isExpanded = expandedLogId === log.id;
                   const actionStyle = ACTION_STYLES[log.action] || ACTION_STYLES.READ;
                   return (
@@ -544,7 +549,12 @@ export default function AdminUsers() {
                           </Stack>
                         </TableCell>
                         <TableCell>
-                          <Chip label={log.action} size="small" sx={{ bgcolor: actionStyle.bg, color: actionStyle.textColor, fontWeight: 700, fontSize: '0.7rem', height: 22, borderRadius: '6px' }} />
+                          <Stack direction="row" alignItems="center" gap={0.75}>
+                            <Chip label={log.action} size="small" sx={{ bgcolor: actionStyle.bg, color: actionStyle.textColor, fontWeight: 700, fontSize: '0.7rem', height: 22, borderRadius: '6px' }} />
+                            {log.outcome === 'failure' && (
+                              <Chip label="failed" size="small" color="error" variant="outlined" sx={{ fontWeight: 700, fontSize: '0.65rem', height: 20 }} />
+                            )}
+                          </Stack>
                         </TableCell>
                         <TableCell>
                           <Typography variant="body2" fontWeight={600} display="inline">{log.resource}</Typography>
@@ -558,6 +568,11 @@ export default function AdminUsers() {
                         <TableCell colSpan={6} sx={{ p: 0, border: 0 }}>
                           <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                             <Box sx={{ mx: 2, mb: 2, bgcolor: '#0D1B2A', borderRadius: 2, p: 2 }}>
+                              {log.userAgent && (
+                                <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 1, fontFamily: 'monospace' }}>
+                                  {log.userAgent}
+                                </Typography>
+                              )}
                               <Typography variant="caption" color="#64748B" fontWeight={700} mb={1} display="block" letterSpacing={1}>PAYLOAD</Typography>
                               <Box component="pre" sx={{ m: 0, color: '#A7F3D0', fontSize: 12, fontFamily: '"Fira Code", monospace', overflowX: 'auto', lineHeight: 1.6 }}>
                                 {JSON.stringify(JSON.parse(log.details || '{}'), null, 2)}

@@ -14,12 +14,15 @@ describe('AuditLogInterceptor', () => {
     operation: 'query' | 'mutation',
     fieldName: string,
     user: { sub?: string; client_org_id?: string | null } | undefined,
+    args: Record<string, unknown> = {},
     ip = '203.0.113.5',
+    userAgent = 'Mozilla/5.0 test-agent',
   ) => {
-    const req = { user, ip };
+    const req = { user, ip, headers: { 'user-agent': userAgent } };
     jest.spyOn(GqlExecutionContext, 'create').mockReturnValue({
       getInfo: () => ({ operation: { operation }, fieldName }),
       getContext: () => ({ req }),
+      getArgs: () => args,
     } as any);
     return {} as any; // the raw ExecutionContext is irrelevant -- GqlExecutionContext.create is mocked
   };
@@ -49,7 +52,11 @@ describe('AuditLogInterceptor', () => {
     await flush();
     expect(prisma.clientOrganizations.findUnique).not.toHaveBeenCalled();
     expect(prisma.auditLogs.create).toHaveBeenCalledWith({
-      data: { user_id: 'u-1', action: 'create', resource: 'Clinic', ip_address: '203.0.113.5' },
+      data: {
+        user_id: 'u-1', action: 'create', resource: 'Clinic',
+        resource_id: undefined, details: {}, ip_address: '203.0.113.5',
+        user_agent: 'Mozilla/5.0 test-agent', outcome: 'success',
+      },
     });
   });
 
@@ -67,18 +74,85 @@ describe('AuditLogInterceptor', () => {
     await interceptor.intercept(ctx, { handle: () => of('result') }).toPromise();
     await flush();
     expect(prisma.auditLogs.create).toHaveBeenCalledWith({
-      data: { user_id: 'u-1', action: 'delete', resource: 'Availability Template', ip_address: '203.0.113.5' },
+      data: {
+        user_id: 'u-1', action: 'delete', resource: 'Availability Template',
+        resource_id: undefined, details: {}, ip_address: '203.0.113.5',
+        user_agent: 'Mozilla/5.0 test-agent', outcome: 'success',
+      },
     });
   });
 
-  it('still logs a failed mutation (an attempted, rejected action)', async () => {
+  it('still logs a failed mutation (an attempted, rejected action) with outcome: failure', async () => {
     prisma.clientOrganizations.findUnique.mockResolvedValue({ audit_log_enabled: true });
     const ctx = makeContext('mutation', 'createAppointment', { sub: 'u-1', client_org_id: 'org-1' });
     const result$ = interceptor.intercept(ctx, { handle: () => throwError(() => new Error('boom')) });
     await expect(result$.toPromise()).rejects.toThrow('boom');
     await flush();
     expect(prisma.auditLogs.create).toHaveBeenCalledWith(
-      expect.objectContaining({ data: expect.objectContaining({ action: 'create', resource: 'Appointment' }) }),
+      expect.objectContaining({ data: expect.objectContaining({ action: 'create', resource: 'Appointment', outcome: 'failure' }) }),
+    );
+  });
+
+  it('a successful mutation is logged with outcome: success', async () => {
+    const ctx = makeContext('mutation', 'createClinic', { sub: 'u-1', client_org_id: null });
+    await interceptor.intercept(ctx, { handle: () => of('result') }).toPromise();
+    await flush();
+    expect(prisma.auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ outcome: 'success' }) }),
+    );
+  });
+
+  it('extracts resource_id from the caller\'s own id argument (update/delete-by-id)', async () => {
+    const ctx = makeContext('mutation', 'updateClinic', { sub: 'u-1', client_org_id: null }, { id: 'clinic-42', input: { name: 'X' } });
+    await interceptor.intercept(ctx, { handle: () => of({ id: 'clinic-42' }) }).toPromise();
+    await flush();
+    expect(prisma.auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ resource_id: 'clinic-42' }) }),
+    );
+  });
+
+  it('falls back to the resolved result\'s own id for a create (which has no id to pass in)', async () => {
+    const ctx = makeContext('mutation', 'createClinic', { sub: 'u-1', client_org_id: null }, { input: { name: 'X' } });
+    await interceptor.intercept(ctx, { handle: () => of({ id: 'clinic-new-1' }) }).toPromise();
+    await flush();
+    expect(prisma.auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ resource_id: 'clinic-new-1' }) }),
+    );
+  });
+
+  it('a failed create has no resource_id at all -- there is no result to read one from, and no id was ever passed in', async () => {
+    const ctx = makeContext('mutation', 'createClinic', { sub: 'u-1', client_org_id: null }, { input: { name: 'X' } });
+    await interceptor.intercept(ctx, { handle: () => throwError(() => new Error('boom')) }).toPromise().catch(() => {});
+    await flush();
+    expect(prisma.auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({ data: expect.objectContaining({ resource_id: undefined }) }),
+    );
+  });
+
+  it('captures the real args as details, and captures the real user-agent', async () => {
+    const ctx = makeContext('mutation', 'updateClinic', { sub: 'u-1', client_org_id: null }, { id: 'clinic-42', input: { name: 'New Name' } });
+    await interceptor.intercept(ctx, { handle: () => of({ id: 'clinic-42' }) }).toPromise();
+    await flush();
+    expect(prisma.auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          details: { id: 'clinic-42', input: { name: 'New Name' } },
+          user_agent: 'Mozilla/5.0 test-agent',
+        }),
+      }),
+    );
+  });
+
+  it('redacts a password/token/OTP field in details rather than writing it in plaintext into the audit trail', async () => {
+    const ctx = makeContext('mutation', 'resetPassword', undefined, { input: { token: 'reset-tok-abc', new_password: 'S3cret!23' } });
+    await interceptor.intercept(ctx, { handle: () => of({ success: true }) }).toPromise();
+    await flush();
+    expect(prisma.auditLogs.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          details: { input: { token: '[REDACTED]', new_password: '[REDACTED]' } },
+        }),
+      }),
     );
   });
 

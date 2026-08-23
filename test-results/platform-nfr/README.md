@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR065 | improvement | Audit-log completeness results | pass | 2026-08-23 | 2026-08-23 | TP066 | [TR065](./improvement/TR065-platform-nfr-2026-08-23-audit-log-completeness-verification.md) |
 | TR064 | improvement | `getClinicians` N+1 fix results | pass | 2026-08-23 | 2026-08-23 | TP065 | [TR064](./improvement/TR064-platform-nfr-2026-08-23-getclinicians-n-plus-1-verification.md) |
 
 ## bug

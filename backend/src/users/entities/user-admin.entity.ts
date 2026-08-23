@@ -68,6 +68,8 @@ export class AuditLogType {
   @Field() resource: string;
   @Field({ nullable: true }) resourceId?: string;
   @Field({ nullable: true }) ipAddress?: string;
+  @Field({ nullable: true }) userAgent?: string;
+  @Field({ nullable: true }) outcome?: string;
   @Field() createdAt: Date;
   @Field({ nullable: true }) details?: string;
   @Field(() => AuditLogUserType, { nullable: true }) user?: AuditLogUserType;

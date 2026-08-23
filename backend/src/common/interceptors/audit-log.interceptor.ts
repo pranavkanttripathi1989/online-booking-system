@@ -2,6 +2,7 @@ import { CallHandler, ExecutionContext, Injectable, NestInterceptor } from '@nes
 import { GqlExecutionContext } from '@nestjs/graphql';
 import { Observable } from 'rxjs';
 import { tap } from 'rxjs/operators';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 
 // REQ012/PLAN021 — admin/Policies.jsx "Security & Privacy" tab's "Enable
@@ -36,6 +37,42 @@ function parseFieldName(fieldName: string): { action: string; resource: string }
   return { action: verb, resource: resource || fieldName };
 }
 
+// Never write a raw credential/secret into an audit row's `details` JSON,
+// even though this is an internal admin-facing log -- an audit trail that
+// itself becomes a plaintext-secret store is a liability, not a safeguard.
+const REDACTED_ARG_KEYS = new Set([
+  'password', 'new_password', 'old_password', 'current_password',
+  'token', 'access_token', 'refresh_token', 'reset_token',
+  'code', 'otp', 'totp_code', 'backup_code',
+  'secret', 'api_key', 'apiKey', 'razorpay_signature',
+]);
+
+function sanitizeArgs(args: unknown): Record<string, unknown> {
+  if (!args || typeof args !== 'object') return {};
+  const out: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(args as Record<string, unknown>)) {
+    if (REDACTED_ARG_KEYS.has(key)) {
+      out[key] = '[REDACTED]';
+    } else if (value && typeof value === 'object' && !Array.isArray(value)) {
+      out[key] = sanitizeArgs(value);
+    } else {
+      out[key] = value;
+    }
+  }
+  return out;
+}
+
+// `id` is the mutation's own target when it's the caller's own arg (update/
+// delete-by-id); falls back to the resolved result's own `id` field for a
+// create (which has no id to pass in, only one to receive back).
+function extractResourceId(args: Record<string, unknown>, result: unknown): string | undefined {
+  if (typeof args?.id === 'string') return args.id;
+  if (result && typeof result === 'object' && typeof (result as { id?: unknown }).id === 'string') {
+    return (result as { id: string }).id;
+  }
+  return undefined;
+}
+
 @Injectable()
 export class AuditLogInterceptor implements NestInterceptor {
   constructor(private readonly prisma: PrismaService) {}
@@ -50,14 +87,17 @@ export class AuditLogInterceptor implements NestInterceptor {
     const req = gqlContext.getContext()?.req;
     const user = req?.user as { sub?: string; client_org_id?: string | null } | undefined;
     const fieldName: string = info.fieldName;
+    const args = gqlContext.getArgs<Record<string, unknown>>();
 
     return next.handle().pipe(
       tap({
-        next: () => this.writeLog(user, fieldName, req),
+        next: (result) => this.writeLog(user, fieldName, req, args, 'success', result),
         // A failed mutation is itself worth an audit trail (an attempted,
         // rejected action) -- logged the same way, never allowed to mask
-        // or alter the original error passed back to the caller.
-        error: () => this.writeLog(user, fieldName, req),
+        // or alter the original error passed back to the caller. No result
+        // to read a created-entity id from on this path -- resource_id can
+        // only ever come from the caller's own args here.
+        error: () => this.writeLog(user, fieldName, req, args, 'failure', undefined),
       }),
     );
   }
@@ -66,6 +106,9 @@ export class AuditLogInterceptor implements NestInterceptor {
     user: { sub?: string; client_org_id?: string | null } | undefined,
     fieldName: string,
     req: any,
+    args: Record<string, unknown>,
+    outcome: 'success' | 'failure',
+    result: unknown,
   ) {
     try {
       if (user?.client_org_id) {
@@ -78,7 +121,11 @@ export class AuditLogInterceptor implements NestInterceptor {
           user_id: user?.sub,
           action,
           resource,
+          resource_id: extractResourceId(args, result),
+          details: sanitizeArgs(args) as Prisma.InputJsonValue,
           ip_address: req?.ip ?? undefined,
+          user_agent: req?.headers?.['user-agent'] ?? undefined,
+          outcome,
         },
       });
     } catch {
