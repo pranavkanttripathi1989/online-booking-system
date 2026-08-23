@@ -791,12 +791,20 @@ model MessageThreads {
   last_message  String?
   last_activity DateTime @default(now())
   created_at    DateTime @default(now())
+  // REQ043/REQ024 -- shared-inbox assignment + SLA timer. Both nullable: an
+  // unassigned thread has no owner and no clock running yet. sla_due_at is
+  // set once, on first assignment (see assignThread()), not recomputed on
+  // reassignment -- reassigning a thread doesn't buy the org more time.
+  assigned_to_user_id String?
+  sla_due_at          DateTime?
 
   client_org   ClientOrganizations   @relation(fields: [client_org_id], references: [id])
+  assigned_to  Users?                @relation("MessageThreadAssignee", fields: [assigned_to_user_id], references: [id])
   participants MessageParticipants[]
   messages     Messages[]
 
   @@index([client_org_id, last_activity])
+  @@index([assigned_to_user_id])
 }
 
 model MessageParticipants {
@@ -1133,6 +1141,7 @@ model Users {
   messages      Messages[]
   ownedOrganizations ClientOrganizations[] @relation("OrganizationOwner")
   notificationPreferences NotificationPreferences[]
+  assignedMessageThreads MessageThreads[] @relation("MessageThreadAssignee")
 }
 
 // REQ005 Notifications tab. No code path in this codebase currently reads

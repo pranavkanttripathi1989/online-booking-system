@@ -12,7 +12,7 @@ describe('MessagesService', () => {
     messageParticipants: { findMany: jest.Mock; findUnique: jest.Mock; updateMany: jest.Mock; createMany: jest.Mock };
     messageThreads: { findUnique: jest.Mock; update: jest.Mock; create: jest.Mock };
     messages: { findMany: jest.Mock; create: jest.Mock };
-    userProfiles: { findMany: jest.Mock; findFirst: jest.Mock };
+    userProfiles: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock };
     clientOrganizations: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -37,7 +37,7 @@ describe('MessagesService', () => {
   const makeTx = () => ({
     messages: { create: jest.fn() },
     messageThreads: { update: jest.fn(), create: jest.fn() },
-    messageParticipants: { updateMany: jest.fn(), createMany: jest.fn() },
+    messageParticipants: { updateMany: jest.fn(), createMany: jest.fn(), upsert: jest.fn() },
   });
 
   beforeEach(async () => {
@@ -45,7 +45,7 @@ describe('MessagesService', () => {
       messageParticipants: { findMany: jest.fn(), findUnique: jest.fn(), updateMany: jest.fn(), createMany: jest.fn() },
       messageThreads: { findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
       messages: { findMany: jest.fn(), create: jest.fn() },
-      userProfiles: { findMany: jest.fn(), findFirst: jest.fn() },
+      userProfiles: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
       clientOrganizations: { findFirst: jest.fn() },
       $transaction: jest.fn((cb) => cb(makeTx())),
     };
@@ -213,6 +213,61 @@ describe('MessagesService', () => {
       expect(prisma.messageParticipants.updateMany).toHaveBeenCalledWith({
         where: { thread_id: 'thread-1', user_id: 'user-me' },
         data: { unread_count: 0 },
+      });
+    });
+  });
+
+  describe('assignThread (REQ043)', () => {
+    const assigneeProfile = { id: 'user-other', is_deleted: false };
+
+    it('rejects a caller who is not a participant of the thread', async () => {
+      prisma.messageParticipants.findUnique.mockResolvedValue(null);
+      await expect(service.assignThread('thread-1', 'user-other', meUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects an assignee that does not exist', async () => {
+      prisma.messageParticipants.findUnique.mockResolvedValue(participantRow('user-me'));
+      prisma.userProfiles.findFirst.mockResolvedValue(null);
+      await expect(service.assignThread('thread-1', 'user-ghost', meUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('sets assigned_to_user_id and starts the SLA clock on first assignment', async () => {
+      prisma.messageParticipants.findUnique.mockResolvedValue(participantRow('user-me'));
+      prisma.messageParticipants.findMany.mockResolvedValue([]);
+      prisma.userProfiles.findFirst.mockResolvedValue(assigneeProfile);
+      prisma.userProfiles.findUnique.mockResolvedValue(null);
+      prisma.messageThreads.findUnique.mockResolvedValueOnce({ ...thread1, sla_due_at: null }).mockResolvedValueOnce({ ...thread1, sla_due_at: new Date() });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation((cb: any) => cb(tx));
+
+      await service.assignThread('thread-1', 'user-other', meUser);
+
+      expect(tx.messageThreads.update).toHaveBeenCalledWith({
+        where: { id: 'thread-1' },
+        data: { assigned_to_user_id: 'user-other', sla_due_at: expect.any(Date) },
+      });
+      expect(tx.messageParticipants.upsert).toHaveBeenCalledWith({
+        where: { thread_id_user_id: { thread_id: 'thread-1', user_id: 'user-other' } },
+        create: { thread_id: 'thread-1', user_id: 'user-other', unread_count: 0 },
+        update: {},
+      });
+    });
+
+    it('does not reset an already-running SLA clock on reassignment', async () => {
+      const existingDueAt = new Date('2026-01-01T00:00:00.000Z');
+      prisma.messageParticipants.findUnique.mockResolvedValue(participantRow('user-me'));
+      prisma.messageParticipants.findMany.mockResolvedValue([]);
+      prisma.userProfiles.findFirst.mockResolvedValue(assigneeProfile);
+      prisma.userProfiles.findUnique.mockResolvedValue(null);
+      prisma.messageThreads.findUnique.mockResolvedValueOnce({ ...thread1, sla_due_at: existingDueAt }).mockResolvedValueOnce({ ...thread1, sla_due_at: existingDueAt });
+      const tx = makeTx();
+      prisma.$transaction.mockImplementation((cb: any) => cb(tx));
+
+      await service.assignThread('thread-1', 'user-other', meUser);
+
+      expect(tx.messageThreads.update).toHaveBeenCalledWith({
+        where: { id: 'thread-1' },
+        data: { assigned_to_user_id: 'user-other', sla_due_at: existingDueAt },
       });
     });
   });

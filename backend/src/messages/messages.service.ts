@@ -31,6 +31,13 @@ export class MessagesService {
       }));
   }
 
+  private async assigneeFor(assignedToUserId: string | null) {
+    if (!assignedToUserId) return undefined;
+    const row = await this.prisma.userProfiles.findUnique({ where: { id: assignedToUserId }, include: { role: true } });
+    if (!row) return undefined;
+    return { id: row.id, name: `${row.first_name} ${row.last_name}`, role: row.role.name };
+  }
+
   private async toGraphQL(thread: any, currentUserId: string, includeMessages: boolean) {
     const participants = await this.participantsFor(thread.id);
     const myParticipant = await this.prisma.messageParticipants.findUnique({
@@ -42,6 +49,8 @@ export class MessagesService {
       last_message: thread.last_message ?? undefined,
       last_activity: thread.last_activity,
       unread_count: myParticipant?.unread_count ?? 0,
+      assigned_to: await this.assigneeFor(thread.assigned_to_user_id),
+      sla_due_at: thread.sla_due_at ?? undefined,
     };
     if (includeMessages) {
       const messages = await this.prisma.messages.findMany({
@@ -144,6 +153,48 @@ export class MessagesService {
       data: { unread_count: 0 },
     });
     return true;
+  }
+
+  // REQ043/REQ024 -- shared-inbox assignment. Caller must already be a
+  // participant (matches every other thread-mutating method's access
+  // check); the assignee is added as a participant if not already one, so
+  // assignment actually gives them a way to see and respond to the thread,
+  // not just a label pointing at someone who can't act on it.
+  //
+  // sla_due_at is set only on the FIRST assignment (SLA_WINDOW_HOURS from
+  // now) -- reassigning an already-assigned thread to someone else doesn't
+  // reset the clock, since the org's response-time commitment to whoever
+  // sent the original message didn't change just because ownership moved.
+  async assignThread(threadId: string, assigneeUserId: string, user: JwtPayload) {
+    const SLA_WINDOW_HOURS = 24;
+    const participant = await this.prisma.messageParticipants.findUnique({
+      where: { thread_id_user_id: { thread_id: threadId, user_id: user.sub } },
+    });
+    if (!participant) throw new NotFoundException('Thread not found');
+
+    const assignee = await this.prisma.userProfiles.findFirst({ where: { id: assigneeUserId, is_deleted: false } });
+    if (!assignee) throw new NotFoundException('Assignee not found');
+
+    const thread = await this.prisma.messageThreads.findUnique({ where: { id: threadId } });
+    if (!thread) throw new NotFoundException('Thread not found');
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.messageThreads.update({
+        where: { id: threadId },
+        data: {
+          assigned_to_user_id: assigneeUserId,
+          sla_due_at: thread.sla_due_at ?? new Date(Date.now() + SLA_WINDOW_HOURS * 60 * 60 * 1000),
+        },
+      });
+      await tx.messageParticipants.upsert({
+        where: { thread_id_user_id: { thread_id: threadId, user_id: assigneeUserId } },
+        create: { thread_id: threadId, user_id: assigneeUserId, unread_count: 0 },
+        update: {},
+      });
+    });
+
+    const updated = await this.prisma.messageThreads.findUnique({ where: { id: threadId } });
+    return this.toGraphQL(updated, user.sub, false);
   }
 
   async createThread(input: CreateThreadInput, user: JwtPayload) {

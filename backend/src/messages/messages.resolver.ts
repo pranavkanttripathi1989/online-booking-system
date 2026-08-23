@@ -4,6 +4,7 @@ import { PubSub } from 'graphql-subscriptions';
 import { MessagesService, MESSAGE_RECEIVED_EVENT } from './messages.service';
 import { MessageThreadType, MessageableContactType } from './entities/message.entity';
 import { CreateThreadInput } from './dto/message.input';
+import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PUB_SUB } from '../common/pubsub.provider';
@@ -43,6 +44,17 @@ export class MessagesResolver {
   @Mutation(() => MessageThreadType)
   createThread(@Args('input') input: CreateThreadInput, @CurrentUser() user: JwtPayload) {
     return this.messagesService.createThread(input, user);
+  }
+
+  // REQ043 -- shared-inbox assignment; staff-facing action, not a patient one.
+  @Auth('manager', 'admin', 'super_admin', 'staff', 'clinician')
+  @Mutation(() => MessageThreadType)
+  assignThread(
+    @Args('threadId', { type: () => ID }) threadId: string,
+    @Args('assigneeUserId', { type: () => ID }) assigneeUserId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.messagesService.assignThread(threadId, assigneeUserId, user);
   }
 
   // Directly replaces MockStore.subscribe's fake local pub-sub (not real-time

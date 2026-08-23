@@ -5,6 +5,7 @@ import {
   Box, Typography, Avatar, Badge, IconButton, InputBase, Chip,
   List, ListItemButton, Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Autocomplete, Tooltip, CircularProgress,
+  Select, MenuItem, FormControl,
 } from '@mui/material'
 import { Helmet } from 'react-helmet-async'
 import DoneAllRoundedIcon         from '@mui/icons-material/DoneAllRounded'
@@ -36,6 +37,8 @@ const THREAD_FIELDS = gql`
     last_message
     last_activity
     unread_count
+    assigned_to { id name role }
+    sla_due_at
   }
 `
 const THREAD_DETAIL_FIELDS = gql`
@@ -46,6 +49,8 @@ const THREAD_DETAIL_FIELDS = gql`
     last_activity
     unread_count
     messages { id from_id from_name body sent_at read }
+    assigned_to { id name role }
+    sla_due_at
   }
 `
 const GET_THREADS = gql`
@@ -79,6 +84,13 @@ const MARK_THREAD_READ = gql`
 const CREATE_THREAD = gql`
   mutation CreateThread($input: CreateThreadInput!) {
     createThread(input: $input) { ...ThreadDetailFields }
+  }
+  ${THREAD_DETAIL_FIELDS}
+`
+// REQ043 -- shared-inbox assignment + SLA timer.
+const ASSIGN_THREAD = gql`
+  mutation AssignThread($threadId: ID!, $assigneeUserId: ID!) {
+    assignThread(threadId: $threadId, assigneeUserId: $assigneeUserId) { ...ThreadDetailFields }
   }
   ${THREAD_DETAIL_FIELDS}
 `
@@ -252,6 +264,7 @@ function MessagesPage() {
   const [sendMessageMutation]    = useMutation(SEND_MESSAGE)
   const [markThreadReadMutation] = useMutation(MARK_THREAD_READ)
   const [createThreadMutation]   = useMutation(CREATE_THREAD)
+  const [assignThreadMutation]   = useMutation(ASSIGN_THREAD)
 
   // Real-time: replaces MockStore.subscribe's fake local pub-sub with the
   // real graphql-ws subscription (next-10-features-implementation-plan.md #10).
@@ -442,6 +455,37 @@ function MessagesPage() {
                     {/* SUG-MSG-005: styled role chip in thread header */}
                     <RoleChip role={otherParticipant?.role ?? 'staff'} />
                   </Box>
+                </Box>
+                {/* REQ043 -- shared-inbox assignment + SLA timer */}
+                <Box sx={{ display: { xs: 'none', sm: 'flex' }, alignItems: 'center', gap: 1 }}>
+                  {activeThread.sla_due_at && (
+                    <Tooltip title={`SLA due ${new Date(activeThread.sla_due_at).toLocaleString('en-IN')}`}>
+                      <Chip
+                        size="small"
+                        label={new Date(activeThread.sla_due_at) < new Date() ? 'SLA overdue' : 'SLA on track'}
+                        sx={{
+                          fontWeight: 700, fontSize: '0.7rem',
+                          bgcolor: new Date(activeThread.sla_due_at) < new Date() ? '#FCE8E6' : '#E6F4EA',
+                          color:   new Date(activeThread.sla_due_at) < new Date() ? '#B3261E' : '#188038',
+                        }}
+                      />
+                    </Tooltip>
+                  )}
+                  <FormControl size="small" sx={{ minWidth: 140 }}>
+                    <Select
+                      value={activeThread.assigned_to?.id ?? ''}
+                      displayEmpty
+                      onChange={(e) => assignThreadMutation({ variables: { threadId: activeThread.id, assigneeUserId: e.target.value } })}
+                      renderValue={(v) => v ? (activeThread.assigned_to?.name ?? 'Assigned') : 'Unassigned'}
+                      sx={{ fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.75 } }}
+                      aria-label="Assign conversation"
+                    >
+                      <MenuItem value="" disabled>Assign to…</MenuItem>
+                      {composeContacts.map((c) => (
+                        <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
                 </Box>
                 <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>
                   {[

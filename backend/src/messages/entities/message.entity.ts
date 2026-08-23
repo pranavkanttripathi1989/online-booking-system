@@ -42,4 +42,7 @@ export class MessageThreadType {
   @Field() last_activity: Date;
   @Field(() => Int) unread_count: number;
   @Field(() => [ThreadMessageType], { nullable: true }) messages?: ThreadMessageType[];
+  // REQ043/REQ024 -- shared-inbox assignment + SLA timer.
+  @Field(() => ThreadParticipantType, { nullable: true }) assigned_to?: ThreadParticipantType;
+  @Field({ nullable: true }) sla_due_at?: Date;
 }

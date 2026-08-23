@@ -2,6 +2,15 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AddOnboardingClinicInput {
+  address: String
+  city: String!
+  name: String!
+  phone: String
+  pincode: String
+  state: String
+}
+
 type AdminUser {
   clinic: AdminUserClinic
   email: String!
@@ -560,7 +569,9 @@ input CreateProductCategoryInput {
 input CreateProductInput {
   category_id: String
   description: String
+  hsn: String
   is_active: Boolean
+  is_tax_exempt: Boolean
   name: String!
   price: Float
   product_type: String
@@ -773,6 +784,7 @@ type FinanceTransaction {
   amount: Float!
   created_at: DateTime!
   id: ID!
+  invoice_number: String
   method: String!
   patient_name: String!
   product_name: String
@@ -824,11 +836,13 @@ type LunchBreakSlot {
 }
 
 type MessageThread {
+  assigned_to: ThreadParticipant
   id: ID!
   last_activity: DateTime!
   last_message: String
   messages: [ThreadMessage!]
   participants: [ThreadParticipant!]!
+  sla_due_at: DateTime
   unread_count: Int!
 }
 
@@ -839,11 +853,14 @@ type MessageableContact {
 }
 
 type Mutation {
+  addOnboardingFirstClinic(input: AddOnboardingClinicInput!, orgId: String!): Clinic!
+  assignThread(assigneeUserId: ID!, threadId: ID!): MessageThread!
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
   cancelAppointment(id: ID!, reason: String): Appointment!
   changeMyPassword(input: ChangeMyPasswordInput!): GenericResult!
   checkInAppointment(id: ID!): Appointment!
   completeAppointment(id: ID!): Appointment!
+  completeOrganizationOnboarding(orgId: String!): OrganizationOnboarding!
   confirmTotpEnrollment(input: ConfirmTotpEnrollmentInput!): TotpConfirmResult!
   createAppointment(input: AppointmentInput!): Appointment!
   createAvailability(input: CreateAvailabilityInput!): AvailabilityMutationResult!
@@ -906,9 +923,11 @@ type Mutation {
   revokeMySession(id: String!): GenericResult!
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
+  selectOnboardingPlan(orgId: String!, planId: String!): OrganizationOnboarding!
   sendMessage(body: String!, threadId: ID!): MessageThread!
   setHeadOfficeClinic(id: ID!): Clinic!
   startConsultation(id: ID!): Appointment!
+  startOrganizationOnboarding(input: StartOnboardingInput!): OrganizationOnboarding!
   startTotpEnrollment: TotpEnrollment!
   toggleClinicianActive(id: ID!): Clinician!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
@@ -1161,6 +1180,17 @@ type OrganizationMutationResult {
   userErrors: [UserError!]!
 }
 
+type OrganizationOnboarding {
+  code: String!
+  contactEmail: String!
+  id: ID!
+  name: String!
+  onboardingStatus: String!
+  onboardingStep: String
+  ownerUserId: String
+  trialEndsAt: DateTime
+}
+
 type OrganizationPageInfo {
   hasNextPage: Boolean!
   hasPreviousPage: Boolean!
@@ -1284,8 +1314,10 @@ type Product {
   category_id: ID
   clinic_id: ID
   description: String
+  hsn: String
   id: ID!
   is_active: Boolean!
+  is_tax_exempt: Boolean!
   name: String!
   price: Float
   product_type: String!
@@ -1502,6 +1534,7 @@ type Query {
   spacerBlocks(search: SearchInput): [SpacerBlock!]!
   staff(department: String, search: String, status: String): [Staff!]!
   staffMember(id: ID!): Staff!
+  subscriptionPlans: [SubscriptionPlan!]!
   testResult(id: ID!): TestResult
   testResults(search: String, status: String, type: String): [TestResult!]!
   thread(id: ID!): MessageThread!
@@ -1660,8 +1693,10 @@ type Service {
   clinicians: [ServiceClinician!]!
   description: String
   duration_minutes: Int
+  hsn: String
   id: ID!
   is_active: Boolean!
+  is_tax_exempt: Boolean!
   name: String!
   price: Float
 }
@@ -1679,7 +1714,9 @@ type ServiceClinician {
 input ServiceInput {
   description: String
   duration_minutes: Int
+  hsn: String
   is_active: Boolean
+  is_tax_exempt: Boolean
   name: String!
   price: Float
 }
@@ -1726,9 +1763,28 @@ type Staff {
   status: String!
 }
 
+input StartOnboardingInput {
+  contactEmail: String!
+  orgName: String!
+  ownerName: String!
+  ownerPassword: String!
+  slug: String
+}
+
 type Subscription {
   appointmentUpdated(clinician_id: ID): Appointment!
   messageReceived(userId: ID!): MessageThread!
+}
+
+type SubscriptionPlan {
+  description: String!
+  features: [String!]!
+  id: ID!
+  maxClinics: Int
+  maxUsers: Int
+  name: String!
+  priceMonthly: Int!
+  priceYearly: Int!
 }
 
 type TestResult {
@@ -1918,7 +1974,9 @@ input UpdateProductCategoryInput {
 input UpdateProductInput {
   category_id: String
   description: String
+  hsn: String
   is_active: Boolean
+  is_tax_exempt: Boolean
   name: String!
   price: Float
   product_type: String
