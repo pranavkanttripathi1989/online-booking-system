@@ -1,5 +1,4 @@
 import { Resolver, Mutation, Query, Args, Context } from '@nestjs/graphql';
-import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginInput } from './dto/login.input';
 import { RegisterInput } from './dto/register.input';
@@ -21,18 +20,28 @@ import { JwtPayload } from './strategies/jwt.strategy';
 export class AuthResolver {
   constructor(private readonly authService: AuthService) {}
 
-  // TC-AUTH-API-012: rate-limited independent of the per-account lockout in the service.
-  // PLAN016 Slice C — returns AuthPayload directly, or TotpChallenge when the
-  // account has 2FA enabled (client must then call verifyTotpLogin).
+  // TC-AUTH-API-012: PLAN016 Slice C — returns AuthPayload directly, or
+  // TotpChallenge when the account has 2FA enabled (client must then call
+  // verifyTotpLogin).
+  //
+  // Per-mutation @Throttle(5/60s) removed 2026-08-23 at explicit user
+  // request -- it was tripping on legitimate rapid manual testing/dev use
+  // ("ThrottlerException: Too Many Requests (3/5 attempts)"), and was the
+  // confirmed root cause of the e2e suite's own batched-run flakiness this
+  // session (project-plans/06-execution-plan.md P1.5 investigation). The
+  // global 100-req/60s bucket (app.module.ts's GqlThrottlerGuard) still
+  // applies. Re-adding a *production-appropriate* per-mutation limit here
+  // (tighter than global, but not tighter than real usage/e2e needs) is
+  // tracked as a re-opened item on F-12 (project-plans/02-findings-register.md)
+  // and P3.7 (project-plans/06-execution-plan.md) -- do not silently
+  // reintroduce the same 5/60s value without addressing why it broke both.
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => LoginResultType)
   login(@Args('input') input: LoginInput, @Context() context: any) {
     return this.authService.login(input, context?.req?.headers?.['user-agent']);
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => AuthPayloadType)
   verifyTotpLogin(@Args('input') input: VerifyTotpLoginInput, @Context() context: any) {
     return this.authService.verifyTotpLogin(input.challenge_token, input.code, context?.req?.headers?.['user-agent']);
@@ -64,7 +73,6 @@ export class AuthResolver {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => GenericResultType)
   requestOtp(@Args('input') input: RequestOtpInput) {
     return this.authService.requestOtp(input.phone);
@@ -77,7 +85,6 @@ export class AuthResolver {
   }
 
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
   @Mutation(() => GenericResultType)
   forgotPassword(@Args('input') input: ForgotPasswordInput) {
     return this.authService.forgotPassword(input.email);

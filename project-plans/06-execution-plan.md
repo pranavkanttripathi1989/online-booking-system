@@ -113,7 +113,7 @@ concurrency and viable under load.
 | 3.4 | Kill the N+1s: batch the `public` clinician fan-out; move dashboard/analytics counting into Prisma `groupBy`/`count` aggregates | F-15 |
 | 3.5 | Razorpay webhook endpoint with signature verification, plus a reconciliation job for `pending` rows | F-07 |
 | 3.6 | Audit-log completeness: `resource_id`, `outcome`, sanitised `details`, `user_agent`, plus the two indexes | F-10 |
-| 3.7 | `helmet` + CSP + HSTS; per-operation throttles on `register`/`requestOtp`/`requestPasswordReset`; boot-time `NODE_ENV` assertion | F-09, F-12 |
+| 3.7 | `helmet` + CSP + HSTS; per-operation throttles on `register`/`requestOtp`/`requestPasswordReset`; boot-time `NODE_ENV` assertion. **Re-opened 2026-08-23**: a `5/60s` throttle on `login`/`verifyTotpLogin`/`requestOtp`/`forgotPassword` was built ahead of schedule, then removed the same day — it broke ordinary manual re-testing and was the confirmed cause of the P1.5 e2e batched-run flakiness (see `02-findings-register.md` F-12's update note). Whatever lands here needs to survive both, not reuse the same value. | F-09, F-12 |
 
 **DoD.** Concurrent booking of one slot yields exactly one appointment, proven by
 the P1 test. No resolver returns an unbounded collection. `EXPLAIN ANALYZE` on

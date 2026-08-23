@@ -357,6 +357,23 @@ known set.
 
 **File as:** improvement, feature `security`.
 
+**Update 2026-08-23 — partially fixed, then reverted.** A `5/60s` per-mutation
+`@Throttle` had since been added to `login`/`verifyTotpLogin`/`requestOtp`/
+`forgotPassword` (`auth.resolver.ts`), ahead of the P3.7 schedule below. It was
+removed the same day at explicit user request: 5 attempts/minute is tight
+enough that it tripped on ordinary manual re-testing during this session
+(`ThrottlerException: Too Many Requests` on the 6th attempt within a minute)
+and was the confirmed root cause of the e2e suite's batched-run flakiness
+(`project-plans/06-execution-plan.md` P1.5 investigation — `--workers=4` still
+failed 50/66 on this, not browser contention). The global 100-req/60s bucket
+(`GqlThrottlerGuard`) and the separate per-account Redis lockout
+(`auth.service.ts`, 5 failed attempts / 15 min, untouched by this change) are
+still in effect — this reversion only removed the *additional*, tighter
+per-mutation layer. **F-12's rate-limiting half is open again.** Re-adding it
+needs a design that survives real usage and e2e load without retuning the
+same failing value — e.g. a higher limit, a per-IP+per-account split, or an
+environment-aware exemption — not a re-application of the same `5/60s`.
+
 ## Data model and performance
 
 ### F-13 · S1 · Zero indexes across 41 models
