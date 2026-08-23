@@ -161,7 +161,17 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
             startTime: bookingData.slot,
             endTime: dayjs(`${bookingData.date.format('YYYY-MM-DD')}T${bookingData.slot}`).add(30, 'minute').format('HH:mm'),
             type: bookingData.appointmentType,
-            patientDetails: bookingData.patient,
+            // PatientDetailsInput only defines firstName/lastName/email/phone —
+            // dateOfBirth/reason/notes have nowhere to go on the real schema
+            // (the resolver hardcodes reason: '' server-side either way) and
+            // GraphQL rejects any extra key on an input object outright, so
+            // sending bookingData.patient verbatim broke every real booking.
+            patientDetails: {
+              firstName: bookingData.patient.firstName,
+              lastName: bookingData.patient.lastName,
+              email: bookingData.patient.email,
+              phone: bookingData.patient.phone,
+            },
           }
         }
       });

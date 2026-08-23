@@ -75,6 +75,32 @@ whether "condition" should wait for `REQ020` or be dropped from the page's desig
 entirely). Both columns and the check-in control return the moment there is a
 real definition to render.
 
+## 12. The public booking wizard asks for and requires a reason-for-visit and DOB that are never stored
+
+**Status:** Open, raised 2026-08-23 while fixing `BUG014`.
+
+`pages/booking/index.jsx`'s step-2 form captures `dateOfBirth`, `reason`
+(marked `required`, gates advancing past the step), and `notes` — none of
+which exist on `PatientDetailsInput`/`BookPatientAppointmentInput`
+(`backend/src/public/dto/public.input.ts`). `public.service.ts:216` already
+hardcodes `reason: ''` when creating a new patient's appointment through
+this path, regardless of what the resolver receives — there was never a way
+for these three fields to reach the database, independent of `BUG014`'s
+GraphQL-coercion error. `BUG014` only fixed the crash; it deliberately did
+not add these fields to the real schema, since that's new scope (a
+`PatientDetailsInput` change, a resolver change, and — for `dateOfBirth`
+specifically — a decision on whether an unauthenticated public form should
+be allowed to set `Patients.date_of_birth` at all), not a bug-fix-sized
+change.
+
+**Decision needed from the user:** is capturing reason-for-visit/DOB/notes
+for a brand-new anonymous patient in scope for this release? If yes, this
+is a small requirement (extend `PatientDetailsInput`, have
+`public.service.ts` consume `reason`/`notes` instead of hardcoding, decide
+where `dateOfBirth` writes). If no, the form fields should be removed (or at
+minimum the `required` gate on "Reason for visit" dropped) rather than left
+silently discarding what the patient is required to type.
+
 ---
 
 ## 10. The telemedicine video call has no captions track, and the PRD commits to accessibility
