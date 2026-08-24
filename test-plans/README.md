@@ -18,7 +18,7 @@
 | booking-wizard | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [booking-wizard](./booking-wizard/README.md) |
 | clinician-availability | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinician-availability](./clinician-availability/README.md) |
 | clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
-| organizations | 3 | 1 | 0 | 4 | 0 | 2026-08-24 | [organizations](./organizations/README.md) |
+| organizations | 3 | 2 | 0 | 5 | 0 | 2026-08-25 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 2 | 0 | 4 | 0 | 2026-08-25 | [catalog-master-data](./catalog-master-data/README.md) |
 | public | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [public](./public/README.md) |
 | communications-policies | 2 | 2 | 0 | 4 | 0 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |

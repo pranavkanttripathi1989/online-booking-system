@@ -125,6 +125,15 @@ export class AppointmentsService {
       // a.product.price directly — the exact inconsistency risk this
       // requirement's own research flagged between this call site and
       // appointment-payments.service.ts's charge computation.
+      // REQ055 (US-ORG-05) — branch overrides are deliberately NOT applied
+      // here for the same reason: toGraphQL() is synchronous and shared by
+      // a list endpoint (findAll), so wiring a per-row branch-override
+      // lookup in would mean either an N+1 query per appointment in a list,
+      // or a batched pre-fetch keyed on a (product_id, clinic_id) pair this
+      // function doesn't have visibility into today. Both real charge-
+      // determining call sites (createRazorpayOrder, recordCounterPayment)
+      // DO apply it — this is a display-preview gap only, logged as a
+      // follow-up rather than silently accepted (see REQ055's own doc).
       service: a.product
         ? { id: a.product.id, name: a.product.name, duration_minutes: a.product.duration_minutes ?? undefined, price: PAISE_TO_RUPEES(resolveServicePrice(a.product, a.patient)) }
         : undefined,

@@ -709,6 +709,7 @@ model ClientOrganizations {
   impersonationSessions  ImpersonationSessions[]
   packages               Packages[]
   patientPackages        PatientPackages[]
+  productBranchOverrides ProductBranchOverrides[]
 }
 
 model ClinicianAvailability {
@@ -881,6 +882,7 @@ model Clinics {
   intakeFieldConfigs ClinicIntakeFieldConfig[]
   packages           Packages[]
   patientPackages    PatientPackages[]
+  productBranchOverrides ProductBranchOverrides[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -1510,12 +1512,49 @@ model Products {
   checklistItems    ChecklistItems[]
   intakeFieldConfigs ClinicIntakeFieldConfig[]
   packageItems      PackageItems[]
+  branchOverrides   ProductBranchOverrides[]
 
   @@index([client_org_id, is_deleted])
   @@index([category_id])
   @@index([subcategory_id])
   @@index([clinic_id])
   @@index([department_id])
+}
+
+// REQ055 (US-ORG-05) — "masters cascade". A clinical service created via
+// ServiceInput (services.service.ts) is already, today, an org-level
+// master: it's created with clinic_id: null and every branch of the org
+// sees it identically (findAll's clinic_id filter is optional). What was
+// missing is a per-branch deviation: this table lets one specific clinic
+// either inherit the master unchanged (the default — no row at all, exactly
+// today's existing behaviour, zero migration risk for the ~all existing
+// services), override its price/category/channel pricing for that branch
+// only, or skip offering it there entirely. Deliberately NOT a second
+// pricing lookup: resolveServicePrice() (common/pricing/resolve-price.ts)
+// takes this row as an optional 4th argument and resolves it inline, same
+// as ProductCancellationRules' own "most specific row wins" precedent but
+// keyed 1:1 per (product, clinic) rather than priority-ordered, since a
+// clinic can only ever have one stance (inherit/override/skip) per master
+// service.
+model ProductBranchOverrides {
+  id                              String   @id @default(uuid())
+  product_id                      String
+  clinic_id                       String
+  client_org_id                   String?
+  mode                            String   @default("inherit") // inherit | override | skip
+  override_price                  Int?     // paise; required by the service layer when mode = 'override'
+  override_category_pricing_json  Json?
+  override_channel_pricing_json   Json?
+  created_at                      DateTime @default(now())
+  updated_at                      DateTime @default(now())
+
+  product    Products             @relation(fields: [product_id], references: [id])
+  clinic     Clinics              @relation(fields: [clinic_id], references: [id])
+  clientOrg  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+
+  @@unique([product_id, clinic_id])
+  @@index([client_org_id])
+  @@index([clinic_id])
 }
 
 model RolePermissions {

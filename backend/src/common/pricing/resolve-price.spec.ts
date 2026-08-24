@@ -50,4 +50,42 @@ describe('resolveServicePrice', () => {
     const product = { price: null };
     expect(resolveServicePrice(product, undefined, undefined)).toBeNull();
   });
+
+  // REQ055 (US-ORG-05) — org->branch masters cascade.
+  describe('branch override (4th argument)', () => {
+    const masterProduct = { price: 50000, category_pricing_json: { corporate: 40000 }, channel_pricing_json: { online: 45000 } };
+
+    it('is unaffected when no branch override is passed (today\'s existing behaviour)', () => {
+      expect(resolveServicePrice(masterProduct, undefined, undefined, undefined)).toBe(50000);
+      expect(resolveServicePrice(masterProduct, undefined, undefined, null)).toBe(50000);
+    });
+
+    it('resolves against the master unchanged when the branch stance is explicit inherit', () => {
+      expect(resolveServicePrice(masterProduct, undefined, undefined, { mode: 'inherit' })).toBe(50000);
+    });
+
+    it('returns null (unavailable) when the branch has skipped this service', () => {
+      expect(resolveServicePrice(masterProduct, { patient_category: 'corporate' }, 'online', { mode: 'skip' })).toBeNull();
+    });
+
+    it('uses the override flat price, never falling through to the master price', () => {
+      expect(resolveServicePrice(masterProduct, undefined, undefined, { mode: 'override', override_price: 30000 })).toBe(30000);
+    });
+
+    it('applies the override\'s own category pricing over its own flat override price', () => {
+      const override = { mode: 'override', override_price: 30000, override_category_pricing_json: { corporate: 25000 } };
+      expect(resolveServicePrice(masterProduct, { patient_category: 'corporate' }, undefined, override)).toBe(25000);
+    });
+
+    it('applies the override\'s own channel pricing over its own flat override price', () => {
+      const override = { mode: 'override', override_price: 30000, override_channel_pricing_json: { walkin: 28000 } };
+      expect(resolveServicePrice(masterProduct, undefined, 'walkin', override)).toBe(28000);
+    });
+
+    it('never reads the master\'s own category/channel pricing while in override mode', () => {
+      // masterProduct's own category_pricing_json.corporate (40000) must NOT leak through.
+      const override = { mode: 'override', override_price: 30000 };
+      expect(resolveServicePrice(masterProduct, { patient_category: 'corporate' }, 'online', override)).toBe(30000);
+    });
+  });
 });

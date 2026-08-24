@@ -111,6 +111,9 @@ export const IDS = {
   // REQ054 -- packages domain.
   packageA: u('d17'),
   packageB: u('d18'),
+  // REQ055 -- branch-overrides domain.
+  branchOverrideA: u('d19'),
+  branchOverrideB: u('d20'),
   // REQ014 -- departments domain.
   departmentA: u('d11'),
   departmentB: u('d12'),
@@ -473,6 +476,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.packageA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: '10-Session Physio', total_sittings: 10, price_paise: 500000 },
       { id: IDS.packageB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: '10-Session Physio', total_sittings: 10, price_paise: 500000 },
+    ],
+  });
+
+  // REQ055 -- one branch override per org, on the existing productA/B fixtures.
+  await prisma.productBranchOverrides.createMany({
+    data: [
+      { id: IDS.branchOverrideA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, product_id: IDS.productA, mode: 'override', override_price: 30000 },
+      { id: IDS.branchOverrideB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, product_id: IDS.productB, mode: 'override', override_price: 40000 },
     ],
   });
 

@@ -8,6 +8,7 @@ import { orgScope, isSameOrg } from '../common/scoping/tenant-scope';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { resolveServicePrice } from '../common/pricing/resolve-price';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
+import { BranchOverridesService } from '../branch-overrides/branch-overrides.service';
 
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
 const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
@@ -26,6 +27,7 @@ export class AppointmentPaymentsService {
     private readonly prisma: PrismaService,
     private readonly notificationTrigger: NotificationTriggerService,
     private readonly webhookDispatch: WebhookDispatchService,
+    private readonly branchOverrides: BranchOverridesService,
   ) {}
 
   private razorpayAuthHeader() {
@@ -51,7 +53,10 @@ export class AppointmentPaymentsService {
     // definition (see resolveServicePrice()'s own comment); reads through
     // the same shared helper appointments.service.ts's display mapping
     // uses, never appointment.product.price directly.
-    const amount = resolveServicePrice(appointment.product, appointment.patient, 'online');
+    // REQ055 (US-ORG-05) — a branch may have overridden or skipped the
+    // org-level master this appointment's product actually is.
+    const branchOverride = await this.branchOverrides.getForPricing(appointment.product_id, appointment.clinic_id);
+    const amount = resolveServicePrice(appointment.product, appointment.patient, 'online', branchOverride);
     if (amount == null) throw new BadRequestException('This appointment has no priced product to pay for');
 
     const res = await fetch(RAZORPAY_ORDERS_URL, {
@@ -178,7 +183,8 @@ export class AppointmentPaymentsService {
     // REQ016 (US-CAT-04) — 'walkin' channel: a counter payment IS the
     // walk-in channel by definition, matching createRazorpayOrder's own
     // 'online' tagging for the Razorpay path.
-    const expectedAmount = resolveServicePrice(appointment.product, appointment.patient, 'walkin');
+    const branchOverride = await this.branchOverrides.getForPricing(appointment.product_id, appointment.clinic_id);
+    const expectedAmount = resolveServicePrice(appointment.product, appointment.patient, 'walkin', branchOverride);
     if (expectedAmount == null) {
       throw new BadRequestException('This appointment has no priced product to bill');
     }

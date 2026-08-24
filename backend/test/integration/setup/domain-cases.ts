@@ -333,6 +333,17 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
   },
   {
+    // REQ055 (US-ORG-05). clinic_id omitted, matching cancellation-rules/
+    // packages' own precedent -- org-wide list via orgScope().
+    domain: 'branch-overrides',
+    what: 'productBranchOverrides',
+    query: `{ productBranchOverrides { id } }`,
+    ids: (d) => (d.productBranchOverrides ?? []).map((x: any) => x.id),
+    aId: IDS.branchOverrideA,
+    bId: IDS.branchOverrideB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
     // REQ018 (US-BOOK-05). Own client_org_id, same shape as departments/resources.
     domain: 'booking-widget',
     what: 'bookingWidgetConfigs',

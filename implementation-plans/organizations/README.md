@@ -12,6 +12,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | PLAN046 | improvement | Head-office branch designation | done | 2026-08-23 | 2026-08-23 | REQ041 | [PLAN046-organizations-2026-08-23-head-office-branch-designation.md](./improvement/PLAN046-organizations-2026-08-23-head-office-branch-designation.md) |
+| PLAN078 | improvement | Org->branch masters cascade | done | 2026-08-25 | 2026-08-25 | REQ055 | [PLAN078-organizations-2026-08-25-branch-masters-cascade.md](./improvement/PLAN078-organizations-2026-08-25-branch-masters-cascade.md) |
 
 ## bug
 

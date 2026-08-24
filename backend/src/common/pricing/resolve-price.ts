@@ -31,6 +31,18 @@ export interface PricingPatient {
 
 export type PaymentChannel = 'online' | 'walkin';
 
+// REQ055 (US-ORG-05) — a branch's own stance on an org-level master service:
+// 'inherit' (the default, same as no row existing at all — resolve against
+// the master exactly as before), 'override' (resolve entirely within this
+// row's own category/channel/flat price, never falling through to the
+// master), or 'skip' (this branch does not offer the service at all).
+export interface BranchPriceOverride {
+  mode: string;
+  override_price?: number | null;
+  override_category_pricing_json?: unknown;
+  override_channel_pricing_json?: unknown;
+}
+
 // Both JSON columns store rupees the same way Products.price itself is
 // documented (money convention: paise at rest -- but these are Json
 // columns, not the schema-level Int the money convention targets, and are
@@ -43,18 +55,40 @@ function asPricingMap(value: unknown): Record<string, number> {
 }
 
 /**
- * Resolution order: patient-category override wins over channel override,
- * which wins over the base price. Category wins because it represents a
- * standing commercial agreement (a corporate contract, a staff discount)
- * that should hold regardless of how the visit happened to be booked or
- * paid; channel is a lighter-weight, situational adjustment.
+ * Resolution order: a branch's own 'skip'/'override' stance (REQ055) is
+ * checked first since it is the most specific thing known — a branch that
+ * deliberately customized or withdrew a service should never fall through
+ * to the org master's own pricing. Absent a branch override, or with an
+ * explicit 'inherit' stance, resolution proceeds against the master
+ * product exactly as before REQ055: patient-category override wins over
+ * channel override, which wins over the base price. Category wins because
+ * it represents a standing commercial agreement (a corporate contract, a
+ * staff discount) that should hold regardless of how the visit happened to
+ * be booked or paid; channel is a lighter-weight, situational adjustment.
  */
 export function resolveServicePrice(
   product: PricingProduct | null | undefined,
   patient: PricingPatient | null | undefined,
   channel?: PaymentChannel,
+  branchOverride?: BranchPriceOverride | null,
 ): number | null {
   if (!product) return null;
+
+  if (branchOverride?.mode === 'skip') {
+    return null;
+  }
+
+  if (branchOverride?.mode === 'override') {
+    const categoryPricing = asPricingMap(branchOverride.override_category_pricing_json);
+    if (patient?.patient_category && categoryPricing[patient.patient_category] != null) {
+      return categoryPricing[patient.patient_category];
+    }
+    const channelPricing = asPricingMap(branchOverride.override_channel_pricing_json);
+    if (channel && channelPricing[channel] != null) {
+      return channelPricing[channel];
+    }
+    return branchOverride.override_price ?? null;
+  }
 
   const categoryPricing = asPricingMap(product.category_pricing_json);
   if (patient?.patient_category && categoryPricing[patient.patient_category] != null) {

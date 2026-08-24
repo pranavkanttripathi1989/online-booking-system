@@ -4,6 +4,7 @@ import { AppointmentPaymentsService } from './appointment-payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
+import { BranchOverridesService } from '../branch-overrides/branch-overrides.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 const ORIGINAL_ENV = process.env;
@@ -31,6 +32,7 @@ describe('AppointmentPaymentsService', () => {
   let fetchMock: jest.Mock;
   let notificationTrigger: { dispatch: jest.Mock };
   let webhookDispatch: { fireEvent: jest.Mock };
+  let branchOverrides: { getForPricing: jest.Mock };
 
   const orgUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'u2', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
@@ -65,12 +67,17 @@ describe('AppointmentPaymentsService', () => {
     (global as any).fetch = fetchMock;
     notificationTrigger = { dispatch: jest.fn() };
     webhookDispatch = { fireEvent: jest.fn() };
+    // REQ055 — defaults to null (no branch override row) everywhere, so
+    // every pre-existing test's expected amount is unaffected unless a
+    // test explicitly mocks a different return.
+    branchOverrides = { getForPricing: jest.fn().mockResolvedValue(null) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentPaymentsService,
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationTriggerService, useValue: notificationTrigger },
         { provide: WebhookDispatchService, useValue: webhookDispatch },
+        { provide: BranchOverridesService, useValue: branchOverrides },
       ],
     }).compile();
     service = module.get(AppointmentPaymentsService);
@@ -114,6 +121,26 @@ describe('AppointmentPaymentsService', () => {
       expect(result.amount).toBe(50000);
       expect(result.razorpay_order_id).toBe('order_real123');
       expect(result.razorpay_key_id).toBe('rzp_test_fake');
+    });
+
+    // REQ055 (US-ORG-05).
+    it('charges the branch override price, not the org-master price, when the branch overrode it', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      branchOverrides.getForPricing.mockResolvedValue({ mode: 'override', override_price: 30000 });
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'order_real123' }) });
+      prisma.appointmentPayments.create.mockResolvedValue({});
+
+      const result = await service.createRazorpayOrder('appt-1');
+
+      expect(result.amount).toBe(30000);
+    });
+
+    it('rejects rather than charges when the branch has skipped this service entirely', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      branchOverrides.getForPricing.mockResolvedValue({ mode: 'skip' });
+
+      await expect(service.createRazorpayOrder('appt-1')).rejects.toThrow(/no priced product/i);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
 
     it('stamps client_org_id from the appointment\'s clinic and creates a pending row', async () => {
@@ -675,6 +702,29 @@ describe('AppointmentPaymentsService', () => {
       await expect(
         service.recordCounterPayment({ appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 500 }] } as any, staffUser),
       ).rejects.toThrow(/no priced product/i);
+    });
+
+    // REQ055 (US-ORG-05).
+    it('requires tenders to match the branch override price, not the org-master price', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      branchOverrides.getForPricing.mockResolvedValue({ mode: 'override', override_price: 30000 });
+      prisma.appointmentPayments.create.mockResolvedValue({ id: 'pay-new', invoice_number: 'INV/1' });
+
+      const result = await service.recordCounterPayment(
+        { appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 300 }] } as any,
+        staffUser,
+      );
+
+      expect(result).toEqual({ success: true, payment_id: 'pay-new', invoice_number: 'INV/1' });
+    });
+
+    it('rejects a counter payment when the branch has skipped this service', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      branchOverrides.getForPricing.mockResolvedValue({ mode: 'skip' });
+      await expect(
+        service.recordCounterPayment({ appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 500 }] } as any, staffUser),
+      ).rejects.toThrow(/no priced product/i);
+      expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
     });
 
     it('rejects tenders that sum to less than the amount due (no partial close in this slice)', async () => {

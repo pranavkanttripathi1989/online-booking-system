@@ -419,6 +419,10 @@ type BookingWidgetUserError {
   message: String!
 }
 
+type BranchOverrideUserError {
+  message: String!
+}
+
 type BreakGlassGrant {
   expires_at: DateTime!
   granted_at: DateTime!
@@ -1410,6 +1414,7 @@ type Mutation {
   sendMessage(body: String!, threadId: ID!): MessageThread!
   setHeadOfficeClinic(id: ID!): Clinic!
   setPlanActive(id: ID!, is_active: Boolean!): Plan!
+  setProductBranchOverride(input: SetProductBranchOverrideInput!): SetProductBranchOverrideResult!
   signEncounter(encounter_id: ID!): Encounter!
   skipQueueEntry(input: SkipQueueEntryInput!): QueueEntry!
   startConsultation(id: ID!): Appointment!
@@ -2071,6 +2076,23 @@ type Product {
   subcategory_id: ID
 }
 
+type ProductBranchOverride {
+  clinic_id: ID!
+  id: ID!
+  mode: String!
+  override_category_pricing: CategoryPricing
+  override_channel_pricing: ChannelPricing
+  override_price: Float
+  product: ProductBranchOverrideProductSummary
+  product_id: ID!
+}
+
+type ProductBranchOverrideProductSummary {
+  id: ID!
+  name: String!
+  price: Float
+}
+
 type ProductCategory {
   description: String
   id: ID!
@@ -2309,6 +2331,7 @@ type Query {
   prescriptions: [Prescription!]!
   printPrescription(id: ID!): PrescriptionPrintPayload!
   product(id: ID!): Product
+  productBranchOverrides(clinic_id: ID): [ProductBranchOverride!]!
   productCategories: [ProductCategory!]!
   productSubcategories: [ProductSubcategory!]!
   products(category_id: ID, clinic_id: ID): [Product!]!
@@ -2685,6 +2708,21 @@ type SessionAvailability {
   overbookAllowance: Int!
   remaining: Int!
   startTime: String!
+}
+
+input SetProductBranchOverrideInput {
+  clinic_id: ID!
+  mode: String!
+  override_category_pricing: CategoryPricingInput
+  override_channel_pricing: ChannelPricingInput
+  override_price: Float
+  product_id: ID!
+}
+
+type SetProductBranchOverrideResult {
+  branchOverride: ProductBranchOverride
+  success: Boolean!
+  userErrors: [BranchOverrideUserError!]!
 }
 
 input SkipQueueEntryInput {
