@@ -5,6 +5,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
 | machine-handoff-2026-08-24 | cross-cutting | 2026-08-24 | REQ017, REQ020, REQ021, REQ019, REQ018, REQ032 | current | [machine-handoff-2026-08-24.md](./machine-handoff-2026-08-24.md) |
+| organizations-2026-08-24-req014 | organizations | 2026-08-24 | REQ014, PLAN060, TP087, TR086 | done | [manifest.md](./organizations-2026-08-24-req014/manifest.md) |
 | appointments-2026-08-24-req018 | appointments | 2026-08-24 | REQ018, PLAN059, TP086, TR085 | done | [manifest.md](./appointments-2026-08-24-req018/manifest.md) |
 | queue-management-2026-08-24-req019 | queue-management | 2026-08-24 | REQ019, PLAN058, TP085, TR084 | done | [manifest.md](./queue-management-2026-08-24-req019/manifest.md) |
 | prescriptions-2026-08-24-req021 | prescriptions | 2026-08-24 | REQ021, PLAN057, TP084, TR083 | done | [manifest.md](./prescriptions-2026-08-24-req021/manifest.md) |

@@ -2,6 +2,7 @@ import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 import { ClinicianTypeInfoType } from '../../auth/entities/user.entity';
 import { ClinicType } from '../../clinics/entities/clinic.entity';
 import { RoomType } from '../../rooms/entities/room.entity';
+import { DepartmentType } from '../../departments/entities/department.entity';
 
 @ObjectType('ClinicianServiceItem')
 export class ClinicianServiceItemType {
@@ -30,6 +31,9 @@ export class ClinicianType {
   // inventing multi-clinic-clinician modeling nothing else needs yet.
   @Field(() => [ClinicType]) clinics: ClinicType[];
   @Field(() => [ClinicianServiceItemType]) services: ClinicianServiceItemType[];
+  // REQ014 (US-ORG-03) — optional specialty grouping.
+  @Field(() => ID, { nullable: true }) department_id?: string;
+  @Field(() => DepartmentType, { nullable: true }) department?: DepartmentType;
 }
 
 // components/Clinicians/ClinicianProfileDrawer.jsx's real CLINICIAN_DETAIL_QUERY

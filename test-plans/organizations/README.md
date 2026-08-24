@@ -6,6 +6,7 @@
 |---|---|---|---|---|---|---|---|
 | TP052 | test-plan | Organizations — admin tenant CRUD — Test Plan | approved | 2026-08-22 | 2026-08-22 | REQ013 | [TP052-organizations-2026-08-22-admin-org-crud.md](./requirement/TP052-organizations-2026-08-22-admin-org-crud.md) |
 | TP075 | requirement | Onboarding wizard, real backend | approved | 2026-08-23 | 2026-08-23 | REQ045 | [TP075-organizations-2026-08-23-onboarding-wizard-real-backend.md](./requirement/TP075-organizations-2026-08-23-onboarding-wizard-real-backend.md) |
+| TP087 | requirement | Department entity (US-ORG-03) | approved | 2026-08-24 | 2026-08-24 | REQ014 | [TP087-organizations-2026-08-24-department-entity.md](./requirement/TP087-organizations-2026-08-24-department-entity.md) |
 
 ## improvement
 

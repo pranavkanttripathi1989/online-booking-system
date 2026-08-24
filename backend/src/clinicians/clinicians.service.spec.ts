@@ -2,7 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { CliniciansService } from './clinicians.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DepartmentsService } from '../departments/departments.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+// department_id is optional on every fixture below, so this mock is never
+// actually invoked by the existing specs — present only so Nest's DI can
+// resolve CliniciansService's constructor.
+const departmentsServiceMock = { assertDepartmentInScope: jest.fn() };
 
 // Security regression coverage: create() previously never validated the
 // target clinic against the caller's org -- only update() did (via
@@ -36,7 +42,7 @@ describe('CliniciansService — create-path org scoping', () => {
       })),
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [CliniciansService, { provide: PrismaService, useValue: prisma }],
+      providers: [CliniciansService, { provide: PrismaService, useValue: prisma }, { provide: DepartmentsService, useValue: departmentsServiceMock }],
     }).compile();
     service = module.get(CliniciansService);
   });
@@ -100,7 +106,7 @@ describe('CliniciansService — read/write tenant isolation (F-01)', () => {
       $transaction: jest.fn((ops) => Promise.all(ops)),
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [CliniciansService, { provide: PrismaService, useValue: prisma }],
+      providers: [CliniciansService, { provide: PrismaService, useValue: prisma }, { provide: DepartmentsService, useValue: departmentsServiceMock }],
     }).compile();
     service = module.get(CliniciansService);
   });

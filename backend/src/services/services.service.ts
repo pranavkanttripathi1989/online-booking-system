@@ -3,13 +3,17 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ServiceInput } from './dto/service.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, orgIdForWrite, assertSameOrg } from '../common/scoping/tenant-scope';
+import { DepartmentsService } from '../departments/departments.service';
 
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
 @Injectable()
 export class ServicesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService,
+  ) {}
 
   private toGraphQL(product: any) {
     const { price, clinicianServices, category, ...rest } = product;
@@ -34,6 +38,7 @@ export class ServicesService {
   private include() {
     return {
       category: true,
+      department: true,
       clinicianServices: { where: { is_deleted: false }, include: { clinician: true } },
     };
   }
@@ -70,6 +75,11 @@ export class ServicesService {
   }
 
   async create(input: ServiceInput, user: JwtPayload) {
+    // REQ014 (US-ORG-03) — Hard Rule 6 applies to this cross-domain FK the
+    // same way it applies to clinic_id elsewhere.
+    if (input.department_id) {
+      await this.departmentsService.assertDepartmentInScope(input.department_id, user);
+    }
     const product = await this.prisma.products.create({
       data: {
         name: input.name,
@@ -83,6 +93,7 @@ export class ServicesService {
         is_tax_exempt: input.is_tax_exempt ?? true,
         product_type: 'simple',
         sku: this.generateSku(input.name),
+        department_id: input.department_id,
         // BUG006 — `?? undefined` silently created an ORG-LESS service.
         client_org_id: orgIdForWrite(user, 'service'),
       },
@@ -93,6 +104,9 @@ export class ServicesService {
 
   async update(id: string, input: ServiceInput, user: JwtPayload) {
     await this.findOne(id, user); // enforces tenant scoping before any write
+    if (input.department_id) {
+      await this.departmentsService.assertDepartmentInScope(input.department_id, user);
+    }
     const product = await this.prisma.products.update({
       where: { id },
       data: {
@@ -103,6 +117,7 @@ export class ServicesService {
         is_active: input.is_active,
         hsn: input.hsn,
         is_tax_exempt: input.is_tax_exempt,
+        department_id: input.department_id,
       },
       include: this.include(),
     });

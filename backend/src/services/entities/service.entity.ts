@@ -1,4 +1,5 @@
 import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
+import { DepartmentType } from '../../departments/entities/department.entity';
 
 @ObjectType('ServiceCategory')
 export class ServiceCategoryType {
@@ -32,4 +33,7 @@ export class ServiceType {
   @Field() is_tax_exempt: boolean;
   @Field(() => ServiceCategoryType, { nullable: true }) category?: ServiceCategoryType;
   @Field(() => [ServiceClinicianType]) clinicians: ServiceClinicianType[];
+  // REQ014 (US-ORG-03) — optional specialty grouping.
+  @Field(() => ID, { nullable: true }) department_id?: string;
+  @Field(() => DepartmentType, { nullable: true }) department?: DepartmentType;
 }

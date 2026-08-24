@@ -4,7 +4,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| REQ014 | requirement | Multi-branch org hierarchy, onboarding wizard, and data migration | draft | 2026-08-22 | 2026-08-22 | — | [REQ014-organizations-2026-08-22-multi-branch-hierarchy-and-onboarding.md](./requirement/REQ014-organizations-2026-08-22-multi-branch-hierarchy-and-onboarding.md) |
+| REQ014 | requirement | Multi-branch org hierarchy, onboarding wizard, and data migration | in-progress | 2026-08-22 | 2026-08-24 | — | [REQ014-organizations-2026-08-22-multi-branch-hierarchy-and-onboarding.md](./requirement/REQ014-organizations-2026-08-22-multi-branch-hierarchy-and-onboarding.md) |
 | REQ045 | requirement | Organization onboarding wizard, real backend | done | 2026-08-23 | 2026-08-23 | REQ014 | [REQ045-organizations-2026-08-23-onboarding-wizard-real-backend.md](./requirement/REQ045-organizations-2026-08-23-onboarding-wizard-real-backend.md) |
 
 ## improvement

@@ -673,6 +673,7 @@ model ClientOrganizations {
   drugs                  Drugs[]
   notificationProviderConfigs NotificationProviderConfig[]
   resources              Resources[]
+  departments            Departments[]
   encounters             Encounters[]
   encounterTemplates     EncounterTemplates[]
   prescriptionSets       PrescriptionSets[]
@@ -740,8 +741,12 @@ model Clinicians {
   is_active      Boolean  @default(true)
   is_deleted     Boolean  @default(false)
   created_at     DateTime @default(now())
+  // REQ014 (US-ORG-03) — optional specialty grouping, nullable since most
+  // existing clinicians predate departments existing at all.
+  department_id  String?
 
-  clinic Clinics @relation(fields: [clinic_id], references: [id])
+  clinic     Clinics      @relation(fields: [clinic_id], references: [id])
+  department Departments? @relation(fields: [department_id], references: [id])
 
   availability        ClinicianAvailability[]
   appointments        Appointments[]
@@ -758,6 +763,7 @@ model Clinicians {
   queueEntries        QueueEntries[]
 
   @@index([clinic_id, is_deleted, is_active])
+  @@index([department_id])
 }
 
 // CLINICIAN_FIELDS wants `services{id name duration_minutes price}` per clinician
@@ -807,6 +813,7 @@ model Clinics {
   clinicians         Clinicians[]
   rooms              Rooms[]
   resources          Resources[]
+  departments        Departments[]
   availability       ClinicianAvailability[]
   lunchBreaks        LunchBreaks[]
   spacerBlocks       SpacerBlocks[]
@@ -1379,11 +1386,14 @@ model Products {
   // didn't set.
   hsn               String?
   is_tax_exempt     Boolean  @default(false)
+  // REQ014 (US-ORG-03) — same optional specialty grouping as Clinicians.
+  department_id     String?
 
   clinic            Clinics? @relation(fields: [clinic_id], references: [id])
   client_org        ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   category          ProductCategories? @relation(fields: [category_id], references: [id])
   subcategory       ProductSubcategories? @relation(fields: [subcategory_id], references: [id])
+  department        Departments? @relation(fields: [department_id], references: [id])
   variations        ProductVariations[]
   appointments      Appointments[]
   cancellationRules ProductCancellationRules[]
@@ -1393,6 +1403,7 @@ model Products {
   @@index([category_id])
   @@index([subcategory_id])
   @@index([clinic_id])
+  @@index([department_id])
 }
 
 model RolePermissions {
@@ -1476,6 +1487,26 @@ model Resources {
 
   @@index([client_org_id, clinic_id])
   @@index([clinic_id, is_bookable, is_deleted])
+}
+
+// REQ014 (US-ORG-03) — specialty grouping (Cardiology, Dental, Physio) so
+// clinicians/services can be organized and reported on by department.
+// Owns client_org_id directly, same shape as Resources above (an org-level
+// concept assigned to one clinic), not Rooms' via-relation-only pattern.
+model Departments {
+  id            String   @id @default(uuid())
+  client_org_id String
+  clinic_id     String
+  name          String
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  clinicians          Clinicians[]
+  products            Products[]
+
+  @@index([client_org_id, clinic_id])
 }
 
 // Join table for multi-resource intersection booking (REQ017 US-CAL-05).

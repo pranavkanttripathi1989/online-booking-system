@@ -152,6 +152,7 @@ const AdminPolicies       = lazy(() => import('./pages/admin/Policies'))
 const AdminRoles          = lazy(() => import('./pages/admin/Roles'))
 const AdminClinicianTypes = lazy(() => import('./pages/admin/ClinicianTypes'))
 const AdminRoomTypes      = lazy(() => import('./pages/admin/RoomTypes'))
+const AdminDepartments    = lazy(() => import('./pages/admin/Departments'))
 const AdminLanguages      = lazy(() => import('./pages/admin/Languages'))
 const AdminEmailTemplates = lazy(() => import('./pages/admin/EmailTemplates'))
 import AdminLayout from './layouts/AdminLayout'
@@ -393,6 +394,7 @@ function App() {
               <Route path="/admin/roles"           element={<Suspense fallback={<ShellPageLoader />}><AdminRoles /></Suspense>} />
               <Route path="/admin/clinician-types" element={<Suspense fallback={<ShellPageLoader />}><AdminClinicianTypes /></Suspense>} />
               <Route path="/admin/room-types"      element={<Suspense fallback={<ShellPageLoader />}><AdminRoomTypes /></Suspense>} />
+              <Route path="/admin/departments"     element={<Suspense fallback={<ShellPageLoader />}><AdminDepartments /></Suspense>} />
               <Route path="/admin/languages"       element={<Suspense fallback={<ShellPageLoader />}><AdminLanguages /></Suspense>} />
               <Route path="/admin/email-templates" element={<Suspense fallback={<ShellPageLoader />}><AdminEmailTemplates /></Suspense>} />
             </Route>

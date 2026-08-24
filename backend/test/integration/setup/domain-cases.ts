@@ -229,6 +229,16 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
   },
   {
+    // REQ014 (US-ORG-03) -- same own-client_org_id shape as resources above.
+    domain: 'departments',
+    what: 'departments',
+    query: `{ departments { id } }`,
+    ids: (d) => (d.departments ?? []).map((x: any) => x.id),
+    aId: IDS.departmentA,
+    bId: IDS.departmentB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
+  },
+  {
     // REQ020. clinician_id self-scoping happens to coincide with org
     // scoping in this one-clinician-per-org fixture, so a clinicianA/
     // clinicianB actor's "ownOrgOnly" expectation is satisfied either way.

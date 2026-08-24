@@ -3,10 +3,10 @@ id: REQ014
 type: requirement
 feature: organizations
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: null
-related: [REQ013]
+related: [REQ013, PLAN060]
 ---
 
 # Multi-branch org hierarchy, onboarding wizard, and data migration

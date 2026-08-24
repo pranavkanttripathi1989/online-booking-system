@@ -3,17 +3,22 @@ import { PrismaService } from '../prisma/prisma.service';
 import { ClinicianInput } from './dto/clinician.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScopeVia, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
+import { DepartmentsService } from '../departments/departments.service';
 
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
 @Injectable()
 export class CliniciansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService,
+  ) {}
 
   private include() {
     return {
       clinic: true,
+      department: true,
       clinicianLanguages: { where: { is_deleted: false }, include: { language: true } },
       clinicianServices: { where: { is_deleted: false }, include: { product: true } },
     };
@@ -128,6 +133,11 @@ export class CliniciansService {
     if (!targetClinic || !isSameOrg(user, targetClinic.client_org_id)) {
       throw new BadRequestException('Clinic not found');
     }
+    // REQ014 (US-ORG-03) — Hard Rule 6 applies to this cross-domain FK the
+    // same way it applies to clinic_id above.
+    if (input.department_id) {
+      await this.departmentsService.assertDepartmentInScope(input.department_id, user);
+    }
     const languageIds = await this.resolveLanguageIds(input.languages ?? []);
 
     const clinicianId = await this.prisma.$transaction(async (tx) => {
@@ -142,6 +152,7 @@ export class CliniciansService {
           consultation_fee: RUPEES_TO_PAISE(input.consultation_fee),
           clinician_type: clinicianTypeName ?? '',
           clinic_id: clinicId,
+          department_id: input.department_id,
           is_active: input.is_active ?? true,
         },
       });
@@ -177,6 +188,9 @@ export class CliniciansService {
       if (!typeRow) throw new BadRequestException('Unknown clinician_type_id');
       clinicianTypeName = typeRow.name;
     }
+    if (input.department_id) {
+      await this.departmentsService.assertDepartmentInScope(input.department_id, user);
+    }
     const languageIds = input.languages ? await this.resolveLanguageIds(input.languages) : undefined;
 
     await this.prisma.$transaction(async (tx) => {
@@ -192,6 +206,7 @@ export class CliniciansService {
           consultation_fee: RUPEES_TO_PAISE(input.consultation_fee),
           clinician_type: clinicianTypeName,
           clinic_id: input.clinic_ids?.[0],
+          department_id: input.department_id,
           is_active: input.is_active,
         },
       });

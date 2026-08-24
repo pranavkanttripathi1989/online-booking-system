@@ -18,6 +18,8 @@ export class ClinicianInput {
   @Field(() => ID, { nullable: true }) @IsOptional() clinician_type_id?: string;
   @Field(() => [ID], { nullable: true }) @IsOptional() clinic_ids?: string[];
   @Field(() => [ID], { nullable: true }) @IsOptional() service_ids?: string[];
+  // REQ014 (US-ORG-03) — optional specialty grouping.
+  @Field(() => ID, { nullable: true }) @IsOptional() department_id?: string;
   @Field(() => [String], { nullable: true }) @IsOptional() languages?: string[];
   @Field({ nullable: true }) @IsOptional() @IsBoolean() is_active?: boolean;
 }

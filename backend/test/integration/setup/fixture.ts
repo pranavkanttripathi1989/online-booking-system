@@ -102,6 +102,9 @@ export const IDS = {
   // REQ019 -- queue domain.
   queueEntryA: u('d09'),
   queueEntryB: u('d10'),
+  // REQ014 -- departments domain.
+  departmentA: u('d11'),
+  departmentB: u('d12'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -122,6 +125,7 @@ const TABLES = [
   'QueueEntries',
   'Encounters',
   'Resources',
+  'Departments',
   'Drugs',
   'Appointments',
   'TestResults',
@@ -343,6 +347,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.resourceA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: 'ECG Machine A' },
       { id: IDS.resourceB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: 'ECG Machine B' },
+    ],
+  });
+
+  // REQ014 -- a specialty grouping, one per org.
+  await prisma.departments.createMany({
+    data: [
+      { id: IDS.departmentA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: 'Cardiology A' },
+      { id: IDS.departmentB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: 'Cardiology B' },
     ],
   });
 

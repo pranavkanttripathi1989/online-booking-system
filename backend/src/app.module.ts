@@ -11,6 +11,7 @@ import { AuthModule } from './auth/auth.module';
 import { ClinicsModule } from './clinics/clinics.module';
 import { RoomsModule } from './rooms/rooms.module';
 import { ResourcesModule } from './resources/resources.module';
+import { DepartmentsModule } from './departments/departments.module';
 import { LookupsModule } from './lookups/lookups.module';
 import { OrganizationsModule } from './organizations/organizations.module';
 import { LanguagesModule } from './languages/languages.module';
@@ -98,6 +99,7 @@ import { PubSubModule } from './common/pubsub.module';
     ClinicsModule,
     RoomsModule,
     ResourcesModule,
+    DepartmentsModule,
     LookupsModule,
     OrganizationsModule,
     OrganizationOnboardingModule,

@@ -2,7 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { ServicesService } from './services.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DepartmentsService } from '../departments/departments.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+// No fixture below sets department_id, so this mock is never actually
+// invoked — present only so Nest's DI can resolve ServicesService's
+// constructor.
+const departmentsServiceMock = { assertDepartmentInScope: jest.fn() };
 
 describe('ServicesService', () => {
   let service: ServicesService;
@@ -31,7 +37,11 @@ describe('ServicesService', () => {
   beforeEach(async () => {
     prisma = { products: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() } };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ServicesService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ServicesService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: DepartmentsService, useValue: departmentsServiceMock },
+      ],
     }).compile();
     service = module.get(ServicesService);
   });

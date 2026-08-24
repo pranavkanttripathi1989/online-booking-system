@@ -46,6 +46,7 @@ import InventoryIcon            from '@mui/icons-material/Inventory2'
 import BlockIcon                from '@mui/icons-material/Block'
 import EventAvailableIcon       from '@mui/icons-material/EventAvailable'
 import BadgeIcon                from '@mui/icons-material/Badge'
+import CategoryIcon             from '@mui/icons-material/Category'
 import GlobeIcon                from '@mui/icons-material/Language'
 import EmailRulesIcon           from '@mui/icons-material/AlternateEmail'
 import FormatListNumberedIcon   from '@mui/icons-material/FormatListNumbered'
@@ -146,6 +147,7 @@ const ADMIN_CHILDREN = [
   { label: 'Roles',           path: '/admin/roles',           icon: <AdminPanelSettingsIcon /> },
   { label: 'Clinician Types', path: '/admin/clinician-types', icon: <BadgeIcon /> },
   { label: 'Room Types',      path: '/admin/room-types',      icon: <MeetingRoomIcon /> },
+  { label: 'Departments',     path: '/admin/departments',     icon: <CategoryIcon /> },
   { label: 'Languages',       path: '/admin/languages',       icon: <GlobeIcon /> },
   { label: 'Email Templates', path: '/admin/email-templates', icon: <EmailRulesIcon /> },
 ]

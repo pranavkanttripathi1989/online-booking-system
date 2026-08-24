@@ -1,4 +1,4 @@
-import { InputType, Field, Int, Float } from '@nestjs/graphql';
+import { InputType, Field, ID, Int, Float } from '@nestjs/graphql';
 import { IsNotEmpty, IsOptional, IsBoolean, IsInt, Min, IsNumber } from 'class-validator';
 
 // Matches manager/services/create.jsx's actual submitted shape exactly:
@@ -18,4 +18,6 @@ export class ServiceInput {
   // consultation service is GST-exempt by default); always explicit on update.
   @Field({ nullable: true }) @IsOptional() hsn?: string;
   @Field({ nullable: true }) @IsOptional() @IsBoolean() is_tax_exempt?: boolean;
+  // REQ014 (US-ORG-03) — optional specialty grouping.
+  @Field(() => ID, { nullable: true }) @IsOptional() department_id?: string;
 }
