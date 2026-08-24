@@ -212,6 +212,61 @@ data model and versioning (`US-PLAN-01`/`02`), which are additive and
 lower-risk, and treat the guard's integration into the shared chain as its
 own reviewed step.
 
+**Phase G+1 — five more PRD-derived slices shipped 2026-08-24, chosen and
+scoped by cross-checking `project-plans/07-prd-gap-analysis-and-roadmap.md`'s
+remaining candidates against the real code first.** Sequence:
+`REQ014 → REQ029 → REQ025 → REQ016 → REQ023`. All five follow the same
+pattern as Phase G's own four slices — additive, isolated, no new external
+integration — and all five had at least one real assumption from the
+requirement doc corrected by reading the actual code before scoping, not
+taken at face value:
+
+| Requirement | What shipped | Scope correction found before starting |
+|---|---|---|
+| `REQ014` | `Departments` entity (`US-ORG-03`) — specialty grouping for clinicians/services, admin CRUD page | `US-ORG-04` (generic `Resource` entity) turned out already fully built by `REQ017`; `US-ORG-01`/`02` (onboarding) already shipped by `REQ045` |
+| `REQ029` | Real slot-capacity utilisation (`US-RPT-01`), replacing the documented completion-rate proxy; new `getAppointmentStats` tenancy-matrix coverage (`US-RPT-04`) | None — this one's scope matched the requirement doc as written |
+| `REQ025` | WhatsApp channel-priority dispatch with SMS fallback (rest of `US-NOT-01`), quiet hours + daily frequency cap (`US-NOT-04`) | `REQ048` (2026-08-23) had already registered the WhatsApp provider itself — this slice is exactly the dispatch-ordering logic that slice's own "what this does not do" section deferred |
+| `REQ016` | Differentiated pricing by patient category and channel (`US-CAT-04`), one shared `resolveServicePrice()` helper used by every price-reading call site | `REQ016`'s drug-master/tax-depth stories were already closed by `REQ044`/`REQ046`; only `US-CAT-04` was genuinely open |
+| `REQ023` | Mixed-tender counter billing (scoped subset of `US-BIL-01`) — front-desk cash/UPI/card/cheque split closing an appointment's bill | `US-BIL-09` (GST fields) already shipped by `REQ047`; `US-BIL-08` (the `createRazorpayOrder` auth finding, F-07) was already reviewed and deliberately left `@Public()` by `REQ040` — re-"fixing" it would have regressed `BUG011` |
+
+See `PLAN060`–`PLAN064`/`TP087`–`TP091`/`TR086`–`TR090` and each
+`context/<feature>-2026-08-24-reqXXX/manifest.md` bundle for full detail,
+including four real bugs found and fixed during live verification (not
+just unit tests) across this pass:
+
+1. **`departments.service.ts`'s `create()`** derived `client_org_id` from
+   the caller (`orgIdForWrite`) rather than the already-validated target
+   clinic — crashed with a raw Prisma error for an org-less platform
+   operator, and could have silently mismatched a Department's org from
+   its own clinic's org for a platform operator with their own org set.
+   Fixed by deriving from the clinic instead. The identical latent bug
+   exists in `resources.service.ts` too — flagged, not fixed (out of scope
+   for that slice).
+2. **A math error** in a new `isWithinQuietHours` unit test, caught before
+   the suite ever ran by re-deriving the UTC→IST conversion by hand.
+3. **`settings/index.jsx`'s quiet-hours "Clear" button was a silent
+   no-op** — it sent `quiet_hours_start: quietHoursStart || undefined`,
+   but this codebase's partial-update convention treats an omitted field
+   as "leave the stored value alone," not "clear it." Only surfaced by
+   live-testing the revert of test data, not by any unit test. Fixed by
+   sending explicit `null` when cleared.
+4. **A tenancy-matrix fixture bug**: two new dedicated *completed*
+   appointment rows added for `REQ029`'s own domain-case coverage reused
+   the same clinician + time slot as the pre-existing `appointmentA`/`B`
+   fixture rows, tripping the real Postgres no-overlap EXCLUDE constraint
+   and failing `test:int`'s global setup outright. Fixed with a distinct
+   time slot.
+
+Also worth internalizing for future work: **this pass's live verification
+directly confirmed the cross-call-site price-consistency design `REQ016`
+exists to guarantee** — setting a `'walkin'` channel override on a real
+service and then calling `recordCounterPayment` (`REQ023`) resolved the
+exact same overridden rate, not the base price, end-to-end through both
+slices together. This is the strongest evidence available (short of a real
+Razorpay checkout, not exercised this session) that the shared
+`resolveServicePrice()` helper actually closes the display-vs-charge risk
+it was built for.
+
 ### What Phase F did NOT close — read before assuming coverage
 
 - **Tenancy matrix now covers 21 tenant-scoped domains plus 8 honestly-EXEMPT
