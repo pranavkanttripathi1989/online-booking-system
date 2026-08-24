@@ -3,11 +3,26 @@ id: REQ032
 type: requirement
 feature: subscription-plan-engine
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: null
-related: [REQ033]
+related: [REQ033, PLAN066, TP093, TR092]
 ---
+
+## Status (2026-08-24)
+
+**`US-PLAN-01`/`US-PLAN-02` shipped** (`PLAN066`/`TP093`/`TR092`) — the
+plan-builder data model and versioning only: `Plans`/`PlanVersions`,
+super_admin-only CRUD, editing a live plan closes the old version
+(`effective_until`) and opens a new one rather than mutating it in place.
+See `context/subscription-plan-engine-2026-08-24-req032/manifest.md`.
+
+**Deliberately NOT started**: `US-PLAN-03` (entitlement enforcement — the
+global guard consulted on every feature-gated resolver call) and
+`US-PLAN-04` (trials). CLAUDE.md's own explicit caution stands: the guard
+integration is a separate, higher-risk step requiring its own scoped plan
+(Redis-backed caching, cache-invalidation-on-plan-change), not something to
+bolt onto this additive data-model slice.
 
 # Super Admin plan builder: entitlements, quotas, metered services, and versioning
 

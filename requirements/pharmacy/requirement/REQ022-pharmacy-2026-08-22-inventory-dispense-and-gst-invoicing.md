@@ -3,11 +3,28 @@ id: REQ022
 type: requirement
 feature: pharmacy
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ021
-related: [REQ021, REQ016, REQ014]
+related: [REQ021, REQ016, REQ014, PLAN068, TP095, TR094]
 ---
+
+## Status (2026-08-24)
+
+**P0 batch/stock ledger foundation shipped** (`PLAN068`/`TP095`/`TR094`):
+`DrugBatches`/`StockMovements` (append-only audit trail), `receiveStock`/
+`adjustStock`/`dispensePrescriptionItem` mutations, tenant-scoped via the
+same `orgScope()`/Hard-Rule-6 pattern as every other domain this session.
+`dispensePrescriptionItem` links a dispense event to the real
+`PrescriptionItems` row it fulfils. See
+`context/pharmacy-2026-08-24-req022/manifest.md`.
+
+**Deliberately NOT built**: `PurchaseOrder`/`GoodsReceiptNote`/
+`StockTransfer`, FEFO dispense suggestions, Schedule H/H1 compliance
+prompts, GST purchase invoicing, low-stock alerts — all genuinely P1 per
+the requirement doc's own phase assignment (this whole module is V1 GA,
+not MVP). This slice is the receive → dispense → adjust foundation those
+build on.
 
 # Pharmacy: multi-store inventory, dispense, purchasing, and statutory registers
 

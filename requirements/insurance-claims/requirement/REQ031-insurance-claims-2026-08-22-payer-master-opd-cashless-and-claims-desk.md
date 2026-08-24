@@ -3,11 +3,29 @@ id: REQ031
 type: requirement
 feature: insurance-claims
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: null
-related: [REQ023, REQ020, REQ028, REQ034]
+related: [REQ023, REQ020, REQ028, REQ034, PLAN070, TP097, TR096]
 ---
+
+## Status (2026-08-24)
+
+**`US-INS-01` shipped, scoped down** (`PLAN070`/`TP097`/`TR096`): payer/
+TPA master (`Payers`, global reference data like Languages) plus the
+genuinely tenant-scoped half — per-branch empanelment (`PayerEmpanelments`)
+and manual patient policy capture (`PatientInsurancePolicies`, minus
+`US-INS-03`'s OCR pre-fill, which needs a document-scan integration this
+slice doesn't add). See
+`context/insurance-claims-2026-08-24-req031/manifest.md`.
+
+**Deliberately NOT built**: payer-specific tariffs (`US-INS-02`), OCR
+health-card scanning, pre-visit eligibility badges (`US-INS-04`), and the
+entire benefit-wallet/bill-split adjudication engine (`US-INS-05`) — this
+slice is pure master-data/CRUD with zero real payer/TPA API integration,
+exactly the "valuable without any payer API existing" foundation the
+requirement doc's own risk mitigation calls for, not the P1 claim-workflow
+scope built on top of it.
 
 # Insurance, claims & payer management: payer master, OPD cashless, pre-auth, and claims desk
 

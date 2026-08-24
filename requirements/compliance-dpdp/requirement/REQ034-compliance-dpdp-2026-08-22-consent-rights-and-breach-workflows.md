@@ -3,11 +3,29 @@ id: REQ034
 type: requirement
 feature: compliance-dpdp
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: null
-related: [REQ028, REQ012]
+related: [REQ028, REQ012, PLAN067, TP094, TR093]
 ---
+
+## Status (2026-08-24)
+
+**P0 scope shipped** (`PLAN067`/`TP094`/`TR093`): purpose-specific,
+individually-withdrawable consent capture (`Consents`) and a
+data-subject-rights request queue (`RightsRequests` — access/correction/
+erasure), reusing `REQ018`'s own dependant-aware patient self-scope
+pattern. See `context/compliance-dpdp-2026-08-24-req034/manifest.md`.
+
+**Deliberately NOT built**: automated erasure/correction execution.
+`RightsRequests` is a request-queued-for-admin-review row, never an
+instant self-service hard-delete — a healthcare app cannot let a patient
+erase a record still under statutory retention automatically; an admin
+applies the actual outcome by hand via `resolveRightsRequest`, which is
+itself a status change, not a data-mutation trigger. `DisclosureLog`,
+`RetentionPolicies`, and the breach-response runbook remain untouched
+(explicitly P1/P2, or process rather than code, per the requirement doc's
+own scope).
 
 # DPDP Act 2023 compliance: consent, data-principal rights, retention, and breach response
 
