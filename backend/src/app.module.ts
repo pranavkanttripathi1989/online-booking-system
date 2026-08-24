@@ -50,6 +50,7 @@ import { WebhooksModule } from './webhooks/webhooks.module';
 import { InsuranceModule } from './insurance/insurance.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { ScheduledReportsModule } from './scheduled-reports/scheduled-reports.module';
+import { ChecklistModule } from './checklist/checklist.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
@@ -146,6 +147,7 @@ import { PubSubModule } from './common/pubsub.module';
     InsuranceModule,
     ApiKeysModule,
     ScheduledReportsModule,
+    ChecklistModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

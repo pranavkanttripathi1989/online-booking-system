@@ -232,6 +232,7 @@ model Appointments {
   resources           AppointmentResources[]
   encounter           Encounters?
   queue_entry         QueueEntries?
+  checklist_completions ChecklistCompletions[]
 
   @@index([clinician_id, appointment_time])
   @@index([clinic_id, appointment_time])
@@ -854,6 +855,7 @@ model Clinics {
   payerEmpanelments  PayerEmpanelments[]
   bookingWidgetConfigs BookingWidgetConfig[]
   scheduledReports   ScheduledReports[]
+  checklistItems     ChecklistItems[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -1474,6 +1476,7 @@ model Products {
   appointments      Appointments[]
   cancellationRules ProductCancellationRules[]
   clinicianServices ClinicianServices[]
+  checklistItems    ChecklistItems[]
 
   @@index([client_org_id, is_deleted])
   @@index([category_id])
@@ -2192,4 +2195,46 @@ model ScheduledReports {
   clinic              Clinics?             @relation(fields: [clinic_id], references: [id])
 
   @@index([client_org_id, is_active])
+}
+
+// REQ051 (US-QUE-06) — a clinic-scoped, optionally product-scoped, ordered
+// list of items that must be completed before QueueService.callNext() will
+// call a given patient in. Deliberately keyed by clinic (via client_org_id
+// indirection is not needed — Clinics has no own client_org_id column on
+// every row, matching Rooms/QueueEntries' existing indirect-scoping
+// precedent), not by encounter — an Encounters row for a given appointment
+// usually doesn't exist yet at call-next time (it's created on the same
+// transitionStatus('in_consultation') path callNext participates in).
+model ChecklistItems {
+  id           String   @id @default(uuid())
+  clinic_id    String
+  product_id   String?
+  label        String
+  is_required  Boolean  @default(true)
+  sort_order   Int      @default(0)
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  clinic      Clinics      @relation(fields: [clinic_id], references: [id])
+  product     Products?    @relation(fields: [product_id], references: [id])
+  completions ChecklistCompletions[]
+
+  @@index([clinic_id, product_id])
+}
+
+// One row per (appointment, item) — completion is scoped to a single visit,
+// not a standing patient-level flag (a "consent obtained" checkbox from a
+// prior visit does not carry forward).
+model ChecklistCompletions {
+  id                  String   @id @default(uuid())
+  checklist_item_id   String
+  appointment_id      String
+  completed_by_user_id String
+  completed_at        DateTime @default(now())
+
+  checklist_item ChecklistItems @relation(fields: [checklist_item_id], references: [id])
+  appointment    Appointments   @relation(fields: [appointment_id], references: [id])
+
+  @@unique([checklist_item_id, appointment_id])
+  @@index([appointment_id])
 }

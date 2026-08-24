@@ -5,6 +5,7 @@ import { PUB_SUB } from '../common/pubsub.provider';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScopeVia, isSameOrg } from '../common/scoping/tenant-scope';
 import { SkipQueueEntryInput, TransferQueueEntryInput } from './dto/queue.input';
+import { ChecklistService } from '../checklist/checklist.service';
 
 export const QUEUE_UPDATED_EVENT = 'queueUpdated';
 
@@ -24,6 +25,7 @@ export class QueueService {
   constructor(
     private readonly prisma: PrismaService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
+    private readonly checklistService: ChecklistService,
   ) {}
 
   private orgScope(user: JwtPayload) {
@@ -163,6 +165,15 @@ export class QueueService {
       orderBy: [{ token_no: 'asc' }, { checked_in_at: 'asc' }],
     });
     if (!next) throw new BadRequestException('No patients waiting in this queue');
+
+    // REQ051 (US-QUE-06) — a service configured with a mandatory checklist
+    // blocks "call next" until every required item is complete for this
+    // visit. Checked against the appointment, not any encounter -- see
+    // ChecklistCompletions' own schema comment for why.
+    const missing = await this.checklistService.getIncompleteRequiredItems(next.appointment_id);
+    if (missing.length > 0) {
+      throw new BadRequestException(`Cannot call this patient yet — required checklist items incomplete: ${missing.join(', ')}`);
+    }
 
     const updated = await this.prisma.$transaction(async (tx) => {
       const row = await tx.queueEntries.update({

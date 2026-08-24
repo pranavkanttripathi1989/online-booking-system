@@ -474,6 +474,33 @@ input ChannelPricingInput {
   walkin: Float
 }
 
+type ChecklistCompletion {
+  appointment_id: ID!
+  checklist_item_id: ID!
+  completed_at: DateTime!
+  completed_by_user_id: ID!
+  id: ID!
+}
+
+type ChecklistItem {
+  clinic_id: ID!
+  id: ID!
+  is_required: Boolean!
+  label: String!
+  product_id: ID
+  sort_order: Int!
+}
+
+type ChecklistItemMutationResult {
+  checklistItem: ChecklistItem
+  success: Boolean!
+  userErrors: [ChecklistUserError!]!
+}
+
+type ChecklistUserError {
+  message: String!
+}
+
 type Clinic {
   address: String!
   city: String
@@ -685,6 +712,14 @@ input CreateCancellationRuleInput {
   is_active: Boolean
   name: String!
   priority: Int
+}
+
+input CreateChecklistItemInput {
+  clinic_id: ID!
+  is_required: Boolean
+  label: String!
+  product_id: ID
+  sort_order: Int
 }
 
 input CreateClinicianTypeInput {
@@ -1176,6 +1211,7 @@ type Mutation {
   changeMyPassword(input: ChangeMyPasswordInput!): GenericResult!
   checkInAppointment(id: ID!): Appointment!
   completeAppointment(id: ID!): Appointment!
+  completeChecklistItem(appointment_id: ID!, checklist_item_id: ID!): ChecklistItemMutationResult!
   completeOrganizationOnboarding(orgId: String!): OrganizationOnboarding!
   confirmTotpEnrollment(input: ConfirmTotpEnrollmentInput!): TotpConfirmResult!
   createApiKey(input: ApiKeyInput!): CreateApiKeyResult!
@@ -1183,6 +1219,7 @@ type Mutation {
   createAvailability(input: CreateAvailabilityInput!): AvailabilityMutationResult!
   createBookingWidgetConfig(input: BookingWidgetConfigInput!): BookingWidgetMutationResult!
   createCancellationRule(input: CreateCancellationRuleInput!): CancellationRuleMutationResult!
+  createChecklistItem(input: CreateChecklistItemInput!): ChecklistItemMutationResult!
   createClinic(input: ClinicInput!): Clinic!
   createClinician(input: ClinicianInput!): Clinician!
   createClinicianType(input: CreateClinicianTypeInput!): LookupMutationResult!
@@ -1224,6 +1261,7 @@ type Mutation {
   deactivateWebhookEndpoint(id: ID!): WebhookEndpoint!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteCancellationRule(id: ID!): CancellationRuleMutationResult!
+  deleteChecklistItem(id: ID!): ChecklistItemMutationResult!
   deleteClinicianAvailability(id: ID!): Boolean!
   deleteClinicianType(id: ID!): LookupMutationResult!
   deleteDepartment(id: ID!): DepartmentMutationResult!
@@ -1285,6 +1323,7 @@ type Mutation {
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
   updateBookingWidgetConfig(id: ID!, input: BookingWidgetConfigInput!): BookingWidgetMutationResult!
   updateCancellationRule(id: ID!, input: UpdateCancellationRuleInput!): CancellationRuleMutationResult!
+  updateChecklistItem(id: ID!, input: UpdateChecklistItemInput!): ChecklistItemMutationResult!
   updateClinic(id: ID!, input: ClinicInput!): Clinic!
   updateClinician(id: ID!, input: ClinicianInput!): Clinician!
   updateClinicianType(id: ID!, input: UpdateClinicianTypeInput!): LookupMutationResult!
@@ -2036,6 +2075,8 @@ type Query {
   bookingWidgetConfig(id: ID!): BookingWidgetConfig
   bookingWidgetConfigs: [BookingWidgetConfig!]!
   cancellationRules: [CancellationRule!]!
+  checklistCompletions(appointment_id: ID!): [ChecklistCompletion!]!
+  checklistItems(clinic_id: ID, product_id: ID): [ChecklistItem!]!
   clinic(id: ID!): Clinic
   clinicQueue(clinic_id: ID!): [QueueEntry!]!
   clinician(id: ID!): Clinician
@@ -2683,6 +2724,12 @@ input UpdateCancellationRuleInput {
   is_active: Boolean
   name: String
   priority: Int
+}
+
+input UpdateChecklistItemInput {
+  is_required: Boolean
+  label: String
+  sort_order: Int
 }
 
 input UpdateClinicianTypeInput {

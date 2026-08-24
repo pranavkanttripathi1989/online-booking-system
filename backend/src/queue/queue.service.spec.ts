@@ -4,6 +4,7 @@ import { QueueService } from './queue.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { ChecklistService } from '../checklist/checklist.service';
 
 // REQ019 P0. QueueEntries has no client_org_id of its own — org isolation
 // is asserted via clinic.client_org_id (isSameOrg/orgScopeVia), mirroring
@@ -13,6 +14,7 @@ describe('QueueService', () => {
   let service: QueueService;
   let prisma: any;
   let pubSub: { publish: jest.Mock };
+  let checklistService: { getIncompleteRequiredItems: jest.Mock };
 
   const staffA: JwtPayload = { sub: 'staff-a', roles: ['manager'], client_org_id: 'org-a' } as JwtPayload;
   const staffB: JwtPayload = { sub: 'staff-b', roles: ['manager'], client_org_id: 'org-b' } as JwtPayload;
@@ -48,11 +50,13 @@ describe('QueueService', () => {
       $transaction: jest.fn((cb) => cb(prisma)),
     };
     pubSub = { publish: jest.fn() };
+    checklistService = { getIncompleteRequiredItems: jest.fn().mockResolvedValue([]) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         QueueService,
         { provide: PrismaService, useValue: prisma },
         { provide: PUB_SUB, useValue: pubSub },
+        { provide: ChecklistService, useValue: checklistService },
       ],
     }).compile();
     service = module.get(QueueService);
@@ -141,6 +145,26 @@ describe('QueueService', () => {
       prisma.queueEntries.findFirst.mockResolvedValue(null);
       await expect(service.callNext('cln-a', staffA)).rejects.toThrow();
       expect(prisma.queueEntries.findFirst.mock.calls[0][0].orderBy).toEqual([{ token_no: 'asc' }, { checked_in_at: 'asc' }]);
+    });
+
+    // REQ051 (US-QUE-06)
+    it('rejects when a required checklist item is incomplete, naming it', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(entry());
+      checklistService.getIncompleteRequiredItems.mockResolvedValue(['Consent form']);
+      await expect(service.callNext('cln-a', staffA)).rejects.toThrow(BadRequestException);
+      await expect(service.callNext('cln-a', staffA)).rejects.toThrow(/Consent form/);
+      expect(checklistService.getIncompleteRequiredItems).toHaveBeenCalledWith('appt-1');
+      expect(prisma.queueEntries.update).not.toHaveBeenCalled();
+    });
+
+    it('proceeds when the checklist is complete (or none configured)', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(entry());
+      prisma.queueEntries.update.mockResolvedValue(entry({ status: 'called', called_at: new Date() }));
+      checklistService.getIncompleteRequiredItems.mockResolvedValue([]);
+      const result = await service.callNext('cln-a', staffA);
+      expect(result.status).toBe('called');
     });
   });
 

@@ -303,6 +303,18 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
   },
   {
+    domain: 'checklist',
+    what: 'checklistItems',
+    // clinic_id omitted -- returns every item across the caller's own org
+    // (see checklist.service.ts's list()), the shared no-args shape this
+    // matrix needs to serve org-A and org-B actors from one query.
+    query: `{ checklistItems { id } }`,
+    ids: (d) => (d.checklistItems ?? []).map((x: any) => x.id),
+    aId: IDS.checklistItemA,
+    bId: IDS.checklistItemB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
+  },
+  {
     // REQ018 (US-BOOK-05). Own client_org_id, same shape as departments/resources.
     domain: 'booking-widget',
     what: 'bookingWidgetConfigs',

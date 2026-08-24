@@ -102,6 +102,9 @@ export const IDS = {
   // REQ019 -- queue domain.
   queueEntryA: u('d09'),
   queueEntryB: u('d10'),
+  // REQ051 -- checklist domain.
+  checklistItemA: u('d13'),
+  checklistItemB: u('d14'),
   // REQ014 -- departments domain.
   departmentA: u('d11'),
   departmentB: u('d12'),
@@ -440,6 +443,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.queueEntryA, appointment_id: IDS.appointmentA, clinic_id: IDS.clinicA, clinician_id: IDS.clinicianA },
       { id: IDS.queueEntryB, appointment_id: IDS.appointmentB, clinic_id: IDS.clinicB, clinician_id: IDS.clinicianB },
+    ],
+  });
+
+  // REQ051 -- one clinic-wide checklist item per org.
+  await prisma.checklistItems.createMany({
+    data: [
+      { id: IDS.checklistItemA, clinic_id: IDS.clinicA, label: 'Consent form' },
+      { id: IDS.checklistItemB, clinic_id: IDS.clinicB, label: 'Consent form' },
     ],
   });
 
