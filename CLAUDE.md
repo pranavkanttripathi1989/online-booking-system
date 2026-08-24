@@ -390,6 +390,98 @@ field, give it at least one `class-validator` decorator even if
 "obviously" always valid — an undecorated field isn't just unvalidated,
 it's silently deleted by this app's global pipe.**
 
+**Phase G+2 frontend completion — the "no frontend UI in this slice"
+deferral on all 8 domains above is now closed (2026-08-24).** Real, tiered,
+theme-token-compliant UI for `REQ018` residue, `REQ032`, `REQ034`,
+`REQ022`, `REQ030`, `REQ031`, `REQ015`, `REQ029` 2nd slice — see
+`PLAN073`/`TP100`/`TR099`,
+`context/platform-nfr-2026-08-24-phase-g2-frontend-completion/manifest.md`.
+New: `pages/admin/{Plans,Payers,RightsRequests}.jsx`, `pages/manager/
+{pharmacy,reports}/index.jsx`, and two new tabs (Integrations, Privacy) on
+`pages/settings/index.jsx`. Verified with a new Playwright spec
+(`frontend/e2e/phase-g2-frontend-completion.spec.js`, 7/7 passing) against
+the real backend, plus the full Hard Rule 3 suite (frontend lint/unit/
+build, backend unit/integration/lint/typecheck, page-data-wiring gate —
+all clean).
+
+Three real bugs found, one of them foundational — read this before
+building any new patient-facing feature:
+
+1. `settings/index.jsx` was missing the `CircularProgress` import used by
+   the new Privacy tab — crashed the *entire* Settings page (all 7 tabs)
+   for every visitor, not just Privacy. Found via a direct
+   `page.on('pageerror', ...)` capture, since the failure rendered a blank
+   page with no visible error text at all.
+2. `/admin/payers` and `/admin/rights-requests` were routed behind the
+   `admin`/`super_admin`-only `RoleGuard`, while their backend resolvers
+   are `@Auth('manager', 'admin', 'super_admin')` — real managers, the
+   actual day-to-day callers, got the app's own 403 page before ever
+   reaching the route. Exactly the frontend-route-vs-backend-contract
+   mismatch Hard Rule 7 warns about. Fixed by moving both routes into the
+   existing "admin OR manager" `RoleGuard` block, the same one
+   `/admin/communications`/`/admin/policies` already use for the identical
+   reason (a manager, not an org-less admin/super_admin, is the real
+   caller for an org-scoped feature).
+3. **A genuine, pre-existing, foundational `AuthContext.jsx` bug, not
+   scoped to this slice's own new code**: `useAuth().user.patient.id` is
+   permanently `undefined` for any freshly-logged-in patient session.
+   `LOGIN_MUTATION`'s response (`graphql/mutations.js`) selects `user { id
+   name email roles clinician {...} }` — no `patient` field at all — and
+   `login()` caches that straight into `localStorage.medibook_user`.
+   `AuthContext`'s own mount effect only calls the fuller `ME_QUERY`
+   (which *does* select `patient { id full_name }`) when no cached user
+   exists yet — and a fresh login always populates that cache first, so
+   the fuller query never runs. Confirmed independent of any frontend code
+   via a direct curl repro (link a patient in DB → fresh login → `me {
+   patient { id } }` returns correctly) proving the backend is fine and
+   the bug is purely in the frontend's login-time caching.
+   `pages/patient/Family.jsx` never hits this because it doesn't read
+   `user.patient.id` at all — its `MY_DEPENDANTS_QUERY` is self-scoped
+   server-side from the caller's own JWT `patient_id` claim, the more
+   robust pattern. **Worked around locally** in the new Privacy tab (a
+   dedicated `GET_MY_PATIENT_LINK` network-only query resolves the link
+   fresh on tab load instead of trusting the cache) — **not fixed at the
+   `AuthContext` level**, deliberately: a core auth-caching change needs
+   its own reviewed slice, not a rider on a frontend-completion pass. Any
+   *other* existing or future code that reads `useAuth().user.patient.id`
+   directly hits the identical bug and has not been audited for it here.
+
+**A second, more severe environment blocker hit mid-pass — the host itself
+rebooted, not just a container.** `uptime` dropped from ~11h to ~10min
+mid-session, and the machine entered a startup-storm load spike (load
+average measured at 116.53 at its peak — normal is single digits) from
+every login-item app (Docker Desktop, Chrome, VS Code, Adobe Creative
+Cloud, Time Doctor, Spotlight reindexing) launching at once. This wedged
+Docker Desktop's daemon and individual containers into an "Up but
+completely unresponsive" state repeatedly — `medibook_backend` again, and
+for the **first time this session**, `medibook_frontend` too (Vite itself
+hangs, unresponsive even via `docker exec ... wget localhost:3000` from
+*inside* the same container — confirmed not a port-mapping issue). The
+established `medibook_backend` recovery pattern (quit Docker Desktop
+entirely via `osascript -e 'quit app "Docker"'`, relaunch via `open -a
+Docker`, wait for the daemon, `docker rm -f` the specific wedged container,
+`docker compose up -d` it fresh) worked identically for `medibook_frontend`
+— this is now a general "any container can wedge, not just the backend"
+pattern, not a `medibook_backend`-specific quirk. **If a load spike this
+severe hits again: don't fight it with more restarts** — each one adds
+load to an already-overloaded system. Poll `uptime`'s load average and
+wait for it to fall before retrying; it settled from 116 back to ~15-25
+within about 90 seconds once the post-boot storm passed.
+
+**`npm run test:int` must run from the host, not `docker exec
+medibook_backend`** — a previously-undocumented gotcha, found while
+re-verifying this pass. Its `postgres_test` connection string is hardcoded
+to `localhost:5433`, a host-side Docker port mapping; from *inside* the
+`medibook_backend` container's own network namespace, `localhost` resolves
+to the container itself, not the `medibook_postgres_test` service, so the
+suite fails immediately with "Can't reach database server at
+localhost:5433" — even though `postgres_test` is genuinely healthy and
+running. Run it as `cd backend && npm run test:int` from the host instead
+(after `docker compose --profile test up -d postgres_test`, as already
+documented) — CLAUDE.md's own command list phrased backend commands as
+interchangeable between host and `docker exec`, which is true for every
+other backend command *except* this one.
+
 ### What Phase F did NOT close — read before assuming coverage
 
 - **Tenancy matrix now covers 31 tenant-scoped domains plus 12 honestly-EXEMPT
@@ -499,6 +591,11 @@ npx jest --maxWorkers=2   # THE way to run the unit suite here — 645 tests / 5
                           # in isolation — re-run a suspect suite alone before believing a failure.
 npm run test:int          # integration suite — 120 tests / 3 suites, ~117s, REAL Postgres + real
                           # HTTP. Prerequisite: docker compose --profile test up -d postgres_test
+                          # MUST run from the host (cd backend && npm run test:int), NOT
+                          # `docker exec medibook_backend npm run test:int` — its postgres_test
+                          # connection is hardcoded to localhost:5433, a host-side port mapping
+                          # the container's own network namespace can't resolve to the real
+                          # postgres_test service (found 2026-08-24, PLAN073)
 npm run test -- <pattern> # run a single test file/suite, e.g. `npm run test -- appointments.service`
 npx prisma validate        # validate schema.prisma after editing it
 npx prisma migrate deploy  # apply migrations

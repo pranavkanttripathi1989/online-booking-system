@@ -47,6 +47,10 @@ import BlockIcon                from '@mui/icons-material/Block'
 import EventAvailableIcon       from '@mui/icons-material/EventAvailable'
 import BadgeIcon                from '@mui/icons-material/Badge'
 import CategoryIcon             from '@mui/icons-material/Category'
+import WorkspacePremiumIcon     from '@mui/icons-material/WorkspacePremium'
+import MedicationIcon           from '@mui/icons-material/Medication'
+import SummarizeIcon            from '@mui/icons-material/Summarize'
+import GavelIcon                from '@mui/icons-material/Gavel'
 import GlobeIcon                from '@mui/icons-material/Language'
 import EmailRulesIcon           from '@mui/icons-material/AlternateEmail'
 import FormatListNumberedIcon   from '@mui/icons-material/FormatListNumbered'
@@ -150,6 +154,9 @@ const ADMIN_CHILDREN = [
   { label: 'Departments',     path: '/admin/departments',     icon: <CategoryIcon /> },
   { label: 'Languages',       path: '/admin/languages',       icon: <GlobeIcon /> },
   { label: 'Email Templates', path: '/admin/email-templates', icon: <EmailRulesIcon /> },
+  { label: 'Plans',           path: '/admin/plans',           icon: <WorkspacePremiumIcon /> },
+  { label: 'Insurance Payers', path: '/admin/payers',         icon: <LocalHospitalIcon /> },
+  { label: 'Rights Requests', path: '/admin/rights-requests', icon: <GavelIcon /> },
 ]
 
 const MANAGER_CHILDREN = [
@@ -161,6 +168,8 @@ const MANAGER_CHILDREN = [
   { label: 'Resources',    path: '/manager/resources',    icon: <PrecisionManufacturingIcon /> },
   { label: 'Products',     path: '/manager/products',     icon: <InventoryIcon /> },
   { label: 'Services',     path: '/manager/services',     icon: <MedicalServicesIcon /> },
+  { label: 'Pharmacy',     path: '/manager/pharmacy',     icon: <MedicationIcon /> },
+  { label: 'Patient Reports', path: '/manager/reports',   icon: <SummarizeIcon /> },
 ]
 
 const BOTTOM_NAV = [

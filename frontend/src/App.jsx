@@ -155,6 +155,12 @@ const AdminRoomTypes      = lazy(() => import('./pages/admin/RoomTypes'))
 const AdminDepartments    = lazy(() => import('./pages/admin/Departments'))
 const AdminLanguages      = lazy(() => import('./pages/admin/Languages'))
 const AdminEmailTemplates = lazy(() => import('./pages/admin/EmailTemplates'))
+// Phase G+2 frontend completion (REQ018/REQ032/REQ034/REQ022/REQ030/REQ031/REQ015/REQ029)
+const AdminPlans          = lazy(() => import('./pages/admin/Plans'))
+const AdminPayers         = lazy(() => import('./pages/admin/Payers'))
+const AdminRightsRequests = lazy(() => import('./pages/admin/RightsRequests'))
+const ManagerPharmacy     = lazy(() => import('./pages/manager/pharmacy/index'))
+const ManagerReports      = lazy(() => import('./pages/manager/reports/index'))
 import AdminLayout from './layouts/AdminLayout'
 
 // ─── Loading fallbacks ────────────────────────────────────────────────────────
@@ -360,6 +366,8 @@ function App() {
             <Route path="/manager/rooms/:id"         element={<Suspense fallback={<ShellPageLoader />}><RoomDetailPage /></Suspense>} />
             <Route path="/manager/rooms/:id/edit"    element={<Suspense fallback={<ShellPageLoader />}><EditRoomPage /></Suspense>} />
             <Route path="/manager/resources"         element={<Suspense fallback={<ShellPageLoader />}><ManagerResources /></Suspense>} />
+            <Route path="/manager/pharmacy"           element={<Suspense fallback={<ShellPageLoader />}><ManagerPharmacy /></Suspense>} />
+            <Route path="/manager/reports"            element={<Suspense fallback={<ShellPageLoader />}><ManagerReports /></Suspense>} />
             {/* Services CRUD */}
             <Route path="/manager/services"          element={<Suspense fallback={<ShellPageLoader />}><ServiceCatalog /></Suspense>} />
             <Route path="/manager/services/new"      element={<Suspense fallback={<ShellPageLoader />}><CreateServicePage /></Suspense>} />
@@ -395,20 +403,26 @@ function App() {
               <Route path="/admin/clinician-types" element={<Suspense fallback={<ShellPageLoader />}><AdminClinicianTypes /></Suspense>} />
               <Route path="/admin/room-types"      element={<Suspense fallback={<ShellPageLoader />}><AdminRoomTypes /></Suspense>} />
               <Route path="/admin/departments"     element={<Suspense fallback={<ShellPageLoader />}><AdminDepartments /></Suspense>} />
+              <Route path="/admin/plans"           element={<Suspense fallback={<ShellPageLoader />}><AdminPlans /></Suspense>} />
               <Route path="/admin/languages"       element={<Suspense fallback={<ShellPageLoader />}><AdminLanguages /></Suspense>} />
               <Route path="/admin/email-templates" element={<Suspense fallback={<ShellPageLoader />}><AdminEmailTemplates /></Suspense>} />
             </Route>
           </Route>
 
-          {/* ── Admin OR manager — same AdminLayout shell, but these two pages'
-               real backend (cancellation-rules, org-settings) is org-scoped off
-               the caller's own client_org_id, which only a manager (not an
-               org-less admin/super_admin) actually has. Split out from the
-               admin-only block above so a manager can reach and use them. ── */}
+          {/* ── Admin OR manager — same AdminLayout shell, but these pages'
+               real backend is org-scoped off the caller's own client_org_id
+               (cancellation-rules, org-settings), or explicitly @Auth()'d to
+               include 'manager' (insurance.resolver.ts's payers/empanelments,
+               consent.resolver.ts's rightsRequests) — a manager (not an
+               org-less admin/super_admin) is the real day-to-day caller for
+               all of these. Split out from the admin-only block above so a
+               manager can reach and use them. ── */}
           <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager']} />}>
             <Route element={<AdminLayout />}>
               <Route path="/admin/communications"  element={<Suspense fallback={<ShellPageLoader />}><AdminCommunications /></Suspense>} />
               <Route path="/admin/policies"        element={<Suspense fallback={<ShellPageLoader />}><AdminPolicies /></Suspense>} />
+              <Route path="/admin/payers"          element={<Suspense fallback={<ShellPageLoader />}><AdminPayers /></Suspense>} />
+              <Route path="/admin/rights-requests" element={<Suspense fallback={<ShellPageLoader />}><AdminRightsRequests /></Suspense>} />
             </Route>
           </Route>
         </Route>

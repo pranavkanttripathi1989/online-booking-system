@@ -4,10 +4,10 @@ import { useApolloClient, gql } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import {
   Box, Button, Typography, Tabs, Tab, Grid, Card, CardContent, Stack, Divider,
-  TextField, Avatar, Switch, FormControlLabel, Paper, IconButton,
+  TextField, Avatar, Switch, FormControlLabel, Paper, IconButton, Chip,
   Slider, Radio, RadioGroup, FormControl, FormLabel, MenuItem, Alert,
   Tooltip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  Dialog, DialogTitle, DialogContent, DialogActions,
+  Dialog, DialogTitle, DialogContent, DialogActions, CircularProgress,
 } from '@mui/material'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -108,6 +108,55 @@ const UPDATE_ORG_BRANDING = gql`
   mutation UpdateMyOrgBranding($input: UpdateOrgBrandingInput!) {
     updateMyOrgBranding(input: $input) { success userErrors { message } branding { logo_url primary_color secondary_color } }
   }
+`
+
+// ─── REQ018/REQ030/REQ015 — Integrations tab (booking widget, webhooks, API keys) ──
+const GET_INTEGRATIONS = gql`
+  query GetIntegrations {
+    bookingWidgetConfigs { id allowed_origins short_link_slug is_active }
+    webhookEndpoints { id url event_types is_active }
+    apiKeys { id key_prefix name is_active last_used_at }
+  }
+`
+const CREATE_BOOKING_WIDGET = gql`
+  mutation CreateBookingWidgetConfig($input: BookingWidgetConfigInput!) {
+    createBookingWidgetConfig(input: $input) { success userErrors { message } config { id allowed_origins short_link_slug } }
+  }
+`
+const DEACTIVATE_BOOKING_WIDGET = gql`
+  mutation DeactivateBookingWidgetConfig($id: ID!) { deactivateBookingWidgetConfig(id: $id) { success } }
+`
+const CREATE_WEBHOOK_ENDPOINT = gql`
+  mutation CreateWebhookEndpoint($input: WebhookEndpointInput!) {
+    createWebhookEndpoint(input: $input) { id url event_types secret }
+  }
+`
+const DEACTIVATE_WEBHOOK_ENDPOINT = gql`
+  mutation DeactivateWebhookEndpoint($id: ID!) { deactivateWebhookEndpoint(id: $id) { id is_active } }
+`
+const CREATE_API_KEY = gql`
+  mutation CreateApiKey($input: ApiKeyInput!) { createApiKey(input: $input) { id key_prefix name raw_key } }
+`
+const REVOKE_API_KEY = gql`
+  mutation RevokeApiKey($id: ID!) { revokeApiKey(id: $id) { id is_active } }
+`
+
+// ─── REQ034 — Privacy tab (patient-facing consent + data rights) ──────────────
+// AuthContext caches `medibook_user` straight from LOGIN_MUTATION's response
+// on every fresh login, which has no `patient` field (see graphql/mutations.js
+// LOGIN_MUTATION) — and its own mount effect only calls the full ME_QUERY
+// (which does select `patient { id }`) when no cached user exists yet, so a
+// freshly-logged-in patient session never picks up its own patient_id from
+// `useAuth()` at all. Fetch it directly here instead of trusting that cache.
+const GET_MY_PATIENT_LINK = gql`query MyPatientLink { me { patient { id } } }`
+const GET_MY_CONSENTS = gql`
+  query GetMyConsents($patient_id: ID!) { patientConsents(patient_id: $patient_id) { id purpose granted granted_at revoked_at } }
+`
+const UPDATE_CONSENT = gql`
+  mutation UpdateConsentSelf($input: UpdateConsentInput!) { updateConsent(input: $input) { id purpose granted granted_at } }
+`
+const REQUEST_DATA_RIGHTS = gql`
+  mutation RequestDataRightsSelf($input: RequestDataRightsInput!) { requestDataRights(input: $input) { id type status sla_due_at } }
 `
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
@@ -254,6 +303,120 @@ export default function SettingsPage() {
     finally { setBrandingLoaded(true) }
   }
   useEffect(() => { loadBranding() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── REQ018/REQ030/REQ015 — Integrations tab ──────────────────────────────
+  const [widgetConfigs, setWidgetConfigs]       = useState([])
+  const [webhookEndpoints, setWebhookEndpoints] = useState([])
+  const [apiKeys, setApiKeys]                   = useState([])
+  const [integrationsError, setIntegrationsError] = useState(null)
+  const [widgetOrigin, setWidgetOrigin]         = useState('')
+  const [webhookUrl, setWebhookUrl]             = useState('')
+  const [webhookEvents, setWebhookEvents]       = useState(['appointment.created'])
+  const [apiKeyName, setApiKeyName]             = useState('')
+  const [revealedSecret, setRevealedSecret]     = useState(null) // { kind, value } — shown once
+  const [integrationsSubmitting, setIntegrationsSubmitting] = useState(false)
+
+  const loadIntegrations = async () => {
+    try {
+      const { data } = await client.query({ query: GET_INTEGRATIONS, fetchPolicy: 'network-only' })
+      setWidgetConfigs(data?.bookingWidgetConfigs ?? [])
+      setWebhookEndpoints(data?.webhookEndpoints ?? [])
+      setApiKeys(data?.apiKeys ?? [])
+    } catch (err) { setIntegrationsError(err.message) }
+  }
+  useEffect(() => { loadIntegrations() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const submitWidget = async () => {
+    if (!widgetOrigin.trim()) { setIntegrationsError('Enter at least one allowed origin URL'); return }
+    setIntegrationsSubmitting(true)
+    setIntegrationsError(null)
+    try {
+      const { data } = await client.mutate({ mutation: CREATE_BOOKING_WIDGET, variables: { input: { allowed_origins: widgetOrigin.split(',').map((o) => o.trim()).filter(Boolean) } } })
+      if (!data?.createBookingWidgetConfig?.success) throw new Error(data?.createBookingWidgetConfig?.userErrors?.[0]?.message ?? 'Failed to create widget config')
+      setWidgetOrigin('')
+      loadIntegrations()
+    } catch (err) { setIntegrationsError(err.message) }
+    finally { setIntegrationsSubmitting(false) }
+  }
+  const deactivateWidget = async (id) => {
+    try { await client.mutate({ mutation: DEACTIVATE_BOOKING_WIDGET, variables: { id } }); loadIntegrations() }
+    catch (err) { setIntegrationsError(err.message) }
+  }
+
+  const submitWebhook = async () => {
+    if (!webhookUrl.trim()) { setIntegrationsError('Enter an endpoint URL'); return }
+    setIntegrationsSubmitting(true)
+    setIntegrationsError(null)
+    try {
+      const { data } = await client.mutate({ mutation: CREATE_WEBHOOK_ENDPOINT, variables: { input: { url: webhookUrl.trim(), event_types: webhookEvents } } })
+      setRevealedSecret({ kind: 'Webhook signing secret', value: data?.createWebhookEndpoint?.secret })
+      setWebhookUrl('')
+      loadIntegrations()
+    } catch (err) { setIntegrationsError(err.message) }
+    finally { setIntegrationsSubmitting(false) }
+  }
+  const deactivateWebhook = async (id) => {
+    try { await client.mutate({ mutation: DEACTIVATE_WEBHOOK_ENDPOINT, variables: { id } }); loadIntegrations() }
+    catch (err) { setIntegrationsError(err.message) }
+  }
+
+  const submitApiKey = async () => {
+    if (!apiKeyName.trim()) { setIntegrationsError('Give the key a name'); return }
+    setIntegrationsSubmitting(true)
+    setIntegrationsError(null)
+    try {
+      const { data } = await client.mutate({ mutation: CREATE_API_KEY, variables: { input: { name: apiKeyName.trim() } } })
+      setRevealedSecret({ kind: 'API key', value: data?.createApiKey?.raw_key })
+      setApiKeyName('')
+      loadIntegrations()
+    } catch (err) { setIntegrationsError(err.message) }
+    finally { setIntegrationsSubmitting(false) }
+  }
+  const revokeApiKey = async (id) => {
+    try { await client.mutate({ mutation: REVOKE_API_KEY, variables: { id } }); loadIntegrations() }
+    catch (err) { setIntegrationsError(err.message) }
+  }
+
+  // ── REQ034 — Privacy tab (patient-facing) ────────────────────────────────
+  const [patientId, setPatientId]         = useState(user?.patient?.id ?? null)
+  const [consents, setConsents]           = useState([])
+  const [privacyError, setPrivacyError]   = useState(null)
+  const [privacyLoaded, setPrivacyLoaded] = useState(false)
+  const [rightsRequestMsg, setRightsRequestMsg] = useState(null)
+
+  const loadPrivacy = async () => {
+    let resolvedPatientId = patientId
+    if (!resolvedPatientId) {
+      const { data: linkData } = await client.query({ query: GET_MY_PATIENT_LINK, fetchPolicy: 'network-only' }).catch(() => ({ data: null }))
+      resolvedPatientId = linkData?.me?.patient?.id ?? null
+      setPatientId(resolvedPatientId)
+    }
+    if (!resolvedPatientId) { setPrivacyLoaded(true); return }
+    try {
+      const { data } = await client.query({ query: GET_MY_CONSENTS, variables: { patient_id: resolvedPatientId }, fetchPolicy: 'network-only' })
+      setConsents(data?.patientConsents ?? [])
+    } catch (err) { setPrivacyError(err.message) }
+    finally { setPrivacyLoaded(true) }
+  }
+  useEffect(() => { loadPrivacy() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const isConsentGranted = (purpose) => {
+    const rows = consents.filter((c) => c.purpose === purpose).sort((a, b) => new Date(b.granted_at) - new Date(a.granted_at))
+    return rows[0]?.granted ?? false
+  }
+  const toggleConsent = async (purpose, granted) => {
+    try {
+      await client.mutate({ mutation: UPDATE_CONSENT, variables: { input: { patient_id: patientId, purpose, granted } } })
+      loadPrivacy()
+    } catch (err) { setPrivacyError(err.message) }
+  }
+  const requestRights = async (type) => {
+    try {
+      await client.mutate({ mutation: REQUEST_DATA_RIGHTS, variables: { input: { patient_id: patientId, type } } })
+      setRightsRequestMsg(`Your ${type} request has been submitted — our team will respond within 30 days.`)
+      setTimeout(() => setRightsRequestMsg(null), 6000)
+    } catch (err) { setPrivacyError(err.message) }
+  }
 
   // Same REST-multipart pattern as the avatar upload above — PNG/JPEG only
   // (magic-byte validated server-side; SVG deliberately excluded, see
@@ -531,6 +694,8 @@ export default function SettingsPage() {
           <Tab icon={<NotificationsRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Notifications" />
           <Tab icon={<PaletteRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Appearance" />
           <Tab icon={<BusinessRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Clinic" />
+          <Tab icon={<DevicesRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Integrations" />
+          <Tab icon={<SecurityRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Privacy" />
         </Tabs>
 
         <Box sx={{ p: { xs: 2.5, sm: 4 } }}>
@@ -911,6 +1076,164 @@ export default function SettingsPage() {
                   }}>{savingBranding ? 'Saving…' : 'Save Branding'}</Button>
               </Grid>
             </Grid>
+          </TabPanel>
+
+          {/* ── Integrations (REQ018/REQ030/REQ015) ─────────────────────────── */}
+          <TabPanel value={tab} index={5}>
+            {integrationsError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setIntegrationsError(null)}>{integrationsError}</Alert>}
+            {revealedSecret && (
+              <Alert severity="warning" sx={{ mb: 2 }} onClose={() => setRevealedSecret(null)}>
+                <Typography variant="body2" fontWeight={700}>{revealedSecret.kind} — copy this now, it won't be shown again:</Typography>
+                <Typography component="code" variant="body2" sx={{ display: 'block', mt: 0.5, wordBreak: 'break-all', fontFamily: 'monospace' }}>{revealedSecret.value}</Typography>
+              </Alert>
+            )}
+
+            <Stack spacing={4} sx={{ maxWidth: 720 }}>
+              {/* Booking Widget */}
+              <Box>
+                <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 0.5 }}>Booking Widget</Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                  Register the external websites allowed to embed your booking page in an iframe.
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2}>
+                  <TextField fullWidth size="small" label="Allowed origin(s), comma-separated" placeholder="https://yourclinic.com" value={widgetOrigin} onChange={(e) => setWidgetOrigin(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  <Button variant="contained" disabled={integrationsSubmitting} onClick={submitWidget} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}>Register</Button>
+                </Stack>
+                <TableContainer sx={{ border: '1px solid #E8EAED', borderRadius: 2 }}>
+                  <Table size="small">
+                    <TableHead><TableRow><TableCell>Origins</TableCell><TableCell>Embed slug</TableCell><TableCell>Status</TableCell><TableCell /></TableRow></TableHead>
+                    <TableBody>
+                      {widgetConfigs.length === 0 && <TableRow><TableCell colSpan={4}><Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No widget configs yet</Typography></TableCell></TableRow>}
+                      {widgetConfigs.map((w) => (
+                        <TableRow key={w.id}>
+                          <TableCell><Typography variant="body2">{(w.allowed_origins ?? []).join(', ')}</Typography></TableCell>
+                          <TableCell><Typography variant="body2" fontFamily="monospace">{w.short_link_slug}</Typography></TableCell>
+                          <TableCell>{w.is_active ? <Chip size="small" label="Active" color="success" /> : <Chip size="small" label="Inactive" />}</TableCell>
+                          <TableCell>{w.is_active && <Button size="small" color="error" onClick={() => deactivateWidget(w.id)}>Deactivate</Button>}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+
+              <Divider />
+
+              {/* Webhooks */}
+              <Box>
+                <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 0.5 }}>Webhooks</Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                  Receive a signed HTTP POST when appointment or payment events happen — subscribed to "appointment.created" by default.
+                </Typography>
+                <Stack spacing={1.5} mb={2}>
+                  <TextField fullWidth size="small" label="Endpoint URL" placeholder="https://yourapp.com/webhooks/medibook" value={webhookUrl} onChange={(e) => setWebhookUrl(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  <Box>
+                    <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>Subscribed events</Typography>
+                    <Stack direction="row" flexWrap="wrap" gap={1}>
+                      {['appointment.created', 'appointment.confirmed', 'appointment.cancelled', 'payment.succeeded'].map((evt) => (
+                        <Chip key={evt} size="small" label={evt} clickable
+                          color={webhookEvents.includes(evt) ? 'primary' : 'default'}
+                          onClick={() => setWebhookEvents((prev) => prev.includes(evt) ? prev.filter((e) => e !== evt) : [...prev, evt])}
+                        />
+                      ))}
+                    </Stack>
+                  </Box>
+                  <Button variant="contained" disabled={integrationsSubmitting} onClick={submitWebhook} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, alignSelf: 'flex-start' }}>Add Endpoint</Button>
+                </Stack>
+                <TableContainer sx={{ border: '1px solid #E8EAED', borderRadius: 2 }}>
+                  <Table size="small">
+                    <TableHead><TableRow><TableCell>URL</TableCell><TableCell>Events</TableCell><TableCell>Status</TableCell><TableCell /></TableRow></TableHead>
+                    <TableBody>
+                      {webhookEndpoints.length === 0 && <TableRow><TableCell colSpan={4}><Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No webhook endpoints yet</Typography></TableCell></TableRow>}
+                      {webhookEndpoints.map((w) => (
+                        <TableRow key={w.id}>
+                          <TableCell><Typography variant="body2" sx={{ wordBreak: 'break-all' }}>{w.url}</Typography></TableCell>
+                          <TableCell>{(w.event_types ?? []).map((e) => <Chip key={e} size="small" label={e} sx={{ mr: 0.5, mb: 0.5 }} />)}</TableCell>
+                          <TableCell>{w.is_active ? <Chip size="small" label="Active" color="success" /> : <Chip size="small" label="Inactive" />}</TableCell>
+                          <TableCell>{w.is_active && <Button size="small" color="error" onClick={() => deactivateWebhook(w.id)}>Deactivate</Button>}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+
+              <Divider />
+
+              {/* API Keys */}
+              <Box>
+                <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 0.5 }}>API Keys</Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                  Issue a key for a partner integration. The raw key is shown once, at creation — store it securely.
+                </Typography>
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} mb={2}>
+                  <TextField fullWidth size="small" label="Key name" placeholder="Zapier integration" value={apiKeyName} onChange={(e) => setApiKeyName(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                  <Button variant="contained" disabled={integrationsSubmitting} onClick={submitApiKey} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}>Create Key</Button>
+                </Stack>
+                <TableContainer sx={{ border: '1px solid #E8EAED', borderRadius: 2 }}>
+                  <Table size="small">
+                    <TableHead><TableRow><TableCell>Name</TableCell><TableCell>Prefix</TableCell><TableCell>Last used</TableCell><TableCell>Status</TableCell><TableCell /></TableRow></TableHead>
+                    <TableBody>
+                      {apiKeys.length === 0 && <TableRow><TableCell colSpan={5}><Typography variant="body2" color="text.secondary" sx={{ py: 1 }}>No API keys yet</Typography></TableCell></TableRow>}
+                      {apiKeys.map((k) => (
+                        <TableRow key={k.id}>
+                          <TableCell>{k.name}</TableCell>
+                          <TableCell><Typography variant="body2" fontFamily="monospace">{k.key_prefix}</Typography></TableCell>
+                          <TableCell>{k.last_used_at ? new Date(k.last_used_at).toLocaleDateString('en-IN') : 'Never'}</TableCell>
+                          <TableCell>{k.is_active ? <Chip size="small" label="Active" color="success" /> : <Chip size="small" label="Revoked" />}</TableCell>
+                          <TableCell>{k.is_active && <Button size="small" color="error" onClick={() => revokeApiKey(k.id)}>Revoke</Button>}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </Box>
+            </Stack>
+          </TabPanel>
+
+          {/* ── Privacy (REQ034) ─────────────────────────────────────────────── */}
+          <TabPanel value={tab} index={6}>
+            {!privacyLoaded ? (
+              <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>
+            ) : !patientId ? (
+              <Alert severity="info">Privacy and consent settings apply to a linked patient profile — your account isn't linked to one.</Alert>
+            ) : (
+              <Stack spacing={4} sx={{ maxWidth: 560 }}>
+                {privacyError && <Alert severity="error" onClose={() => setPrivacyError(null)}>{privacyError}</Alert>}
+                {rightsRequestMsg && <Alert severity="success">{rightsRequestMsg}</Alert>}
+
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1.5 }}>Consent</Typography>
+                  <Stack spacing={1}>
+                    {[
+                      ['treatment', 'Treatment', 'Sharing your records among your care team for treatment purposes'],
+                      ['communications', 'Communications', 'Appointment reminders and clinical updates'],
+                      ['marketing', 'Marketing', 'Promotional offers and newsletters'],
+                      ['record_sharing', 'Record Sharing', 'Sharing your records with other providers on request'],
+                    ].map(([purpose, label, desc]) => (
+                      <FormControlLabel key={purpose}
+                        control={<Switch checked={isConsentGranted(purpose)} onChange={(e) => toggleConsent(purpose, e.target.checked)} color="primary" />}
+                        label={<Box><Typography variant="body2" fontWeight={700}>{label}</Typography><Typography variant="caption" color="text.secondary">{desc}</Typography></Box>}
+                      />
+                    ))}
+                  </Stack>
+                </Box>
+
+                <Divider />
+
+                <Box>
+                  <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 0.5 }}>Your Data Rights</Typography>
+                  <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
+                    Request a copy of your data, a correction, or erasure. Requests are reviewed by our team within 30 days — clinical records under statutory retention may not be immediately erasable.
+                  </Typography>
+                  <Stack direction="row" spacing={1.5} flexWrap="wrap">
+                    <Button variant="outlined" size="small" onClick={() => requestRights('access')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Request my data</Button>
+                    <Button variant="outlined" size="small" onClick={() => requestRights('correction')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Request a correction</Button>
+                    <Button variant="outlined" size="small" color="error" onClick={() => requestRights('erasure')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Request erasure</Button>
+                  </Stack>
+                </Box>
+              </Stack>
+            )}
           </TabPanel>
 
         </Box>
