@@ -17,6 +17,8 @@ export class UpdateOrgBookingPoliciesInput {
   @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(0) slot_buffer_minutes?: number;
   @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(0) max_reschedules_per_month?: number;
   @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(0) data_retention_years?: number;
+  @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(0) no_show_grace_minutes?: number;
+  @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(0) no_show_prepayment_threshold?: number;
 }
 
 @InputType('UpdateOrgSecuritySettingsInput')

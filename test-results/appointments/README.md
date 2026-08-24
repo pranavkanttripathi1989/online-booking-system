@@ -10,7 +10,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR101 | improvement | Auto-no-show + intake fields results | pass | 2026-08-25 | 2026-08-25 | TP102 | [TR101-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/TR101-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 
 ## bug
 

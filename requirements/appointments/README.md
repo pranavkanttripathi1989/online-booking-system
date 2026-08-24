@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ052 | improvement | Auto-mark-no-show after grace period, and configurable intake fields | in-progress | 2026-08-25 | 2026-08-25 | REQ018 | [REQ052-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/REQ052-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 
 ## bug
 

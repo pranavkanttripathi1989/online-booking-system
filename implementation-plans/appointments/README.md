@@ -9,7 +9,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN075 | improvement | Auto-no-show sweep + configurable intake fields | done | 2026-08-25 | 2026-08-25 | REQ052 | [PLAN075-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/PLAN075-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 
 ## bug
 

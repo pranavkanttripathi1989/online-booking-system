@@ -1,5 +1,7 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsIn, IsISO8601 } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsIn, IsISO8601, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IntakeFieldResponseInput } from '../../intake-fields/dto/intake-field.input';
 
 // Matches components/BookingWizard/BookingStep5Confirm.jsx's actual submitted
 // shape exactly: { patient_id, clinician_id, service_id, clinic_id, slot_id,
@@ -22,6 +24,15 @@ export class AppointmentInput {
   // or the booking is rejected. Ignored for session/hybrid mode bookings in
   // this slice (out of scope — see PLAN under REQ017).
   @Field(() => [String], { nullable: true }) @IsOptional() resource_ids?: string[];
+  // REQ052 (US-BOOK-06) — answers to whatever ClinicIntakeFieldConfig
+  // items apply to this clinic/service; validated for required-field
+  // completeness server-side in appointments.service.ts's create(), not
+  // trusted from the client alone.
+  @Field(() => [IntakeFieldResponseInput], { nullable: true })
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => IntakeFieldResponseInput)
+  intake_responses?: IntakeFieldResponseInput[];
 }
 
 // Matches appointments/edit.jsx's submitted shape exactly — a partial update,

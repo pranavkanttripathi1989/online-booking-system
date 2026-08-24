@@ -105,6 +105,9 @@ export const IDS = {
   // REQ051 -- checklist domain.
   checklistItemA: u('d13'),
   checklistItemB: u('d14'),
+  // REQ052 -- intake-fields domain.
+  intakeFieldA: u('d15'),
+  intakeFieldB: u('d16'),
   // REQ014 -- departments domain.
   departmentA: u('d11'),
   departmentB: u('d12'),
@@ -451,6 +454,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.checklistItemA, clinic_id: IDS.clinicA, label: 'Consent form' },
       { id: IDS.checklistItemB, clinic_id: IDS.clinicB, label: 'Consent form' },
+    ],
+  });
+
+  // REQ052 -- one clinic-wide intake field per org.
+  await prisma.clinicIntakeFieldConfig.createMany({
+    data: [
+      { id: IDS.intakeFieldA, clinic_id: IDS.clinicA, key: 'current_medications', label: 'Current medications' },
+      { id: IDS.intakeFieldB, clinic_id: IDS.clinicB, key: 'current_medications', label: 'Current medications' },
     ],
   });
 

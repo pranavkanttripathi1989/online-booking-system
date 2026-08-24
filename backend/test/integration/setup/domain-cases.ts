@@ -315,6 +315,15 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
   },
   {
+    domain: 'intake-fields',
+    what: 'intakeFieldConfigs',
+    query: `{ intakeFieldConfigs { id } }`,
+    ids: (d) => (d.intakeFieldConfigs ?? []).map((x: any) => x.id),
+    aId: IDS.intakeFieldA,
+    bId: IDS.intakeFieldB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
+  },
+  {
     // REQ018 (US-BOOK-05). Own client_org_id, same shape as departments/resources.
     domain: 'booking-widget',
     what: 'bookingWidgetConfigs',

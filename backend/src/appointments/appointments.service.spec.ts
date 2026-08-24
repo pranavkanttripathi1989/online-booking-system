@@ -8,6 +8,7 @@ import { NotificationTriggerService } from '../notifications/notification-trigge
 import { QueueService } from '../queue/queue.service';
 import { PatientsService } from '../patients/patients.service';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
+import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -20,6 +21,7 @@ describe('AppointmentsService — access scoping', () => {
     appointmentStatusLogs: { findMany: jest.Mock; create: jest.Mock };
     clinics: { findUnique: jest.Mock };
     products: { findUnique: jest.Mock };
+    patients: { findUnique: jest.Mock };
     rooms: { findFirst: jest.Mock; findUnique: jest.Mock };
     userProfiles: { findFirst: jest.Mock };
     clinicianAvailability: { findFirst: jest.Mock };
@@ -31,6 +33,7 @@ describe('AppointmentsService — access scoping', () => {
   let notificationTrigger: { dispatch: jest.Mock };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
   let webhookDispatch: { fireEvent: jest.Mock };
+  let intakeFieldsService: { forBooking: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -58,8 +61,10 @@ describe('AppointmentsService — access scoping', () => {
         }),
       },
       appointmentStatusLogs: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
-      clinics: { findUnique: jest.fn().mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' }) },
+      clinics: { findUnique: jest.fn().mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1', client_organization: { no_show_prepayment_threshold: 3 } }) },
       products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 30, prepayment_policy: 'none' }) },
+      // REQ052: create() now also checks the caller's own no-show history.
+      patients: { findUnique: jest.fn().mockResolvedValue({ id: 'pat-1', no_show_count: 0 }) },
       rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }), findUnique: jest.fn().mockResolvedValue({ id: 'room-1' }) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
       // REQ017: default to "no session/hybrid window" so every pre-existing
@@ -89,6 +94,11 @@ describe('AppointmentsService — access scoping', () => {
         // REQ030: fireEvent is best-effort/fire-and-forget -- mocked no-op
         // here, exercised for real in webhook-dispatch.service.spec.ts.
         { provide: WebhookDispatchService, useValue: (webhookDispatch = { fireEvent: jest.fn() }) },
+        // REQ052: create() now checks required intake fields -- mocked to
+        // "no fields configured" here (every existing test in this file
+        // predates intake fields), exercised for real in
+        // intake-fields.service.spec.ts and the dedicated describe block below.
+        { provide: IntakeFieldsService, useValue: (intakeFieldsService = { forBooking: jest.fn().mockResolvedValue([]) }) },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -159,10 +169,15 @@ describe('AppointmentsService — access scoping', () => {
       expect(notificationTrigger.dispatch).not.toHaveBeenCalled();
     });
 
-    it('is a no-op for an org-less caller (patient self-serve booking goes through a separate mutation)', async () => {
+    it('skips the org-ownership check for an org-less caller (patient self-serve booking goes through a separate mutation)', async () => {
+      // REQ052: clinics.findUnique now always runs (it also resolves the
+      // no-show-prepayment threshold, needed regardless of caller org) —
+      // the real guarantee this test cares about is that an org-less
+      // caller is never rejected for a clinic-ownership mismatch, not that
+      // the lookup itself never happens.
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-2' });
       const orgLessPatient: JwtPayload = { sub: 'p-1', roles: ['patient'], client_org_id: null, patient_id: 'pat-1' } as JwtPayload;
       await expect(service.create(baseInput as any, orgLessPatient)).resolves.toBeDefined();
-      expect(prisma.clinics.findUnique).not.toHaveBeenCalled();
     });
 
     // REQ018 (US-BOOK-03).
@@ -186,6 +201,64 @@ describe('AppointmentsService — access scoping', () => {
         expect(prisma.appointmentStatusLogs.create).toHaveBeenCalledWith(
           expect.objectContaining({ data: expect.objectContaining({ status: 'awaiting_payment' }) }),
         );
+      });
+    });
+
+    // REQ052 (US-BOOK-04) — repeat-no-show patients forced into prepayment.
+    describe('repeat-no-show prepayment override', () => {
+      it('forces awaiting_payment once no_show_count reaches the org threshold, even for a policy-free service', async () => {
+        prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', no_show_count: 3 });
+        await service.create(baseInput as any, staffUser);
+        const created = prisma.appointments.create.mock.calls[0][0].data;
+        expect(created.status).toBe('awaiting_payment');
+      });
+
+      it('does not force prepayment below the threshold', async () => {
+        prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', no_show_count: 2 });
+        await service.create(baseInput as any, staffUser);
+        const created = prisma.appointments.create.mock.calls[0][0].data;
+        expect(created.status).toBe('scheduled');
+      });
+
+      it('respects a per-org configured threshold, not a hardcoded one', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1', client_organization: { no_show_prepayment_threshold: 1 } });
+        prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', no_show_count: 1 });
+        await service.create(baseInput as any, staffUser);
+        const created = prisma.appointments.create.mock.calls[0][0].data;
+        expect(created.status).toBe('awaiting_payment');
+      });
+    });
+
+    // REQ052 (US-BOOK-06) — configurable intake fields.
+    describe('intake fields', () => {
+      it('stores submitted intake responses as the appointment\'s intake_responses JSON', async () => {
+        const input = { ...baseInput, intake_responses: [{ key: 'current_medications', value: 'None' }] };
+        await service.create(input as any, staffUser);
+        const created = prisma.appointments.create.mock.calls[0][0].data;
+        expect(created.intake_responses).toEqual({ current_medications: 'None' });
+      });
+
+      it('rejects when a required field for this clinic/service is not answered', async () => {
+        intakeFieldsService.forBooking.mockResolvedValue([
+          { key: 'current_medications', label: 'Current medications', is_required: true },
+        ]);
+        await expect(service.create(baseInput as any, staffUser)).rejects.toThrow(/Missing required field/i);
+        expect(prisma.appointments.create).not.toHaveBeenCalled();
+      });
+
+      it('accepts when every required field is answered', async () => {
+        intakeFieldsService.forBooking.mockResolvedValue([
+          { key: 'current_medications', label: 'Current medications', is_required: true },
+        ]);
+        const input = { ...baseInput, intake_responses: [{ key: 'current_medications', value: 'Ibuprofen' }] };
+        await expect(service.create(input as any, staffUser)).resolves.toBeDefined();
+      });
+
+      it('does not require an optional field to be answered', async () => {
+        intakeFieldsService.forBooking.mockResolvedValue([
+          { key: 'referral_source', label: 'Referral source', is_required: false },
+        ]);
+        await expect(service.create(baseInput as any, staffUser)).resolves.toBeDefined();
       });
     });
 

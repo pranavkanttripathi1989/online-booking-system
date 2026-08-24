@@ -33,6 +33,8 @@ export class OrgSettingsService {
       slot_buffer_minutes: row.slot_buffer_minutes,
       max_reschedules_per_month: row.max_reschedules_per_month,
       data_retention_years: row.data_retention_years,
+      no_show_grace_minutes: row.no_show_grace_minutes,
+      no_show_prepayment_threshold: row.no_show_prepayment_threshold,
     };
   }
 
@@ -102,6 +104,8 @@ export class OrgSettingsService {
           slot_buffer_minutes: input.slot_buffer_minutes,
           max_reschedules_per_month: input.max_reschedules_per_month,
           data_retention_years: input.data_retention_years,
+          no_show_grace_minutes: input.no_show_grace_minutes,
+          no_show_prepayment_threshold: input.no_show_prepayment_threshold,
         },
       });
       return { success: true, userErrors: [], policies: this.toBookingPolicies(row) };

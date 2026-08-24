@@ -35,6 +35,9 @@ export class OrgBookingPoliciesType {
   @Field(() => Int) slot_buffer_minutes: number;
   @Field(() => Int) max_reschedules_per_month: number;
   @Field(() => Int) data_retention_years: number;
+  // REQ052 (US-BOOK-04)
+  @Field(() => Int) no_show_grace_minutes: number;
+  @Field(() => Int) no_show_prepayment_threshold: number;
 }
 
 @ObjectType('OrgBookingPoliciesUserError')

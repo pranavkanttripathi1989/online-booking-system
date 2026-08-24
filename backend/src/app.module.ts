@@ -51,6 +51,7 @@ import { InsuranceModule } from './insurance/insurance.module';
 import { ApiKeysModule } from './api-keys/api-keys.module';
 import { ScheduledReportsModule } from './scheduled-reports/scheduled-reports.module';
 import { ChecklistModule } from './checklist/checklist.module';
+import { IntakeFieldsModule } from './intake-fields/intake-fields.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
@@ -148,6 +149,7 @@ import { PubSubModule } from './common/pubsub.module';
     ApiKeysModule,
     ScheduledReportsModule,
     ChecklistModule,
+    IntakeFieldsModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

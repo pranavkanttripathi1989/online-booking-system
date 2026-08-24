@@ -12,6 +12,7 @@ import { NotificationTriggerService } from '../notifications/notification-trigge
 import { QueueService } from '../queue/queue.service';
 import { PatientsService } from '../patients/patients.service';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
+import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -54,6 +55,7 @@ export class AppointmentsService {
     private readonly queueService: QueueService,
     private readonly patientsService: PatientsService,
     private readonly webhookDispatch: WebhookDispatchService,
+    private readonly intakeFieldsService: IntakeFieldsService,
   ) {}
 
   // REQ008/PLAN017 — notify the clinician's own login account, if linked.
@@ -78,6 +80,10 @@ export class AppointmentsService {
       type: a.type ?? 'in_person',
       booking_mode: a.booking_mode ?? 'slot',
       token_no: a.token_no ?? undefined,
+      // REQ052 -- stored as { [key]: value }, exposed as a structured list.
+      intake_responses: a.intake_responses
+        ? Object.entries(a.intake_responses as Record<string, string>).map(([key, value]) => ({ key, value }))
+        : undefined,
       notes: a.notes || undefined,
       cancellation_reason: a.cancellation_reason ?? undefined,
       reminder_sent_at: a.reminder_sent_at ?? undefined,
@@ -301,8 +307,16 @@ export class AppointmentsService {
   }
 
   async create(input: AppointmentInput, user: JwtPayload) {
+    // REQ052 (US-BOOK-04) — fetched once with client_organization included:
+    // the ownership check below only runs for an org-scoped caller, but the
+    // no-show-threshold lookup further down is needed regardless of caller
+    // type (it answers "does THIS clinic's org force prepayment", not
+    // "is the caller allowed here").
+    const clinic = await this.prisma.clinics.findUnique({
+      where: { id: input.clinic_id },
+      include: { client_organization: true },
+    });
     if (user.client_org_id) {
-      const clinic = await this.prisma.clinics.findUnique({ where: { id: input.clinic_id } });
       if (!clinic || clinic.client_org_id !== user.client_org_id) {
         throw new BadRequestException('Clinic not found');
       }
@@ -320,12 +334,34 @@ export class AppointmentsService {
     }
     const service = await this.prisma.products.findUnique({ where: { id: input.service_id } });
     if (!service) throw new BadRequestException('Service not found');
+
+    // REQ052 (US-BOOK-06) — required intake fields must be answered before
+    // the booking is accepted; the client-supplied set is never trusted
+    // alone for which fields even apply.
+    const applicableIntakeFields = await this.intakeFieldsService.forBooking(input.clinic_id, input.service_id);
+    const answeredKeys = new Set((input.intake_responses ?? []).map((r) => r.key));
+    const missingRequired = applicableIntakeFields.filter((f) => f.is_required && !answeredKeys.has(f.key));
+    if (missingRequired.length > 0) {
+      throw new BadRequestException(`Missing required field(s): ${missingRequired.map((f) => f.label).join(', ')}`);
+    }
+    const intakeResponsesJson = input.intake_responses?.length
+      ? Object.fromEntries(input.intake_responses.map((r) => [r.key, r.value]))
+      : undefined;
+
     // REQ018 (US-BOOK-03) — a service configured "prepayment required"
     // leaves the appointment unconfirmed until AppointmentPaymentsService's
     // shared success handler (verifyRazorpayPayment / the webhook's
     // payment.captured branch) transitions it to 'confirmed'. "optional"/
     // "none" (the default) preserve today's behaviour exactly.
-    const initialStatus = service.prepayment_policy === 'required' ? 'awaiting_payment' : 'scheduled';
+    //
+    // REQ052 (US-BOOK-04) — a repeat-no-show patient is forced into the
+    // same 'awaiting_payment' gate regardless of the service's own policy,
+    // once their no_show_count reaches the org's configured threshold.
+    // Reuses the existing prepayment mechanism rather than a second one.
+    const patient = await this.prisma.patients.findUnique({ where: { id: input.patient_id } });
+    const noShowThreshold = (clinic as any)?.client_organization?.no_show_prepayment_threshold ?? 3;
+    const forcedByNoShowHistory = (patient?.no_show_count ?? 0) >= noShowThreshold;
+    const initialStatus = service.prepayment_policy === 'required' || forcedByNoShowHistory ? 'awaiting_payment' : 'scheduled';
     const start = new Date(input.start_datetime);
     const durationMinutes = service.duration_minutes ?? 30;
     const end = new Date(start.getTime() + durationMinutes * 60000);
@@ -402,6 +438,7 @@ export class AppointmentsService {
             booked_by_user_id: user.sub,
             booking_mode: bookingMode,
             token_no: tokenNo,
+            intake_responses: intakeResponsesJson,
           },
           include: INCLUDE,
         });

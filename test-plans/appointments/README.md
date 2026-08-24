@@ -10,7 +10,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP102 | improvement | Auto-no-show + intake fields verification | approved | 2026-08-25 | 2026-08-25 | PLAN075 | [TP102-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/TP102-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 
 ## bug
 

@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| appointments-2026-08-25-req052 | appointments | 2026-08-25 | REQ052, PLAN075, TP102, TR101 | done | [manifest.md](./appointments-2026-08-25-req052/manifest.md) |
 | queue-management-2026-08-25-req051 | queue-management | 2026-08-25 | REQ051, PLAN074, TP101, TR100 | done | [manifest.md](./queue-management-2026-08-25-req051/manifest.md) |
 | platform-nfr-2026-08-24-phase-g2-frontend-completion | platform-nfr | 2026-08-24 | PLAN073, TP100, TR099 | done | [manifest.md](./platform-nfr-2026-08-24-phase-g2-frontend-completion/manifest.md) |
 | machine-handoff-2026-08-24 | cross-cutting | 2026-08-24 | REQ017, REQ020, REQ021, REQ019, REQ018, REQ032 | current | [machine-handoff-2026-08-24.md](./machine-handoff-2026-08-24.md) |

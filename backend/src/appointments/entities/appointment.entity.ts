@@ -1,5 +1,6 @@
 import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 import { ClinicianTypeInfoType } from '../../auth/entities/user.entity';
+import { IntakeFieldResponseType } from '../../intake-fields/entities/intake-field.entity';
 
 // Every nested type below is scoped to this module deliberately (not reused
 // from clinics/clinicians/services/rooms' own entity classes) — AppointmentFields
@@ -94,6 +95,9 @@ export class AppointmentType {
   // session/hybrid window; null for slot mode.
   @Field() booking_mode: string;
   @Field(() => Int, { nullable: true }) token_no?: number;
+  // REQ052 (US-BOOK-06) — structured, not a raw JSON scalar, matching this
+  // codebase's convention for every other Json column.
+  @Field(() => [IntakeFieldResponseType], { nullable: true }) intake_responses?: IntakeFieldResponseType[];
   @Field({ nullable: true }) notes?: string;
   @Field({ nullable: true }) cancellation_reason?: string;
   @Field({ nullable: true }) reminder_sent_at?: Date;

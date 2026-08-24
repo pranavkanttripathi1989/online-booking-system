@@ -218,6 +218,11 @@ model Appointments {
   booking_mode        String   @default("slot")
   // Sequential 1..N within one session/hybrid window. Null for slot mode.
   token_no            Int?
+  // REQ052 (US-BOOK-06) — { [field_key]: response value } for whatever
+  // ClinicIntakeFieldConfig items applied at booking time. Exposed via
+  // GraphQL as a structured [IntakeFieldResponseType!] list (this
+  // codebase's convention for every other Json column), never a raw scalar.
+  intake_responses    Json?
 
   clinic              Clinics               @relation(fields: [clinic_id], references: [id])
   room                Rooms                 @relation(fields: [room_id], references: [id])
@@ -612,6 +617,12 @@ model ClientOrganizations {
   slot_buffer_minutes       Int @default(10)
   max_reschedules_per_month Int @default(3)
   data_retention_years      Int @default(7)
+  // REQ052 (US-BOOK-04) — the auto-no-show sweep's own configurable grace
+  // period, and the repeat-no-show count that forces prepayment on a
+  // patient's next booking regardless of the service's own
+  // prepayment_policy. See appointments.service.ts's create().
+  no_show_grace_minutes        Int @default(30)
+  no_show_prepayment_threshold Int @default(3)
   // admin/Policies.jsx "Security & Privacy" tab (REQ012). All five toggles
   // now have real enforcement, not just persisted config:
   // - mfa_required: checked in auth.service.ts's issueTokens() for every
@@ -856,6 +867,7 @@ model Clinics {
   bookingWidgetConfigs BookingWidgetConfig[]
   scheduledReports   ScheduledReports[]
   checklistItems     ChecklistItems[]
+  intakeFieldConfigs ClinicIntakeFieldConfig[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -995,6 +1007,11 @@ model Patients {
   // existing loose-string convention. Nullable: most existing patients predate
   // this field.
   acquisition_source    String?
+  // REQ052 (US-BOOK-04) — incremented by the auto-no-show sweep each time
+  // one of this patient's appointments is auto-marked no_show. Read by
+  // appointments.service.ts's create() to force prepayment on their next
+  // booking once it reaches the org's configured threshold.
+  no_show_count         Int      @default(0)
   is_deleted            Boolean  @default(false)
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt
@@ -1477,6 +1494,7 @@ model Products {
   cancellationRules ProductCancellationRules[]
   clinicianServices ClinicianServices[]
   checklistItems    ChecklistItems[]
+  intakeFieldConfigs ClinicIntakeFieldConfig[]
 
   @@index([client_org_id, is_deleted])
   @@index([category_id])
@@ -2237,4 +2255,29 @@ model ChecklistCompletions {
 
   @@unique([checklist_item_id, appointment_id])
   @@index([appointment_id])
+}
+
+// REQ052 (US-BOOK-06) — clinic-scoped, optionally product-scoped, ordered
+// custom booking-form fields. Same shape/scoping precedent as
+// ChecklistItems (REQ051) -- a flat per-clinic list, no cross-clinic
+// template reuse in this slice.
+model ClinicIntakeFieldConfig {
+  id          String   @id @default(uuid())
+  clinic_id   String
+  product_id  String?
+  key         String
+  label       String
+  // text | textarea | number | boolean -- free text, matching this
+  // codebase's established loose-string convention for a small closed
+  // vocabulary (validated at the DTO layer, not a Postgres enum).
+  field_type  String   @default("text")
+  is_required Boolean  @default(false)
+  sort_order  Int      @default(0)
+  is_deleted  Boolean  @default(false)
+  created_at  DateTime @default(now())
+
+  clinic  Clinics   @relation(fields: [clinic_id], references: [id])
+  product Products? @relation(fields: [product_id], references: [id])
+
+  @@index([clinic_id, product_id])
 }

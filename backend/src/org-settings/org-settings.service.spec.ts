@@ -22,6 +22,8 @@ describe('OrgSettingsService', () => {
     slot_buffer_minutes: 10,
     max_reschedules_per_month: 3,
     data_retention_years: 7,
+    no_show_grace_minutes: 30,
+    no_show_prepayment_threshold: 3,
     ...overrides,
   });
 
@@ -51,6 +53,14 @@ describe('OrgSettingsService', () => {
       const result = await service.myBookingPolicies(orgUser);
       expect(result?.no_show_fee).toBe(85);
     });
+
+    // REQ052
+    it('exposes no_show_grace_minutes and no_show_prepayment_threshold', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(orgRow({ no_show_grace_minutes: 45, no_show_prepayment_threshold: 2 }));
+      const result = await service.myBookingPolicies(orgUser);
+      expect(result?.no_show_grace_minutes).toBe(45);
+      expect(result?.no_show_prepayment_threshold).toBe(2);
+    });
   });
 
   describe('updateMyCommunicationSettings / updateMyBookingPolicies', () => {
@@ -75,6 +85,15 @@ describe('OrgSettingsService', () => {
       await service.updateMyBookingPolicies({ no_show_fee: 100 } as any, orgUser);
       expect(prisma.clientOrganizations.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ no_show_fee_paise: 10000 }) }),
+      );
+    });
+
+    // REQ052
+    it('updates no_show_grace_minutes and no_show_prepayment_threshold', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow({ no_show_grace_minutes: 45, no_show_prepayment_threshold: 2 }));
+      await service.updateMyBookingPolicies({ no_show_grace_minutes: 45, no_show_prepayment_threshold: 2 } as any, orgUser);
+      expect(prisma.clientOrganizations.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ no_show_grace_minutes: 45, no_show_prepayment_threshold: 2 }) }),
       );
     });
 
