@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP108 | improvement | Department/branch-scoped threads, attachments, and canned replies | approved | 2026-08-25 | 2026-08-25 | PLAN081 | [TP108-messaging-2026-08-25-department-scoped-threads-attachments-canned-replies.md](./improvement/TP108-messaging-2026-08-25-department-scoped-threads-attachments-canned-replies.md) |
 
 ## bug
 

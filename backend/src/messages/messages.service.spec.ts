@@ -4,20 +4,26 @@ import { MessagesService } from './messages.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
+import { DepartmentsService } from '../departments/departments.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 describe('MessagesService', () => {
   let service: MessagesService;
   let prisma: {
     messageParticipants: { findMany: jest.Mock; findUnique: jest.Mock; updateMany: jest.Mock; createMany: jest.Mock };
-    messageThreads: { findUnique: jest.Mock; update: jest.Mock; create: jest.Mock };
-    messages: { findMany: jest.Mock; create: jest.Mock };
+    messageThreads: { findUnique: jest.Mock; update: jest.Mock; create: jest.Mock; findMany: jest.Mock };
+    messages: { findMany: jest.Mock; create: jest.Mock; findUnique: jest.Mock };
+    messageAttachments: { create: jest.Mock };
+    cannedReplies: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     userProfiles: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock };
     clientOrganizations: { findFirst: jest.Mock };
+    clinicians: { findMany: jest.Mock };
+    clinics: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let pubSub: { publish: jest.Mock };
   let notificationTrigger: { dispatch: jest.Mock };
+  let departmentsService: { assertDepartmentInScope: jest.Mock };
 
   const meUser: JwtPayload = { sub: 'user-me', roles: ['patient'], client_org_id: 'org-a', patient_id: 'pat-1', clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'user-admin', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
@@ -43,20 +49,26 @@ describe('MessagesService', () => {
   beforeEach(async () => {
     prisma = {
       messageParticipants: { findMany: jest.fn(), findUnique: jest.fn(), updateMany: jest.fn(), createMany: jest.fn() },
-      messageThreads: { findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
-      messages: { findMany: jest.fn(), create: jest.fn() },
+      messageThreads: { findUnique: jest.fn(), update: jest.fn(), create: jest.fn(), findMany: jest.fn() },
+      messages: { findMany: jest.fn(), create: jest.fn(), findUnique: jest.fn() },
+      messageAttachments: { create: jest.fn() },
+      cannedReplies: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       userProfiles: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
       clientOrganizations: { findFirst: jest.fn() },
+      clinicians: { findMany: jest.fn() },
+      clinics: { findUnique: jest.fn() },
       $transaction: jest.fn((cb) => cb(makeTx())),
     };
     pubSub = { publish: jest.fn() };
     notificationTrigger = { dispatch: jest.fn() };
+    departmentsService = { assertDepartmentInScope: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         MessagesService,
         { provide: PrismaService, useValue: prisma },
         { provide: PUB_SUB, useValue: pubSub },
         { provide: NotificationTriggerService, useValue: notificationTrigger },
+        { provide: DepartmentsService, useValue: departmentsService },
       ],
     }).compile();
     service = module.get(MessagesService);
@@ -203,6 +215,172 @@ describe('MessagesService', () => {
       await expect(
         service.createThread({ participant_ids: ['user-other'], first_message: 'hi' } as any, platformUser),
       ).rejects.toThrow(BadRequestException);
+    });
+
+    // REQ058 (US-MSG-01) — department/branch scoping.
+    describe('department/clinic scoping', () => {
+      it('rejects a department outside the caller\'s org (via assertDepartmentInScope)', async () => {
+        departmentsService.assertDepartmentInScope.mockRejectedValue(new BadRequestException('Department not found'));
+        await expect(
+          service.createThread({ participant_ids: ['user-other'], first_message: 'hi', department_id: 'dept-b' } as any, meUser),
+        ).rejects.toThrow('Department not found');
+      });
+
+      it('rejects a clinic outside the caller\'s org', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-b', client_org_id: 'org-b', is_deleted: false });
+        await expect(
+          service.createThread({ participant_ids: ['user-other'], first_message: 'hi', clinic_id: 'clinic-b' } as any, meUser),
+        ).rejects.toThrow('Clinic not found');
+      });
+
+      it('auto-adds every department member as a participant, derives clinic_id from the department', async () => {
+        departmentsService.assertDepartmentInScope.mockResolvedValue({ id: 'dept-a', clinic_id: 'clinic-a', client_org_id: 'org-a' });
+        prisma.clinicians.findMany.mockResolvedValue([{ id: 'clinician-1' }, { id: 'clinician-2' }]);
+        prisma.userProfiles.findMany.mockResolvedValue([{ id: 'user-dept-1' }, { id: 'user-dept-2' }]);
+        const tx = makeTx();
+        tx.messageThreads.create.mockResolvedValue({ ...thread1, department_id: 'dept-a', clinic_id: 'clinic-a' });
+        prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+        await service.createThread(
+          { participant_ids: ['user-other'], first_message: 'hi', department_id: 'dept-a' } as any,
+          meUser,
+        );
+
+        expect(prisma.clinicians.findMany).toHaveBeenCalledWith({ where: { department_id: 'dept-a' }, select: { id: true } });
+        expect(tx.messageThreads.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ department_id: 'dept-a', clinic_id: 'clinic-a' }) }),
+        );
+        const call = tx.messageParticipants.createMany.mock.calls[0][0];
+        const addedIds = call.data.map((d: any) => d.user_id);
+        expect(addedIds).toEqual(expect.arrayContaining(['user-other', 'user-me', 'user-dept-1', 'user-dept-2']));
+      });
+
+      it('auto-adds every clinic member as a participant for a branch-wide (no-department) thread', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-a', client_org_id: 'org-a', is_deleted: false });
+        prisma.userProfiles.findMany.mockResolvedValue([{ id: 'user-branch-1' }]);
+        const tx = makeTx();
+        tx.messageThreads.create.mockResolvedValue({ ...thread1, clinic_id: 'clinic-a' });
+        prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+        await service.createThread(
+          { participant_ids: ['user-other'], first_message: 'hi', clinic_id: 'clinic-a' } as any,
+          meUser,
+        );
+
+        expect(prisma.userProfiles.findMany).toHaveBeenCalledWith({ where: { clinic_id: 'clinic-a', is_deleted: false }, select: { id: true } });
+        const call = tx.messageParticipants.createMany.mock.calls[0][0];
+        const addedIds = call.data.map((d: any) => d.user_id);
+        expect(addedIds).toEqual(expect.arrayContaining(['user-other', 'user-me', 'user-branch-1']));
+      });
+
+      it('does not duplicate a scoped member who was already an explicit participant', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-a', client_org_id: 'org-a', is_deleted: false });
+        prisma.userProfiles.findMany.mockResolvedValue([{ id: 'user-other' }]); // already in participant_ids
+        const tx = makeTx();
+        tx.messageThreads.create.mockResolvedValue({ ...thread1, clinic_id: 'clinic-a' });
+        prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+        await service.createThread(
+          { participant_ids: ['user-other'], first_message: 'hi', clinic_id: 'clinic-a' } as any,
+          meUser,
+        );
+
+        const call = tx.messageParticipants.createMany.mock.calls[0][0];
+        const addedIds = call.data.map((d: any) => d.user_id);
+        expect(addedIds.filter((id: string) => id === 'user-other')).toHaveLength(1);
+      });
+    });
+  });
+
+  // REQ058 (US-MSG-01) — the "or Org Admin" oversight path.
+  describe('departmentThreads', () => {
+    it('rejects a department outside the caller\'s org', async () => {
+      departmentsService.assertDepartmentInScope.mockRejectedValue(new BadRequestException('Department not found'));
+      await expect(service.departmentThreads('dept-b', meUser)).rejects.toThrow('Department not found');
+    });
+
+    it('lists every thread for the department, regardless of the caller\'s own participation', async () => {
+      departmentsService.assertDepartmentInScope.mockResolvedValue({ id: 'dept-a', clinic_id: 'clinic-a', client_org_id: 'org-a' });
+      prisma.messageThreads.findMany.mockResolvedValue([{ ...thread1, department_id: 'dept-a' }]);
+      const result = await service.departmentThreads('dept-a', meUser);
+      expect(prisma.messageThreads.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { department_id: 'dept-a' } }),
+      );
+      expect(result).toHaveLength(1);
+    });
+  });
+
+  // REQ058 (US-MSG-03).
+  describe('canned replies', () => {
+    const managerUser: JwtPayload = { sub: 'mgr-1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+
+    it('cannedReplies() scopes to the caller\'s own org', async () => {
+      prisma.cannedReplies.findMany.mockResolvedValue([]);
+      await service.cannedReplies(managerUser);
+      expect(prisma.cannedReplies.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('createCannedReply rejects an org-less caller', async () => {
+      const result = await service.createCannedReply({ title: 'Reminder', body: 'Please arrive 10 min early' } as any, platformUser);
+      expect(result.success).toBe(false);
+    });
+
+    it('createCannedReply stamps the caller\'s own org and creator id', async () => {
+      prisma.cannedReplies.create.mockResolvedValue({ id: 'cr-1', title: 'Reminder', body: 'text', created_at: new Date() });
+      const result = await service.createCannedReply({ title: 'Reminder', body: 'text' } as any, managerUser);
+      expect(result.success).toBe(true);
+      expect(prisma.cannedReplies.create).toHaveBeenCalledWith({
+        data: { client_org_id: 'org-a', created_by_user_id: 'mgr-1', title: 'Reminder', body: 'text' },
+      });
+    });
+
+    it('updateCannedReply rejects a cross-org reply, never confirming it exists', async () => {
+      prisma.cannedReplies.findUnique.mockResolvedValue({ id: 'cr-1', client_org_id: 'org-b', is_deleted: false });
+      const result = await service.updateCannedReply('cr-1', { title: 'x' } as any, managerUser);
+      expect(result.success).toBe(false);
+    });
+
+    it('deleteCannedReply soft-deletes a reply in the caller\'s own org', async () => {
+      prisma.cannedReplies.findUnique.mockResolvedValue({ id: 'cr-1', client_org_id: 'org-a', is_deleted: false });
+      const result = await service.deleteCannedReply('cr-1', managerUser);
+      expect(result.success).toBe(true);
+      expect(prisma.cannedReplies.update).toHaveBeenCalledWith({ where: { id: 'cr-1' }, data: { is_deleted: true } });
+    });
+  });
+
+  // REQ058 (US-MSG-01) — message attachments.
+  describe('createMessageAttachment', () => {
+    it('rejects a nonexistent message', async () => {
+      prisma.messages.findUnique.mockResolvedValue(null);
+      await expect(
+        service.createMessageAttachment({ message_id: 'msg-1', file_ref: '/x', mime_type: 'image/png', original_filename: 'x.png' } as any, meUser),
+      ).rejects.toThrow('Message not found');
+    });
+
+    it('rejects a caller who is not a participant of the message\'s thread', async () => {
+      prisma.messages.findUnique.mockResolvedValue({ id: 'msg-1', thread_id: 'thread-1' });
+      prisma.messageParticipants.findUnique.mockResolvedValue(null);
+      await expect(
+        service.createMessageAttachment({ message_id: 'msg-1', file_ref: '/x', mime_type: 'image/png', original_filename: 'x.png' } as any, meUser),
+      ).rejects.toThrow('Message not found');
+    });
+
+    it('creates the attachment row for a participant', async () => {
+      prisma.messages.findUnique.mockResolvedValue({ id: 'msg-1', thread_id: 'thread-1' });
+      prisma.messageParticipants.findUnique.mockResolvedValue({ thread_id: 'thread-1', user_id: 'user-me' });
+      prisma.messageAttachments.create.mockResolvedValue({
+        id: 'att-1', file_ref: '/uploads/message-attachments/x.png', mime_type: 'image/png', original_filename: 'x.png', created_at: new Date(),
+      });
+      const result = await service.createMessageAttachment(
+        { message_id: 'msg-1', file_ref: '/uploads/message-attachments/x.png', mime_type: 'image/png', original_filename: 'x.png' } as any,
+        meUser,
+      );
+      expect(result.id).toBe('att-1');
+      expect(prisma.messageAttachments.create).toHaveBeenCalledWith({
+        data: { message_id: 'msg-1', file_ref: '/uploads/message-attachments/x.png', mime_type: 'image/png', original_filename: 'x.png', uploaded_by_id: 'user-me' },
+      });
     });
   });
 

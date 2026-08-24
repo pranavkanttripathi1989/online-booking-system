@@ -1,11 +1,12 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreateThreadInput } from './dto/message.input';
+import { CreateThreadInput, CreateCannedReplyInput, UpdateCannedReplyInput, CreateMessageAttachmentInput } from './dto/message.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PUB_SUB } from '../common/pubsub.provider';
-import { orgScope } from '../common/scoping/tenant-scope';
+import { orgScope, isSameOrg } from '../common/scoping/tenant-scope';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
+import { DepartmentsService } from '../departments/departments.service';
 
 export const MESSAGE_RECEIVED_EVENT = 'messageReceived';
 
@@ -15,6 +16,7 @@ export class MessagesService {
     private readonly prisma: PrismaService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly notificationTrigger: NotificationTriggerService,
+    private readonly departmentsService: DepartmentsService,
   ) {}
 
   private async participantsFor(threadId: string) {
@@ -51,11 +53,15 @@ export class MessagesService {
       unread_count: myParticipant?.unread_count ?? 0,
       assigned_to: await this.assigneeFor(thread.assigned_to_user_id),
       sla_due_at: thread.sla_due_at ?? undefined,
+      // REQ058 (US-MSG-01).
+      thread_type: thread.thread_type,
+      department_id: thread.department_id ?? undefined,
+      clinic_id: thread.clinic_id ?? undefined,
     };
     if (includeMessages) {
       const messages = await this.prisma.messages.findMany({
         where: { thread_id: thread.id },
-        include: { from: { include: { userProfiles: true } } },
+        include: { from: { include: { userProfiles: true } }, attachments: true },
         orderBy: { sent_at: 'asc' },
       });
       result.messages = messages.map((m) => ({
@@ -65,6 +71,13 @@ export class MessagesService {
         body: m.body,
         sent_at: m.sent_at,
         read: !!m.read_at,
+        attachments: m.attachments.map((a) => ({
+          id: a.id,
+          file_ref: a.file_ref,
+          mime_type: a.mime_type,
+          original_filename: a.original_filename,
+          created_at: a.created_at,
+        })),
       }));
     }
     return result;
@@ -205,6 +218,35 @@ export class MessagesService {
     return this.toGraphQL(updated, user.sub, false);
   }
 
+  // REQ058 (US-MSG-01) — "only department members (or Org Admin) see a
+  // department-scoped group thread" is satisfied at CREATE time, not by a
+  // dynamic read-time visibility rule: every department (or clinic-wide)
+  // member is added as an explicit MessageParticipants row here, so
+  // threads()/thread()'s own pre-existing "caller must be an explicit
+  // participant" check (unchanged by this slice) already gives them
+  // access, with zero risk of regressing that check's existing behaviour
+  // for every unscoped thread. An Org Admin who isn't a department member
+  // themselves is NOT auto-added (they weren't a participant of any
+  // thread before this slice either) -- see departmentThreads() below for
+  // the oversight path that doesn't require participation.
+  private async resolveScopedMemberUserIds(departmentId: string | undefined, clinicId: string | undefined) {
+    if (departmentId) {
+      const clinicians = await this.prisma.clinicians.findMany({ where: { department_id: departmentId }, select: { id: true } });
+      const clinicianIds = clinicians.map((c) => c.id);
+      if (!clinicianIds.length) return [];
+      const profiles = await this.prisma.userProfiles.findMany({
+        where: { clinician_id: { in: clinicianIds }, is_deleted: false },
+        select: { id: true },
+      });
+      return profiles.map((p) => p.id);
+    }
+    if (clinicId) {
+      const profiles = await this.prisma.userProfiles.findMany({ where: { clinic_id: clinicId, is_deleted: false }, select: { id: true } });
+      return profiles.map((p) => p.id);
+    }
+    return [];
+  }
+
   async createThread(input: CreateThreadInput, user: JwtPayload) {
     if (!input.participant_ids.includes(user.sub)) {
       input.participant_ids = [...input.participant_ids, user.sub];
@@ -222,12 +264,40 @@ export class MessagesService {
     }
     if (!clientOrgId) throw new BadRequestException('No organization available to attach this thread to');
 
+    // REQ058 (US-MSG-01) — department_id (Hard Rule 6: a cross-domain FK
+    // in the input) requires the caller's own org own it. clinic_id is
+    // ALWAYS derived from the department when one is given (denormalized
+    // for a single-column WHERE at read time) -- a separately-supplied
+    // clinic_id is only honoured when no department was given, for a
+    // branch-wide (not department-specific) thread.
+    let departmentId: string | undefined;
+    let clinicId: string | undefined;
+    if (input.department_id) {
+      const department = await this.departmentsService.assertDepartmentInScope(input.department_id, user);
+      departmentId = department.id;
+      clinicId = department.clinic_id;
+    } else if (input.clinic_id) {
+      const clinic = await this.prisma.clinics.findUnique({ where: { id: input.clinic_id } });
+      if (!clinic || clinic.is_deleted || !isSameOrg(user, clinic.client_org_id)) {
+        throw new BadRequestException('Clinic not found');
+      }
+      clinicId = clinic.id;
+    }
+    const scopedMemberIds = await this.resolveScopedMemberUserIds(departmentId, clinicId);
+    const allParticipantIds = [...new Set([...input.participant_ids, ...scopedMemberIds])];
+
     const thread = await this.prisma.$transaction(async (tx) => {
       const created = await tx.messageThreads.create({
-        data: { client_org_id: clientOrgId!, last_message: input.first_message, last_activity: new Date() },
+        data: {
+          client_org_id: clientOrgId!,
+          last_message: input.first_message,
+          last_activity: new Date(),
+          department_id: departmentId,
+          clinic_id: clinicId,
+        },
       });
       await tx.messageParticipants.createMany({
-        data: input.participant_ids.map((user_id) => ({ thread_id: created.id, user_id, unread_count: 0 })),
+        data: allParticipantIds.map((user_id) => ({ thread_id: created.id, user_id, unread_count: 0 })),
       });
       await tx.messages.create({ data: { thread_id: created.id, from_id: user.sub, body: input.first_message } });
       await tx.messageParticipants.updateMany({
@@ -237,5 +307,92 @@ export class MessagesService {
       return created;
     });
     return this.toGraphQL(thread, user.sub, true);
+  }
+
+  // REQ058 (US-MSG-01) — the "or Org Admin" half of the AC: an oversight
+  // list for a manager+ caller who is NOT necessarily an explicit
+  // participant of every thread in the department (unlike threads(), which
+  // is deliberately unchanged by this slice).
+  async departmentThreads(departmentId: string, user: JwtPayload) {
+    const department = await this.departmentsService.assertDepartmentInScope(departmentId, user);
+    const rows = await this.prisma.messageThreads.findMany({
+      where: { department_id: department.id },
+      orderBy: { last_activity: 'desc' },
+    });
+    return Promise.all(rows.map((r) => this.toGraphQL(r, user.sub, false)));
+  }
+
+  // REQ058 (US-MSG-03).
+  async cannedReplies(user: JwtPayload) {
+    const rows = await this.prisma.cannedReplies.findMany({
+      where: { is_deleted: false, ...orgScope(user) },
+      orderBy: { title: 'asc' },
+    });
+    return rows.map((r) => ({ id: r.id, title: r.title, body: r.body, created_at: r.created_at }));
+  }
+
+  async createCannedReply(input: CreateCannedReplyInput, user: JwtPayload) {
+    if (!user.client_org_id) {
+      return { success: false, userErrors: [{ message: "Your account isn't linked to an organization" }] };
+    }
+    try {
+      const row = await this.prisma.cannedReplies.create({
+        data: { client_org_id: user.client_org_id, created_by_user_id: user.sub, title: input.title, body: input.body },
+      });
+      return { success: true, userErrors: [], cannedReply: { id: row.id, title: row.title, body: row.body, created_at: row.created_at } };
+    } catch (e: any) {
+      return { success: false, userErrors: [{ message: e.message ?? 'Failed to create canned reply' }] };
+    }
+  }
+
+  private async findOwnedCannedReply(id: string, user: JwtPayload) {
+    const row = await this.prisma.cannedReplies.findUnique({ where: { id } });
+    if (!row || row.is_deleted) return null;
+    if (user.client_org_id && row.client_org_id !== user.client_org_id) return null;
+    return row;
+  }
+
+  async updateCannedReply(id: string, input: UpdateCannedReplyInput, user: JwtPayload) {
+    const existing = await this.findOwnedCannedReply(id, user);
+    if (!existing) return { success: false, userErrors: [{ message: 'Canned reply not found' }] };
+    try {
+      const row = await this.prisma.cannedReplies.update({
+        where: { id },
+        data: { title: input.title, body: input.body },
+      });
+      return { success: true, userErrors: [], cannedReply: { id: row.id, title: row.title, body: row.body, created_at: row.created_at } };
+    } catch (e: any) {
+      return { success: false, userErrors: [{ message: e.message ?? 'Failed to update canned reply' }] };
+    }
+  }
+
+  async deleteCannedReply(id: string, user: JwtPayload) {
+    const existing = await this.findOwnedCannedReply(id, user);
+    if (!existing) return { success: false, userErrors: [{ message: 'Canned reply not found' }] };
+    await this.prisma.cannedReplies.update({ where: { id }, data: { is_deleted: true } });
+    return { success: true, userErrors: [] };
+  }
+
+  // REQ058 (US-MSG-01) — the DB-row-creation half of the upload; the
+  // caller must already be a participant of the thread the target message
+  // belongs to, matching sendMessage()'s own access check.
+  async createMessageAttachment(input: CreateMessageAttachmentInput, user: JwtPayload) {
+    const message = await this.prisma.messages.findUnique({ where: { id: input.message_id } });
+    if (!message) throw new NotFoundException('Message not found');
+    const participant = await this.prisma.messageParticipants.findUnique({
+      where: { thread_id_user_id: { thread_id: message.thread_id, user_id: user.sub } },
+    });
+    if (!participant) throw new NotFoundException('Message not found');
+
+    const row = await this.prisma.messageAttachments.create({
+      data: {
+        message_id: input.message_id,
+        file_ref: input.file_ref,
+        mime_type: input.mime_type,
+        original_filename: input.original_filename,
+        uploaded_by_id: user.sub,
+      },
+    });
+    return { id: row.id, file_ref: row.file_ref, mime_type: row.mime_type, original_filename: row.original_filename, created_at: row.created_at };
   }
 }

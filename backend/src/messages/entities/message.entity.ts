@@ -24,6 +24,16 @@ export class MessageableContactType {
   @Field() role: string;
 }
 
+// REQ058 (US-MSG-01).
+@ObjectType('MessageAttachment')
+export class MessageAttachmentType {
+  @Field(() => ID) id: string;
+  @Field() file_ref: string;
+  @Field() mime_type: string;
+  @Field() original_filename: string;
+  @Field() created_at: Date;
+}
+
 @ObjectType('ThreadMessage')
 export class ThreadMessageType {
   @Field(() => ID) id: string;
@@ -32,6 +42,7 @@ export class ThreadMessageType {
   @Field() body: string;
   @Field() sent_at: Date;
   @Field() read: boolean;
+  @Field(() => [MessageAttachmentType]) attachments: MessageAttachmentType[];
 }
 
 @ObjectType('MessageThread')
@@ -45,4 +56,30 @@ export class MessageThreadType {
   // REQ043/REQ024 -- shared-inbox assignment + SLA timer.
   @Field(() => ThreadParticipantType, { nullable: true }) assigned_to?: ThreadParticipantType;
   @Field({ nullable: true }) sla_due_at?: Date;
+  // REQ058 (US-MSG-01) — staff_internal | patient_clinic (the latter is a
+  // still-P1, not-yet-built story, see REQ058's own doc).
+  @Field() thread_type: string;
+  @Field(() => ID, { nullable: true }) department_id?: string;
+  @Field(() => ID, { nullable: true }) clinic_id?: string;
+}
+
+// REQ058 (US-MSG-03).
+@ObjectType('CannedReply')
+export class CannedReplyType {
+  @Field(() => ID) id: string;
+  @Field() title: string;
+  @Field() body: string;
+  @Field() created_at: Date;
+}
+
+@ObjectType('CannedReplyUserError')
+export class CannedReplyUserErrorType {
+  @Field() message: string;
+}
+
+@ObjectType('CannedReplyMutationResult')
+export class CannedReplyMutationResultType {
+  @Field() success: boolean;
+  @Field(() => [CannedReplyUserErrorType]) userErrors: CannedReplyUserErrorType[];
+  @Field(() => CannedReplyType, { nullable: true }) cannedReply?: CannedReplyType;
 }

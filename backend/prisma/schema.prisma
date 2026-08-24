@@ -720,6 +720,7 @@ model ClientOrganizations {
   packages               Packages[]
   patientPackages        PatientPackages[]
   productBranchOverrides ProductBranchOverrides[]
+  cannedReplies          CannedReplies[]
 }
 
 model ClinicianAvailability {
@@ -895,6 +896,7 @@ model Clinics {
   packages           Packages[]
   patientPackages    PatientPackages[]
   productBranchOverrides ProductBranchOverrides[]
+  messageThreads     MessageThreads[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -1367,14 +1369,30 @@ model MessageThreads {
   // reassignment -- reassigning a thread doesn't buy the org more time.
   assigned_to_user_id String?
   sla_due_at          DateTime?
+  // REQ058 (US-MSG-01) — staff_internal (default, matches every thread
+  // this module has ever created before this slice) | patient_clinic
+  // (a future, still-P1 story per REQ024's own doc — not built here).
+  // department_id/clinic_id are both nullable: an unscoped thread (the
+  // default, both null) is visible only to its explicit participants,
+  // exactly like every thread today; a scoped thread additionally has
+  // every department/clinic member auto-added as a participant at create
+  // time (see createThread()'s own comment on why this is create-time
+  // membership, not a dynamic read-time visibility rule).
+  thread_type   String  @default("staff_internal")
+  department_id String?
+  clinic_id     String?
 
   client_org   ClientOrganizations   @relation(fields: [client_org_id], references: [id])
   assigned_to  Users?                @relation("MessageThreadAssignee", fields: [assigned_to_user_id], references: [id])
+  department   Departments?          @relation(fields: [department_id], references: [id])
+  clinic       Clinics?              @relation(fields: [clinic_id], references: [id])
   participants MessageParticipants[]
   messages     Messages[]
 
   @@index([client_org_id, last_activity])
   @@index([assigned_to_user_id])
+  @@index([department_id])
+  @@index([clinic_id])
 }
 
 model MessageParticipants {
@@ -1399,11 +1417,54 @@ model Messages {
   read_at    DateTime?
   sent_at    DateTime @default(now())
 
-  thread MessageThreads @relation(fields: [thread_id], references: [id])
-  from   Users          @relation(fields: [from_id], references: [id])
+  thread      MessageThreads      @relation(fields: [thread_id], references: [id])
+  from        Users               @relation(fields: [from_id], references: [id])
+  attachments MessageAttachments[]
 
   @@index([thread_id, sent_at])
   @@index([from_id])
+}
+
+// REQ058 (US-MSG-01) — one row per file, always attached to a specific
+// message (not the thread itself), matching how a real chat attachment
+// works. Reuses attachments.controller.ts's exact upload pattern (multer
+// in-memory, magic-byte signature allow-list, manual bearer verify) via a
+// new sibling REST controller in this module rather than widening
+// Attachments' own hard-required, single-purpose encounter_id FK — every
+// other FK in this schema is single-purpose the same way (e.g.
+// Departments.clinic_id), not polymorphic.
+model MessageAttachments {
+  id                String   @id @default(uuid())
+  message_id        String
+  file_ref          String
+  mime_type         String
+  original_filename String
+  uploaded_by_id    String
+  created_at        DateTime @default(now())
+
+  message     Messages @relation(fields: [message_id], references: [id])
+  uploaded_by Users    @relation(fields: [uploaded_by_id], references: [id])
+
+  @@index([message_id])
+}
+
+// REQ058 (US-MSG-03) — org-scoped, staff-authored. Inserting one populates
+// the compose body client-side (frontend, deferred per this batch's own
+// confirmed direction) -- this is CRUD + list only.
+model CannedReplies {
+  id                String   @id @default(uuid())
+  client_org_id     String
+  created_by_user_id String
+  title             String
+  body              String
+  is_deleted        Boolean  @default(false)
+  created_at        DateTime @default(now())
+  updated_at        DateTime @updatedAt
+
+  client_org  ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  created_by  Users               @relation(fields: [created_by_user_id], references: [id])
+
+  @@index([client_org_id, is_deleted])
 }
 
 model Permissions {
@@ -1744,6 +1805,7 @@ model Departments {
   clinic              Clinics             @relation(fields: [clinic_id], references: [id])
   clinicians          Clinicians[]
   products            Products[]
+  messageThreads      MessageThreads[]
 
   @@index([client_org_id, clinic_id])
 }
@@ -1859,6 +1921,8 @@ model Users {
   discountRequestsMade        DiscountApprovalRequests[] @relation("DiscountRequestRequestedBy")
   discountRequestsApproved    DiscountApprovalRequests[] @relation("DiscountRequestApprovedBy")
   cashDrawerCloseouts         CashDrawerCloseouts[]
+  messageAttachmentsUploaded  MessageAttachments[]
+  cannedRepliesCreated        CannedReplies[]
 }
 
 // REQ005 Notifications tab. No code path in this codebase currently reads

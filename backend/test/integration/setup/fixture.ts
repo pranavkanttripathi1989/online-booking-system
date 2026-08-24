@@ -117,6 +117,9 @@ export const IDS = {
   // REQ056 -- discount-approval-requests domain.
   discountRequestA: u('d21'),
   discountRequestB: u('d22'),
+  // REQ058 -- canned-replies domain.
+  cannedReplyA: u('d23'),
+  cannedReplyB: u('d24'),
   // REQ014 -- departments domain.
   departmentA: u('d11'),
   departmentB: u('d12'),
@@ -487,6 +490,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.branchOverrideA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, product_id: IDS.productA, mode: 'override', override_price: 30000 },
       { id: IDS.branchOverrideB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, product_id: IDS.productB, mode: 'override', override_price: 40000 },
+    ],
+  });
+
+  // REQ058 -- one canned reply per org.
+  await prisma.cannedReplies.createMany({
+    data: [
+      { id: IDS.cannedReplyA, client_org_id: IDS.orgA, created_by_user_id: IDS.userManagerA, title: 'Reminder', body: 'Please arrive 10 minutes early.' },
+      { id: IDS.cannedReplyB, client_org_id: IDS.orgB, created_by_user_id: IDS.userManagerB, title: 'Reminder', body: 'Please arrive 10 minutes early.' },
     ],
   });
 

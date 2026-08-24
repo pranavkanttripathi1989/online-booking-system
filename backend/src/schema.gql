@@ -471,6 +471,23 @@ type CancellationRuleUserError {
   message: String!
 }
 
+type CannedReply {
+  body: String!
+  created_at: DateTime!
+  id: ID!
+  title: String!
+}
+
+type CannedReplyMutationResult {
+  cannedReply: CannedReply
+  success: Boolean!
+  userErrors: [CannedReplyUserError!]!
+}
+
+type CannedReplyUserError {
+  message: String!
+}
+
 type CashDrawerCloseout {
   breakdown: [TenderBreakdown!]!
   business_date: DateTime!
@@ -771,6 +788,11 @@ input CreateCancellationRuleInput {
   priority: Int
 }
 
+input CreateCannedReplyInput {
+  body: String!
+  title: String!
+}
+
 input CreateChecklistItemInput {
   clinic_id: ID!
   is_required: Boolean
@@ -815,6 +837,13 @@ input CreateLanguageInput {
   is_active: Boolean
   is_default: Boolean
   name: String!
+}
+
+input CreateMessageAttachmentInput {
+  file_ref: String!
+  message_id: ID!
+  mime_type: String!
+  original_filename: String!
 }
 
 input CreatePackageInput {
@@ -919,6 +948,8 @@ input CreateStaffInput {
 }
 
 input CreateThreadInput {
+  clinic_id: ID
+  department_id: ID
   first_message: String!
   participant_ids: [ID!]!
 }
@@ -1330,14 +1361,25 @@ input MergePatientsInput {
   surviving_patient_id: ID!
 }
 
+type MessageAttachment {
+  created_at: DateTime!
+  file_ref: String!
+  id: ID!
+  mime_type: String!
+  original_filename: String!
+}
+
 type MessageThread {
   assigned_to: ThreadParticipant
+  clinic_id: ID
+  department_id: ID
   id: ID!
   last_activity: DateTime!
   last_message: String
   messages: [ThreadMessage!]
   participants: [ThreadParticipant!]!
   sla_due_at: DateTime
+  thread_type: String!
   unread_count: Int!
 }
 
@@ -1369,6 +1411,7 @@ type Mutation {
   createAvailability(input: CreateAvailabilityInput!): AvailabilityMutationResult!
   createBookingWidgetConfig(input: BookingWidgetConfigInput!): BookingWidgetMutationResult!
   createCancellationRule(input: CreateCancellationRuleInput!): CancellationRuleMutationResult!
+  createCannedReply(input: CreateCannedReplyInput!): CannedReplyMutationResult!
   createChecklistItem(input: CreateChecklistItemInput!): ChecklistItemMutationResult!
   createClinic(input: ClinicInput!): Clinic!
   createClinician(input: ClinicianInput!): Clinician!
@@ -1380,6 +1423,7 @@ type Mutation {
   createEncounterTemplate(input: CreateEncounterTemplateInput!): EncounterTemplate!
   createIntakeFieldConfig(input: CreateIntakeFieldInput!): IntakeFieldConfigMutationResult!
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
+  createMessageAttachment(input: CreateMessageAttachmentInput!): MessageAttachment!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPackage(input: CreatePackageInput!): PackageMutationResult!
   createPatient(input: PatientInput!): Patient!
@@ -1414,6 +1458,7 @@ type Mutation {
   decideDiscountApproval(input: DecideDiscountApprovalInput!): DecideDiscountApprovalResult!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteCancellationRule(id: ID!): CancellationRuleMutationResult!
+  deleteCannedReply(id: ID!): CannedReplyMutationResult!
   deleteChecklistItem(id: ID!): ChecklistItemMutationResult!
   deleteClinicianAvailability(id: ID!): Boolean!
   deleteClinicianType(id: ID!): LookupMutationResult!
@@ -1485,6 +1530,7 @@ type Mutation {
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
   updateBookingWidgetConfig(id: ID!, input: BookingWidgetConfigInput!): BookingWidgetMutationResult!
   updateCancellationRule(id: ID!, input: UpdateCancellationRuleInput!): CancellationRuleMutationResult!
+  updateCannedReply(id: ID!, input: UpdateCannedReplyInput!): CannedReplyMutationResult!
   updateChecklistItem(id: ID!, input: UpdateChecklistItemInput!): ChecklistItemMutationResult!
   updateClinic(id: ID!, input: ClinicInput!): Clinic!
   updateClinician(id: ID!, input: ClinicianInput!): Clinician!
@@ -2313,6 +2359,7 @@ type Query {
   bookingWidgetConfig(id: ID!): BookingWidgetConfig
   bookingWidgetConfigs: [BookingWidgetConfig!]!
   cancellationRules: [CancellationRule!]!
+  cannedReplies: [CannedReply!]!
   cashDrawerCloseouts(clinic_id: ID): [CashDrawerCloseout!]!
   checklistCompletions(appointment_id: ID!): [ChecklistCompletion!]!
   checklistItems(clinic_id: ID, product_id: ID): [ChecklistItem!]!
@@ -2324,6 +2371,7 @@ type Query {
   clinics(search: SearchInput): [Clinic!]!
   dashboard: Dashboard!
   department(id: ID!): Department
+  departmentThreads(departmentId: ID!): [MessageThread!]!
   departments(clinic_id: ID): [Department!]!
   discountApprovalRequests(clinic_id: ID): [DiscountApprovalRequest!]!
   drug(id: ID!): Drug
@@ -2893,6 +2941,7 @@ type TestResultValue {
 }
 
 type ThreadMessage {
+  attachments: [MessageAttachment!]!
   body: String!
   from_id: ID!
   from_name: String!
@@ -3010,6 +3059,11 @@ input UpdateCancellationRuleInput {
   is_active: Boolean
   name: String
   priority: Int
+}
+
+input UpdateCannedReplyInput {
+  body: String
+  title: String
 }
 
 input UpdateChecklistItemInput {

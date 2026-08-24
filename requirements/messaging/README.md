@@ -9,7 +9,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ058 | improvement | Department/branch-scoped threads, attachments, and canned replies | in-progress | 2026-08-25 | 2026-08-25 | REQ024 | [REQ058-messaging-2026-08-25-department-scoped-threads-attachments-canned-replies.md](./improvement/REQ058-messaging-2026-08-25-department-scoped-threads-attachments-canned-replies.md) |
 
 ## bug
 

@@ -115,6 +115,18 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff', 'patient'],
   },
   {
+    // REQ058 (US-MSG-03). Same 'messages' domain/directory as
+    // messageableContacts above -- a second CASES row on the same
+    // resolver, exercising the new canned-replies query.
+    domain: 'messages',
+    what: 'cannedReplies',
+    query: `{ cannedReplies { id } }`,
+    ids: (d) => (d.cannedReplies ?? []).map((x: any) => x.id),
+    aId: IDS.cannedReplyA,
+    bId: IDS.cannedReplyB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
+  },
+  {
     domain: 'staff',
     what: 'staff',
     query: `{ staff { id } }`,

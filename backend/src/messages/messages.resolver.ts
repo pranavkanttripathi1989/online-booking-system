@@ -2,8 +2,19 @@ import { Resolver, Query, Mutation, Subscription, Args, ID } from '@nestjs/graph
 import { Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { MessagesService, MESSAGE_RECEIVED_EVENT } from './messages.service';
-import { MessageThreadType, MessageableContactType } from './entities/message.entity';
-import { CreateThreadInput } from './dto/message.input';
+import {
+  MessageThreadType,
+  MessageableContactType,
+  CannedReplyType,
+  CannedReplyMutationResultType,
+  MessageAttachmentType,
+} from './entities/message.entity';
+import {
+  CreateThreadInput,
+  CreateCannedReplyInput,
+  UpdateCannedReplyInput,
+  CreateMessageAttachmentInput,
+} from './dto/message.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -65,5 +76,52 @@ export class MessagesResolver {
   })
   messageReceived(@Args('userId', { type: () => ID }) _userId: string) {
     return this.pubSub.asyncIterableIterator(MESSAGE_RECEIVED_EVENT);
+  }
+
+  // REQ058 (US-MSG-01) — the "or Org Admin" oversight path; threads()
+  // itself stays participant-only, unchanged.
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => [MessageThreadType])
+  departmentThreads(@Args('departmentId', { type: () => ID }) departmentId: string, @CurrentUser() user: JwtPayload) {
+    return this.messagesService.departmentThreads(departmentId, user);
+  }
+
+  // REQ058 (US-MSG-03) — a staff productivity tool (quick-reply templates
+  // for handling patient inquiries), not something a patient caller
+  // should see or manage — unlike messageableContacts/threads, which are
+  // deliberately open to every role.
+  @Auth('staff', 'clinician', 'manager', 'admin', 'super_admin')
+  @Query(() => [CannedReplyType])
+  cannedReplies(@CurrentUser() user: JwtPayload) {
+    return this.messagesService.cannedReplies(user);
+  }
+
+  @Auth('staff', 'clinician', 'manager', 'admin', 'super_admin')
+  @Mutation(() => CannedReplyMutationResultType)
+  createCannedReply(@Args('input') input: CreateCannedReplyInput, @CurrentUser() user: JwtPayload) {
+    return this.messagesService.createCannedReply(input, user);
+  }
+
+  @Auth('staff', 'clinician', 'manager', 'admin', 'super_admin')
+  @Mutation(() => CannedReplyMutationResultType)
+  updateCannedReply(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: UpdateCannedReplyInput,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.messagesService.updateCannedReply(id, input, user);
+  }
+
+  @Auth('staff', 'clinician', 'manager', 'admin', 'super_admin')
+  @Mutation(() => CannedReplyMutationResultType)
+  deleteCannedReply(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.messagesService.deleteCannedReply(id, user);
+  }
+
+  // REQ058 (US-MSG-01) — the DB-row-creation half of message-attachments.
+  // controller.ts's own upload.
+  @Mutation(() => MessageAttachmentType)
+  createMessageAttachment(@Args('input') input: CreateMessageAttachmentInput, @CurrentUser() user: JwtPayload) {
+    return this.messagesService.createMessageAttachment(input, user);
   }
 }

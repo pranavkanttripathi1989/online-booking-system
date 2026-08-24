@@ -15,7 +15,7 @@
 | compliance-dpdp | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [compliance-dpdp](./compliance-dpdp/README.md) |
 | telemedicine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [telemedicine](./telemedicine/README.md) |
 | patient-portal | 1 | 1 | 0 | 2 | 0 | 2026-08-25 | [patient-portal](./patient-portal/README.md) |
-| messaging | 2 | 0 | 0 | 1 | 1 | 2026-08-23 | [messaging](./messaging/README.md) |
+| messaging | 2 | 1 | 0 | 2 | 1 | 2026-08-25 | [messaging](./messaging/README.md) |
 | analytics-reporting | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
 | platform-integrations | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [platform-integrations](./platform-integrations/README.md) |
 | subscription-plan-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
