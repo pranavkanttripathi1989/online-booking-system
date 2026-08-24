@@ -3,10 +3,10 @@ id: REQ029
 type: requirement
 feature: analytics-reporting
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ007
-related: [REQ007]
+related: [REQ007, PLAN061]
 ---
 
 # Report groups, scheduled delivery, and true utilisation metrics

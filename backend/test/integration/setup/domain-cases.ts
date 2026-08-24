@@ -186,6 +186,22 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager'],
   },
   {
+    // REQ029 (US-RPT-04) -- getAppointmentStats had no matrix coverage at
+    // all before this (only getClinics did). AppointmentStats returns one
+    // aggregate object per call, not a bare id-bearing list, so topClinicians
+    // (populated only from completed appointments -- see the dedicated
+    // analyticsApptA/B fixture rows) is the comparable id list, mirroring
+    // how the 'dashboard' domain-case above picks a nested array field
+    // rather than trying to id the whole aggregate.
+    domain: 'analytics',
+    what: 'getAppointmentStats.topClinicians',
+    query: `{ getAppointmentStats(startDate: "2026-08-25", endDate: "2026-09-05") { topClinicians { id } } }`,
+    ids: (d) => (d.getAppointmentStats?.topClinicians ?? []).map((x: any) => x.id),
+    aId: IDS.clinicianA,
+    bId: IDS.clinicianB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
     // BUG012: this query had no @Auth() at all before this fix.
     domain: 'blocks',
     what: 'spacerBlocks',

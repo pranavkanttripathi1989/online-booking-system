@@ -43,11 +43,12 @@ export class TopClinicianPointType {
 // (backend-hard-rules.md money convention) -- there is no separate per-appointment
 // payment/transaction ledger yet (that's the not-yet-built Finances/Billing
 // domain, CLAUDE.md Priority 2), so revenue here is "billable value of
-// completed appointments", not "captured payments". `utilization` is defined
-// as completedAppointments/totalAppointments*100 (a completion-rate proxy) --
-// true slot-capacity utilization would require walking ClinicianAvailability
-// windows minus Blocks, out of scope for this slice; documented here rather
-// than silently guessed. See context/open-questions.md.
+// completed appointments", not "captured payments". `utilization` (REQ029,
+// US-RPT-01) is real slot-capacity utilisation -- booked minutes ÷ available
+// minutes, from ClinicianAvailability windows minus SpacerBlocks/LunchBreaks
+// -- computed in AnalyticsService.computeTrueUtilisation(), falling back to
+// the old completedAppointments/totalAppointments*100 proxy only when there
+// is no availability data in scope to compute a real value from.
 @ObjectType('AppointmentStats')
 export class AppointmentStatsType {
   @Field(() => Int) totalAppointments: number;

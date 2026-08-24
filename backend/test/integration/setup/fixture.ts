@@ -105,6 +105,13 @@ export const IDS = {
   // REQ014 -- departments domain.
   departmentA: u('d11'),
   departmentB: u('d12'),
+  // REQ029 -- a dedicated *completed* appointment per org for
+  // getAppointmentStats' topClinicians/revenueByClinic fields, which only
+  // populate from completed appointments -- appointmentA/B above default to
+  // 'scheduled' and are relied on as such by other domain-cases (e.g.
+  // dashboard.upcoming_appointments), so not reused/mutated here.
+  analyticsApptA: u('d13'),
+  analyticsApptB: u('d14'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -276,6 +283,12 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.appointmentA, clinic_id: IDS.clinicA, room_id: IDS.roomA, clinician_id: IDS.clinicianA, patient_id: IDS.patientA, appointment_date: when, appointment_time: when, reason: 'Checkup A', product_id: IDS.productA },
       { id: IDS.appointmentB, clinic_id: IDS.clinicB, room_id: IDS.roomB, clinician_id: IDS.clinicianB, patient_id: IDS.patientB, appointment_date: when, appointment_time: when, reason: 'Checkup B', product_id: IDS.productB },
+      // REQ029 -- completed, so getAppointmentStats' topClinicians/revenueByClinic populate.
+      // A different time slot from appointmentA/B above -- same clinician,
+      // same day would collide with the real Postgres no-overlap EXCLUDE
+      // constraint (appointments_no_overlapping_booking), confirmed live.
+      { id: IDS.analyticsApptA, clinic_id: IDS.clinicA, room_id: IDS.roomA, clinician_id: IDS.clinicianA, patient_id: IDS.patientA, appointment_date: when, appointment_time: new Date('2026-09-01T14:00:00.000Z'), reason: 'Analytics A', product_id: IDS.productA, status: 'completed' },
+      { id: IDS.analyticsApptB, clinic_id: IDS.clinicB, room_id: IDS.roomB, clinician_id: IDS.clinicianB, patient_id: IDS.patientB, appointment_date: when, appointment_time: new Date('2026-09-01T14:00:00.000Z'), reason: 'Analytics B', product_id: IDS.productB, status: 'completed' },
     ],
   });
 

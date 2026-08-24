@@ -23,6 +23,16 @@ const isSameDay = (a: Date, b: Date) =>
 const formatDayLabel = (d: Date) =>
   d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', timeZone: 'UTC' });
 
+const NON_OCCUPYING_STATUSES = ['cancelled', 'no_show'];
+
+const hhmmToMinutes = (hhmm: string) => {
+  const [h, m] = hhmm.split(':').map(Number);
+  return h * 60 + m;
+};
+const minutesOfDay = (d: Date) => d.getUTCHours() * 60 + d.getUTCMinutes();
+const overlapMinutes = (aStart: number, aEnd: number, bStart: number, bEnd: number) =>
+  Math.max(0, Math.min(aEnd, bEnd) - Math.max(aStart, bStart));
+
 @Injectable()
 export class AnalyticsService {
   constructor(private readonly prisma: PrismaService) {}
@@ -59,14 +69,98 @@ export class AnalyticsService {
     const revenue = completed.reduce((sum, a) => sum + PAISE_TO_RUPEES(a.product?.price), 0);
     const activePatients = new Set(appointments.map((a) => a.patient_id)).size;
     const cancellationRate = total ? (cancelled.length / total) * 100 : 0;
-    // Completion-rate proxy for "utilization" -- see entities/analytics.entity.ts comment.
-    const utilization = total ? (completed.length / total) * 100 : 0;
-    return { total, revenue, activePatients, cancellationRate, utilization };
+    // REQ029 (US-RPT-01) fallback only — used when computeTrueUtilisation()
+    // can't compute a real value (no availability data in scope at all).
+    // The primary utilization value is the real one now; see
+    // computeTrueUtilisation() below.
+    const completionRateProxy = total ? (completed.length / total) * 100 : 0;
+    const bookedMinutes = appointments
+      .filter((a) => !NON_OCCUPYING_STATUSES.includes(a.status))
+      .reduce((sum, a) => sum + (a.duration_minutes ?? 30), 0);
+    return { total, revenue, activePatients, cancellationRate, completionRateProxy, bookedMinutes };
   }
 
   private pctChange(current: number, previous: number) {
     if (!previous) return current ? 100 : 0;
     return ((current - previous) / previous) * 100;
+  }
+
+  // REQ029 (US-RPT-01) — true slot-capacity utilisation: booked minutes ÷
+  // available minutes (ClinicianAvailability windows minus SpacerBlocks/
+  // LunchBreaks), replacing the completion-rate proxy this field used to
+  // return. Ports availableSlots()'s own busy-interval-subtraction algorithm
+  // (backend/src/availability/availability.service.ts) rather than
+  // reinventing it -- same day-of-week/recurrence_type='daily' window
+  // matching, same one-off block_date matching for SpacerBlocks (not full
+  // recurrence expansion for spacer blocks -- matches availableSlots()'s
+  // own documented simplification, not a new one introduced here).
+  //
+  // Fetches each in-scope clinician's availability/lunch/spacer rows ONCE
+  // (not once per day) via `include`, then walks the date range in memory
+  // -- same shape as dashboard.service.ts's own getUtilisationByClinician(),
+  // a pre-existing, accepted pattern in this codebase for a bounded
+  // calendar-window walk (distinct from the JS-side full-table-scan
+  // aggregation project-plans F-15 warns against).
+  //
+  // Returns null (signalling the caller to fall back to the completion-rate
+  // proxy) only when there is zero availability data in scope at all --
+  // not a real "0% utilised" answer, which would be misleading.
+  private async computeTrueUtilisation(
+    clinicId: string | undefined,
+    start: Date,
+    end: Date,
+    bookedMinutes: number,
+    user: JwtPayload,
+  ): Promise<number | null> {
+    const clinicians = await this.prisma.clinicians.findMany({
+      where: {
+        is_deleted: false,
+        is_active: true,
+        ...(clinicId ? { clinic_id: clinicId } : {}),
+        ...this.orgScope(user),
+      },
+      include: {
+        availability: { where: { is_deleted: false, is_active: true, mode: 'slot' } },
+        lunchBreaks: { where: { is_deleted: false } },
+        spacerBlocks: { where: { is_deleted: false, block_date: { gte: start, lte: end } } },
+      },
+    });
+
+    let availableMinutes = 0;
+    for (const clinician of clinicians) {
+      for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
+        const day = new Date(t);
+        const dow = day.getUTCDay();
+
+        const windows = clinician.availability.filter(
+          (a: any) =>
+            (a.day_of_week === dow || a.recurrence_type === 'daily') &&
+            a.valid_from <= day &&
+            (!a.valid_until || a.valid_until >= day),
+        );
+        if (!windows.length) continue;
+
+        const busy: Array<{ start: number; end: number }> = [
+          ...clinician.lunchBreaks
+            .filter((l: any) => l.day_of_week === dow || l.recurrence_type === 'daily')
+            .map((l: any) => ({ start: minutesOfDay(l.start_time), end: minutesOfDay(l.end_time) })),
+          ...clinician.spacerBlocks
+            .filter((s: any) => s.block_date && isSameDay(s.block_date, day))
+            .map((s: any) => ({ start: minutesOfDay(s.start_time), end: minutesOfDay(s.end_time) })),
+        ];
+
+        for (const w of windows) {
+          const winStart = hhmmToMinutes(w.start_time);
+          const winEnd = hhmmToMinutes(w.end_time);
+          const winMinutes = Math.max(0, winEnd - winStart);
+          const busyInWindow = busy.reduce((sum, b) => sum + overlapMinutes(winStart, winEnd, b.start, b.end), 0);
+          availableMinutes += Math.max(0, winMinutes - busyInWindow);
+        }
+      }
+    }
+
+    if (availableMinutes <= 0) return null;
+    return Math.min(100, (bookedMinutes / availableMinutes) * 100);
   }
 
   async getAppointmentStats(
@@ -89,6 +183,16 @@ export class AnalyticsService {
 
     const current = this.summarize(appointments);
     const previous = this.summarize(prevAppointments);
+
+    // REQ029 (US-RPT-01) — real value first, completion-rate proxy only as
+    // a fallback when there's no availability data in scope to compute a
+    // real one from (see computeTrueUtilisation()'s own doc comment).
+    const [trueUtilizationCurrent, trueUtilizationPrevious] = await Promise.all([
+      this.computeTrueUtilisation(clinicId, start, end, current.bookedMinutes, user),
+      this.computeTrueUtilisation(clinicId, prevStart, prevEnd, previous.bookedMinutes, user),
+    ]);
+    const utilization = trueUtilizationCurrent ?? current.completionRateProxy;
+    const previousUtilization = trueUtilizationPrevious ?? previous.completionRateProxy;
 
     const timeSeriesData: { date: string; scheduled: number; completed: number; cancelled: number }[] = [];
     for (let t = start.getTime(); t <= end.getTime(); t += DAY_MS) {
@@ -139,13 +243,13 @@ export class AnalyticsService {
       totalAppointments: current.total,
       revenue: current.revenue,
       activePatients: current.activePatients,
-      utilization: current.utilization,
+      utilization,
       cancellationRate: current.cancellationRate,
       trends: {
         totalAppointments: this.pctChange(current.total, previous.total),
         revenue: this.pctChange(current.revenue, previous.revenue),
         activePatients: this.pctChange(current.activePatients, previous.activePatients),
-        utilization: this.pctChange(current.utilization, previous.utilization),
+        utilization: this.pctChange(utilization, previousUtilization),
         cancellationRate: this.pctChange(current.cancellationRate, previous.cancellationRate),
       },
       timeSeriesData,
