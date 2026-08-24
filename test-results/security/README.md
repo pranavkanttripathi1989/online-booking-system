@@ -10,7 +10,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR102 | improvement | Break-glass + impersonation results | pass | 2026-08-25 | 2026-08-25 | TP103 | [TR102-security-2026-08-25-break-glass-and-impersonation.md](./improvement/TR102-security-2026-08-25-break-glass-and-impersonation.md) |
 
 ## bug
 

@@ -20,6 +20,13 @@ export interface JwtPayload {
   // caller's next login/refresh, same staleness window client_org_id/roles
   // already have.
   permissions?: string[];
+  // REQ053 (US-SEC-06) — set only for an impersonation-session token. `sub`
+  // is the TARGET's user id (so every existing role/self-scoping check
+  // naturally evaluates as the target, exactly as impersonation requires);
+  // this field carries the REAL actor's id, read by AuditLogInterceptor so
+  // every action taken while impersonating is attributed to the real actor,
+  // not the impersonated identity.
+  real_actor_id?: string | null;
 }
 
 @Injectable()

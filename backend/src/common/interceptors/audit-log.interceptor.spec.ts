@@ -13,7 +13,7 @@ describe('AuditLogInterceptor', () => {
   const makeContext = (
     operation: 'query' | 'mutation',
     fieldName: string,
-    user: { sub?: string; client_org_id?: string | null } | undefined,
+    user: { sub?: string; client_org_id?: string | null; real_actor_id?: string | null } | undefined,
     args: Record<string, unknown> = {},
     ip = '203.0.113.5',
     userAgent = 'Mozilla/5.0 test-agent',
@@ -170,5 +170,28 @@ describe('AuditLogInterceptor', () => {
     expect(prisma.auditLogs.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ action: 'logout' }) }),
     );
+  });
+
+  // REQ053 (US-SEC-06)
+  describe('impersonation attribution', () => {
+    it('attributes user_id to the real actor, and records the impersonated identity, during an impersonation session', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue({ audit_log_enabled: true });
+      const ctx = makeContext('mutation', 'updateAppointment', { sub: 'target-1', client_org_id: 'org-1', real_actor_id: 'admin-1' });
+      await interceptor.intercept(ctx, { handle: () => of('result') }).toPromise();
+      await flush();
+      expect(prisma.auditLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ user_id: 'admin-1', acting_as_user_id: 'target-1' }) }),
+      );
+    });
+
+    it('leaves a non-impersonating caller unaffected — user_id is their own sub, acting_as_user_id absent', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue({ audit_log_enabled: true });
+      const ctx = makeContext('mutation', 'updateAppointment', { sub: 'u-1', client_org_id: 'org-1' });
+      await interceptor.intercept(ctx, { handle: () => of('result') }).toPromise();
+      await flush();
+      const call = prisma.auditLogs.create.mock.calls[0][0];
+      expect(call.data.user_id).toBe('u-1');
+      expect(call.data.acting_as_user_id).toBeUndefined();
+    });
   });
 });

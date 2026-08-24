@@ -569,8 +569,15 @@ model AuditLogs {
   user_agent String?
   is_deleted Boolean  @default(false)
   created_at DateTime @default(now())
+  // REQ053 (US-SEC-06) — set only while user_id's session is an active
+  // impersonation. user_id is the REAL actor (AuditLogInterceptor logs
+  // real_actor_id ?? sub, never the impersonated identity); this column
+  // records who was being impersonated, satisfying "tagged with both the
+  // agent's and the target user's identity" without a schema rewrite.
+  acting_as_user_id String?
 
-  user Users? @relation(fields: [user_id], references: [id])
+  user      Users? @relation("AuditLogUser", fields: [user_id], references: [id])
+  acting_as Users? @relation("AuditLogActingAs", fields: [acting_as_user_id], references: [id])
 
   @@index([user_id, created_at])
   @@index([resource, resource_id])
@@ -698,6 +705,8 @@ model ClientOrganizations {
   apiKeys                ApiKeys[]
   scheduledReports       ScheduledReports[]
   drugBatches            DrugBatches[]
+  breakGlassGrants       BreakGlassGrants[]
+  impersonationSessions  ImpersonationSessions[]
 }
 
 model ClinicianAvailability {
@@ -1699,7 +1708,11 @@ model SubscriptionPlans {
 model Users {
   id String @id @default(uuid())
 
-  auditLogs    AuditLogs[]
+  auditLogs    AuditLogs[] @relation("AuditLogUser")
+  auditLogsActingAs AuditLogs[] @relation("AuditLogActingAs")
+  breakGlassGrants BreakGlassGrants[]
+  impersonationSessionsAsActor ImpersonationSessions[] @relation("ImpersonationRealActor")
+  impersonationSessionsAsTarget ImpersonationSessions[] @relation("ImpersonationTarget")
   notifications Notifications[]
   userProfiles  UserProfiles?
   messageParticipants MessageParticipants[]
@@ -2280,4 +2293,46 @@ model ClinicIntakeFieldConfig {
   product Products? @relation(fields: [product_id], references: [id])
 
   @@index([clinic_id, product_id])
+}
+
+// REQ053 (US-SEC-05) — time-boxed, reason-mandatory elevated-access grant.
+// The grant lifecycle itself (request, alert, auto-expire) is real; wiring
+// it into specific resource-access checks is a deferred follow-on slice
+// per domain (see the requirement doc's own scope note).
+model BreakGlassGrants {
+  id              String    @id @default(uuid())
+  client_org_id   String
+  grantee_user_id String
+  reason          String
+  granted_at      DateTime  @default(now())
+  expires_at      DateTime
+  revoked_at      DateTime?
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  grantee              Users               @relation(fields: [grantee_user_id], references: [id])
+
+  @@index([grantee_user_id, expires_at])
+  @@index([client_org_id, granted_at])
+}
+
+// REQ053 (US-SEC-06, scoped down — see the requirement doc's own note on
+// why the full Support-Agent/org-approval governance layer is deferred).
+// expires_at drives the impersonation JWT's own expiresIn, so reversion is
+// automatic -- no separate expiry sweep needed.
+model ImpersonationSessions {
+  id                 String    @id @default(uuid())
+  client_org_id      String
+  real_actor_user_id String
+  target_user_id     String
+  reason             String
+  started_at         DateTime  @default(now())
+  expires_at         DateTime
+  ended_at           DateTime?
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  real_actor           Users               @relation("ImpersonationRealActor", fields: [real_actor_user_id], references: [id])
+  target                Users               @relation("ImpersonationTarget", fields: [target_user_id], references: [id])
+
+  @@index([real_actor_user_id, expires_at])
+  @@index([target_user_id])
 }

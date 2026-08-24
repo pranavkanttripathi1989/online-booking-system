@@ -10,7 +10,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN076 | improvement | Break-glass access + impersonation audit trail | done | 2026-08-25 | 2026-08-25 | REQ053 | [PLAN076-security-2026-08-25-break-glass-and-impersonation.md](./improvement/PLAN076-security-2026-08-25-break-glass-and-impersonation.md) |
 
 ## bug
 

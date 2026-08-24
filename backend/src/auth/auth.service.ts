@@ -12,9 +12,14 @@ import { RefreshInput } from './dto/refresh.input';
 import { AuthPayloadType, TotpChallengeType } from './entities/auth-payload.entity';
 import { decrypt } from '../common/crypto/secrets';
 import { BCRYPT_COST } from '../common/crypto/bcrypt-cost';
+import { JwtPayload } from './strategies/jwt.strategy';
+import { isSameOrg } from '../common/scoping/tenant-scope';
 
 const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
+// REQ053 (US-SEC-06) — the PRD's own break-glass default (US-SEC-05, "30
+// minutes"), reused here since US-SEC-06 doesn't specify its own duration.
+const IMPERSONATION_TTL_SECONDS = 30 * 60;
 const LOCKOUT_MAX_ATTEMPTS = 5;
 const LOCKOUT_WINDOW_SECONDS = 15 * 60;
 const OTP_TTL_SECONDS = Number(process.env.OTP_TTL_SECONDS ?? 300);
@@ -207,6 +212,80 @@ export class AuthService {
       user: await this.buildAuthUser(userProfile),
       ...securityFields,
     };
+  }
+
+  // ── Impersonation (REQ053, US-SEC-06 scoped down — see the requirement
+  // doc's own note on the deferred Support-Agent/org-approval layer) ────────
+
+  async startImpersonation(actor: JwtPayload, targetUserId: string, reason: string) {
+    if (!reason?.trim()) {
+      return { success: false, userErrors: [{ message: 'A reason is required' }] };
+    }
+    const target = await this.prisma.userProfiles.findUnique({ where: { id: targetUserId }, include: { role: true } });
+    if (!target || target.is_deleted) {
+      return { success: false, userErrors: [{ message: 'User not found' }] };
+    }
+    if (!isSameOrg(actor, target.client_org_id)) {
+      return { success: false, userErrors: [{ message: 'User not found' }] };
+    }
+    if (target.id === actor.sub) {
+      return { success: false, userErrors: [{ message: 'Cannot impersonate yourself' }] };
+    }
+    // A platform-wide actor (client_org_id: null) impersonating a target in
+    // a real org anchors the session to the TARGET's org -- there is no
+    // other tenant to attribute it to. If NEITHER has an org (an org-less
+    // target, e.g. a self-registered account with no linkage yet), there is
+    // no tenant to anchor the session to at all -- fail closed rather than
+    // write a null client_org_id.
+    const sessionOrgId = target.client_org_id ?? actor.client_org_id;
+    if (!sessionOrgId) {
+      return { success: false, userErrors: [{ message: 'Cannot impersonate a user with no organization' }] };
+    }
+
+    const expiresAt = new Date(Date.now() + IMPERSONATION_TTL_SECONDS * 1000);
+    await this.prisma.impersonationSessions.create({
+      data: {
+        client_org_id: sessionOrgId,
+        real_actor_user_id: actor.sub,
+        target_user_id: target.id,
+        reason,
+        expires_at: expiresAt,
+      },
+    });
+
+    const permissions = await this.resolvePermissions(target.role_id);
+    const access_token = this.jwt.sign(
+      {
+        sub: target.id,
+        roles: [target.role.name],
+        client_org_id: target.client_org_id,
+        patient_id: target.patient_id ?? null,
+        clinician_id: target.clinician_id ?? null,
+        permissions,
+        real_actor_id: actor.sub,
+      },
+      { secret: process.env.JWT_ACCESS_SECRET, expiresIn: IMPERSONATION_TTL_SECONDS },
+    );
+    return { success: true, userErrors: [], access_token, expires_in: IMPERSONATION_TTL_SECONDS };
+  }
+
+  // Marks the session ended for audit/administrative purposes. The access
+  // token itself remains technically valid until its own expiry -- this
+  // codebase has no early-revocation mechanism for short-lived access
+  // tokens anywhere else either (logout only invalidates refresh tokens via
+  // Redis); automatic reversion is guaranteed by expiresIn regardless.
+  async endImpersonation(actor: JwtPayload) {
+    if (!actor.real_actor_id) {
+      return { success: false, userErrors: [{ message: 'Not currently impersonating' }] };
+    }
+    const session = await this.prisma.impersonationSessions.findFirst({
+      where: { real_actor_user_id: actor.real_actor_id, target_user_id: actor.sub, ended_at: null },
+      orderBy: { started_at: 'desc' },
+    });
+    if (session) {
+      await this.prisma.impersonationSessions.update({ where: { id: session.id }, data: { ended_at: new Date() } });
+    }
+    return { success: true, userErrors: [] };
   }
 
   // ── Login ──────────────────────────────────────────────────────────────────

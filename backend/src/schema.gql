@@ -419,6 +419,26 @@ type BookingWidgetUserError {
   message: String!
 }
 
+type BreakGlassGrant {
+  expires_at: DateTime!
+  granted_at: DateTime!
+  grantee_user_id: ID!
+  id: ID!
+  is_active: Boolean!
+  reason: String!
+  revoked_at: DateTime
+}
+
+type BreakGlassGrantMutationResult {
+  grant: BreakGlassGrant
+  success: Boolean!
+  userErrors: [BreakGlassUserError!]!
+}
+
+type BreakGlassUserError {
+  message: String!
+}
+
 type CancellationRule {
   clinic: CancellationRuleClinic
   clinic_id: ID
@@ -1102,6 +1122,11 @@ type EncounterTemplate {
   specialty: String
 }
 
+type EndImpersonationResult {
+  success: Boolean!
+  userErrors: [ImpersonationUserError!]!
+}
+
 type FeatureFlag {
   enabled: Boolean!
   key: String!
@@ -1144,6 +1169,17 @@ input ForgotPasswordInput {
 type GenericResult {
   message: String
   success: Boolean!
+}
+
+type ImpersonationResult {
+  access_token: String
+  expires_in: Int
+  success: Boolean!
+  userErrors: [ImpersonationUserError!]!
+}
+
+type ImpersonationUserError {
+  message: String!
 }
 
 type IntakeFieldConfig {
@@ -1327,6 +1363,7 @@ type Mutation {
   deleteSpacerBlock(id: ID!): SpacerBlockMutationResult!
   disableTotp(input: DisableTotpInput!): GenericResult!
   dispensePrescriptionItem(input: DispensePrescriptionItemInput!): DrugBatch!
+  endImpersonation: EndImpersonationResult!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   getOrCreateEncounter(appointment_id: ID!): Encounter!
   login(input: LoginInput!): LoginResult!
@@ -1342,6 +1379,7 @@ type Mutation {
   recordCounterPayment(input: RecordCounterPaymentInput!): RecordCounterPaymentResult!
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
+  requestBreakGlassAccess(input: RequestBreakGlassAccessInput!): BreakGlassGrantMutationResult!
   requestDataRights(input: RequestDataRightsInput!): RightsRequest!
   requestOtp(input: RequestOtpInput!): GenericResult!
   resetAppointmentJourney(id: ID!): Appointment!
@@ -1349,6 +1387,7 @@ type Mutation {
   resolveRightsRequest(id: ID!, input: ResolveRightsRequestInput!): RightsRequest!
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
   revokeApiKey(id: ID!): ApiKey!
+  revokeBreakGlassAccess(id: ID!): BreakGlassGrantMutationResult!
   revokeMySession(id: String!): GenericResult!
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveEncounterNote(input: SaveEncounterNoteInput!): EncounterNote!
@@ -1360,6 +1399,7 @@ type Mutation {
   signEncounter(encounter_id: ID!): Encounter!
   skipQueueEntry(input: SkipQueueEntryInput!): QueueEntry!
   startConsultation(id: ID!): Appointment!
+  startImpersonation(reason: String!, target_user_id: String!): ImpersonationResult!
   startOrganizationOnboarding(input: StartOnboardingInput!): OrganizationOnboarding!
   startTotpEnrollment: TotpEnrollment!
   toggleClinicianActive(id: ID!): Clinician!
@@ -2164,6 +2204,7 @@ type Query {
   languages: [Language!]!
   me: User!
   messageableContacts: [MessageableContact!]!
+  myBreakGlassGrants: [BreakGlassGrant!]!
   myDataExport: String
   myDependants: [Dependant!]!
   myFinanceSummary(endDate: String!, startDate: String!): FinanceSummary!
@@ -2296,6 +2337,10 @@ input RegisterInput {
   last_name: String!
   password: String!
   phone: String
+}
+
+input RequestBreakGlassAccessInput {
+  reason: String!
 }
 
 input RequestDataRightsInput {

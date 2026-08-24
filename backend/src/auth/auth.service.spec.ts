@@ -23,6 +23,7 @@ describe('AuthService', () => {
     patients: { findUnique: jest.Mock };
     users: { create: jest.Mock };
     clientOrganizations: { findUnique: jest.Mock };
+    impersonationSessions: { create: jest.Mock; findFirst: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
   let jwt: { sign: jest.Mock; verifyAsync: jest.Mock };
@@ -69,6 +70,8 @@ describe('AuthService', () => {
       // test in this file (none of which set client_org_id) keeps hitting
       // the "no org to check" short-circuit and never touches this mock.
       clientOrganizations: { findUnique: jest.fn().mockResolvedValue(null) },
+      // REQ053 — startImpersonation/endImpersonation
+      impersonationSessions: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
       $transaction: jest.fn(),
     };
     jwt = { sign: jest.fn().mockReturnValue('signed.jwt.token'), verifyAsync: jest.fn() };
@@ -566,6 +569,89 @@ describe('AuthService', () => {
           data: expect.objectContaining({ password_reset_token: null, password_reset_expires: null }),
         }),
       );
+    });
+  });
+
+  // REQ053 (US-SEC-06)
+  describe('startImpersonation / endImpersonation', () => {
+    const actor = { sub: 'admin-1', roles: ['admin'], client_org_id: 'org-a' } as any;
+    const target = activeProfile({ id: 'target-1', client_org_id: 'org-a', role: { name: 'staff' } });
+
+    it('rejects a blank reason', async () => {
+      const result = await service.startImpersonation(actor, 'target-1', '   ');
+      expect(result.success).toBe(false);
+      expect(prisma.impersonationSessions.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a nonexistent target', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValue(null);
+      const result = await service.startImpersonation(actor, 'ghost', 'debugging an issue');
+      expect(result.success).toBe(false);
+    });
+
+    // `startImpersonation` is @Auth('admin', 'super_admin')-gated (auth.resolver.ts),
+    // and both those roles are unconditionally platform-wide by this
+    // codebase's own design (isPlatformOperator() — see tenant-scope.ts and
+    // CLAUDE.md's own "the scoping bug has four spellings" note on why this
+    // is intentional, not a bug). isSameOrg()'s cross-org check is therefore
+    // correctly unreachable for the actor role set this mutation actually
+    // admits — a platform-wide admin genuinely CAN impersonate a user in
+    // any org, matching every other admin-gated read in this codebase. The
+    // check stays in the code as a real, meaningful guard for the day this
+    // gate is ever widened to include an org-scoped role like 'manager'
+    // (same precedent as the webhooks/api-keys fix documented in CLAUDE.md).
+    it('a platform-wide admin can impersonate a user in a different org (intentional — matches isPlatformOperator design)', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValue({ ...target, client_org_id: 'org-b' });
+      const result = await service.startImpersonation(actor, 'target-1', 'debugging an issue');
+      expect(result.success).toBe(true);
+      expect(prisma.impersonationSessions.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ client_org_id: 'org-b' }),
+      }));
+    });
+
+    it('rejects impersonation for an org-scoped (non-platform-wide) actor calling into a different org', async () => {
+      // A hypothetical future caller if this gate is ever widened past
+      // admin/super_admin — proves isSameOrg()'s check is real, not dead
+      // code, for any role that actually has an org boundary to enforce.
+      const orgScopedActor = { sub: 'mgr-1', roles: ['manager'], client_org_id: 'org-a' } as any;
+      prisma.userProfiles.findUnique.mockResolvedValue({ ...target, client_org_id: 'org-b' });
+      const result = await service.startImpersonation(orgScopedActor, 'target-1', 'debugging an issue');
+      expect(result.success).toBe(false);
+      expect(prisma.impersonationSessions.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects impersonating yourself', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValue({ ...target, id: 'admin-1' });
+      const result = await service.startImpersonation(actor, 'admin-1', 'debugging an issue');
+      expect(result.success).toBe(false);
+    });
+
+    it('mints a token with sub set to the target and real_actor_id set to the actor', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValue(target);
+      const result = await service.startImpersonation(actor, 'target-1', 'debugging an issue');
+      expect(result.success).toBe(true);
+      expect(result.access_token).toBe('signed.jwt.token');
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'target-1', roles: ['staff'], real_actor_id: 'admin-1' }),
+        expect.objectContaining({ expiresIn: 30 * 60 }),
+      );
+      expect(prisma.impersonationSessions.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ real_actor_user_id: 'admin-1', target_user_id: 'target-1', client_org_id: 'org-a' }),
+      }));
+    });
+
+    it('endImpersonation is a no-op for a non-impersonating caller', async () => {
+      const result = await service.endImpersonation({ sub: 'user-1' } as any);
+      expect(result.success).toBe(false);
+      expect(prisma.impersonationSessions.update).not.toHaveBeenCalled();
+    });
+
+    it('endImpersonation marks the active session ended', async () => {
+      prisma.impersonationSessions.findFirst.mockResolvedValue({ id: 'sess-1' });
+      const impersonatedCaller = { sub: 'target-1', real_actor_id: 'admin-1' } as any;
+      const result = await service.endImpersonation(impersonatedCaller);
+      expect(result.success).toBe(true);
+      expect(prisma.impersonationSessions.update).toHaveBeenCalledWith({ where: { id: 'sess-1' }, data: { ended_at: expect.any(Date) } });
     });
   });
 });

@@ -37,6 +37,8 @@ const EXEMPT: Record<string, string> = {
   // (super_admin-managed, no client_org_id anywhere on Plans/PlanVersions),
   // same shape as organizations' own isPlatformOperator exemption above.
   plans: 'Platform-level plan catalog, super_admin-managed — no client_org_id on Plans/PlanVersions, same shape as organizations (no "org A caller" for shared catalog data).',
+  // REQ053 (2026-08-25 8-slice pass)
+  'break-glass': "myBreakGlassGrants is scoped by grantee_user_id (the caller's own grants), not org — same shape as notifications' own exemption above. Cross-org isolation is real (request()/revoke() both check client_org_id) and covered in break-glass.service.spec.ts unit tests instead.",
 };
 
 /**

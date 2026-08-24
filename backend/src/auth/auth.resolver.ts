@@ -9,8 +9,10 @@ import { ForgotPasswordInput, ResetPasswordInput } from './dto/password-reset.in
 import { VerifyTotpLoginInput } from './dto/totp-login.input';
 import { AuthPayloadType, GenericResultType, LoginResultType } from './entities/auth-payload.entity';
 import { AuthUserType } from './entities/user.entity';
+import { ImpersonationResultType, EndImpersonationResultType } from './entities/impersonation.entity';
 import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { Auth } from '../common/decorators/auth.decorator';
 import { JwtPayload } from './strategies/jwt.strategy';
 
 // GqlAuthGuard is global (app.module.ts) — every resolver requires a valid JWT
@@ -113,5 +115,23 @@ export class AuthResolver {
   @Mutation(() => GenericResultType)
   resetPassword(@Args('input') input: ResetPasswordInput) {
     return this.authService.resetPassword(input.token, input.new_password);
+  }
+
+  // REQ053 (US-SEC-06) — mints a time-boxed access token acting as the
+  // target user; every write made with it is attributed to the real actor
+  // in the audit log (AuditLogInterceptor reads real_actor_id).
+  @Auth('admin', 'super_admin')
+  @Mutation(() => ImpersonationResultType)
+  startImpersonation(
+    @Args('target_user_id') targetUserId: string,
+    @Args('reason') reason: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.authService.startImpersonation(user, targetUserId, reason);
+  }
+
+  @Mutation(() => EndImpersonationResultType)
+  endImpersonation(@CurrentUser() user: JwtPayload) {
+    return this.authService.endImpersonation(user);
   }
 }

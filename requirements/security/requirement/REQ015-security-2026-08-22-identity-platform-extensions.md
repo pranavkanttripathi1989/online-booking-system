@@ -6,7 +6,7 @@ created: 2026-08-22
 updated: 2026-08-24
 status: in-progress
 parent: REQ001
-related: [REQ012, REQ001, REQ049, PLAN071, TP098, TR097]
+related: [REQ012, REQ001, REQ049, PLAN071, TP098, TR097, REQ053]
 ---
 
 ## Status (2026-08-24)

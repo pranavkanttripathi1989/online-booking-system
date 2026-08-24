@@ -85,7 +85,7 @@ export class AuditLogInterceptor implements NestInterceptor {
     }
 
     const req = gqlContext.getContext()?.req;
-    const user = req?.user as { sub?: string; client_org_id?: string | null } | undefined;
+    const user = req?.user as { sub?: string; client_org_id?: string | null; real_actor_id?: string | null } | undefined;
     const fieldName: string = info.fieldName;
     const args = gqlContext.getArgs<Record<string, unknown>>();
 
@@ -103,7 +103,7 @@ export class AuditLogInterceptor implements NestInterceptor {
   }
 
   private async writeLog(
-    user: { sub?: string; client_org_id?: string | null } | undefined,
+    user: { sub?: string; client_org_id?: string | null; real_actor_id?: string | null } | undefined,
     fieldName: string,
     req: any,
     args: Record<string, unknown>,
@@ -116,9 +116,16 @@ export class AuditLogInterceptor implements NestInterceptor {
         if (!org?.audit_log_enabled) return;
       }
       const { action, resource } = parseFieldName(fieldName);
+      // REQ053 (US-SEC-06) — during an impersonation session, user_id is
+      // the REAL actor (never the impersonated identity), and
+      // acting_as_user_id records who was being impersonated. Every other
+      // caller (real_actor_id absent) is unaffected -- acting_as_user_id
+      // stays null, user_id stays their own sub, byte-for-byte the same as
+      // before this slice.
       await this.prisma.auditLogs.create({
         data: {
-          user_id: user?.sub,
+          user_id: user?.real_actor_id ?? user?.sub,
+          acting_as_user_id: user?.real_actor_id ? user?.sub : undefined,
           action,
           resource,
           resource_id: extractResourceId(args, result),

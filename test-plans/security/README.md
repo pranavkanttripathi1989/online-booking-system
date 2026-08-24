@@ -10,7 +10,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP103 | improvement | Break-glass + impersonation verification | approved | 2026-08-25 | 2026-08-25 | PLAN076 | [TP103-security-2026-08-25-break-glass-and-impersonation.md](./improvement/TP103-security-2026-08-25-break-glass-and-impersonation.md) |
 
 ## bug
 
