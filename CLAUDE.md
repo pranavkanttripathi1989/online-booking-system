@@ -482,6 +482,75 @@ documented) — CLAUDE.md's own command list phrased backend commands as
 interchangeable between host and `docker exec`, which is true for every
 other backend command *except* this one.
 
+**Phase G+3 — eight more P1-residue slices shipped 2026-08-25, closing
+out the remaining P1 scope of eight already-mostly-shipped requirements
+in one continuous pass.** Sequence: `REQ051 → REQ052 → REQ053 → REQ054 →
+REQ055 → REQ056 → REQ057 → REQ058`. Selection criterion, same as every
+prior G-series pass: additive, isolated, no new external vendor
+integration — except this time **research came first and reshaped scope
+twice** (see `REQ055`/`REQ057` below), a discipline worth repeating for
+any future batch of this kind.
+
+| Requirement | What shipped | Deliberately NOT built |
+|---|---|---|
+| `REQ051` (queue-management, `US-QUE-06`) | Mandatory pre-consultation checklist gating `callNext()` — a new `ChecklistItems`/`ChecklistCompletions` pair, keyed by `appointment_id` not `encounter_id` (confirmed via exploration that an encounter doesn't exist yet at call-next time) | — |
+| `REQ052` (appointments, `US-BOOK-04`/`06`) | Auto-mark-no-show sweep (`@Cron`, configurable grace period + repeat-no-show prepayment forcing) and configurable per-clinic intake fields, exposed as structured `IntakeFieldResponseType[]` not a raw JSON scalar | — |
+| `REQ053` (security, `US-SEC-05`/`06`) | Time-boxed break-glass access grants; JWT-embedded impersonation (`real_actor_id` claim, target's own identity minted into the token, 30-min TTL doubling as automatic reversion) with full audit attribution | SSO/SAML/OIDC (needs a real external IdP) |
+| `REQ054` (catalog-master-data, `US-CAT-01`) | Multi-sitting service packages — purchase once, redeem sittings across future appointments via a sibling `redeemPackageSitting` mutation on `appointment-payments`, not a shoehorned zero-amount case through `recordCounterPayment` | Partial-sitting packages, package transfer/refund/renewal |
+| `REQ055` (organizations, `US-ORG-05`) | Org→branch masters cascade for services — `ProductBranchOverrides` (inherit/override/skip), `resolveServicePrice()` gains a 4th optional argument. **Research reshaped scope**: a clinical service is already, today, an org-level master (`clinic_id: null`); the real gap was the missing branch-override layer, not an "org-level default" layer as originally assumed | Admin UI; the `appointments.service.ts` list-preview call site (N+1 risk, documented as a named follow-up) |
+| `REQ056` (patient-payments, `US-BIL-03`/`04`) | Discount-approval workflow (queued above a configurable per-org threshold, decided by a distinct manager+ caller who can't be the original requester) reusing `REQ034`'s `RightsRequests` request/decide-later shape — no dual-approval mechanism existed anywhere in this codebase before; day-end cash close computing expected-vs-counted variance server-side per tender type | Denomination-level breakdown, formal shift handover, a generic `AuditLogs` write (the request row itself is the durable record) |
+| `REQ057` (patient-portal, `US-PAT-02`) | Real server-side PDF generation (`pdfkit`, not puppeteer — this session's own observed host disk/memory pressure) for prescriptions/invoices/visit summaries, via a new REST-only `documents` module. **Zero new tenant-isolation logic** — composes three already-scoped assembly methods (two reused verbatim, one new) rather than re-deriving access control a third time | Pixel-perfect visual parity; dependant-aware self-scoping (deliberately not widened, per the standing residue note below); frontend download UI |
+| `REQ058` (messaging, `US-MSG-01`/`03`) | Department/branch-scoped threads via **create-time auto-participant-add**, not a dynamic read-time visibility rule — `threads()`/`thread()` stay completely unchanged, zero regression risk; message attachments (reusing `attachments.controller.ts`'s exact upload pattern); org-scoped canned replies, deliberately gated away from `'patient'` | `US-MSG-04` (auto-responder), `US-MSG-05` (clinical-record linkage), non-clinician staff department membership |
+
+One real bug found and fixed, non-domain-specific enough to matter for
+any future work in this codebase: **`import X from 'some-cjs-package'`
+can type-check cleanly and still throw `X.default is not a constructor`
+at runtime.** This repo's `tsconfig.json` sets `allowSyntheticDefaultImports`
+(a type-checking-only convenience) but not `esModuleInterop` (the flag
+that actually generates the `.default` wrapper for a CommonJS package at
+runtime) — hit adding `pdfkit` for `REQ057`, caught by the first real unit
+test run, not `tsc --noEmit` (which has no runtime component to catch an
+interop mismatch like this). Fixed with TypeScript's `import X =
+require('some-cjs-package')` form, which always binds directly to
+`module.exports` regardless of either interop flag. **Any future
+default-imported CommonJS-only dependency in this codebase will hit the
+identical failure** — reach for the `= require(...)` form from the start,
+don't assume a clean `tsc --noEmit` proves the import works.
+
+Two of the eight slices (`REQ054`, `REQ058`) held on the first
+implementation pass with no real design bugs — in both cases because the
+fix patterns learned earlier in the same batch (optional tenancy-matrix
+arguments for a caller-supplied scoping id, `isPlatformOperator`/
+`isSameOrg` cross-org semantics, Hard Rule 6 cross-domain FK validation)
+were applied proactively from the start rather than discovered via a
+failing test. This is the second time in this codebase's history a batch
+has had a genuinely bug-free slice (the first was `REQ054` alone, in
+Phase G+2's own account above) — worth treating as a real, repeatable
+effect of front-loading a prior pass's own lessons, not survivorship
+bias.
+
+**Environment note, consistent with every prior G-series pass**:
+`docker restart medibook_backend` after a schema change repeatedly took
+3–6 minutes under host load this session (confirmed via `docker stats`
+showing sustained 100%+ CPU throughout, not a wedge) — noticeably slower
+than earlier sessions' restarts. If a restart appears stuck, check
+`docker stats` before assuming a wedge; only quit-and-relaunch Docker
+Desktop entirely if CPU usage is genuinely flat at 0%, per the
+established recovery pattern from Phase G+2's own account.
+
+**All 8 slices are backend-only**, per an explicit, confirmed direction
+at the start of this batch (`AskUserQuestion`: "Backend-only, frontend
+pass after all 8") — matching Phase G+2's own precedent exactly, where a
+dedicated frontend-completion pass followed the backend batch as its own
+separately-reviewed slice. That same follow-up is still owed here and has
+not yet been scheduled. Full verification for the batch: backend unit
+80/80 suites (1213/1213 tests, up from 73/1053 before this batch started),
+integration 4/4 suites (369/369 tests, up from 315), `eslint`/
+`tsc --noEmit` clean throughout. See `context/queue-management-2026-08-25-req051/manifest.md`
+through `context/messaging-2026-08-25-req058/manifest.md` for each
+slice's own full account, and `project-plans/07-prd-gap-analysis-and-roadmap.md`'s
+own staleness note for how this batch changes the PRD-module gap picture.
+
 ### What Phase F did NOT close — read before assuming coverage
 
 - **Tenancy matrix now covers 31 tenant-scoped domains plus 12 honestly-EXEMPT
@@ -629,7 +698,7 @@ The host's default `node` may be older than Playwright's ESM config loader requi
 
 `frontend/src/apollo/client.js`'s `httpLink` wraps every request in a 10s `AbortController` timeout (tuned up from an original 2s, which misread slow-but-real responses as "offline"); `frontend/src/mocks/store.js` is a full in-memory backend simulation many pages fall back to on network failure or (for pages never wired to GraphQL at all) use exclusively. **Do not assume a page "using GraphQL" talks to a real backend** — grep the page for `gql\``/`useQuery`/`useMutation` and check whether it imports from the canonical `frontend/src/graphql/{queries,mutations}.js` or defines its own inline operations, then cross-check against which `backend/src/*` modules actually exist (below). `context/backend-api-requirements-master-plan.md` has the full per-page audit (75 pages + 55 components, none skipped).
 
-Backend domain modules that exist today (`backend/src/`, re-verified 2026-08-24 against a real `ls`): `auth`, `account`, `clinics`, `rooms`, `resources`, `departments`, `lookups`, `organizations`, `organization-onboarding`, `languages`, `email-templates`, `services`, `products`, `drugs`, `clinicians`, `test-results`, `patients`, `appointments`, `appointment-payments`, `availability`, `blocks`, `encounters`, `prescriptions`, `queue`, `users`, `staff`, `notifications`, `notification-preferences`, `reviews`, `messages`, `public`, `analytics`, `dashboard`, `org-settings`, `cancellation-rules`, `booking-widget`, `plans`, `consent`, `pharmacy`, `webhooks`, `insurance`, `api-keys`, `scheduled-reports`. Each follows the same file layout: `<domain>.module.ts`, `<domain>.resolver.ts`, `<domain>.service.ts`, `dto/*.input.ts` (validated `@InputType()` classes), `entities/*.entity.ts` (`@ObjectType()` classes, GraphQL type names sometimes deliberately differ from the Prisma model name — see below). This list drifts as new domains land each session — cross-check `ls backend/src/` before trusting it for a "does X have a backend" question. Priority 2 is now fully complete (as of 2026-08-21) — organization Branding (`REQ002`), Communications' own "Notification Templates" tab (`REQ011`), and admin's "Security settings" tab (`REQ012`) are all closed, see Priority 2 below.
+Backend domain modules that exist today (`backend/src/`, re-verified 2026-08-25 against a real `ls`): `auth`, `account`, `clinics`, `rooms`, `resources`, `departments`, `lookups`, `organizations`, `organization-onboarding`, `languages`, `email-templates`, `services`, `products`, `drugs`, `clinicians`, `test-results`, `patients`, `appointments`, `appointment-payments`, `availability`, `blocks`, `encounters`, `prescriptions`, `queue`, `users`, `staff`, `notifications`, `notification-preferences`, `reviews`, `messages`, `public`, `analytics`, `dashboard`, `org-settings`, `cancellation-rules`, `booking-widget`, `plans`, `consent`, `pharmacy`, `webhooks`, `insurance`, `api-keys`, `scheduled-reports`, `checklist`, `intake-fields`, `break-glass`, `packages`, `branch-overrides`, `documents`. The last six landed in this session's own "Phase G+3" batch (`REQ051`–`REQ058`) — `documents` is REST-only (no `.resolver.ts`), the others follow the usual GraphQL shape. Each follows the same file layout: `<domain>.module.ts`, `<domain>.resolver.ts`, `<domain>.service.ts`, `dto/*.input.ts` (validated `@InputType()` classes), `entities/*.entity.ts` (`@ObjectType()` classes, GraphQL type names sometimes deliberately differ from the Prisma model name — see below). This list drifts as new domains land each session — cross-check `ls backend/src/` before trusting it for a "does X have a backend" question. Priority 2 is now fully complete (as of 2026-08-21) — organization Branding (`REQ002`), Communications' own "Notification Templates" tab (`REQ011`), and admin's "Security settings" tab (`REQ012`) are all closed, see Priority 2 below.
 
 ### `App.jsx`'s route tree has one path claimed twice — know this before adding a pathless layout route
 

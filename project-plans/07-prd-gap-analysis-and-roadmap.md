@@ -3,7 +3,7 @@ id: PP007
 type: analysis
 feature: project-plans
 created: 2026-08-22
-updated: 2026-08-22
+updated: 2026-08-25
 status: active
 parent: PP000
 related: [PP006]
@@ -12,6 +12,8 @@ related: [PP006]
 # 07 — PRD gap analysis and consolidated roadmap
 
 `PRD-Healthcare-Booking-SaaS-India.md` describes a materially larger product ("CareOS") than what exists today. This document is the bridge between that PRD and the 22 detailed requirement documents (`REQ014`–`REQ035`) now filed under `requirements/`, each with user stories and acceptance criteria. Read this first for the shape of the gap and the sequencing; read the individual `REQ` documents for the engineering detail.
+
+**This document is a point-in-time snapshot, not a living tracker — the "state today" table below has drifted twice since its own `updated:` date.** Two full backend-only batches have shipped against it since 2026-08-22, each closing several of the module rows' own remaining P1 scope: `context/machine-handoff-2026-08-24.md` (Phase G+2, 8 slices — `REQ018` residue, `REQ032`, `REQ034`, `REQ022`, `REQ030`, `REQ031`, `REQ015`, `REQ029` 2nd slice) and this session's own 8-slice pass (`REQ051`–`REQ058` — see `CLAUDE.md`'s own "Phase G+3" section for the full account: pre-consultation checklist gating call-next, auto-no-show sweep + configurable intake fields, break-glass access + impersonation, multi-sitting service packages, org→branch masters cascade, day-end cash close + discount approval, downloadable record PDFs, department/branch-scoped messaging threads). Read the table below for the shape of the gap as originally analysed, not as a claim of current state — cross-check `requirements/README.md`'s own per-feature status columns (also prone to drift, per this same session's own earlier finding) or, better, `grep` the real code before trusting either.
 
 ## 1. What the PRD asks for versus what exists
 

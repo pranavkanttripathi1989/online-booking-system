@@ -3,7 +3,7 @@ id: TECH000
 type: index
 feature: technical-plans
 created: 2026-08-22
-updated: 2026-08-22
+updated: 2026-08-25
 status: active
 parent: PP007
 related: [PP002, PP006, PP007]
@@ -13,6 +13,18 @@ related: [PP002, PP006, PP007]
 
 Engineering-level plans for building the CareOS product described in
 `PRD-Healthcare-Booking-SaaS-India.md` on top of this codebase.
+
+**Status note (2026-08-25):** "Phase 1 / MVP" below is substantially
+built — every module it lists (org hierarchy, dual-mode scheduling,
+booking, check-in/queue, EMR, Rx, billing, plan builder v1) has real,
+tested code today, closed across Phase G/G+1/G+2 and this session's own
+"Phase G+3" 8-slice batch (`REQ051`–`REQ058`). This document's own phase
+*plans* (schema DDL, module layout, sequencing rationale) remain accurate
+as engineering reference — what's stale is only the assumption, if read
+without `CLAUDE.md`, that Phase 1 is still mostly ahead of the codebase
+rather than mostly behind it. See `CLAUDE.md`'s own Phase G/G+1/G+2/G+3
+sections and `07-prd-gap-analysis-and-roadmap.md`'s own staleness note
+for what's actually shipped.
 
 ## How this relates to everything else
 
