@@ -2,6 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| analytics-reporting | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
 | prescriptions | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [prescriptions](./prescriptions/README.md) |
 | clinical-records | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
@@ -13,7 +14,7 @@
 | clinician-availability | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinician-availability](./clinician-availability/README.md) |
 | clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
 | organizations | 3 | 1 | 0 | 4 | 0 | 2026-08-24 | [organizations](./organizations/README.md) |
-| catalog-master-data | 1 | 1 | 0 | 2 | 0 | 2026-08-23 | [catalog-master-data](./catalog-master-data/README.md) |
+| catalog-master-data | 2 | 1 | 0 | 3 | 0 | 2026-08-24 | [catalog-master-data](./catalog-master-data/README.md) |
 | public | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [public](./public/README.md) |
 | communications-policies | 2 | 2 | 0 | 4 | 0 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
@@ -23,7 +24,7 @@
 | security | 2 | 0 | 0 | 2 | 0 | 2026-08-23 | [security](./security/README.md) |
 | settings | 3 | 0 | 0 | 3 | 0 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 1 | 1 | 0 | 2 | 0 | 2026-08-21 | [staff](./staff/README.md) |
-| patient-payments | 3 | 1 | 0 | 4 | 0 | 2026-08-23 | [patient-payments](./patient-payments/README.md) |
+| patient-payments | 4 | 1 | 0 | 5 | 0 | 2026-08-24 | [patient-payments](./patient-payments/README.md) |
 | phase4-5-increment3 | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
 | phase4-backend-integration | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-backend-integration](./phase4-backend-integration/README.md) |
 | test-results-page | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [test-results-page](./test-results-page/README.md) |

@@ -2,11 +2,12 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
+| analytics-reporting | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
 | prescriptions | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [prescriptions](./prescriptions/README.md) |
 | clinical-records | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
 | messaging | 1 | 0 | 0 | 0 | 1 | 2026-08-23 | [messaging](./messaging/README.md) |
-| catalog-master-data | 1 | 1 | 0 | 0 | 2 | 2026-08-23 | [catalog-master-data](./catalog-master-data/README.md) |
+| catalog-master-data | 2 | 1 | 0 | 0 | 3 | 2026-08-24 | [catalog-master-data](./catalog-master-data/README.md) |
 | organizations | 2 | 1 | 0 | 0 | 3 | 2026-08-24 | [organizations](./organizations/README.md) |
 | queue-management | 1 | 1 | 0 | 0 | 2 | 2026-08-24 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 4 | 11 | 0 | 15 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
@@ -20,7 +21,7 @@
 | security | 2 | 0 | 0 | 0 | 2 | 2026-08-23 | [security](./security/README.md) |
 | settings | 2 | 0 | 0 | 0 | 2 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
-| patient-payments | 3 | 1 | 0 | 0 | 4 | 2026-08-23 | [patient-payments](./patient-payments/README.md) |
+| patient-payments | 4 | 1 | 0 | 0 | 5 | 2026-08-24 | [patient-payments](./patient-payments/README.md) |
 | next-10-features | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [next-10-features](./next-10-features/README.md) |
 | backend-api-requirements | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [backend-api-requirements](./backend-api-requirements/README.md) |
 | backend-master-plan | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [backend-master-plan](./backend-master-plan/README.md) |

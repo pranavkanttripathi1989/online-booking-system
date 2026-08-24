@@ -6,6 +6,10 @@ One bundle per feature, linking every doc across the five roots for that feature
 |---|---|---|---|---|---|
 | machine-handoff-2026-08-24 | cross-cutting | 2026-08-24 | REQ017, REQ020, REQ021, REQ019, REQ018, REQ032 | current | [machine-handoff-2026-08-24.md](./machine-handoff-2026-08-24.md) |
 | organizations-2026-08-24-req014 | organizations | 2026-08-24 | REQ014, PLAN060, TP087, TR086 | done | [manifest.md](./organizations-2026-08-24-req014/manifest.md) |
+| analytics-reporting-2026-08-24-req029 | analytics-reporting | 2026-08-24 | REQ029, PLAN061, TP088, TR087 | done | [manifest.md](./analytics-reporting-2026-08-24-req029/manifest.md) |
+| notifications-2026-08-24-req025 | notifications | 2026-08-24 | REQ025, PLAN062, TP089, TR088 | done | [manifest.md](./notifications-2026-08-24-req025/manifest.md) |
+| catalog-master-data-2026-08-24-req016 | catalog-master-data | 2026-08-24 | REQ016, PLAN063, TP090, TR089 | done | [manifest.md](./catalog-master-data-2026-08-24-req016/manifest.md) |
+| patient-payments-2026-08-24-req023 | patient-payments | 2026-08-24 | REQ023, PLAN064, TP091, TR090 | done | [manifest.md](./patient-payments-2026-08-24-req023/manifest.md) |
 | appointments-2026-08-24-req018 | appointments | 2026-08-24 | REQ018, PLAN059, TP086, TR085 | done | [manifest.md](./appointments-2026-08-24-req018/manifest.md) |
 | queue-management-2026-08-24-req019 | queue-management | 2026-08-24 | REQ019, PLAN058, TP085, TR084 | done | [manifest.md](./queue-management-2026-08-24-req019/manifest.md) |
 | prescriptions-2026-08-24-req021 | prescriptions | 2026-08-24 | REQ021, PLAN057, TP084, TR083 | done | [manifest.md](./prescriptions-2026-08-24-req021/manifest.md) |
