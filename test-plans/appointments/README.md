@@ -5,6 +5,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TP003 | test-plan | Appointments — Test Plan | approved | 2026-03-19 | 2026-08-22 | REQ013 | [appointments-test-plan.md](./requirement/appointments-test-plan.md) |
+| TP086 | test-plan | Verification for patient dedup + merge, and family/dependant profiles | approved | 2026-08-24 | 2026-08-24 | PLAN059 | [TP086-appointments-2026-08-24-patient-dedup-and-family-verification.md](./requirement/TP086-appointments-2026-08-24-patient-dedup-and-family-verification.md) |
 
 ## improvement
 

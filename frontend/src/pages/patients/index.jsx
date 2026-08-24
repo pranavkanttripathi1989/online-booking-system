@@ -24,7 +24,8 @@ import MergeTypeRoundedIcon from '@mui/icons-material/MergeTypeRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 
 import { PATIENTS_QUERY } from '../../graphql/queries'
-import { CREATE_PATIENT_MUTATION } from '../../graphql/mutations'
+import { CREATE_PATIENT_MUTATION, MERGE_PATIENTS_MUTATION } from '../../graphql/mutations'
+import { useAuth } from '../../hooks/useAuth'
 
 // ─── Mock patients fallback ───────────────────────────────────────────────────
 // Patient safety states (on_hold/archived/labels) — requirements/semble-competitive-gap-analysis-requirements.md Phase 1
@@ -123,11 +124,14 @@ function AddPatientDialog({ open, onClose, onSuccess }) {
 }
 
 // ─── Merge Duplicate Patients Dialog ───────────────────────────────────────────
-// Mirrors Semble's createMergeRecord/updateMergeRecord mutations (patient/contact
-// deduplication) — requirements/semble-competitive-gap-analysis-requirements.md Patients
-// table + Phase 1. Field-level merge semantics on Semble's own object weren't retrievable
-// via automated fetch, so this scopes the merge to: pick a survivor, union labels onto it,
-// archive the other with a `merged_into` pointer, and record an audit trail on the survivor.
+// Originally built as a Semble-parity mockup (requirements/semble-competitive-
+// gap-analysis-requirements.md) with no backend behind it — REQ018 US-BOOK-01
+// wired handleConfirmMerge below to the real, permission-gated mergePatients
+// mutation, which was previously unreachable in real operation entirely
+// (the "Merge Duplicates" button that opens this dialog was gated on
+// `useMock`, i.e. only ever shown once the real backend query returned zero
+// results). This component itself stays presentation-only — pick a
+// survivor, preview what moves, confirm.
 function MergePatientsDialog({ open, patientA, patientB, onClose, onConfirm }) {
   const [primaryId, setPrimaryId] = useState(patientA?.id)
 
@@ -193,8 +197,9 @@ function MergePatientsDialog({ open, patientA, patientB, onClose, onConfirm }) {
         </Table>
 
         <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
-          Appointments, tasks and history tied to the archived record stay associated with it for
-          audit purposes in this mockup — a real merge would repoint them to the primary record.
+          Every appointment, encounter, prescription, test result, and payment tied to the
+          archived record moves to the surviving record. The archived record is never deleted —
+          only marked inactive, with the merge itself recorded for later audit.
         </Alert>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -214,6 +219,12 @@ function MergePatientsDialog({ open, patientA, patientB, onClose, onConfirm }) {
 // ─── PatientsPage ─────────────────────────────────────────────────────────────
 export default function PatientsPage() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  // REQ018 US-BOOK-01 — matches the backend's own tight gate on
+  // mergePatients (not staff/receptionist, per the requirement's own
+  // non-functional note: merge is irreversible-in-the-UI and touches
+  // clinical records).
+  const canMerge = user?.roles?.some((r) => ['admin', 'super_admin', 'manager'].includes(r.name)) ?? false
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -252,26 +263,49 @@ export default function PatientsPage() {
     })
   }
 
-  const handleConfirmMerge = (primaryId, secondaryId) => {
-    const primary = mockPatients.find((p) => p.id === primaryId)
-    const secondary = mockPatients.find((p) => p.id === secondaryId)
-    const mergedLabels = Array.from(new Set([...(primary.labels ?? []), ...(secondary.labels ?? [])]))
+  const [mergePatientsMutation] = useMutation(MERGE_PATIENTS_MUTATION)
 
-    setMockPatients((prev) => prev.map((p) => {
-      if (p.id === primaryId) {
-        return {
-          ...p,
-          labels: mergedLabels,
-          merge_history: [...(p.merge_history ?? []), { merged_patient_id: secondary.id, merged_patient_name: secondary.full_name, merged_at: new Date().toISOString() }],
+  // REQ018 US-BOOK-01 — real mode calls the real, permission-gated
+  // mergePatients mutation (FK remapping + audit trail on the backend,
+  // never a client-side "union labels" simulation). Mock mode (no backend
+  // data at all) keeps the original local-state simulation, matching this
+  // page's established fallback convention for every other action.
+  const handleConfirmMerge = async (primaryId, secondaryId) => {
+    if (useMock) {
+      const primary = mockPatients.find((p) => p.id === primaryId)
+      const secondary = mockPatients.find((p) => p.id === secondaryId)
+      const mergedLabels = Array.from(new Set([...(primary.labels ?? []), ...(secondary.labels ?? [])]))
+
+      setMockPatients((prev) => prev.map((p) => {
+        if (p.id === primaryId) {
+          return {
+            ...p,
+            labels: mergedLabels,
+            merge_history: [...(p.merge_history ?? []), { merged_patient_id: secondary.id, merged_patient_name: secondary.full_name, merged_at: new Date().toISOString() }],
+          }
         }
-      }
-      if (p.id === secondaryId) {
-        return { ...p, archived: true, merged_into: primaryId, merged_into_name: primary.full_name }
-      }
-      return p
-    }))
+        if (p.id === secondaryId) {
+          return { ...p, archived: true, merged_into: primaryId, merged_into_name: primary.full_name }
+        }
+        return p
+      }))
 
-    setMergeSnackbar(`${secondary.full_name} merged into ${primary.full_name}`)
+      setMergeSnackbar(`${secondary.full_name} merged into ${primary.full_name}`)
+      setMergeDialogOpen(false)
+      setMergeMode(false)
+      setMergeSelection([])
+      return
+    }
+
+    const secondary = patients.find((p) => p.id === secondaryId)
+    const primary = patients.find((p) => p.id === primaryId)
+    try {
+      await mergePatientsMutation({ variables: { input: { surviving_patient_id: primaryId, merged_patient_id: secondaryId } } })
+      await refetch()
+      setMergeSnackbar(`${secondary?.full_name} merged into ${primary?.full_name}`)
+    } catch (err) {
+      setMergeSnackbar(err?.graphQLErrors?.[0]?.message || 'Failed to merge patients')
+    }
     setMergeDialogOpen(false)
     setMergeMode(false)
     setMergeSelection([])
@@ -331,7 +365,12 @@ export default function PatientsPage() {
           </Typography>
         </Box>
         <Stack direction="row" spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-          {useMock && (
+          {/* REQ018 US-BOOK-01 — previously gated on `useMock` (only ever
+              shown once the real backend query returned zero results),
+              which meant this real, permission-gated feature could never
+              actually be reached against real data. Gated by role instead,
+              matching the backend's own tight mergePatients gate. */}
+          {canMerge && (
             <Button
               variant={mergeMode ? 'contained' : 'outlined'}
               color={mergeMode ? 'error' : 'inherit'}
@@ -581,8 +620,8 @@ export default function PatientsPage() {
 
       <MergePatientsDialog
         open={mergeDialogOpen}
-        patientA={mockPatients.find((p) => p.id === mergeSelection[0])}
-        patientB={mockPatients.find((p) => p.id === mergeSelection[1])}
+        patientA={patients.find((p) => p.id === mergeSelection[0])}
+        patientB={patients.find((p) => p.id === mergeSelection[1])}
         onClose={() => setMergeDialogOpen(false)}
         onConfirm={handleConfirmMerge}
       />

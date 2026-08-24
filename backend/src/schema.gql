@@ -8,6 +8,14 @@ input AddAddendumInput {
   reason: String
 }
 
+input AddDependantInput {
+  date_of_birth: String!
+  first_name: String!
+  gender: String
+  last_name: String!
+  relation: String!
+}
+
 input AddOnboardingClinicInput {
   address: String
   city: String!
@@ -784,6 +792,12 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+type Dependant {
+  id: ID!
+  patient: Patient!
+  relation: String!
+}
+
 type Diagnosis {
   created_at: DateTime!
   encounter_id: ID!
@@ -957,6 +971,12 @@ type LunchBreakSlot {
   startTime: String!
 }
 
+input MergePatientsInput {
+  merged_patient_id: ID!
+  reason: String
+  surviving_patient_id: ID!
+}
+
 type MessageThread {
   assigned_to: ThreadParticipant
   id: ID!
@@ -975,6 +995,7 @@ type MessageableContact {
 }
 
 type Mutation {
+  addDependant(input: AddDependantInput!): Dependant!
   addEncounterAddendum(input: AddAddendumInput!): EncounterAddendum!
   addOnboardingFirstClinic(input: AddOnboardingClinicInput!, orgId: String!): Clinic!
   applyEncounterTemplate(input: ApplyTemplateInput!): Encounter!
@@ -1046,6 +1067,7 @@ type Mutation {
   markNoShow(id: ID!): Appointment!
   markNotificationRead(id: ID!): NotificationMutationResult!
   markThreadRead(threadId: ID!): Boolean!
+  mergePatients(input: MergePatientsInput!): Patient!
   orderTest(input: OrderTestInput!): TestResult!
   recallQueueEntry(id: ID!): QueueEntry!
   refresh(input: RefreshInput!): AuthPayload!
@@ -1448,6 +1470,13 @@ type Permission {
   resource: String!
 }
 
+type PotentialDuplicatePatient {
+  date_of_birth: DateTime!
+  full_name: String!
+  id: ID!
+  phone: String!
+}
+
 type Prescription {
   clinician_id: ID!
   encounter_id: ID!
@@ -1733,6 +1762,7 @@ type Query {
   me: User!
   messageableContacts: [MessageableContact!]!
   myDataExport: String
+  myDependants: [Dependant!]!
   myFinanceSummary(endDate: String!, startDate: String!): FinanceSummary!
   myFinanceTransactions(endDate: String!, startDate: String!): [FinanceTransaction!]!
   myNotificationPreferences: [NotificationPreference!]!
@@ -1751,6 +1781,7 @@ type Query {
   patientPrescriptions(patient_id: ID!): [Prescription!]!
   patientTimeline(patient_id: ID!): [TimelineEvent!]!
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
+  potentialDuplicatePatients(date_of_birth: String, first_name: String, last_name: String, phone: String!): [PotentialDuplicatePatient!]!
   prescription(id: ID!): Prescription
   prescriptionSets(specialty: String): [PrescriptionSet!]!
   prescriptions: [Prescription!]!

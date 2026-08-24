@@ -49,6 +49,7 @@ import BadgeIcon                from '@mui/icons-material/Badge'
 import GlobeIcon                from '@mui/icons-material/Language'
 import EmailRulesIcon           from '@mui/icons-material/AlternateEmail'
 import FormatListNumberedIcon   from '@mui/icons-material/FormatListNumbered'
+import FamilyRestroomRoundedIcon from '@mui/icons-material/FamilyRestroomRounded'
 import SearchRoundedIcon        from '@mui/icons-material/SearchRounded'
 import CloseRoundedIcon         from '@mui/icons-material/CloseRounded'
 import DarkModeRoundedIcon      from '@mui/icons-material/DarkModeRounded'
@@ -116,6 +117,7 @@ const NAV_CONFIG = [
   { label: 'Dashboard',     path: '/manager/dashboard',    icon: <DashboardIcon />,          roles: ['manager'] },
   // ── Appointments: role-specific ───────────────────────────────────────────
   { label: 'My Appointments', path: '/patient/appointments', icon: <EventNoteIcon />,        roles: ['patient'] },
+  { label: 'My Family',     path: '/patient/family',       icon: <FamilyRestroomRoundedIcon />, roles: ['patient'] },
   { label: 'Appointments',  path: '/appointments',         icon: <EventNoteIcon />,          roles: ['admin','super_admin','manager','receptionist','staff','clinician'] },
   // ── Calendar: role-specific ───────────────────────────────────────────────
   { label: 'My Calendar',   path: '/clinician/calendar',   icon: <CalendarMonthIcon />,      roles: ['clinician'] },

@@ -1,19 +1,31 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useMutation } from '@apollo/client'
+import { useMutation, useLazyQuery, gql } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import dayjs from 'dayjs'
 import {
-  Box, Button, CircularProgress, FormControlLabel, Grid,
-  IconButton, MenuItem, Paper, Stack, Switch, TextField, Typography,
+  Box, Button, CircularProgress, Dialog, DialogActions, DialogContent,
+  DialogTitle, FormControlLabel, Grid, IconButton, List, ListItem,
+  ListItemText, MenuItem, Paper, Stack, Switch, TextField, Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded'
 import SaveRoundedIcon      from '@mui/icons-material/SaveRounded'
 
 import { CREATE_PATIENT_MUTATION } from '../../graphql/mutations'
+
+// REQ018 US-BOOK-01 -- dedup-suggestion check, run before create rather
+// than blocking it (a false positive here would be worse than a missed
+// duplicate).
+const POTENTIAL_DUPLICATES_QUERY = gql`
+  query PotentialDuplicatePatients($phone: String!, $first_name: String, $last_name: String, $date_of_birth: String) {
+    potentialDuplicatePatients(phone: $phone, first_name: $first_name, last_name: $last_name, date_of_birth: $date_of_birth) {
+      id full_name phone date_of_birth
+    }
+  }
+`
 
 const GENDER_OPTIONS = ['male','female','other','prefer_not_to_say']
 const INITIAL = {
@@ -26,6 +38,9 @@ export default function CreatePatientPage() {
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm]     = useState(INITIAL)
   const [errors, setErrors] = useState({})
+  const [duplicateCandidates, setDuplicateCandidates] = useState(null)
+
+  const [checkDuplicates] = useLazyQuery(POTENTIAL_DUPLICATES_QUERY)
 
   const [createPatient, { loading }] = useMutation(CREATE_PATIENT_MUTATION, {
     onCompleted: (d) => {
@@ -67,8 +82,7 @@ export default function CreatePatientPage() {
     setErrors(e); return Object.keys(e).length === 0
   }
 
-  const handleSubmit = () => {
-    if (!validate()) return
+  const submitCreate = () => {
     createPatient({
       variables: {
         input: {
@@ -87,6 +101,24 @@ export default function CreatePatientPage() {
       enqueueSnackbar('Patient created (demo mode)', { variant: 'success' })
       navigate('/patients')
     })
+  }
+
+  const handleSubmit = async () => {
+    if (!validate()) return
+    const { data } = await checkDuplicates({
+      variables: {
+        phone: form.phone,
+        first_name: form.first_name || undefined,
+        last_name: form.last_name || undefined,
+        date_of_birth: form.date_of_birth ? dayjs(form.date_of_birth).format('YYYY-MM-DD') : undefined,
+      },
+    })
+    const candidates = data?.potentialDuplicatePatients ?? []
+    if (candidates.length > 0) {
+      setDuplicateCandidates(candidates)
+      return
+    }
+    submitCreate()
   }
 
   return (
@@ -165,6 +197,29 @@ export default function CreatePatientPage() {
           </Paper>
         </Grid>
       </Grid>
+
+      <Dialog open={!!duplicateCandidates} onClose={() => setDuplicateCandidates(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Possible existing patient found</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            A patient with this phone number (and matching name or date of birth) already exists.
+            Check this isn't a duplicate before creating a new record.
+          </Typography>
+          <List dense>
+            {(duplicateCandidates ?? []).map((c) => (
+              <ListItem key={c.id} divider>
+                <ListItemText primary={c.full_name} secondary={`${c.phone} · ${new Date(c.date_of_birth).toLocaleDateString()}`} />
+              </ListItem>
+            ))}
+          </List>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDuplicateCandidates(null)}>Cancel</Button>
+          <Button variant="contained" onClick={() => { setDuplicateCandidates(null); submitCreate() }}>
+            Create new patient anyway
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

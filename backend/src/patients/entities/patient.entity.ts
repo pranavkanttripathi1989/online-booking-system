@@ -67,6 +67,24 @@ export class PatientType {
   @Field() created_at: Date;
 }
 
+// REQ018 US-BOOK-02.
+@ObjectType('Dependant')
+export class DependantType {
+  @Field(() => ID) id: string;
+  @Field(() => PatientType) patient: PatientType;
+  @Field() relation: string;
+}
+
+// REQ018 US-BOOK-01 -- a candidate for the "possible duplicate" prompt
+// shown before create, not a confirmed match; the caller decides.
+@ObjectType('PotentialDuplicatePatient')
+export class PotentialDuplicatePatientType {
+  @Field(() => ID) id: string;
+  @Field() full_name: string;
+  @Field() phone: string;
+  @Field() date_of_birth: Date;
+}
+
 @ObjectType('PatientPaginatorInfo')
 export class PatientPaginatorInfoType {
   @Field(() => Int) count: number;

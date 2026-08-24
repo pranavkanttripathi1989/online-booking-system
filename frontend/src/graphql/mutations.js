@@ -276,6 +276,15 @@ export const UPDATE_PATIENT_MUTATION = gql`
   }
 `
 
+// REQ018 US-BOOK-01 — permission-gated tightly (manager/admin/super_admin
+// only, see patients.resolver.ts); moves every FK reference to the survivor
+// and soft-deletes the merged record.
+export const MERGE_PATIENTS_MUTATION = gql`
+  mutation MergePatients($input: MergePatientsInput!) {
+    mergePatients(input: $input) { id full_name }
+  }
+`
+
 // ─── Availability ─────────────────────────────────────────────────────────────
 
 export const CREATE_AVAILABILITY_TEMPLATE_MUTATION = gql`

@@ -6,6 +6,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { QueueService } from '../queue/queue.service';
+import { PatientsService } from '../patients/patients.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -27,6 +28,7 @@ describe('AppointmentsService — access scoping', () => {
     $transaction: jest.Mock;
   };
   let notificationTrigger: { dispatch: jest.Mock };
+  let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -77,6 +79,11 @@ describe('AppointmentsService — access scoping', () => {
         // own transaction -- mocked no-op here, exercised for real in
         // queue.service.spec.ts instead.
         { provide: QueueService, useValue: { syncFromAppointmentStatus: jest.fn(), publish: jest.fn() } },
+        // REQ018: create() now validates a patient caller's input.patient_id
+        // against their own-or-dependant id set -- mocked to always allow
+        // 'pat-1' (every existing patient-role test case in this file uses
+        // that id) here, exercised for real in patients.service.spec.ts.
+        { provide: PatientsService, useValue: (patientsService = { ownAndDependantPatientIds: jest.fn().mockResolvedValue(['pat-1']) }) },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -151,6 +158,25 @@ describe('AppointmentsService — access scoping', () => {
       const orgLessPatient: JwtPayload = { sub: 'p-1', roles: ['patient'], client_org_id: null, patient_id: 'pat-1' } as JwtPayload;
       await expect(service.create(baseInput as any, orgLessPatient)).resolves.toBeDefined();
       expect(prisma.clinics.findUnique).not.toHaveBeenCalled();
+    });
+
+    // REQ018 -- found while building family/dependant profiles: a
+    // 'patient'-role caller could previously book under ANY patient_id.
+    describe('patient-role caller — own-or-dependant patient_id validation (REQ018)', () => {
+      it('rejects booking for a patient_id that is neither the caller\'s own nor a dependant\'s', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-1']);
+        const otherPatientInput = { ...baseInput, patient_id: 'pat-999' };
+        await expect(service.create(otherPatientInput as any, patientUser)).rejects.toThrow('Patient not found');
+        expect(prisma.products.findUnique).not.toHaveBeenCalled();
+      });
+
+      it('allows booking for a genuine dependant\'s patient_id', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-1', 'dep-1']);
+        const dependantInput = { ...baseInput, patient_id: 'dep-1' };
+        await expect(service.create(dependantInput as any, patientUser)).resolves.toBeDefined();
+      });
     });
 
     // P3.1/F-16: the database-level EXCLUDE constraint

@@ -9,6 +9,7 @@ import { orgScopeVia } from '../common/scoping/tenant-scope';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { QueueService } from '../queue/queue.service';
+import { PatientsService } from '../patients/patients.service';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -49,6 +50,7 @@ export class AppointmentsService {
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly notificationTrigger: NotificationTriggerService,
     private readonly queueService: QueueService,
+    private readonly patientsService: PatientsService,
   ) {}
 
   // REQ008/PLAN017 — notify the clinician's own login account, if linked.
@@ -292,6 +294,17 @@ export class AppointmentsService {
       const clinic = await this.prisma.clinics.findUnique({ where: { id: input.clinic_id } });
       if (!clinic || clinic.client_org_id !== user.client_org_id) {
         throw new BadRequestException('Clinic not found');
+      }
+    }
+    // REQ018 — found while building family/dependant profiles: a
+    // 'patient'-role caller could previously book under ANY patient_id,
+    // never just their own (or now, a genuine dependant's). Hard Rule 6's
+    // "create* mutations must validate input ownership" class of bug,
+    // caught here rather than shipped a second time.
+    if (user.roles.includes('patient')) {
+      const allowedPatientIds = await this.patientsService.ownAndDependantPatientIds(user);
+      if (!allowedPatientIds.includes(input.patient_id)) {
+        throw new BadRequestException('Patient not found');
       }
     }
     const service = await this.prisma.products.findUnique({ where: { id: input.service_id } });

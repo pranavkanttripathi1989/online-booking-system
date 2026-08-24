@@ -961,10 +961,53 @@ model Patients {
   payments     AppointmentPayments[]
   encounters   Encounters[]
   prescriptions Prescriptions[]
+  dependantsOwned    PatientRelations[] @relation("PatientRelationOwner")
+  dependantOf        PatientRelations[] @relation("PatientRelationDependant")
+  mergesSurvived     PatientMerges[]    @relation("PatientMergeSurvivor")
+  mergesAbsorbed     PatientMerges[]    @relation("PatientMergeMerged")
 
   @@index([is_deleted, created_at])
   @@index([email])
   @@index([phone])
+}
+
+// REQ018 (Phase 1, slice 5) P0 -- US-BOOK-02: one phone-verified login
+// managing multiple patient profiles with a relationship label.
+// `patient_id` is the owning/managing patient (the JWT's own patient_id);
+// `related_patient_id` is the dependant. Both point at Patients, so a
+// self-relation table needs two distinctly-named relations to disambiguate.
+model PatientRelations {
+  id                 String   @id @default(uuid())
+  patient_id         String
+  related_patient_id String
+  relation           String
+  created_at         DateTime @default(now())
+
+  patient         Patients @relation("PatientRelationOwner", fields: [patient_id], references: [id])
+  related_patient Patients @relation("PatientRelationDependant", fields: [related_patient_id], references: [id])
+
+  @@unique([patient_id, related_patient_id])
+  @@index([patient_id])
+}
+
+// REQ018 P0 -- US-BOOK-01: irreversible-in-the-UI, reversible-in-principle
+// (per the requirement's own non-functional note) patient-merge audit
+// trail. One row per merge; the merged patient survives as an is_deleted
+// row rather than being hard-deleted, so this table's own FKs stay valid.
+model PatientMerges {
+  id                  String   @id @default(uuid())
+  surviving_patient_id String
+  merged_patient_id   String
+  merged_by_user_id   String?
+  reason              String?
+  merged_at           DateTime @default(now())
+
+  surviving_patient Patients      @relation("PatientMergeSurvivor", fields: [surviving_patient_id], references: [id])
+  merged_patient    Patients      @relation("PatientMergeMerged", fields: [merged_patient_id], references: [id])
+  merged_by         UserProfiles? @relation("PatientMergePerformedBy", fields: [merged_by_user_id], references: [id])
+
+  @@index([surviving_patient_id])
+  @@index([merged_patient_id])
 }
 
 // pages/test-results/index.jsx — built from scratch (zero pre-existing GraphQL
@@ -1635,6 +1678,7 @@ model UserProfiles {
   signedEncounters   Encounters[]            @relation("EncounterSignedBy")
   encounterAddenda   EncounterAddenda[]      @relation("AddendumAuthor")
   queueEvents        QueueEvents[]           @relation("QueueEventChangedBy")
+  patientMergesPerformed PatientMerges[]     @relation("PatientMergePerformedBy")
   uploadedAttachments Attachments[]          @relation("AttachmentUploadedBy")
 
   @@index([client_org_id, is_deleted])

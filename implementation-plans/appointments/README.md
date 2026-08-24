@@ -2,7 +2,9 @@
 
 ## requirement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN059 | requirement | Patient dedup + merge, and family/dependant profiles, P0 slice | done | 2026-08-24 | 2026-08-24 | REQ018 | [PLAN059-appointments-2026-08-24-patient-dedup-and-family-profiles.md](./requirement/PLAN059-appointments-2026-08-24-patient-dedup-and-family-profiles.md) |
 
 ## improvement
 

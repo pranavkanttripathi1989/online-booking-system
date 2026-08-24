@@ -1,4 +1,4 @@
-import { InputType, Field } from '@nestjs/graphql';
+import { InputType, Field, ID } from '@nestjs/graphql';
 import { IsNotEmpty, IsOptional, IsEmail, IsDateString } from 'class-validator';
 
 // Matches CreatePatientPage.jsx/EditPatientPage.jsx's actual submitted shape
@@ -17,4 +17,26 @@ export class PatientInput {
   @Field({ nullable: true }) @IsOptional() address?: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
   @Field() @IsDateString() date_of_birth: string;
+}
+
+// REQ018 US-BOOK-02 -- a dependant has no email/phone of their own (a
+// child booked under a parent's phone-verified login), so this is
+// deliberately a narrower shape than PatientInput, not a reuse of it.
+@InputType('AddDependantInput')
+export class AddDependantInput {
+  @Field() @IsNotEmpty() first_name: string;
+  @Field() @IsNotEmpty() last_name: string;
+  @Field() @IsDateString() date_of_birth: string;
+  @Field({ nullable: true }) @IsOptional() gender?: string;
+  @Field() @IsNotEmpty() relation: string;
+}
+
+// REQ018 US-BOOK-01 -- merge is permission-gated tightly (see
+// patients.resolver.ts) per the requirement's own non-functional note;
+// this input carries no override of that, only which two records and why.
+@InputType('MergePatientsInput')
+export class MergePatientsInput {
+  @Field(() => ID) @IsNotEmpty() surviving_patient_id: string;
+  @Field(() => ID) @IsNotEmpty() merged_patient_id: string;
+  @Field({ nullable: true }) @IsOptional() reason?: string;
 }

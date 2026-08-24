@@ -3,11 +3,42 @@ id: REQ018
 type: requirement
 feature: appointments
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ017
-related: [REQ017, REQ016]
+related: [REQ017, REQ016, PLAN059, TP086, TR085]
 ---
+
+## Status (2026-08-24)
+
+**P0 subset shipped** (`PLAN059`/`TP086`/`TR085`) — two of the four P0
+stories: patient dedup-suggestion + a real, tightly-gated merge tool
+(`US-BOOK-01`), and family/dependant profiles (`US-BOOK-02`). New
+`PatientRelations`/`PatientMerges` tables, extended `patients.service.ts`,
+and — found and closed in the process — a pre-existing security gap where
+`createAppointment` never validated a `'patient'`-role caller's
+`input.patient_id` against their own identity at all. Also made a
+previously fully-built, entirely mock-gated patient-merge UI
+(`patients/index.jsx`) reachable against real data for the first time.
+
+**Deliberately deferred from this slice's own P0 scope** (a scoping
+decision, not a dropped requirement): per-service prepayment policy
+(`US-BOOK-03`), the embeddable booking widget + short-link/QR
+(`US-BOOK-05`). Both still need their own future `PLAN###`.
+
+**P1 still open**, per this requirement's own phase assignment below:
+auto-mark-no-show after a grace period (`US-BOOK-04`), configurable intake
+fields (`US-BOOK-06`).
+
+**Not widened this slice** — a stated scope boundary, not an oversight:
+`US-BOOK-02`'s "book, view records, and pay for that dependant" is only
+partially delivered. Viewing the dependant's own patient profile and
+booking appointments for them both work; viewing a dependant's
+prescriptions, test results, or messages does not yet, since each of those
+domains has its own separate patient-self-scope check that would need the
+same widening, and getting one wrong is a cross-patient PHI leak, not a
+cosmetic bug — sequenced as explicit future work per domain rather than
+rushed across all of them in one pass.
 
 # Booking engine: channels, dedup, family profiles, and no-show policy
 

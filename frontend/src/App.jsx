@@ -98,6 +98,7 @@ const StaffEdit         = lazy(() => import('./pages/staff/edit'))
 const PatientDashboard    = lazy(() => import('./pages/patient/Dashboard'))
 const PatientAppointments = lazy(() => import('./pages/patient/Appointments'))
 const PatientProfile      = lazy(() => import('./pages/patient/Profile'))
+const PatientFamily       = lazy(() => import('./pages/patient/Family'))
 
 // ─── Clinician Portal ─────────────────────────────────────────────────────────
 const ClinicianDashboard    = lazy(() => import('./pages/clinician/Dashboard'))
@@ -309,6 +310,7 @@ function App() {
           <Route path="/patient/dashboard"      element={<Suspense fallback={<ShellPageLoader />}><PatientDashboard /></Suspense>} />
           <Route path="/patient/appointments"   element={<Suspense fallback={<ShellPageLoader />}><PatientAppointments /></Suspense>} />
           <Route path="/patient/profile"        element={<Suspense fallback={<ShellPageLoader />}><PatientProfile /></Suspense>} />
+          <Route path="/patient/family"         element={<Suspense fallback={<ShellPageLoader />}><PatientFamily /></Suspense>} />
           {/* SUG-PTDASH-001: /booking/search used by Patient Dashboard CTAs — redirect to existing booking wizard */}
           <Route path="/booking/search"         element={<Navigate to="/appointments/book" replace />} />
           {/* SUG-PTAPPT-003: Receipt page redirect — navigates to appointments list until a receipt page is built */}
