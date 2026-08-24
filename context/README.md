@@ -5,6 +5,14 @@ One bundle per feature, linking every doc across the five roots for that feature
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
 | machine-handoff-2026-08-24 | cross-cutting | 2026-08-24 | REQ017, REQ020, REQ021, REQ019, REQ018, REQ032 | current | [machine-handoff-2026-08-24.md](./machine-handoff-2026-08-24.md) |
+| analytics-reporting-2026-08-24-req029-part2 | analytics-reporting | 2026-08-24 | REQ029, PLAN072, TP099, TR098 | done | [manifest.md](./analytics-reporting-2026-08-24-req029-part2/manifest.md) |
+| security-2026-08-24-req015 | security | 2026-08-24 | REQ015, PLAN071, TP098, TR097 | done | [manifest.md](./security-2026-08-24-req015/manifest.md) |
+| insurance-claims-2026-08-24-req031 | insurance-claims | 2026-08-24 | REQ031, PLAN070, TP097, TR096 | done | [manifest.md](./insurance-claims-2026-08-24-req031/manifest.md) |
+| platform-integrations-2026-08-24-req030 | platform-integrations | 2026-08-24 | REQ030, PLAN069, TP096, TR095 | done | [manifest.md](./platform-integrations-2026-08-24-req030/manifest.md) |
+| pharmacy-2026-08-24-req022 | pharmacy | 2026-08-24 | REQ022, PLAN068, TP095, TR094 | done | [manifest.md](./pharmacy-2026-08-24-req022/manifest.md) |
+| compliance-dpdp-2026-08-24-req034 | compliance-dpdp | 2026-08-24 | REQ034, PLAN067, TP094, TR093 | done | [manifest.md](./compliance-dpdp-2026-08-24-req034/manifest.md) |
+| subscription-plan-engine-2026-08-24-req032 | subscription-plan-engine | 2026-08-24 | REQ032, PLAN066, TP093, TR092 | done | [manifest.md](./subscription-plan-engine-2026-08-24-req032/manifest.md) |
+| appointments-2026-08-24-req018-part2 | appointments | 2026-08-24 | REQ018, PLAN065, TP092, TR091 | done | [manifest.md](./appointments-2026-08-24-req018-part2/manifest.md) |
 | organizations-2026-08-24-req014 | organizations | 2026-08-24 | REQ014, PLAN060, TP087, TR086 | done | [manifest.md](./organizations-2026-08-24-req014/manifest.md) |
 | analytics-reporting-2026-08-24-req029 | analytics-reporting | 2026-08-24 | REQ029, PLAN061, TP088, TR087 | done | [manifest.md](./analytics-reporting-2026-08-24-req029/manifest.md) |
 | notifications-2026-08-24-req025 | notifications | 2026-08-24 | REQ025, PLAN062, TP089, TR088 | done | [manifest.md](./notifications-2026-08-24-req025/manifest.md) |

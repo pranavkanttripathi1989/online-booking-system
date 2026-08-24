@@ -2,7 +2,12 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
-| analytics-reporting | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
+| analytics-reporting | 2 | 0 | 0 | 0 | 2 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
+| subscription-plan-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
+| compliance-dpdp | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [compliance-dpdp](./compliance-dpdp/README.md) |
+| platform-integrations | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [platform-integrations](./platform-integrations/README.md) |
+| insurance-claims | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [insurance-claims](./insurance-claims/README.md) |
+| pharmacy | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [prescriptions](./prescriptions/README.md) |
 | clinical-records | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
@@ -11,14 +16,14 @@
 | organizations | 2 | 1 | 0 | 0 | 3 | 2026-08-24 | [organizations](./organizations/README.md) |
 | queue-management | 1 | 1 | 0 | 0 | 2 | 2026-08-24 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 4 | 11 | 0 | 15 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
-| appointments | 1 | 0 | 3 | 0 | 4 | 2026-08-24 | [appointments](./appointments/README.md) |
+| appointments | 2 | 0 | 3 | 0 | 5 | 2026-08-24 | [appointments](./appointments/README.md) |
 | test-coverage-audit | 4 | 0 | 0 | 0 | 4 | 2026-08-22 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | communications-policies | 2 | 2 | 0 | 0 | 4 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
 | notifications | 2 | 0 | 0 | 0 | 2 | 2026-08-23 | [notifications](./notifications/README.md) |
 | organization-branding | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
-| security | 2 | 0 | 0 | 0 | 2 | 2026-08-23 | [security](./security/README.md) |
+| security | 3 | 0 | 0 | 0 | 3 | 2026-08-24 | [security](./security/README.md) |
 | settings | 2 | 0 | 0 | 0 | 2 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | patient-payments | 4 | 1 | 0 | 0 | 5 | 2026-08-24 | [patient-payments](./patient-payments/README.md) |

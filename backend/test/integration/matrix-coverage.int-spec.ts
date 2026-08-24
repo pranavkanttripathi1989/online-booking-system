@@ -33,6 +33,10 @@ const EXEMPT: Record<string, string> = {
   // Found while classifying REQ020's own new domain (this file's own gate
   // caught it): shipped without ever being added here.
   'organization-onboarding': "Entirely @Public() self-serve SaaS signup (organization-onboarding.resolver.ts) — no authenticated tenant-scoped read exists on this resolver at all, same shape as auth's login/register.",
+  // REQ032 (2026-08-25 8-slice pass) — platform-level plan catalog
+  // (super_admin-managed, no client_org_id anywhere on Plans/PlanVersions),
+  // same shape as organizations' own isPlatformOperator exemption above.
+  plans: 'Platform-level plan catalog, super_admin-managed — no client_org_id on Plans/PlanVersions, same shape as organizations (no "org A caller" for shared catalog data).',
 };
 
 /**
