@@ -282,6 +282,7 @@ export class PatientsService {
         address: input.address ?? '',
         medical_notes: input.notes ?? '',
         date_of_birth: new Date(input.date_of_birth),
+        patient_category: input.patient_category,
       },
     });
     return this.toGraphQL(patient);
@@ -300,6 +301,7 @@ export class PatientsService {
         address: input.address,
         medical_notes: input.notes,
         date_of_birth: input.date_of_birth ? new Date(input.date_of_birth) : undefined,
+        patient_category: input.patient_category,
       },
     });
     return this.toGraphQL(patient);

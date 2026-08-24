@@ -1,5 +1,8 @@
 import { InputType, Field, ID } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsEmail, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsEmail, IsDateString, IsIn } from 'class-validator';
+
+// REQ016 (US-CAT-04) — the requirement doc's own named examples.
+export const PATIENT_CATEGORIES = ['general', 'corporate', 'staff', 'camp'] as const;
 
 // Matches CreatePatientPage.jsx/EditPatientPage.jsx's actual submitted shape
 // exactly: { first_name, last_name, email, phone, gender, address, notes,
@@ -17,6 +20,8 @@ export class PatientInput {
   @Field({ nullable: true }) @IsOptional() address?: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
   @Field() @IsDateString() date_of_birth: string;
+  // REQ016 (US-CAT-04) — drives differentiated pricing (resolveServicePrice()).
+  @Field({ nullable: true }) @IsOptional() @IsIn(PATIENT_CATEGORIES) patient_category?: string;
 }
 
 // REQ018 US-BOOK-02 -- a dependant has no email/phone of their own (a

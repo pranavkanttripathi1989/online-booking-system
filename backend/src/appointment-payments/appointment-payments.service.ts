@@ -2,12 +2,14 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { VerifyRazorpayPaymentInput } from './dto/appointment-payment.input';
+import { VerifyRazorpayPaymentInput, RecordCounterPaymentInput } from './dto/appointment-payment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScope } from '../common/scoping/tenant-scope';
+import { orgScope, isSameOrg } from '../common/scoping/tenant-scope';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
+import { resolveServicePrice } from '../common/pricing/resolve-price';
 
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
+const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
 
 // Indian financial year: April 1 -- March 31. A payment captured in
 // Jan-Mar 2027 belongs to FY "2026-27", not "2027-28".
@@ -39,10 +41,15 @@ export class AppointmentPaymentsService {
   async createRazorpayOrder(appointmentId: string) {
     const appointment = await this.prisma.appointments.findUnique({
       where: { id: appointmentId },
-      include: { clinic: true, product: true },
+      include: { clinic: true, product: true, patient: true },
     });
     if (!appointment) throw new BadRequestException('Appointment not found');
-    const amount = appointment.product?.price;
+    // REQ016 (US-CAT-04) — the actual charge-determining call site. Channel
+    // 'online' because a Razorpay checkout IS the online payment channel by
+    // definition (see resolveServicePrice()'s own comment); reads through
+    // the same shared helper appointments.service.ts's display mapping
+    // uses, never appointment.product.price directly.
+    const amount = resolveServicePrice(appointment.product, appointment.patient, 'online');
     if (amount == null) throw new BadRequestException('This appointment has no priced product to pay for');
 
     const res = await fetch(RAZORPAY_ORDERS_URL, {
@@ -122,6 +129,74 @@ export class AppointmentPaymentsService {
       gst.igst_amount = 0;
     }
     return gst;
+  }
+
+  // REQ023 (US-BIL-01, scoped subset) — front-desk mixed-tender counter
+  // billing: cash/UPI/card/cheque, manually recorded, closing an
+  // appointment's bill without going through Razorpay at all. Unlike
+  // createRazorpayOrder/verifyRazorpayPayment (deliberately @Public() —
+  // see those methods' own comments on why), this is a genuine staff-auth
+  // operation with no anonymous-caller precedent to preserve, so it's
+  // gated by @Auth() at the resolver, not throttled-and-public.
+  //
+  // No partial/underpaid close in this first slice — tenders must sum to
+  // exactly the resolved amount due, or the whole call is rejected before
+  // any write. Partial-payment tracking is a separate, deferred US-BIL-*
+  // concern (PLAN064).
+  async recordCounterPayment(input: RecordCounterPaymentInput, user: JwtPayload) {
+    const appointment = await this.prisma.appointments.findUnique({
+      where: { id: input.appointment_id },
+      include: { clinic: true, product: true, patient: true },
+    });
+    if (!appointment) throw new BadRequestException('Appointment not found');
+    if (!isSameOrg(user, appointment.clinic.client_org_id)) {
+      throw new BadRequestException('Appointment not found');
+    }
+
+    // REQ016 (US-CAT-04) — 'walkin' channel: a counter payment IS the
+    // walk-in channel by definition, matching createRazorpayOrder's own
+    // 'online' tagging for the Razorpay path.
+    const expectedAmount = resolveServicePrice(appointment.product, appointment.patient, 'walkin');
+    if (expectedAmount == null) {
+      throw new BadRequestException('This appointment has no priced product to bill');
+    }
+
+    const tendersPaise = input.tenders.map((t) => ({ ...t, amountPaise: RUPEES_TO_PAISE(t.amount) }));
+    const totalPaise = tendersPaise.reduce((sum, t) => sum + t.amountPaise, 0);
+    if (totalPaise !== expectedAmount) {
+      throw new BadRequestException(
+        `Tenders total ₹${(totalPaise / 100).toFixed(2)} does not match the amount due ₹${(expectedAmount / 100).toFixed(2)}`,
+      );
+    }
+
+    const invoiceDetails = await this.invoiceDetailsForSuccess(appointment.clinic_id, appointment.id);
+
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.appointmentPayments.create({
+        data: {
+          appointment_id: appointment.id,
+          patient_id: appointment.patient_id,
+          clinic_id: appointment.clinic_id,
+          client_org_id: appointment.clinic.client_org_id,
+          amount: totalPaise,
+          currency: 'INR',
+          status: 'succeeded',
+          ...invoiceDetails,
+        },
+      });
+      await tx.paymentTenders.createMany({
+        data: tendersPaise.map((t) => ({
+          appointment_payment_id: created.id,
+          tender_type: t.tender_type,
+          amount: t.amountPaise,
+          reference: t.reference,
+          recorded_by_user_id: user.sub,
+        })),
+      });
+      return created;
+    });
+
+    return { success: true, payment_id: payment.id, invoice_number: payment.invoice_number ?? undefined };
   }
 
   // Razorpay's documented client-integration verification pattern (distinct

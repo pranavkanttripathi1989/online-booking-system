@@ -92,6 +92,23 @@ describe('ServicesService', () => {
       // non-nullable field ServiceClinician.full_name" bug this fixes.
       expect(result.clinicians).toEqual([{ id: 'cl-1', full_name: 'Dr Rao' }]);
     });
+
+    // REQ016 (US-CAT-04)
+    it('converts stored pricing-override JSON from paise to rupees on read', async () => {
+      prisma.products.findMany.mockResolvedValue([
+        { ...scopedService, category_pricing_json: { corporate: 40000 }, channel_pricing_json: { online: 45000 } },
+      ]);
+      const [result] = await service.findAll(undefined, undefined, orgAUser);
+      expect(result.category_pricing).toEqual({ corporate: 400 });
+      expect(result.channel_pricing).toEqual({ online: 450 });
+    });
+
+    it('omits pricing-override fields entirely when none are stored', async () => {
+      prisma.products.findMany.mockResolvedValue([scopedService]);
+      const [result] = await service.findAll(undefined, undefined, orgAUser);
+      expect(result.category_pricing).toBeUndefined();
+      expect(result.channel_pricing).toBeUndefined();
+    });
   });
 
   describe('findOne — tenant isolation when a clinic IS attached', () => {
@@ -182,6 +199,31 @@ describe('ServicesService', () => {
       expect(prisma.products.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ is_tax_exempt: false, hsn: '9993' }) }),
       );
+    });
+
+    // REQ016 (US-CAT-04)
+    it('converts category/channel pricing overrides from rupees to paise-keyed JSON', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
+      await service.create(
+        { name: 'X', duration_minutes: 20, price: 300, category_pricing: { corporate: 250 }, channel_pricing: { online: 280, walkin: 320 } } as any,
+        orgAUser,
+      );
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            category_pricing_json: { corporate: 25000 },
+            channel_pricing_json: { online: 28000, walkin: 32000 },
+          }),
+        }),
+      );
+    });
+
+    it('leaves pricing overrides untouched (undefined, not cleared) when omitted entirely', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
+      await service.create({ name: 'X', duration_minutes: 20, price: 300 } as any, orgAUser);
+      const call = prisma.products.create.mock.calls[0][0];
+      expect(call.data.category_pricing_json).toBeUndefined();
+      expect(call.data.channel_pricing_json).toBeUndefined();
     });
   });
 

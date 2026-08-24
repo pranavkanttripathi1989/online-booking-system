@@ -2,6 +2,7 @@ import { Injectable, Inject, NotFoundException, BadRequestException } from '@nes
 import { PubSub } from 'graphql-subscriptions';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { resolveServicePrice } from '../common/pricing/resolve-price';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput } from './dto/appointment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -108,8 +109,16 @@ export class AppointmentsService {
       // Rooms has no `name` column — room_number → name mapping matches
       // rooms.service.ts's own convention (Rule 9).
       room: a.room ? { id: a.room.id, name: a.room.room_number } : undefined,
+      // REQ016 (US-CAT-04) — the patient-category-adjusted price (display
+      // only; the actual payment channel isn't known at this point, so no
+      // channel override applies here — see resolveServicePrice()'s own
+      // comment on why channel is tied to the payment mechanism, not this
+      // display mapping). Read through the shared helper, never
+      // a.product.price directly — the exact inconsistency risk this
+      // requirement's own research flagged between this call site and
+      // appointment-payments.service.ts's charge computation.
       service: a.product
-        ? { id: a.product.id, name: a.product.name, duration_minutes: a.product.duration_minutes ?? undefined, price: PAISE_TO_RUPEES(a.product.price) }
+        ? { id: a.product.id, name: a.product.name, duration_minutes: a.product.duration_minutes ?? undefined, price: PAISE_TO_RUPEES(resolveServicePrice(a.product, a.patient)) }
         : undefined,
       booked_by_user: a.booked_by_user
         ? { id: a.booked_by_user.id, name: `${a.booked_by_user.first_name} ${a.booked_by_user.last_name}` }

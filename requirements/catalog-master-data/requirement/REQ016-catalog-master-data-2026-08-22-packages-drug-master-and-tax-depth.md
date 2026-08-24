@@ -3,10 +3,10 @@ id: REQ016
 type: requirement
 feature: catalog-master-data
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: null
-related: [BUG001]
+related: [BUG001, REQ044, REQ046, PLAN063]
 ---
 
 # Catalogue extensions: packages, drug master, per-category pricing, tax depth

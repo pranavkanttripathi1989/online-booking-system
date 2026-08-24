@@ -5,15 +5,18 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Matches settings/index.jsx's NOTIF_ROWS hardcoded defaults exactly, so a
 // first-time visit to the Notifications tab shows the same defaults it
-// already showed before this was real data.
-const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; app_enabled: boolean }> = {
-  new_appointment: { email_enabled: true, sms_enabled: true, app_enabled: true },
-  appointment_reminder: { email_enabled: true, sms_enabled: true, app_enabled: true },
-  appointment_cancelled: { email_enabled: true, sms_enabled: false, app_enabled: true },
-  new_message: { email_enabled: false, sms_enabled: false, app_enabled: true },
-  new_review: { email_enabled: true, sms_enabled: false, app_enabled: true },
-  payment_received: { email_enabled: true, sms_enabled: true, app_enabled: true },
-  system_announcement: { email_enabled: true, sms_enabled: false, app_enabled: false },
+// already showed before this was real data. whatsapp_enabled defaults true
+// like sms_enabled's own event-specific pattern below (REQ025) -- WhatsApp
+// is the PRD's own top-priority channel (Appendix C: WhatsApp -> SMS ->
+// push -> email), so it should be on wherever SMS already is.
+const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; app_enabled: boolean; whatsapp_enabled: boolean }> = {
+  new_appointment: { email_enabled: true, sms_enabled: true, app_enabled: true, whatsapp_enabled: true },
+  appointment_reminder: { email_enabled: true, sms_enabled: true, app_enabled: true, whatsapp_enabled: true },
+  appointment_cancelled: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  new_message: { email_enabled: false, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  new_review: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  payment_received: { email_enabled: true, sms_enabled: true, app_enabled: true, whatsapp_enabled: true },
+  system_announcement: { email_enabled: true, sms_enabled: false, app_enabled: false, whatsapp_enabled: false },
 };
 
 @Injectable()
@@ -39,6 +42,13 @@ export class NotificationPreferencesService {
   }
 
   async updateMyPreferences(input: NotificationPreferenceInput[], user: JwtPayload) {
+    // REQ025 (US-NOT-04) — a single-sided quiet-hours window is meaningless;
+    // reject before any write rather than silently persisting a half-set pair.
+    for (const row of input) {
+      if (!!row.quiet_hours_start !== !!row.quiet_hours_end) {
+        return { success: false, message: 'quiet_hours_start and quiet_hours_end must both be set or both be empty' };
+      }
+    }
     try {
       await this.prisma.$transaction(
         input.map((row) =>
@@ -50,11 +60,17 @@ export class NotificationPreferencesService {
               email_enabled: row.email_enabled,
               sms_enabled: row.sms_enabled,
               app_enabled: row.app_enabled,
+              whatsapp_enabled: row.whatsapp_enabled,
+              quiet_hours_start: row.quiet_hours_start,
+              quiet_hours_end: row.quiet_hours_end,
             },
             update: {
               email_enabled: row.email_enabled,
               sms_enabled: row.sms_enabled,
               app_enabled: row.app_enabled,
+              whatsapp_enabled: row.whatsapp_enabled,
+              quiet_hours_start: row.quiet_hours_start,
+              quiet_hours_end: row.quiet_hours_end,
             },
           }),
         ),

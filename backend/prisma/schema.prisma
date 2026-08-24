@@ -957,6 +957,11 @@ model Patients {
   place_of_birth        Json?    // JSON: { city, country }
   phones                Json?    // JSON array: [{ countryCode, number }]
   address_structured    Json?    // JSON: { line1, line2, city, state, pincode, country } — India address format
+  // REQ016 (US-CAT-04) — general | corporate | staff | camp, per the
+  // requirement doc's own examples. Free-text validated via @IsIn() at the
+  // DTO layer, matching this model's existing loose-string convention
+  // (status/gender) rather than a hard Prisma enum.
+  patient_category      String?
   is_deleted            Boolean  @default(false)
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt
@@ -1117,6 +1122,7 @@ model AppointmentPayments {
   patient     Patients            @relation(fields: [patient_id], references: [id])
   clinic      Clinics             @relation(fields: [clinic_id], references: [id])
   client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  tenders     PaymentTenders[]
 
   @@index([client_org_id, created_at])
   @@index([status, created_at])
@@ -1124,6 +1130,28 @@ model AppointmentPayments {
   @@index([appointment_id])
   @@index([patient_id])
   @@index([clinic_id])
+}
+
+// REQ023 (US-BIL-01, scoped subset) -- line items under one
+// AppointmentPayments row for a front-desk-recorded split across cash/UPI/
+// card/cheque tenders, as an alternative to the existing Razorpay-online-
+// only path. A payment row with tenders (vs. one with razorpay_payment_id
+// set) is how the two payment sources are distinguished -- matching this
+// table's own existing convention of distinguishing payment shape by which
+// nullable fields are populated, not a separate discriminator column.
+model PaymentTenders {
+  id                      String   @id @default(uuid())
+  appointment_payment_id  String
+  tender_type             String   // cash | upi | card | cheque
+  amount                  Int      // paise
+  reference                String?  // UPI txn ref / cheque number, optional
+  recorded_by_user_id     String
+  created_at              DateTime @default(now())
+
+  appointment_payment AppointmentPayments @relation(fields: [appointment_payment_id], references: [id])
+  recorded_by         Users               @relation(fields: [recorded_by_user_id], references: [id])
+
+  @@index([appointment_payment_id])
 }
 
 // REQ047 (US-BIL-09) -- gapless, per-branch invoice numbering ("PRD §14.2's
@@ -1388,6 +1416,12 @@ model Products {
   is_tax_exempt     Boolean  @default(false)
   // REQ014 (US-ORG-03) — same optional specialty grouping as Clinicians.
   department_id     String?
+  // REQ016 (US-CAT-04) — { [patient_category]: paise } / { online?, walkin?: paise }.
+  // Both nullable Json, matching price's own paise unit -- resolved via the
+  // one shared resolveServicePrice() helper (backend/src/common/pricing/),
+  // never read directly at a call site.
+  category_pricing_json Json?
+  channel_pricing_json  Json?
 
   clinic            Clinics? @relation(fields: [clinic_id], references: [id])
   client_org        ClientOrganizations? @relation(fields: [client_org_id], references: [id])
@@ -1609,6 +1643,8 @@ model Users {
   messages      Messages[]
   ownedOrganizations ClientOrganizations[] @relation("OrganizationOwner")
   notificationPreferences NotificationPreferences[]
+  notificationSendLogs    NotificationSendLog[]
+  paymentTendersRecorded  PaymentTenders[]
   assignedMessageThreads MessageThreads[] @relation("MessageThreadAssignee")
 }
 
@@ -1624,12 +1660,37 @@ model NotificationPreferences {
   email_enabled Boolean               @default(true)
   sms_enabled   Boolean               @default(false)
   app_enabled   Boolean               @default(true)
+  // REQ025 (US-NOT-01 remainder) — mirrors email_enabled/sms_enabled/
+  // app_enabled's own nullability/default style exactly.
+  whatsapp_enabled Boolean            @default(true)
+  // REQ025 (US-NOT-04) — "HH:MM", matching ClinicianAvailability's own
+  // string time-of-day convention already used elsewhere in this schema.
+  // Per-user, not per-org: a patient's own quiet hours, not a clinic's
+  // operating hours (a different, already-existing concept).
+  quiet_hours_start String?
+  quiet_hours_end   String?
   created_at    DateTime              @default(now())
   updated_at    DateTime              @default(now())
 
   user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@unique([user_id, event_type])
+}
+
+// REQ025 (US-NOT-04) — minimal per-user daily send count, just enough to
+// enforce a frequency cap. Not a full delivery-analytics table (that's
+// US-NOT-05, P1, out of scope here) -- one row per actual external send
+// (WhatsApp/SMS only, not the in-app notification, which isn't disruptive).
+model NotificationSendLog {
+  id         String   @id @default(uuid())
+  user_id    String
+  event_type String
+  channel    String
+  sent_at    DateTime @default(now())
+
+  user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
+
+  @@index([user_id, sent_at])
 }
 
 model UserProfiles {

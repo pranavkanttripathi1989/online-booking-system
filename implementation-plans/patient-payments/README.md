@@ -7,6 +7,7 @@
 | PLAN012 | requirement | Implementation plan — Real Razorpay payment capture (REQ004, slice 1 of 2) | done | 2026-08-20 | 2026-08-20 | REQ004 | [PLAN012-patient-payments-2026-08-20-razorpay-capture.md](./requirement/PLAN012-patient-payments-2026-08-20-razorpay-capture.md) |
 | PLAN013 | requirement | Implementation plan — `finances/index.jsx` real data (REQ004 slice 2 of 2) | done | 2026-08-20 | 2026-08-20 | REQ004 | [PLAN013-patient-payments-2026-08-20-finances-page.md](./requirement/PLAN013-patient-payments-2026-08-20-finances-page.md) |
 | PLAN050 | requirement | GST fields and invoice numbering | done | 2026-08-23 | 2026-08-23 | REQ047 | [PLAN050-patient-payments-2026-08-23-gst-fields-and-invoice-numbering.md](./requirement/PLAN050-patient-payments-2026-08-23-gst-fields-and-invoice-numbering.md) |
+| PLAN064 | requirement | Mixed-tender counter billing | done | 2026-08-24 | 2026-08-24 | REQ023 | [PLAN064-patient-payments-2026-08-24-mixed-tender-counter-billing.md](./requirement/PLAN064-patient-payments-2026-08-24-mixed-tender-counter-billing.md) |
 
 ## improvement
 

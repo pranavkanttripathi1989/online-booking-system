@@ -5,6 +5,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | PLAN049 | requirement | Tax depth (HSN, GST exemption) | done | 2026-08-23 | 2026-08-23 | REQ046 | [PLAN049-catalog-master-data-2026-08-23-tax-depth-hsn-and-exemption.md](./requirement/PLAN049-catalog-master-data-2026-08-23-tax-depth-hsn-and-exemption.md) |
+| PLAN063 | requirement | Differentiated pricing by patient category and channel | done | 2026-08-24 | 2026-08-24 | REQ016 | [PLAN063-catalog-master-data-2026-08-24-differentiated-pricing.md](./requirement/PLAN063-catalog-master-data-2026-08-24-differentiated-pricing.md) |
 
 ## improvement
 

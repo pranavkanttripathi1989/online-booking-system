@@ -13,6 +13,22 @@ export class ServiceClinicianType {
   @Field() full_name: string;
 }
 
+// REQ016 (US-CAT-04) — mirrors CategoryPricingInput/ChannelPricingInput's
+// own field set exactly.
+@ObjectType('CategoryPricing')
+export class CategoryPricingType {
+  @Field(() => Float, { nullable: true }) general?: number;
+  @Field(() => Float, { nullable: true }) corporate?: number;
+  @Field(() => Float, { nullable: true }) staff?: number;
+  @Field(() => Float, { nullable: true }) camp?: number;
+}
+
+@ObjectType('ChannelPricing')
+export class ChannelPricingType {
+  @Field(() => Float, { nullable: true }) online?: number;
+  @Field(() => Float, { nullable: true }) walkin?: number;
+}
+
 // Registered 'Service' — matches SERVICES_QUERY/SERVICE_DETAIL_QUERY/
 // CREATE_SERVICE_MUTATION/UPDATE_SERVICE_MUTATION (frontend/src/graphql/*.js),
 // the canonical shape used by manager/services/create.jsx|edit.jsx|detail.jsx.
@@ -36,4 +52,7 @@ export class ServiceType {
   // REQ014 (US-ORG-03) — optional specialty grouping.
   @Field(() => ID, { nullable: true }) department_id?: string;
   @Field(() => DepartmentType, { nullable: true }) department?: DepartmentType;
+  // REQ016 (US-CAT-04).
+  @Field(() => CategoryPricingType, { nullable: true }) category_pricing?: CategoryPricingType;
+  @Field(() => ChannelPricingType, { nullable: true }) channel_pricing?: ChannelPricingType;
 }

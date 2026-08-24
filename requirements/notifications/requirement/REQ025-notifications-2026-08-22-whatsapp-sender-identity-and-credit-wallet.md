@@ -3,10 +3,10 @@ id: REQ025
 type: requirement
 feature: notifications
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ008
-related: [REQ008, REQ024]
+related: [REQ008, REQ024, REQ048, PLAN062]
 ---
 
 # WhatsApp as a first-class channel, sender identity, and message credit wallet

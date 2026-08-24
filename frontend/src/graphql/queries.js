@@ -470,6 +470,8 @@ export const SERVICE_DETAIL_QUERY = gql`
       is_active
       category { id name }
       clinicians { id full_name }
+      category_pricing { general corporate staff camp }
+      channel_pricing { online walkin }
     }
   }
 `

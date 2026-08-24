@@ -396,9 +396,33 @@ type CancellationRuleUserError {
   message: String!
 }
 
+type CategoryPricing {
+  camp: Float
+  corporate: Float
+  general: Float
+  staff: Float
+}
+
+input CategoryPricingInput {
+  camp: Float
+  corporate: Float
+  general: Float
+  staff: Float
+}
+
 input ChangeMyPasswordInput {
   current_password: String!
   new_password: String!
+}
+
+type ChannelPricing {
+  online: Float
+  walkin: Float
+}
+
+input ChannelPricingInput {
+  online: Float
+  walkin: Float
 }
 
 type Clinic {
@@ -1095,6 +1119,7 @@ type Mutation {
   mergePatients(input: MergePatientsInput!): Patient!
   orderTest(input: OrderTestInput!): TestResult!
   recallQueueEntry(id: ID!): QueueEntry!
+  recordCounterPayment(input: RecordCounterPaymentInput!): RecordCounterPaymentResult!
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
   requestOtp(input: RequestOtpInput!): GenericResult!
@@ -1213,14 +1238,20 @@ type NotificationPreference {
   email_enabled: Boolean!
   event_type: String!
   id: ID!
+  quiet_hours_end: String
+  quiet_hours_start: String
   sms_enabled: Boolean!
+  whatsapp_enabled: Boolean!
 }
 
 input NotificationPreferenceInput {
   app_enabled: Boolean!
   email_enabled: Boolean!
   event_type: String!
+  quiet_hours_end: String
+  quiet_hours_start: String
   sms_enabled: Boolean!
+  whatsapp_enabled: Boolean!
 }
 
 type NotificationProviderConfig {
@@ -1409,6 +1440,7 @@ type Patient {
   id: ID!
   last_name: String!
   notes: String
+  patient_category: String
   phone: String!
 }
 
@@ -1467,6 +1499,7 @@ input PatientInput {
   gender: String
   last_name: String!
   notes: String
+  patient_category: String
   phone: String!
 }
 
@@ -1482,6 +1515,12 @@ type PatientPaginatorInfo {
   lastPage: Int!
   perPage: Int!
   total: Int!
+}
+
+input PaymentTenderInput {
+  amount: Float!
+  reference: String
+  tender_type: String!
 }
 
 type PaymentVerificationResult {
@@ -1879,6 +1918,18 @@ type RazorpayOrderResult {
   razorpay_order_id: String!
 }
 
+input RecordCounterPaymentInput {
+  appointment_id: ID!
+  tenders: [PaymentTenderInput!]!
+}
+
+type RecordCounterPaymentResult {
+  invoice_number: String
+  message: String
+  payment_id: ID
+  success: Boolean!
+}
+
 input RefreshInput {
   refresh_token: String!
 }
@@ -2051,6 +2102,8 @@ input SearchInput {
 
 type Service {
   category: ServiceCategory
+  category_pricing: CategoryPricing
+  channel_pricing: ChannelPricing
   clinicians: [ServiceClinician!]!
   department: Department
   department_id: ID
@@ -2075,6 +2128,8 @@ type ServiceClinician {
 }
 
 input ServiceInput {
+  category_pricing: CategoryPricingInput
+  channel_pricing: ChannelPricingInput
   department_id: ID
   description: String
   duration_minutes: Int

@@ -13,17 +13,37 @@ import SaveRoundedIcon      from '@mui/icons-material/SaveRounded'
 import { UPDATE_SERVICE_MUTATION } from '../../../graphql/mutations'
 import { SERVICE_DETAIL_QUERY }   from '../../../graphql/queries'
 
+// REQ016 (US-CAT-04) — mirrors create.jsx's own field set exactly.
+const CATEGORY_OVERRIDE_FIELDS = [
+  { key: 'corporate', label: 'Corporate rate' },
+  { key: 'staff', label: 'Staff rate' },
+  { key: 'camp', label: 'Camp rate' },
+]
+const CHANNEL_OVERRIDE_FIELDS = [
+  { key: 'online', label: 'Online rate' },
+  { key: 'walkin', label: 'Walk-in rate' },
+]
+const overridesToInput = (obj) => {
+  const entries = Object.entries(obj).filter(([, v]) => v !== '' && v != null).map(([k, v]) => [k, parseFloat(v)])
+  return entries.length ? Object.fromEntries(entries) : undefined
+}
+const overridesToForm = (obj, keys) => Object.fromEntries(keys.map((k) => [k, obj?.[k] != null ? String(obj[k]) : '']))
+
 export default function EditServicePage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm] = useState(null)
+  const [categoryPricing, setCategoryPricing] = useState({ corporate: '', staff: '', camp: '' })
+  const [channelPricing, setChannelPricing] = useState({ online: '', walkin: '' })
   const { data, loading: fetching } = useQuery(SERVICE_DETAIL_QUERY, { variables:{ id }, fetchPolicy:'network-only' })
 
   useEffect(() => {
     if (!data?.service) return
     const s = data.service
     setForm({ name:s.name||'', description:s.description||'', duration_minutes:s.duration_minutes?.toString()||'30', price:s.price?.toString()||'', is_active:s.is_active??true })
+    setCategoryPricing(overridesToForm(s.category_pricing, ['corporate', 'staff', 'camp']))
+    setChannelPricing(overridesToForm(s.channel_pricing, ['online', 'walkin']))
   }, [data])
 
   const [updateService, { loading }] = useMutation(UPDATE_SERVICE_MUTATION, {
@@ -57,7 +77,10 @@ export default function EditServicePage() {
         <Stack direction="row" spacing={1}>
           <Button variant="outlined" onClick={() => navigate('/manager/services')} sx={{ borderRadius:2.5, textTransform:'none', fontWeight:700 }}>Cancel</Button>
           <Button variant="contained" startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
-            onClick={() => updateService({ variables:{ id, input:{ name:form.name, description:form.description||undefined, duration_minutes:parseInt(form.duration_minutes)||30, price:form.price?parseFloat(form.price):undefined, is_active:form.is_active } } })}
+            onClick={() => updateService({ variables:{ id, input:{
+              name:form.name, description:form.description||undefined, duration_minutes:parseInt(form.duration_minutes)||30, price:form.price?parseFloat(form.price):undefined, is_active:form.is_active,
+              category_pricing: overridesToInput(categoryPricing), channel_pricing: overridesToInput(channelPricing),
+            } } })}
             disabled={loading} sx={{ borderRadius:2.5, textTransform:'none', fontWeight:700, bgcolor:'#0F9D58','&:hover':{bgcolor:'#0B8043'} }}>
             {loading ? 'Saving…' : 'Save Changes'}
           </Button>
@@ -72,6 +95,30 @@ export default function EditServicePage() {
               <Grid item xs={12}><TextField fullWidth multiline rows={3} label="Description" value={form.description} onChange={set('description')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Duration (minutes)" type="number" value={form.duration_minutes} onChange={set('duration_minutes')} inputProps={{ min: 1 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} inputProps={{ min: 0, step: 0.01 }} InputProps={{ startAdornment:<InputAdornment position="start">₹</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+            </Grid>
+          </Paper>
+
+          {/* REQ016 (US-CAT-04) */}
+          <Paper elevation={0} sx={{ p:3, borderRadius:3, border:'1px solid #E8EAED', mt:3 }}>
+            <Typography variant="subtitle1" fontWeight={700} mb={0.5}>Pricing Overrides</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>Leave blank to use the base Price above. A patient-category rate always wins over a channel rate when both would apply.</Typography>
+            <Grid container spacing={2.5}>
+              {CATEGORY_OVERRIDE_FIELDS.map(({ key, label }) => (
+                <Grid item xs={12} sm={4} key={key}>
+                  <TextField fullWidth label={label} type="number" value={categoryPricing[key]}
+                    onChange={(e) => setCategoryPricing(p => ({ ...p, [key]: e.target.value }))}
+                    inputProps={{ min: 0, step: 0.01 }} InputProps={{ startAdornment:<InputAdornment position="start">₹</InputAdornment> }}
+                    sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} />
+                </Grid>
+              ))}
+              {CHANNEL_OVERRIDE_FIELDS.map(({ key, label }) => (
+                <Grid item xs={12} sm={6} key={key}>
+                  <TextField fullWidth label={label} type="number" value={channelPricing[key]}
+                    onChange={(e) => setChannelPricing(p => ({ ...p, [key]: e.target.value }))}
+                    inputProps={{ min: 0, step: 0.01 }} InputProps={{ startAdornment:<InputAdornment position="start">₹</InputAdornment> }}
+                    sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} />
+                </Grid>
+              ))}
             </Grid>
           </Paper>
         </Grid>

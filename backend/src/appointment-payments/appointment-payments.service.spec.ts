@@ -22,6 +22,8 @@ describe('AppointmentPaymentsService', () => {
     invoiceSequences: { upsert: jest.Mock };
     userProfiles: { findFirst: jest.Mock };
     auditLogs: { create: jest.Mock };
+    paymentTenders: { createMany: jest.Mock };
+    $transaction: jest.Mock;
   };
   let fetchMock: jest.Mock;
   let notificationTrigger: { dispatch: jest.Mock };
@@ -44,6 +46,13 @@ describe('AppointmentPaymentsService', () => {
       invoiceSequences: { upsert: jest.fn().mockResolvedValue({ last_number: 1 }) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
       auditLogs: { create: jest.fn() },
+      paymentTenders: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      // REQ023 — recordCounterPayment()'s own transaction. Runs the callback
+      // against the same top-level `prisma` mock (tx === prisma here), which
+      // is fine since every model this transaction touches is already
+      // mocked above -- matches the shape used elsewhere in this codebase's
+      // specs for a $transaction(async (tx) => {...}) callback.
+      $transaction: jest.fn((fn) => fn(prisma)),
     };
     fetchMock = jest.fn();
     (global as any).fetch = fetchMock;
@@ -123,6 +132,53 @@ describe('AppointmentPaymentsService', () => {
       fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: { description: 'Invalid key' } }) });
       await expect(service.createRazorpayOrder('appt-1')).rejects.toThrow('Invalid key');
       expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+    });
+
+    // REQ016 (US-CAT-04) — the actual charge-determining site now routes
+    // through the shared resolveServicePrice() helper (channel: 'online',
+    // since a Razorpay checkout IS the online channel) instead of reading
+    // product.price directly — this is the fix for the display-vs-charge
+    // inconsistency risk this requirement's own research flagged.
+    it('charges the patient-category rate when the caller is tagged with a matching category', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({
+        ...appointment,
+        product: { price: 50000, category_pricing_json: { corporate: 35000 } },
+        patient: { patient_category: 'corporate' },
+      });
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'order_real123' }) });
+      prisma.appointmentPayments.create.mockResolvedValue({});
+
+      const result = await service.createRazorpayOrder('appt-1');
+
+      const [, options] = fetchMock.mock.calls[0];
+      expect(JSON.parse(options.body).amount).toBe(35000);
+      expect(result.amount).toBe(35000);
+    });
+
+    it('charges the online-channel rate when no category override applies', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({
+        ...appointment,
+        product: { price: 50000, channel_pricing_json: { online: 45000, walkin: 55000 } },
+        patient: { patient_category: null },
+      });
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'order_real123' }) });
+      prisma.appointmentPayments.create.mockResolvedValue({});
+
+      const result = await service.createRazorpayOrder('appt-1');
+
+      expect(result.amount).toBe(45000); // 'online', never the 'walkin' rate
+    });
+
+    it('includes the patient relation so category overrides can be resolved', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: 'order_real123' }) });
+      prisma.appointmentPayments.create.mockResolvedValue({});
+
+      await service.createRazorpayOrder('appt-1');
+
+      expect(prisma.appointments.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ include: expect.objectContaining({ patient: true }) }),
+      );
     });
   });
 
@@ -544,6 +600,97 @@ describe('AppointmentPaymentsService', () => {
       const body = Buffer.from(JSON.stringify({ event: 'payment.failed', payload: { payment: { entity: { id: 'pay_real_1', order_id: 'order_1' } } } }));
       await service.handleRazorpayWebhook(body, sign(body.toString()));
       expect(prisma.appointmentPayments.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // REQ023 (US-BIL-01, scoped subset) — mixed-tender counter billing.
+  describe('recordCounterPayment', () => {
+    const staffUser: JwtPayload = { sub: 'staff-1', roles: ['staff'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+    const appointment = {
+      id: 'appt-1',
+      patient_id: 'patient-1',
+      clinic_id: 'clinic-a',
+      clinic: { client_org_id: 'org-a' },
+      product: { price: 50000 }, // ₹500.00
+      patient: { patient_category: null },
+    };
+
+    it('rejects a nonexistent appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(null);
+      await expect(
+        service.recordCounterPayment({ appointment_id: 'nope', tenders: [{ tender_type: 'cash', amount: 500 }] } as any, staffUser),
+      ).rejects.toThrow('Appointment not found');
+    });
+
+    it('rejects a cross-org appointment (never confirms cross-tenant existence)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...appointment, clinic: { client_org_id: 'org-b' } });
+      await expect(
+        service.recordCounterPayment({ appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 500 }] } as any, staffUser),
+      ).rejects.toThrow('Appointment not found');
+      expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an appointment with no priced product', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...appointment, product: null });
+      await expect(
+        service.recordCounterPayment({ appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 500 }] } as any, staffUser),
+      ).rejects.toThrow(/no priced product/i);
+    });
+
+    it('rejects tenders that sum to less than the amount due (no partial close in this slice)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      await expect(
+        service.recordCounterPayment({ appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 400 }] } as any, staffUser),
+      ).rejects.toThrow(/does not match/i);
+      expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects tenders that sum to more than the amount due', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      await expect(
+        service.recordCounterPayment({ appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 600 }] } as any, staffUser),
+      ).rejects.toThrow(/does not match/i);
+      expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+    });
+
+    it('accepts a split across multiple tenders that sums exactly, and creates an audit trail row per tender', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      prisma.appointmentPayments.create.mockResolvedValue({ id: 'pay-new', invoice_number: 'INV/2026-27/CLINIC-A/00001' });
+
+      const result = await service.recordCounterPayment(
+        { appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 300 }, { tender_type: 'upi', amount: 200, reference: 'txn123' }] } as any,
+        staffUser,
+      );
+
+      expect(result).toEqual({ success: true, payment_id: 'pay-new', invoice_number: 'INV/2026-27/CLINIC-A/00001' });
+      expect(prisma.appointmentPayments.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ amount: 50000, status: 'succeeded' }) }),
+      );
+      expect(prisma.paymentTenders.createMany).toHaveBeenCalledWith({
+        data: [
+          { appointment_payment_id: 'pay-new', tender_type: 'cash', amount: 30000, reference: undefined, recorded_by_user_id: 'staff-1' },
+          { appointment_payment_id: 'pay-new', tender_type: 'upi', amount: 20000, reference: 'txn123', recorded_by_user_id: 'staff-1' },
+        ],
+      });
+    });
+
+    // REQ016 (US-CAT-04) — channel: 'walkin', a counter payment IS the
+    // walk-in channel by definition.
+    it('resolves the walk-in-channel rate when a channel override exists', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({
+        ...appointment,
+        product: { price: 50000, channel_pricing_json: { online: 45000, walkin: 40000 } },
+      });
+      prisma.appointmentPayments.create.mockResolvedValue({ id: 'pay-new' });
+
+      await service.recordCounterPayment(
+        { appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 400 }] } as any,
+        staffUser,
+      );
+
+      expect(prisma.appointmentPayments.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ amount: 40000 }) }),
+      );
     });
   });
 });

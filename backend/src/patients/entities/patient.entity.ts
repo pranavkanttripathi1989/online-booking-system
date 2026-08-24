@@ -65,6 +65,8 @@ export class PatientType {
   // Rule 9: match the wire contract, not invent a redundant column).
   @Field({ nullable: true }) notes?: string;
   @Field() created_at: Date;
+  // REQ016 (US-CAT-04).
+  @Field({ nullable: true }) patient_category?: string;
 }
 
 // REQ018 US-BOOK-02.

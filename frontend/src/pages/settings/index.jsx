@@ -85,7 +85,7 @@ const DEACTIVATE_MY_ACCOUNT = gql`
   mutation DeactivateMyAccount { deactivateMyAccount { success message } }
 `
 const MY_NOTIFICATION_PREFERENCES_QUERY = gql`
-  query MyNotificationPreferences { myNotificationPreferences { event_type email_enabled sms_enabled app_enabled } }
+  query MyNotificationPreferences { myNotificationPreferences { event_type email_enabled sms_enabled app_enabled whatsapp_enabled quiet_hours_start quiet_hours_end } }
 `
 // REQ012/PLAN021 Slice 3 — GDPR Article 20 data portability. Nullable: null
 // means either the org hasn't enabled export or this account isn't linked
@@ -182,6 +182,10 @@ export default function SettingsPage() {
   // static label/order.
   const [notifPrefs, setNotifPrefs] = useState({})
   const [savingNotifs, setSavingNotifs] = useState(false)
+  // REQ025 (US-NOT-04) — one account-wide quiet-hours window, applied
+  // uniformly across every event's saved row (see handleSaveNotifications).
+  const [quietHoursStart, setQuietHoursStart] = useState('')
+  const [quietHoursEnd, setQuietHoursEnd] = useState('')
 
   const loadAccountTabs = async () => {
     try {
@@ -211,6 +215,11 @@ export default function SettingsPage() {
         (notifData?.myNotificationPreferences ?? []).map((p) => [p.event_type, p]),
       )
       setNotifPrefs(prefsByType)
+      // REQ025 — quiet hours are saved identically on every row; any one
+      // row's value represents the account-wide setting.
+      const anyRow = (notifData?.myNotificationPreferences ?? [])[0]
+      setQuietHoursStart(anyRow?.quiet_hours_start ?? '')
+      setQuietHoursEnd(anyRow?.quiet_hours_end ?? '')
     } catch (err) { setProfileError(err.message) }
   }
   useEffect(() => { loadAccountTabs() }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -474,11 +483,20 @@ export default function SettingsPage() {
   const handleSaveNotifications = async () => {
     setSavingNotifs(true)
     try {
+      if (!!quietHoursStart !== !!quietHoursEnd) throw new Error('Quiet hours start and end must both be set, or both left empty')
       const input = NOTIF_ROWS.map((r) => ({
         event_type: r.event_type,
         email_enabled: !!notifPrefs[r.event_type]?.email_enabled,
         sms_enabled: !!notifPrefs[r.event_type]?.sms_enabled,
         app_enabled: !!notifPrefs[r.event_type]?.app_enabled,
+        whatsapp_enabled: !!notifPrefs[r.event_type]?.whatsapp_enabled,
+        // null (not undefined) when cleared -- live-verified this
+        // distinction matters: the backend's partial-update semantics treat
+        // an omitted (undefined) field as "leave the stored value alone",
+        // so `undefined` here would make the Clear button a silent no-op
+        // against any previously-saved quiet hours.
+        quiet_hours_start: quietHoursStart || null,
+        quiet_hours_end: quietHoursEnd || null,
       }))
       const { data } = await client.mutate({ mutation: UPDATE_MY_NOTIFICATION_PREFERENCES, variables: { input } })
       if (!data?.updateMyNotificationPreferences?.success) throw new Error(data?.updateMyNotificationPreferences?.message ?? 'Failed to save preferences')
@@ -696,9 +714,11 @@ export default function SettingsPage() {
                 <Table size="small">
                   <TableHead>
                     <TableRow sx={{ '& th': { fontWeight: 800, fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.10em', bgcolor: '#F8F9FA', color: '#9AA0A6' } }}>
-                      <TableCell sx={{ width: '50%' }}>Event</TableCell>
+                      <TableCell sx={{ width: '40%' }}>Event</TableCell>
                       <TableCell align="center">Email</TableCell>
                       <TableCell align="center">SMS</TableCell>
+                      {/* REQ025 (US-NOT-01 remainder) */}
+                      <TableCell align="center">WhatsApp</TableCell>
                       <TableCell align="center">In-App</TableCell>
                     </TableRow>
                   </TableHead>
@@ -706,7 +726,7 @@ export default function SettingsPage() {
                     {NOTIF_ROWS.map((row) => (
                       <TableRow key={row.event_type} sx={{ '&:last-child td': { border: 0 } }}>
                         <TableCell sx={{ fontWeight: 600, fontSize: '0.85rem' }}>{row.label}</TableCell>
-                        {['email', 'sms', 'app'].map(ch => (
+                        {['email', 'sms', 'whatsapp', 'app'].map(ch => (
                           <TableCell key={ch} align="center">
                             <Switch
                               size="small"
@@ -722,6 +742,40 @@ export default function SettingsPage() {
                 </Table>
               </TableContainer>
             </Paper>
+
+            {/* REQ025 (US-NOT-04) — per-user quiet hours, applied to every
+                event type's external (WhatsApp/SMS) send, not per-row —
+                a single account-wide window, matching the requirement's
+                own "quiet hours are configured" framing rather than a
+                separate window per event. */}
+            <Paper variant="outlined" sx={{ borderRadius: 2.5, p: 2.5, mt: 3 }}>
+              <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 0.5 }}>Quiet Hours</Typography>
+              <Typography variant="body2" sx={{ color: '#5F6368', mb: 2 }}>
+                No WhatsApp/SMS notifications will be sent during this window, except for genuinely time-critical events like an imminent appointment reminder.
+              </Typography>
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems="center">
+                <TextField
+                  label="Start" type="time" size="small"
+                  value={quietHoursStart}
+                  onChange={(e) => setQuietHoursStart(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: { xs: '100%', sm: 160 } }}
+                />
+                <TextField
+                  label="End" type="time" size="small"
+                  value={quietHoursEnd}
+                  onChange={(e) => setQuietHoursEnd(e.target.value)}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ width: { xs: '100%', sm: 160 } }}
+                />
+                <Button
+                  size="small" variant="text" color="inherit"
+                  onClick={() => { setQuietHoursStart(''); setQuietHoursEnd('') }}
+                  sx={{ textTransform: 'none' }}
+                >Clear</Button>
+              </Stack>
+            </Paper>
+
             <Button variant="contained" disabled={savingNotifs} startIcon={<SaveRoundedIcon />} onClick={handleSaveNotifications}
               sx={{ mt: 3, borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
                 background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',

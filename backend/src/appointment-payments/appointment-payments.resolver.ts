@@ -7,8 +7,9 @@ import {
   TransactionType,
   FinanceTransactionType,
   FinanceSummaryType,
+  RecordCounterPaymentResultType,
 } from './entities/appointment-payment.entity';
-import { VerifyRazorpayPaymentInput } from './dto/appointment-payment.input';
+import { VerifyRazorpayPaymentInput, RecordCounterPaymentInput } from './dto/appointment-payment.input';
 import { Public } from '../common/decorators/public.decorator';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -73,5 +74,14 @@ export class AppointmentPaymentsResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.appointmentPaymentsService.myFinanceSummary(startDate, endDate, user);
+  }
+
+  // REQ023 (US-BIL-01, scoped subset) — front-desk operation, not @Public()
+  // (see the service method's own comment on why this differs from
+  // createRazorpayOrder).
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Mutation(() => RecordCounterPaymentResultType)
+  recordCounterPayment(@Args('input') input: RecordCounterPaymentInput, @CurrentUser() user: JwtPayload) {
+    return this.appointmentPaymentsService.recordCounterPayment(input, user);
   }
 }

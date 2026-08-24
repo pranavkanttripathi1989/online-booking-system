@@ -12,4 +12,8 @@ export class NotificationPreferenceType {
   @Field() email_enabled: boolean;
   @Field() sms_enabled: boolean;
   @Field() app_enabled: boolean;
+  // REQ025 (US-NOT-01 remainder, US-NOT-04).
+  @Field() whatsapp_enabled: boolean;
+  @Field({ nullable: true }) quiet_hours_start?: string;
+  @Field({ nullable: true }) quiet_hours_end?: string;
 }

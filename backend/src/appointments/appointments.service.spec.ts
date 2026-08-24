@@ -260,6 +260,27 @@ describe('AppointmentsService — access scoping', () => {
       prisma.appointments.findUnique.mockResolvedValue(baseAppointment({ clinician_id: 'cln-2' }));
       await expect(service.findOne('appt-1', clinicianUser)).rejects.toThrow(NotFoundException);
     });
+
+    // REQ016 (US-CAT-04) — display-mapping call site, reads through the
+    // shared resolveServicePrice() helper (no channel — the payment channel
+    // isn't known yet at display time, see resolveServicePrice()'s own
+    // comment), never a.product.price directly.
+    it('shows the patient-category-adjusted price on the appointment\'s linked service', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointment({
+        product: { id: 'prod-1', name: 'Consultation', price: 50000, category_pricing_json: { corporate: 35000 } },
+        patient: { id: 'pat-1', first_name: 'A', last_name: 'B', date_of_birth: new Date(), patient_category: 'corporate' },
+      }));
+      const result = await service.findOne('appt-1', clinicianUser);
+      expect(result.service?.price).toBe(350); // 35000 paise -> rupees
+    });
+
+    it('shows the base price when the patient has no matching category override', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointment({
+        product: { id: 'prod-1', name: 'Consultation', price: 50000, category_pricing_json: { corporate: 35000 } },
+      }));
+      const result = await service.findOne('appt-1', clinicianUser);
+      expect(result.service?.price).toBe(500); // 50000 paise -> rupees, no override
+    });
   });
 
   describe('checkIn / startConsultation / resetAppointmentJourney (REQ042)', () => {

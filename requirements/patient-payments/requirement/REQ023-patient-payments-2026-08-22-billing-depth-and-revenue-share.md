@@ -3,10 +3,10 @@ id: REQ023
 type: requirement
 feature: patient-payments
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ004
-related: [REQ004]
+related: [REQ004, REQ040, REQ047, PLAN064]
 ---
 
 # Billing depth: mixed tenders, day-end close, doctor revenue-share, and reconciliation

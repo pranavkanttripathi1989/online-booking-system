@@ -8,6 +8,23 @@ import { DepartmentsService } from '../departments/departments.service';
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
+// REQ016 (US-CAT-04) — the JSON columns store paise-keyed maps (matching
+// price's own unit); CategoryPricingInput/ChannelPricingInput expose rupees
+// like every other money field's GraphQL surface.
+function pricingJsonToGraphQL(json: unknown): Record<string, number> | undefined {
+  if (!json || typeof json !== 'object' || Array.isArray(json)) return undefined;
+  const entries = Object.entries(json as Record<string, number>).map(([k, v]) => [k, PAISE_TO_RUPEES(v)]);
+  return entries.length ? Object.fromEntries(entries) : undefined;
+}
+
+function pricingInputToJson(input?: Record<string, number | undefined>): Record<string, number> | undefined {
+  if (!input) return undefined;
+  const entries = Object.entries(input)
+    .filter(([, v]) => v != null)
+    .map(([k, v]) => [k, RUPEES_TO_PAISE(v as number)]);
+  return Object.fromEntries(entries);
+}
+
 @Injectable()
 export class ServicesService {
   constructor(
@@ -16,7 +33,7 @@ export class ServicesService {
   ) {}
 
   private toGraphQL(product: any) {
-    const { price, clinicianServices, category, ...rest } = product;
+    const { price, clinicianServices, category, category_pricing_json, channel_pricing_json, ...rest } = product;
     return {
       ...rest,
       price: PAISE_TO_RUPEES(price),
@@ -32,6 +49,9 @@ export class ServicesService {
         id: cs.clinician.id,
         full_name: `${cs.clinician.first_name} ${cs.clinician.last_name}`,
       })),
+      // REQ016 (US-CAT-04).
+      category_pricing: pricingJsonToGraphQL(category_pricing_json),
+      channel_pricing: pricingJsonToGraphQL(channel_pricing_json),
     };
   }
 
@@ -94,6 +114,8 @@ export class ServicesService {
         product_type: 'simple',
         sku: this.generateSku(input.name),
         department_id: input.department_id,
+        category_pricing_json: pricingInputToJson(input.category_pricing as any),
+        channel_pricing_json: pricingInputToJson(input.channel_pricing as any),
         // BUG006 — `?? undefined` silently created an ORG-LESS service.
         client_org_id: orgIdForWrite(user, 'service'),
       },
@@ -118,6 +140,8 @@ export class ServicesService {
         hsn: input.hsn,
         is_tax_exempt: input.is_tax_exempt,
         department_id: input.department_id,
+        category_pricing_json: pricingInputToJson(input.category_pricing as any),
+        channel_pricing_json: pricingInputToJson(input.channel_pricing as any),
       },
       include: this.include(),
     });

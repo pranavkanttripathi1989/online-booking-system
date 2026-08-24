@@ -154,6 +154,18 @@ export const COMPLETE_APPOINTMENT_MUTATION = gql`
   }
 `
 
+// REQ023 (US-BIL-01, scoped subset) — front-desk mixed-tender counter billing.
+export const RECORD_COUNTER_PAYMENT_MUTATION = gql`
+  mutation RecordCounterPayment($input: RecordCounterPaymentInput!) {
+    recordCounterPayment(input: $input) {
+      success
+      message
+      payment_id
+      invoice_number
+    }
+  }
+`
+
 export const MARK_NO_SHOW_MUTATION = gql`
   mutation MarkNoShow($id: ID!) {
     markNoShow(id: $id) {
@@ -379,6 +391,8 @@ export const CREATE_SERVICE_MUTATION = gql`
   mutation CreateService($input: ServiceInput!) {
     createService(input: $input) {
       id name description duration_minutes price is_active
+      category_pricing { general corporate staff camp }
+      channel_pricing { online walkin }
     }
   }
 `
@@ -387,6 +401,8 @@ export const UPDATE_SERVICE_MUTATION = gql`
   mutation UpdateService($id: ID!, $input: ServiceInput!) {
     updateService(id: $id, input: $input) {
       id name description duration_minutes price is_active
+      category_pricing { general corporate staff camp }
+      channel_pricing { online walkin }
     }
   }
 `

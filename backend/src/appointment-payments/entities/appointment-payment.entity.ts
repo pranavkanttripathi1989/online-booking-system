@@ -17,6 +17,15 @@ export class PaymentVerificationResultType {
   @Field({ nullable: true }) message?: string;
 }
 
+// REQ023 (US-BIL-01, scoped subset).
+@ObjectType('RecordCounterPaymentResult')
+export class RecordCounterPaymentResultType {
+  @Field() success: boolean;
+  @Field({ nullable: true }) message?: string;
+  @Field(() => ID, { nullable: true }) payment_id?: string;
+  @Field({ nullable: true }) invoice_number?: string;
+}
+
 // manager/Dashboard.jsx's GET_MANAGER_TRANSACTIONS query — field names are a
 // hard contract (camelCase, matching the public/patient-self-serve dialect
 // even though the rest of that page is canonical/snake_case — this specific

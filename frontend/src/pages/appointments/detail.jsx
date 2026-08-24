@@ -8,8 +8,11 @@ import {
   Avatar, Box, Button, Chip, Dialog, DialogTitle, DialogContent,
   DialogActions, Divider, FormControl, FormControlLabel, FormLabel,
   Grid, IconButton, Paper, Radio, RadioGroup, Skeleton, Stack,
-  Tooltip, Typography,
+  Tooltip, Typography, TextField, MenuItem, Alert,
 } from '@mui/material'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -39,7 +42,7 @@ import MonitorHeartRoundedIcon     from '@mui/icons-material/MonitorHeartRounded
 
 
 import { APPOINTMENT_DETAIL_QUERY } from '../../graphql/queries'
-import { CANCEL_APPOINTMENT_MUTATION, COMPLETE_APPOINTMENT_MUTATION, MARK_NO_SHOW_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations'
+import { CANCEL_APPOINTMENT_MUTATION, COMPLETE_APPOINTMENT_MUTATION, MARK_NO_SHOW_MUTATION, UPDATE_APPOINTMENT_MUTATION, RECORD_COUNTER_PAYMENT_MUTATION } from '../../graphql/mutations'
 import * as MockStore from '../../mocks/store'
 import CancelDialog from '../../components/Appointments/CancelDialog'
 import { useAuth } from '../../hooks/useAuth'
@@ -321,6 +324,11 @@ export default function AppointmentDetailPage() {
   // NEW-APPT-004: Reminder channel dialog state
   const [reminderDialogOpen, setReminderDialogOpen] = useState(false)
 
+  // REQ023 (US-BIL-01, scoped subset) — mixed-tender counter payment dialog state
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [tenders, setTenders] = useState([{ tender_type: 'cash', amount: '', reference: '' }])
+  const [paymentError, setPaymentError] = useState(null)
+
   const { data, loading, refetch } = useQuery(APPOINTMENT_DETAIL_QUERY, {
     variables: { id }, skip: !id, fetchPolicy: 'network-only',
   })
@@ -336,6 +344,18 @@ export default function AppointmentDetailPage() {
 
   const [completeAppointment] = useMutation(COMPLETE_APPOINTMENT_MUTATION, {
     onCompleted: () => { enqueueSnackbar('Marked completed', { variant: 'success' }); refetch() }
+  })
+
+  const [recordCounterPayment, { loading: recordingPayment }] = useMutation(RECORD_COUNTER_PAYMENT_MUTATION, {
+    onCompleted: (d) => {
+      if (!d?.recordCounterPayment?.success) { setPaymentError(d?.recordCounterPayment?.message ?? 'Failed to record payment'); return }
+      enqueueSnackbar(`Payment recorded${d.recordCounterPayment.invoice_number ? ` — ${d.recordCounterPayment.invoice_number}` : ''}`, { variant: 'success' })
+      setPaymentDialogOpen(false)
+      setTenders([{ tender_type: 'cash', amount: '', reference: '' }])
+      setPaymentError(null)
+      refetch()
+    },
+    onError: (err) => setPaymentError(err.message),
   })
   const [markNoShow]          = useMutation(MARK_NO_SHOW_MUTATION, {
     onCompleted: () => { enqueueSnackbar('Marked no-show', { variant: 'warning' }); refetch() }
@@ -679,6 +699,17 @@ export default function AppointmentDetailPage() {
                   >
                     Mark as Completed
                   </Button>
+                  {/* REQ023 (US-BIL-01, scoped subset) — front-desk staff, not clinician */}
+                  {(hasRole('staff') || hasRole('manager') || hasRole('admin') || hasRole('super_admin')) && apt.service?.price != null && (
+                    <Button fullWidth variant="outlined" startIcon={<PaymentsRoundedIcon />}
+                      onClick={() => setPaymentDialogOpen(true)}
+                      sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
+                        borderColor: '#0F9D58', color: '#0B8043', '&:hover': { bgcolor: 'rgba(15,157,88,0.06)', borderColor: '#0F9D58' },
+                      }}
+                    >
+                      Take Payment
+                    </Button>
+                  )}
                   <Button fullWidth variant="outlined" startIcon={<PersonOffRoundedIcon />}
                     onClick={() => markNoShow({ variables: { id: apt.id } })}
                     sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
@@ -780,6 +811,69 @@ export default function AppointmentDetailPage() {
         patientEmail={apt?.patient?.email}
         patientPhone={apt?.patient?.phone}
       />
+
+      {/* REQ023 (US-BIL-01, scoped subset) — mixed-tender counter payment */}
+      <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Record Counter Payment</DialogTitle>
+        <DialogContent>
+          {(() => {
+            const amountDue = apt?.service?.price ?? 0
+            const total = tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+            const matches = Math.abs(total - amountDue) < 0.005
+            return (
+              <Stack spacing={2} sx={{ mt: 1 }}>
+                <Typography variant="body2" color="text.secondary">
+                  Amount due: <strong>₹{amountDue.toFixed(2)}</strong>
+                </Typography>
+                {paymentError && <Alert severity="error" onClose={() => setPaymentError(null)}>{paymentError}</Alert>}
+                {tenders.map((t, i) => (
+                  <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
+                    <TextField select label="Tender" size="small" value={t.tender_type}
+                      onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, tender_type: e.target.value } : row))}
+                      sx={{ width: 120 }}>
+                      {['cash', 'upi', 'card', 'cheque'].map((tt) => <MenuItem key={tt} value={tt}>{tt.toUpperCase()}</MenuItem>)}
+                    </TextField>
+                    <TextField label="Amount" type="number" size="small" value={t.amount}
+                      onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, amount: e.target.value } : row))}
+                      inputProps={{ min: 0, step: 0.01 }} sx={{ width: 110 }} />
+                    <TextField label="Reference" size="small" value={t.reference}
+                      onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, reference: e.target.value } : row))}
+                      placeholder="Optional" sx={{ flex: 1 }} />
+                    <IconButton size="small" disabled={tenders.length === 1}
+                      onClick={() => setTenders((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <DeleteOutlineRoundedIcon fontSize="small" />
+                    </IconButton>
+                  </Stack>
+                ))}
+                <Button size="small" startIcon={<AddRoundedIcon />} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+                  onClick={() => setTenders((prev) => [...prev, { tender_type: 'cash', amount: '', reference: '' }])}>
+                  Add another tender
+                </Button>
+                <Divider />
+                <Typography variant="body2" fontWeight={700} color={matches ? 'success.main' : 'text.secondary'}>
+                  Total entered: ₹{total.toFixed(2)} {matches ? '✓' : `(₹${(amountDue - total).toFixed(2)} remaining)`}
+                </Typography>
+              </Stack>
+            )
+          })()}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={recordingPayment || Math.abs(tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0) - (apt?.service?.price ?? 0)) >= 0.005}
+            onClick={() => {
+              setPaymentError(null)
+              recordCounterPayment({ variables: { input: {
+                appointment_id: apt.id,
+                tenders: tenders.map((t) => ({ tender_type: t.tender_type, amount: parseFloat(t.amount) || 0, reference: t.reference || undefined })),
+              } } })
+            }}
+          >
+            {recordingPayment ? 'Recording…' : 'Record Payment'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
