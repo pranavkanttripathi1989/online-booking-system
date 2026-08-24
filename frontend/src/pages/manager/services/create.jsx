@@ -5,7 +5,7 @@ import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
 import {
   Box, Button, CircularProgress, FormControlLabel,
-  Grid, IconButton, InputAdornment, Paper, Stack, Switch, TextField, Typography,
+  Grid, IconButton, InputAdornment, MenuItem, Paper, Stack, Switch, TextField, Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon  from '@mui/icons-material/ArrowBackRounded'
 import MedicalServicesRoundedIcon from '@mui/icons-material/MedicalServicesRounded'
@@ -28,7 +28,7 @@ const CHANNEL_OVERRIDE_FIELDS = [
 export default function CreateServicePage() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
-  const [form, setForm] = useState({ name:'', description:'', duration_minutes:'30', price:'', category:'', is_active:true })
+  const [form, setForm] = useState({ name:'', description:'', duration_minutes:'30', price:'', category:'', is_active:true, prepayment_policy:'none' })
   const [categoryPricing, setCategoryPricing] = useState({ corporate: '', staff: '', camp: '' })
   const [channelPricing, setChannelPricing] = useState({ online: '', walkin: '' })
   const [errors, setErrors] = useState({})
@@ -64,6 +64,7 @@ export default function CreateServicePage() {
             onClick={() => { if(validate()) createService({ variables:{ input:{
               name:form.name, description:form.description||undefined, duration_minutes:parseInt(form.duration_minutes)||30, price:form.price?parseFloat(form.price):undefined, is_active:form.is_active,
               category_pricing: overridesToInput(categoryPricing), channel_pricing: overridesToInput(channelPricing),
+              prepayment_policy: form.prepayment_policy,
             } } }) }}
             disabled={loading} sx={{ borderRadius:2.5, textTransform:'none', fontWeight:700, bgcolor:'#0F9D58','&:hover':{bgcolor:'#0B8043'} }}>
             {loading ? 'Saving…' : 'Save Service'}
@@ -80,6 +81,16 @@ export default function CreateServicePage() {
               <Grid item xs={12} sm={6}><TextField fullWidth label="Duration (minutes)" type="number" value={form.duration_minutes} onChange={set('duration_minutes')} inputProps={{ min: 1 }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Price" type="number" value={form.price} onChange={set('price')} inputProps={{ min: 0, step: 0.01 }} InputProps={{ startAdornment:<InputAdornment position="start">₹</InputAdornment> }} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField fullWidth label="Category" value={form.category} onChange={set('category')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              {/* REQ018 (US-BOOK-03) */}
+              <Grid item xs={12} sm={6}>
+                <TextField select fullWidth label="Prepayment policy" value={form.prepayment_policy} onChange={set('prepayment_policy')}
+                  helperText="Required: booking doesn't confirm until payment succeeds"
+                  sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }}>
+                  <MenuItem value="none">None (confirm immediately)</MenuItem>
+                  <MenuItem value="optional">Optional</MenuItem>
+                  <MenuItem value="required">Required</MenuItem>
+                </TextField>
+              </Grid>
             </Grid>
           </Paper>
 

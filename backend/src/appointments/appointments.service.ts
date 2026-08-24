@@ -11,6 +11,7 @@ import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { QueueService } from '../queue/queue.service';
 import { PatientsService } from '../patients/patients.service';
+import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -52,6 +53,7 @@ export class AppointmentsService {
     private readonly notificationTrigger: NotificationTriggerService,
     private readonly queueService: QueueService,
     private readonly patientsService: PatientsService,
+    private readonly webhookDispatch: WebhookDispatchService,
   ) {}
 
   // REQ008/PLAN017 — notify the clinician's own login account, if linked.
@@ -318,6 +320,12 @@ export class AppointmentsService {
     }
     const service = await this.prisma.products.findUnique({ where: { id: input.service_id } });
     if (!service) throw new BadRequestException('Service not found');
+    // REQ018 (US-BOOK-03) — a service configured "prepayment required"
+    // leaves the appointment unconfirmed until AppointmentPaymentsService's
+    // shared success handler (verifyRazorpayPayment / the webhook's
+    // payment.captured branch) transitions it to 'confirmed'. "optional"/
+    // "none" (the default) preserve today's behaviour exactly.
+    const initialStatus = service.prepayment_policy === 'required' ? 'awaiting_payment' : 'scheduled';
     const start = new Date(input.start_datetime);
     const durationMinutes = service.duration_minutes ?? 30;
     const end = new Date(start.getTime() + durationMinutes * 60000);
@@ -387,7 +395,7 @@ export class AppointmentsService {
             appointment_date: new Date(start.toDateString()),
             appointment_time: start,
             duration_minutes: durationMinutes,
-            status: 'scheduled',
+            status: initialStatus,
             reason: input.notes ?? '',
             notes: input.notes ?? '',
             product_id: input.service_id,
@@ -408,7 +416,7 @@ export class AppointmentsService {
           });
         }
         await tx.appointmentStatusLogs.create({
-          data: { appointment_id: appointment.id, status: 'scheduled', changed_by_user_id: user.sub },
+          data: { appointment_id: appointment.id, status: initialStatus, changed_by_user_id: user.sub },
         });
         return appointment;
       });
@@ -438,6 +446,21 @@ export class AppointmentsService {
       type: 'appointment',
       action_url: `/appointments/${created.id}`,
     });
+    // REQ030 (US-INT-02, scoped down) — best-effort, no-op when the org has
+    // no active endpoint subscribed to this event (fireEvent's own early
+    // return). Uses the caller's own JWT org — already the clinic's own org,
+    // enforced by this method's own boundary check above — rather than an
+    // extra fetch; a platform operator booking on a tenant's behalf (no
+    // client_org_id of their own) does not fire that tenant's webhooks in
+    // this slice, a deliberate scope limit to avoid an unconditional extra
+    // query on every booking, not an oversight.
+    if (user.client_org_id) {
+      await this.webhookDispatch.fireEvent(user.client_org_id, 'appointment.created', {
+        appointment_id: created.id,
+        clinic_id: created.clinic_id,
+        status: created.status,
+      });
+    }
     return result;
   }
 
@@ -474,6 +497,17 @@ export class AppointmentsService {
     await this.queueService.publish(updated.clinic_id);
     if (status === 'cancelled' && appointment.status !== 'cancelled') {
       await this.notifyCancellation(result);
+    }
+    // REQ030 (US-INT-02, scoped down) — cancellation is the one transitionStatus
+    // outcome in this event's subscribable vocabulary; 'appointment.confirmed'
+    // fires from confirmAppointmentIfAwaitingPayment (appointment-payments
+    // .service.ts) instead, since that's the only path that actually
+    // transitions 'awaiting_payment' -> 'confirmed' in this slice.
+    if (status === 'cancelled' && appointment.status !== 'cancelled' && user.client_org_id) {
+      await this.webhookDispatch.fireEvent(user.client_org_id, 'appointment.cancelled', {
+        appointment_id: id,
+        reason,
+      });
     }
     return result;
   }

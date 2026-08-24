@@ -3,11 +3,30 @@ id: REQ030
 type: requirement
 feature: platform-integrations
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ015
-related: [REQ015, REQ023]
+related: [REQ015, REQ023, PLAN069, TP096, TR095]
 ---
+
+## Status (2026-08-24)
+
+**`US-INT-02` shipped, scoped down** (`PLAN069`/`TP096`/`TR095`): signed
+outbound webhook delivery (`WebhookEndpoints`/`WebhookDeliveryLog`),
+HMAC-SHA256 (`X-MediBook-Signature`), fired from real domain events
+(`appointment.created`, `appointment.confirmed`, `appointment.cancelled`,
+`payment.succeeded`). This story is P1 in the requirement doc, not P0 —
+picked because it was additive, isolated, and reused this session's other
+new event points (`REQ018`'s prepayment-confirm transition). See
+`context/platform-integrations-2026-08-24-req030/manifest.md`.
+
+**Deliberately deferred, not silently dropped**: retry with exponential
+backoff (this story's own P1 acceptance criterion) — delivery is
+best-effort/synchronous, no new queue/worker infra added this slice;
+`WebhookDeliveryLog` records every attempt so a failed delivery is visible
+and re-triggerable by hand. `US-INT-03` (second payment gateway),
+`US-INT-04` (Tally/Zoho export), and the public REST API itself are
+untouched.
 
 # Public REST API, webhooks, second payment gateway, and third-party connectors
 

@@ -393,6 +393,7 @@ export const CREATE_SERVICE_MUTATION = gql`
       id name description duration_minutes price is_active
       category_pricing { general corporate staff camp }
       channel_pricing { online walkin }
+      prepayment_policy
     }
   }
 `
@@ -403,6 +404,7 @@ export const UPDATE_SERVICE_MUTATION = gql`
       id name description duration_minutes price is_active
       category_pricing { general corporate staff camp }
       channel_pricing { online walkin }
+      prepayment_policy
     }
   }
 `

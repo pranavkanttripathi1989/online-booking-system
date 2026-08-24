@@ -302,6 +302,80 @@ export const CASES: DomainCase[] = [
     bId: IDS.queueEntryB,
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
   },
+  {
+    // REQ018 (US-BOOK-05). Own client_org_id, same shape as departments/resources.
+    domain: 'booking-widget',
+    what: 'bookingWidgetConfigs',
+    query: `{ bookingWidgetConfigs { id } }`,
+    ids: (d) => (d.bookingWidgetConfigs ?? []).map((x: any) => x.id),
+    aId: IDS.bookingWidgetA,
+    bId: IDS.bookingWidgetB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    // REQ034. rightsRequests is the domain's only no-args list query
+    // (patientConsents requires a patient_id argument, which doesn't fit
+    // this matrix's generic shape) -- see fixture.ts's own comment.
+    domain: 'consent',
+    what: 'rightsRequests',
+    query: `{ rightsRequests { id } }`,
+    ids: (d) => (d.rightsRequests ?? []).map((x: any) => x.id),
+    aId: IDS.rightsRequestA,
+    bId: IDS.rightsRequestB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    // REQ022. Own client_org_id.
+    domain: 'pharmacy',
+    what: 'drugBatches',
+    query: `{ drugBatches { id } }`,
+    ids: (d) => (d.drugBatches ?? []).map((x: any) => x.id),
+    aId: IDS.drugBatchA,
+    bId: IDS.drugBatchB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
+  },
+  {
+    // REQ030. Own client_org_id.
+    domain: 'webhooks',
+    what: 'webhookEndpoints',
+    query: `{ webhookEndpoints { id } }`,
+    ids: (d) => (d.webhookEndpoints ?? []).map((x: any) => x.id),
+    aId: IDS.webhookEndpointA,
+    bId: IDS.webhookEndpointB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    // REQ031. payerEmpanelments is the tenant-scoped half of this domain
+    // (Payers itself is global reference data, like Languages -- see
+    // matrix-coverage.int-spec.ts's EXEMPT list).
+    domain: 'insurance',
+    what: 'payerEmpanelments',
+    query: `{ payerEmpanelments { id } }`,
+    ids: (d) => (d.payerEmpanelments ?? []).map((x: any) => x.id),
+    aId: IDS.payerEmpanelmentA,
+    bId: IDS.payerEmpanelmentB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
+  },
+  {
+    // REQ015 (US-SEC-08). Own client_org_id.
+    domain: 'api-keys',
+    what: 'apiKeys',
+    query: `{ apiKeys { id } }`,
+    ids: (d) => (d.apiKeys ?? []).map((x: any) => x.id),
+    aId: IDS.apiKeyA,
+    bId: IDS.apiKeyB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    // REQ029 (US-RPT-03). Own client_org_id.
+    domain: 'scheduled-reports',
+    what: 'scheduledReports',
+    query: `{ scheduledReports { id } }`,
+    ids: (d) => (d.scheduledReports ?? []).map((x: any) => x.id),
+    aId: IDS.scheduledReportA,
+    bId: IDS.scheduledReportB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
 ];
 
 /** Domains covered by this matrix — read by matrix-coverage.int-spec.ts. */

@@ -116,6 +116,8 @@ export class ServicesService {
         department_id: input.department_id,
         category_pricing_json: pricingInputToJson(input.category_pricing as any),
         channel_pricing_json: pricingInputToJson(input.channel_pricing as any),
+        // REQ018 (US-BOOK-03) — omitted on create leaves the schema default ("none").
+        prepayment_policy: input.prepayment_policy,
         // BUG006 — `?? undefined` silently created an ORG-LESS service.
         client_org_id: orgIdForWrite(user, 'service'),
       },
@@ -142,6 +144,7 @@ export class ServicesService {
         department_id: input.department_id,
         category_pricing_json: pricingInputToJson(input.category_pricing as any),
         channel_pricing_json: pricingInputToJson(input.channel_pricing as any),
+        prepayment_policy: input.prepayment_policy,
       },
       include: this.include(),
     });

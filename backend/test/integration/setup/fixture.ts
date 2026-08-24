@@ -112,10 +112,45 @@ export const IDS = {
   // dashboard.upcoming_appointments), so not reused/mutated here.
   analyticsApptA: u('d13'),
   analyticsApptB: u('d14'),
+
+  // REQ018/034/030/031/015/029 (2026-08-25 8-slice pass) -- eight new
+  // resolver domains classified into the tenancy matrix in the same pass
+  // that built them, not retrofitted later.
+  bookingWidgetA: u('e01'),
+  bookingWidgetB: u('e02'),
+  consentA: u('e03'),
+  consentB: u('e04'),
+  rightsRequestA: u('e18'),
+  rightsRequestB: u('e19'),
+  drugBatchA: u('e05'),
+  drugBatchB: u('e06'),
+  webhookEndpointA: u('e07'),
+  webhookEndpointB: u('e08'),
+  payer1: u('e09'), // global reference data -- one row, referenced by both orgs' empanelments/policies
+  payerEmpanelmentA: u('e10'),
+  payerEmpanelmentB: u('e11'),
+  patientPolicyA: u('e12'),
+  patientPolicyB: u('e13'),
+  apiKeyA: u('e14'),
+  apiKeyB: u('e15'),
+  scheduledReportA: u('e16'),
+  scheduledReportB: u('e17'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
 const TABLES = [
+  'ScheduledReports',
+  'ApiKeys',
+  'PatientInsurancePolicies',
+  'PayerEmpanelments',
+  'Payers',
+  'WebhookDeliveryLog',
+  'WebhookEndpoints',
+  'StockMovements',
+  'DrugBatches',
+  'RightsRequests',
+  'Consents',
+  'BookingWidgetConfig',
   'MessageParticipants',
   'Messages',
   'MessageThreads',
@@ -405,6 +440,83 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.queueEntryA, appointment_id: IDS.appointmentA, clinic_id: IDS.clinicA, clinician_id: IDS.clinicianA },
       { id: IDS.queueEntryB, appointment_id: IDS.appointmentB, clinic_id: IDS.clinicB, clinician_id: IDS.clinicianB },
+    ],
+  });
+
+  // REQ018 (US-BOOK-05) -- one widget config per org.
+  await prisma.bookingWidgetConfig.createMany({
+    data: [
+      { id: IDS.bookingWidgetA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, allowed_origins: ['https://a.example.test'], short_link_slug: 'widget-a' },
+      { id: IDS.bookingWidgetB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, allowed_origins: ['https://b.example.test'], short_link_slug: 'widget-b' },
+    ],
+  });
+
+  // REQ034 -- one consent per org.
+  await prisma.consents.createMany({
+    data: [
+      { id: IDS.consentA, patient_id: IDS.patientA, client_org_id: IDS.orgA, purpose: 'treatment', granted: true, notice_version: 'v1' },
+      { id: IDS.consentB, patient_id: IDS.patientB, client_org_id: IDS.orgB, purpose: 'treatment', granted: true, notice_version: 'v1' },
+    ],
+  });
+
+  // REQ034 -- one rights request per org (the domain's only no-args list
+  // query, so this is the CASES entry rather than patientConsents, which
+  // requires a patient_id argument that doesn't fit the matrix's generic
+  // no-args-list shape).
+  await prisma.rightsRequests.createMany({
+    data: [
+      { id: IDS.rightsRequestA, patient_id: IDS.patientA, client_org_id: IDS.orgA, type: 'access', sla_due_at: new Date('2027-01-01') },
+      { id: IDS.rightsRequestB, patient_id: IDS.patientB, client_org_id: IDS.orgB, type: 'access', sla_due_at: new Date('2027-01-01') },
+    ],
+  });
+
+  // REQ022 -- one drug batch per org, against the drugA/drugB rows created above.
+  await prisma.drugBatches.createMany({
+    data: [
+      { id: IDS.drugBatchA, drug_id: IDS.drugA, clinic_id: IDS.clinicA, client_org_id: IDS.orgA, batch_number: 'BATCH-A-1', expiry_date: new Date('2027-01-01'), quantity_received: 100, quantity_remaining: 100 },
+      { id: IDS.drugBatchB, drug_id: IDS.drugB, clinic_id: IDS.clinicB, client_org_id: IDS.orgB, batch_number: 'BATCH-B-1', expiry_date: new Date('2027-01-01'), quantity_received: 100, quantity_remaining: 100 },
+    ],
+  });
+
+  // REQ030 -- one webhook endpoint per org. `secret` is a fixture-only
+  // placeholder string, never decrypted by any matrix assertion.
+  await prisma.webhookEndpoints.createMany({
+    data: [
+      { id: IDS.webhookEndpointA, client_org_id: IDS.orgA, url: 'https://a.example.test/webhook', secret: 'fixture-secret-a', event_types_json: ['appointment.created'], created_by_user_id: IDS.userManagerA },
+      { id: IDS.webhookEndpointB, client_org_id: IDS.orgB, url: 'https://b.example.test/webhook', secret: 'fixture-secret-b', event_types_json: ['appointment.created'], created_by_user_id: IDS.userManagerB },
+    ],
+  });
+
+  // REQ031 -- Payers is global reference data (no client_org_id, like
+  // Languages) -- one shared row. PayerEmpanelments/PatientInsurancePolicies
+  // are the genuinely tenant-scoped part of this domain, one pair each.
+  await prisma.payers.create({ data: { id: IDS.payer1, name: 'Fixture Insurer', payer_type: 'insurer' } });
+  await prisma.payerEmpanelments.createMany({
+    data: [
+      { id: IDS.payerEmpanelmentA, payer_id: IDS.payer1, clinic_id: IDS.clinicA, client_org_id: IDS.orgA, start_date: new Date('2026-01-01') },
+      { id: IDS.payerEmpanelmentB, payer_id: IDS.payer1, clinic_id: IDS.clinicB, client_org_id: IDS.orgB, start_date: new Date('2026-01-01') },
+    ],
+  });
+  await prisma.patientInsurancePolicies.createMany({
+    data: [
+      { id: IDS.patientPolicyA, patient_id: IDS.patientA, client_org_id: IDS.orgA, payer_id: IDS.payer1, policy_number: 'POL-A-1', policy_holder_name: 'Patient A', valid_from: new Date('2026-01-01') },
+      { id: IDS.patientPolicyB, patient_id: IDS.patientB, client_org_id: IDS.orgB, payer_id: IDS.payer1, policy_number: 'POL-B-1', policy_holder_name: 'Patient B', valid_from: new Date('2026-01-01') },
+    ],
+  });
+
+  // REQ015 (US-SEC-08) -- one API key per org.
+  await prisma.apiKeys.createMany({
+    data: [
+      { id: IDS.apiKeyA, client_org_id: IDS.orgA, key_prefix: 'mbk_fixturea', key_hash: 'fixture-hash-a', name: 'Fixture Key A', created_by_user_id: IDS.userManagerA },
+      { id: IDS.apiKeyB, client_org_id: IDS.orgB, key_prefix: 'mbk_fixtureb', key_hash: 'fixture-hash-b', name: 'Fixture Key B', created_by_user_id: IDS.userManagerB },
+    ],
+  });
+
+  // REQ029 (US-RPT-03) -- one scheduled report per org.
+  await prisma.scheduledReports.createMany({
+    data: [
+      { id: IDS.scheduledReportA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, report_type: 'daily_collections', recipients_json: ['a@example.test'], cadence: 'daily', channel: 'email', created_by_user_id: IDS.userManagerA },
+      { id: IDS.scheduledReportB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, report_type: 'daily_collections', recipients_json: ['b@example.test'], cadence: 'daily', channel: 'email', created_by_user_id: IDS.userManagerB },
     ],
   });
 }

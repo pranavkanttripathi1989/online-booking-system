@@ -7,6 +7,7 @@ import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { QueueService } from '../queue/queue.service';
 import { PatientsService } from '../patients/patients.service';
+import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -29,6 +30,7 @@ describe('AppointmentsService — access scoping', () => {
   };
   let notificationTrigger: { dispatch: jest.Mock };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
+  let webhookDispatch: { fireEvent: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -56,8 +58,8 @@ describe('AppointmentsService — access scoping', () => {
         }),
       },
       appointmentStatusLogs: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
-      clinics: { findUnique: jest.fn() },
-      products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 30 }) },
+      clinics: { findUnique: jest.fn().mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' }) },
+      products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 30, prepayment_policy: 'none' }) },
       rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }), findUnique: jest.fn().mockResolvedValue({ id: 'room-1' }) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
       // REQ017: default to "no session/hybrid window" so every pre-existing
@@ -84,6 +86,9 @@ describe('AppointmentsService — access scoping', () => {
         // 'pat-1' (every existing patient-role test case in this file uses
         // that id) here, exercised for real in patients.service.spec.ts.
         { provide: PatientsService, useValue: (patientsService = { ownAndDependantPatientIds: jest.fn().mockResolvedValue(['pat-1']) }) },
+        // REQ030: fireEvent is best-effort/fire-and-forget -- mocked no-op
+        // here, exercised for real in webhook-dispatch.service.spec.ts.
+        { provide: WebhookDispatchService, useValue: (webhookDispatch = { fireEvent: jest.fn() }) },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -158,6 +163,36 @@ describe('AppointmentsService — access scoping', () => {
       const orgLessPatient: JwtPayload = { sub: 'p-1', roles: ['patient'], client_org_id: null, patient_id: 'pat-1' } as JwtPayload;
       await expect(service.create(baseInput as any, orgLessPatient)).resolves.toBeDefined();
       expect(prisma.clinics.findUnique).not.toHaveBeenCalled();
+    });
+
+    // REQ018 (US-BOOK-03).
+    describe('prepayment policy', () => {
+      it('creates with status "scheduled" when the service has no prepayment requirement (default)', async () => {
+        await service.create(baseInput as any, staffUser);
+        const created = prisma.appointments.create.mock.calls[0][0].data;
+        expect(created.status).toBe('scheduled');
+      });
+
+      it('creates with status "awaiting_payment" when the service requires prepayment', async () => {
+        prisma.products.findUnique.mockResolvedValue({ id: 'svc-1', duration_minutes: 30, prepayment_policy: 'required' });
+        await service.create(baseInput as any, staffUser);
+        const created = prisma.appointments.create.mock.calls[0][0].data;
+        expect(created.status).toBe('awaiting_payment');
+      });
+
+      it('logs the same initial status on AppointmentStatusLogs as the appointment itself', async () => {
+        prisma.products.findUnique.mockResolvedValue({ id: 'svc-1', duration_minutes: 30, prepayment_policy: 'required' });
+        await service.create(baseInput as any, staffUser);
+        expect(prisma.appointmentStatusLogs.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ status: 'awaiting_payment' }) }),
+        );
+      });
+    });
+
+    // REQ030 (US-INT-02, scoped down).
+    it('fires an appointment.created webhook event for the booking clinic\'s org', async () => {
+      await service.create(baseInput as any, staffUser);
+      expect(webhookDispatch.fireEvent).toHaveBeenCalledWith('org-1', 'appointment.created', expect.objectContaining({ appointment_id: 'appt-new' }));
     });
 
     // REQ018 -- found while building family/dependant profiles: a
@@ -429,6 +464,16 @@ describe('AppointmentsService — access scoping', () => {
       prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
       await service.markNoShow('appt-1', staffUser);
       expect(prisma.appointmentResources.deleteMany).toHaveBeenCalledWith({ where: { appointment_id: 'appt-1' } });
+    });
+
+    // REQ030 (US-INT-02, scoped down).
+    it('fires an appointment.cancelled webhook event, but only on an actual cancel, not a completing transition', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      await service.cancel('appt-1', 'patient request', staffUser);
+      expect(webhookDispatch.fireEvent).toHaveBeenCalledWith('org-1', 'appointment.cancelled', expect.objectContaining({ appointment_id: 'appt-1' }));
+      webhookDispatch.fireEvent.mockClear();
+      await service.complete('appt-1', staffUser);
+      expect(webhookDispatch.fireEvent).not.toHaveBeenCalledWith('org-1', 'appointment.cancelled', expect.anything());
     });
 
     it('does not touch AppointmentResources on an unrelated transition (e.g. completing)', async () => {

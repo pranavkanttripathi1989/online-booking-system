@@ -7,6 +7,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, isSameOrg } from '../common/scoping/tenant-scope';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { resolveServicePrice } from '../common/pricing/resolve-price';
+import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
 const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
@@ -24,6 +25,7 @@ export class AppointmentPaymentsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationTrigger: NotificationTriggerService,
+    private readonly webhookDispatch: WebhookDispatchService,
   ) {}
 
   private razorpayAuthHeader() {
@@ -131,6 +133,26 @@ export class AppointmentPaymentsService {
     return gst;
   }
 
+  // REQ018 (US-BOOK-03) — mirrors invoiceDetailsForSuccess's own "called
+  // from both verifyRazorpayPayment and the webhook" shape. An appointment
+  // left in 'awaiting_payment' by createAppointment (Products.prepayment_policy
+  // === 'required') only ever confirms here, on a real payment success —
+  // never on booking itself. A no-op for the ordinary case (most
+  // appointments are never 'awaiting_payment' to begin with).
+  private async confirmAppointmentIfAwaitingPayment(appointmentId: string) {
+    const appointment = await this.prisma.appointments.findUnique({ where: { id: appointmentId }, include: { clinic: true } });
+    if (!appointment || appointment.status !== 'awaiting_payment') return;
+    await this.prisma.appointments.update({ where: { id: appointmentId }, data: { status: 'confirmed' } });
+    await this.prisma.appointmentStatusLogs.create({
+      data: { appointment_id: appointmentId, status: 'confirmed', reason: 'Prepayment received' },
+    });
+    if (appointment.clinic.client_org_id) {
+      await this.webhookDispatch.fireEvent(appointment.clinic.client_org_id, 'appointment.confirmed', {
+        appointment_id: appointmentId,
+      });
+    }
+  }
+
   // REQ023 (US-BIL-01, scoped subset) — front-desk mixed-tender counter
   // billing: cash/UPI/card/cheque, manually recorded, closing an
   // appointment's bill without going through Razorpay at all. Unlike
@@ -195,6 +217,13 @@ export class AppointmentPaymentsService {
       });
       return created;
     });
+    await this.confirmAppointmentIfAwaitingPayment(appointment.id);
+    if (appointment.clinic.client_org_id) {
+      await this.webhookDispatch.fireEvent(appointment.clinic.client_org_id, 'payment.succeeded', {
+        appointment_id: appointment.id,
+        amount: totalPaise,
+      });
+    }
 
     return { success: true, payment_id: payment.id, invoice_number: payment.invoice_number ?? undefined };
   }
@@ -237,6 +266,13 @@ export class AppointmentPaymentsService {
         ...invoiceDetails,
       },
     });
+    await this.confirmAppointmentIfAwaitingPayment(payment.appointment_id);
+    if (payment.client_org_id) {
+      await this.webhookDispatch.fireEvent(payment.client_org_id, 'payment.succeeded', {
+        appointment_id: payment.appointment_id,
+        amount: payment.amount,
+      });
+    }
 
     // REQ008/PLAN017 — notify the patient's own login account, if linked.
     const patientProfile = await this.prisma.userProfiles.findFirst({
@@ -327,6 +363,13 @@ export class AppointmentPaymentsService {
         where: { id: payment.id },
         data: { status: 'succeeded', razorpay_payment_id: paymentId ?? payment.razorpay_payment_id, ...invoiceDetails },
       });
+      await this.confirmAppointmentIfAwaitingPayment(payment.appointment_id);
+      if (payment.client_org_id) {
+        await this.webhookDispatch.fireEvent(payment.client_org_id, 'payment.succeeded', {
+          appointment_id: payment.appointment_id,
+          amount: payment.amount,
+        });
+      }
     } else if (eventType === 'payment.failed' && payment.status === 'pending') {
       await this.prisma.appointmentPayments.update({ where: { id: payment.id }, data: { status: 'failed' } });
     }

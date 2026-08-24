@@ -55,4 +55,6 @@ export class ServiceType {
   // REQ016 (US-CAT-04).
   @Field(() => CategoryPricingType, { nullable: true }) category_pricing?: CategoryPricingType;
   @Field(() => ChannelPricingType, { nullable: true }) channel_pricing?: ChannelPricingType;
+  // REQ018 (US-BOOK-03).
+  @Field() prepayment_policy: string;
 }

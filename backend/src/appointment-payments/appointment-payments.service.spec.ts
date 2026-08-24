@@ -3,6 +3,7 @@ import * as crypto from 'crypto';
 import { AppointmentPaymentsService } from './appointment-payments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
+import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 const ORIGINAL_ENV = process.env;
@@ -10,7 +11,8 @@ const ORIGINAL_ENV = process.env;
 describe('AppointmentPaymentsService', () => {
   let service: AppointmentPaymentsService;
   let prisma: {
-    appointments: { findUnique: jest.Mock };
+    appointments: { findUnique: jest.Mock; update: jest.Mock };
+    appointmentStatusLogs: { create: jest.Mock };
     appointmentPayments: {
       create: jest.Mock;
       findFirst: jest.Mock;
@@ -27,6 +29,7 @@ describe('AppointmentPaymentsService', () => {
   };
   let fetchMock: jest.Mock;
   let notificationTrigger: { dispatch: jest.Mock };
+  let webhookDispatch: { fireEvent: jest.Mock };
 
   const orgUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'u2', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
@@ -34,7 +37,8 @@ describe('AppointmentPaymentsService', () => {
   beforeEach(async () => {
     process.env = { ...ORIGINAL_ENV, RAZORPAY_KEY_ID: 'rzp_test_fake', RAZORPAY_KEY_SECRET: 'fake_secret' };
     prisma = {
-      appointments: { findUnique: jest.fn() },
+      appointments: { findUnique: jest.fn(), update: jest.fn() },
+      appointmentStatusLogs: { create: jest.fn() },
       appointmentPayments: {
         create: jest.fn(),
         findFirst: jest.fn(),
@@ -57,11 +61,13 @@ describe('AppointmentPaymentsService', () => {
     fetchMock = jest.fn();
     (global as any).fetch = fetchMock;
     notificationTrigger = { dispatch: jest.fn() };
+    webhookDispatch = { fireEvent: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         AppointmentPaymentsService,
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationTriggerService, useValue: notificationTrigger },
+        { provide: WebhookDispatchService, useValue: webhookDispatch },
       ],
     }).compile();
     service = module.get(AppointmentPaymentsService);
@@ -218,6 +224,37 @@ describe('AppointmentPaymentsService', () => {
           invoice_number: expect.stringMatching(/^INV\/\d{4}-\d{2}\/CLINIC-1\/00001$/),
         }),
       });
+    });
+
+    // REQ018 (US-BOOK-03) / REQ030 (US-INT-02, scoped down).
+    it('confirms an awaiting_payment appointment and fires appointment.confirmed + payment.succeeded webhooks', async () => {
+      const paymentWithOrg = { ...pendingPayment, client_org_id: 'org-a' };
+      prisma.appointmentPayments.findFirst.mockResolvedValue(paymentWithOrg);
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: null, status: 'awaiting_payment', clinic: { client_org_id: 'org-a' } });
+      prisma.appointments.update.mockResolvedValue({});
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({ razorpay_order_id: 'order_1', razorpay_payment_id: 'pay_1', razorpay_signature: signature });
+
+      expect(prisma.appointments.update).toHaveBeenCalledWith({ where: { id: 'appt-1' }, data: { status: 'confirmed' } });
+      expect(prisma.appointmentStatusLogs.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ appointment_id: 'appt-1', status: 'confirmed' }) }),
+      );
+      expect(webhookDispatch.fireEvent).toHaveBeenCalledWith('org-a', 'appointment.confirmed', expect.objectContaining({ appointment_id: 'appt-1' }));
+      expect(webhookDispatch.fireEvent).toHaveBeenCalledWith('org-a', 'payment.succeeded', expect.anything());
+    });
+
+    it('is a no-op on an already-confirmed appointment — never re-confirms or re-fires', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(pendingPayment);
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: null, status: 'confirmed', clinic: { client_org_id: 'org-a' } });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({ razorpay_order_id: 'order_1', razorpay_payment_id: 'pay_1', razorpay_signature: signature });
+
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+      expect(webhookDispatch.fireEvent).not.toHaveBeenCalledWith(expect.anything(), 'appointment.confirmed', expect.anything());
     });
 
     // REQ047 (US-BIL-09) -- a confirmed-exempt product (REQ046) gets real

@@ -42,6 +42,14 @@ import { OrganizationOnboardingModule } from './organization-onboarding/organiza
 import { EncountersModule } from './encounters/encounters.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { QueueModule } from './queue/queue.module';
+import { BookingWidgetModule } from './booking-widget/booking-widget.module';
+import { PlansModule } from './plans/plans.module';
+import { ConsentModule } from './consent/consent.module';
+import { PharmacyModule } from './pharmacy/pharmacy.module';
+import { WebhooksModule } from './webhooks/webhooks.module';
+import { InsuranceModule } from './insurance/insurance.module';
+import { ApiKeysModule } from './api-keys/api-keys.module';
+import { ScheduledReportsModule } from './scheduled-reports/scheduled-reports.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
@@ -130,6 +138,14 @@ import { PubSubModule } from './common/pubsub.module';
     AnalyticsModule,
     DashboardModule,
     DrugsModule,
+    BookingWidgetModule,
+    PlansModule,
+    ConsentModule,
+    PharmacyModule,
+    WebhooksModule,
+    InsuranceModule,
+    ApiKeysModule,
+    ScheduledReportsModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

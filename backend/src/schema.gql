@@ -2,6 +2,11 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+type AcquisitionSourcePoint {
+  count: Int!
+  source: String!
+}
+
 input AddAddendumInput {
   content: String!
   encounter_id: ID!
@@ -23,6 +28,12 @@ input AddOnboardingClinicInput {
   phone: String
   pincode: String
   state: String
+}
+
+input AdjustStockInput {
+  batch_id: ID!
+  notes: String
+  quantity_delta: Int!
 }
 
 type AdminUser {
@@ -50,6 +61,20 @@ type AdminUserProfile {
 type AdminUserRole {
   code: String
   id: ID!
+  name: String!
+}
+
+type ApiKey {
+  created_at: DateTime!
+  id: ID!
+  is_active: Boolean!
+  key_prefix: String!
+  last_used_at: DateTime
+  name: String!
+  revoked_at: DateTime
+}
+
+input ApiKeyInput {
   name: String!
 }
 
@@ -368,6 +393,30 @@ type BookedAppointmentResult {
   id: ID!
 }
 
+type BookingWidgetConfig {
+  allowed_origins: [String!]!
+  clinic: Clinic
+  id: ID!
+  is_active: Boolean!
+  short_link_slug: String!
+}
+
+input BookingWidgetConfigInput {
+  allowed_origins: [String!]!
+  clinic_id: ID
+  short_link_slug: String
+}
+
+type BookingWidgetMutationResult {
+  config: BookingWidgetConfig
+  success: Boolean!
+  userErrors: [BookingWidgetUserError!]!
+}
+
+type BookingWidgetUserError {
+  message: String!
+}
+
 type CancellationRule {
   clinic: CancellationRuleClinic
   clinic_id: ID
@@ -465,7 +514,11 @@ type Clinician {
   is_active: Boolean!
   languages: [String!]!
   last_name: String!
+  medical_council: String
+  registration_number: String
   services: [ClinicianServiceItem!]!
+  verification_status: String!
+  verified_at: DateTime
 }
 
 input ClinicianAvailabilityInput {
@@ -577,6 +630,24 @@ input ConfirmTotpEnrollmentInput {
   code: String!
 }
 
+type Consent {
+  granted: Boolean!
+  granted_at: DateTime!
+  id: ID!
+  notice_version: String!
+  patient_id: ID!
+  purpose: String!
+  revoked_at: DateTime
+}
+
+type CreateApiKeyResult {
+  created_at: DateTime!
+  id: ID!
+  key_prefix: String!
+  name: String!
+  raw_key: String!
+}
+
 input CreateAttachmentInput {
   encounter_id: ID!
   file_ref: String!
@@ -642,6 +713,14 @@ input CreateLanguageInput {
   is_active: Boolean
   is_default: Boolean
   name: String!
+}
+
+input CreatePlanVersionInput {
+  billing_period: String!
+  feature_flags: [FeatureFlagInput!]!
+  plan_id: ID!
+  price: Float!
+  quotas: [PlanQuotaInput!]!
 }
 
 input CreatePrescriptionInput {
@@ -730,6 +809,15 @@ input CreateStaffInput {
 input CreateThreadInput {
   first_message: String!
   participant_ids: [ID!]!
+}
+
+type CreateWebhookEndpointResult {
+  created_at: DateTime!
+  event_types: [String!]!
+  id: ID!
+  is_active: Boolean!
+  secret: String!
+  url: String!
 }
 
 input CredentialFieldInput {
@@ -859,6 +947,12 @@ input DisableTotpInput {
   password: String!
 }
 
+input DispensePrescriptionItemInput {
+  batch_id: ID!
+  prescription_item_id: ID!
+  quantity: Int!
+}
+
 type Drug {
   composition: String
   form: String
@@ -870,6 +964,18 @@ type Drug {
   name: String!
   schedule_class: String
   strength: String
+}
+
+type DrugBatch {
+  batch_number: String!
+  clinic_id: ID!
+  created_at: DateTime!
+  drug_id: ID!
+  expiry_date: DateTime!
+  id: ID!
+  mrp: Float
+  quantity_received: Int!
+  quantity_remaining: Int!
 }
 
 input DrugInput {
@@ -949,6 +1055,16 @@ type EncounterTemplate {
   specialty: String
 }
 
+type FeatureFlag {
+  enabled: Boolean!
+  key: String!
+}
+
+input FeatureFlagInput {
+  enabled: Boolean!
+  key: String!
+}
+
 type FinanceMonthlyPoint {
   month: String!
   revenue: Float!
@@ -989,6 +1105,12 @@ type Language {
   is_active: Boolean!
   is_default: Boolean!
   name: String!
+}
+
+type LapsedPatientPoint {
+  full_name: String!
+  id: ID!
+  last_visit: DateTime
 }
 
 input LoginInput {
@@ -1045,6 +1167,7 @@ type Mutation {
   addDependant(input: AddDependantInput!): Dependant!
   addEncounterAddendum(input: AddAddendumInput!): EncounterAddendum!
   addOnboardingFirstClinic(input: AddOnboardingClinicInput!, orgId: String!): Clinic!
+  adjustStock(input: AdjustStockInput!): DrugBatch!
   applyEncounterTemplate(input: ApplyTemplateInput!): Encounter!
   assignThread(assigneeUserId: ID!, threadId: ID!): MessageThread!
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
@@ -1055,8 +1178,10 @@ type Mutation {
   completeAppointment(id: ID!): Appointment!
   completeOrganizationOnboarding(orgId: String!): OrganizationOnboarding!
   confirmTotpEnrollment(input: ConfirmTotpEnrollmentInput!): TotpConfirmResult!
+  createApiKey(input: ApiKeyInput!): CreateApiKeyResult!
   createAppointment(input: AppointmentInput!): Appointment!
   createAvailability(input: CreateAvailabilityInput!): AvailabilityMutationResult!
+  createBookingWidgetConfig(input: BookingWidgetConfigInput!): BookingWidgetMutationResult!
   createCancellationRule(input: CreateCancellationRuleInput!): CancellationRuleMutationResult!
   createClinic(input: ClinicInput!): Clinic!
   createClinician(input: ClinicianInput!): Clinician!
@@ -1069,6 +1194,11 @@ type Mutation {
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPatient(input: PatientInput!): Patient!
+  createPatientInsurancePolicy(input: PatientInsurancePolicyInput!): PatientInsurancePolicy!
+  createPayer(input: PayerInput!): Payer!
+  createPayerEmpanelment(input: PayerEmpanelmentInput!): PayerEmpanelment!
+  createPlan(input: PlanInput!): Plan!
+  createPlanVersion(input: CreatePlanVersionInput!): Plan!
   createPrescription(input: CreatePrescriptionInput!): Prescription!
   createPrescriptionSet(input: CreatePrescriptionSetInput!): PrescriptionSet!
   createProduct(input: CreateProductInput!): ProductMutationResult!
@@ -1080,13 +1210,18 @@ type Mutation {
   createRoom(input: RoomInput!): Room!
   createRoomBlock(input: CreateRoomBlockInput!): RoomBlockMutationResult!
   createRoomType(input: CreateRoomTypeInput!): LookupMutationResult!
+  createScheduledReport(input: ScheduledReportInput!): ScheduledReport!
   createService(input: ServiceInput!): Service!
   createSpacerBlock(input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
   createStaff(input: CreateStaffInput!): Staff!
   createThread(input: CreateThreadInput!): MessageThread!
   createUser(input: UserInput!): User!
+  createWebhookEndpoint(input: WebhookEndpointInput!): CreateWebhookEndpointResult!
+  deactivateBookingWidgetConfig(id: ID!): BookingWidgetMutationResult!
   deactivateMyAccount: GenericResult!
+  deactivateScheduledReport(id: ID!): ScheduledReport!
   deactivateStaff(id: ID!): Staff!
+  deactivateWebhookEndpoint(id: ID!): WebhookEndpoint!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteCancellationRule(id: ID!): CancellationRuleMutationResult!
   deleteClinicianAvailability(id: ID!): Boolean!
@@ -1108,6 +1243,7 @@ type Mutation {
   deleteRoomType(id: ID!): LookupMutationResult!
   deleteSpacerBlock(id: ID!): SpacerBlockMutationResult!
   disableTotp(input: DisableTotpInput!): GenericResult!
+  dispensePrescriptionItem(input: DispensePrescriptionItemInput!): DrugBatch!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   getOrCreateEncounter(appointment_id: ID!): Encounter!
   login(input: LoginInput!): LoginResult!
@@ -1119,13 +1255,17 @@ type Mutation {
   mergePatients(input: MergePatientsInput!): Patient!
   orderTest(input: OrderTestInput!): TestResult!
   recallQueueEntry(id: ID!): QueueEntry!
+  receiveStock(input: ReceiveStockInput!): DrugBatch!
   recordCounterPayment(input: RecordCounterPaymentInput!): RecordCounterPaymentResult!
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
+  requestDataRights(input: RequestDataRightsInput!): RightsRequest!
   requestOtp(input: RequestOtpInput!): GenericResult!
   resetAppointmentJourney(id: ID!): Appointment!
   resetPassword(input: ResetPasswordInput!): GenericResult!
+  resolveRightsRequest(id: ID!, input: ResolveRightsRequestInput!): RightsRequest!
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
+  revokeApiKey(id: ID!): ApiKey!
   revokeMySession(id: String!): GenericResult!
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveEncounterNote(input: SaveEncounterNoteInput!): EncounterNote!
@@ -1133,6 +1273,7 @@ type Mutation {
   selectOnboardingPlan(orgId: String!, planId: String!): OrganizationOnboarding!
   sendMessage(body: String!, threadId: ID!): MessageThread!
   setHeadOfficeClinic(id: ID!): Clinic!
+  setPlanActive(id: ID!, is_active: Boolean!): Plan!
   signEncounter(encounter_id: ID!): Encounter!
   skipQueueEntry(input: SkipQueueEntryInput!): QueueEntry!
   startConsultation(id: ID!): Appointment!
@@ -1142,10 +1283,13 @@ type Mutation {
   transferQueueEntry(input: TransferQueueEntryInput!): QueueEntry!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
+  updateBookingWidgetConfig(id: ID!, input: BookingWidgetConfigInput!): BookingWidgetMutationResult!
   updateCancellationRule(id: ID!, input: UpdateCancellationRuleInput!): CancellationRuleMutationResult!
   updateClinic(id: ID!, input: ClinicInput!): Clinic!
   updateClinician(id: ID!, input: ClinicianInput!): Clinician!
   updateClinicianType(id: ID!, input: UpdateClinicianTypeInput!): LookupMutationResult!
+  updateClinicianVerification(id: ID!, status: String!): Clinician!
+  updateConsent(input: UpdateConsentInput!): Consent!
   updateDepartment(id: ID!, input: DepartmentInput!): Department!
   updateDrug(id: ID!, input: DrugInput!): Drug!
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
@@ -1159,6 +1303,7 @@ type Mutation {
   updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
+  updatePayerEmpanelmentStatus(id: ID!, input: UpdatePayerEmpanelmentStatusInput!): PayerEmpanelment!
   updateProduct(id: ID!, input: UpdateProductInput!): ProductMutationResult!
   updateProductCategory(id: ID!, input: UpdateProductCategoryInput!): ProductCategoryMutationResult!
   updateProductSubcategory(id: ID!, input: UpdateProductSubcategoryInput!): ProductSubcategoryMutationResult!
@@ -1503,6 +1648,26 @@ input PatientInput {
   phone: String!
 }
 
+type PatientInsurancePolicy {
+  id: ID!
+  is_active: Boolean!
+  patient_id: ID!
+  payer: Payer!
+  policy_holder_name: String!
+  policy_number: String!
+  valid_from: DateTime!
+  valid_until: DateTime
+}
+
+input PatientInsurancePolicyInput {
+  patient_id: ID!
+  payer_id: ID!
+  policy_holder_name: String!
+  policy_number: String!
+  valid_from: String!
+  valid_until: String
+}
+
 type PatientPaginated {
   data: [Patient!]!
   paginatorInfo: PatientPaginatorInfo!
@@ -1515,6 +1680,43 @@ type PatientPaginatorInfo {
   lastPage: Int!
   perPage: Int!
   total: Int!
+}
+
+type PatientReportGroup {
+  acquisitionSourceBreakdown: [AcquisitionSourcePoint!]!
+  lapsedPatients: [LapsedPatientPoint!]!
+  newPatients: Int!
+  repeatPatients: Int!
+}
+
+type Payer {
+  id: ID!
+  is_active: Boolean!
+  name: String!
+  payer_type: String!
+}
+
+type PayerEmpanelment {
+  clinic: Clinic!
+  end_date: DateTime
+  id: ID!
+  payer: Payer!
+  renewal_reminder_date: DateTime
+  start_date: DateTime!
+  status: String!
+}
+
+input PayerEmpanelmentInput {
+  clinic_id: ID!
+  end_date: String
+  payer_id: ID!
+  renewal_reminder_date: String
+  start_date: String!
+}
+
+input PayerInput {
+  name: String!
+  payer_type: String!
 }
 
 input PaymentTenderInput {
@@ -1533,6 +1735,45 @@ type Permission {
   description: String
   id: ID!
   resource: String!
+}
+
+type Plan {
+  current_version: PlanVersion
+  id: ID!
+  is_active: Boolean!
+  name: String!
+  tier: String!
+  versions: [PlanVersion!]!
+}
+
+input PlanInput {
+  billing_period: String!
+  feature_flags: [FeatureFlagInput!]!
+  name: String!
+  price: Float!
+  quotas: [PlanQuotaInput!]!
+  tier: String!
+}
+
+type PlanQuota {
+  key: String!
+  value: Int!
+}
+
+input PlanQuotaInput {
+  key: String!
+  value: Int!
+}
+
+type PlanVersion {
+  billing_period: String!
+  effective_from: DateTime!
+  effective_until: DateTime
+  feature_flags: [FeatureFlag!]!
+  id: ID!
+  price: Float!
+  quotas: [PlanQuota!]!
+  version: Int!
 }
 
 type PotentialDuplicatePatient {
@@ -1786,11 +2027,14 @@ type PublicProductVariation {
 }
 
 type Query {
+  apiKeys: [ApiKey!]!
   applyPrescriptionSet(set_id: ID!): [PrescriptionItem!]!
   appointment(id: ID!): Appointment
   appointments(filters: AppointmentFilters, first: Int! = 20, page: Int! = 1): AppointmentPaginated!
   availabilities(search: SearchInput): [Availability!]!
   availableSlots(clinician_id: ID!, date: Date!, service_id: ID): [AvailableSlot!]!
+  bookingWidgetConfig(id: ID!): BookingWidgetConfig
+  bookingWidgetConfigs: [BookingWidgetConfig!]!
   cancellationRules: [CancellationRule!]!
   clinic(id: ID!): Clinic
   clinicQueue(clinic_id: ID!): [QueueEntry!]!
@@ -1802,6 +2046,7 @@ type Query {
   department(id: ID!): Department
   departments(clinic_id: ID): [Department!]!
   drug(id: ID!): Drug
+  drugBatches(clinic_id: ID, drug_id: ID): [DrugBatch!]!
   drugs(search: String): [Drug!]!
   emailTemplates: [EmailTemplate!]!
   encounter(id: ID!): Encounter
@@ -1816,6 +2061,7 @@ type Query {
   getClinicians(search: PublicClinicianSearchInput): [PublicClinicianSummary!]!
   getClinics: [Clinic!]!
   getLunchBreaks(clinicianId: ID!): [LunchBreakSlot!]!
+  getPatientReportGroup(clinicId: ID, endDate: String!, lapsedLookbackDays: Int! = 90, startDate: String!): PatientReportGroup!
   getPermissions: [Permission!]!
   getProducts(clinicianId: ID!): [PublicProduct!]!
   getRolePermissions(roleId: ID!): [RolePermission!]!
@@ -1845,9 +2091,15 @@ type Query {
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
   patient(id: ID!): Patient
   patientAllergyBanner(patient_id: ID!): [Diagnosis!]!
+  patientConsents(patient_id: ID!): [Consent!]!
+  patientInsurancePolicies(patient_id: ID!): [PatientInsurancePolicy!]!
   patientPrescriptions(patient_id: ID!): [Prescription!]!
   patientTimeline(patient_id: ID!): [TimelineEvent!]!
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
+  payerEmpanelments(clinic_id: ID): [PayerEmpanelment!]!
+  payers(is_active: Boolean): [Payer!]!
+  plan(id: ID!): Plan
+  plans: [Plan!]!
   potentialDuplicatePatients(date_of_birth: String, first_name: String, last_name: String, phone: String!): [PotentialDuplicatePatient!]!
   prescription(id: ID!): Prescription
   prescriptionSets(specialty: String): [PrescriptionSet!]!
@@ -1863,24 +2115,29 @@ type Query {
   resource(id: ID!): Resource
   resources(clinic_id: ID): [Resource!]!
   reviews(filter: ReviewFilterInput): [Review!]!
+  rightsRequests(status: String): [RightsRequest!]!
   roles: [AppRole!]!
   room(id: ID!): Room
   roomBlocks(search: SearchInput): [RoomBlock!]!
   roomTypes: [RoomType!]!
   rooms(clinic_id: ID): [Room!]!
   roomsPaginated(search: SearchInput): RoomPaginated!
+  scheduledReports: [ScheduledReport!]!
   service(id: ID!): Service
   services(clinic_id: ID, is_active: Boolean): [Service!]!
   sessionAvailability(clinician_id: ID!, date: Date!, service_id: ID): SessionAvailability
   spacerBlocks(search: SearchInput): [SpacerBlock!]!
   staff(department: String, search: String, status: String): [Staff!]!
   staffMember(id: ID!): Staff!
+  stockMovements(batch_id: ID!): [StockMovement!]!
   subscriptionPlans: [SubscriptionPlan!]!
   testResult(id: ID!): TestResult
   testResults(search: String, status: String, type: String): [TestResult!]!
   thread(id: ID!): MessageThread!
   threads: [MessageThread!]!
   unbilledVisits(clinic_id: ID!): [UnbilledVisit!]!
+  webhookDeliveryLog(endpoint_id: ID!): [WebhookDeliveryLogEntry!]!
+  webhookEndpoints: [WebhookEndpoint!]!
 }
 
 type QueueBoard {
@@ -1918,6 +2175,15 @@ type RazorpayOrderResult {
   razorpay_order_id: String!
 }
 
+input ReceiveStockInput {
+  batch_number: String!
+  clinic_id: ID!
+  drug_id: ID!
+  expiry_date: String!
+  mrp: Float
+  quantity: Int!
+}
+
 input RecordCounterPaymentInput {
   appointment_id: ID!
   tenders: [PaymentTenderInput!]!
@@ -1942,6 +2208,12 @@ input RegisterInput {
   phone: String
 }
 
+input RequestDataRightsInput {
+  notes: String
+  patient_id: ID!
+  type: String!
+}
+
 input RequestOtpInput {
   phone: String!
 }
@@ -1949,6 +2221,11 @@ input RequestOtpInput {
 input ResetPasswordInput {
   new_password: String!
   token: String!
+}
+
+input ResolveRightsRequestInput {
+  notes: String
+  status: String!
 }
 
 type Resource {
@@ -1998,6 +2275,17 @@ input ReviewFilterInput {
 type ReviewMutationResult {
   review: Review
   success: Boolean!
+}
+
+type RightsRequest {
+  created_at: DateTime!
+  id: ID!
+  notes: String
+  patient_id: ID!
+  resolved_at: DateTime
+  sla_due_at: DateTime!
+  status: String!
+  type: String!
 }
 
 type Role {
@@ -2094,6 +2382,26 @@ type SavedIdResult {
   id: ID!
 }
 
+type ScheduledReport {
+  cadence: String!
+  channel: String!
+  clinic_id: ID
+  created_at: DateTime!
+  id: ID!
+  is_active: Boolean!
+  last_sent_at: DateTime
+  recipients: [String!]!
+  report_type: String!
+}
+
+input ScheduledReportInput {
+  cadence: String!
+  channel: String!
+  clinic_id: ID
+  recipients: [String!]!
+  report_type: String!
+}
+
 input SearchInput {
   limit: Int
   offset: Int
@@ -2114,6 +2422,7 @@ type Service {
   is_active: Boolean!
   is_tax_exempt: Boolean!
   name: String!
+  prepayment_policy: String!
   price: Float
 }
 
@@ -2137,6 +2446,7 @@ input ServiceInput {
   is_active: Boolean
   is_tax_exempt: Boolean
   name: String!
+  prepayment_policy: String
   price: Float
 }
 
@@ -2206,6 +2516,17 @@ input StartOnboardingInput {
   ownerName: String!
   ownerPassword: String!
   slug: String
+}
+
+type StockMovement {
+  batch_id: ID!
+  created_at: DateTime!
+  id: ID!
+  movement_type: String!
+  notes: String
+  quantity_delta: Int!
+  reference_id: String
+  reference_type: String
 }
 
 type Subscription {
@@ -2370,6 +2691,12 @@ input UpdateClinicianTypeInput {
   name: String
 }
 
+input UpdateConsentInput {
+  granted: Boolean!
+  patient_id: ID!
+  purpose: String!
+}
+
 input UpdateEmailTemplateInput {
   body: String!
   is_active: Boolean
@@ -2427,6 +2754,10 @@ input UpdateOrgSecuritySettingsInput {
   mfa_required: Boolean
   patient_data_export_enabled: Boolean
   session_timeout_minutes: Int
+}
+
+input UpdatePayerEmpanelmentStatusInput {
+  status: String!
 }
 
 input UpdateProductCategoryInput {
@@ -2518,4 +2849,26 @@ input VerifyRazorpayPaymentInput {
 input VerifyTotpLoginInput {
   challenge_token: String!
   code: String!
+}
+
+type WebhookDeliveryLogEntry {
+  attempted_at: DateTime!
+  event_type: String!
+  http_status: Int
+  id: ID!
+  response_snippet: String
+  status: String!
+}
+
+type WebhookEndpoint {
+  created_at: DateTime!
+  event_types: [String!]!
+  id: ID!
+  is_active: Boolean!
+  url: String!
+}
+
+input WebhookEndpointInput {
+  event_types: [String!]!
+  url: String!
 }

@@ -677,6 +677,15 @@ model ClientOrganizations {
   encounters             Encounters[]
   encounterTemplates     EncounterTemplates[]
   prescriptionSets       PrescriptionSets[]
+  bookingWidgetConfigs   BookingWidgetConfig[]
+  consents               Consents[]
+  rightsRequests         RightsRequests[]
+  webhookEndpoints       WebhookEndpoints[]
+  payerEmpanelments      PayerEmpanelments[]
+  patientInsurancePolicies PatientInsurancePolicies[]
+  apiKeys                ApiKeys[]
+  scheduledReports       ScheduledReports[]
+  drugBatches            DrugBatches[]
 }
 
 model ClinicianAvailability {
@@ -738,6 +747,19 @@ model Clinicians {
   // one set yet, matching bio/avatar_url's own nullability.
   registration_number String?
   qualifications       String?
+  // REQ015 (US-SEC-07) — the council registration_number was captured for
+  // (e.g. "Delhi Medical Council"); free text, no council master table yet.
+  medical_council      String?
+  // unverified (default) | pending | verified | rejected. Only 'verified'
+  // renders the public-profile badge — this is an admin-attested interim
+  // path (REQ015's own acceptance criteria), not real HPR/NMC API
+  // verification, which the requirement doc explicitly defers.
+  verification_status  String    @default("unverified")
+  verified_at          DateTime?
+  // Plain UUID, no Prisma relation — see PLAN065's "actor-reference fields"
+  // note: this batch of 8 slices deliberately skips formal Users relations
+  // for audit-actor columns to keep the schema change tractable.
+  verified_by_user_id  String?
   is_active      Boolean  @default(true)
   is_deleted     Boolean  @default(false)
   created_at     DateTime @default(now())
@@ -828,6 +850,10 @@ model Clinics {
   payments           AppointmentPayments[]
   invoiceSequences   InvoiceSequences[]
   queueEntries       QueueEntries[]
+  drugBatches        DrugBatches[]
+  payerEmpanelments  PayerEmpanelments[]
+  bookingWidgetConfigs BookingWidgetConfig[]
+  scheduledReports   ScheduledReports[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -962,6 +988,11 @@ model Patients {
   // DTO layer, matching this model's existing loose-string convention
   // (status/gender) rather than a hard Prisma enum.
   patient_category      String?
+  // REQ029 (US-RPT-02) — how this patient was acquired (referral | online_search
+  // | walk_in | other), free text validated at the DTO layer per this model's
+  // existing loose-string convention. Nullable: most existing patients predate
+  // this field.
+  acquisition_source    String?
   is_deleted            Boolean  @default(false)
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt
@@ -977,6 +1008,9 @@ model Patients {
   dependantOf        PatientRelations[] @relation("PatientRelationDependant")
   mergesSurvived     PatientMerges[]    @relation("PatientMergeSurvivor")
   mergesAbsorbed     PatientMerges[]    @relation("PatientMergeMerged")
+  consents                 Consents[]
+  rightsRequests           RightsRequests[]
+  insurancePolicies        PatientInsurancePolicies[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1382,6 +1416,7 @@ model Drugs {
   client_organization ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   prescriptionItems    PrescriptionItems[]
   prescriptionSetItems PrescriptionSetItems[]
+  batches              DrugBatches[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -1422,6 +1457,13 @@ model Products {
   // never read directly at a call site.
   category_pricing_json Json?
   channel_pricing_json  Json?
+  // REQ018 (US-BOOK-03) — required | optional | none. "required": a booking
+  // for this service does not confirm until AppointmentPayments succeeds
+  // (createAppointment leaves status: 'requested', not 'confirmed'); "none"
+  // (the default) preserves today's behaviour — a booking confirms
+  // immediately regardless of payment. Free text, not a Prisma enum, matching
+  // this model's own patient_category/product_type convention.
+  prepayment_policy String @default("none")
 
   clinic            Clinics? @relation(fields: [clinic_id], references: [id])
   client_org        ClientOrganizations? @relation(fields: [client_org_id], references: [id])
@@ -1837,4 +1879,317 @@ model ClinicianLanguages {
   @@unique([clinician_id, language_id])
 
   @@index([language_id])
+}
+
+// ============================================================
+// REQ018 (US-BOOK-05) — embeddable booking widget per org/branch.
+// booking/index.jsx already renders chrome-free for an anonymous caller
+// (OptionalAuthShell, BUG011) — this table is just the allowlist/slug an
+// org admin manages, not a new page.
+// ============================================================
+model BookingWidgetConfig {
+  id              String   @id @default(uuid())
+  client_org_id   String
+  clinic_id       String?
+  // JSON array of origin strings (e.g. ["https://acmeclinic.com"]) — the
+  // widget iframe's parent origin must match one of these, checked at
+  // request time by the resolver, not enforced at the DB layer.
+  allowed_origins Json
+  short_link_slug String   @unique
+  is_active       Boolean  @default(true)
+  created_at      DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics?            @relation(fields: [clinic_id], references: [id])
+
+  @@index([client_org_id])
+  @@index([clinic_id])
+}
+
+// ============================================================
+// REQ032 (US-PLAN-01/02) — plan-builder data model and versioning only.
+// Deliberately NOT wired to any entitlement guard yet (CLAUDE.md's own
+// explicit caution: that integration is a separate, higher-risk future
+// step). Platform-level, not tenant-scoped — a Plan is a shared catalog
+// entry a super_admin manages, not a per-org record.
+// ============================================================
+model Plans {
+  id         String   @id @default(uuid())
+  name       String
+  tier       String // starter | pro | enterprise, free text per this schema's own convention
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  versions PlanVersions[]
+}
+
+model PlanVersions {
+  id                String    @id @default(uuid())
+  plan_id           String
+  // Starts at 1, incremented per edit — US-PLAN-02's own acceptance
+  // criterion: editing a live plan creates a NEW version row, never mutates
+  // an existing one a subscriber may already be pinned to.
+  version           Int
+  effective_from    DateTime  @default(now())
+  effective_until   DateTime?
+  billing_period    String // monthly | annual
+  price_paise       Int
+  // { [featureFlag: string]: boolean } — e.g. { "pharmacy": true, "telemedicine": false }
+  feature_flags_json Json
+  // { [quotaName: string]: number } — e.g. { "max_clinician_seats": 10 }
+  quotas_json        Json
+  created_at        DateTime  @default(now())
+
+  plan Plans @relation(fields: [plan_id], references: [id])
+
+  @@unique([plan_id, version])
+  @@index([plan_id])
+}
+
+// ============================================================
+// REQ034 — DPDP consent capture and data-subject rights requests.
+// RightsRequests is a request-queued-for-review row, never an instant
+// self-service hard-delete — see PLAN068's own note on why (clinical
+// records commonly have a statutory retention floor that overrides an
+// erasure request; the code's job here is capturing and SLA-tracking the
+// request, not performing an automated purge).
+// ============================================================
+model Consents {
+  id            String    @id @default(uuid())
+  patient_id    String
+  client_org_id String
+  // treatment | communications | marketing | record_sharing
+  purpose       String
+  granted       Boolean
+  granted_at    DateTime  @default(now())
+  revoked_at    DateTime?
+  notice_version String
+
+  patient             Patients             @relation(fields: [patient_id], references: [id])
+  client_organization ClientOrganizations  @relation(fields: [client_org_id], references: [id])
+
+  @@index([patient_id])
+  @@index([client_org_id])
+}
+
+model RightsRequests {
+  id            String    @id @default(uuid())
+  patient_id    String
+  client_org_id String
+  // access | correction | erasure
+  type          String
+  // pending (default) | approved | rejected | completed
+  status        String    @default("pending")
+  sla_due_at    DateTime
+  resolved_at   DateTime?
+  resolved_by_user_id String?
+  notes         String?
+  created_at    DateTime  @default(now())
+
+  patient             Patients             @relation(fields: [patient_id], references: [id])
+  client_organization ClientOrganizations  @relation(fields: [client_org_id], references: [id])
+
+  @@index([patient_id])
+  @@index([client_org_id, status])
+}
+
+// ============================================================
+// REQ022 — pharmacy P0: per-clinic batch/stock ledger. StockMovements is
+// append-only (the requirement doc's own explicit non-functional note) —
+// DrugBatches.quantity_remaining is a maintained running total, never the
+// only record of what happened.
+// ============================================================
+model DrugBatches {
+  id                 String   @id @default(uuid())
+  drug_id            String
+  clinic_id          String
+  client_org_id      String
+  batch_number       String
+  expiry_date        DateTime
+  quantity_received  Int
+  quantity_remaining Int
+  mrp_paise          Int?
+  created_at         DateTime @default(now())
+
+  drug                Drugs               @relation(fields: [drug_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  movements           StockMovements[]
+
+  @@index([drug_id])
+  @@index([clinic_id, client_org_id])
+  @@index([expiry_date])
+}
+
+model StockMovements {
+  id               String   @id @default(uuid())
+  batch_id         String
+  // receipt | dispense | adjustment | expiry_writeoff
+  movement_type    String
+  // signed: positive for receipt, negative for dispense/writeoff
+  quantity_delta   Int
+  reference_type   String? // e.g. "prescription_item"
+  reference_id     String?
+  created_by_user_id String
+  created_at       DateTime @default(now())
+  notes            String?
+
+  batch DrugBatches @relation(fields: [batch_id], references: [id])
+
+  @@index([batch_id])
+}
+
+// ============================================================
+// REQ030 (US-INT-02, scoped down) — signed outbound webhook delivery,
+// best-effort/synchronous. Retry with exponential backoff is the
+// requirement doc's own P1 acceptance criterion — deliberately deferred
+// past this slice (no new queue/worker infra), logged not silently
+// dropped: WebhookDeliveryLog records every attempt's outcome so a failed
+// delivery is visible and re-triggerable by hand, just not auto-retried.
+// ============================================================
+model WebhookEndpoints {
+  id             String   @id @default(uuid())
+  client_org_id  String
+  url            String
+  // AES-256-GCM encrypted via common/crypto/secrets.ts, matching the OTP
+  // provider credential convention — never stored plaintext.
+  secret         String
+  // JSON array of event-type strings this endpoint subscribes to, e.g.
+  // ["appointment.created", "appointment.confirmed", "payment.succeeded"]
+  event_types_json Json
+  is_active      Boolean  @default(true)
+  created_by_user_id String
+  created_at     DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  deliveries          WebhookDeliveryLog[]
+
+  @@index([client_org_id])
+}
+
+model WebhookDeliveryLog {
+  id            String   @id @default(uuid())
+  endpoint_id   String
+  event_type    String
+  payload_json  Json
+  // succeeded | failed
+  status        String
+  http_status   Int?
+  attempted_at  DateTime @default(now())
+  response_snippet String?
+
+  endpoint WebhookEndpoints @relation(fields: [endpoint_id], references: [id])
+
+  @@index([endpoint_id, attempted_at])
+}
+
+// ============================================================
+// REQ031 — insurance P1 scope, payer/tariff master + patient policy
+// capture only (no claim/pre-auth state machine — that's the requirement
+// doc's own explicit P2 follow-on). Payers is global reference data (like
+// Languages, no client_org_id) since insurers/TPAs are shared across every
+// tenant, not owned by one.
+// ============================================================
+model Payers {
+  id         String   @id @default(uuid())
+  name       String
+  // insurer | tpa | corporate | government_scheme
+  payer_type String
+  is_active  Boolean  @default(true)
+  created_at DateTime @default(now())
+
+  empanelments PayerEmpanelments[]
+  policies     PatientInsurancePolicies[]
+}
+
+model PayerEmpanelments {
+  id             String    @id @default(uuid())
+  payer_id       String
+  clinic_id      String
+  client_org_id  String
+  // active | de_empanelled | blacklisted
+  status         String    @default("active")
+  start_date     DateTime
+  end_date       DateTime?
+  renewal_reminder_date DateTime?
+
+  payer               Payers              @relation(fields: [payer_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+
+  @@unique([payer_id, clinic_id])
+  @@index([client_org_id])
+}
+
+model PatientInsurancePolicies {
+  id                 String    @id @default(uuid())
+  patient_id         String
+  client_org_id      String
+  payer_id           String
+  policy_number      String
+  policy_holder_name String
+  valid_from         DateTime
+  valid_until        DateTime?
+  is_active          Boolean   @default(true)
+  created_at         DateTime  @default(now())
+
+  patient             Patients             @relation(fields: [patient_id], references: [id])
+  payer               Payers               @relation(fields: [payer_id], references: [id])
+  client_organization ClientOrganizations  @relation(fields: [client_org_id], references: [id])
+
+  @@index([patient_id])
+  @@index([client_org_id])
+}
+
+// ============================================================
+// REQ015 (US-SEC-08, scoped down) — org-scoped API keys. Key hashing
+// mirrors the password convention (bcrypt via common/crypto/bcrypt-cost.ts),
+// never storing the raw key — only key_prefix (shown once at issuance for
+// the admin to identify it) plus the hash.
+// ============================================================
+model ApiKeys {
+  id             String    @id @default(uuid())
+  client_org_id  String
+  key_prefix     String
+  key_hash       String
+  name           String
+  is_active      Boolean   @default(true)
+  last_used_at   DateTime?
+  created_by_user_id String
+  revoked_at     DateTime?
+  created_at     DateTime  @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+
+  @@index([client_org_id])
+  @@index([key_prefix])
+}
+
+// ============================================================
+// REQ029 (US-RPT-03) — scheduled report delivery, reusing REQ025's
+// dispatch infrastructure (NotificationTriggerService) for the actual
+// send, and the existing @nestjs/schedule ScheduleModule (already used by
+// AppointmentPaymentsReconciliationService) for the cron trigger.
+// ============================================================
+model ScheduledReports {
+  id             String    @id @default(uuid())
+  client_org_id  String
+  clinic_id      String?
+  // e.g. "daily_collections" | "patient_report_group" | "utilisation"
+  report_type    String
+  // JSON array of {type: 'email'|'whatsapp', value: string}
+  recipients_json Json
+  // daily | weekly | monthly
+  cadence        String
+  // email | whatsapp | app — matches NotificationTriggerService's own channel vocabulary
+  channel        String
+  last_sent_at   DateTime?
+  is_active      Boolean   @default(true)
+  created_by_user_id String
+  created_at     DateTime  @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics?             @relation(fields: [clinic_id], references: [id])
+
+  @@index([client_org_id, is_active])
 }

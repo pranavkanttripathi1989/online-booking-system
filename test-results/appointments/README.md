@@ -6,6 +6,7 @@
 |---|---|---|---|---|---|---|---|
 | TR003 | test-result | Appointments — Test Result (re-executed against the real backend, `REQ013`/`PLAN023` Phase A) | passed | 2026-03-19 | 2026-08-22 | REQ013 | [appointments-test-results.md](./requirement/appointments-test-results.md) |
 | TR085 | test-result | Results for patient dedup + merge, and family/dependant profiles | pass | 2026-08-24 | 2026-08-24 | TP086 | [TR085-appointments-2026-08-24-patient-dedup-and-family-verification.md](./requirement/TR085-appointments-2026-08-24-patient-dedup-and-family-verification.md) |
+| TR091 | test-result | Results for prepayment policy + booking widget config | pass | 2026-08-24 | 2026-08-24 | TP092 | [TR091-appointments-2026-08-24-prepayment-policy-and-booking-widget.md](./requirement/TR091-appointments-2026-08-24-prepayment-policy-and-booking-widget.md) |
 
 ## improvement
 

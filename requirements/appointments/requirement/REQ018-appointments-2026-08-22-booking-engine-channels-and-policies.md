@@ -6,7 +6,7 @@ created: 2026-08-22
 updated: 2026-08-24
 status: in-progress
 parent: REQ017
-related: [REQ017, REQ016, PLAN059, TP086, TR085]
+related: [REQ017, REQ016, PLAN059, TP086, TR085, PLAN065, TP092, TR091]
 ---
 
 ## Status (2026-08-24)
@@ -21,10 +21,11 @@ and — found and closed in the process — a pre-existing security gap where
 previously fully-built, entirely mock-gated patient-merge UI
 (`patients/index.jsx`) reachable against real data for the first time.
 
-**Deliberately deferred from this slice's own P0 scope** (a scoping
-decision, not a dropped requirement): per-service prepayment policy
-(`US-BOOK-03`), the embeddable booking widget + short-link/QR
-(`US-BOOK-05`). Both still need their own future `PLAN###`.
+**The two remaining P0 stories shipped in a follow-on pass the same day**
+(`PLAN065`/`TP092`/`TR091`): per-service prepayment policy (`US-BOOK-03`)
+and the embeddable booking widget's config/allowlist half of `US-BOOK-05`
+(`BookingWidgetConfig`) — see `context/appointments-2026-08-24-req018-part2/manifest.md`.
+All four of this requirement's own P0 stories are now shipped.
 
 **P1 still open**, per this requirement's own phase assignment below:
 auto-mark-no-show after a grace period (`US-BOOK-04`), configurable intake

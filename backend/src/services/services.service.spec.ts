@@ -173,6 +173,20 @@ describe('ServicesService', () => {
       );
     });
 
+    // REQ018 (US-BOOK-03).
+    it('passes prepayment_policy through untouched — omitted leaves the schema default', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
+      await service.create({ name: 'X', prepayment_policy: 'required' } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ prepayment_policy: 'required' }) }),
+      );
+      prisma.products.create.mockClear();
+      await service.create({ name: 'Y' } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ prepayment_policy: undefined }) }),
+      );
+    });
+
     // BUG001 — the actual fix: create() never stamped any org scope before.
     it('stamps client_org_id from the caller JWT', async () => {
       prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });

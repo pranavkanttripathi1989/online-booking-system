@@ -1,6 +1,9 @@
 import { InputType, Field, ID, Int, Float } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsBoolean, IsInt, Min, IsNumber, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsBoolean, IsInt, Min, IsNumber, ValidateNested, IsIn } from 'class-validator';
 import { Type } from 'class-transformer';
+
+// REQ018 (US-BOOK-03).
+export const PREPAYMENT_POLICIES = ['required', 'optional', 'none'] as const;
 
 // REQ016 (US-CAT-04) — modeled as structured types with one field per
 // known category/channel (matching PATIENT_CATEGORIES and
@@ -48,4 +51,7 @@ export class ServiceInput {
   // a "pricing overrides" form section submitting its current complete state.
   @Field(() => CategoryPricingInput, { nullable: true }) @IsOptional() @ValidateNested() @Type(() => CategoryPricingInput) category_pricing?: CategoryPricingInput;
   @Field(() => ChannelPricingInput, { nullable: true }) @IsOptional() @ValidateNested() @Type(() => ChannelPricingInput) channel_pricing?: ChannelPricingInput;
+  // REQ018 (US-BOOK-03) — required | optional | none (default). Omitted on
+  // create leaves the schema default ("none", today's existing behaviour).
+  @Field({ nullable: true }) @IsOptional() @IsIn(PREPAYMENT_POLICIES) prepayment_policy?: string;
 }
