@@ -732,6 +732,64 @@ export class AppointmentPaymentsService {
     };
   }
 
+  // REQ057 (US-PAT-02) — the read-side assembler documents.service.ts's
+  // invoice PDF renders. No prior method assembled a full GST invoice
+  // shape (invoiceDetailsForSuccess() only computes GST fields at the
+  // moment a payment succeeds, a write-time concern) — built fresh here,
+  // reading directly off the already-stored GST columns rather than
+  // re-deriving them. Only a succeeded payment has a real invoice; a
+  // pending/failed row never gets an invoice_number at all (this table's
+  // own established convention, see the schema comment on
+  // AppointmentPayments.invoice_number).
+  async invoiceForDownload(paymentId: string, user: JwtPayload) {
+    const payment = await this.prisma.appointmentPayments.findUnique({
+      where: { id: paymentId },
+      include: {
+        appointment: { include: { product: true } },
+        patient: true,
+        clinic: { include: { client_organization: true } },
+        tenders: true,
+      },
+    });
+    if (!payment || !isSameOrg(user, payment.client_org_id)) {
+      return null;
+    }
+    if (user.roles.includes('patient') && payment.patient_id !== (user.patient_id ?? '__no_patient_link__')) {
+      return null;
+    }
+    if (payment.status !== 'succeeded') {
+      return null;
+    }
+    return {
+      invoice_number: payment.invoice_number,
+      created_at: payment.created_at,
+      amount: PAISE_TO_RUPEES(payment.amount),
+      currency: payment.currency,
+      gst: {
+        gstin: payment.gstin ?? undefined,
+        hsn_sac_code: payment.hsn_sac_code ?? undefined,
+        gst_rate: payment.gst_rate ?? undefined,
+        cgst_amount: payment.cgst_amount != null ? PAISE_TO_RUPEES(payment.cgst_amount) : undefined,
+        sgst_amount: payment.sgst_amount != null ? PAISE_TO_RUPEES(payment.sgst_amount) : undefined,
+        igst_amount: payment.igst_amount != null ? PAISE_TO_RUPEES(payment.igst_amount) : undefined,
+        place_of_supply: payment.place_of_supply ?? undefined,
+      },
+      clinic: {
+        name: payment.clinic.client_organization?.name ?? payment.clinic.name,
+        contact_phone: payment.clinic.client_organization?.contact_phone ?? undefined,
+      },
+      patient: {
+        full_name: `${payment.patient.first_name} ${payment.patient.last_name}`,
+      },
+      product_name: payment.appointment.product?.name,
+      tenders: payment.tenders.map((t) => ({
+        tender_type: t.tender_type,
+        amount: PAISE_TO_RUPEES(t.amount),
+        reference: t.reference ?? undefined,
+      })),
+    };
+  }
+
   async getTransactionsByDate(startDate: string, endDate: string, limit: number, offset: number, user: JwtPayload) {
     const rows = await this.prisma.appointmentPayments.findMany({
       where: {

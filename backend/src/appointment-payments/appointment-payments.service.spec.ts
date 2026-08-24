@@ -17,6 +17,7 @@ describe('AppointmentPaymentsService', () => {
     appointmentPayments: {
       create: jest.Mock;
       findFirst: jest.Mock;
+      findUnique: jest.Mock;
       update: jest.Mock;
       findMany: jest.Mock;
       count: jest.Mock;
@@ -48,6 +49,7 @@ describe('AppointmentPaymentsService', () => {
       appointmentPayments: {
         create: jest.fn(),
         findFirst: jest.fn(),
+        findUnique: jest.fn(),
         update: jest.fn(),
         findMany: jest.fn(),
         count: jest.fn(),
@@ -578,6 +580,76 @@ describe('AppointmentPaymentsService', () => {
         { month: 'Jul 2026', revenue: 100 },
         { month: 'Aug 2026', revenue: 100 },
       ]);
+    });
+  });
+
+  // REQ057 (US-PAT-02) — the read-side assembler documents.service.ts's
+  // invoice PDF renders.
+  describe('invoiceForDownload', () => {
+    const managerUser: JwtPayload = { sub: 'mgr-1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+    const patientUser: JwtPayload = { sub: 'pat-1', roles: ['patient'], client_org_id: 'org-a', patient_id: 'patient-1', clinician_id: null } as JwtPayload;
+    const succeededPayment = {
+      id: 'pay-1',
+      status: 'succeeded',
+      client_org_id: 'org-a',
+      patient_id: 'patient-1',
+      invoice_number: 'INV/1',
+      created_at: new Date('2026-08-25T00:00:00.000Z'),
+      amount: 50000,
+      currency: 'INR',
+      gstin: null,
+      hsn_sac_code: null,
+      gst_rate: null,
+      cgst_amount: null,
+      sgst_amount: null,
+      igst_amount: null,
+      place_of_supply: null,
+      appointment: { product: { name: 'GP Consultation' } },
+      patient: { first_name: 'Sarah', last_name: 'Mitchell' },
+      clinic: { name: 'MG Road Clinic', client_organization: { name: 'MG Road Clinic', contact_phone: '+911234' } },
+      tenders: [{ tender_type: 'cash', amount: 50000, reference: null }],
+    };
+
+    it('returns null for a nonexistent payment', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue(null);
+      expect(await service.invoiceForDownload('nope', managerUser)).toBeNull();
+    });
+
+    it('returns null for a cross-org payment (never confirms cross-tenant existence)', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue({ ...succeededPayment, client_org_id: 'org-b' });
+      expect(await service.invoiceForDownload('pay-1', managerUser)).toBeNull();
+    });
+
+    it('returns null for a patient caller requesting a different patient\'s invoice', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue({ ...succeededPayment, patient_id: 'someone-else' });
+      expect(await service.invoiceForDownload('pay-1', patientUser)).toBeNull();
+    });
+
+    it('returns null for a payment that never succeeded (no real invoice exists)', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue({ ...succeededPayment, status: 'pending' });
+      expect(await service.invoiceForDownload('pay-1', managerUser)).toBeNull();
+    });
+
+    it('assembles the invoice, converting paise to rupees', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue(succeededPayment);
+      const result = await service.invoiceForDownload('pay-1', managerUser);
+      expect(result).toEqual({
+        invoice_number: 'INV/1',
+        created_at: succeededPayment.created_at,
+        amount: 500,
+        currency: 'INR',
+        gst: { gstin: undefined, hsn_sac_code: undefined, gst_rate: undefined, cgst_amount: undefined, sgst_amount: undefined, igst_amount: undefined, place_of_supply: undefined },
+        clinic: { name: 'MG Road Clinic', contact_phone: '+911234' },
+        patient: { full_name: 'Sarah Mitchell' },
+        product_name: 'GP Consultation',
+        tenders: [{ tender_type: 'cash', amount: 500, reference: undefined }],
+      });
+    });
+
+    it('the patient owning the payment can download their own invoice', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue(succeededPayment);
+      const result = await service.invoiceForDownload('pay-1', patientUser);
+      expect(result).not.toBeNull();
     });
   });
 

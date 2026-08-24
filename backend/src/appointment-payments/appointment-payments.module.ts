@@ -15,5 +15,8 @@ import { BranchOverridesModule } from '../branch-overrides/branch-overrides.modu
   imports: [ScheduleModule.forRoot(), WebhooksModule, BranchOverridesModule],
   controllers: [AppointmentPaymentsWebhookController],
   providers: [AppointmentPaymentsService, AppointmentPaymentsResolver, AppointmentPaymentsReconciliationService],
+  // REQ057 — documents.module.ts reuses invoiceForDownload() rather than
+  // re-deriving the same org/self-scoping.
+  exports: [AppointmentPaymentsService],
 })
 export class AppointmentPaymentsModule {}

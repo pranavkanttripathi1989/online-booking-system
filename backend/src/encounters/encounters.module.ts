@@ -8,5 +8,8 @@ import { AuthModule } from '../auth/auth.module';
   imports: [AuthModule],
   controllers: [AttachmentsController],
   providers: [EncountersService, EncountersResolver],
+  // REQ057 — documents.module.ts reuses encounter() rather than
+  // re-deriving the same org/self-scoping.
+  exports: [EncountersService],
 })
 export class EncountersModule {}
