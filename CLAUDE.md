@@ -267,13 +267,103 @@ Razorpay checkout, not exercised this session) that the shared
 `resolveServicePrice()` helper actually closes the display-vs-charge risk
 it was built for.
 
+**Phase G+2 — eight more PRD-derived slices shipped 2026-08-24, spanning
+eight different feature areas in one continuous pass.** Sequence:
+`REQ018 → REQ032 → REQ034 → REQ022 → REQ030 → REQ031 → REQ015 → REQ029`.
+Selection criterion, same as Phase G+1: additive, isolated, no new
+external vendor integration. Unlike the prior two passes, this one was
+executed with all 8 slices' *code* written first and the full
+verification suite run *once* at the end, per an explicit instruction —
+proven not to sacrifice rigor: the consolidated run still caught 8 real
+bugs (listed below), same order of magnitude as the per-slice-verified
+passes before it.
+
+| Requirement | What shipped | Deliberately NOT built |
+|---|---|---|
+| `REQ018` (residue) | Per-service prepayment policy (`US-BOOK-03` — a `'required'` service leaves its booking `awaiting_payment` until a real payment succeeds) + the embeddable booking widget's allowlist/slug config (`US-BOOK-05`'s config half — `booking/index.jsx` itself needed zero changes) | An "Embed Code" admin UI |
+| `REQ032` | Plan-builder data model and versioning (`US-PLAN-01`/`02`) — `Plans`/`PlanVersions`, editing a live plan closes the old version and opens a new one | The entitlement guard (`US-PLAN-03`) — still deliberately paused, per this file's own standing caution |
+| `REQ034` | DPDP consent capture (`Consents`, purpose-specific, append-only) + data-subject rights requests (`RightsRequests`, request-queued-for-admin-review, never instant self-service deletion) | Automated erasure/correction execution; `DisclosureLog`/`RetentionPolicies` |
+| `REQ022` | Per-clinic drug batch/stock ledger (`DrugBatches`/`StockMovements`, append-only) — receive → dispense (linked to a real `PrescriptionItems` row) → adjust | Purchase orders, FEFO suggestions, GST purchase invoicing (all correctly P1) |
+| `REQ030` | Signed outbound webhook delivery (`WebhookEndpoints`/`WebhookDeliveryLog`, HMAC-SHA256), fired from real events (`appointment.created`/`.confirmed`/`.cancelled`, `payment.succeeded`) | Retry with exponential backoff — best-effort/synchronous only, this story's own P1 criterion |
+| `REQ031` | Payer/TPA master (`Payers`, global like Languages) + per-branch empanelment + manual patient policy capture | Payer-specific tariffs, OCR pre-fill, eligibility badges, the benefit-wallet adjudication engine |
+| `REQ015` | Clinician verification fields (admin-attested interim path) + org-scoped `ApiKeys` (bcrypt-hashed, shown once) | SSO/SAML/OIDC (`US-SEC-09`) — needs a real external IdP integration |
+| `REQ029` (2nd slice) | Patient report group (new-vs-repeat, acquisition source, lapsed-patient recall) + scheduled report delivery (hourly `@Cron`, per-schedule cadence tracking) | WhatsApp delivery channel (email-only this slice); real email sending is stubbed — no AWS SES integration exists anywhere in this codebase yet, matching the existing OTP-SMS stub convention |
+
+See `PLAN065`–`PLAN072`/`TP092`–`TP099`/`TR091`–`TR098` and each
+`context/<feature>-2026-08-24-*/manifest.md` bundle for full detail. Eight
+real bugs found and fixed during this pass, all at the unit-test-writing
+stage (not live browser testing, which this pass's environment issue —
+below — prevented):
+
+1. **A call-count regression in `appointments.service.ts`**: the first
+   draft of `REQ030`'s webhook-firing code did an unconditional
+   `clinics.findUnique` fetch on every booking to resolve the org id,
+   breaking a pre-existing "org-less caller" test and adding a real,
+   avoidable query to the hot booking path. Fixed by reusing the caller's
+   own JWT `client_org_id` (already established by the method's own
+   org-boundary check) instead of re-fetching it.
+2. **`BookingWidgetService.create()`/`update()`** let `assertClinicInScope`
+   throw unhandled instead of returning the graceful `{success, userErrors}`
+   shape `BookingWidgetMutationResultType` promises — the same
+   throws-vs-wraps inconsistency class as other domains, caught here by
+   its own unit test rather than shipped.
+3. **The most significant finding, not scoped to one domain**:
+   `common/scoping/tenant-scope.ts`'s `isPlatformOperator()` treats every
+   `admin`/`super_admin` caller as platform-wide *unconditionally*,
+   regardless of their own `client_org_id` — a documented, intentional
+   design (CLAUDE.md's own words: "only admin/super_admin are
+   platform-wide by design"). Two new domains (`webhooks`, `api-keys`)
+   were initially gated `@Auth('admin', 'super_admin')` only, which made
+   their own `isSameOrg()` cross-tenant rejection checks **unreachable
+   dead code** — the only callers who could ever reach them were always
+   treated as allowed to see every org, so the "rejects a cross-org X"
+   unit tests passed vacuously (never exercising the rejection branch at
+   all) until this was noticed. Fixed by widening both resolvers'
+   `@Auth()` to include `'manager'` (this schema's real org-scoped top
+   role, the same gate `departments`/`services`/`insurance` already use)
+   and switching the corresponding unit tests to a `'manager'`-role actor,
+   with an inline comment recording why `'admin'` would be the wrong
+   choice for testing tenant isolation on *any* future domain, not just
+   these two. **Read this before writing a new admin-gated domain**: if a
+   mutation is gated to `admin`/`super_admin` only, its own `isSameOrg()`
+   check (if it has one) can never actually reject anyone — either widen
+   the gate to include a real org-scoped role, or don't write the check.
+4. **A missing `clinic_id` column**, caught by `tsc --noEmit` before any
+   test ran: `ScheduledReports`'s first schema draft omitted it even
+   though the DTO/entity/service all reference it. Fixed with a small
+   follow-up migration on top of the same-session combined migration.
+5. **Two test-authoring bugs**, both caught by re-deriving the correct
+   assertion before trusting the first draft: a hardcoded, disconnected
+   `key_prefix` literal in an API-key test (fixed to echo the service's
+   real generated prefix), and a `payers.findMany` assertion missing the
+   service's own `orderBy` clause.
+
+**A genuine environment blocker, not a scoping choice**: `medibook_backend`
+became unresponsive to `docker restart`/`stop`/`kill` partway through this
+pass's verification window — Docker itself stayed responsive to `docker
+ps`, but every lifecycle command targeting this one container hung
+indefinitely (tens of minutes, never resolving). All automated
+verification (73/73 unit suites, 1053/1053 tests; 4/4 integration suites,
+315/315 tests, including 7 new tenancy-matrix domain-cases) is green
+against the exact code the container would serve — but no live GraphQL
+curl or browser pass was possible this session for any of the 8 new
+domains. **Before trusting these 8 domains live, run `docker restart
+medibook_backend` and confirm `docker logs medibook_backend --tail 5`
+shows `Found 0 errors`/`GraphQL endpoint ready`** — do not assume the
+container already reflects this session's schema/code just because it
+reports "running".
+
 ### What Phase F did NOT close — read before assuming coverage
 
-- **Tenancy matrix now covers 21 tenant-scoped domains plus 8 honestly-EXEMPT
+- **Tenancy matrix now covers 31 tenant-scoped domains plus 12 honestly-EXEMPT
   ones** (closed 2026-08-23, `BUG012`; grew again 2026-08-24 during `REQ020`'s
   own matrix-coverage pass, which found `resources`/`drugs`/
   `organization-onboarding` had shipped unclassified — see the Phase G note
-  above) — this used to say "12 of 22" here; it doesn't anymore. `KNOWN_GAPS`
+  above; grew again the same day during Phase G+2's own 8-slice pass, which
+  added 7 new `CASES` domains — `booking-widget`, `consent`, `pharmacy`,
+  `webhooks`, `insurance`, `api-keys`, `scheduled-reports` — plus one new
+  `EXEMPT` entry, `plans`, platform-level like `organizations`) — this used
+  to say "12 of 22" here; it doesn't anymore. `KNOWN_GAPS`
   is `[]`. Re-verify this count against `backend/test/integration/setup/
   domain-cases.ts` before trusting it, not this sentence — it will drift
   again the next time a new resolver domain ships. What Phase F's own closure
@@ -405,7 +495,7 @@ The host's default `node` may be older than Playwright's ESM config loader requi
 
 `frontend/src/apollo/client.js`'s `httpLink` wraps every request in a 10s `AbortController` timeout (tuned up from an original 2s, which misread slow-but-real responses as "offline"); `frontend/src/mocks/store.js` is a full in-memory backend simulation many pages fall back to on network failure or (for pages never wired to GraphQL at all) use exclusively. **Do not assume a page "using GraphQL" talks to a real backend** — grep the page for `gql\``/`useQuery`/`useMutation` and check whether it imports from the canonical `frontend/src/graphql/{queries,mutations}.js` or defines its own inline operations, then cross-check against which `backend/src/*` modules actually exist (below). `context/backend-api-requirements-master-plan.md` has the full per-page audit (75 pages + 55 components, none skipped).
 
-Backend domain modules that exist today (`backend/src/`, re-verified 2026-08-24 against a real `ls`): `auth`, `account`, `clinics`, `rooms`, `resources`, `lookups`, `organizations`, `organization-onboarding`, `languages`, `email-templates`, `services`, `products`, `drugs`, `clinicians`, `test-results`, `patients`, `appointments`, `appointment-payments`, `availability`, `blocks`, `encounters`, `prescriptions`, `queue`, `users`, `staff`, `notifications`, `notification-preferences`, `reviews`, `messages`, `public`, `analytics`, `dashboard`, `org-settings`, `cancellation-rules`. Each follows the same file layout: `<domain>.module.ts`, `<domain>.resolver.ts`, `<domain>.service.ts`, `dto/*.input.ts` (validated `@InputType()` classes), `entities/*.entity.ts` (`@ObjectType()` classes, GraphQL type names sometimes deliberately differ from the Prisma model name — see below). This list drifts as new domains land each session — cross-check `ls backend/src/` before trusting it for a "does X have a backend" question. Priority 2 is now fully complete (as of 2026-08-21) — organization Branding (`REQ002`), Communications' own "Notification Templates" tab (`REQ011`), and admin's "Security settings" tab (`REQ012`) are all closed, see Priority 2 below.
+Backend domain modules that exist today (`backend/src/`, re-verified 2026-08-24 against a real `ls`): `auth`, `account`, `clinics`, `rooms`, `resources`, `departments`, `lookups`, `organizations`, `organization-onboarding`, `languages`, `email-templates`, `services`, `products`, `drugs`, `clinicians`, `test-results`, `patients`, `appointments`, `appointment-payments`, `availability`, `blocks`, `encounters`, `prescriptions`, `queue`, `users`, `staff`, `notifications`, `notification-preferences`, `reviews`, `messages`, `public`, `analytics`, `dashboard`, `org-settings`, `cancellation-rules`, `booking-widget`, `plans`, `consent`, `pharmacy`, `webhooks`, `insurance`, `api-keys`, `scheduled-reports`. Each follows the same file layout: `<domain>.module.ts`, `<domain>.resolver.ts`, `<domain>.service.ts`, `dto/*.input.ts` (validated `@InputType()` classes), `entities/*.entity.ts` (`@ObjectType()` classes, GraphQL type names sometimes deliberately differ from the Prisma model name — see below). This list drifts as new domains land each session — cross-check `ls backend/src/` before trusting it for a "does X have a backend" question. Priority 2 is now fully complete (as of 2026-08-21) — organization Branding (`REQ002`), Communications' own "Notification Templates" tab (`REQ011`), and admin's "Security settings" tab (`REQ012`) are all closed, see Priority 2 below.
 
 ### `App.jsx`'s route tree has one path claimed twice — know this before adding a pathless layout route
 
