@@ -523,19 +523,38 @@ cd backend  && npm ci && npx prisma generate && npx prisma migrate deploy && npx
 cd frontend && npm ci
 ```
 
-**Then restore the e2e fixture dump.** `prisma db seed` only creates the 5
+**Then restore the dev fixture dump.** `prisma db seed` only creates the 5
 demo accounts, roles, permissions, email templates, and the two tenant orgs —
 it does **not** create the clinician/patient/appointment/availability rows
 (`Sarah Mitchell`, id `8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7`; `Anita Sharma`)
-that 8 of the 22 e2e specs hardcode. That data was created ad hoc through the
-live UI in an earlier session and is only reproducible from
-`db-dumps/medibook_db_2026-08-23.sql` — restore it per `db-dumps/README.md`
-before trusting any of those 8 specs' results on a fresh machine:
+that most of the e2e specs hardcode, nor today's new
+`Prescriptions`/`QueueEntries`/`PatientRelations` rows the 2026-08-24 specs
+created and cleaned up (the tables exist from `migrate deploy`, but their
+*rows* only exist in a restored dump or a fresh e2e run). Use
+**`db-dumps/medibook_db_2026-08-24.sql`** (not the 2026-08-23 one — it
+predates today's 3 migrations and 60-table schema) — restore it per
+`db-dumps/README.md` before trusting e2e results on a fresh machine:
 
 ```bash
-docker cp db-dumps/medibook_db_2026-08-23.sql medibook_postgres:/tmp/dump.sql
+MSYS_NO_PATHCONV=1 docker cp db-dumps/medibook_db_2026-08-24.sql medibook_postgres:/tmp/dump.sql
 docker exec medibook_postgres psql -U medibook -d medibook_db -f /tmp/dump.sql
+MSYS_NO_PATHCONV=1 docker exec medibook_postgres rm -f /tmp/dump.sql
+docker restart medibook_backend
 ```
+
+If you'll also run the isolated e2e-profile stack (`docker compose --profile
+e2e up -d`), restore **`db-dumps/medibook_e2e_2026-08-24.sql`** into
+`medibook_postgres_e2e`/`medibook_e2e` the same way — full commands in
+`db-dumps/README.md`, including the one thing that bit this exact scenario
+live on 2026-08-24: **a plain `docker restart` of an e2e container is not
+safe** — its startup command always re-runs `seed-e2e.ts`, which is not
+idempotent and will crash-loop on a unique-constraint violation against
+already-seeded data. Restore the dump, then restart; don't restart expecting
+it to reseed cleanly on top of what's already there. Also: each backend
+container (`medibook_backend` vs. `medibook_backend_e2e`) tracks its own
+migrations independently — one being current says nothing about the other;
+verify with `docker exec <container> npx prisma migrate deploy` on whichever
+one you're about to use, every time, not just at initial setup.
 
 (On Windows Git Bash, prefix both `docker cp`/`docker exec` commands touching
 `/tmp/...` with `MSYS_NO_PATHCONV=1` — otherwise Git Bash rewrites the
