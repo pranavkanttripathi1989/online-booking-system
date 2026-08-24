@@ -172,12 +172,17 @@ describe('BookingWizard — Step 2 (Choose Service) validation gate', () => {
     await screen.findByText('Select a Service')
   }
 
+  // goToStep2() drives two real Apollo mock round-trips plus multiple
+  // findBy* polls; measured 5.7-7.3s on a loaded host, over the 5000ms
+  // Jest default and enough to fail intermittently under contention (the
+  // same class of timing flakiness CLAUDE.md documents for bcrypt specs) --
+  // explicit per-test timeout, not a functional issue with the wizard.
   it('disables Next Step until a product is selected', async () => {
     await goToStep2()
     expect(nextButton()).toBeDisabled()
     fireEvent.click(screen.getByText('General Consultation'))
     expect(nextButton()).toBeEnabled()
-  })
+  }, 15000)
 
   it('keeps Next Step disabled for a variable-priced product until a variation is chosen', async () => {
     await goToStep2()
@@ -192,7 +197,7 @@ describe('BookingWizard — Step 2 (Choose Service) validation gate', () => {
     fireEvent.mouseDown(screen.getByRole('combobox'))
     fireEvent.click(within(screen.getByRole('listbox')).getByText('60 minutes — ₹1400'))
     expect(nextButton()).toBeEnabled()
-  })
+  }, 15000)
 
   it('resets the chosen variation when switching to a different product', async () => {
     await goToStep2()
@@ -204,5 +209,5 @@ describe('BookingWizard — Step 2 (Choose Service) validation gate', () => {
     fireEvent.click(screen.getByText('General Consultation'))
     expect(nextButton()).toBeEnabled() // simple product, no variation needed
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
-  })
+  }, 15000)
 })
