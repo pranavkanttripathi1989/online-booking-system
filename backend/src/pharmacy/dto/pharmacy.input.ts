@@ -19,7 +19,14 @@ export class ReceiveStockInput {
 @InputType('AdjustStockInput')
 export class AdjustStockInput {
   @Field(() => ID) @IsNotEmpty() batch_id: string;
-  @Field(() => Int) quantity_delta: number;
+  // Live-verification finding (2026-08-24): a field with zero
+  // class-validator decorators is stripped by the global ValidationPipe's
+  // whitelist:true, then rejected by forbidNonWhitelisted:true ("property
+  // quantity_delta should not exist") -- the exact bug class REQ020 first
+  // found (a missing decorator silently rejecting every save). @IsInt()
+  // alone (no @Min/@Max) since this value is deliberately signed --
+  // negative for a correction/breakage, per this input's own doc comment.
+  @Field(() => Int) @IsInt() quantity_delta: number;
   @Field({ nullable: true }) @IsOptional() notes?: string;
 }
 

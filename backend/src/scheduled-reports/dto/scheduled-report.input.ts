@@ -1,5 +1,5 @@
 import { InputType, Field, ID } from '@nestjs/graphql';
-import { IsIn, IsArray, ArrayMinSize, IsEmail } from 'class-validator';
+import { IsIn, IsArray, ArrayMinSize, IsEmail, IsOptional } from 'class-validator';
 
 // REQ029 (US-RPT-03) — scheduled report delivery, reusing REQ025's channel
 // vocabulary and dispatch infrastructure conceptually (see
@@ -15,7 +15,10 @@ export const REPORT_CHANNELS = ['email'] as const;
 
 @InputType('ScheduledReportInput')
 export class ScheduledReportInput {
-  @Field(() => ID, { nullable: true }) clinic_id?: string;
+  // Live-verification finding (2026-08-24): see plans/dto/plan.input.ts's
+  // own comment on the same bug class — this field had zero
+  // class-validator decorators.
+  @Field(() => ID, { nullable: true }) @IsOptional() clinic_id?: string;
   @Field() @IsIn(REPORT_TYPES) report_type: string;
   @Field(() => [String]) @IsArray() @ArrayMinSize(1) @IsEmail({}, { each: true }) recipients: string[];
   @Field() @IsIn(CADENCES) cadence: string;

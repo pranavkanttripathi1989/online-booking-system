@@ -1,5 +1,5 @@
 import { InputType, Field, ID, Int, Float } from '@nestjs/graphql';
-import { IsNotEmpty, IsBoolean, IsIn, IsInt, Min, IsArray, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsBoolean, IsIn, IsInt, Min, IsArray, ValidateNested, IsNumber } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // REQ032 (US-PLAN-01/02) — plan-builder data model only. Deliberately no
@@ -28,7 +28,13 @@ export class PlanInput {
   @Field() @IsNotEmpty() name: string;
   @Field() @IsIn(PLAN_TIERS) tier: string;
   @Field() @IsIn(BILLING_PERIODS) billing_period: string;
-  @Field(() => Float) price: number; // rupees at the GraphQL boundary, paise at rest
+  // Live-verification finding (2026-08-24): a field with zero
+  // class-validator decorators is stripped by the global ValidationPipe's
+  // whitelist:true, then rejected by forbidNonWhitelisted:true — the same
+  // bug class REQ020 first found and pharmacy.input.ts's AdjustStockInput
+  // repeated in this same pass. Every @Field in this file now has at
+  // least one decorator.
+  @Field(() => Float) @IsNumber() @Min(0) price: number; // rupees at the GraphQL boundary, paise at rest
   @Field(() => [FeatureFlagInput]) @IsArray() @ValidateNested({ each: true }) @Type(() => FeatureFlagInput) feature_flags: FeatureFlagInput[];
   @Field(() => [PlanQuotaInput]) @IsArray() @ValidateNested({ each: true }) @Type(() => PlanQuotaInput) quotas: PlanQuotaInput[];
 }
@@ -41,7 +47,7 @@ export class PlanInput {
 export class CreatePlanVersionInput {
   @Field(() => ID) @IsNotEmpty() plan_id: string;
   @Field() @IsIn(BILLING_PERIODS) billing_period: string;
-  @Field(() => Float) price: number;
+  @Field(() => Float) @IsNumber() @Min(0) price: number;
   @Field(() => [FeatureFlagInput]) @IsArray() @ValidateNested({ each: true }) @Type(() => FeatureFlagInput) feature_flags: FeatureFlagInput[];
   @Field(() => [PlanQuotaInput]) @IsArray() @ValidateNested({ each: true }) @Type(() => PlanQuotaInput) quotas: PlanQuotaInput[];
 }
