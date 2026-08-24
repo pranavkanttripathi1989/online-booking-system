@@ -28,7 +28,12 @@ Executed 2026-08-24, consolidated verification pass (all 8 slices).
 | TC-11 | pass | `npm test` — 73/73 suites, 1053/1053 tests |
 | TC-12 | pass | `npm run test:int` — 4/4 suites, 315/315 tests |
 
-## Live verification
+## Live verification (2026-08-24, follow-up)
 
-Not performed this pass — see `TR092`'s environment note. Deferred to the
-next session.
+The backend container recovered after a full Docker Desktop restart (see
+`TR092`'s environment note). `payers` query confirmed reachable and
+returns cleanly (`manager@medibook.dev`). `createPayer` is `super_admin`
+-only and, like `plans`' own mutations (see `TR092`), no seed account
+with that role exists in this dev environment to exercise the write path
+live — not independently confirmed beyond the unit-test coverage in
+`TP097`.

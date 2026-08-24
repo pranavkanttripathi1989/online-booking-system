@@ -44,7 +44,16 @@ the same vacuous-pass shape `TR095` describes. Fixed by widening
 `api-keys.resolver.ts`'s `@Auth()` to include `'manager'` and switching the
 test actor to `'manager'`, with an inline comment recording why.
 
-## Live verification
+## Live verification (2026-08-24, follow-up)
 
-Not performed this pass — see `TR092`'s environment note. Deferred to the
-next session.
+The backend container recovered after a full Docker Desktop restart (see
+`TR092`'s environment note). Live-tested against real data:
+
+- `updateClinicianVerification` on the real reference clinician (Sarah
+  Mitchell, `admin@medibook.dev`) — `verified` correctly stamped
+  `verified_at`/`verified_by_user_id`; reverted to `unverified`
+  afterward, since this clinician is a widely-referenced fixture across
+  this codebase's own tests and dev sessions.
+- `createApiKey` (`manager@medibook.dev`) — succeeded, the raw key
+  returned exactly once, confirmed absent from the subsequent `apiKeys`
+  list read.

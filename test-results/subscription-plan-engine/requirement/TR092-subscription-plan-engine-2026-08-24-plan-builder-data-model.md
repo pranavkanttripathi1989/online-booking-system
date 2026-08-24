@@ -24,15 +24,44 @@ all 8 requirement slices in this session's second batch.
 | TC-06 | pass | `npx eslint` — 0 errors |
 | TC-07 | pass | `npm test` — 73/73 suites, 1053/1053 tests |
 | TC-08 | pass | `npm run test:int` — 4/4 suites, 315/315 tests; `plans` correctly classified `EXEMPT` in `matrix-coverage.int-spec.ts` (platform-level, no `client_org_id`) |
-| TC-09 | not performed this pass | The `medibook_backend` Docker container became unresponsive to `docker restart`/`docker stop`/`docker kill` during this session's consolidated verification window (host resource contention — Docker itself remained responsive to `docker ps`, but every operation targeting this one container hung indefinitely). The full automated suite above ran clean against the same code the container would have served; a live curl/browser pass against the running GraphQL endpoint is deferred to the next session rather than skipped silently. |
+| TC-09 | pass (follow-up) | See below — the container recovered after a full Docker Desktop restart. |
 
-## Environment note for the next session
+## Environment note (resolved 2026-08-24, same day)
 
-`medibook_backend` needs a fresh `docker restart medibook_backend` (or
-`docker compose restart medibook_backend`) before trusting it serves this
-pass's 8 new resolver domains live — the container was left in a state
-where Docker reported it "running" but stopped responding to lifecycle
-commands partway through this session's verification. Confirm with
-`docker logs medibook_backend --tail 5` showing `Found 0 errors` /
-`GraphQL endpoint ready` before live-testing, per CLAUDE.md's own
-documented "stale Prisma Client" and restart discipline.
+`medibook_backend` had become unresponsive to `docker restart`/`stop`/
+`kill` (Docker itself stayed responsive to `docker ps`, but every
+lifecycle operation targeting this one container hung indefinitely — host
+resource contention, not a Docker daemon crash). Resolved by quitting and
+relaunching Docker Desktop entirely (`osascript -e 'quit app "Docker"'`
+then `open -a Docker`), which also cleanly cycled `medibook_postgres`/
+`medibook_redis` (both recovered to healthy in under 30s, no data loss —
+confirmed independently by this pass's own `test:int` run against
+`postgres_test`, unaffected either way). `medibook_backend` itself had
+exited (not auto-restarted) after the Docker Desktop cycle and needed one
+explicit `docker start medibook_backend`; the first compile took ~4
+minutes under host load (a full, not incremental, compile — 8 new
+modules), confirmed clean (`Found 0 errors`, `Nest application
+successfully started`, `GraphQL endpoint ready`).
+
+## Live verification (2026-08-24, follow-up)
+
+Logged in as `admin@medibook.dev` (real seed account) — no `super_admin`
+seed account exists (`seed.ts` only creates `admin`/`manager`/`clinician`/
+`staff`/`patient` logins), so `plans`/`createPlan` correctly returned a
+403 Forbidden for the `admin`-role caller, confirming the `@Auth
+('super_admin')` gate is live and enforced — not exercised further since
+no account can reach the happy path without manually elevating a role,
+judged out of scope for this verification pass.
+
+**A real bug found and fixed live** (same bug class as `pharmacy`'s own
+`AdjustStockInput`, see `TR094`): `PlanInput.price` and
+`CreatePlanVersionInput.price` both had zero `class-validator` decorators,
+so the global `ValidationPipe`'s `whitelist:true` would silently strip
+`price` from any real `createPlan`/`createPlanVersion` call before it
+reached the resolver. Not caught by the unit suite (mocked-Prisma tests
+never go through the real `ValidationPipe`) — found by proactively
+auditing every new DTO in this session's pass after the `pharmacy` bug
+surfaced live. Fixed by adding `@IsNumber() @Min(0)` to both fields. Full
+suite re-confirmed green after the fix (73/73 unit, 315/315 integration);
+not independently live-retested here since it requires a `super_admin`
+account this environment doesn't have.

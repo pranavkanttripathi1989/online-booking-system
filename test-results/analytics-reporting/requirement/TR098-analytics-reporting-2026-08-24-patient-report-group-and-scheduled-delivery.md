@@ -44,9 +44,25 @@ to `Clinics`, and an index — applied cleanly on top of the same-session
 `20260825010000` migration with no data loss (the table had zero rows at
 that point in the session).
 
-## Live verification
+## Live verification (2026-08-24, follow-up)
 
-Not performed this pass — see `TR092`'s environment note. Deferred to the
-next session; in particular, `deliverDueReports`'s hourly `@Cron` trigger
-was exercised only by calling the service method directly in unit tests,
-not by observing a real scheduled firing against the live container.
+The backend container recovered after a full Docker Desktop restart (see
+`TR092`'s environment note). Live-tested `createScheduledReport` with a
+real `clinic_id` as `manager@medibook.dev` against "MG Road Clinic" —
+succeeded, returned the created row with `clinic_id` populated correctly.
+
+**A real bug found and fixed live** (the same bug class as `pharmacy`'s
+`AdjustStockInput`, see `TR094`, and `plans`' `price` fields, see
+`TR092`): `ScheduledReportInput.clinic_id` had zero `class-validator`
+decorators. Before the fix, this exact live call would have failed with
+`"property clinic_id should not exist"` (global `ValidationPipe`
+`whitelist:true` stripping an undecorated field) — caught proactively by
+auditing every new DTO in this session's pass after the first instance of
+this bug class surfaced live in `pharmacy`. Fixed by adding
+`@IsOptional()`. Full suite re-confirmed green after the fix.
+
+`deliverDueReports`'s hourly `@Cron` trigger itself was still not
+observed firing live in this pass (would require waiting for a real
+top-of-hour tick against the running container) — the service method's
+logic is covered at the unit level (`TC-06`–`TC-10`) and the mutation it
+depends on (`createScheduledReport`) is now confirmed live.

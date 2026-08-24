@@ -53,9 +53,26 @@ explaining why `'admin'` would have made them pass for the wrong reason.
 The identical finding applied to `api-keys` (see `TR097`) and was caught
 by the same review, not independently.
 
-## Live verification
+## Live verification (2026-08-24, follow-up)
 
-Not performed this pass — see `TR092`'s environment note. Deferred to the
-next session; in particular, a real webhook delivery against a live
-receiving endpoint (e.g. `webhook.site`) was not exercised — only the
-mocked-fetch unit tests confirm the signing/delivery-logging logic.
+The backend container recovered after a full Docker Desktop restart (see
+`TR092`'s environment note). Live-tested as `manager@medibook.dev`:
+
+- `createWebhookEndpoint` — succeeded, returned the raw secret exactly
+  once (`CreateWebhookEndpointResultType`); a subsequent `webhookEndpoints`
+  list query, and an explicit attempt to query `secret` on
+  `WebhookEndpoint`, both confirm the field is structurally absent from
+  every read type, not just filtered at runtime.
+- `createApiKey` — same "shown once" pattern confirmed for the raw key;
+  a subsequent `apiKeys` list omits it.
+- A real `appointment.created` event, fired from a real `createAppointment`
+  call (see `TR091`'s own fuller account of this chain), reached
+  `WebhookDispatchService.fireEvent` and produced a real
+  `WebhookDeliveryLog` row (`status: 'failed'`, endpoint pointed at a
+  non-resolving test domain) — confirming end-to-end that a real domain
+  event triggers a real signed delivery attempt and a real audit row,
+  without throwing back into the booking flow that triggered it.
+- A real webhook delivery against a live *receiving* endpoint (e.g.
+  `webhook.site`) was still not exercised — the test endpoint was
+  deliberately unreachable to confirm the failure-logging path; only the
+  mocked-fetch unit tests confirm a *successful* delivery's signing.

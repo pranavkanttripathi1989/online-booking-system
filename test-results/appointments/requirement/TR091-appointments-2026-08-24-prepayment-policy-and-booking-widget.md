@@ -36,6 +36,35 @@ discipline validated in the prior 5-slice pass).
 | TC-21 | pass | `npm test` — 73/73 suites, 1053/1053 tests (consolidated run across all 8 slices) |
 | TC-22 | pass | `npm run test:int` — 4/4 suites, 315/315 tests (consolidated run, includes the 7 new tenancy-matrix domain-cases this pass added) |
 
+## Live verification (2026-08-24, follow-up)
+
+The backend container recovered after a full Docker Desktop restart (see
+`TR092`'s environment note). Live-tested the **full REQ018+REQ030+REQ023
+chain together** against real dev-seeded data, as `manager@medibook.dev`:
+
+1. Set the real "GP Consultation" service (₹499) to `prepayment_policy:
+   'required'`.
+2. Registered a real `WebhookEndpoint` subscribed to `appointment.created`.
+3. `createAppointment` for a real patient (Anita Sharma) with a real
+   clinician (Sarah Mitchell) — the appointment landed at `status:
+   'awaiting_payment'` exactly as designed, not `'scheduled'`.
+4. `webhookDeliveryLog` showed a real `appointment.created` delivery
+   attempt (`status: 'failed'`, since the test endpoint pointed at a
+   non-resolving domain) — confirming the event fires and a failed
+   delivery is logged, not silently swallowed or thrown, matching
+   `TR095`'s unit-level assertion of the same behaviour.
+5. `recordCounterPayment` for the full ₹499 as cash — succeeded, returned
+   a real gapless invoice number.
+6. Re-queried the appointment: `status: 'confirmed'` — the full
+   `awaiting_payment → confirmed` transition fired for real, from a real
+   walk-in payment, not just a mocked test.
+
+Reverted the shared "GP Consultation" service back to `prepayment_policy:
+'none'` afterward. This is the strongest available evidence (short of a
+real Razorpay checkout, not exercised) that the entire cross-cutting
+prepayment/webhook/counter-payment design works end-to-end, not just at
+the unit level.
+
 ## A second real bug found while writing this pass's tests
 
 Not scoped to this slice specifically but found while wiring the new

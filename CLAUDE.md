@@ -338,20 +338,57 @@ below — prevented):
    real generated prefix), and a `payers.findMany` assertion missing the
    service's own `orderBy` clause.
 
-**A genuine environment blocker, not a scoping choice**: `medibook_backend`
-became unresponsive to `docker restart`/`stop`/`kill` partway through this
-pass's verification window — Docker itself stayed responsive to `docker
-ps`, but every lifecycle command targeting this one container hung
-indefinitely (tens of minutes, never resolving). All automated
-verification (73/73 unit suites, 1053/1053 tests; 4/4 integration suites,
-315/315 tests, including 7 new tenancy-matrix domain-cases) is green
-against the exact code the container would serve — but no live GraphQL
-curl or browser pass was possible this session for any of the 8 new
-domains. **Before trusting these 8 domains live, run `docker restart
-medibook_backend` and confirm `docker logs medibook_backend --tail 5`
-shows `Found 0 errors`/`GraphQL endpoint ready`** — do not assume the
-container already reflects this session's schema/code just because it
-reports "running".
+**An environment blocker hit mid-pass, resolved the same session**:
+`medibook_backend` became unresponsive to `docker restart`/`stop`/`kill`
+partway through this pass's verification window — Docker itself stayed
+responsive to `docker ps`, but every lifecycle command targeting this one
+container hung indefinitely (tens of minutes, never resolving). Resolved
+by quitting and relaunching Docker Desktop entirely (`osascript -e 'quit
+app "Docker"'`, then `open -a Docker`) — this also cleanly cycled
+`medibook_postgres`/`medibook_redis` (both recovered to healthy in under
+30s, no data loss), and left `medibook_backend` itself exited rather than
+auto-restarted, needing one explicit `docker start medibook_backend`
+(first compile ~4 minutes under host load — a full, not incremental,
+compile with 8 new modules). **If `docker restart`/`stop`/`kill` ever hang
+on one specific container again with `docker ps` itself still responsive,
+don't keep retrying targeted commands — quit and relaunch Docker Desktop
+itself.**
+
+With the container back, this pass's remaining live-verification gap was
+closed the same session, as `admin@medibook.dev`/`manager@medibook.dev`
+against real dev-seeded data (Sarah Mitchell, Anita Sharma, the "GP
+Consultation" service, "MG Road Clinic") — confirming, among other things,
+the full `REQ018`→`REQ030`→`REQ023` chain end-to-end together: booking a
+`prepayment_policy: 'required'` service left it `awaiting_payment`, fired
+a real `appointment.created` webhook (logged as `failed` against a
+deliberately unreachable test endpoint, not swallowed or thrown), and a
+real `recordCounterPayment` call transitioned it to `confirmed`. Every
+test artifact mutated on a *shared* fixture (the GP Consultation service's
+`prepayment_policy`, Sarah Mitchell's `verification_status`) was reverted
+afterward; new rows created for the test (webhook endpoint, API key,
+consent, rights request, scheduled report, drug batch) were left in place,
+matching this codebase's existing "E2E Service *"-style precedent for live
+test residue.
+
+**This live pass found a ninth real bug, then three more of the identical
+class by proactively auditing every new DTO** — the exact bug class
+`REQ020` first found (a `class-validator`-decorator-free `@Field` silently
+stripped by the global `ValidationPipe`'s `whitelist:true`, then rejected
+by `forbidNonWhitelisted:true`), reachable only through a real HTTP
+request against the real `ValidationPipe`, never by a mocked-Prisma unit
+test. First hit live on `pharmacy`'s `AdjustStockInput.quantity_delta`
+(`adjustStock` failed with `"property quantity_delta should not exist"`);
+grepping the other 7 new domains' DTOs for the same "a `@Field` with zero
+validator decorators" shape found two more real instances before they
+could bite live: `Plans.price` (both input types) and `ScheduledReportInput
+.clinic_id`. All three fixed (an appropriate decorator added — `@IsInt()`
+for a deliberately-signed field, `@IsNumber() @Min(0)` for money,
+`@IsOptional()` for a genuinely-optional field), full suite re-confirmed
+green, and the two live-reachable ones (`adjustStock`, `createScheduledReport`)
+re-tested live to confirm the fix. **When adding any new `@InputType()`
+field, give it at least one `class-validator` decorator even if
+"obviously" always valid — an undecorated field isn't just unvalidated,
+it's silently deleted by this app's global pipe.**
 
 ### What Phase F did NOT close — read before assuming coverage
 

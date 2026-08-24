@@ -30,8 +30,32 @@ Executed 2026-08-24, consolidated verification pass (all 8 slices).
 | TC-13 | pass | `npm test` — 73/73 suites, 1053/1053 tests |
 | TC-14 | pass | `npm run test:int` — 4/4 suites, 315/315 tests |
 
-## Live verification
+## Live verification (2026-08-24, follow-up)
 
-Not performed this pass — see `TR092`'s environment note (the backend
-container became unresponsive to Docker lifecycle commands during this
-session's verification window). Deferred to the next session.
+The backend container recovered after a full Docker Desktop restart (see
+`TR092`'s environment note for the original blocker). Live-tested against
+the real dev stack as `manager@medibook.dev`:
+
+- `receiveStock` on the real "Paracetamol" drug at "MG Road Clinic" — 100
+  units received, `quantity_remaining: 100`.
+- **A real bug found and fixed live**: `adjustStock(quantity_delta: -5)`
+  failed with `"property quantity_delta should not exist"` — a
+  `BadRequestException` from the global `ValidationPipe`'s
+  `whitelist:true`/`forbidNonWhitelisted:true`. `AdjustStockInput.
+  quantity_delta` had zero `class-validator` decorators, so the whitelist
+  stripped it before it ever reached the resolver — the exact bug class
+  `REQ020` first found (a missing decorator silently rejecting a save),
+  reachable only by an actual HTTP request through the real
+  `ValidationPipe`, not by a mocked-Prisma unit test. Fixed by adding
+  `@IsInt()` (no `@Min`/`@Max` — the field is deliberately signed).
+  Re-tested live after the fix: `100 → 95`, and `stockMovements` showed
+  both the `receipt` and `adjustment` rows with the correct signed deltas.
+- The same live-verification pass proactively scanned every other new
+  DTO from this session's 8-slice pass for the identical bug class and
+  found two more real instances: `Plans.price` (both `PlanInput` and
+  `CreatePlanVersionInput`, see `TR092`) and `ScheduledReportInput.
+  clinic_id` (see `TR098`). All three fixed together, full suite
+  re-confirmed green (73/73 unit, 315/315 integration) after the fix.
+- `dispensePrescriptionItem` was not live-exercised — no `Prescriptions`
+  rows exist in the current dev-seeded data reachable by the test
+  manager account. Covered at the unit level only (`TC-07`–`TC-09`).

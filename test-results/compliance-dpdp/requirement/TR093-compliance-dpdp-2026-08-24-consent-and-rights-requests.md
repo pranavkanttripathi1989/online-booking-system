@@ -28,11 +28,17 @@ Executed 2026-08-24, consolidated verification pass (all 8 slices).
 | TC-11 | pass | `npm test` — 73/73 suites, 1053/1053 tests |
 | TC-12 | pass | `npm run test:int` — 4/4 suites, 315/315 tests |
 
-## Live verification
+## Live verification (2026-08-24, follow-up)
 
-Not performed this pass — the `medibook_backend` container became
-unresponsive to Docker lifecycle commands during this session's
-verification window (see `TR092`'s own environment note for the full
-account). All automated coverage above is green against the same code;
-live GraphQL/browser confirmation is deferred to the next session, not
-silently skipped.
+The backend container recovered after a full Docker Desktop restart (see
+`TR092`'s environment note). Live-tested against a real patient (Anita
+Sharma) as `manager@medibook.dev`:
+
+- `updateConsent` (purpose: `communications`, `granted: true`) — created
+  a real `Consents` row with `granted_at` stamped.
+- `requestDataRights` (type: `access`) — created a real `RightsRequests`
+  row, `status: 'pending'`, `sla_due_at` correctly 30 days out
+  (2026-09-23 from a 2026-08-24 request).
+- `resolveRightsRequest` (`status: 'completed'`) — stamped `resolved_at`
+  and the supplied `notes`, confirming the request-queued-for-review
+  design works end-to-end for a real record, not just a mocked one.
