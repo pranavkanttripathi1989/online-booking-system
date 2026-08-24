@@ -9,8 +9,18 @@ import {
   FinanceSummaryType,
   RecordCounterPaymentResultType,
   RedeemPackageSittingResultType,
+  DiscountApprovalRequestType,
+  DecideDiscountApprovalResultType,
+  CashDrawerCloseoutType,
+  CloseCashDrawerResultType,
 } from './entities/appointment-payment.entity';
-import { VerifyRazorpayPaymentInput, RecordCounterPaymentInput, RedeemPackageSittingInput } from './dto/appointment-payment.input';
+import {
+  VerifyRazorpayPaymentInput,
+  RecordCounterPaymentInput,
+  RedeemPackageSittingInput,
+  DecideDiscountApprovalInput,
+  CloseCashDrawerInput,
+} from './dto/appointment-payment.input';
 import { Public } from '../common/decorators/public.decorator';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -91,5 +101,45 @@ export class AppointmentPaymentsResolver {
   @Mutation(() => RedeemPackageSittingResultType)
   redeemPackageSitting(@Args('input') input: RedeemPackageSittingInput, @CurrentUser() user: JwtPayload) {
     return this.appointmentPaymentsService.redeemPackageSitting(input, user);
+  }
+
+  // REQ056 (US-BIL-03) — oversight query, manager+ only (matching
+  // cancellation-rules' own role set for a policy-adjacent domain).
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => [DiscountApprovalRequestType])
+  discountApprovalRequests(
+    @Args('clinic_id', { type: () => ID, nullable: true }) clinicId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.appointmentPaymentsService.discountApprovalRequests(clinicId, user);
+  }
+
+  // REQ056 (US-BIL-03) — deliberately NOT the same @Auth() set as
+  // recordCounterPayment (which includes 'staff'): the requester's own
+  // service-layer check that they can't approve their own request only has
+  // teeth because the gate here already excludes them from a role that
+  // could self-serve past it.
+  @Auth('manager', 'admin', 'super_admin')
+  @Mutation(() => DecideDiscountApprovalResultType)
+  decideDiscountApproval(@Args('input') input: DecideDiscountApprovalInput, @CurrentUser() user: JwtPayload) {
+    return this.appointmentPaymentsService.decideDiscountApproval(input, user);
+  }
+
+  // REQ056 (US-BIL-04, scoped subset) — any front-desk staff can close
+  // their own clinic's drawer.
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Mutation(() => CloseCashDrawerResultType)
+  closeCashDrawer(@Args('input') input: CloseCashDrawerInput, @CurrentUser() user: JwtPayload) {
+    return this.appointmentPaymentsService.closeCashDrawer(input, user);
+  }
+
+  // Oversight query, manager+ only.
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => [CashDrawerCloseoutType])
+  cashDrawerCloseouts(
+    @Args('clinic_id', { type: () => ID, nullable: true }) clinicId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.appointmentPaymentsService.cashDrawerCloseouts(clinicId, user);
   }
 }

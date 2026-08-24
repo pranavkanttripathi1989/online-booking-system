@@ -234,6 +234,7 @@ model Appointments {
   reviews             Reviews[]
   status_logs         AppointmentStatusLogs[]
   payments            AppointmentPayments[]
+  discountApprovalRequests DiscountApprovalRequests[]
   resources           AppointmentResources[]
   encounter           Encounters?
   queue_entry         QueueEntries?
@@ -630,6 +631,13 @@ model ClientOrganizations {
   // prepayment_policy. See appointments.service.ts's create().
   no_show_grace_minutes        Int @default(30)
   no_show_prepayment_threshold Int @default(3)
+  // REQ056 (US-BIL-03) — a counter-payment discount at or below this
+  // amount is applied inline by recordCounterPayment (self-service, no
+  // approval needed); above it, the discount is queued as a
+  // DiscountApprovalRequests row instead, requiring a distinct
+  // manager+-gated approveDiscountRequest call before any payment is
+  // recorded. Default ₹1000 (100000 paise).
+  discount_approval_threshold_paise Int @default(100000)
   // admin/Policies.jsx "Security & Privacy" tab (REQ012). All five toggles
   // now have real enforcement, not just persisted config:
   // - mfa_required: checked in auth.service.ts's issueTokens() for every
@@ -686,6 +694,8 @@ model ClientOrganizations {
   customRoles            UserRoles[]
   cancellationRules      ProductCancellationRules[]
   appointmentPayments    AppointmentPayments[]
+  discountApprovalRequests DiscountApprovalRequests[]
+  cashDrawerCloseouts    CashDrawerCloseouts[]
   products               Products[]
   productCategories      ProductCategories[]
   productSubcategories   ProductSubcategories[]
@@ -872,6 +882,8 @@ model Clinics {
   reviews            Reviews[]
   cancellationRules  ProductCancellationRules[]
   payments           AppointmentPayments[]
+  discountApprovalRequests DiscountApprovalRequests[]
+  cashDrawerCloseouts CashDrawerCloseouts[]
   invoiceSequences   InvoiceSequences[]
   queueEntries       QueueEntries[]
   drugBatches        DrugBatches[]
@@ -1184,6 +1196,15 @@ model AppointmentPayments {
   place_of_supply     String?
   invoice_number      String?
   metadata            Json     @default("{}")
+  // REQ056 (US-BIL-03) — a discount applied on this specific counter
+  // payment. discount_amount is 0 for the overwhelming majority of rows
+  // (no discount given); approved_by_user_id stays null for a discount at
+  // or below the org's configured threshold (self-service, no approval
+  // needed) and is stamped with the approving manager's own id only when
+  // the discount exceeded it (see DiscountApprovalRequests).
+  discount_amount     Int      @default(0) // paise
+  discount_reason     String?
+  approved_by_user_id String?
   created_at          DateTime @default(now())
   updated_at          DateTime @default(now())
 
@@ -1191,6 +1212,7 @@ model AppointmentPayments {
   patient     Patients            @relation(fields: [patient_id], references: [id])
   clinic      Clinics             @relation(fields: [clinic_id], references: [id])
   client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  approved_by Users?              @relation("AppointmentPaymentApprovedBy", fields: [approved_by_user_id], references: [id])
   tenders     PaymentTenders[]
 
   @@index([client_org_id, created_at])
@@ -1221,6 +1243,72 @@ model PaymentTenders {
   recorded_by         Users               @relation(fields: [recorded_by_user_id], references: [id])
 
   @@index([appointment_payment_id])
+}
+
+// REQ056 (US-BIL-03) -- a discount above the org's configured threshold
+// cannot be applied inline by recordCounterPayment; it's queued here
+// (status: pending) and a distinct, higher-role-gated mutation
+// (approveDiscountRequest) either approves it -- replaying the stored
+// tenders_json to actually create the AppointmentPayments row, stamping
+// the approving manager's own id -- or rejects it, never creating a
+// payment. expected_amount_paise is captured at request time so approval
+// doesn't have to re-resolve pricing (a service's price could have
+// changed between request and approval).
+model DiscountApprovalRequests {
+  id                    String    @id @default(uuid())
+  appointment_id        String
+  clinic_id             String
+  client_org_id         String?
+  requested_by_user_id  String
+  discount_amount       Int       // paise
+  discount_reason       String
+  expected_amount_paise Int
+  tenders_json          Json
+  status                String    @default("pending") // pending | approved | rejected
+  approved_by_user_id   String?
+  decided_at            DateTime?
+  resulting_payment_id  String?
+  created_at            DateTime  @default(now())
+
+  appointment Appointments         @relation(fields: [appointment_id], references: [id])
+  clinic      Clinics              @relation(fields: [clinic_id], references: [id])
+  client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  requestedBy Users                @relation("DiscountRequestRequestedBy", fields: [requested_by_user_id], references: [id])
+  approvedBy  Users?               @relation("DiscountRequestApprovedBy", fields: [approved_by_user_id], references: [id])
+
+  @@index([client_org_id, status])
+  @@index([clinic_id])
+  @@index([appointment_id])
+}
+
+// REQ056 (US-BIL-04, scoped subset) -- one closeout per (clinic,
+// business_date): expected totals are computed server-side from real
+// succeeded AppointmentPayments/PaymentTenders rows for that clinic and
+// date, never trusted from the caller. breakdown_json is keyed by tender
+// type ({ [tender_type]: { expected_paise, counted_paise } }), matching
+// this schema's own convention for a small, tender-type-keyed map
+// (Products.channel_pricing_json) rather than a fixed column per type.
+// Denomination-level breakdown and formal shift handover are explicitly
+// deferred -- see REQ056's own "out of scope" section.
+model CashDrawerCloseouts {
+  id                   String   @id @default(uuid())
+  clinic_id            String
+  client_org_id        String?
+  closed_by_user_id    String
+  business_date        DateTime
+  breakdown_json       Json
+  total_expected_paise Int
+  total_counted_paise  Int
+  variance_paise       Int
+  notes                String?
+  created_at           DateTime @default(now())
+
+  clinic     Clinics              @relation(fields: [clinic_id], references: [id])
+  client_org ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  closedBy   Users                @relation(fields: [closed_by_user_id], references: [id])
+
+  @@unique([clinic_id, business_date])
+  @@index([client_org_id])
 }
 
 // REQ047 (US-BIL-09) -- gapless, per-branch invoice numbering ("PRD §14.2's
@@ -1767,6 +1855,10 @@ model Users {
   notificationSendLogs    NotificationSendLog[]
   paymentTendersRecorded  PaymentTenders[]
   assignedMessageThreads MessageThreads[] @relation("MessageThreadAssignee")
+  appointmentPaymentsApproved AppointmentPayments[] @relation("AppointmentPaymentApprovedBy")
+  discountRequestsMade        DiscountApprovalRequests[] @relation("DiscountRequestRequestedBy")
+  discountRequestsApproved    DiscountApprovalRequests[] @relation("DiscountRequestApprovedBy")
+  cashDrawerCloseouts         CashDrawerCloseouts[]
 }
 
 // REQ005 Notifications tab. No code path in this codebase currently reads

@@ -29,7 +29,7 @@
 | security | 3 | 1 | 0 | 4 | 0 | 2026-08-25 | [security](./security/README.md) |
 | settings | 3 | 0 | 0 | 3 | 0 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 1 | 1 | 0 | 2 | 0 | 2026-08-21 | [staff](./staff/README.md) |
-| patient-payments | 4 | 1 | 0 | 5 | 0 | 2026-08-24 | [patient-payments](./patient-payments/README.md) |
+| patient-payments | 4 | 2 | 0 | 6 | 0 | 2026-08-25 | [patient-payments](./patient-payments/README.md) |
 | phase4-5-increment3 | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
 | phase4-backend-integration | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [phase4-backend-integration](./phase4-backend-integration/README.md) |
 | test-results-page | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [test-results-page](./test-results-page/README.md) |

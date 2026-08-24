@@ -14,6 +14,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TP071 | improvement | Razorpay webhook, reconciliation job, and order-throttle verification | approved | 2026-08-23 | 2026-08-23 | REQ040 | [TP071-patient-payments-2026-08-23-razorpay-webhook-verification.md](./improvement/TP071-patient-payments-2026-08-23-razorpay-webhook-verification.md) |
+| TP106 | improvement | Day-end cash close + discount-approval workflow | approved | 2026-08-25 | 2026-08-25 | PLAN079 | [TP106-patient-payments-2026-08-25-cash-close-and-discount-approval.md](./improvement/TP106-patient-payments-2026-08-25-cash-close-and-discount-approval.md) |
 
 ## bug
 

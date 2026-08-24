@@ -471,6 +471,19 @@ type CancellationRuleUserError {
   message: String!
 }
 
+type CashDrawerCloseout {
+  breakdown: [TenderBreakdown!]!
+  business_date: DateTime!
+  clinic_id: ID!
+  closed_by_user_id: String!
+  created_at: DateTime!
+  id: ID!
+  notes: String
+  total_counted: Float!
+  total_expected: Float!
+  variance: Float!
+}
+
 type CategoryPricing {
   camp: Float
   corporate: Float
@@ -679,6 +692,19 @@ type ClinicianTypeInfo {
   name: String!
 }
 
+input CloseCashDrawerInput {
+  business_date: String!
+  clinic_id: ID!
+  counted: [CountedTenderInput!]!
+  notes: String
+}
+
+type CloseCashDrawerResult {
+  closeout: CashDrawerCloseout
+  message: String
+  success: Boolean!
+}
+
 input ConfirmTotpEnrollmentInput {
   code: String!
 }
@@ -691,6 +717,11 @@ type Consent {
   patient_id: ID!
   purpose: String!
   revoked_at: DateTime
+}
+
+input CountedTenderInput {
+  amount: Float!
+  tender_type: String!
 }
 
 type CreateApiKeyResult {
@@ -988,6 +1019,17 @@ A date-time string at UTC, such as 2019-12-03T09:54:33Z, compliant with the date
 """
 scalar DateTime
 
+input DecideDiscountApprovalInput {
+  decision: String!
+  request_id: ID!
+}
+
+type DecideDiscountApprovalResult {
+  message: String
+  payment_id: ID
+  success: Boolean!
+}
+
 type Department {
   clinic: Clinic
   id: ID!
@@ -1026,6 +1068,20 @@ type Diagnosis {
 
 input DisableTotpInput {
   password: String!
+}
+
+type DiscountApprovalRequest {
+  appointment_id: ID!
+  approved_by_user_id: String
+  clinic_id: ID!
+  created_at: DateTime!
+  decided_at: DateTime
+  discount_amount: Float!
+  discount_reason: String!
+  expected_amount: Float!
+  id: ID!
+  requested_by_user_id: String!
+  status: String!
 }
 
 input DispensePrescriptionItemInput {
@@ -1303,6 +1359,7 @@ type Mutation {
   cancelAppointment(id: ID!, reason: String): Appointment!
   changeMyPassword(input: ChangeMyPasswordInput!): GenericResult!
   checkInAppointment(id: ID!): Appointment!
+  closeCashDrawer(input: CloseCashDrawerInput!): CloseCashDrawerResult!
   completeAppointment(id: ID!): Appointment!
   completeChecklistItem(appointment_id: ID!, checklist_item_id: ID!): ChecklistItemMutationResult!
   completeOrganizationOnboarding(orgId: String!): OrganizationOnboarding!
@@ -1354,6 +1411,7 @@ type Mutation {
   deactivateScheduledReport(id: ID!): ScheduledReport!
   deactivateStaff(id: ID!): Staff!
   deactivateWebhookEndpoint(id: ID!): WebhookEndpoint!
+  decideDiscountApproval(input: DecideDiscountApprovalInput!): DecideDiscountApprovalResult!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteCancellationRule(id: ID!): CancellationRuleMutationResult!
   deleteChecklistItem(id: ID!): ChecklistItemMutationResult!
@@ -2255,6 +2313,7 @@ type Query {
   bookingWidgetConfig(id: ID!): BookingWidgetConfig
   bookingWidgetConfigs: [BookingWidgetConfig!]!
   cancellationRules: [CancellationRule!]!
+  cashDrawerCloseouts(clinic_id: ID): [CashDrawerCloseout!]!
   checklistCompletions(appointment_id: ID!): [ChecklistCompletion!]!
   checklistItems(clinic_id: ID, product_id: ID): [ChecklistItem!]!
   clinic(id: ID!): Clinic
@@ -2266,6 +2325,7 @@ type Query {
   dashboard: Dashboard!
   department(id: ID!): Department
   departments(clinic_id: ID): [Department!]!
+  discountApprovalRequests(clinic_id: ID): [DiscountApprovalRequest!]!
   drug(id: ID!): Drug
   drugBatches(clinic_id: ID, drug_id: ID): [DrugBatch!]!
   drugs(search: String): [Drug!]!
@@ -2412,6 +2472,8 @@ input ReceiveStockInput {
 
 input RecordCounterPaymentInput {
   appointment_id: ID!
+  discount_amount: Float
+  discount_reason: String
   tenders: [PaymentTenderInput!]!
 }
 
@@ -2419,6 +2481,7 @@ type RecordCounterPaymentResult {
   invoice_number: String
   message: String
   payment_id: ID
+  pending_approval_id: ID
   success: Boolean!
 }
 
@@ -2801,6 +2864,13 @@ type SubscriptionPlan {
   name: String!
   priceMonthly: Int!
   priceYearly: Int!
+}
+
+type TenderBreakdown {
+  counted: Float!
+  expected: Float!
+  tender_type: String!
+  variance: Float!
 }
 
 type TestResult {

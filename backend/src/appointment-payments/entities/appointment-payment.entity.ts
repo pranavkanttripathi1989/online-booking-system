@@ -17,13 +17,70 @@ export class PaymentVerificationResultType {
   @Field({ nullable: true }) message?: string;
 }
 
-// REQ023 (US-BIL-01, scoped subset).
+// REQ023 (US-BIL-01, scoped subset). REQ056 (US-BIL-03) added
+// pending_approval_id -- set (payment_id/invoice_number left unset) when a
+// discount exceeded the org's threshold and was queued instead of applied;
+// the caller checks which of the two is populated.
 @ObjectType('RecordCounterPaymentResult')
 export class RecordCounterPaymentResultType {
   @Field() success: boolean;
   @Field({ nullable: true }) message?: string;
   @Field(() => ID, { nullable: true }) payment_id?: string;
   @Field({ nullable: true }) invoice_number?: string;
+  @Field(() => ID, { nullable: true }) pending_approval_id?: string;
+}
+
+// REQ056 (US-BIL-03).
+@ObjectType('DiscountApprovalRequest')
+export class DiscountApprovalRequestType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) appointment_id: string;
+  @Field(() => ID) clinic_id: string;
+  @Field() requested_by_user_id: string;
+  @Field(() => Float) discount_amount: number; // rupees
+  @Field() discount_reason: string;
+  @Field(() => Float) expected_amount: number; // rupees
+  @Field() status: string;
+  @Field({ nullable: true }) approved_by_user_id?: string;
+  @Field({ nullable: true }) decided_at?: Date;
+  @Field() created_at: Date;
+}
+
+@ObjectType('DecideDiscountApprovalResult')
+export class DecideDiscountApprovalResultType {
+  @Field() success: boolean;
+  @Field({ nullable: true }) message?: string;
+  @Field(() => ID, { nullable: true }) payment_id?: string;
+}
+
+// REQ056 (US-BIL-04, scoped subset).
+@ObjectType('TenderBreakdown')
+export class TenderBreakdownType {
+  @Field() tender_type: string;
+  @Field(() => Float) expected: number; // rupees
+  @Field(() => Float) counted: number; // rupees
+  @Field(() => Float) variance: number; // rupees
+}
+
+@ObjectType('CashDrawerCloseout')
+export class CashDrawerCloseoutType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) clinic_id: string;
+  @Field() closed_by_user_id: string;
+  @Field() business_date: Date;
+  @Field(() => [TenderBreakdownType]) breakdown: TenderBreakdownType[];
+  @Field(() => Float) total_expected: number; // rupees
+  @Field(() => Float) total_counted: number; // rupees
+  @Field(() => Float) variance: number; // rupees
+  @Field({ nullable: true }) notes?: string;
+  @Field() created_at: Date;
+}
+
+@ObjectType('CloseCashDrawerResult')
+export class CloseCashDrawerResultType {
+  @Field() success: boolean;
+  @Field({ nullable: true }) message?: string;
+  @Field(() => CashDrawerCloseoutType, { nullable: true }) closeout?: CashDrawerCloseoutType;
 }
 
 // REQ054 (US-CAT-01) — matches this file's own established throw-based

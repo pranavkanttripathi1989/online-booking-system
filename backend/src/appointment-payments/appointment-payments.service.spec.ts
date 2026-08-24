@@ -25,8 +25,11 @@ describe('AppointmentPaymentsService', () => {
     invoiceSequences: { upsert: jest.Mock };
     userProfiles: { findFirst: jest.Mock };
     auditLogs: { create: jest.Mock };
-    paymentTenders: { createMany: jest.Mock };
+    paymentTenders: { createMany: jest.Mock; findMany: jest.Mock };
     patientPackages: { findUnique: jest.Mock; update: jest.Mock };
+    clinics: { findUnique: jest.Mock };
+    discountApprovalRequests: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+    cashDrawerCloseouts: { create: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
   let fetchMock: jest.Mock;
@@ -53,9 +56,13 @@ describe('AppointmentPaymentsService', () => {
       invoiceSequences: { upsert: jest.fn().mockResolvedValue({ last_number: 1 }) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
       auditLogs: { create: jest.fn() },
-      paymentTenders: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      paymentTenders: { createMany: jest.fn().mockResolvedValue({ count: 1 }), findMany: jest.fn().mockResolvedValue([]) },
       // REQ054 — redeemPackageSitting()
       patientPackages: { findUnique: jest.fn(), update: jest.fn() },
+      // REQ056 — discount approval + cash close
+      clinics: { findUnique: jest.fn() },
+      discountApprovalRequests: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+      cashDrawerCloseouts: { create: jest.fn(), findMany: jest.fn() },
       // REQ023 — recordCounterPayment()'s own transaction. Runs the callback
       // against the same top-level `prisma` mock (tx === prisma here), which
       // is fine since every model this transaction touches is already
@@ -781,6 +788,320 @@ describe('AppointmentPaymentsService', () => {
       expect(prisma.appointmentPayments.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ amount: 40000 }) }),
       );
+    });
+
+    // REQ056 (US-BIL-03) — discount at or below the org's threshold.
+    describe('discount (below threshold, applied inline)', () => {
+      it('rejects a discount with no reason given', async () => {
+        prisma.appointments.findUnique.mockResolvedValue(appointment);
+        await expect(
+          service.recordCounterPayment(
+            { appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 450 }], discount_amount: 50 } as any,
+            staffUser,
+          ),
+        ).rejects.toThrow(/requires a reason/i);
+        expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects a discount larger than the amount due', async () => {
+        prisma.appointments.findUnique.mockResolvedValue(appointment);
+        await expect(
+          service.recordCounterPayment(
+            { appointment_id: 'appt-1', tenders: [], discount_amount: 999, discount_reason: 'loyalty' } as any,
+            staffUser,
+          ),
+        ).rejects.toThrow(/cannot exceed the amount due/i);
+      });
+
+      it('requires tenders to sum to the amount AFTER the discount, not the full amount due', async () => {
+        prisma.appointments.findUnique.mockResolvedValue(appointment);
+        await expect(
+          service.recordCounterPayment(
+            { appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 500 }], discount_amount: 50, discount_reason: 'loyalty' } as any,
+            staffUser,
+          ),
+        ).rejects.toThrow(/does not match/i);
+      });
+
+      it('applies a below-threshold discount inline with no approval, stamping discount fields and a null approver', async () => {
+        prisma.appointments.findUnique.mockResolvedValue(appointment);
+        prisma.appointmentPayments.create.mockResolvedValue({ id: 'pay-new', invoice_number: 'INV/1' });
+
+        const result = await service.recordCounterPayment(
+          { appointment_id: 'appt-1', tenders: [{ tender_type: 'cash', amount: 450 }], discount_amount: 50, discount_reason: 'loyalty' } as any,
+          staffUser,
+        );
+
+        expect(result).toEqual({ success: true, payment_id: 'pay-new', invoice_number: 'INV/1' });
+        expect(prisma.appointmentPayments.create).toHaveBeenCalledWith(
+          expect.objectContaining({
+            data: expect.objectContaining({ amount: 45000, discount_amount: 5000, discount_reason: 'loyalty', approved_by_user_id: undefined }),
+          }),
+        );
+        expect(prisma.discountApprovalRequests.create).not.toHaveBeenCalled();
+      });
+    });
+
+    // The above-threshold "queued for approval" branch is exercised in the
+    // dedicated describe block below with a higher-priced fixture — this
+    // fixture's ₹500 price is below the default ₹1000 threshold entirely,
+    // so a discount large enough to exceed the threshold here would also
+    // exceed the amount due, hitting a different guard first.
+  });
+
+  // REQ056 (US-BIL-03) — a second appointment fixture with a higher price so
+  // an above-threshold discount (>₹1000) still leaves a non-negative amount
+  // due, genuinely exercising the queued-for-approval branch rather than the
+  // "discount exceeds amount due" guard.
+  describe('recordCounterPayment — discount above threshold (real queue path)', () => {
+    const staffUser: JwtPayload = { sub: 'staff-1', roles: ['staff'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+    const bigAppointment = {
+      id: 'appt-big',
+      patient_id: 'patient-1',
+      clinic_id: 'clinic-a',
+      clinic: { client_org_id: 'org-a' },
+      product: { price: 500000 }, // ₹5000.00
+      patient: { patient_category: null },
+    };
+
+    it('queues a request and returns pending_approval_id, creating no payment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(bigAppointment);
+      prisma.discountApprovalRequests.create.mockResolvedValue({ id: 'req-1' });
+
+      const result = await service.recordCounterPayment(
+        {
+          appointment_id: 'appt-big',
+          tenders: [{ tender_type: 'cash', amount: 3500 }],
+          discount_amount: 1500,
+          discount_reason: 'manager comp',
+        } as any,
+        staffUser,
+      );
+
+      expect(result).toEqual({ success: true, pending_approval_id: 'req-1' });
+      expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+      expect(prisma.discountApprovalRequests.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            appointment_id: 'appt-big',
+            clinic_id: 'clinic-a',
+            client_org_id: 'org-a',
+            requested_by_user_id: 'staff-1',
+            discount_amount: 150000,
+            discount_reason: 'manager comp',
+            expected_amount_paise: 500000,
+          }),
+        }),
+      );
+    });
+
+    it('respects a higher org-configured threshold, applying inline what would otherwise queue', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({
+        ...bigAppointment,
+        clinic: { client_org_id: 'org-a', client_organization: { discount_approval_threshold_paise: 500000 } },
+      });
+      prisma.appointmentPayments.create.mockResolvedValue({ id: 'pay-new' });
+
+      const result = await service.recordCounterPayment(
+        {
+          appointment_id: 'appt-big',
+          tenders: [{ tender_type: 'cash', amount: 3500 }],
+          discount_amount: 1500,
+          discount_reason: 'manager comp',
+        } as any,
+        staffUser,
+      );
+
+      expect(result).toEqual({ success: true, payment_id: 'pay-new', invoice_number: undefined });
+      expect(prisma.discountApprovalRequests.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // REQ056 (US-BIL-03).
+  describe('decideDiscountApproval', () => {
+    const managerUser: JwtPayload = { sub: 'mgr-1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+    const pendingRequest = {
+      id: 'req-1',
+      status: 'pending',
+      client_org_id: 'org-a',
+      requested_by_user_id: 'staff-1',
+      discount_amount: 150000,
+      discount_reason: 'manager comp',
+      expected_amount_paise: 500000,
+      tenders_json: [{ tender_type: 'cash', amountPaise: 350000, reference: null }],
+      appointment: {
+        id: 'appt-big',
+        clinic_id: 'clinic-a',
+        patient_id: 'patient-1',
+        clinic: { client_org_id: 'org-a' },
+      },
+    };
+
+    it('rejects a nonexistent request', async () => {
+      prisma.discountApprovalRequests.findUnique.mockResolvedValue(null);
+      await expect(
+        service.decideDiscountApproval({ request_id: 'nope', decision: 'approve' } as any, managerUser),
+      ).rejects.toThrow('Discount request not found');
+    });
+
+    it('rejects a cross-org request (never confirms cross-tenant existence)', async () => {
+      prisma.discountApprovalRequests.findUnique.mockResolvedValue({ ...pendingRequest, client_org_id: 'org-b' });
+      await expect(
+        service.decideDiscountApproval({ request_id: 'req-1', decision: 'approve' } as any, managerUser),
+      ).rejects.toThrow('Discount request not found');
+    });
+
+    it('rejects a request that has already been decided', async () => {
+      prisma.discountApprovalRequests.findUnique.mockResolvedValue({ ...pendingRequest, status: 'approved' });
+      await expect(
+        service.decideDiscountApproval({ request_id: 'req-1', decision: 'approve' } as any, managerUser),
+      ).rejects.toThrow(/already been decided/i);
+    });
+
+    it('rejects the requester approving their own request, even if they hold a manager+ role', async () => {
+      prisma.discountApprovalRequests.findUnique.mockResolvedValue(pendingRequest);
+      const selfApprover = { ...managerUser, sub: 'staff-1' };
+      await expect(
+        service.decideDiscountApproval({ request_id: 'req-1', decision: 'approve' } as any, selfApprover),
+      ).rejects.toThrow(/cannot approve your own/i);
+    });
+
+    it('rejecting a request creates no payment and marks it rejected', async () => {
+      prisma.discountApprovalRequests.findUnique.mockResolvedValue(pendingRequest);
+      const result = await service.decideDiscountApproval({ request_id: 'req-1', decision: 'reject' } as any, managerUser);
+      expect(result).toEqual({ success: true });
+      expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+      expect(prisma.discountApprovalRequests.update).toHaveBeenCalledWith({
+        where: { id: 'req-1' },
+        data: { status: 'rejected', approved_by_user_id: 'mgr-1', decided_at: expect.any(Date) },
+      });
+    });
+
+    it('approving replays the queued tenders, creates the payment, and stamps the approver', async () => {
+      prisma.discountApprovalRequests.findUnique.mockResolvedValue(pendingRequest);
+      prisma.appointmentPayments.create.mockResolvedValue({ id: 'pay-new', invoice_number: 'INV/1' });
+
+      const result = await service.decideDiscountApproval({ request_id: 'req-1', decision: 'approve' } as any, managerUser);
+
+      expect(result).toEqual({ success: true, payment_id: 'pay-new' });
+      expect(prisma.appointmentPayments.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ amount: 350000, discount_amount: 150000, approved_by_user_id: 'mgr-1' }),
+        }),
+      );
+      expect(prisma.paymentTenders.createMany).toHaveBeenCalledWith({
+        data: [{ appointment_payment_id: 'pay-new', tender_type: 'cash', amount: 350000, reference: undefined, recorded_by_user_id: 'staff-1' }],
+      });
+      expect(prisma.discountApprovalRequests.update).toHaveBeenCalledWith({
+        where: { id: 'req-1' },
+        data: { status: 'approved', approved_by_user_id: 'mgr-1', decided_at: expect.any(Date), resulting_payment_id: 'pay-new' },
+      });
+    });
+  });
+
+  // REQ056 (US-BIL-04, scoped subset).
+  describe('closeCashDrawer', () => {
+    const staffUser: JwtPayload = { sub: 'staff-1', roles: ['staff'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+    const clinicA = { id: 'clinic-a', client_org_id: 'org-a', is_deleted: false };
+
+    it('rejects a clinic outside the caller\'s org', async () => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-b', client_org_id: 'org-b', is_deleted: false });
+      const result = await service.closeCashDrawer(
+        { clinic_id: 'clinic-b', business_date: '2026-08-25', counted: [{ tender_type: 'cash', amount: 100 }] } as any,
+        staffUser,
+      );
+      expect(result).toEqual({ success: false, message: 'Clinic not found' });
+      expect(prisma.cashDrawerCloseouts.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects an invalid business_date', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicA);
+      const result = await service.closeCashDrawer(
+        { clinic_id: 'clinic-a', business_date: 'not-a-date', counted: [{ tender_type: 'cash', amount: 100 }] } as any,
+        staffUser,
+      );
+      expect(result.success).toBe(false);
+    });
+
+    it('computes expected totals server-side from real succeeded tenders, and reports variance against the counted totals', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicA);
+      prisma.paymentTenders.findMany.mockResolvedValue([
+        { tender_type: 'cash', amount: 30000 },
+        { tender_type: 'cash', amount: 20000 },
+        { tender_type: 'upi', amount: 15000 },
+      ]);
+      prisma.cashDrawerCloseouts.create.mockResolvedValue({
+        id: 'close-1', clinic_id: 'clinic-a', closed_by_user_id: 'staff-1', business_date: new Date('2026-08-25T00:00:00.000Z'),
+        total_expected_paise: 65000, total_counted_paise: 60000, variance_paise: -5000, notes: null, created_at: new Date(),
+      });
+
+      const result = await service.closeCashDrawer(
+        {
+          clinic_id: 'clinic-a',
+          business_date: '2026-08-25',
+          counted: [{ tender_type: 'cash', amount: 450 }, { tender_type: 'upi', amount: 150 }],
+        } as any,
+        staffUser,
+      );
+
+      expect(result.success).toBe(true);
+      expect(prisma.cashDrawerCloseouts.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({
+            clinic_id: 'clinic-a',
+            total_expected_paise: 65000,
+            total_counted_paise: 60000,
+            variance_paise: -5000,
+            breakdown_json: { cash: { expected_paise: 50000, counted_paise: 45000 }, upi: { expected_paise: 15000, counted_paise: 15000 } },
+          }),
+        }),
+      );
+      expect(result.closeout?.variance).toBe(-50);
+    });
+
+    it('rejects a second close attempt for an already-closed clinic/date (unique constraint)', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicA);
+      prisma.paymentTenders.findMany.mockResolvedValue([]);
+      const conflict: any = new Error('Unique constraint failed');
+      conflict.code = 'P2002';
+      prisma.cashDrawerCloseouts.create.mockRejectedValue(conflict);
+
+      const result = await service.closeCashDrawer(
+        { clinic_id: 'clinic-a', business_date: '2026-08-25', counted: [{ tender_type: 'cash', amount: 100 }] } as any,
+        staffUser,
+      );
+
+      expect(result).toEqual({ success: false, message: "This clinic's drawer has already been closed for this date" });
+    });
+  });
+
+  // REQ056 (US-BIL-03/US-BIL-04) — list-query org scoping.
+  describe('discountApprovalRequests / cashDrawerCloseouts (list queries)', () => {
+    const managerUser: JwtPayload = { sub: 'mgr-1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+
+    it('discountApprovalRequests scopes to the caller\'s own org', async () => {
+      prisma.discountApprovalRequests.findMany.mockResolvedValue([]);
+      await service.discountApprovalRequests(undefined, managerUser);
+      expect(prisma.discountApprovalRequests.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('cashDrawerCloseouts scopes to the caller\'s own org and reconstructs the breakdown from stored JSON', async () => {
+      prisma.cashDrawerCloseouts.findMany.mockResolvedValue([
+        {
+          id: 'close-1', clinic_id: 'clinic-a', closed_by_user_id: 'staff-1', business_date: new Date('2026-08-25T00:00:00.000Z'),
+          breakdown_json: { cash: { expected_paise: 50000, counted_paise: 45000 } },
+          total_expected_paise: 50000, total_counted_paise: 45000, variance_paise: -5000, notes: null, created_at: new Date(),
+        },
+      ]);
+      const result = await service.cashDrawerCloseouts(undefined, managerUser);
+      expect(prisma.cashDrawerCloseouts.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
+      );
+      expect(result[0].breakdown).toEqual([{ tender_type: 'cash', expected: 500, counted: 450, variance: -50 }]);
+      expect(result[0].total_expected).toBe(500);
+      expect(result[0].variance).toBe(-50);
     });
   });
 

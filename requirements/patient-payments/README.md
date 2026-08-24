@@ -13,6 +13,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | REQ040 | improvement | Razorpay webhook, pending-payment reconciliation, and order-creation abuse hardening | done | 2026-08-23 | 2026-08-23 | REQ004 | [REQ040-patient-payments-2026-08-23-razorpay-webhook-and-order-abuse-hardening.md](./improvement/REQ040-patient-payments-2026-08-23-razorpay-webhook-and-order-abuse-hardening.md) |
+| REQ056 | improvement | Day-end cash close + discount-approval workflow | in-progress | 2026-08-25 | 2026-08-25 | REQ023 | [REQ056-patient-payments-2026-08-25-cash-close-and-discount-approval.md](./improvement/REQ056-patient-payments-2026-08-25-cash-close-and-discount-approval.md) |
 
 ## bug
 

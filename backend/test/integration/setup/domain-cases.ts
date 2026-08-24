@@ -408,6 +408,18 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager'],
   },
   {
+    // REQ056 (US-BIL-03). Same 'appointment-payments' domain/directory as
+    // getTransactionsByDate above -- a second CASES row on the same
+    // resolver, exercising the new discount-approval-requests query.
+    domain: 'appointment-payments',
+    what: 'discountApprovalRequests',
+    query: `{ discountApprovalRequests { id } }`,
+    ids: (d) => (d.discountApprovalRequests ?? []).map((x: any) => x.id),
+    aId: IDS.discountRequestA,
+    bId: IDS.discountRequestB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
     // REQ029 (US-RPT-03). Own client_org_id.
     domain: 'scheduled-reports',
     what: 'scheduledReports',

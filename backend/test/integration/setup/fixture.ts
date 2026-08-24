@@ -114,6 +114,9 @@ export const IDS = {
   // REQ055 -- branch-overrides domain.
   branchOverrideA: u('d19'),
   branchOverrideB: u('d20'),
+  // REQ056 -- discount-approval-requests domain.
+  discountRequestA: u('d21'),
+  discountRequestB: u('d22'),
   // REQ014 -- departments domain.
   departmentA: u('d11'),
   departmentB: u('d12'),
@@ -484,6 +487,23 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.branchOverrideA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, product_id: IDS.productA, mode: 'override', override_price: 30000 },
       { id: IDS.branchOverrideB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, product_id: IDS.productB, mode: 'override', override_price: 40000 },
+    ],
+  });
+
+  // REQ056 -- one pending discount-approval request per org, on the
+  // existing appointmentA/B fixtures.
+  await prisma.discountApprovalRequests.createMany({
+    data: [
+      {
+        id: IDS.discountRequestA, appointment_id: IDS.appointmentA, clinic_id: IDS.clinicA, client_org_id: IDS.orgA,
+        requested_by_user_id: IDS.userStaffA, discount_amount: 150000, discount_reason: 'fixture', expected_amount_paise: 500000,
+        tenders_json: [{ tender_type: 'cash', amountPaise: 350000, reference: null }],
+      },
+      {
+        id: IDS.discountRequestB, appointment_id: IDS.appointmentB, clinic_id: IDS.clinicB, client_org_id: IDS.orgB,
+        requested_by_user_id: IDS.userManagerB, discount_amount: 150000, discount_reason: 'fixture', expected_amount_paise: 500000,
+        tenders_json: [{ tender_type: 'cash', amountPaise: 350000, reference: null }],
+      },
     ],
   });
 

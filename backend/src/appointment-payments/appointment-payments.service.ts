@@ -2,7 +2,13 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { VerifyRazorpayPaymentInput, RecordCounterPaymentInput, RedeemPackageSittingInput } from './dto/appointment-payment.input';
+import {
+  VerifyRazorpayPaymentInput,
+  RecordCounterPaymentInput,
+  RedeemPackageSittingInput,
+  DecideDiscountApprovalInput,
+  CloseCashDrawerInput,
+} from './dto/appointment-payment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, isSameOrg } from '../common/scoping/tenant-scope';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
@@ -12,6 +18,7 @@ import { BranchOverridesService } from '../branch-overrides/branch-overrides.ser
 
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
 const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
+const PAISE_TO_RUPEES = (paise: number) => paise / 100;
 
 // Indian financial year: April 1 -- March 31. A payment captured in
 // Jan-Mar 2027 belongs to FY "2026-27", not "2027-28".
@@ -158,6 +165,67 @@ export class AppointmentPaymentsService {
     }
   }
 
+  // Shared by recordCounterPayment's own inline (below-threshold) path and
+  // decideDiscountApproval's approve path — the actual payment-creation
+  // transaction, confirm-if-awaiting-payment, and webhook dispatch, so
+  // there is exactly one place that ever creates a real AppointmentPayments
+  // row for a counter payment, whether or not a discount needed approval.
+  private async finalizeCounterPayment(
+    appointment: { id: string; clinic_id: string; patient_id: string; clinic: { client_org_id: string | null } },
+    tendersPaise: { tender_type: string; reference?: string; amountPaise: number }[],
+    netAmountPaise: number,
+    discountAmountPaise: number,
+    discountReason: string | undefined,
+    approvedByUserId: string | null,
+    recordedByUserId: string,
+  ) {
+    const invoiceDetails = await this.invoiceDetailsForSuccess(appointment.clinic_id, appointment.id);
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const created = await tx.appointmentPayments.create({
+        data: {
+          appointment_id: appointment.id,
+          patient_id: appointment.patient_id,
+          clinic_id: appointment.clinic_id,
+          client_org_id: appointment.clinic.client_org_id,
+          amount: netAmountPaise,
+          currency: 'INR',
+          status: 'succeeded',
+          discount_amount: discountAmountPaise,
+          discount_reason: discountReason,
+          approved_by_user_id: approvedByUserId ?? undefined,
+          ...invoiceDetails,
+        },
+      });
+      await tx.paymentTenders.createMany({
+        data: tendersPaise.map((t) => ({
+          appointment_payment_id: created.id,
+          tender_type: t.tender_type,
+          amount: t.amountPaise,
+          reference: t.reference,
+          recorded_by_user_id: recordedByUserId,
+        })),
+      });
+      return created;
+    });
+    await this.confirmAppointmentIfAwaitingPayment(appointment.id);
+    if (appointment.clinic.client_org_id) {
+      await this.webhookDispatch.fireEvent(appointment.clinic.client_org_id, 'payment.succeeded', {
+        appointment_id: appointment.id,
+        amount: netAmountPaise,
+      });
+    }
+    return payment;
+  }
+
+  // Same "return the clinic row itself, or null" shape as
+  // branch-overrides.service.ts's own findScopedClinic.
+  private async findScopedClinic(clinicId: string, user: JwtPayload) {
+    const clinic = await this.prisma.clinics.findUnique({ where: { id: clinicId } });
+    if (!clinic || clinic.is_deleted) return null;
+    if (user.client_org_id && clinic.client_org_id !== user.client_org_id) return null;
+    return clinic;
+  }
+
   // REQ023 (US-BIL-01, scoped subset) — front-desk mixed-tender counter
   // billing: cash/UPI/card/cheque, manually recorded, closing an
   // appointment's bill without going through Razorpay at all. Unlike
@@ -170,10 +238,18 @@ export class AppointmentPaymentsService {
   // exactly the resolved amount due, or the whole call is rejected before
   // any write. Partial-payment tracking is a separate, deferred US-BIL-*
   // concern (PLAN064).
+  //
+  // REQ056 (US-BIL-03) — a discount at or below the org's configured
+  // threshold is applied inline, right here, with no approval step at all
+  // (approved_by_user_id stays null — there's nothing to approve). A
+  // discount ABOVE the threshold is never applied inline: this method
+  // queues a DiscountApprovalRequests row instead and returns without
+  // creating any payment — decideDiscountApproval is the only path that
+  // can ever finalize it.
   async recordCounterPayment(input: RecordCounterPaymentInput, user: JwtPayload) {
     const appointment = await this.prisma.appointments.findUnique({
       where: { id: input.appointment_id },
-      include: { clinic: true, product: true, patient: true },
+      include: { clinic: { include: { client_organization: true } }, product: true, patient: true },
     });
     if (!appointment) throw new BadRequestException('Appointment not found');
     if (!isSameOrg(user, appointment.clinic.client_org_id)) {
@@ -189,49 +265,225 @@ export class AppointmentPaymentsService {
       throw new BadRequestException('This appointment has no priced product to bill');
     }
 
+    const discountAmountPaise = input.discount_amount ? RUPEES_TO_PAISE(input.discount_amount) : 0;
+    if (discountAmountPaise > 0 && !input.discount_reason?.trim()) {
+      throw new BadRequestException('A discount requires a reason');
+    }
+    if (discountAmountPaise > expectedAmount) {
+      throw new BadRequestException('Discount cannot exceed the amount due');
+    }
+    const netAmount = expectedAmount - discountAmountPaise;
+
     const tendersPaise = input.tenders.map((t) => ({ ...t, amountPaise: RUPEES_TO_PAISE(t.amount) }));
     const totalPaise = tendersPaise.reduce((sum, t) => sum + t.amountPaise, 0);
-    if (totalPaise !== expectedAmount) {
+    if (totalPaise !== netAmount) {
       throw new BadRequestException(
-        `Tenders total ₹${(totalPaise / 100).toFixed(2)} does not match the amount due ₹${(expectedAmount / 100).toFixed(2)}`,
+        `Tenders total ₹${(totalPaise / 100).toFixed(2)} does not match the amount due ₹${(netAmount / 100).toFixed(2)}`,
       );
     }
 
-    const invoiceDetails = await this.invoiceDetailsForSuccess(appointment.clinic_id, appointment.id);
-
-    const payment = await this.prisma.$transaction(async (tx) => {
-      const created = await tx.appointmentPayments.create({
+    const threshold = appointment.clinic.client_organization?.discount_approval_threshold_paise ?? 100000;
+    if (discountAmountPaise > threshold) {
+      const request = await this.prisma.discountApprovalRequests.create({
         data: {
           appointment_id: appointment.id,
-          patient_id: appointment.patient_id,
           clinic_id: appointment.clinic_id,
           client_org_id: appointment.clinic.client_org_id,
-          amount: totalPaise,
-          currency: 'INR',
-          status: 'succeeded',
-          ...invoiceDetails,
+          requested_by_user_id: user.sub,
+          discount_amount: discountAmountPaise,
+          discount_reason: input.discount_reason as string,
+          expected_amount_paise: expectedAmount,
+          tenders_json: tendersPaise.map((t) => ({ tender_type: t.tender_type, amountPaise: t.amountPaise, reference: t.reference ?? null })),
         },
       });
-      await tx.paymentTenders.createMany({
-        data: tendersPaise.map((t) => ({
-          appointment_payment_id: created.id,
-          tender_type: t.tender_type,
-          amount: t.amountPaise,
-          reference: t.reference,
-          recorded_by_user_id: user.sub,
-        })),
-      });
-      return created;
-    });
-    await this.confirmAppointmentIfAwaitingPayment(appointment.id);
-    if (appointment.clinic.client_org_id) {
-      await this.webhookDispatch.fireEvent(appointment.clinic.client_org_id, 'payment.succeeded', {
-        appointment_id: appointment.id,
-        amount: totalPaise,
-      });
+      return { success: true, pending_approval_id: request.id };
     }
 
+    const payment = await this.finalizeCounterPayment(appointment, tendersPaise, netAmount, discountAmountPaise, input.discount_reason, null, user.sub);
     return { success: true, payment_id: payment.id, invoice_number: payment.invoice_number ?? undefined };
+  }
+
+  private discountRequestToGraphQL(row: any) {
+    return {
+      id: row.id,
+      appointment_id: row.appointment_id,
+      clinic_id: row.clinic_id,
+      requested_by_user_id: row.requested_by_user_id,
+      discount_amount: PAISE_TO_RUPEES(row.discount_amount),
+      discount_reason: row.discount_reason,
+      expected_amount: PAISE_TO_RUPEES(row.expected_amount_paise),
+      status: row.status,
+      approved_by_user_id: row.approved_by_user_id ?? undefined,
+      decided_at: row.decided_at ?? undefined,
+      created_at: row.created_at,
+    };
+  }
+
+  // clinic_id optional, matching this batch's own tenancy-matrix-
+  // compatibility precedent (packages/checklist/branch-overrides).
+  async discountApprovalRequests(clinicId: string | undefined, user: JwtPayload) {
+    const rows = await this.prisma.discountApprovalRequests.findMany({
+      where: { ...(clinicId ? { clinic_id: clinicId } : {}), ...orgScope(user) },
+      orderBy: { created_at: 'desc' },
+    });
+    return rows.map((r) => this.discountRequestToGraphQL(r));
+  }
+
+  // REQ056 (US-BIL-03) — a distinct, higher-role-gated mutation (see the
+  // resolver's own @Auth). The requester can never approve their own
+  // request, even if they also happen to hold a manager+ role — the whole
+  // point of the control is a genuinely second party reviewing it.
+  async decideDiscountApproval(input: DecideDiscountApprovalInput, user: JwtPayload) {
+    const request = await this.prisma.discountApprovalRequests.findUnique({
+      where: { id: input.request_id },
+      include: { appointment: { include: { clinic: true } } },
+    });
+    if (!request) throw new BadRequestException('Discount request not found');
+    if (!isSameOrg(user, request.client_org_id)) {
+      throw new BadRequestException('Discount request not found');
+    }
+    if (request.status !== 'pending') {
+      throw new BadRequestException('This discount request has already been decided');
+    }
+    if (request.requested_by_user_id === user.sub) {
+      throw new BadRequestException('Cannot approve your own discount request');
+    }
+
+    if (input.decision === 'reject') {
+      await this.prisma.discountApprovalRequests.update({
+        where: { id: request.id },
+        data: { status: 'rejected', approved_by_user_id: user.sub, decided_at: new Date() },
+      });
+      return { success: true };
+    }
+
+    const tendersPaise = (request.tenders_json as any[]).map((t) => ({
+      tender_type: t.tender_type,
+      amountPaise: t.amountPaise,
+      reference: t.reference ?? undefined,
+    }));
+    const netAmount = request.expected_amount_paise - request.discount_amount;
+    const payment = await this.finalizeCounterPayment(
+      request.appointment,
+      tendersPaise,
+      netAmount,
+      request.discount_amount,
+      request.discount_reason,
+      user.sub,
+      request.requested_by_user_id,
+    );
+    await this.prisma.discountApprovalRequests.update({
+      where: { id: request.id },
+      data: { status: 'approved', approved_by_user_id: user.sub, decided_at: new Date(), resulting_payment_id: payment.id },
+    });
+    return { success: true, payment_id: payment.id };
+  }
+
+  private closeoutToGraphQL(row: any, breakdown: { tender_type: string; expected_paise: number; counted_paise: number }[]) {
+    return {
+      id: row.id,
+      clinic_id: row.clinic_id,
+      closed_by_user_id: row.closed_by_user_id,
+      business_date: row.business_date,
+      breakdown: breakdown.map((b) => ({
+        tender_type: b.tender_type,
+        expected: PAISE_TO_RUPEES(b.expected_paise),
+        counted: PAISE_TO_RUPEES(b.counted_paise),
+        variance: PAISE_TO_RUPEES(b.counted_paise - b.expected_paise),
+      })),
+      total_expected: PAISE_TO_RUPEES(row.total_expected_paise),
+      total_counted: PAISE_TO_RUPEES(row.total_counted_paise),
+      variance: PAISE_TO_RUPEES(row.variance_paise),
+      notes: row.notes ?? undefined,
+      created_at: row.created_at,
+    };
+  }
+
+  // REQ056 (US-BIL-04, scoped subset) — expected totals are computed
+  // server-side from real succeeded AppointmentPayments/PaymentTenders
+  // rows for the given clinic/date, never trusted from the caller; only
+  // the counted (physical) totals come from the input. One closeout per
+  // (clinic, business_date) — the unique constraint rejects a second
+  // attempt to close an already-closed date outright, rather than silently
+  // overwriting an earlier count. Denomination-level breakdown and formal
+  // shift handover are explicitly deferred — see REQ056's own doc.
+  async closeCashDrawer(input: CloseCashDrawerInput, user: JwtPayload) {
+    const clinic = await this.findScopedClinic(input.clinic_id, user);
+    if (!clinic) return { success: false, message: 'Clinic not found' };
+
+    const businessDate = new Date(`${input.business_date}T00:00:00.000Z`);
+    if (Number.isNaN(businessDate.getTime())) {
+      return { success: false, message: 'business_date must be a valid YYYY-MM-DD date' };
+    }
+    const nextDate = new Date(businessDate.getTime() + 24 * 60 * 60 * 1000);
+
+    const tenders = await this.prisma.paymentTenders.findMany({
+      where: {
+        appointment_payment: {
+          clinic_id: clinic.id,
+          status: 'succeeded',
+          created_at: { gte: businessDate, lt: nextDate },
+        },
+      },
+    });
+    const expectedByType = new Map<string, number>();
+    for (const t of tenders) {
+      expectedByType.set(t.tender_type, (expectedByType.get(t.tender_type) ?? 0) + t.amount);
+    }
+    const countedByType = new Map<string, number>();
+    for (const c of input.counted) {
+      countedByType.set(c.tender_type, (countedByType.get(c.tender_type) ?? 0) + RUPEES_TO_PAISE(c.amount));
+    }
+    const allTypes = new Set([...expectedByType.keys(), ...countedByType.keys()]);
+    const breakdown = Array.from(allTypes).map((tender_type) => ({
+      tender_type,
+      expected_paise: expectedByType.get(tender_type) ?? 0,
+      counted_paise: countedByType.get(tender_type) ?? 0,
+    }));
+    const totalExpected = breakdown.reduce((sum, b) => sum + b.expected_paise, 0);
+    const totalCounted = breakdown.reduce((sum, b) => sum + b.counted_paise, 0);
+
+    try {
+      const closeout = await this.prisma.cashDrawerCloseouts.create({
+        data: {
+          clinic_id: clinic.id,
+          client_org_id: clinic.client_org_id,
+          closed_by_user_id: user.sub,
+          business_date: businessDate,
+          breakdown_json: Object.fromEntries(
+            breakdown.map((b) => [b.tender_type, { expected_paise: b.expected_paise, counted_paise: b.counted_paise }]),
+          ),
+          total_expected_paise: totalExpected,
+          total_counted_paise: totalCounted,
+          variance_paise: totalCounted - totalExpected,
+          notes: input.notes,
+        },
+      });
+      return { success: true, closeout: this.closeoutToGraphQL(closeout, breakdown) };
+    } catch (e: any) {
+      if (e.code === 'P2002') {
+        return { success: false, message: "This clinic's drawer has already been closed for this date" };
+      }
+      return { success: false, message: e.message ?? 'Failed to close cash drawer' };
+    }
+  }
+
+  // clinic_id optional, matching this batch's own tenancy-matrix-
+  // compatibility precedent.
+  async cashDrawerCloseouts(clinicId: string | undefined, user: JwtPayload) {
+    const rows = await this.prisma.cashDrawerCloseouts.findMany({
+      where: { ...(clinicId ? { clinic_id: clinicId } : {}), ...orgScope(user) },
+      orderBy: { business_date: 'desc' },
+    });
+    return rows.map((row) => {
+      const json = (row.breakdown_json ?? {}) as Record<string, { expected_paise: number; counted_paise: number }>;
+      const breakdown = Object.entries(json).map(([tender_type, v]) => ({
+        tender_type,
+        expected_paise: v.expected_paise,
+        counted_paise: v.counted_paise,
+      }));
+      return this.closeoutToGraphQL(row, breakdown);
+    });
   }
 
   // REQ054 (US-CAT-01) — a sibling mutation to recordCounterPayment, not a
