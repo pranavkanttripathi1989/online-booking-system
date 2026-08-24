@@ -107,6 +107,8 @@ const ClinicianPatients     = lazy(() => import('./pages/clinician/Patients'))
 const EncounterWorkspace    = lazy(() => import('./pages/clinician/EncounterWorkspace'))
 const PrescriptionBuilder   = lazy(() => import('./pages/clinician/PrescriptionBuilder'))
 const PrescriptionPrint     = lazy(() => import('./pages/prescriptions/PrescriptionPrint'))
+const QueueBoardPage        = lazy(() => import('./pages/queue/index'))
+const QueueDisplay          = lazy(() => import('./pages/queue/display'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
 const ManagerDashboard    = lazy(() => import('./pages/manager/Dashboard'))
@@ -243,6 +245,14 @@ function App() {
         } />
       </Route>
 
+      {/* ── Queue TV display — auth required, no AppShell chrome (REQ019
+          US-QUE-03): meant for a waiting-room screen, not staff navigation. */}
+      <Route element={<ProtectedRoute />}>
+        <Route path="/queue/display/:clinicianId" element={
+          <Suspense fallback={<FullPageLoader />}><QueueDisplay /></Suspense>
+        } />
+      </Route>
+
       {/* ── Protected + AppShell ─────────────────────────────────────── */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
@@ -359,6 +369,7 @@ function App() {
             {/* Shared manager/admin pages */}
             <Route path="/tasks"               element={<Suspense fallback={<ShellPageLoader />}><TasksPage /></Suspense>} />
             <Route path="/waiting-room"        element={<Suspense fallback={<ShellPageLoader />}><WaitingRoomPage /></Suspense>} />
+            <Route path="/queue"               element={<Suspense fallback={<ShellPageLoader />}><QueueBoardPage /></Suspense>} />
             <Route path="/staff"               element={<Suspense fallback={<ShellPageLoader />}><StaffPage /></Suspense>} />
             <Route path="/staff/new"            element={<Suspense fallback={<ShellPageLoader />}><StaffNew /></Suspense>} />
             <Route path="/staff/edit/:id"       element={<Suspense fallback={<ShellPageLoader />}><StaffEdit /></Suspense>} />

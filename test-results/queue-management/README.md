@@ -2,7 +2,9 @@
 
 ## requirement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR084 | requirement | Results for live queue board, queue actions, and unbilled-visits report | pass | 2026-08-24 | 2026-08-24 | TP085 | [TR084-queue-management-2026-08-24-live-queue-board-verification.md](./requirement/TR084-queue-management-2026-08-24-live-queue-board-verification.md) |
 
 ## improvement
 

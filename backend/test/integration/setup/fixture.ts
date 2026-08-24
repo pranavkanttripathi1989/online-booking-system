@@ -99,6 +99,9 @@ export const IDS = {
   drugB: u('d06'),
   prescriptionA: u('d07'),
   prescriptionB: u('d08'),
+  // REQ019 -- queue domain.
+  queueEntryA: u('d09'),
+  queueEntryB: u('d10'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -115,6 +118,8 @@ const TABLES = [
   'Attachments',
   'PrescriptionItems',
   'Prescriptions',
+  'QueueEvents',
+  'QueueEntries',
   'Encounters',
   'Resources',
   'Drugs',
@@ -365,6 +370,16 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.prescriptionA, encounter_id: IDS.encounterA, patient_id: IDS.patientA, clinician_id: IDS.clinicianA },
       { id: IDS.prescriptionB, encounter_id: IDS.encounterB, patient_id: IDS.patientB, clinician_id: IDS.clinicianB },
+    ],
+  });
+
+  // REQ019 -- one checked-in queue entry per org, scoped via
+  // clinic.client_org_id (QueueEntries has no client_org_id of its own,
+  // same shape as Appointments itself).
+  await prisma.queueEntries.createMany({
+    data: [
+      { id: IDS.queueEntryA, appointment_id: IDS.appointmentA, clinic_id: IDS.clinicA, clinician_id: IDS.clinicianA },
+      { id: IDS.queueEntryB, appointment_id: IDS.appointmentB, clinic_id: IDS.clinicB, clinician_id: IDS.clinicianB },
     ],
   });
 }

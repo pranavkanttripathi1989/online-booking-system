@@ -48,6 +48,7 @@ import EventAvailableIcon       from '@mui/icons-material/EventAvailable'
 import BadgeIcon                from '@mui/icons-material/Badge'
 import GlobeIcon                from '@mui/icons-material/Language'
 import EmailRulesIcon           from '@mui/icons-material/AlternateEmail'
+import FormatListNumberedIcon   from '@mui/icons-material/FormatListNumbered'
 import SearchRoundedIcon        from '@mui/icons-material/SearchRounded'
 import CloseRoundedIcon         from '@mui/icons-material/CloseRounded'
 import DarkModeRoundedIcon      from '@mui/icons-material/DarkModeRounded'
@@ -123,6 +124,7 @@ const NAV_CONFIG = [
   { label: 'My Patients',   path: '/clinician/patients',   icon: <GroupIcon />,              roles: ['clinician'] },
   { label: 'Patients',      path: '/patients',             icon: <GroupIcon />,              roles: ['admin','super_admin','manager','receptionist','staff'] },
   { label: 'Clinicians',    path: '/clinicians',           icon: <PersonIcon />,             roles: ['admin','super_admin','manager','receptionist','staff'] },
+  { label: 'Live Queue',    path: '/queue',                icon: <FormatListNumberedIcon />, roles: ['admin','super_admin','manager','receptionist','staff','clinician'] },
   // ── Shared ────────────────────────────────────────────────────────────────
   { label: 'Messages',      path: '/messages',             icon: <MessageIcon />,            roles: 'all', badge: 0 },
   { label: 'Staff',         path: '/staff',                icon: <BadgeIcon />,              roles: ['admin','super_admin','manager'] },

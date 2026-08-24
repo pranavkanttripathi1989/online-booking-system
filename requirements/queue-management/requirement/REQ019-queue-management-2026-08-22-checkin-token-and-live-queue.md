@@ -3,11 +3,44 @@ id: REQ019
 type: requirement
 feature: queue-management
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ017
-related: [REQ017, REQ018]
+related: [REQ017, REQ018, REQ042, PLAN058, TP085, TR084]
 ---
+
+## Status (2026-08-24)
+
+**P0 shipped** (`PLAN058`/`TP085`/`TR084`), on top of `REQ042`'s prior
+check-in/status-tracking slice: the live queue board (now-serving, next-5
+waiting, a today-only retrospective average wait — `US-QUE-03`), queue
+actions (call next, recall a stepped-away or auto-return-pending patient,
+skip/park with N-served auto-return, transfer to a colleague — `US-QUE-05`),
+and the unbilled-visits report (`US-QUE-07`). A checked-in appointment now
+materializes a real `QueueEntries` row (hooked into
+`AppointmentsService.transitionStatus()`, not a separate frontend action),
+and every open queue-board view updates live over the existing `graphql-ws`
+infrastructure — no new real-time transport, per this requirement's own
+Data Model Impact note. New `backend/src/queue/` module,
+`frontend/src/pages/queue/index.jsx` (staff board) and `display.jsx` (TV
+mode).
+
+**P1 still open**, per this requirement's own phase assignment below — not
+silently dropped: QR self-service check-in (`US-QUE-02`), a patient-facing
+live position/ETA view built on a real rolling-median throughput
+(`US-QUE-04` — this P0 slice's "average wait" is deliberately a same-day
+retrospective, not that predictive ETA), the mandatory pre-consultation
+checklist gating "call next" (`US-QUE-06`), and triage/vitals capture
+(`US-QUE-08`). Each gets its own future `PLAN###` when picked up.
+
+**Booked:walk-in token interleaving is not built** — `US-QUE-01`'s
+acceptance criterion calls for check-in to respect a configured
+booked:walk-in ratio, but `REQ017`'s own `walkin_ratio` column is
+schema-only with no runtime logic (explicitly deferred there as
+"hybrid-mode interleaving," P1). This slice's check-in (`REQ042`, already
+shipped) issues a token from booking-time sequential numbering only; the
+interleaving behavior stays blocked on `REQ017`'s own deferred item, not
+re-attempted here.
 
 # Check-in, live queue board, and wait-time estimation
 

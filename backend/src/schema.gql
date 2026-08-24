@@ -980,6 +980,7 @@ type Mutation {
   applyEncounterTemplate(input: ApplyTemplateInput!): Encounter!
   assignThread(assigneeUserId: ID!, threadId: ID!): MessageThread!
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
+  callNextInQueue(clinician_id: ID!): QueueEntry!
   cancelAppointment(id: ID!, reason: String): Appointment!
   changeMyPassword(input: ChangeMyPasswordInput!): GenericResult!
   checkInAppointment(id: ID!): Appointment!
@@ -1046,6 +1047,7 @@ type Mutation {
   markNotificationRead(id: ID!): NotificationMutationResult!
   markThreadRead(threadId: ID!): Boolean!
   orderTest(input: OrderTestInput!): TestResult!
+  recallQueueEntry(id: ID!): QueueEntry!
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
   requestOtp(input: RequestOtpInput!): GenericResult!
@@ -1060,10 +1062,12 @@ type Mutation {
   sendMessage(body: String!, threadId: ID!): MessageThread!
   setHeadOfficeClinic(id: ID!): Clinic!
   signEncounter(encounter_id: ID!): Encounter!
+  skipQueueEntry(input: SkipQueueEntryInput!): QueueEntry!
   startConsultation(id: ID!): Appointment!
   startOrganizationOnboarding(input: StartOnboardingInput!): OrganizationOnboarding!
   startTotpEnrollment: TotpEnrollment!
   toggleClinicianActive(id: ID!): Clinician!
+  transferQueueEntry(input: TransferQueueEntryInput!): QueueEntry!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
   updateCancellationRule(id: ID!, input: UpdateCancellationRuleInput!): CancellationRuleMutationResult!
@@ -1695,6 +1699,7 @@ type Query {
   availableSlots(clinician_id: ID!, date: Date!, service_id: ID): [AvailableSlot!]!
   cancellationRules: [CancellationRule!]!
   clinic(id: ID!): Clinic
+  clinicQueue(clinic_id: ID!): [QueueEntry!]!
   clinician(id: ID!): Clinician
   clinicianTypes: [ClinicianType!]!
   clinicians(clinic_id: ID, first: Int = 20, is_active: Boolean, page: Int): ClinicianPaginated!
@@ -1754,6 +1759,8 @@ type Query {
   productCategories: [ProductCategory!]!
   productSubcategories: [ProductSubcategory!]!
   products(category_id: ID, clinic_id: ID): [Product!]!
+  queueBoard(clinician_id: ID!): QueueBoard!
+  queueEntries: [QueueEntry!]!
   repeatPrescription(source_id: ID!): PrescriptionDraft!
   resource(id: ID!): Resource
   resources(clinic_id: ID): [Resource!]!
@@ -1775,6 +1782,35 @@ type Query {
   testResults(search: String, status: String, type: String): [TestResult!]!
   thread(id: ID!): MessageThread!
   threads: [MessageThread!]!
+  unbilledVisits(clinic_id: ID!): [UnbilledVisit!]!
+}
+
+type QueueBoard {
+  average_wait_minutes: Int
+  clinician_id: ID!
+  clinician_name: String!
+  now_serving: QueueEntry
+  waiting: [QueueEntry!]!
+}
+
+type QueueEntry {
+  appointment_id: ID!
+  called_at: DateTime
+  checked_in_at: DateTime!
+  clinic_id: ID!
+  clinician_id: ID!
+  events: [QueueEvent!]!
+  id: ID!
+  patient_name: String!
+  status: String!
+  token_no: Int
+}
+
+type QueueEvent {
+  action: String!
+  created_at: DateTime!
+  id: ID!
+  reason: String
 }
 
 type RazorpayOrderResult {
@@ -2005,6 +2041,12 @@ type SessionAvailability {
   startTime: String!
 }
 
+input SkipQueueEntryInput {
+  queue_entry_id: ID!
+  reason: String
+  return_after: Int
+}
+
 type SpacerBlock {
   block_date: DateTime
   clinic: BlockClinic!
@@ -2052,6 +2094,7 @@ input StartOnboardingInput {
 type Subscription {
   appointmentUpdated(clinician_id: ID): Appointment!
   messageReceived(userId: ID!): MessageThread!
+  queueUpdated(clinic_id: ID!): String!
 }
 
 type SubscriptionPlan {
@@ -2158,6 +2201,18 @@ type TransactionPatient {
 
 type TransactionProduct {
   name: String!
+}
+
+input TransferQueueEntryInput {
+  queue_entry_id: ID!
+  target_clinician_id: ID!
+}
+
+type UnbilledVisit {
+  appointment_id: ID!
+  appointment_time: DateTime!
+  clinician_name: String!
+  patient_name: String!
 }
 
 input UpdateAvailabilityInput {

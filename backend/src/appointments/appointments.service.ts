@@ -8,6 +8,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScopeVia } from '../common/scoping/tenant-scope';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
+import { QueueService } from '../queue/queue.service';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -47,6 +48,7 @@ export class AppointmentsService {
     private readonly prisma: PrismaService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly notificationTrigger: NotificationTriggerService,
+    private readonly queueService: QueueService,
   ) {}
 
   // REQ008/PLAN017 — notify the clinician's own login account, if linked.
@@ -439,10 +441,15 @@ export class AppointmentsService {
       await tx.appointmentStatusLogs.create({
         data: { appointment_id: id, status, reason, changed_by_user_id: user.sub },
       });
+      // REQ019: keeps the queue entry (if one exists) and the appointment's
+      // own status as one atomic write — see queue.service.ts's own comment
+      // on why this runs inside the same transaction rather than after it.
+      await this.queueService.syncFromAppointmentStatus(tx, row, status);
       return row;
     });
     const result = this.toGraphQL(updated);
     await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
+    await this.queueService.publish(updated.clinic_id);
     if (status === 'cancelled' && appointment.status !== 'cancelled') {
       await this.notifyCancellation(result);
     }

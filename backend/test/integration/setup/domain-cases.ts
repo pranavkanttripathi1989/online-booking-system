@@ -265,6 +265,17 @@ export const CASES: DomainCase[] = [
     bId: IDS.prescriptionB,
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
   },
+  {
+    // REQ019. Scoped indirectly via clinic.client_org_id (QueueEntries has
+    // no client_org_id of its own), same shape as Appointments itself.
+    domain: 'queue',
+    what: 'queueEntries',
+    query: `{ queueEntries { id } }`,
+    ids: (d) => (d.queueEntries ?? []).map((x: any) => x.id),
+    aId: IDS.queueEntryA,
+    bId: IDS.queueEntryB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
+  },
 ];
 
 /** Domains covered by this matrix — read by matrix-coverage.int-spec.ts. */

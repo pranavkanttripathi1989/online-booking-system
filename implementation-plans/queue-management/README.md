@@ -2,7 +2,9 @@
 
 ## requirement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN058 | requirement | Live queue board, queue actions, and unbilled-visits report, P0 slice | done | 2026-08-24 | 2026-08-24 | REQ019 | [PLAN058-queue-management-2026-08-24-live-queue-board-and-actions.md](./requirement/PLAN058-queue-management-2026-08-24-live-queue-board-and-actions.md) |
 
 ## improvement
 

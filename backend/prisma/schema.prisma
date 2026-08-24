@@ -231,6 +231,7 @@ model Appointments {
   payments            AppointmentPayments[]
   resources           AppointmentResources[]
   encounter           Encounters?
+  queue_entry         QueueEntries?
 
   @@index([clinician_id, appointment_time])
   @@index([clinic_id, appointment_time])
@@ -495,6 +496,59 @@ model PrescriptionSetItems {
   @@index([prescription_set_id])
 }
 
+// REQ019 (Phase 1, slice 4) -- check-in, live queue board, and queue
+// actions, P0 subset. No client_org_id of its own -- scoped via
+// clinic.client_org_id, the same precedent Appointments itself uses (this
+// table is genuinely runtime state for an Appointment, not a standalone
+// clinical/tenant record like Encounters). One row per checked-in
+// appointment (created at check-in, not at booking).
+model QueueEntries {
+  id                String    @id @default(uuid())
+  appointment_id    String    @unique
+  clinic_id         String
+  clinician_id      String
+  token_no          Int?
+  // waiting | called | in_progress | done | skipped | no_show. Free-text,
+  // matching Appointments.status' own established additive-convention style
+  // rather than a Postgres enum (REQ042's precedent).
+  status            String    @default("waiting")
+  checked_in_at     DateTime  @default(now())
+  called_at         DateTime?
+  // US-QUE-05: set when skipped/parked; null otherwise. served_since_skip
+  // counts other patients served on this clinician's queue since the skip,
+  // and the entry auto-returns to 'waiting' once it reaches
+  // skip_return_after -- see queue.service.ts's recordServed().
+  skip_return_after Int?
+  served_since_skip Int       @default(0)
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  appointment Appointments @relation(fields: [appointment_id], references: [id])
+  clinic      Clinics      @relation(fields: [clinic_id], references: [id])
+  clinician   Clinicians   @relation(fields: [clinician_id], references: [id])
+  events      QueueEvents[]
+
+  @@index([clinic_id, status])
+  @@index([clinician_id, status])
+}
+
+// Append-only audit trail for queue actions, mirroring AppointmentStatusLogs.
+model QueueEvents {
+  id                 String   @id @default(uuid())
+  queue_entry_id     String
+  // checked_in | called | recalled | skipped | auto_recalled | transferred |
+  // started | completed | no_show
+  action             String
+  reason             String?
+  changed_by_user_id String?
+  created_at         DateTime @default(now())
+
+  queue_entry QueueEntries  @relation(fields: [queue_entry_id], references: [id], onDelete: Cascade)
+  changed_by  UserProfiles? @relation("QueueEventChangedBy", fields: [changed_by_user_id], references: [id])
+
+  @@index([queue_entry_id, created_at])
+}
+
 model AuditLogs {
   id         String   @id @default(uuid())
   user_id    String?
@@ -701,6 +755,7 @@ model Clinicians {
   encounterTemplates  EncounterTemplates[]
   prescriptions       Prescriptions[]
   prescriptionSets    PrescriptionSets[]
+  queueEntries        QueueEntries[]
 
   @@index([clinic_id, is_deleted, is_active])
 }
@@ -765,6 +820,7 @@ model Clinics {
   cancellationRules  ProductCancellationRules[]
   payments           AppointmentPayments[]
   invoiceSequences   InvoiceSequences[]
+  queueEntries       QueueEntries[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -1578,6 +1634,7 @@ model UserProfiles {
   appointmentStatusLogs AppointmentStatusLogs[] @relation("StatusLogChangedBy")
   signedEncounters   Encounters[]            @relation("EncounterSignedBy")
   encounterAddenda   EncounterAddenda[]      @relation("AddendumAuthor")
+  queueEvents        QueueEvents[]           @relation("QueueEventChangedBy")
   uploadedAttachments Attachments[]          @relation("AttachmentUploadedBy")
 
   @@index([client_org_id, is_deleted])

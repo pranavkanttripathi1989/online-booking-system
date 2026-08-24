@@ -1,0 +1,325 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
+import { QueueService } from './queue.service';
+import { PrismaService } from '../prisma/prisma.service';
+import { PUB_SUB } from '../common/pubsub.provider';
+import { JwtPayload } from '../auth/strategies/jwt.strategy';
+
+// REQ019 P0. QueueEntries has no client_org_id of its own — org isolation
+// is asserted via clinic.client_org_id (isSameOrg/orgScopeVia), mirroring
+// appointments.service.ts's own pattern for the same reason (this is
+// runtime state for an Appointment, not a standalone tenant record).
+describe('QueueService', () => {
+  let service: QueueService;
+  let prisma: any;
+  let pubSub: { publish: jest.Mock };
+
+  const staffA: JwtPayload = { sub: 'staff-a', roles: ['manager'], client_org_id: 'org-a' } as JwtPayload;
+  const staffB: JwtPayload = { sub: 'staff-b', roles: ['manager'], client_org_id: 'org-b' } as JwtPayload;
+  const clinicianA: JwtPayload = { sub: 'clin-a', roles: ['clinician'], client_org_id: 'org-a', clinician_id: 'cln-a' } as JwtPayload;
+  const clinicianOther: JwtPayload = { sub: 'clin-x', roles: ['clinician'], client_org_id: 'org-a', clinician_id: 'cln-x' } as JwtPayload;
+
+  const patient = { first_name: 'Anita', last_name: 'Sharma' };
+  const clinicianRow = { id: 'cln-a', first_name: 'Sarah', last_name: 'Mitchell', clinic_id: 'clinic-1', clinic: { client_org_id: 'org-a' } };
+  const clinicRow = { id: 'clinic-1', client_org_id: 'org-a' };
+
+  function entry(overrides: any = {}) {
+    return {
+      id: 'q-1', appointment_id: 'appt-1', clinic_id: 'clinic-1', clinician_id: 'cln-a',
+      token_no: 1, status: 'waiting', checked_in_at: new Date('2026-08-24T09:00:00Z'), called_at: null,
+      skip_return_after: null, served_since_skip: 0,
+      appointment: { patient },
+      clinic: clinicRow,
+      events: [],
+      ...overrides,
+    };
+  }
+
+  beforeEach(async () => {
+    prisma = {
+      queueEntries: {
+        findUnique: jest.fn(), findFirst: jest.fn(), findMany: jest.fn().mockResolvedValue([]),
+        update: jest.fn(), create: jest.fn(), delete: jest.fn(),
+      },
+      queueEvents: { create: jest.fn(), deleteMany: jest.fn() },
+      clinicians: { findUnique: jest.fn() },
+      clinics: { findUnique: jest.fn() },
+      appointments: { findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
+      $transaction: jest.fn((cb) => cb(prisma)),
+    };
+    pubSub = { publish: jest.fn() };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        QueueService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: PUB_SUB, useValue: pubSub },
+      ],
+    }).compile();
+    service = module.get(QueueService);
+  });
+
+  describe('queueBoard — tenant isolation and self-scoping', () => {
+    it('rejects a cross-org caller', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      await expect(service.queueBoard('cln-a', staffB)).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a clinician requesting a colleague\'s board', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      await expect(service.queueBoard('cln-a', clinicianOther)).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns now-serving, the next-5 waiting, and an average wait computed only from today\'s done entries', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(entry({ id: 'q-serving', status: 'called', called_at: new Date() }));
+      prisma.queueEntries.findMany
+        .mockResolvedValueOnce([entry({ id: 'q-2' }), entry({ id: 'q-3' })]) // waiting
+        .mockResolvedValueOnce([
+          { checked_in_at: new Date('2026-08-24T09:00:00Z'), called_at: new Date('2026-08-24T09:10:00Z') },
+        ]); // doneToday
+      const board = await service.queueBoard('cln-a', staffA);
+      expect(board.now_serving?.id).toBe('q-serving');
+      expect(board.waiting).toHaveLength(2);
+      expect(board.average_wait_minutes).toBe(10);
+    });
+  });
+
+  describe('queueEntries — org-wide listing (tenancy matrix)', () => {
+    it('scopes to the caller\'s own org via the clinic relation', async () => {
+      await service.queueEntries(staffA);
+      const where = prisma.queueEntries.findMany.mock.calls[0][0].where;
+      expect(where).toEqual(expect.objectContaining({ clinic: { client_org_id: 'org-a' } }));
+    });
+
+    it('additionally restricts a clinician caller to their own queue', async () => {
+      await service.queueEntries(clinicianA);
+      const where = prisma.queueEntries.findMany.mock.calls[0][0].where;
+      expect(where.clinician_id).toBe('cln-a');
+    });
+  });
+
+  describe('clinicQueue — self-scoping', () => {
+    it('restricts a clinician caller to only their own queue', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicRow);
+      await service.clinicQueue('clinic-1', clinicianA);
+      const where = prisma.queueEntries.findMany.mock.calls[0][0].where;
+      expect(where.clinician_id).toBe('cln-a');
+    });
+
+    it('does not restrict a staff caller by clinician', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicRow);
+      await service.clinicQueue('clinic-1', staffA);
+      const where = prisma.queueEntries.findMany.mock.calls[0][0].where;
+      expect(where.clinician_id).toBeUndefined();
+    });
+  });
+
+  describe('callNext', () => {
+    it('rejects when no one is waiting', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(null);
+      await expect(service.callNext('cln-a', staffA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('calls the earliest waiting entry, sets called_at, logs the event, and publishes', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(entry());
+      prisma.queueEntries.update.mockResolvedValue(entry({ status: 'called', called_at: new Date() }));
+      const result = await service.callNext('cln-a', staffA);
+      expect(prisma.queueEntries.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'q-1' }, data: expect.objectContaining({ status: 'called' }),
+      }));
+      expect(prisma.queueEvents.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ action: 'called' }),
+      }));
+      expect(pubSub.publish).toHaveBeenCalled();
+      expect(result.status).toBe('called');
+    });
+
+    it('orders by token_no then checked_in_at', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(null);
+      await expect(service.callNext('cln-a', staffA)).rejects.toThrow();
+      expect(prisma.queueEntries.findFirst.mock.calls[0][0].orderBy).toEqual([{ token_no: 'asc' }, { checked_in_at: 'asc' }]);
+    });
+  });
+
+  describe('recall', () => {
+    it('rejects a cross-org queue entry', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ clinic: { client_org_id: 'org-b' } }));
+      await expect(service.recall('q-1', staffA)).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects recalling an entry already waiting', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ status: 'waiting' }));
+      await expect(service.recall('q-1', staffA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects recalling a done or no_show entry', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ status: 'done' }));
+      await expect(service.recall('q-1', staffA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('brings a skipped entry back to waiting and clears its skip state', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ status: 'skipped', skip_return_after: 3, served_since_skip: 2 }));
+      prisma.queueEntries.update.mockResolvedValue(entry({ status: 'waiting' }));
+      await service.recall('q-1', staffA);
+      expect(prisma.queueEntries.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: { status: 'waiting', called_at: null, skip_return_after: null, served_since_skip: 0 },
+      }));
+      expect(prisma.queueEvents.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ action: 'recalled' }),
+      }));
+    });
+  });
+
+  describe('skip', () => {
+    it('rejects skipping an already-completed visit', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ status: 'done' }));
+      await expect(service.skip({ queue_entry_id: 'q-1' } as any, staffA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('defaults return_after to 3 when not supplied', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ status: 'called' }));
+      prisma.queueEntries.update.mockResolvedValue(entry({ status: 'skipped' }));
+      await service.skip({ queue_entry_id: 'q-1' } as any, staffA);
+      expect(prisma.queueEntries.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'skipped', skip_return_after: 3, served_since_skip: 0 }),
+      }));
+    });
+
+    it('honours an explicit return_after and records the reason', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ status: 'waiting' }));
+      prisma.queueEntries.update.mockResolvedValue(entry({ status: 'skipped' }));
+      await service.skip({ queue_entry_id: 'q-1', return_after: 5, reason: 'gone to pharmacy' } as any, staffA);
+      expect(prisma.queueEntries.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ skip_return_after: 5 }),
+      }));
+      expect(prisma.queueEvents.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ reason: 'gone to pharmacy' }),
+      }));
+    });
+  });
+
+  describe('transfer', () => {
+    it('rejects a target clinician not at the same clinic', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry());
+      prisma.clinicians.findUnique.mockResolvedValue({ id: 'cln-y', clinic_id: 'clinic-2' });
+      await expect(service.transfer({ queue_entry_id: 'q-1', target_clinician_id: 'cln-y' } as any, staffA))
+        .rejects.toThrow(BadRequestException);
+    });
+
+    it('reassigns both the appointment and the queue entry, resets token/called_at, and returns to waiting', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ status: 'called', called_at: new Date() }));
+      prisma.clinicians.findUnique.mockResolvedValue({ id: 'cln-y', clinic_id: 'clinic-1', first_name: 'Raj', last_name: 'Verma' });
+      prisma.queueEntries.update.mockResolvedValue(entry({ clinician_id: 'cln-y', status: 'waiting', token_no: null }));
+      await service.transfer({ queue_entry_id: 'q-1', target_clinician_id: 'cln-y' } as any, staffA);
+      expect(prisma.appointments.update).toHaveBeenCalledWith({ where: { id: 'appt-1' }, data: { clinician_id: 'cln-y' } });
+      expect(prisma.queueEntries.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: { clinician_id: 'cln-y', status: 'waiting', called_at: null, token_no: null },
+      }));
+    });
+  });
+
+  describe('unbilledVisits', () => {
+    it('rejects a cross-org clinic', async () => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-b' });
+      await expect(service.unbilledVisits('clinic-1', staffA)).rejects.toThrow(NotFoundException);
+    });
+
+    it('queries completed, non-deleted appointments with no succeeded payment', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicRow);
+      await service.unbilledVisits('clinic-1', staffA);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where).toEqual(expect.objectContaining({
+        clinic_id: 'clinic-1', status: 'completed', is_deleted: false,
+        payments: { none: { status: 'succeeded' } },
+      }));
+    });
+  });
+
+  describe('syncFromAppointmentStatus (hooked from AppointmentsService.transitionStatus)', () => {
+    const appt = { id: 'appt-1', clinic_id: 'clinic-1', clinician_id: 'cln-a', token_no: 7 };
+
+    it('creates a new queue entry on first check-in', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(null);
+      await service.syncFromAppointmentStatus(prisma, appt, 'checked_in');
+      expect(prisma.queueEntries.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ appointment_id: 'appt-1', clinic_id: 'clinic-1', clinician_id: 'cln-a', token_no: 7 }),
+      }));
+    });
+
+    it('resets an existing entry to waiting on re-check-in (post-reset)', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry({ status: 'no_show' }));
+      await service.syncFromAppointmentStatus(prisma, appt, 'checked_in');
+      expect(prisma.queueEntries.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'q-1' }, data: expect.objectContaining({ status: 'waiting' }),
+      }));
+      expect(prisma.queueEntries.create).not.toHaveBeenCalled();
+    });
+
+    it('is a no-op for a status transition when no queue entry exists (never checked in via the queue)', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(null);
+      await service.syncFromAppointmentStatus(prisma, appt, 'completed');
+      expect(prisma.queueEntries.update).not.toHaveBeenCalled();
+    });
+
+    it('marks the entry in_progress on in_consultation', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry());
+      await service.syncFromAppointmentStatus(prisma, appt, 'in_consultation');
+      expect(prisma.queueEntries.update).toHaveBeenCalledWith({ where: { id: 'q-1' }, data: { status: 'in_progress' } });
+    });
+
+    it('marks the entry no_show on no_show', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry());
+      await service.syncFromAppointmentStatus(prisma, appt, 'no_show');
+      expect(prisma.queueEntries.update).toHaveBeenCalledWith({ where: { id: 'q-1' }, data: { status: 'no_show' } });
+    });
+
+    it('deletes the entry on cancellation', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry());
+      await service.syncFromAppointmentStatus(prisma, appt, 'cancelled');
+      expect(prisma.queueEntries.delete).toHaveBeenCalledWith({ where: { id: 'q-1' } });
+    });
+
+    it('deletes the entry when reset back to scheduled', async () => {
+      prisma.queueEntries.findUnique.mockResolvedValue(entry());
+      await service.syncFromAppointmentStatus(prisma, appt, 'scheduled');
+      expect(prisma.queueEntries.delete).toHaveBeenCalledWith({ where: { id: 'q-1' } });
+    });
+
+    describe('auto-recall on completion (US-QUE-05)', () => {
+      it('increments served_since_skip for other skipped entries on this clinician\'s queue', async () => {
+        prisma.queueEntries.findUnique.mockResolvedValue(entry({ id: 'q-just-served' }));
+        prisma.queueEntries.findMany.mockResolvedValue([
+          entry({ id: 'q-skip-1', status: 'skipped', skip_return_after: 3, served_since_skip: 0 }),
+        ]);
+        await service.syncFromAppointmentStatus(prisma, appt, 'completed');
+        expect(prisma.queueEntries.update).toHaveBeenCalledWith({ where: { id: 'q-skip-1' }, data: { served_since_skip: 1 } });
+      });
+
+      it('auto-returns a skipped entry to waiting once it reaches its return_after threshold', async () => {
+        prisma.queueEntries.findUnique.mockResolvedValue(entry({ id: 'q-just-served' }));
+        prisma.queueEntries.findMany.mockResolvedValue([
+          entry({ id: 'q-skip-1', status: 'skipped', skip_return_after: 3, served_since_skip: 2 }),
+        ]);
+        await service.syncFromAppointmentStatus(prisma, appt, 'completed');
+        expect(prisma.queueEntries.update).toHaveBeenCalledWith({
+          where: { id: 'q-skip-1' },
+          data: { status: 'waiting', served_since_skip: 0, skip_return_after: null, called_at: null },
+        });
+        expect(prisma.queueEvents.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ action: 'auto_recalled' }) }),
+        );
+      });
+
+      it('never counts the entry that was just served against itself', async () => {
+        prisma.queueEntries.findUnique.mockResolvedValue(entry({ id: 'q-just-served' }));
+        prisma.queueEntries.findMany.mockResolvedValue([]);
+        await service.syncFromAppointmentStatus(prisma, appt, 'completed');
+        const excludeArg = prisma.queueEntries.findMany.mock.calls[0][0].where.id;
+        expect(excludeArg).toEqual({ not: 'q-just-served' });
+      });
+    });
+  });
+});

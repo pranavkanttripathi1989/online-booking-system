@@ -5,6 +5,7 @@ import { AppointmentsService } from './appointments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
+import { QueueService } from '../queue/queue.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -72,6 +73,10 @@ describe('AppointmentsService — access scoping', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: PUB_SUB, useValue: { publish: jest.fn(), asyncIterableIterator: jest.fn() } },
         { provide: NotificationTriggerService, useValue: notificationTrigger },
+        // REQ019: transitionStatus() now syncs a QueueEntries row inside its
+        // own transaction -- mocked no-op here, exercised for real in
+        // queue.service.spec.ts instead.
+        { provide: QueueService, useValue: { syncFromAppointmentStatus: jest.fn(), publish: jest.fn() } },
       ],
     }).compile();
     service = module.get(AppointmentsService);
