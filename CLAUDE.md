@@ -95,19 +95,25 @@ below 12 when `NODE_ENV=production`.
 `onApplicationShutdown`, `main.ts` `enableShutdownHooks()`). Any new long-lived
 client you add needs the same, or `app.close()` will hang again.
 
-**Phase G (PRD MVP core) is now underway — two requirements in, four to go.**
+**Phase G (PRD MVP core) — five of six requirements shipped, one to go.**
 `project-plans/07-prd-gap-analysis-and-roadmap.md` §3's Phase G sequence is
 `REQ017 → REQ020 → REQ021 → REQ019 → REQ018 → REQ032` (dependency order,
 `REQ017` first since it's the critical path both `REQ018`/`REQ019` need).
+`REQ017`, `REQ020`, `REQ021`, `REQ019`, and `REQ018`'s own P0 subset all
+shipped 2026-08-24; only `REQ032` (subscription plan engine) remains,
+deliberately paused before starting rather than rushed — see its own note
+below for why.
+
 `REQ017`'s P0 scope (session/token scheduling mode, multi-resource booking,
 mode-aware slot-integrity constraint) shipped 2026-08-24 — see
 `requirements/scheduling-engine/`, `PLAN055`/`TP082`/`TR081`,
 `context/scheduling-engine-2026-08-24-req017/manifest.md`. `REQ017`'s own P1
 scope (hybrid-mode interleaving, waitlist, delay broadcast, bulk-reschedule,
 the live-throughput ETA refinement) is explicitly deferred, not silently
-dropped — each needs its own future `PLAN###`, sequenced after `REQ019`/
-`REQ020` land (the ETA refinement specifically needs their real
-`checked_in→completed` data to mean anything).
+dropped — each needs its own future `PLAN###`. Note the booked:walk-in
+interleaving half of this deferral directly blocked part of `REQ018`'s own
+P0 scope below (`US-BOOK-01`'s token-interleaving acceptance criterion) —
+it stayed blocked there too, not silently re-attempted.
 
 `REQ020`'s P0 scope (structured consultation notes, one-click templates,
 persistent allergy banner, attachments, sign-off immutability enforced by a
@@ -131,9 +137,80 @@ scope (ICD-10 coding, discrete vitals for growth charts, investigation
 orders, referrals, voice-to-text, clinical decision support, speciality
 packs) is explicitly deferred, not silently dropped.
 
-The remaining four requirements in this pass (`REQ021`/`REQ019`/`REQ018`/
-`REQ032`) are each still `draft`/unstarted as of this note — resume with
-`REQ021` (prescriptions) next, per the dependency order above.
+`REQ021`'s P0 scope (drug search with auto-calculated quantity, saved
+favourite drug-sets, a print view sharing one rendering path between
+preview and `window.print()`, repeat-from-history with a server-side
+reprint counter driving a "DUPLICATE" watermark) shipped 2026-08-24 — see
+`requirements/prescriptions/`, `PLAN057`/`TP084`/`TR083`,
+`context/prescriptions-2026-08-24-req021/manifest.md`. New
+`backend/src/prescriptions/`. Real bugs found: a missing `refetchQueries`
+after saving a favourite set (found via live manual verification); two
+missing `TableContainer` wraps (Hard Rule 5); and — in the e2e spec itself,
+not the app — an unlabeled MUI `Select` colliding with a sibling
+Autocomplete's own `role="combobox"` (fixed with `inputProps={{
+'aria-label': ... }}`, the correct way to label a `Select` with no visible
+`InputLabel` — a bare `aria-label` prop lands on the wrong DOM node) and a
+fixed-name fixture colliding with itself across repeated runs against the
+real, accumulating dev DB. `REQ021`'s own P1 scope (WhatsApp/OTP-gated
+sharing, Telemedicine Practice Guidelines drug-list enforcement, regional-
+language rendering, digital signatures, the pharmacy dispense-queue
+handoff) is explicitly deferred.
+
+`REQ019`'s P0 scope (the live queue board — now-serving, next-5 waiting, a
+same-day retrospective average wait; queue actions — call next, recall,
+skip/park with N-served auto-return, transfer; an unbilled-visits report),
+built on top of `REQ042`'s prior check-in slice, shipped 2026-08-24 — see
+`requirements/queue-management/`, `PLAN058`/`TP085`/`TR084`,
+`context/queue-management-2026-08-24-req019/manifest.md`. New
+`backend/src/queue/`. The key architectural move: `QueueService`'s state
+sync runs *inside* `AppointmentsService.transitionStatus()`'s own
+transaction, so `REQ042`'s existing check-in/complete/no-show mutations now
+also drive real queue state with zero change to the pages that already
+call them. `REQ019`'s own P1 scope (QR self-check-in, a predictive
+rolling-median ETA, mandatory pre-consultation checklists, triage/vitals)
+is explicitly deferred; the booked:walk-in interleaving half of `US-BOOK-01`
+stays blocked on `REQ017`'s own deferred `walkin_ratio` logic, not
+re-attempted here either.
+
+`REQ018`'s P0 **subset** (patient dedup-suggestion + a real, tightly-gated
+merge tool; family/dependant profiles — one phone-verified login managing
+multiple patient records) shipped 2026-08-24 — see
+`requirements/appointments/`, `PLAN059`/`TP086`/`TR085`,
+`context/appointments-2026-08-24-req018/manifest.md`. Per-service
+prepayment policy (`US-BOOK-03`) and the embeddable booking widget
+(`US-BOOK-05`) — both also P0 in `REQ018`'s own phase assignment — were
+deliberately scoped out of this pass to keep it coherent and fully tested,
+not silently dropped; each needs its own future `PLAN###`. A real,
+pre-existing security gap was found and closed in the process:
+`createAppointment` never validated a `'patient'`-role caller's
+`input.patient_id` against their own identity at all — Hard Rule 6's bug
+class, surfaced because family profiles needed the *opposite* of a blanket
+restriction (a caller legitimately booking for a genuine dependant, never
+an arbitrary id) and so required actually looking at what was there
+before. Also made a previously fully-built, entirely mock-gated
+patient-merge UI (`patients/index.jsx`) reachable against real data for the
+first time — it existed complete (pairwise selection, review dialog) but
+its own "Merge Duplicates" button was gated on `{useMock && ...}`, which
+never renders once real patient data exists.
+
+**`REQ032` (subscription plan engine) is deliberately paused before
+starting**, not merely next in a checklist. It is a different risk
+category from the four slices above: those were additive, isolated new
+modules (`prescriptions/`, `queue/`, extensions to `patients/`); `REQ032`
+requires a global `EntitlementGuard` consulted on *every* feature-gated
+resolver call across the entire app (structurally analogous to the
+existing `RolesGuard` already in the shared `APP_GUARD` chain — see
+Architecture), plus Redis-backed per-tenant caching to avoid becoming an
+N+1-shaped latency cost on every gated call (`project-plans` F-15's own
+warning, cited directly in `REQ032`'s non-functional notes). Getting the
+guard-chain integration or the cache-invalidation-on-plan-change wrong
+doesn't fail one feature — it can silently over- or under-gate every
+feature-flagged module in the product at once. Scope it with the same
+plan-mode rigor as the four slices above before writing any guard code;
+don't start with the entitlement guard itself — start with the plan-builder
+data model and versioning (`US-PLAN-01`/`02`), which are additive and
+lower-risk, and treat the guard's integration into the shared chain as its
+own reviewed step.
 
 ### What Phase F did NOT close — read before assuming coverage
 
@@ -273,7 +350,7 @@ The host's default `node` may be older than Playwright's ESM config loader requi
 
 `frontend/src/apollo/client.js`'s `httpLink` wraps every request in a 10s `AbortController` timeout (tuned up from an original 2s, which misread slow-but-real responses as "offline"); `frontend/src/mocks/store.js` is a full in-memory backend simulation many pages fall back to on network failure or (for pages never wired to GraphQL at all) use exclusively. **Do not assume a page "using GraphQL" talks to a real backend** — grep the page for `gql\``/`useQuery`/`useMutation` and check whether it imports from the canonical `frontend/src/graphql/{queries,mutations}.js` or defines its own inline operations, then cross-check against which `backend/src/*` modules actually exist (below). `context/backend-api-requirements-master-plan.md` has the full per-page audit (75 pages + 55 components, none skipped).
 
-Backend domain modules that exist today (`backend/src/`): `auth`, `account`, `clinics`, `rooms`, `lookups`, `organizations`, `languages`, `email-templates`, `services`, `clinicians`, `test-results`, `patients`, `appointments`, `appointment-payments`, `availability`, `blocks`, `users`, `staff`, `notifications`, `notification-preferences`, `reviews`, `messages`, `public`, `products`, `analytics`, `dashboard`, `org-settings`, `cancellation-rules`. Each follows the same file layout: `<domain>.module.ts`, `<domain>.resolver.ts`, `<domain>.service.ts`, `dto/*.input.ts` (validated `@InputType()` classes), `entities/*.entity.ts` (`@ObjectType()` classes, GraphQL type names sometimes deliberately differ from the Prisma model name — see below). This list drifts as new domains land each session — cross-check `ls backend/src/` before trusting it for a "does X have a backend" question. Priority 2 is now fully complete (as of 2026-08-21) — organization Branding (`REQ002`), Communications' own "Notification Templates" tab (`REQ011`), and admin's "Security settings" tab (`REQ012`) are all closed, see Priority 2 below.
+Backend domain modules that exist today (`backend/src/`, re-verified 2026-08-24 against a real `ls`): `auth`, `account`, `clinics`, `rooms`, `resources`, `lookups`, `organizations`, `organization-onboarding`, `languages`, `email-templates`, `services`, `products`, `drugs`, `clinicians`, `test-results`, `patients`, `appointments`, `appointment-payments`, `availability`, `blocks`, `encounters`, `prescriptions`, `queue`, `users`, `staff`, `notifications`, `notification-preferences`, `reviews`, `messages`, `public`, `analytics`, `dashboard`, `org-settings`, `cancellation-rules`. Each follows the same file layout: `<domain>.module.ts`, `<domain>.resolver.ts`, `<domain>.service.ts`, `dto/*.input.ts` (validated `@InputType()` classes), `entities/*.entity.ts` (`@ObjectType()` classes, GraphQL type names sometimes deliberately differ from the Prisma model name — see below). This list drifts as new domains land each session — cross-check `ls backend/src/` before trusting it for a "does X have a backend" question. Priority 2 is now fully complete (as of 2026-08-21) — organization Branding (`REQ002`), Communications' own "Notification Templates" tab (`REQ011`), and admin's "Security settings" tab (`REQ012`) are all closed, see Priority 2 below.
 
 ### `App.jsx`'s route tree has one path claimed twice — know this before adding a pathless layout route
 
@@ -392,11 +469,52 @@ For each remaining gap: audit the frontend's existing `gql` calls for that domai
 
 ## Picking this up on another machine
 
-Last session ended 2026-08-23 with Phase F complete, `BUG009` (the seven
-fabricated pages) closed, `BUG010` (live-browser verification of those pages)
-closed, and `BUG011` (the public booking wizard never showed real data, in
-three compounding ways — see `requirements/appointments/bug/BUG011-*.md`)
-closed. To get running:
+**Last session ended 2026-08-24** having shipped four of Phase G's six
+requirements in one pass: `REQ021` (prescriptions), `REQ019` (live queue
+board/actions), and `REQ018`'s P0 subset (patient dedup+merge, family/
+dependant profiles) — on top of `REQ017`/`REQ020`, which had already shipped
+earlier the same day. See the Phase G section above for the full account of
+each, including the real bugs found (a pre-existing `createAppointment`
+patient_id validation gap, closed while building `REQ018`; a previously
+fully-built but `useMock`-gated, hence unreachable, patient-merge UI, made
+real) and two environment-level lessons worth knowing before touching this
+stack again:
+
+1. **A silent module-recompile race, hit twice.** Creating several new
+   backend files in quick succession, followed immediately by edits to the
+   modules that import them, can race `nest start --watch`'s debounced
+   rebuild — the app restarts using a stale file snapshot, and a new
+   resolver's fields silently never reach the live GraphQL schema, with
+   **zero error signal anywhere**: `tsc --noEmit` is clean, `schema.gql` on
+   disk is already correct, and the startup log says "Nest application
+   successfully started." The only way to catch it is to introspect the
+   *running* server directly (`curl .../graphql -d '{"query":"{ __type(name:
+   \"Query\") { fields { name } } }"}'`) and compare against what you just
+   added — not trust the generated file or a clean log. Fix: let all edits
+   settle, then one clean `docker restart medibook_backend`, then
+   re-introspect before writing a single test against the new fields.
+2. **A second, distinct transient crash recurs independently**: `Error:
+   Cannot find module './prisma/prisma.module'` on restart, seen at least
+   three times across the session, unrelated to any specific change —
+   self-resolves on a second clean restart every time it's been observed
+   so far. If you hit it, don't debug the module path; just restart again.
+
+Three new migrations landed this session (`20260824020000_prescriptions`,
+`20260824030000_queue_management`, `20260824040000_patient_dedup_and_family`)
+— `npx prisma migrate deploy` (below) picks them up in order automatically,
+nothing extra needed beyond the usual steps.
+
+`REQ032` (subscription plan engine) is the one remaining Phase G item,
+**deliberately paused before starting**, not left mid-slice — see the Phase
+G section above for why it's a different risk category (a global
+entitlement guard touching every gated resolver) and where to begin
+(`US-PLAN-01`/`02`, additive and lower-risk, before the guard itself).
+
+Earlier history: the prior session (2026-08-23) closed Phase F, `BUG009`
+(the seven fabricated pages), `BUG010` (live-browser verification of those
+pages), and `BUG011` (the public booking wizard never showed real data, in
+three compounding ways — see `requirements/appointments/bug/BUG011-*.md`).
+To get running:
 
 ```bash
 docker compose up -d                                 # dev stack
@@ -481,6 +599,15 @@ is fixed (`BUG011`). Both closed 2026-08-23.
    render their slot-button times in two different formats (`HH:mm` vs
    `h:mm A`); neither page has unit-level coverage for clinician-id
    resolution or day-of-week filtering, only e2e.
+3. **`REQ018`'s own residue** — a dependant's self-scope was widened for
+   `patients.service.ts` (profile view) and `appointments.service.ts`
+   (booking) only. `prescriptions.service.ts`'s `patientPrescriptions`,
+   `test-results`, and `messages` each still restrict a `'patient'` caller
+   to exactly their own `patient_id`, not their dependants' too — real,
+   separate, security-sensitive follow-on work per domain, not a single
+   mechanical find-and-replace (get the query wrong in any one of them and
+   it's a cross-patient PHI leak).
+4. **`REQ032`** — not started; see the Phase G section above.
 
 Also unproven: **the CI workflow has never executed on GitHub.** The first push
 will be its first real run.

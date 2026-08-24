@@ -23,10 +23,10 @@ The PRD organizes the product into 17 functional modules (M1–M17) plus a Super
 | M2 Identity, Auth & Security | `security` | Strong auth fundamentals real; RBAC enforcement is the known F-03 gap; SSO/API-keys/clinician-verification net-new | REQ015 |
 | M3 Master Data Catalogues | `catalog-master-data` | Partial — services/products real; packages, drug master, tiered pricing net-new | REQ016 |
 | M4 Scheduling/Calendar Engine | `scheduling-engine` | Partial — P0 shipped 2026-08-24 (session/token mode, multi-resource booking, mode-aware slot-integrity constraint, `PLAN055`); hybrid interleaving, waitlist, delay broadcast, bulk-reschedule, and the live-throughput ETA refinement remain P1 | REQ017 |
-| M5 Booking Engine | `appointments` | Strong core — state machine already matches PRD; dedup/family/widget net-new | REQ018 |
-| M6 Check-in & Queue | `queue-management` | **Absent** — mock-only page, no backend at all | REQ019 |
+| M5 Booking Engine | `appointments` | Strong core — state machine already matches PRD; dedup+merge and family/dependant profiles shipped 2026-08-24 (`PLAN059`); per-service prepayment policy and the embeddable booking widget remain, both still P0 in the requirement's own phase assignment but deliberately deferred to a future slice | REQ018 |
+| M6 Check-in & Queue | `queue-management` | Partial — P0 shipped 2026-08-24 (live queue board, call-next/recall/skip/transfer actions, unbilled-visits report, on top of the prior check-in slice `REQ042`, `PLAN058`); QR self-check-in, a predictive rolling-median ETA, mandatory pre-consultation checklists, and triage/vitals remain P1 | REQ019 |
 | M7 Consultation & EMR | `clinical-records` | Partial — P0 shipped 2026-08-24 (structured notes, templates, allergy banner, sign-off immutability by DB trigger, patient timeline, `PLAN056`); ICD-10 coding, discrete vitals/growth charts, investigation orders, referrals remain P1/P2 | REQ020 |
-| M8 Prescriptions | `prescriptions` | **Absent** | REQ021 |
+| M8 Prescriptions | `prescriptions` | Partial — P0 shipped 2026-08-24 (drug search with auto-calculated quantity, favourite drug-sets, a single-rendering-path print view, repeat-from-history with reprint watermarking, `PLAN057`); WhatsApp sharing, TPG drug-list enforcement, regional-language rendering, digital signatures, and the pharmacy handoff remain P1 | REQ021 |
 | M9 Pharmacy & Inventory | `pharmacy` | **Absent** — Products is retail-catalogue only, no batch/stock ledger | REQ022 |
 | M10 Billing & Payments | `patient-payments` | Partial — real Razorpay integration; counter/mixed-tender, day-end, revenue-share net-new | REQ023 |
 | M11 Messaging & Notifications | `messaging` + `notifications` | Partial — real threads and trigger pipeline exist; SLA inbox, WhatsApp, sender identity net-new | REQ024, REQ025 |
@@ -43,9 +43,13 @@ The PRD organizes the product into 17 functional modules (M1–M17) plus a Super
 
 **Reading this table honestly (as originally analysed, 2026-08-22):** of the 20 rows, **9 modules are "Absent" with zero existing scaffolding** — queue-management, clinical-records, prescriptions, pharmacy, telemedicine, abdm-interop, platform-integrations, insurance-claims, and platform-billing. The remaining **11 are "Partial"** — a real, working foundation with a specific, named gap: organizations, security, catalog-master-data, scheduling-engine, appointments, patient-payments, messaging, notifications, patient-portal, analytics-reporting, compliance-dpdp, subscription-plan-engine, and platform-nfr (13 entries across 11 module rows, since M11 and the NFR/compliance sections each split across more than one feature slug). **No module is "fully satisfied" as the PRD describes it.** This PRD represents the next 12–18 months of the product's life, not a documentation exercise.
 
-**Updated (2026-08-24):** `clinical-records` (M7) moved from Absent to
-Partial with `REQ020`'s P0 shipment — 8 modules now Absent, 12 Partial. See
-the M7 row above and `PLAN056` for what shipped versus what remains P1/P2.
+**Updated (2026-08-24):** `clinical-records` (M7), `prescriptions` (M8), and
+`queue-management` (M6) all moved from Absent to Partial the same day
+(`REQ020`/`REQ021`/`REQ019`'s P0 shipments) — **6 modules now Absent, 14
+Partial.** `subscription-plan-engine` (§10) is the only Phase G module still
+sitting at its original "schema only" state; see the M6/M7/M8 rows above
+and `PLAN056`/`PLAN057`/`PLAN058` for what shipped versus what remains
+P1/P2 in each.
 
 The exact split matters less than the shape: the product's booking/scheduling/patient-management core is a genuine asset to build on; the clinical, pharmacy, insurance, and interoperability layers that would make it a full practice-management platform are almost entirely unbuilt.
 
@@ -77,22 +81,52 @@ The PRD's own Q1–Q2 roadmap milestones. Sequencing within this phase follows t
 8. **REQ023** (billing depth) — extends the already-real payment integration; can run in parallel with 2–7.
 9. **REQ032** (subscription plan engine v1) — the PRD names this an explicit MVP-GA exit criterion; can run in parallel with 2–8 since it has no dependency on the clinical stack.
 
-**Status (2026-08-24):** items 2 and 6 (`REQ017`'s and `REQ020`'s P0 scope)
-shipped — see `requirements/scheduling-engine/`, `PLAN055`/`TP082`/`TR081`,
-`context/scheduling-engine-2026-08-24-req017/manifest.md` and
-`requirements/clinical-records/`, `PLAN056`/`TP083`/`TR082`,
-`context/clinical-records-2026-08-24-req020/manifest.md`. A session is
-currently working this Phase G sequence in order: `REQ017` (done, P0) →
-`REQ020` (done, P0) → `REQ021` → `REQ019` → `REQ018` → `REQ032` — a
-6-requirement pass through this list's critical path plus the two
-parallel-eligible items (`REQ016`'s catalog/drug-master piece is already
-done from an earlier session, so it's not repeated in this pass;
-`REQ023`/`REQ014`'s remaining scope is not part of this specific pass and
-stays open). Classifying `REQ020`'s new tenancy-matrix domain also surfaced
+**Status (2026-08-24) — five of six requirements in this pass shipped their
+P0 scope; `REQ032` deliberately paused before starting.** The
+6-requirement pass through this list's critical path
+(`REQ017` → `REQ020` → `REQ021` → `REQ019` → `REQ018` → `REQ032`) closed
+four items in one continuous session: `REQ017`, `REQ020` (both done
+earlier the same day), `REQ021` (prescriptions — `PLAN057`/`TP084`/`TR083`,
+`context/prescriptions-2026-08-24-req021/manifest.md`), `REQ019` (queue
+management — `PLAN058`/`TP085`/`TR084`,
+`context/queue-management-2026-08-24-req019/manifest.md`), and `REQ018`'s
+own P0 **subset** (patient dedup+merge, family/dependant profiles —
+`PLAN059`/`TP086`/`TR085`,
+`context/appointments-2026-08-24-req018/manifest.md`; per-service
+prepayment policy and the embeddable widget, both also P0 in `REQ018`'s
+own phase assignment, were scoped out to keep the slice coherent and are
+still open). `REQ016`'s catalog/drug-master piece was already done from an
+earlier session, so it's not repeated in this pass; `REQ023`/`REQ014`'s
+remaining scope is not part of this specific pass and stays open.
+
+`REQ032` was scoped for this pass but **deliberately paused before any
+code was written**, on review of its risk profile relative to the four
+items above: those were additive, isolated new modules (`prescriptions/`,
+`queue/`, extensions to `patients/`); `REQ032` requires a global
+`EntitlementGuard` consulted on every feature-gated resolver call across
+the whole app (structurally analogous to the existing `RolesGuard` already
+in the shared `APP_GUARD` chain), plus Redis-backed per-tenant caching to
+avoid an N+1-shaped latency cost on every gated call (`project-plans`
+F-15's own warning, cited directly in `REQ032`'s non-functional notes).
+Getting the guard-chain integration wrong doesn't fail one feature — it
+can silently over- or under-gate every feature-flagged module in the
+product at once. When picked up, start with the plan-builder data model
+and versioning (`US-PLAN-01`/`02`, additive and lower-risk), and treat the
+guard's integration into the shared chain as its own separately-reviewed
+step, not bundled into the same slice.
+
+Classifying `REQ020`'s new tenancy-matrix domain also surfaced
 that `REQ017`'s own `resources` domain had shipped without ever being added
 to `matrix-coverage.int-spec.ts` — closed in the same pass, alongside two
 more pre-existing gaps (`drugs`, `organization-onboarding`) the same gate
-found once exercised.
+found once exercised. `REQ018`'s own slice separately found and closed a
+live, pre-existing gap unrelated to that gate: `createAppointment` never
+validated a `'patient'`-role caller's `input.patient_id` against their own
+identity at all — any authenticated patient could book under any other
+patient_id. See `PLAN059` for the full account, including why family
+profiles specifically was what surfaced it (the feature needed the
+*opposite* of a blanket restriction, which required actually looking at
+what validation existed before).
 
 ### Phase H — V1 GA ("sellable to chains")
 The PRD's own Q3–Q4 roadmap milestones:
