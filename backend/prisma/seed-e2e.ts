@@ -74,6 +74,21 @@ function daysFromNow(days: number, hour = 10, minute = 0) {
 }
 
 async function main() {
+  // A plain `docker restart backend_e2e` (as opposed to a fresh tmpfs
+  // container) re-runs this file against a database that already has
+  // last run's rows -- or, since db-dumps/README.md documents restoring a
+  // fixture dump straight into postgres_e2e, a database seeded from a
+  // completely different run. Either way this createMany-based script
+  // (not upsert-based like prisma/seed.ts, see the file header) crash-loops
+  // on the first unique-constraint collision -- confirmed live 2026-08-24
+  // and again with a restored 2026-08-24 dump. One coarse guard: if roles
+  // already exist, the database is already seeded (fresh or restored) --
+  // skip the whole pass rather than partially re-run it.
+  if (await prisma.userRoles.count() > 0) {
+    console.log('[seed-e2e] database already seeded (UserRoles is non-empty) -- skipping.');
+    return;
+  }
+
   console.log('[seed-e2e] roles...');
   const roleRecords: Record<string, string> = {};
   for (const name of ROLES) {
