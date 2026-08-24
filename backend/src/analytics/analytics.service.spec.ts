@@ -7,8 +7,9 @@ describe('AnalyticsService', () => {
   let service: AnalyticsService;
   let prisma: {
     clinics: { findMany: jest.Mock };
-    appointments: { findMany: jest.Mock };
+    appointments: { findMany: jest.Mock; groupBy: jest.Mock };
     clinicians: { findMany: jest.Mock };
+    patients: { findMany: jest.Mock };
   };
 
   const managerUser: JwtPayload = { sub: 'user-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
@@ -30,13 +31,14 @@ describe('AnalyticsService', () => {
   beforeEach(async () => {
     prisma = {
       clinics: { findMany: jest.fn() },
-      appointments: { findMany: jest.fn() },
+      appointments: { findMany: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
       // REQ029 — computeTrueUtilisation()'s own read. Defaults to no
       // clinicians in scope, which makes it return null and fall back to
       // the completion-rate proxy, preserving every pre-existing test's
       // expectations below unchanged; the new "true utilisation" describe
       // block further down overrides this per-case.
       clinicians: { findMany: jest.fn().mockResolvedValue([]) },
+      patients: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -237,6 +239,51 @@ describe('AnalyticsService', () => {
       const call = prisma.clinicians.findMany.mock.calls[0][0];
       expect(call.where.clinic_id).toBe('clinic-9');
       expect(call.where.clinic).toEqual({ client_org_id: 'org-1' });
+    });
+  });
+
+  // REQ029 (US-RPT-02).
+  describe('getPatientReportGroup', () => {
+    it('scopes the in-range patient lookup to the caller org', async () => {
+      prisma.patients.findMany.mockResolvedValueOnce([]);
+      await service.getPatientReportGroup(undefined, '2026-08-01', '2026-08-31', 90, managerUser);
+      const call = prisma.patients.findMany.mock.calls[0][0];
+      expect(call.where.appointments.some.clinic).toEqual({ client_org_id: 'org-1' });
+    });
+
+    it('classifies a patient with a prior visit before the range as repeat, one with none as new', async () => {
+      prisma.patients.findMany.mockResolvedValueOnce([
+        { id: 'p-new', acquisition_source: 'referral' },
+        { id: 'p-repeat', acquisition_source: 'walk_in' },
+      ]);
+      prisma.appointments.groupBy.mockResolvedValueOnce([{ patient_id: 'p-repeat', _count: { id: 2 } }]);
+      prisma.patients.findMany.mockResolvedValueOnce([]); // lapsed-candidates call
+      const result = await service.getPatientReportGroup(undefined, '2026-08-01', '2026-08-31', 90, managerUser);
+      expect(result.newPatients).toBe(1);
+      expect(result.repeatPatients).toBe(1);
+    });
+
+    it('buckets acquisition source, defaulting a missing value to "unknown"', async () => {
+      prisma.patients.findMany.mockResolvedValueOnce([
+        { id: 'p1', acquisition_source: 'referral' },
+        { id: 'p2', acquisition_source: 'referral' },
+        { id: 'p3', acquisition_source: null },
+      ]);
+      prisma.appointments.groupBy.mockResolvedValueOnce([]);
+      prisma.patients.findMany.mockResolvedValueOnce([]);
+      const result = await service.getPatientReportGroup(undefined, '2026-08-01', '2026-08-31', 90, managerUser);
+      expect(result.acquisitionSourceBreakdown).toEqual(
+        expect.arrayContaining([{ source: 'referral', count: 2 }, { source: 'unknown', count: 1 }]),
+      );
+    });
+
+    it('surfaces a lapsed patient with their most recent visit date', async () => {
+      prisma.patients.findMany.mockResolvedValueOnce([]); // in-range call
+      prisma.patients.findMany.mockResolvedValueOnce([
+        { id: 'p-lapsed', first_name: 'Old', last_name: 'Patient', appointments: [{ appointment_time: new Date('2026-01-01') }] },
+      ]);
+      const result = await service.getPatientReportGroup(undefined, '2026-08-01', '2026-08-31', 90, managerUser);
+      expect(result.lapsedPatients).toEqual([{ id: 'p-lapsed', full_name: 'Old Patient', last_visit: new Date('2026-01-01') }]);
     });
   });
 });

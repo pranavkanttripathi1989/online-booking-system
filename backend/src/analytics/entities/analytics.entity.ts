@@ -62,3 +62,26 @@ export class AppointmentStatsType {
   @Field(() => [RevenueByClinicPointType]) revenueByClinic: RevenueByClinicPointType[];
   @Field(() => [TopClinicianPointType]) topClinicians: TopClinicianPointType[];
 }
+
+// REQ029 (US-RPT-02) — new-vs-repeat, acquisition source, and a
+// lapsed-patient recall list, over a date range.
+@ObjectType('AcquisitionSourcePoint')
+export class AcquisitionSourcePointType {
+  @Field() source: string;
+  @Field(() => Int) count: number;
+}
+
+@ObjectType('LapsedPatientPoint')
+export class LapsedPatientPointType {
+  @Field(() => ID) id: string;
+  @Field() full_name: string;
+  @Field({ nullable: true }) last_visit?: Date;
+}
+
+@ObjectType('PatientReportGroup')
+export class PatientReportGroupType {
+  @Field(() => Int) newPatients: number;
+  @Field(() => Int) repeatPatients: number;
+  @Field(() => [AcquisitionSourcePointType]) acquisitionSourceBreakdown: AcquisitionSourcePointType[];
+  @Field(() => [LapsedPatientPointType]) lapsedPatients: LapsedPatientPointType[];
+}

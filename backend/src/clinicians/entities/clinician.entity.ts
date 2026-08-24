@@ -34,6 +34,11 @@ export class ClinicianType {
   // REQ014 (US-ORG-03) — optional specialty grouping.
   @Field(() => ID, { nullable: true }) department_id?: string;
   @Field(() => DepartmentType, { nullable: true }) department?: DepartmentType;
+  // REQ015 (US-SEC-07) — only 'verified' renders the public-profile badge.
+  @Field({ nullable: true }) registration_number?: string;
+  @Field({ nullable: true }) medical_council?: string;
+  @Field() verification_status: string;
+  @Field({ nullable: true }) verified_at?: Date;
 }
 
 // components/Clinicians/ClinicianProfileDrawer.jsx's real CLINICIAN_DETAIL_QUERY

@@ -6,8 +6,28 @@ created: 2026-08-22
 updated: 2026-08-24
 status: in-progress
 parent: REQ007
-related: [REQ007, PLAN061]
+related: [REQ007, PLAN061, PLAN072, TP099, TR098]
 ---
+
+## Status (2026-08-24, second slice)
+
+**`US-RPT-02`/`US-RPT-03` shipped** (`PLAN072`/`TP099`/`TR098`), on top of
+`US-RPT-01`/`US-RPT-04`'s earlier same-day slice (`PLAN061`): a Patient
+report group (`getPatientReportGroup` — new-vs-repeat breakdown,
+acquisition-source attribution, a configurable lapsed-patient recall list)
+and scheduled report delivery (`ScheduledReports`, an hourly `@Cron` job
+checking each schedule's own cadence against `last_sent_at`). See
+`context/analytics-reporting-2026-08-24-req029-part2/manifest.md`.
+
+**Deliberately scoped down**: scheduled delivery is email-only for this
+slice (WhatsApp deferred — it needs a per-org provider-config lookup
+`REQ025`'s own pattern requires, which email delivery doesn't), and actual
+sends are stubbed (`console.log`) the same way OTP SMS already is in this
+dev environment — no real AWS SES integration exists anywhere in this
+codebase yet to send a real email through. The report-computation and
+cadence-tracking are real; only the transport is a stand-in. Clinical/
+Pharmacy report groups remain blocked on their source modules per this
+requirement's own original gap analysis.
 
 # Report groups, scheduled delivery, and true utilisation metrics
 

@@ -258,4 +258,66 @@ export class AnalyticsService {
       topClinicians,
     };
   }
+
+  // REQ029 (US-RPT-02) — new-vs-repeat, acquisition source, lapsed-patient
+  // recall list. Patients has no client_org_id of its own (a pre-existing
+  // schema quirk — patients.service.ts's own comment); scoped indirectly
+  // via the same appointments-relation shape that service already uses.
+  async getPatientReportGroup(
+    clinicId: string | undefined,
+    startDate: string,
+    endDate: string,
+    lapsedLookbackDays: number,
+    user: JwtPayload,
+  ) {
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const clinicFilter = clinicId ? { clinic_id: clinicId } : {};
+    const orgFilter = user.client_org_id ? { clinic: { client_org_id: user.client_org_id } } : {};
+
+    const patientsInRange = await this.prisma.patients.findMany({
+      where: { appointments: { some: { ...clinicFilter, ...orgFilter, appointment_time: { gte: start, lte: end } } } },
+      select: { id: true, acquisition_source: true },
+    });
+    const patientIds = patientsInRange.map((p) => p.id);
+
+    let newPatients = 0;
+    let repeatPatients = 0;
+    if (patientIds.length) {
+      const priorVisitCounts = await this.prisma.appointments.groupBy({
+        by: ['patient_id'],
+        where: { patient_id: { in: patientIds }, ...clinicFilter, ...orgFilter, appointment_time: { lt: start } },
+        _count: { id: true },
+      });
+      const patientsWithPriorVisit = new Set(priorVisitCounts.map((r) => r.patient_id));
+      for (const id of patientIds) {
+        if (patientsWithPriorVisit.has(id)) repeatPatients++;
+        else newPatients++;
+      }
+    }
+
+    const sourceCounts = new Map<string, number>();
+    for (const p of patientsInRange) {
+      const source = p.acquisition_source ?? 'unknown';
+      sourceCounts.set(source, (sourceCounts.get(source) ?? 0) + 1);
+    }
+    const acquisitionSourceBreakdown = [...sourceCounts.entries()].map(([source, count]) => ({ source, count }));
+
+    const lapsedCutoff = new Date(Date.now() - lapsedLookbackDays * 24 * 60 * 60 * 1000);
+    const lapsedCandidates = await this.prisma.patients.findMany({
+      where: {
+        appointments: { some: { ...clinicFilter, ...orgFilter } },
+        AND: [{ appointments: { none: { ...clinicFilter, ...orgFilter, appointment_time: { gte: lapsedCutoff } } } }],
+      },
+      include: { appointments: { where: { ...clinicFilter, ...orgFilter }, orderBy: { appointment_time: 'desc' }, take: 1 } },
+      take: 200,
+    });
+    const lapsedPatients = lapsedCandidates.map((p) => ({
+      id: p.id,
+      full_name: `${p.first_name} ${p.last_name}`,
+      last_visit: p.appointments[0]?.appointment_time,
+    }));
+
+    return { newPatients, repeatPatients, acquisitionSourceBreakdown, lapsedPatients };
+  }
 }

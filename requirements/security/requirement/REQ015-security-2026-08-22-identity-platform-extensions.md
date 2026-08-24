@@ -3,11 +3,29 @@ id: REQ015
 type: requirement
 feature: security
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-24
+status: in-progress
 parent: REQ001
-related: [REQ012, REQ001]
+related: [REQ012, REQ001, REQ049, PLAN071, TP098, TR097]
 ---
+
+## Status (2026-08-24)
+
+**`US-SEC-07`/`US-SEC-08` shipped** (`PLAN071`/`TP098`/`TR097`): clinician
+verification fields (`medical_council`, `verification_status`,
+`verified_at`, `verified_by_user_id` on `Clinicians`) plus an
+admin-attested `updateClinicianVerification` mutation — not real HPR/NMC
+API verification, which the requirement doc explicitly defers to an
+"interim path" for now; org-scoped `ApiKeys` (bcrypt-hashed, same
+convention as passwords, shown once at issuance). Custom-role enforcement
+(`REQ049`) was already done in an earlier session. See
+`context/security-2026-08-24-req015/manifest.md`.
+
+**Deliberately NOT built**: `US-SEC-09` (SSO/SAML/OIDC) — needs a real
+external identity-provider integration, explicitly out of scope for this
+additive, isolated pass. The issued API keys are also not yet wired to any
+guard (no public API exists to authenticate into yet — see `REQ030`) —
+`verify()` exists and is unit-tested, but nothing calls it in this slice.
 
 # Identity platform extensions: custom-role enforcement, SSO, clinician verification, API keys
 

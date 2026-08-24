@@ -48,4 +48,18 @@ export class CliniciansResolver {
   toggleClinicianActive(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
     return this.cliniciansService.toggleActive(id, user);
   }
+
+  // REQ015 (US-SEC-07) — an admin-attested interim verification path (no
+  // real HPR/NMC API integration, which the requirement doc explicitly
+  // defers). 'admin'/'super_admin' only, not 'manager' — verification is
+  // an identity-trust decision, a step above ordinary roster management.
+  @Auth('admin', 'super_admin')
+  @Mutation(() => ClinicianType)
+  updateClinicianVerification(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('status') status: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.cliniciansService.updateVerification(id, status, user);
+  }
 }

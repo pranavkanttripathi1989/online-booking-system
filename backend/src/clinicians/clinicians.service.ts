@@ -246,6 +246,29 @@ export class CliniciansService {
     return this.toGraphQL(clinician);
   }
 
+  // REQ015 (US-SEC-07) — unverified | pending | verified | rejected.
+  async updateVerification(id: string, status: string, user: JwtPayload) {
+    const VALID_STATUSES = ['unverified', 'pending', 'verified', 'rejected'];
+    if (!VALID_STATUSES.includes(status)) {
+      throw new BadRequestException(`status must be one of: ${VALID_STATUSES.join(', ')}`);
+    }
+    const existing = await this.prisma.clinicians.findUnique({ where: { id }, include: { clinic: true } });
+    if (!existing || existing.is_deleted) {
+      throw new NotFoundException('Clinician not found');
+    }
+    assertSameOrg(user, existing.clinic?.client_org_id ?? null, 'Clinician');
+    const clinician = await this.prisma.clinicians.update({
+      where: { id },
+      data: {
+        verification_status: status,
+        verified_at: status === 'verified' ? new Date() : null,
+        verified_by_user_id: status === 'verified' ? user.sub : null,
+      },
+      include: this.include(),
+    });
+    return this.toGraphQL(clinician);
+  }
+
   // Backs ClinicianType.availability_templates (clinicians.resolver.ts
   // @ResolveField) -- see entities/clinician.entity.ts for why this reads
   // the same ClinicianAvailability table as the Availability domain but

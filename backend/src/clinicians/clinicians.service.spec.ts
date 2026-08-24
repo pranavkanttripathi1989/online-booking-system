@@ -187,4 +187,40 @@ describe('CliniciansService — read/write tenant isolation (F-01)', () => {
       expect(prisma.clinicians.update).not.toHaveBeenCalled();
     });
   });
+
+  // REQ015 (US-SEC-07).
+  describe('updateVerification', () => {
+    it('rejects an invalid status value before touching Prisma', async () => {
+      await expect(service.updateVerification('cln-a1', 'super-verified', orgAUser)).rejects.toThrow('status must be one of');
+      expect(prisma.clinicians.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('rejects verifying a cross-org clinician', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianB);
+      await expect(service.updateVerification('cln-b1', 'verified', orgAUser)).rejects.toThrow('Clinician not found');
+      expect(prisma.clinicians.update).not.toHaveBeenCalled();
+    });
+
+    it('stamps verified_at/verified_by_user_id when moving to verified', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianA);
+      prisma.clinicians.update.mockResolvedValue({ ...clinicianA, verification_status: 'verified' });
+      await service.updateVerification('cln-a1', 'verified', orgAUser);
+      expect(prisma.clinicians.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { verification_status: 'verified', verified_at: expect.any(Date), verified_by_user_id: 'u1' },
+        }),
+      );
+    });
+
+    it('clears verified_at/verified_by_user_id when moving away from verified', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianA);
+      prisma.clinicians.update.mockResolvedValue({ ...clinicianA, verification_status: 'rejected' });
+      await service.updateVerification('cln-a1', 'rejected', orgAUser);
+      expect(prisma.clinicians.update).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: { verification_status: 'rejected', verified_at: null, verified_by_user_id: null },
+        }),
+      );
+    });
+  });
 });
