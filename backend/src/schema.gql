@@ -782,6 +782,16 @@ input CreateLanguageInput {
   name: String!
 }
 
+input CreatePackageInput {
+  clinic_id: ID!
+  description: String
+  name: String!
+  price: Float!
+  product_ids: [ID!]!
+  total_sittings: Int!
+  validity_days: Int
+}
+
 input CreatePlanVersionInput {
   billing_period: String!
   feature_flags: [FeatureFlagInput!]!
@@ -1310,6 +1320,7 @@ type Mutation {
   createIntakeFieldConfig(input: CreateIntakeFieldInput!): IntakeFieldConfigMutationResult!
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
+  createPackage(input: CreatePackageInput!): PackageMutationResult!
   createPatient(input: PatientInput!): Patient!
   createPatientInsurancePolicy(input: PatientInsurancePolicyInput!): PatientInsurancePolicy!
   createPayer(input: PayerInput!): Payer!
@@ -1351,6 +1362,7 @@ type Mutation {
   deleteLunchBreak(id: ID!): Boolean!
   deleteNotification(id: ID!): NotificationMutationResult!
   deleteOrganization(id: ID!): OrganizationMutationResult!
+  deletePackage(id: ID!): PackageMutationResult!
   deleteProduct(id: ID!): ProductMutationResult!
   deleteProductCategory(id: ID!): ProductCategoryMutationResult!
   deleteProductSubcategory(id: ID!): ProductSubcategoryMutationResult!
@@ -1374,9 +1386,11 @@ type Mutation {
   markThreadRead(threadId: ID!): Boolean!
   mergePatients(input: MergePatientsInput!): Patient!
   orderTest(input: OrderTestInput!): TestResult!
+  purchasePackage(input: PurchasePackageInput!): PurchasePackageResult!
   recallQueueEntry(id: ID!): QueueEntry!
   receiveStock(input: ReceiveStockInput!): DrugBatch!
   recordCounterPayment(input: RecordCounterPaymentInput!): RecordCounterPaymentResult!
+  redeemPackageSitting(input: RedeemPackageSittingInput!): RedeemPackageSittingResult!
   refresh(input: RefreshInput!): AuthPayload!
   register(input: RegisterInput!): AuthPayload!
   requestBreakGlassAccess(input: RequestBreakGlassAccessInput!): BreakGlassGrantMutationResult!
@@ -1427,6 +1441,7 @@ type Mutation {
   updateMyOrgSecuritySettings(input: UpdateOrgSecuritySettingsInput!): OrgSecuritySettingsMutationResult!
   updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
+  updatePackage(id: ID!, input: UpdatePackageInput!): PackageMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
   updatePayerEmpanelmentStatus(id: ID!, input: UpdatePayerEmpanelmentStatusInput!): PayerEmpanelment!
   updateProduct(id: ID!, input: UpdateProductInput!): ProductMutationResult!
@@ -1700,6 +1715,33 @@ type OrganizationsPaginated {
   pageInfo: OrganizationPageInfo!
 }
 
+type Package {
+  clinic_id: ID!
+  description: String
+  id: ID!
+  is_active: Boolean!
+  items: [PackageItem!]!
+  name: String!
+  price: Float!
+  total_sittings: Int!
+  validity_days: Int!
+}
+
+type PackageItem {
+  id: ID!
+  product_id: ID!
+}
+
+type PackageMutationResult {
+  pkg: Package
+  success: Boolean!
+  userErrors: [PackageUserError!]!
+}
+
+type PackageUserError {
+  message: String!
+}
+
 type Patient {
   address: String
   appointments(first: Int! = 20, page: Int! = 1): PatientAppointmentsPaginated!
@@ -1793,6 +1835,21 @@ input PatientInsurancePolicyInput {
   policy_number: String!
   valid_from: String!
   valid_until: String
+}
+
+type PatientPackage {
+  expires_at: DateTime!
+  id: ID!
+  is_expired: Boolean!
+  package: Package
+  package_id: ID!
+  patient_id: ID!
+  purchase_amount: Float!
+  purchase_reference: String
+  purchase_tender_type: String!
+  purchased_at: DateTime!
+  sittings_remaining: Int!
+  sittings_total: Int!
 }
 
 type PatientPaginated {
@@ -2153,6 +2210,19 @@ type PublicProductVariation {
   price: Float!
 }
 
+input PurchasePackageInput {
+  package_id: ID!
+  patient_id: ID!
+  purchase_reference: String
+  purchase_tender_type: String!
+}
+
+type PurchasePackageResult {
+  patientPackage: PatientPackage
+  success: Boolean!
+  userErrors: [PackageUserError!]!
+}
+
 type Query {
   apiKeys: [ApiKey!]!
   applyPrescriptionSet(set_id: ID!): [PrescriptionItem!]!
@@ -2220,10 +2290,12 @@ type Query {
   notificationProviders: [NotificationProviderOption!]!
   notifications(filter: String): [Notification!]!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
+  packages(clinic_id: ID): [Package!]!
   patient(id: ID!): Patient
   patientAllergyBanner(patient_id: ID!): [Diagnosis!]!
   patientConsents(patient_id: ID!): [Consent!]!
   patientInsurancePolicies(patient_id: ID!): [PatientInsurancePolicy!]!
+  patientPackages(patient_id: ID!): [PatientPackage!]!
   patientPrescriptions(patient_id: ID!): [Prescription!]!
   patientTimeline(patient_id: ID!): [TimelineEvent!]!
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
@@ -2324,6 +2396,18 @@ type RecordCounterPaymentResult {
   invoice_number: String
   message: String
   payment_id: ID
+  success: Boolean!
+}
+
+input RedeemPackageSittingInput {
+  appointment_id: ID!
+  patient_package_id: ID!
+}
+
+type RedeemPackageSittingResult {
+  message: String
+  payment_id: ID
+  sittings_remaining: Int
   success: Boolean!
 }
 
@@ -2904,6 +2988,15 @@ input UpdateOrgSecuritySettingsInput {
   mfa_required: Boolean
   patient_data_export_enabled: Boolean
   session_timeout_minutes: Int
+}
+
+input UpdatePackageInput {
+  description: String
+  is_active: Boolean
+  name: String
+  price: Float
+  total_sittings: Int
+  validity_days: Int
 }
 
 input UpdatePayerEmpanelmentStatusInput {

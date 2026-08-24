@@ -26,6 +26,18 @@ export class RecordCounterPaymentResultType {
   @Field({ nullable: true }) invoice_number?: string;
 }
 
+// REQ054 (US-CAT-01) — matches this file's own established throw-based
+// pattern (recordCounterPayment throws on failure rather than returning
+// {success:false, userErrors}), not the other convention this codebase
+// also uses elsewhere.
+@ObjectType('RedeemPackageSittingResult')
+export class RedeemPackageSittingResultType {
+  @Field() success: boolean;
+  @Field({ nullable: true }) message?: string;
+  @Field(() => ID, { nullable: true }) payment_id?: string;
+  @Field(() => Int, { nullable: true }) sittings_remaining?: number;
+}
+
 // manager/Dashboard.jsx's GET_MANAGER_TRANSACTIONS query — field names are a
 // hard contract (camelCase, matching the public/patient-self-serve dialect
 // even though the rest of that page is canonical/snake_case — this specific

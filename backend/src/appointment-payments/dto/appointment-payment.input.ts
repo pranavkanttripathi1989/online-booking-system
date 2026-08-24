@@ -30,3 +30,10 @@ export class RecordCounterPaymentInput {
   @ArrayMinSize(1)
   tenders: PaymentTenderInput[];
 }
+
+// REQ054 (US-CAT-01)
+@InputType('RedeemPackageSittingInput')
+export class RedeemPackageSittingInput {
+  @Field(() => ID) @IsNotEmpty() appointment_id: string;
+  @Field(() => ID) @IsNotEmpty() patient_package_id: string;
+}

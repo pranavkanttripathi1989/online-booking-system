@@ -8,8 +8,9 @@ import {
   FinanceTransactionType,
   FinanceSummaryType,
   RecordCounterPaymentResultType,
+  RedeemPackageSittingResultType,
 } from './entities/appointment-payment.entity';
-import { VerifyRazorpayPaymentInput, RecordCounterPaymentInput } from './dto/appointment-payment.input';
+import { VerifyRazorpayPaymentInput, RecordCounterPaymentInput, RedeemPackageSittingInput } from './dto/appointment-payment.input';
 import { Public } from '../common/decorators/public.decorator';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -83,5 +84,12 @@ export class AppointmentPaymentsResolver {
   @Mutation(() => RecordCounterPaymentResultType)
   recordCounterPayment(@Args('input') input: RecordCounterPaymentInput, @CurrentUser() user: JwtPayload) {
     return this.appointmentPaymentsService.recordCounterPayment(input, user);
+  }
+
+  // REQ054 (US-CAT-01)
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Mutation(() => RedeemPackageSittingResultType)
+  redeemPackageSitting(@Args('input') input: RedeemPackageSittingInput, @CurrentUser() user: JwtPayload) {
+    return this.appointmentPaymentsService.redeemPackageSitting(input, user);
   }
 }

@@ -2,7 +2,7 @@ import { Injectable, BadRequestException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
 import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
-import { VerifyRazorpayPaymentInput, RecordCounterPaymentInput } from './dto/appointment-payment.input';
+import { VerifyRazorpayPaymentInput, RecordCounterPaymentInput, RedeemPackageSittingInput } from './dto/appointment-payment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, isSameOrg } from '../common/scoping/tenant-scope';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
@@ -226,6 +226,77 @@ export class AppointmentPaymentsService {
     }
 
     return { success: true, payment_id: payment.id, invoice_number: payment.invoice_number ?? undefined };
+  }
+
+  // REQ054 (US-CAT-01) — a sibling mutation to recordCounterPayment, not a
+  // shoehorned zero-amount case through it: that method's own tenders-must-
+  // sum-to-exactly-the-amount-due validation has no meaning for a
+  // redemption (there is no amount due). Records a zero-amount
+  // AppointmentPayments row so existing payment-status reporting keeps
+  // working for a package-redeemed visit without a parallel "paid" concept
+  // — metadata carries the redemption's own provenance. resolveServicePrice()
+  // is deliberately never called here: a redemption has no price to resolve.
+  async redeemPackageSitting(input: RedeemPackageSittingInput, user: JwtPayload) {
+    const appointment = await this.prisma.appointments.findUnique({
+      where: { id: input.appointment_id },
+      include: { clinic: true },
+    });
+    if (!appointment) throw new BadRequestException('Appointment not found');
+    if (!isSameOrg(user, appointment.clinic.client_org_id)) {
+      throw new BadRequestException('Appointment not found');
+    }
+
+    const patientPackage = await this.prisma.patientPackages.findUnique({ where: { id: input.patient_package_id } });
+    if (!patientPackage || patientPackage.is_deleted) {
+      throw new BadRequestException('Package not found');
+    }
+    if (!isSameOrg(user, patientPackage.client_org_id)) {
+      throw new BadRequestException('Package not found');
+    }
+    if (patientPackage.patient_id !== appointment.patient_id) {
+      throw new BadRequestException('This package does not belong to this appointment\'s patient');
+    }
+    if (patientPackage.expires_at < new Date()) {
+      throw new BadRequestException('This package has expired');
+    }
+    // Read-then-guard-then-decrement inside the same transaction, the same
+    // shape DrugBatches.quantity_remaining's consumption path uses (REQ022).
+    if (patientPackage.sittings_remaining < 1) {
+      throw new BadRequestException('No sittings remaining on this package');
+    }
+
+    const payment = await this.prisma.$transaction(async (tx) => {
+      const fresh = await tx.patientPackages.findUnique({ where: { id: input.patient_package_id } });
+      if (!fresh || fresh.sittings_remaining < 1) {
+        throw new BadRequestException('No sittings remaining on this package');
+      }
+      await tx.patientPackages.update({
+        where: { id: input.patient_package_id },
+        data: { sittings_remaining: { decrement: 1 } },
+      });
+      return tx.appointmentPayments.create({
+        data: {
+          appointment_id: appointment.id,
+          patient_id: appointment.patient_id,
+          clinic_id: appointment.clinic_id,
+          client_org_id: appointment.clinic.client_org_id,
+          amount: 0,
+          currency: 'INR',
+          status: 'succeeded',
+          metadata: { package_redemption: true, patient_package_id: input.patient_package_id },
+        },
+      });
+    });
+    await this.confirmAppointmentIfAwaitingPayment(appointment.id);
+    if (appointment.clinic.client_org_id) {
+      await this.webhookDispatch.fireEvent(appointment.clinic.client_org_id, 'payment.succeeded', {
+        appointment_id: appointment.id,
+        amount: 0,
+      });
+    }
+
+    const updated = await this.prisma.patientPackages.findUnique({ where: { id: input.patient_package_id } });
+    return { success: true, payment_id: payment.id, sittings_remaining: updated?.sittings_remaining };
   }
 
   // Razorpay's documented client-integration verification pattern (distinct

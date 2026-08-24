@@ -324,6 +324,15 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
   },
   {
+    domain: 'packages',
+    what: 'packages',
+    query: `{ packages { id } }`,
+    ids: (d) => (d.packages ?? []).map((x: any) => x.id),
+    aId: IDS.packageA,
+    bId: IDS.packageB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
+  },
+  {
     // REQ018 (US-BOOK-05). Own client_org_id, same shape as departments/resources.
     domain: 'booking-widget',
     what: 'bookingWidgetConfigs',

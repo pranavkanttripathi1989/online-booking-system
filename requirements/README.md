@@ -10,7 +10,7 @@
 | queue-management | 1 | 2 | 0 | 2 | 1 | 2026-08-25 | [queue-management](./queue-management/README.md) |
 | appointments | 1 | 1 | 4 | 3 | 3 | 2026-08-25 | [appointments](./appointments/README.md) |
 | organizations | 2 | 1 | 0 | 1 | 2 | 2026-08-24 | [organizations](./organizations/README.md) |
-| catalog-master-data | 2 | 1 | 0 | 1 | 2 | 2026-08-24 | [catalog-master-data](./catalog-master-data/README.md) |
+| catalog-master-data | 2 | 2 | 0 | 2 | 2 | 2026-08-25 | [catalog-master-data](./catalog-master-data/README.md) |
 | abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |
 | compliance-dpdp | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [compliance-dpdp](./compliance-dpdp/README.md) |
 | telemedicine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [telemedicine](./telemedicine/README.md) |

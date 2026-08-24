@@ -707,6 +707,8 @@ model ClientOrganizations {
   drugBatches            DrugBatches[]
   breakGlassGrants       BreakGlassGrants[]
   impersonationSessions  ImpersonationSessions[]
+  packages               Packages[]
+  patientPackages        PatientPackages[]
 }
 
 model ClinicianAvailability {
@@ -877,6 +879,8 @@ model Clinics {
   scheduledReports   ScheduledReports[]
   checklistItems     ChecklistItems[]
   intakeFieldConfigs ClinicIntakeFieldConfig[]
+  packages           Packages[]
+  patientPackages    PatientPackages[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -1039,6 +1043,7 @@ model Patients {
   consents                 Consents[]
   rightsRequests           RightsRequests[]
   insurancePolicies        PatientInsurancePolicies[]
+  patientPackages          PatientPackages[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1504,6 +1509,7 @@ model Products {
   clinicianServices ClinicianServices[]
   checklistItems    ChecklistItems[]
   intakeFieldConfigs ClinicIntakeFieldConfig[]
+  packageItems      PackageItems[]
 
   @@index([client_org_id, is_deleted])
   @@index([category_id])
@@ -2335,4 +2341,71 @@ model ImpersonationSessions {
 
   @@index([real_actor_user_id, expires_at])
   @@index([target_user_id])
+}
+
+// REQ054 (US-CAT-01) — a sellable multi-sitting bundle. price_paise/
+// total_sittings/validity_days are the catalog defaults; a purchased
+// PatientPackages instance denormalizes its own copy so a later catalog
+// edit never retroactively changes an already-sold package.
+model Packages {
+  id             String   @id @default(uuid())
+  client_org_id  String
+  clinic_id      String
+  name           String
+  description    String?
+  total_sittings Int
+  price_paise    Int
+  validity_days  Int      @default(90)
+  is_active      Boolean  @default(true)
+  is_deleted     Boolean  @default(false)
+  created_at     DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic               Clinics             @relation(fields: [clinic_id], references: [id])
+  items                PackageItems[]
+  patientPackages      PatientPackages[]
+
+  @@index([client_org_id, clinic_id])
+}
+
+// Which service(s)/product(s) a sitting from this package may be redeemed
+// against — a package bundles one or more, per US-CAT-01's own wording.
+model PackageItems {
+  id         String @id @default(uuid())
+  package_id String
+  product_id String
+
+  package Packages @relation(fields: [package_id], references: [id])
+  product Products @relation(fields: [product_id], references: [id])
+
+  @@unique([package_id, product_id])
+}
+
+// A purchased instance. sittings_total/purchase_amount_paise are
+// denormalized from Packages at purchase time (see the model comment
+// above). sittings_remaining follows DrugBatches.quantity_remaining's
+// established "maintained running total, decremented inside the same
+// transaction as its triggering write" pattern (REQ022), not computed.
+model PatientPackages {
+  id                     String    @id @default(uuid())
+  package_id             String
+  patient_id             String
+  client_org_id          String
+  clinic_id              String
+  sittings_total         Int
+  sittings_remaining     Int
+  purchase_amount_paise  Int
+  purchase_tender_type   String
+  purchase_reference     String?
+  purchased_at           DateTime  @default(now())
+  expires_at             DateTime
+  is_deleted             Boolean   @default(false)
+
+  package             Packages            @relation(fields: [package_id], references: [id])
+  patient             Patients            @relation(fields: [patient_id], references: [id])
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+
+  @@index([patient_id, expires_at])
+  @@index([client_org_id, clinic_id])
 }

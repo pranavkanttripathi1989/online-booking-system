@@ -108,6 +108,9 @@ export const IDS = {
   // REQ052 -- intake-fields domain.
   intakeFieldA: u('d15'),
   intakeFieldB: u('d16'),
+  // REQ054 -- packages domain.
+  packageA: u('d17'),
+  packageB: u('d18'),
   // REQ014 -- departments domain.
   departmentA: u('d11'),
   departmentB: u('d12'),
@@ -462,6 +465,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.intakeFieldA, clinic_id: IDS.clinicA, key: 'current_medications', label: 'Current medications' },
       { id: IDS.intakeFieldB, clinic_id: IDS.clinicB, key: 'current_medications', label: 'Current medications' },
+    ],
+  });
+
+  // REQ054 -- one package per org.
+  await prisma.packages.createMany({
+    data: [
+      { id: IDS.packageA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: '10-Session Physio', total_sittings: 10, price_paise: 500000 },
+      { id: IDS.packageB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: '10-Session Physio', total_sittings: 10, price_paise: 500000 },
     ],
   });
 

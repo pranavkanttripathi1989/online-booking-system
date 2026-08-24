@@ -25,6 +25,7 @@ describe('AppointmentPaymentsService', () => {
     userProfiles: { findFirst: jest.Mock };
     auditLogs: { create: jest.Mock };
     paymentTenders: { createMany: jest.Mock };
+    patientPackages: { findUnique: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
   let fetchMock: jest.Mock;
@@ -51,6 +52,8 @@ describe('AppointmentPaymentsService', () => {
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
       auditLogs: { create: jest.fn() },
       paymentTenders: { createMany: jest.fn().mockResolvedValue({ count: 1 }) },
+      // REQ054 — redeemPackageSitting()
+      patientPackages: { findUnique: jest.fn(), update: jest.fn() },
       // REQ023 — recordCounterPayment()'s own transaction. Runs the callback
       // against the same top-level `prisma` mock (tx === prisma here), which
       // is fine since every model this transaction touches is already
@@ -728,6 +731,97 @@ describe('AppointmentPaymentsService', () => {
       expect(prisma.appointmentPayments.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ amount: 40000 }) }),
       );
+    });
+  });
+
+  // REQ054 (US-CAT-01)
+  describe('redeemPackageSitting', () => {
+    const staffUser: JwtPayload = { sub: 'staff-1', roles: ['staff'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+    const appointment = {
+      id: 'appt-1', patient_id: 'patient-1', clinic_id: 'clinic-a', clinic: { client_org_id: 'org-a' },
+    };
+    const patientPackage = {
+      id: 'pp-1', patient_id: 'patient-1', client_org_id: 'org-a',
+      sittings_remaining: 3, expires_at: new Date(Date.now() + 86400000), is_deleted: false,
+    };
+
+    it('rejects a nonexistent appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(null);
+      await expect(
+        service.redeemPackageSitting({ appointment_id: 'nope', patient_package_id: 'pp-1' }, staffUser),
+      ).rejects.toThrow('Appointment not found');
+    });
+
+    it('rejects a cross-org appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...appointment, clinic: { client_org_id: 'org-b' } });
+      await expect(
+        service.redeemPackageSitting({ appointment_id: 'appt-1', patient_package_id: 'pp-1' }, staffUser),
+      ).rejects.toThrow('Appointment not found');
+    });
+
+    it('rejects a nonexistent package', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      prisma.patientPackages.findUnique.mockResolvedValue(null);
+      await expect(
+        service.redeemPackageSitting({ appointment_id: 'appt-1', patient_package_id: 'ghost' }, staffUser),
+      ).rejects.toThrow('Package not found');
+    });
+
+    it('rejects a cross-org package', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      prisma.patientPackages.findUnique.mockResolvedValue({ ...patientPackage, client_org_id: 'org-b' });
+      await expect(
+        service.redeemPackageSitting({ appointment_id: 'appt-1', patient_package_id: 'pp-1' }, staffUser),
+      ).rejects.toThrow('Package not found');
+    });
+
+    it('rejects a package belonging to a different patient than the appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      prisma.patientPackages.findUnique.mockResolvedValue({ ...patientPackage, patient_id: 'someone-else' });
+      await expect(
+        service.redeemPackageSitting({ appointment_id: 'appt-1', patient_package_id: 'pp-1' }, staffUser),
+      ).rejects.toThrow(/does not belong to this appointment/i);
+    });
+
+    it('rejects an expired package', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      prisma.patientPackages.findUnique.mockResolvedValue({ ...patientPackage, expires_at: new Date(Date.now() - 1000) });
+      await expect(
+        service.redeemPackageSitting({ appointment_id: 'appt-1', patient_package_id: 'pp-1' }, staffUser),
+      ).rejects.toThrow(/expired/i);
+    });
+
+    it('rejects a package with no sittings remaining', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      prisma.patientPackages.findUnique.mockResolvedValue({ ...patientPackage, sittings_remaining: 0 });
+      await expect(
+        service.redeemPackageSitting({ appointment_id: 'appt-1', patient_package_id: 'pp-1' }, staffUser),
+      ).rejects.toThrow(/no sittings remaining/i);
+      expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+    });
+
+    it('decrements sittings_remaining and records a zero-amount succeeded payment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointment);
+      prisma.patientPackages.findUnique
+        .mockResolvedValueOnce(patientPackage) // pre-check
+        .mockResolvedValueOnce(patientPackage) // fresh re-check inside the transaction
+        .mockResolvedValueOnce({ ...patientPackage, sittings_remaining: 2 }); // post-decrement read
+      prisma.appointmentPayments.create.mockResolvedValue({ id: 'pay-redeem' });
+
+      const result = await service.redeemPackageSitting({ appointment_id: 'appt-1', patient_package_id: 'pp-1' }, staffUser);
+
+      expect(prisma.patientPackages.update).toHaveBeenCalledWith({
+        where: { id: 'pp-1' },
+        data: { sittings_remaining: { decrement: 1 } },
+      });
+      expect(prisma.appointmentPayments.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          amount: 0,
+          status: 'succeeded',
+          metadata: { package_redemption: true, patient_package_id: 'pp-1' },
+        }),
+      }));
+      expect(result).toEqual({ success: true, payment_id: 'pay-redeem', sittings_remaining: 2 });
     });
   });
 });

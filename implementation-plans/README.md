@@ -12,7 +12,7 @@
 | clinical-records | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
 | messaging | 1 | 0 | 0 | 0 | 1 | 2026-08-23 | [messaging](./messaging/README.md) |
-| catalog-master-data | 2 | 1 | 0 | 0 | 3 | 2026-08-24 | [catalog-master-data](./catalog-master-data/README.md) |
+| catalog-master-data | 2 | 2 | 0 | 0 | 4 | 2026-08-25 | [catalog-master-data](./catalog-master-data/README.md) |
 | organizations | 2 | 1 | 0 | 0 | 3 | 2026-08-24 | [organizations](./organizations/README.md) |
 | queue-management | 1 | 2 | 0 | 0 | 3 | 2026-08-25 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 5 | 11 | 0 | 16 | 2026-08-24 | [platform-nfr](./platform-nfr/README.md) |
