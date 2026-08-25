@@ -1,8 +1,8 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrderTestInput } from './dto/order-test.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { isPlatformOperator, orgScopeVia } from '../common/scoping/tenant-scope';
+import { isPlatformOperator, orgScopeVia, assertSameOrg } from '../common/scoping/tenant-scope';
 import { PatientsService } from '../patients/patients.service';
 
 @Injectable()
@@ -104,10 +104,21 @@ export class TestResultsService {
     return this.toGraphQL(row);
   }
 
+  // F-08 (project-plans/02-findings-register.md) — patient_id used to
+  // never be written at all, so findAll()/findOne()'s own patient
+  // self-scoping was dead code no real row could ever match. Validates
+  // the selected patient belongs to the caller's own org (Hard Rule 6),
+  // the same real-`create*`-path check every other domain applies.
   async orderTest(input: OrderTestInput, user: JwtPayload) {
+    const patient = await this.prisma.patients.findUnique({ where: { id: input.patient_id } });
+    if (!patient || patient.is_deleted) {
+      throw new BadRequestException('Patient not found');
+    }
+    assertSameOrg(user, patient.client_org_id, 'Patient');
     const orderingUser = await this.prisma.userProfiles.findUnique({ where: { id: user.sub } });
     const row = await this.prisma.testResults.create({
       data: {
+        patient_id: input.patient_id,
         patient_name: input.patient,
         // The Order dialog only collects one "test type" field and uses it as
         // both the display test name and the type/icon category — mirrors

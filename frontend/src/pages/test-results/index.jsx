@@ -6,8 +6,9 @@ import {
   Table, TableBody, TableCell, TableHead, TableRow, TableContainer, TextField, InputAdornment,
   MenuItem, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions,
   Divider, LinearProgress, Select, FormControl, InputLabel, TableSortLabel, Skeleton,
+  Autocomplete, CircularProgress,
 } from '@mui/material'
-import { TEST_RESULTS_QUERY } from '../../graphql/queries'
+import { TEST_RESULTS_QUERY, PATIENTS_QUERY } from '../../graphql/queries'
 import { ORDER_TEST_MUTATION } from '../../graphql/mutations'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded'
@@ -147,7 +148,18 @@ export default function TestResultsPage() {
   const [viewResult, setViewResult] = useState(null)
   // SUG-TRES-002: Order Test dialog state
   const [orderOpen, setOrderOpen] = useState(false)
-  const [orderForm, setOrderForm] = useState({ patient: '', testType: 'Blood Test' })
+  const [orderForm, setOrderForm] = useState({ patientId: '', patient: '', testType: 'Blood Test' })
+  // F-08 (project-plans/02-findings-register.md) — the "Patient Name" field
+  // used to be free text with no patient_id ever sent, which made the
+  // backend's own patient self-scoping on this domain permanently dead code.
+  const [patientSearch, setPatientSearch] = useState('')
+  const [selectedPatient, setSelectedPatient] = useState(null)
+  const { data: patientsData, loading: loadingPatients } = useQuery(PATIENTS_QUERY, {
+    variables: { search: patientSearch, first: 20 },
+    skip: patientSearch.length < 2,
+    fetchPolicy: 'network-only',
+  })
+  const patientOptions = patientsData?.patients?.data ?? []
   // SUG-TRES-005: column sorting
   const [sortField, setSortField] = useState('date_ordered')
   const [sortDir, setSortDir] = useState('desc')
@@ -166,13 +178,13 @@ export default function TestResultsPage() {
 
   const handleOrderSubmit = async () => {
     try {
-      await orderTest({ variables: { input: { patient: orderForm.patient.trim(), testType: orderForm.testType } } })
+      await orderTest({ variables: { input: { patient_id: orderForm.patientId, patient: orderForm.patient, testType: orderForm.testType } } })
     } catch (_) {
       // SUG-TRES-008: backend unreachable — same offline-success pattern used
       // elsewhere in this codebase (e.g. patients/index.jsx's AddPatientDialog).
       const newResult = {
         id: `TR-${String(results.length + 1).padStart(3, '0')}`,
-        patient: orderForm.patient.trim(),
+        patient: orderForm.patient,
         test: orderForm.testType,
         ordered_by: 'Current User',
         date_ordered: new Date().toISOString().split('T')[0],
@@ -184,7 +196,9 @@ export default function TestResultsPage() {
       setLocalResults(prev => [newResult, ...prev])
     }
     setOrderOpen(false)
-    setOrderForm({ patient: '', testType: 'Blood Test' })
+    setOrderForm({ patientId: '', patient: '', testType: 'Blood Test' })
+    setSelectedPatient(null)
+    setPatientSearch('')
   }
 
   const handleSort = (field) => {
@@ -371,11 +385,36 @@ export default function TestResultsPage() {
         <DialogTitle sx={{ fontWeight: 800 }}>Order New Test</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              label="Patient Name" fullWidth size="small"
-              value={orderForm.patient}
-              onChange={e => setOrderForm(f => ({ ...f, patient: e.target.value }))}
-              placeholder="Search patient by name…"
+            <Autocomplete
+              value={selectedPatient}
+              inputValue={patientSearch}
+              onInputChange={(_, val) => setPatientSearch(val)}
+              onChange={(_, val) => {
+                setSelectedPatient(val)
+                setOrderForm(f => ({ ...f, patientId: val?.id ?? '', patient: val?.full_name ?? '' }))
+              }}
+              options={patientOptions}
+              getOptionLabel={(p) => `${p.full_name} (${p.email ?? p.phone ?? ''})`}
+              isOptionEqualToValue={(opt, val) => opt.id === val.id}
+              loading={loadingPatients}
+              noOptionsText={patientSearch.length < 2 ? 'Type at least 2 characters…' : 'No patients found'}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Patient"
+                  placeholder="Search patient by name…"
+                  size="small"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {loadingPatients ? <CircularProgress size={18} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
             />
             <TextField select label="Test Type" fullWidth size="small"
               value={orderForm.testType}
@@ -390,7 +429,7 @@ export default function TestResultsPage() {
         <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
           <Button onClick={() => setOrderOpen(false)} sx={{ textTransform: 'none', fontWeight: 700, color: '#5F6368' }}>Cancel</Button>
           <Button variant="contained" onClick={handleOrderSubmit}
-            disabled={!orderForm.patient.trim()}
+            disabled={!orderForm.patientId}
             sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Submit Order</Button>
         </DialogActions>
       </Dialog>

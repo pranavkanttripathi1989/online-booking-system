@@ -10,7 +10,11 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 // could read every patient's lab values within the org.
 describe('TestResultsService — access scoping', () => {
   let service: TestResultsService;
-  let prisma: { testResults: { findMany: jest.Mock; findUnique: jest.Mock } };
+  let prisma: {
+    testResults: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock };
+    patients: { findUnique: jest.Mock };
+    userProfiles: { findUnique: jest.Mock };
+  };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['clinician'], client_org_id: 'org-1' } as JwtPayload;
@@ -20,7 +24,11 @@ describe('TestResultsService — access scoping', () => {
   const selfRegistered: JwtPayload = { sub: 'user-2', roles: ['patient'], client_org_id: null, patient_id: null } as JwtPayload;
 
   beforeEach(async () => {
-    prisma = { testResults: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn() } };
+    prisma = {
+      testResults: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), create: jest.fn() },
+      patients: { findUnique: jest.fn() },
+      userProfiles: { findUnique: jest.fn().mockResolvedValue({ first_name: 'Ada', last_name: 'Ordering' }) },
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         TestResultsService,
@@ -121,5 +129,47 @@ describe('TestResultsService — access scoping', () => {
     // `undefined` — means Prisma applies no filter at all.
     expect(where.ordered_by).toEqual({ client_org_id: '__no_org__' });
     expect(where.patient_id).toEqual({ in: ['__no_patient_link__'] });
+  });
+
+  // F-08 (project-plans/02-findings-register.md) — orderTest() never wrote
+  // patient_id at all, which made the patient self-scoping above dead code:
+  // no real row could ever match patient_id: { in: [...] } since none was
+  // ever set. These cases prove it's now written, and validated (Hard Rule 6).
+  describe('orderTest', () => {
+    const validInput = { patient_id: 'pat-1', patient: 'Anita Sharma', testType: 'Blood Test' };
+
+    it('rejects an unknown patient_id', async () => {
+      prisma.patients.findUnique.mockResolvedValue(null);
+      await expect(service.orderTest(validInput as any, staffUser)).rejects.toThrow();
+      expect(prisma.testResults.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a patient belonging to a different org (Hard Rule 6)', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, client_org_id: 'org-2' });
+      await expect(service.orderTest(validInput as any, staffUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.testResults.create).not.toHaveBeenCalled();
+    });
+
+    it('writes patient_id on the created row', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, client_org_id: 'org-1' });
+      prisma.testResults.create.mockResolvedValue({
+        id: 'tr-new', patient_name: 'Anita Sharma', test_name: 'Blood Test', ordered_by_name: 'Ada Ordering',
+        status: 'pending', date_ordered: new Date(), values: [],
+      });
+      await service.orderTest(validInput as any, staffUser);
+      expect(prisma.testResults.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ patient_id: 'pat-1', patient_name: 'Anita Sharma' }) }),
+      );
+    });
+
+    it('a platform operator can order a test for a patient with no client_org_id yet', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, client_org_id: null });
+      prisma.testResults.create.mockResolvedValue({
+        id: 'tr-new', patient_name: 'Anita Sharma', test_name: 'Blood Test', ordered_by_name: 'Ada Ordering',
+        status: 'pending', date_ordered: new Date(), values: [],
+      });
+      const platformAdmin: JwtPayload = { sub: 'admin-1', roles: ['admin'], client_org_id: null } as JwtPayload;
+      await expect(service.orderTest(validInput as any, platformAdmin)).resolves.toBeDefined();
+    });
   });
 });
