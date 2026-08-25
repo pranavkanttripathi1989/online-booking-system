@@ -143,6 +143,12 @@ const NAV_CONFIG = [
   { label: 'Patients',      path: '/patients',             icon: <GroupIcon />,              roles: ['admin','super_admin','manager','receptionist','staff'] },
   { label: 'Clinicians',    path: '/clinicians',           icon: <PersonIcon />,             roles: ['admin','super_admin','manager','receptionist','staff'] },
   { label: 'Live Queue',    path: '/queue',                icon: <FormatListNumberedIcon />, roles: ['admin','super_admin','manager','receptionist','staff','clinician'] },
+  // REQ059 — pharmacy.resolver.ts is @Auth('staff','manager','admin',
+  // 'super_admin'); previously only nested under the Manager section below,
+  // which only renders for isManager (admin/super_admin/manager) — a real
+  // staff pharmacy worker had no nav path to a page the backend already
+  // let them use, matching App.jsx's own route-guard fix for the same gap.
+  { label: 'Pharmacy',      path: '/manager/pharmacy',     icon: <MedicationIcon />,         roles: ['admin','super_admin','manager','staff'] },
   // ── Shared ────────────────────────────────────────────────────────────────
   { label: 'Messages',      path: '/messages',             icon: <MessageIcon />,            roles: 'all', badge: 0 },
   { label: 'Staff',         path: '/staff',                icon: <BadgeIcon />,              roles: ['admin','super_admin','manager'] },
@@ -179,7 +185,6 @@ const MANAGER_CHILDREN = [
   { label: 'Resources',    path: '/manager/resources',    icon: <PrecisionManufacturingIcon /> },
   { label: 'Products',     path: '/manager/products',     icon: <InventoryIcon /> },
   { label: 'Services',     path: '/manager/services',     icon: <MedicalServicesIcon /> },
-  { label: 'Pharmacy',     path: '/manager/pharmacy',     icon: <MedicationIcon /> },
   { label: 'Patient Reports', path: '/manager/reports',   icon: <SummarizeIcon /> },
   // Phase G+3 — checklist + intake-field config (REQ051/REQ052).
   { label: 'Clinic Forms', path: '/manager/clinic-forms', icon: <FormatListNumberedIcon /> },

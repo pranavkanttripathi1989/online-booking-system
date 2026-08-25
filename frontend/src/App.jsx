@@ -348,6 +348,11 @@ function App() {
           <Route element={<RoleGuard roles={['admin', 'super_admin', 'staff', 'manager']} />}>
             <Route path="/staff/dashboard"        element={<Suspense fallback={<ShellPageLoader />}><StaffDashboard /></Suspense>} />
             <Route path="/staff/appointments"     element={<Suspense fallback={<ShellPageLoader />}><StaffAppointments /></Suspense>} />
+            {/* REQ059 — pharmacy.resolver.ts is @Auth('staff','manager','admin',
+                'super_admin'); this route previously sat under the manager-only
+                block below, so real pharmacy staff got this app's own 403 page
+                before ever reaching a page the backend already lets them use. */}
+            <Route path="/manager/pharmacy"        element={<Suspense fallback={<ShellPageLoader />}><ManagerPharmacy /></Suspense>} />
           </Route>
 
           {/* ── Manager / admin ───────────────────────────────────────── */}
@@ -373,7 +378,6 @@ function App() {
             <Route path="/manager/rooms/:id"         element={<Suspense fallback={<ShellPageLoader />}><RoomDetailPage /></Suspense>} />
             <Route path="/manager/rooms/:id/edit"    element={<Suspense fallback={<ShellPageLoader />}><EditRoomPage /></Suspense>} />
             <Route path="/manager/resources"         element={<Suspense fallback={<ShellPageLoader />}><ManagerResources /></Suspense>} />
-            <Route path="/manager/pharmacy"           element={<Suspense fallback={<ShellPageLoader />}><ManagerPharmacy /></Suspense>} />
             <Route path="/manager/reports"            element={<Suspense fallback={<ShellPageLoader />}><ManagerReports /></Suspense>} />
             {/* Services CRUD */}
             <Route path="/manager/services"          element={<Suspense fallback={<ShellPageLoader />}><ServiceCatalog /></Suspense>} />
