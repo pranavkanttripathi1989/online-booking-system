@@ -26,9 +26,15 @@ Severity: **S1** ship-blocker (a role's core workflow is fake or broken) ·
 incomplete) · **S3** should fix (a real but lower-traffic gap) · **S4**
 cleanup/documentation only.
 
-**Summary: 1 × S1, 3 × S2, 6 × S3, 2 × S4 across 12 real findings**, plus one
-confirmed false positive and one stale-documentation correction, both
-recorded below so they don't get re-discovered.
+**Summary (as originally written): 1 × S1, 3 × S2, 6 × S3, 2 × S4 across 12
+real findings**, plus one confirmed false positive and one
+stale-documentation correction, both recorded below so they don't get
+re-discovered. **Corrected 2026-08-25**: one of the 12, B-3, was itself a
+stale-documentation error — the page it flagged was already wired to a
+real backend when this document was written, not after. 11 real findings
+remain; see B-3's own retraction note below for the full account,
+including the standing lesson (verify a gate's own exemption list against
+a fresh file read, don't trust it as self-evidently correct).
 
 ## Methodology
 
@@ -403,11 +409,36 @@ instance.
 **Fix:** change both to the same `error ? MockStore... : real` pattern
 already established in the two sibling files.
 
-### B-3 · S4 (known, correctly deferred) · `pages/onboarding/index.jsx`
-Fully mock-driven, no backend domain exists (`organization-onboarding`
+### B-3 · Retracted — `pages/onboarding/index.jsx` was already real when this document was written
+
+**This finding was wrong the day it was written, found and corrected
+2026-08-25 during the A-4–A-9 fix pass.** The claim below ("fully
+mock-driven, no backend domain exists") is factually false — a fresh
+read of the file shows real `useQuery`/`useMutation` calls against
+`subscriptionPlans`/`startOrganizationOnboarding`/`selectOnboardingPlan`/
+`addOnboardingFirstClinic`/`completeOrganizationOnboarding`, all of which
+exist and are gated on `backend/src/organization-onboarding/
+organization-onboarding.resolver.ts`. The page's own top-of-file comment
+says so explicitly: `REQ045: wired to the real backend
+(organization-onboarding module)` — `REQ045` shipped 2026-08-23, two
+days *before* this gap analysis was written 2026-08-25, so this was
+never a stale-since-analysis drift; the analysis itself never actually
+read the file before classifying it. `scripts/check-page-data-wiring.mjs`'s
+`ALLOWED` list still carried this entry, and its own "no longer looks
+fabricated" self-check (which every run of the gate prints) is exactly
+what caught it. Fixed: removed from `ALLOWED`, `CLAUDE.md`'s two
+"3 pages... onboarding, tasks, waiting-room" mentions corrected (both
+`onboarding` and `waiting-room`/`REQ042` were already real; only `tasks`
+remains fully mock). **The lesson, not just the fix**: re-verifying a
+gate's own `ALLOWED`/exemption list against a fresh file read is part of
+running that gate, not an optional extra step — a stale exemption is
+indistinguishable from a correct one until someone actually reads the
+file it's exempting.
+
+~~Fully mock-driven, no backend domain exists (`organization-onboarding`
 covers the *org-admin-side* self-serve signup wizard, not this page).
 Already in `scripts/check-page-data-wiring.mjs`'s `ALLOWED` list with the
-correct reasoning; re-confirmed current, not re-flagging as new.
+correct reasoning; re-confirmed current, not re-flagging as new.~~
 
 ### B-4 · S4 (known, correctly deferred) · `pages/tasks/index.jsx`
 Fully mock-driven (`useMockData`/`useMockMutation` throughout), no

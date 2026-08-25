@@ -771,10 +771,19 @@ direct DB check that a full run now leaves zero residue.
 **This closes out every real, actionable finding in the gap analysis.**
 `A-10` remains open but is explicitly **not a new discovery** —
 `PLAN077`/`REQ054` and `PLAN082` already logged it as a deliberate scope
-cut, listed in the gap analysis only for completeness. `B-3`/`B-4` are
-S4, known, and already correctly deferred (both fully mock pages with no
-backend domain to wire to yet) — re-read that document's own account for
-each before assuming further work is needed there.
+cut, listed in the gap analysis only for completeness. `B-4` is S4,
+known, and already correctly deferred (a fully mock page with no backend
+domain to wire to yet). `B-3` turned out to be a stale-documentation
+finding, not a real gap — `pages/onboarding/index.jsx` was already wired
+to the real `organization-onboarding` backend (`REQ045`, 2026-08-23)
+*before* the gap analysis was written; nobody had re-read the file
+before classifying it. Found via `scripts/check-page-data-wiring.mjs`'s
+own "no longer looks fabricated" self-check on its `ALLOWED` list, fixed
+same day (removed from `ALLOWED`; corrected this file's own two stale
+"3 pages... onboarding, tasks, waiting-room" mentions — only `tasks`
+still qualifies). **The lesson**: a gate's exemption list is only as
+current as the last time someone re-read the file it exempts — verifying
+it is part of running the gate, not an optional extra step.
 
 ### What Phase F did NOT close — read before assuming coverage
 
@@ -805,10 +814,17 @@ each before assuming further work is needed there.
   fail reads as coverage while proving nothing.
 - **The CI workflow has never executed on GitHub.** Every command in it passes
   locally; the pipeline itself is unproven.
-- **3 pages render fabricated data** — `onboarding`, `tasks`, `waiting-room` —
-  and only because **no backend domain exists** for them (Priority 2). The other
-  seven the gate found were wired in `BUG009`; `manager/Billing` was deleted and
-  `/manager/billing` now redirects to `/finances`, which it duplicated.
+- **1 page renders fabricated data** — `tasks` — and only because **no backend
+  domain exists** for it (Priority 2). This used to say "3 pages... onboarding,
+  tasks, waiting-room" here; both `onboarding` (`REQ045`, 2026-08-23) and
+  `waiting-room` (`REQ042`) were wired to real backends since, and this
+  sentence simply never got updated — found stale 2026-08-25 by
+  `scripts/check-page-data-wiring.mjs`'s own "no longer looks fabricated"
+  self-check on its `ALLOWED` list, not by a fresh audit; re-verify this count
+  against a real `git log`/file read before trusting it, not this sentence.
+  The other seven the gate found were wired in `BUG009`; `manager/Billing` was
+  deleted and `/manager/billing` now redirects to `/finances`, which it
+  duplicated.
   **Those six wired pages have had no live browser pass** — they compile, lint,
   build and query a schema-valid contract, and the backend contracts are covered
   by the integration suite, but nobody has driven the routes against real data.
@@ -1025,7 +1041,7 @@ For each remaining gap: audit the frontend's existing `gql` calls for that domai
 ### Priority 3 — Full mock-removal sweep
 
 1. ✅ Done (original audit, refreshed 2026-08-22) — a fresh `grep -rl "mocks/store" src/pages src/components` no longer matches the original 12-page list verbatim; see points 2–3 for what changed. `settings/index.jsx` is fully real now — its last remaining mock scope (Branding) closed with `REQ002`/`PLAN022` (2026-08-21).
-2. ✅ Done — `admin/Roles.jsx` wired (prior session). Of the 3 still-fully-mock pages with no backend at all (`onboarding`, `tasks`, `waiting-room`), none have gained a backend since — still Priority 2 (build the domain) candidates, not this sweep's job.
+2. ✅ Done — `admin/Roles.jsx` wired (prior session). Of the 3 still-fully-mock pages with no backend at all as of this 2026-08-22 sweep (`onboarding`, `tasks`, `waiting-room`) — still Priority 2 (build the domain) candidates, not this sweep's job. **Stale as of 2026-08-25**: `onboarding` (`REQ045`, 2026-08-23) and `waiting-room` (`REQ042`) have since been wired to real backends; only `tasks` remains fully mock. See the corrected count in "What Phase F did NOT close" above.
 3. ✅ Done (2026-08-22) — all 7 originally-flagged mixed-fallback pages independently re-verified, plus 2 more real bugs found that the original page-level audit missed entirely (a component with no `mocks/store` import, and a page with none at all — see below). Real bugs found and fixed:
    - `appointments/index.jsx` + `calendar/index.jsx`: `rows/events = apiRows.length > 0 ? apiRows : mockRows` fell back to fabricated data on any real *empty result*, not just a real error — live-confirmed filtering `status=no_show` (zero real matches) rendered 3 fake patients (`appointments/index.jsx`) and a month of fake calendar events (`calendar/index.jsx`). Fixed to gate on `error` only. Same fix applied to both files' clinician/clinic/room filter-dropdown fallbacks.
    - `appointments/detail.jsx`: the Reschedule dialog called `MockStore.updateAppointment()` unconditionally — a real appointment's reschedule always silently no-opped against the real backend despite a real success toast. Wired to the real, already-defined `UPDATE_APPOINTMENT_MUTATION`.
@@ -1038,7 +1054,7 @@ For each remaining gap: audit the frontend's existing `gql` calls for that domai
 4. Responsive re-check done for every page touched in this pass (`appointments/index.jsx`, `calendar/index.jsx`, `clinicians/detail.jsx`) at 360/768/1280px — zero horizontal overflow. Not a full-app re-sweep (last full sweep: 213/213 clean, prior session).
 5. Not started — final summary commit for the sweep as a whole still pending; each fix above was committed individually per Hard Rule 4.
 
-**DoD:** no page silently falls back to mock data for a domain with a real backend (✅ for every page/component actually touched this pass — the 3 still-fully-mock pages with no backend at all remain a Priority 2 concern, not this DoD); full test suite green end to end (backend unaffected — this pass was frontend-only; frontend e2e green for every touched spec); final commit summarizing the sweep — pending.
+**DoD:** no page silently falls back to mock data for a domain with a real backend (✅ for every page/component actually touched this pass — the fully-mock pages with no backend at all remain a Priority 2 concern, not this DoD; only `tasks/index.jsx` still qualifies as of 2026-08-25, see point 2's own correction above); full test suite green end to end (backend unaffected — this pass was frontend-only; frontend e2e green for every touched spec); final commit summarizing the sweep — pending.
 
 ## Picking this up on another machine
 

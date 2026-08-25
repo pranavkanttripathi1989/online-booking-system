@@ -74,9 +74,16 @@ const ALLOWED = new Set([
   // No backend domain exists yet, so there is nothing to wire these to.
   // Building the domains is CLAUDE.md Priority 2. Fabricated data here is a
   // known gap, not a regression.
-  'onboarding/index.jsx',
   'tasks/index.jsx',
 
+  // onboarding/index.jsx is gone from this list (REQ045, 2026-08-23) —
+  // wired onto the real organization-onboarding module
+  // (startOrganizationOnboarding/selectOnboardingPlan/
+  // addOnboardingFirstClinic/completeOrganizationOnboarding). Found stale
+  // here 2026-08-25 by this gate's own "no longer looks fabricated" note
+  // — a real regression check, not a false alarm: re-verify with a fresh
+  // read of the file before trusting either direction blindly.
+  //
   // waiting-room/index.jsx is gone from this list too (REQ042) — wired onto
   // the real appointments() query plus checkInAppointment/startConsultation/
   // completeAppointment/markNoShow/resetAppointmentJourney mutations.
