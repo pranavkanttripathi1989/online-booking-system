@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| patient-payments-2026-08-26-req101 | patient-payments | 2026-08-26 | REQ101, PLAN141, TP165, TR165 | done | [manifest.md](./patient-payments-2026-08-26-req101/manifest.md) |
 | insurance-claims-2026-08-26-req100 | insurance-claims | 2026-08-26 | REQ100, PLAN140, TP164, TR164 | done | [manifest.md](./insurance-claims-2026-08-26-req100/manifest.md) |
 | appointments-2026-08-26-req105 | appointments | 2026-08-26 | REQ105, PLAN145, TP163, TR163 | done | [manifest.md](./appointments-2026-08-26-req105/manifest.md) |
 | organizations-2026-08-26-req111 | organizations | 2026-08-26 | REQ111, PLAN151, TP162, TR162 | done | [manifest.md](./organizations-2026-08-26-req111/manifest.md) |

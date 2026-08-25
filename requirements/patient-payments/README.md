@@ -14,6 +14,7 @@
 |---|---|---|---|---|---|---|---|
 | REQ040 | improvement | Razorpay webhook, pending-payment reconciliation, and order-creation abuse hardening | done | 2026-08-23 | 2026-08-23 | REQ004 | [REQ040-patient-payments-2026-08-23-razorpay-webhook-and-order-abuse-hardening.md](./improvement/REQ040-patient-payments-2026-08-23-razorpay-webhook-and-order-abuse-hardening.md) |
 | REQ056 | improvement | Day-end cash close + discount-approval workflow | done | 2026-08-25 | 2026-08-25 | REQ023 | [REQ056-patient-payments-2026-08-25-cash-close-and-discount-approval.md](./improvement/REQ056-patient-payments-2026-08-25-cash-close-and-discount-approval.md) |
+| REQ101 | improvement | GST rate/GSTIN on real appointment payments | done | 2026-08-26 | 2026-08-26 | — | [REQ101-patient-payments-2026-08-26-gst-rate-and-clinic-gstin.md](./improvement/REQ101-patient-payments-2026-08-26-gst-rate-and-clinic-gstin.md) |
 
 ## bug
 

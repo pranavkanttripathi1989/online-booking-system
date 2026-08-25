@@ -15,6 +15,7 @@
 |---|---|---|---|---|---|---|---|
 | TR070 | improvement | Razorpay webhook, reconciliation job, and order-throttle results | pass | 2026-08-23 | 2026-08-23 | TP071 | [TR070-patient-payments-2026-08-23-razorpay-webhook-verification.md](./improvement/TR070-patient-payments-2026-08-23-razorpay-webhook-verification.md) |
 | TR105 | improvement | Day-end cash close + discount-approval workflow results | pass | 2026-08-25 | 2026-08-25 | TP106 | [TR105-patient-payments-2026-08-25-cash-close-and-discount-approval.md](./improvement/TR105-patient-payments-2026-08-25-cash-close-and-discount-approval.md) |
+| TR165 | improvement | GST rate/GSTIN on real appointment payments results | pass | 2026-08-26 | 2026-08-26 | TP165 | [TR165-patient-payments-2026-08-26-gst-rate-and-clinic-gstin.md](./improvement/TR165-patient-payments-2026-08-26-gst-rate-and-clinic-gstin.md) |
 
 ## bug
 

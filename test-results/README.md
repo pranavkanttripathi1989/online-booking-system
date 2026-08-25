@@ -28,7 +28,7 @@
 | security | 3 | 2 | 2 | 1 | 6 | 2026-08-26 | [security](./security/README.md) |
 | settings | 3 | 0 | 0 | 2 | 1 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 1 | 1 | 0 | 1 | 1 | 2026-08-21 | [staff](./staff/README.md) |
-| patient-payments | 4 | 2 | 0 | 2 | 4 | 2026-08-25 | [patient-payments](./patient-payments/README.md) |
+| patient-payments | 4 | 3 | 0 | 2 | 5 | 2026-08-26 | [patient-payments](./patient-payments/README.md) |
 | patient-portal | 0 | 2 | 0 | 0 | 2 | 2026-08-25 | [patient-portal](./patient-portal/README.md) |
 | clinician-availability | 1 | 0 | 0 | 0 | 1 | 2026-08-19 | [clinician-availability](./clinician-availability/README.md) |
 | auth | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [auth](./auth/README.md) |
