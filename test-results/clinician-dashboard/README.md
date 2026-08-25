@@ -2,9 +2,7 @@
 
 ## requirement
 
-| ID | Type | Title | Status | Created | Updated | Parent | Link |
-|---|---|---|---|---|---|---|---|
-| TR008 | test-result | Clinician Dashboard — Test Results (Session 6 / v6) | done | 2026-03-19 | 2026-04-02 | unknown | [clinician-dashboard-test-results.md](./requirement/clinician-dashboard-test-results.md) |
+_none yet_
 
 ## improvement
 
@@ -12,5 +10,6 @@ _none yet_
 
 ## bug
 
-_none yet_
-
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR109 | bug | Results for the clinician dashboard rebuild | pass | 2026-08-25 | 2026-08-25 | TP110 | [TR109-clinician-dashboard-2026-08-25-rebuild-on-real-data.md](./bug/TR109-clinician-dashboard-2026-08-25-rebuild-on-real-data.md) |

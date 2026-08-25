@@ -6,7 +6,7 @@ created: 2026-08-22
 updated: 2026-08-22
 status: active
 parent: null
-related: [PP001, PP002, PP003, PP004, PP005, PP006]
+related: [PP001, PP002, PP003, PP004, PP005, PP006, PP007, PP008]
 ---
 
 # project-plans — MediBook / HealthSync
@@ -34,6 +34,7 @@ under.
 | [05-competitive-analysis.md](./05-competitive-analysis.md) | Where MediBook stands against the real competitive set for the Indian market (Practo, Eka Care, Bajaj Finserv Health, Semble, Cliniko, Jane, SimplePractice, NexHealth, Zocdoc, Phreesia), and the ranked feature recommendations that follow. |
 | [06-execution-plan.md](./06-execution-plan.md) | Phased delivery plan P0–P5 with per-phase Definition of Done, sequencing rationale, and the first ten commits. |
 | [07-prd-gap-analysis-and-roadmap.md](./07-prd-gap-analysis-and-roadmap.md) | Maps `PRD-Healthcare-Booking-SaaS-India.md` ("CareOS") against the codebase module by module, and sequences the resulting 22 `requirements/REQ014`–`REQ035` documents into phases F–I on top of this directory's own P0–P1 foundation work. |
+| [08-integration-gap-analysis.md](./08-integration-gap-analysis.md) | Fresh 2026-08-25 sweep: every backend operation cross-checked against real frontend usage, and every remaining `mocks/store`/`useMockData` import individually classified. 12 real findings (1 × S1 — the entire clinician dashboard is fabricated end to end), plus a confirmed false positive and a stale-CLAUDE.md correction. |
 | [technical-plans/](./technical-plans/README.md) | **Phase-wise engineering detail** for building the PRD scope: schema DDL, migration order, module layout, constraint decisions, and per-phase DoD. Six documents — `00-foundation-hardening` (the hard prerequisite), `01-phase1-mvp`, `02-phase2-v1-ga`, `03-phase3-v2`, `04-data-model-evolution`, `05-cross-cutting-conventions`. |
 
 ## How this was produced

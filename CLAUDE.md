@@ -609,6 +609,55 @@ times was the full established recovery (quit Docker Desktop entirely,
 relaunch, wait for the daemon, *then* `docker rm -f`/`compose up -d` the
 one container) — not more targeted retries.
 
+### A fresh backend↔frontend integration gap audit, and its first fix (2026-08-25)
+
+`project-plans/08-integration-gap-analysis.md` is a fresh sweep — every
+backend `@Query`/`@Mutation` cross-checked against real frontend usage,
+and every remaining `mocks/store`/`useMockData` import in `frontend/src/
+pages` individually re-classified — producing 12 real findings (severities
+S2-S4) plus one S1: **`pages/clinician/Dashboard.jsx`, the clinician
+role's own home screen, was fabricated end to end.** Its read query
+targeted the wrong (public, patient-self-serve) GraphQL dialect with
+fields that don't exist on the real return type — a guaranteed validation
+error on every request — permanently masked by an `isMock = !data`
+fallback into fully-formed fake sample data, with both write actions
+("Save Block", "Mark Complete") also entirely local-only. Closed the same
+day (`BUG021`/`PLAN083`/`TP110`/`TR109`, new `clinician-dashboard` feature
+slug, `context/clinician-dashboard-2026-08-25-bug021/manifest.md`) —
+rebuilt onto the real, already-authenticated `appointments(...)` query
+(self-scoped via the JWT, the same primitive `clinician/Calendar.jsx`
+already uses) plus the real `createSpacerBlock`/`completeAppointment`
+mutations, with a new dedicated `network-only` profile query working
+around the same `AuthContext` login-cache gap already documented above
+for `user.patient.id` — now confirmed to also apply to `user.clinician`.
+
+One more real gap found while scoping the fix, not by a failing test:
+`createSpacerBlock`'s own `@Auth` gate excluded `'clinician'` entirely
+(manager/admin/super_admin only), while its sibling read query
+(`getSpacerBlocks`) had already been correctly widened for this exact
+caller — the write path never got the matching change. Without also
+widening it (plus a service-level self-scope check mirroring
+`getSpacerBlocks`'s own), the rebuilt page's "Save Block" action would
+have 403'd for every real clinician. Verified with a new
+`frontend/e2e/clinician-dashboard.spec.js` (3/3, against the real
+backend, reload-survives checks on both write actions — not just an
+in-memory state read), which itself surfaced a second, unrelated real
+bug worth knowing for any future fixture code on this host: **a fixed
+local-clock-hour `Date#setHours()` fixture is timezone-ambiguous** on
+this IST (UTC+5:30) host — an early-morning local hour can convert to
+the *previous* UTC calendar day, silently missing a UTC-bounded
+`date_from`/`date_to` "today" filter and colliding with its own earlier
+run's leftover fixture on that other day instead of failing loudly (the
+same class of gap as `context/open-questions.md` #15, now confirmed to
+also bite a plain host-side `Date` computation, not just a container's
+missing `TZ`). Fix: anchor a "today" fixture to `Date.now()` minus a few
+hours, never to a fixed local clock hour.
+
+The remaining 11 findings (`A-1` through `A-10`, `B-2` through `B-4`) are
+still open — see that document's own "Fix sequencing" section for the
+priority order and feature-slug classification before starting the next
+one.
+
 ### What Phase F did NOT close — read before assuming coverage
 
 - **Tenancy matrix now covers 31 tenant-scoped domains plus 12 honestly-EXEMPT
