@@ -160,6 +160,15 @@ describe('ClinicsService', () => {
         data: expect.objectContaining({ client_org_id: null }),
       });
     });
+
+    // REQ101
+    it('persists state/gstin when supplied', async () => {
+      prisma.clinics.create.mockResolvedValue({ id: 'new-clinic', client_org_id: 'org-a' });
+      await service.create({ name: 'New', address: '1 Main St', phone: '123', email: 'a@b.com', state: 'Maharashtra', gstin: '27ABCDE1234F1Z5' } as any, orgAUser);
+      expect(prisma.clinics.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({ state: 'Maharashtra', gstin: '27ABCDE1234F1Z5' }),
+      });
+    });
   });
 
   describe('update — tenant isolation enforced via findOne before any write', () => {

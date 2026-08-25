@@ -345,6 +345,90 @@ describe('AppointmentPaymentsService', () => {
       expect(data.cgst_amount).toBeUndefined();
     });
 
+    // REQ101 — closes the gap the two tests above pinned as "honest,
+    // not yet fixed" (2026-08-24). Both product.gst_rate and clinic.gstin
+    // must be set for the split to populate.
+    it('populates a real CGST+SGST split once both gst_rate and clinic gstin are configured', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ ...pendingPayment, amount: 100000 });
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: { hsn: '9993', is_tax_exempt: false, gst_rate: 18 } });
+      prisma.clinics.findUnique.mockResolvedValue({ gstin: '27ABCDE1234F1Z5', state: 'Maharashtra' });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: signature,
+      });
+
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({
+        where: { id: 'pay-1' },
+        data: expect.objectContaining({
+          gst_rate: 18,
+          gstin: '27ABCDE1234F1Z5',
+          place_of_supply: 'Maharashtra',
+          cgst_amount: 9000,
+          sgst_amount: 9000,
+          igst_amount: 0,
+        }),
+      });
+    });
+
+    it('leaves GST fields null when gst_rate is set but the clinic has no gstin configured', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ ...pendingPayment, amount: 100000 });
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: { hsn: '9993', is_tax_exempt: false, gst_rate: 18 } });
+      prisma.clinics.findUnique.mockResolvedValue({ gstin: null, state: null });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: signature,
+      });
+
+      const data = prisma.appointmentPayments.update.mock.calls[0][0].data;
+      expect(data.gst_rate).toBeUndefined();
+      expect(data.cgst_amount).toBeUndefined();
+    });
+
+    it('leaves GST fields null when the clinic has a gstin but the product has no gst_rate', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ ...pendingPayment, amount: 100000 });
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: { hsn: '9993', is_tax_exempt: false, gst_rate: null } });
+      prisma.clinics.findUnique.mockResolvedValue({ gstin: '27ABCDE1234F1Z5', state: 'Maharashtra' });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: signature,
+      });
+
+      const data = prisma.appointmentPayments.update.mock.calls[0][0].data;
+      expect(data.gst_rate).toBeUndefined();
+      expect(data.cgst_amount).toBeUndefined();
+    });
+
+    it('rounds an odd paise amount without losing a paise across the cgst+sgst split', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ ...pendingPayment, amount: 100001 });
+      prisma.appointmentPayments.update.mockResolvedValue({});
+      prisma.appointments.findUnique.mockResolvedValue({ product: { hsn: '9993', is_tax_exempt: false, gst_rate: 18 } });
+      prisma.clinics.findUnique.mockResolvedValue({ gstin: '27ABCDE1234F1Z5', state: 'Maharashtra' });
+      const signature = validSignatureFor('order_1', 'pay_1');
+
+      await service.verifyRazorpayPayment({
+        razorpay_order_id: 'order_1',
+        razorpay_payment_id: 'pay_1',
+        razorpay_signature: signature,
+      });
+
+      const data = prisma.appointmentPayments.update.mock.calls[0][0].data;
+      // 100001 * 18 / 100 = 18000.18 total tax; half = 9000.09, rounds to 9000 each side.
+      expect(data.cgst_amount).toBe(9000);
+      expect(data.sgst_amount).toBe(9000);
+    });
+
     // Each clinic's numbering is independent and gapless -- a second
     // invoice for the same clinic/financial-year increments rather than
     // restarting or colliding.

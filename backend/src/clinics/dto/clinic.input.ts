@@ -1,6 +1,9 @@
 import { InputType, Field } from '@nestjs/graphql';
 import { IsEmail, IsNotEmpty, IsOptional, IsBoolean, Matches } from 'class-validator';
 
+// REQ101 — a standard 15-character Indian GSTIN.
+const GSTIN_PATTERN = /^\d{2}[A-Z]{5}\d{4}[A-Z]{1}[A-Z\d]{1}Z[A-Z\d]{1}$/;
+
 // Field names/shape match frontend/src/pages/manager/clinics/create.jsx's
 // INITIAL form state exactly (context/backend-hard-rules.md Rule 9) — flat
 // city/postcode/timezone scalars, not a structured address blob.
@@ -30,6 +33,18 @@ export class ClinicInput {
   @Field({ nullable: true })
   @IsOptional()
   timezone?: string;
+
+  // REQ101 — this clinic's own GST registration state/number. Both null
+  // until set; AppointmentPayments' GST split stays null until both this
+  // AND the paid product's gst_rate are configured.
+  @Field({ nullable: true })
+  @IsOptional()
+  state?: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @Matches(GSTIN_PATTERN, { message: 'GSTIN must be a valid 15-character format' })
+  gstin?: string;
 
   @Field()
   @IsNotEmpty()

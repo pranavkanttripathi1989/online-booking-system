@@ -126,11 +126,18 @@ export class AppointmentPaymentsService {
     return `INV/${financialYear}/${clinicId.slice(0, 8).toUpperCase()}/${String(sequence.last_number).padStart(5, '0')}`;
   }
 
-  private async invoiceDetailsForSuccess(clinicId: string, appointmentId: string) {
-    const appointment = await this.prisma.appointments.findUnique({
-      where: { id: appointmentId },
-      include: { product: true },
-    });
+  // REQ101 — closes the gap this method's own comment above previously
+  // logged: gst_rate/cgst/sgst/igst are populated for a real non-exempt
+  // item once BOTH the product's gst_rate AND the clinic's gstin are
+  // configured; either missing leaves all four null (never guessed).
+  // Intrastate-only (always CGST+SGST, never IGST) — Patients has no
+  // structured state field to compare against the clinic's, so a true
+  // interstate determination is out of scope here (see REQ101's own doc).
+  private async invoiceDetailsForSuccess(clinicId: string, appointmentId: string, amountPaise: number) {
+    const [appointment, clinic] = await Promise.all([
+      this.prisma.appointments.findUnique({ where: { id: appointmentId }, include: { product: true } }),
+      this.prisma.clinics.findUnique({ where: { id: clinicId } }),
+    ]);
     const product = appointment?.product;
     const invoiceNumber = await this.nextInvoiceNumber(clinicId);
 
@@ -140,6 +147,14 @@ export class AppointmentPaymentsService {
       gst.gst_rate = 0;
       gst.cgst_amount = 0;
       gst.sgst_amount = 0;
+      gst.igst_amount = 0;
+    } else if (product?.gst_rate != null && clinic?.gstin) {
+      gst.gst_rate = product.gst_rate;
+      gst.gstin = clinic.gstin;
+      gst.place_of_supply = clinic.state ?? undefined;
+      const half = Math.round((amountPaise * product.gst_rate) / 2 / 100);
+      gst.cgst_amount = half;
+      gst.sgst_amount = half;
       gst.igst_amount = 0;
     }
     return gst;
@@ -179,7 +194,7 @@ export class AppointmentPaymentsService {
     approvedByUserId: string | null,
     recordedByUserId: string,
   ) {
-    const invoiceDetails = await this.invoiceDetailsForSuccess(appointment.clinic_id, appointment.id);
+    const invoiceDetails = await this.invoiceDetailsForSuccess(appointment.clinic_id, appointment.id, netAmountPaise);
     const payment = await this.prisma.$transaction(async (tx) => {
       const created = await tx.appointmentPayments.create({
         data: {
@@ -585,7 +600,7 @@ export class AppointmentPaymentsService {
       return { success: false, message: 'Payment verification failed' };
     }
 
-    const invoiceDetails = await this.invoiceDetailsForSuccess(payment.clinic_id, payment.appointment_id);
+    const invoiceDetails = await this.invoiceDetailsForSuccess(payment.clinic_id, payment.appointment_id, payment.amount);
     await this.prisma.appointmentPayments.update({
       where: { id: payment.id },
       data: {
@@ -687,7 +702,7 @@ export class AppointmentPaymentsService {
     // event-dedup table is needed. A late `payment.failed` must never regress
     // a row a captured event (or the reconciliation job) already resolved.
     if (eventType === 'payment.captured' && payment.status !== 'succeeded') {
-      const invoiceDetails = await this.invoiceDetailsForSuccess(payment.clinic_id, payment.appointment_id);
+      const invoiceDetails = await this.invoiceDetailsForSuccess(payment.clinic_id, payment.appointment_id, payment.amount);
       await this.prisma.appointmentPayments.update({
         where: { id: payment.id },
         data: { status: 'succeeded', razorpay_payment_id: paymentId ?? payment.razorpay_payment_id, ...invoiceDetails },

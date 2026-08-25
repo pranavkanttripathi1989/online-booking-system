@@ -880,6 +880,13 @@ model Clinics {
   // fix, not silently changed here (see context/phase4-catalog-modules-implementation-plan.md).
   city         String?
   postcode     String?
+  // REQ101 — supplier-side GST fields. Both null until an admin configures
+  // them; AppointmentPayments' own GST split stays null (not guessed)
+  // until both this clinic's gstin AND the paid product's gst_rate are
+  // set. `state` is also place_of_supply's only source — Clinics has
+  // never had one before this.
+  state        String?
+  gstin        String?
   timezone     String?  @default("Asia/Kolkata")
   phone        String
   email        String
@@ -1691,6 +1698,11 @@ model Products {
   // immediately regardless of payment. Free text, not a Prisma enum, matching
   // this model's own patient_category/product_type convention.
   prepayment_policy String @default("none")
+  // REQ101 — mirrors Drugs.gst_rate's own convention (e.g. 18.0 for 18%).
+  // Null until an admin sets it; AppointmentPayments' own GST split stays
+  // null (never guessed) until both this AND the paying clinic's gstin
+  // are set — see invoiceDetailsForSuccess()'s own comment.
+  gst_rate          Float?
 
   clinic            Clinics? @relation(fields: [clinic_id], references: [id])
   client_org        ClientOrganizations? @relation(fields: [client_org_id], references: [id])

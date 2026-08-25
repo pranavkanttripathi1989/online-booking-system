@@ -47,6 +47,8 @@ export class ServiceType {
   @Field() is_active: boolean;
   @Field({ nullable: true }) hsn?: string;
   @Field() is_tax_exempt: boolean;
+  // REQ101.
+  @Field(() => Float, { nullable: true }) gst_rate?: number;
   @Field(() => ServiceCategoryType, { nullable: true }) category?: ServiceCategoryType;
   @Field(() => [ServiceClinicianType]) clinicians: ServiceClinicianType[];
   // REQ014 (US-ORG-03) — optional specialty grouping.

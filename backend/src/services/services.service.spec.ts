@@ -219,6 +219,15 @@ describe('ServicesService', () => {
       );
     });
 
+    // REQ101
+    it('persists an explicit gst_rate', async () => {
+      prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });
+      await service.create({ name: 'X', duration_minutes: 20, price: 300, is_tax_exempt: false, gst_rate: 18 } as any, orgAUser);
+      expect(prisma.products.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ gst_rate: 18 }) }),
+      );
+    });
+
     // REQ016 (US-CAT-04)
     it('converts category/channel pricing overrides from rupees to paise-keyed JSON', async () => {
       prisma.products.create.mockResolvedValue({ id: 'svc-new', clinicianServices: [] });

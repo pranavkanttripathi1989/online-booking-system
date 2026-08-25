@@ -19,6 +19,13 @@ export class ClinicType {
   @Field({ nullable: true })
   postcode?: string;
 
+  // REQ101.
+  @Field({ nullable: true })
+  state?: string;
+
+  @Field({ nullable: true })
+  gstin?: string;
+
   @Field({ nullable: true })
   timezone?: string;
 

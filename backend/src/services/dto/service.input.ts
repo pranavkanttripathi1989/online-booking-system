@@ -1,5 +1,5 @@
 import { InputType, Field, ID, Int, Float } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsBoolean, IsInt, Min, IsNumber, ValidateNested, IsIn, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsBoolean, IsInt, Min, Max, IsNumber, ValidateNested, IsIn, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // REQ018 (US-BOOK-03).
@@ -43,6 +43,9 @@ export class ServiceInput {
   // consultation service is GST-exempt by default); always explicit on update.
   @Field({ nullable: true }) @IsOptional() hsn?: string;
   @Field({ nullable: true }) @IsOptional() @IsBoolean() is_tax_exempt?: boolean;
+  // REQ101 — e.g. 18.0 for 18%. Null (unset) means the GST split on a
+  // real payment stays unpopulated rather than guessed.
+  @Field(() => Float, { nullable: true }) @IsOptional() @IsNumber() @Min(0) @Max(100) gst_rate?: number;
   // REQ014 (US-ORG-03) — optional specialty grouping.
   @Field(() => ID, { nullable: true }) @IsOptional() department_id?: string;
   // REQ016 (US-CAT-04) — omitted entirely leaves existing overrides

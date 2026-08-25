@@ -112,6 +112,7 @@ export class ServicesService {
         // REQ046 — a healthcare consultation service is GST-exempt by
         // default under current Indian tax treatment; explicit input wins.
         is_tax_exempt: input.is_tax_exempt ?? true,
+        gst_rate: input.gst_rate,
         product_type: 'simple',
         sku: this.generateSku(input.name),
         department_id: input.department_id,
@@ -157,6 +158,7 @@ export class ServicesService {
         is_active: input.is_active,
         hsn: input.hsn,
         is_tax_exempt: input.is_tax_exempt,
+        gst_rate: input.gst_rate,
         department_id: input.department_id,
         category_pricing_json: pricingInputToJson(input.category_pricing as any),
         channel_pricing_json: pricingInputToJson(input.channel_pricing as any),
