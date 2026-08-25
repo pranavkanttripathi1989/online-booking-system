@@ -12,6 +12,7 @@
 |---|---|---|---|---|---|---|---|
 | REQ068 | improvement | Payer-specific tariff master data | done | 2026-08-25 | 2026-08-25 | REQ031 | [REQ068-insurance-claims-2026-08-25-payer-tariffs.md](./improvement/REQ068-insurance-claims-2026-08-25-payer-tariffs.md) |
 | REQ062 | improvement | Patient insurance policy capture UI | done | 2026-08-25 | 2026-08-25 | REQ031 | [REQ062-insurance-claims-2026-08-25-patient-policy-capture-ui.md](./improvement/REQ062-insurance-claims-2026-08-25-patient-policy-capture-ui.md) |
+| REQ100 | improvement | Payer-tariff pricing wiring | done | 2026-08-26 | 2026-08-26 | — | [REQ100-insurance-claims-2026-08-26-payer-tariff-pricing-wiring.md](./improvement/REQ100-insurance-claims-2026-08-26-payer-tariff-pricing-wiring.md) |
 
 ## bug
 
