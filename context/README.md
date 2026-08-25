@@ -4,6 +4,8 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| frontend-platform-2026-08-26-req104 | frontend-platform | 2026-08-26 | REQ104, PLAN144, TP161, TR161 | done | [manifest.md](./frontend-platform-2026-08-26-req104/manifest.md) |
+| repo-hygiene-2026-08-26-req103 | repo-hygiene | 2026-08-26 | REQ103, PLAN143, TP160, TR160 | done | [manifest.md](./repo-hygiene-2026-08-26-req103/manifest.md) |
 | organizations-2026-08-26-req079 | organizations | 2026-08-26 | REQ079, PLAN110, TP137, TR136 | done | [manifest.md](./organizations-2026-08-26-req079/manifest.md) |
 | findings-register-2026-08-26-pickup | cross-cutting | 2026-08-26 | BUG024, BUG025, BUG026, BUG027, REQ074, REQ075, REQ076, REQ077, REQ078 | done | [manifest.md](./findings-register-2026-08-26-pickup/manifest.md) |
 | compliance-dpdp-2026-08-25-req073 | compliance-dpdp | 2026-08-25 | REQ073, PLAN100, TP127, TR126 | done | [manifest.md](./compliance-dpdp-2026-08-25-req073/manifest.md) |
