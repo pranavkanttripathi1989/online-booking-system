@@ -1,5 +1,5 @@
 import { InputType, Field, ID, Int, Float } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsBoolean, IsInt, Min, IsNumber, ValidateNested, IsIn } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsBoolean, IsInt, Min, IsNumber, ValidateNested, IsIn, IsDateString } from 'class-validator';
 import { Type } from 'class-transformer';
 
 // REQ018 (US-BOOK-03).
@@ -54,4 +54,8 @@ export class ServiceInput {
   // REQ018 (US-BOOK-03) — required | optional | none (default). Omitted on
   // create leaves the schema default ("none", today's existing behaviour).
   @Field({ nullable: true }) @IsOptional() @IsIn(PREPAYMENT_POLICIES) prepayment_policy?: string;
+  // REQ016 (US-CAT-05) — see UpdateProductInput's identical field for the
+  // full explanation. Meaningless on create (no prior price exists yet);
+  // servicesService.update() is the only place this is read.
+  @Field({ nullable: true }) @IsOptional() @IsDateString() effective_from?: string;
 }

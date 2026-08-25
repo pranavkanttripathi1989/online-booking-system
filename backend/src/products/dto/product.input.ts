@@ -1,5 +1,5 @@
 import { InputType, Field, Int, Float } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsBoolean, IsInt, IsNumber, Min, IsIn } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsBoolean, IsInt, IsNumber, Min, IsIn, IsDateString } from 'class-validator';
 
 // Matches manager/products/index.jsx's CreateProductInput/UpdateProductInput
 // (the Categories tab is the only live consumer of the rich fields; the live
@@ -24,7 +24,13 @@ export class CreateProductInput {
 }
 
 @InputType('UpdateProductInput')
-export class UpdateProductInput extends CreateProductInput {}
+export class UpdateProductInput extends CreateProductInput {
+  // REQ016 (US-CAT-05) — a future-dated price change: omitted (or a date
+  // that has already arrived) applies immediately, matching every price
+  // update before this slice. A future date defers the change to
+  // PriceHistorySweepService's own daily cron instead of applying it now.
+  @Field({ nullable: true }) @IsOptional() @IsDateString() effective_from?: string;
+}
 
 @InputType('CreateProductCategoryInput')
 export class CreateProductCategoryInput {

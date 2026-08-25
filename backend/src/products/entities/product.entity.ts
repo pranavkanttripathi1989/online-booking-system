@@ -1,5 +1,20 @@
 import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 
+// REQ016 (US-CAT-05) — a single append-only audit row per price change,
+// never mutated after creation.
+@ObjectType('PriceHistory')
+export class PriceHistoryType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) product_id: string;
+  @Field(() => Float, { nullable: true }) old_price?: number;
+  @Field(() => Float) new_price: number;
+  @Field() effective_from: Date;
+  @Field() applied: boolean;
+  @Field(() => ID) changed_by_user_id: string;
+  @Field({ nullable: true }) changed_by_name?: string;
+  @Field() created_at: Date;
+}
+
 @ObjectType('ProductCategory')
 export class ProductCategoryType {
   @Field(() => ID) id: string;

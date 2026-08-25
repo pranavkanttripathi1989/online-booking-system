@@ -10,6 +10,7 @@ import {
 } from './dto/product.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, orgIdForWrite, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
+import { recordPriceChangeIfNeeded } from '../common/pricing/record-price-change';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
@@ -86,15 +87,30 @@ export class ProductsService {
   }
 
   async update(id: string, input: UpdateProductInput, user: JwtPayload) {
-    await this.findOne(id, user); // enforces tenant scoping before any write
+    // Raw row, not toGraphQL()'s rupees-converted shape -- recordPriceChangeIfNeeded
+    // needs the current price in paise, the same unit as input.price once converted.
+    const existing = await this.prisma.products.findUnique({ where: { id } });
+    if (!existing || existing.is_deleted) throw new NotFoundException('Product not found');
+    assertSameOrg(user, existing.client_org_id, 'Product'); // enforces tenant scoping before any write
     try {
+      // REQ016 (US-CAT-05) — logs the change and returns what Products.price
+      // should actually become: the new price now, or the unchanged current
+      // price when effective_from defers it to the future.
+      const resolvedPrice = await recordPriceChangeIfNeeded(this.prisma, {
+        product_id: id,
+        client_org_id: existing.client_org_id,
+        old_price: existing.price,
+        new_price: RUPEES_TO_PAISE(input.price),
+        effective_from: input.effective_from,
+        changed_by_user_id: user.sub,
+      });
       const row = await this.prisma.products.update({
         where: { id },
         data: {
           name: input.name,
           sku: input.sku || undefined,
           description: input.description,
-          price: RUPEES_TO_PAISE(input.price),
+          price: resolvedPrice,
           stock_quantity: input.stock_quantity,
           category_id: input.category_id || undefined,
           subcategory_id: input.subcategory_id || undefined,
@@ -108,6 +124,27 @@ export class ProductsService {
     } catch (e: any) {
       return { success: false, userErrors: [{ message: e.message ?? 'Failed to update product' }] };
     }
+  }
+
+  // REQ016 (US-CAT-05).
+  async priceHistory(productId: string, user: JwtPayload) {
+    await this.findOne(productId, user); // enforces tenant scoping
+    const rows = await this.prisma.priceHistory.findMany({
+      where: { product_id: productId },
+      include: { changedBy: { include: { userProfiles: true } } },
+      orderBy: { created_at: 'desc' },
+    });
+    return rows.map((r: any) => ({
+      id: r.id,
+      product_id: r.product_id,
+      old_price: PAISE_TO_RUPEES(r.old_price),
+      new_price: PAISE_TO_RUPEES(r.new_price),
+      effective_from: r.effective_from,
+      applied: r.applied,
+      changed_by_user_id: r.changed_by_user_id,
+      changed_by_name: r.changedBy?.userProfiles ? `${r.changedBy.userProfiles.first_name} ${r.changedBy.userProfiles.last_name}` : undefined,
+      created_at: r.created_at,
+    }));
   }
 
   async remove(id: string, user: JwtPayload) {

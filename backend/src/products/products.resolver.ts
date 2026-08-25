@@ -7,6 +7,7 @@ import {
   ProductMutationResultType,
   ProductCategoryMutationResultType,
   ProductSubcategoryMutationResultType,
+  PriceHistoryType,
 } from './entities/product.entity';
 import {
   CreateProductInput,
@@ -36,6 +37,13 @@ export class ProductsResolver {
   @Query(() => ProductType, { nullable: true })
   product(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
     return this.productsService.findOne(id, user);
+  }
+
+  // REQ016 (US-CAT-05) — same visibility as reading the product itself; no
+  // extra role gate, matching product()'s own.
+  @Query(() => [PriceHistoryType])
+  priceHistory(@Args('product_id', { type: () => ID }) productId: string, @CurrentUser() user: JwtPayload) {
+    return this.productsService.priceHistory(productId, user);
   }
 
   @Auth('manager', 'admin', 'super_admin')

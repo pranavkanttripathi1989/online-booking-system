@@ -10,6 +10,7 @@ describe('ProductsService', () => {
     products: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     productCategories: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     productSubcategories: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
+    priceHistory: { findMany: jest.Mock; create: jest.Mock };
   };
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
@@ -34,6 +35,7 @@ describe('ProductsService', () => {
       products: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       productCategories: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       productSubcategories: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
+      priceHistory: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [ProductsService, { provide: PrismaService, useValue: prisma }],
@@ -220,6 +222,49 @@ describe('ProductsService', () => {
         NotFoundException,
       );
       expect(prisma.products.update).not.toHaveBeenCalled();
+    });
+  });
+
+  // REQ016 (US-CAT-05) — price-change audit log.
+  describe('update — price-change audit log (REQ016)', () => {
+    it('does not touch PriceHistory when price is unchanged', async () => {
+      prisma.products.findUnique.mockResolvedValue(scopedProduct); // price: 50000
+      prisma.products.update.mockResolvedValue({ id: 'prod-a1' });
+      await service.update('prod-a1', { name: 'New Name' } as any, orgAUser);
+      expect(prisma.priceHistory.create).not.toHaveBeenCalled();
+      expect(prisma.products.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ price: undefined }) }),
+      );
+    });
+
+    it('an immediate price change logs the audit row and applies the new price', async () => {
+      prisma.products.findUnique.mockResolvedValue(scopedProduct); // price: 50000 (₹500)
+      prisma.products.update.mockResolvedValue({ id: 'prod-a1' });
+      await service.update('prod-a1', { price: 750 } as any, orgAUser); // -> 75000 paise
+      expect(prisma.priceHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({
+          data: expect.objectContaining({ product_id: 'prod-a1', old_price: 50000, new_price: 75000, applied: true, changed_by_user_id: 'u1' }),
+        }),
+      );
+      expect(prisma.products.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ price: 75000 }) }),
+      );
+    });
+
+    it('a future-dated price change logs the audit row but leaves the current price untouched', async () => {
+      prisma.products.findUnique.mockResolvedValue(scopedProduct); // price: 50000
+      prisma.products.update.mockResolvedValue({ id: 'prod-a1' });
+      const future = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString();
+      await service.update('prod-a1', { price: 750, effective_from: future } as any, orgAUser);
+      expect(prisma.priceHistory.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ new_price: 75000, applied: false }) }),
+      );
+      // Products.price is written with the RESOLVED price (still the old
+      // one), not input.price directly -- a future-dated change must not
+      // take effect immediately.
+      expect(prisma.products.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ price: 50000 }) }),
+      );
     });
   });
 

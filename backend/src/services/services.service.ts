@@ -4,6 +4,7 @@ import { ServiceInput } from './dto/service.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, orgIdForWrite, assertSameOrg } from '../common/scoping/tenant-scope';
 import { DepartmentsService } from '../departments/departments.service';
+import { recordPriceChangeIfNeeded } from '../common/pricing/record-price-change';
 
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
@@ -127,17 +128,32 @@ export class ServicesService {
   }
 
   async update(id: string, input: ServiceInput, user: JwtPayload) {
-    await this.findOne(id, user); // enforces tenant scoping before any write
+    // Raw row (not toGraphQL()'s rupees-converted shape) -- recordPriceChangeIfNeeded
+    // needs the current price in paise, the same unit as input.price once converted.
+    const existing = await this.prisma.products.findUnique({ where: { id } });
+    if (!existing || existing.is_deleted) throw new NotFoundException('Service not found');
+    assertSameOrg(user, existing.client_org_id, 'Service'); // enforces tenant scoping before any write
     if (input.department_id) {
       await this.departmentsService.assertDepartmentInScope(input.department_id, user);
     }
+    // REQ016 (US-CAT-05) — logs the change and returns what Products.price
+    // should actually become: the new price now, or the unchanged current
+    // price when effective_from defers it to the future.
+    const resolvedPrice = await recordPriceChangeIfNeeded(this.prisma, {
+      product_id: id,
+      client_org_id: existing.client_org_id,
+      old_price: existing.price,
+      new_price: RUPEES_TO_PAISE(input.price),
+      effective_from: input.effective_from,
+      changed_by_user_id: user.sub,
+    });
     const product = await this.prisma.products.update({
       where: { id },
       data: {
         name: input.name,
         description: input.description,
         duration_minutes: input.duration_minutes,
-        price: RUPEES_TO_PAISE(input.price),
+        price: resolvedPrice,
         is_active: input.is_active,
         hsn: input.hsn,
         is_tax_exempt: input.is_tax_exempt,
