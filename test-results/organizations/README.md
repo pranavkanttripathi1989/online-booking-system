@@ -14,6 +14,7 @@
 |---|---|---|---|---|---|---|---|
 | TR072 | improvement | Head-office branch designation results | pass | 2026-08-23 | 2026-08-23 | TP073 | [TR072-organizations-2026-08-23-head-office-branch-verification.md](./improvement/TR072-organizations-2026-08-23-head-office-branch-verification.md) |
 | TR104 | improvement | Org->branch masters cascade results | pass | 2026-08-25 | 2026-08-25 | TP105 | [TR104-organizations-2026-08-25-branch-masters-cascade.md](./improvement/TR104-organizations-2026-08-25-branch-masters-cascade.md) |
+| TR136 | improvement | Subscription read-back visibility results | pass | 2026-08-26 | 2026-08-26 | TP137 | [TR136-organizations-2026-08-26-subscription-visibility.md](./improvement/TR136-organizations-2026-08-26-subscription-visibility.md) |
 
 ## bug
 
