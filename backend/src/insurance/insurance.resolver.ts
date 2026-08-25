@@ -1,6 +1,6 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { InsuranceService } from './insurance.service';
-import { PayerType, PayerEmpanelmentType, PatientInsurancePolicyType, PayerTariffType } from './entities/insurance.entity';
+import { PayerType, PayerEmpanelmentType, PatientInsurancePolicyType, PayerTariffType, PayerChargeEstimateType } from './entities/insurance.entity';
 import {
   PayerInput,
   PayerEmpanelmentInput,
@@ -80,5 +80,18 @@ export class InsuranceResolver {
   @Mutation(() => PayerTariffType)
   setPayerTariff(@Args('input') input: PayerTariffInput, @CurrentUser() user: JwtPayload) {
     return this.insuranceService.setPayerTariff(input, user);
+  }
+
+  // REQ100 — matches payerTariffs' own gate (front-desk/staff need this for
+  // quoting, not just admin/manager).
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Query(() => PayerChargeEstimateType)
+  estimatedPayerCharge(
+    @Args('productId', { type: () => ID }) productId: string,
+    @Args('payerId', { type: () => ID }) payerId: string,
+    @Args('patientId', { type: () => ID, nullable: true }) patientId: string | undefined,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.insuranceService.estimatedPayerCharge(productId, payerId, patientId, user);
   }
 }

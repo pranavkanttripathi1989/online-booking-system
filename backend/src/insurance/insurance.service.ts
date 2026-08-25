@@ -10,6 +10,7 @@ import {
 } from './dto/insurance.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-scope';
+import { resolveServicePrice } from '../common/pricing/resolve-price';
 
 // REQ031 (US-INS-01/03, P1 scope) — payer/tariff master + patient policy
 // capture only. No claim/pre-auth state machine (that's the requirement
@@ -153,5 +154,28 @@ export class InsuranceService {
       include: { payer: true, product: true },
     });
     return this.tariffToGraphQL(row);
+  }
+
+  // REQ100 — a read-only "what would this cost billed to payer X" estimate.
+  // Deliberately NOT wired into createRazorpayOrder/recordCounterPayment
+  // (see REQ100's own doc: neither call site has a real "billing this to
+  // an insurer" signal today — that's REQ031's own deferred P2 claims
+  // state machine). This is a front-desk/admin quoting tool only.
+  async estimatedPayerCharge(productId: string, payerId: string, patientId: string | undefined, user: JwtPayload) {
+    const product = await this.prisma.products.findUnique({ where: { id: productId } });
+    if (!product || product.is_deleted) throw new BadRequestException('Service or product not found');
+    if (!isSameOrg(user, product.client_org_id)) throw new BadRequestException('Service or product not found');
+    const payer = await this.prisma.payers.findUnique({ where: { id: payerId } });
+    if (!payer) throw new BadRequestException('Payer not found');
+    let patient = null;
+    if (patientId) {
+      await this.assertPatientAccessible(patientId, user);
+      patient = await this.prisma.patients.findUnique({ where: { id: patientId } });
+    }
+    const tariff = await this.prisma.payerTariffs.findUnique({
+      where: { payer_id_product_id: { payer_id: payerId, product_id: productId } },
+    });
+    const amountPaise = resolveServicePrice(product, patient, undefined, null, tariff?.tariff_price ?? undefined);
+    return { amount: amountPaise != null ? amountPaise / 100 : null, has_tariff: !!tariff };
   }
 }

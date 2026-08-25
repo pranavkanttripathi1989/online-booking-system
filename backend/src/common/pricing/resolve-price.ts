@@ -55,27 +55,40 @@ function asPricingMap(value: unknown): Record<string, number> {
 }
 
 /**
- * Resolution order: a branch's own 'skip'/'override' stance (REQ055) is
- * checked first since it is the most specific thing known — a branch that
- * deliberately customized or withdrew a service should never fall through
- * to the org master's own pricing. Absent a branch override, or with an
- * explicit 'inherit' stance, resolution proceeds against the master
- * product exactly as before REQ055: patient-category override wins over
- * channel override, which wins over the base price. Category wins because
- * it represents a standing commercial agreement (a corporate contract, a
- * staff discount) that should hold regardless of how the visit happened to
- * be booked or paid; channel is a lighter-weight, situational adjustment.
+ * Resolution order (REQ100 adds the payer tariff as the new highest
+ * priority, just below a branch's own 'skip' stance): a branch's own
+ * 'skip'/'override' stance (REQ055) is checked first since it is the most
+ * specific thing known — a branch that deliberately customized or
+ * withdrew a service should never fall through to the org master's own
+ * pricing, not even for a payer tariff (a withdrawn service stays
+ * withdrawn regardless of who's paying). Next, an explicitly-supplied
+ * payer tariff (REQ100) — a contractually negotiated rate the caller has
+ * deliberately decided to charge against; once supplied it is definitive
+ * and is never diluted by the branch's own retail category/channel
+ * pricing, which governs self-pay pricing only. Absent both, resolution
+ * proceeds against the master product exactly as before REQ055/REQ100:
+ * a branch 'override' stance, then patient-category override, then
+ * channel override, then the base price. Category wins over channel
+ * because it represents a standing commercial agreement (a corporate
+ * contract, a staff discount) that should hold regardless of how the
+ * visit happened to be booked or paid; channel is a lighter-weight,
+ * situational adjustment.
  */
 export function resolveServicePrice(
   product: PricingProduct | null | undefined,
   patient: PricingPatient | null | undefined,
   channel?: PaymentChannel,
   branchOverride?: BranchPriceOverride | null,
+  payerTariffPaise?: number | null,
 ): number | null {
   if (!product) return null;
 
   if (branchOverride?.mode === 'skip') {
     return null;
+  }
+
+  if (payerTariffPaise != null) {
+    return payerTariffPaise;
   }
 
   if (branchOverride?.mode === 'override') {

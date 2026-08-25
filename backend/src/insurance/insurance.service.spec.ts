@@ -15,8 +15,9 @@ describe('InsuranceService', () => {
     payerEmpanelments: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     patientInsurancePolicies: { findMany: jest.Mock; create: jest.Mock };
     clinics: { findUnique: jest.Mock };
-    payerTariffs: { findMany: jest.Mock; upsert: jest.Mock };
+    payerTariffs: { findMany: jest.Mock; upsert: jest.Mock; findUnique: jest.Mock };
     products: { findUnique: jest.Mock };
+    patients: { findUnique: jest.Mock };
   };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
@@ -30,8 +31,9 @@ describe('InsuranceService', () => {
       payerEmpanelments: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       patientInsurancePolicies: { findMany: jest.fn(), create: jest.fn() },
       clinics: { findUnique: jest.fn() },
-      payerTariffs: { findMany: jest.fn(), upsert: jest.fn() },
+      payerTariffs: { findMany: jest.fn(), upsert: jest.fn(), findUnique: jest.fn() },
       products: { findUnique: jest.fn() },
+      patients: { findUnique: jest.fn() },
     };
     patientsService = { ownAndDependantPatientIds: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
@@ -152,6 +154,44 @@ describe('InsuranceService', () => {
         }),
       );
       expect(result.tariff_price).toBe(450);
+    });
+  });
+
+  // REQ100
+  describe('estimatedPayerCharge', () => {
+    it('returns the tariff amount when one exists, has_tariff true', async () => {
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-1', client_org_id: 'org-a', is_deleted: false, price: 50000 });
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1', name: 'Star Health' });
+      prisma.payerTariffs.findUnique.mockResolvedValue({ tariff_price: 20000 });
+      const result = await service.estimatedPayerCharge('prod-1', 'payer-1', undefined, orgAUser);
+      expect(result).toEqual({ amount: 200, has_tariff: true });
+    });
+
+    it('falls through to the base/category price when no tariff exists, has_tariff false', async () => {
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-1', client_org_id: 'org-a', is_deleted: false, price: 50000 });
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1', name: 'Star Health' });
+      prisma.payerTariffs.findUnique.mockResolvedValue(null);
+      const result = await service.estimatedPayerCharge('prod-1', 'payer-1', undefined, orgAUser);
+      expect(result).toEqual({ amount: 500, has_tariff: false });
+    });
+
+    it('rejects a cross-org product', async () => {
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-1', client_org_id: 'org-b', is_deleted: false });
+      await expect(service.estimatedPayerCharge('prod-1', 'payer-1', undefined, orgAUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an unknown payer', async () => {
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-1', client_org_id: 'org-a', is_deleted: false, price: 50000 });
+      prisma.payers.findUnique.mockResolvedValue(null);
+      await expect(service.estimatedPayerCharge('prod-1', 'payer-999', undefined, orgAUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a patient-role caller passing someone else\'s patientId', async () => {
+      const patientUser: JwtPayload = { sub: 'u2', roles: ['patient'], client_org_id: 'org-a', patient_id: 'own-patient', clinician_id: null } as JwtPayload;
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-1', client_org_id: 'org-a', is_deleted: false, price: 50000 });
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1', name: 'Star Health' });
+      patientsService.ownAndDependantPatientIds.mockResolvedValue(['own-patient']);
+      await expect(service.estimatedPayerCharge('prod-1', 'payer-1', 'someone-elses-patient', patientUser)).rejects.toThrow(BadRequestException);
     });
   });
 });

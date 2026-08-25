@@ -88,4 +88,27 @@ describe('resolveServicePrice', () => {
       expect(resolveServicePrice(masterProduct, { patient_category: 'corporate' }, 'online', override)).toBe(30000);
     });
   });
+
+  // REQ100 — payer tariff (5th argument).
+  describe('payer tariff (5th argument)', () => {
+    const masterProduct = { price: 50000, category_pricing_json: { corporate: 40000 }, channel_pricing_json: { online: 45000 } };
+
+    it('returns the tariff price when supplied, ignoring category/channel/base', () => {
+      expect(resolveServicePrice(masterProduct, { patient_category: 'corporate' }, 'online', undefined, 20000)).toBe(20000);
+    });
+
+    it('is unaffected when no tariff is passed (regression guard)', () => {
+      expect(resolveServicePrice(masterProduct, { patient_category: 'corporate' }, 'online', undefined, undefined)).toBe(40000);
+      expect(resolveServicePrice(masterProduct, { patient_category: 'corporate' }, 'online', undefined, null)).toBe(40000);
+    });
+
+    it('a branch skip stance still wins over a supplied tariff', () => {
+      expect(resolveServicePrice(masterProduct, undefined, undefined, { mode: 'skip' }, 20000)).toBeNull();
+    });
+
+    it('the tariff wins over a branch override stance', () => {
+      const override = { mode: 'override', override_price: 30000 };
+      expect(resolveServicePrice(masterProduct, undefined, undefined, override, 20000)).toBe(20000);
+    });
+  });
 });

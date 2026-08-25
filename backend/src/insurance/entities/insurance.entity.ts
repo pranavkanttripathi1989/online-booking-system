@@ -42,3 +42,10 @@ export class PayerTariffType {
   @Field(() => Float) tariff_price: number;
   @Field() updated_at: Date;
 }
+
+// REQ100 — a read-only quoting result, not a billing record.
+@ObjectType('PayerChargeEstimate')
+export class PayerChargeEstimateType {
+  @Field(() => Float, { nullable: true }) amount?: number;
+  @Field() has_tariff: boolean;
+}
