@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useQuery, gql } from '@apollo/client';
+import { useQuery, useMutation, gql } from '@apollo/client';
 import {
   Box, Grid, Paper, Typography, Stack, Button, Avatar, Card,
   Tooltip, List, ListItem, ListItemAvatar, ListItemText, Alert,
@@ -9,74 +9,110 @@ import {
 import {
   EventNote, CheckCircle, Videocam, Add, AccessTime,
   RestaurantMenu, DoNotDisturb, Close as CloseIcon, Block as BlockIcon,
-  CheckCircleOutline as SuccessIcon,
 } from '@mui/icons-material';
 import dayjs from 'dayjs';
 import StitchKpiCard from '../../components/shared/StitchKpiCard';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import { useAuth } from '../../hooks/useAuth';
-import { useMockMutation } from '../../mocks/useMockData';
 
 dayjs.extend(isSameOrBefore);
 
 // ─── GraphQL ──────────────────────────────────────────────────────────────────
-const GET_CLINICIAN_DASHBOARD_DATA = gql`
-  query GetClinicianDashboardData($clinicianId: ID!, $today: String!) {
-    getClinician(id: $clinicianId) {
+// BUG021: this page's own dashboard was fabricated end to end --
+// getClinician/getAppointments are the @Public() patient-self-serve dialect
+// (backend/src/public), whose real getAppointments return type has only
+// id/startTime/endTime, guaranteeing a GraphQL validation error on every
+// request; isMock = !data then permanently masked that as fake sample data.
+// Replaced with: a dedicated network-only profile query (LOGIN_MUTATION never
+// selects user.clinician, so a freshly-logged-in session's cached copy is
+// undefined -- same bug class as AuthContext's own documented user.patient.id
+// gap, worked around the same way the Settings Privacy tab already does) and
+// the real appointments() query, self-scoped server-side via the caller's own
+// JWT clinician_id -- the same primitive clinician/Calendar.jsx already uses.
+// User.clinician resolves to the smaller ClinicianInfo type (id/full_name/
+// avatar_url/clinician_type only -- no clinics field), so a second query
+// against the real Clinician type (clinicians module, no @Auth restriction
+// on the single-record read) fetches the clinic needed for createSpacerBlock.
+const GET_MY_CLINICIAN_PROFILE = gql`
+  query GetMyClinicianProfileForDashboard {
+    me {
+      clinician {
+        id
+        full_name
+        clinician_type { name }
+      }
+    }
+  }
+`;
+const GET_MY_CLINICIAN_CLINIC = gql`
+  query GetMyClinicianClinicForDashboard($id: ID!) {
+    clinician(id: $id) {
       id
-      name
-      clinicianType
-      clinic { id  name }
+      clinics { id name }
     }
-    getAppointments(clinicianId: $clinicianId, date: $today) {
-      id startTime endTime duration status type
-      patient { id firstName lastName }
-      product { id name }
+  }
+`;
+const GET_TODAY_APPOINTMENTS = gql`
+  query GetTodayAppointmentsForDashboard($dateFrom: String!, $dateTo: String!) {
+    appointments(filters: { date_from: $dateFrom, date_to: $dateTo }, first: 200) {
+      data {
+        id start_datetime end_datetime duration_minutes status type
+        patient { id full_name }
+        service { name }
+      }
     }
-    getSpacerBlocks(clinicianId: $clinicianId, date: $today) {
+  }
+`;
+const GET_SPACER_BLOCKS = gql`
+  query GetMySpacerBlocksForDashboard($clinicianId: ID!, $date: String!) {
+    getSpacerBlocks(clinicianId: $clinicianId, date: $date) {
       id startTime endTime duration reason
     }
+  }
+`;
+const GET_LUNCH_BREAKS = gql`
+  query GetMyLunchBreaksForDashboard($clinicianId: ID!) {
     getLunchBreaks(clinicianId: $clinicianId) {
       id startTime endTime duration
     }
   }
 `;
+const CREATE_SPACER_BLOCK = gql`
+  mutation CreateMySpacerBlock($input: CreateSpacerBlockInput!) {
+    createSpacerBlock(input: $input) {
+      success
+      userErrors { message }
+      spacerBlock { id start_time end_time reason }
+    }
+  }
+`;
+const COMPLETE_APPOINTMENT = gql`
+  mutation CompleteMyAppointment($id: ID!) {
+    completeAppointment(id: $id) { id status }
+  }
+`;
 
-// ─── Mock Data (SUG-CLDASH-004) ───────────────────────────────────────────────
-const MOCK_APPOINTMENTS = [
-  {
-    id: 'ma1', startTime: '09:00', endTime: '09:30', duration: 30,
-    status: 'completed', type: 'in-person',
-    patient: { id: 'p1', firstName: 'Emma',  lastName: 'Wilson' },
-    product: { id: 'pr1', name: 'General Consultation' },
-  },
-  {
-    id: 'ma2', startTime: '10:00', endTime: '11:00', duration: 60,
-    status: 'scheduled', type: 'video',
-    patient: { id: 'p2', firstName: 'Lily',  lastName: 'Chen' },
-    product: { id: 'pr2', name: 'Video Consultation' },
-  },
-  {
-    id: 'ma3', startTime: '11:30', endTime: '12:00', duration: 30,
-    status: 'scheduled', type: 'in-person',
-    patient: { id: 'p3', firstName: 'James', lastName: 'Brown' },
-    product: { id: 'pr3', name: 'Follow-up' },
-  },
-  {
-    id: 'ma4', startTime: '14:00', endTime: '14:30', duration: 30,
-    status: 'scheduled', type: 'in-person',
-    patient: { id: 'p4', firstName: 'Amir',  lastName: 'Patel' },
-    product: { id: 'pr4', name: 'Specialist Review' },
-  },
-  {
-    id: 'ma5', startTime: '15:00', endTime: '15:30', duration: 30,
-    status: 'cancelled', type: 'in-person',
-    patient: { id: 'p5', firstName: 'Kenji', lastName: 'Yamada' },
-    product: { id: 'pr5', name: 'Follow-up' },
-  },
-];
-const MOCK_LUNCH   = [{ id: 'ml1', startTime: '12:30', endTime: '13:30', duration: 60 }];
-const MOCK_SPACERS = [{ id: 'ms1', startTime: '08:00', endTime: '08:30', duration: 30, reason: 'Morning admin' }];
+// The real appointment shape (start_datetime ISO, duration_minutes,
+// patient.full_name, service.name) differs from what this page's timeline/
+// drawer render code expects (HH:mm strings, a flat duration, a single
+// full_name field) -- mapped once here rather than rewriting every render
+// call site, matching this codebase's own resolver-boundary-conversion
+// convention (money/paise) for a real-vs-display shape mismatch.
+const mapAppointment = (apt) => ({
+  id: apt.id,
+  startTime: dayjs(apt.start_datetime).format('HH:mm'),
+  endTime: dayjs(apt.end_datetime).format('HH:mm'),
+  duration: apt.duration_minutes,
+  status: apt.status,
+  type: apt.type === 'video' ? 'video' : 'in-person',
+  patient: { id: apt.patient.id, full_name: apt.patient.full_name },
+  product: apt.service ? { name: apt.service.name } : null,
+});
+
+const patientInitials = (fullName) =>
+  (fullName || '').split(' ').filter(Boolean).map(w => w[0]).slice(0, 2).join('').toUpperCase() || '?';
+
+const isUpcomingStatus = (status) => status === 'scheduled' || status === 'confirmed';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const STITCH_BRAND     = '#006D77';
@@ -148,28 +184,36 @@ export default function ClinicianDashboard() {
   const [blockDrawerOpen, setBlockDrawerOpen] = useState(false);  // SUG-CLDASH-001
   const [blockForm,  setBlockForm]            = useState({ startTime: '', endTime: '', reason: '' });
   const [blockErrors, setBlockErrors]         = useState({});      // BUG-FIX: inline validation errors
-  const [localSpacers, setLocalSpacers]       = useState([]);      // locally added blocks
   const [snackbar, setSnackbar]               = useState({ open: false, message: '', severity: 'success' });
   const [lastRefresh, setLastRefresh]         = useState(dayjs()); // SUG-CLDASH-010
-  const [localStatusOverrides, setLocalStatusOverrides] = useState({}); // SUG-CLDASH-011: id -> status
 
-  // SUG-CLDASH-013: Block form now goes through a mock "mutation" (async, has a
-  // loading state) instead of writing straight to state — same createSpacerBlock
-  // shape the real mutation would have once a backend endpoint exists.
-  const [createSpacerBlockMutation, { loading: savingBlock }] = useMockMutation(
-    async (block) => ({ id: `local-${Date.now()}`, ...block })
-  );
-
-  // SUG-CLDASH-011: "Mark Complete" mutation — simulated locally since the mock
-  // appointment data isn't backed by MockStore.appointments (different id scheme).
-  const [markCompleteMutation, { loading: markingComplete }] = useMockMutation(
-    async (id) => ({ id, status: 'completed' })
-  );
-
-  const { data, loading, error, refetch } = useQuery(GET_CLINICIAN_DASHBOARD_DATA, {
-    variables: { clinicianId: user?.id, today: todayStr },
-    skip: !user?.id,
+  const { data: profileData, loading: profileLoading, error: profileError } = useQuery(GET_MY_CLINICIAN_PROFILE, {
+    fetchPolicy: 'network-only',
+    skip: !user,
   });
+  const clinicianId = profileData?.me?.clinician?.id;
+
+  const { data: clinicianClinicData } = useQuery(GET_MY_CLINICIAN_CLINIC, {
+    variables: { id: clinicianId },
+    skip: !clinicianId,
+  });
+  const clinicianClinicId = clinicianClinicData?.clinician?.clinics?.[0]?.id;
+  const clinicianClinicName = clinicianClinicData?.clinician?.clinics?.[0]?.name;
+
+  const { data, loading, error, refetch } = useQuery(GET_TODAY_APPOINTMENTS, {
+    variables: { dateFrom: todayStr, dateTo: todayStr },
+    skip: !user,
+  });
+  const { data: spacersData, refetch: refetchSpacers } = useQuery(GET_SPACER_BLOCKS, {
+    variables: { clinicianId, date: todayStr },
+    skip: !clinicianId,
+  });
+  const { data: lunchData } = useQuery(GET_LUNCH_BREAKS, {
+    variables: { clinicianId },
+    skip: !clinicianId,
+  });
+  const [createSpacerBlockMutation, { loading: savingBlock }] = useMutation(CREATE_SPACER_BLOCK);
+  const [completeAppointmentMutation, { loading: markingComplete }] = useMutation(COMPLETE_APPOINTMENT);
 
   // Auto-refresh every 60s (SUG-CLDASH-010: update lastRefresh too)
   useEffect(() => {
@@ -193,33 +237,50 @@ export default function ClinicianDashboard() {
 
   if (!user) return <Alert severity="warning">Please log in to view your dashboard.</Alert>;
 
+  if ((loading || profileLoading) && !data && !profileData) {
+    return (
+      <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
+        <Typography color="text.secondary">Loading your dashboard…</Typography>
+      </Box>
+    );
+  }
+
+  // BUG021: a genuine query error is a real error state, not a cue to render
+  // fabricated sample data.
+  if (error || profileError) {
+    return (
+      <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
+        <Alert severity="error" action={
+          <Button color="inherit" size="small" onClick={() => { refetch(); }}>Retry</Button>
+        }>
+          Couldn't load your dashboard. {(error || profileError).message}
+        </Alert>
+      </Box>
+    );
+  }
+
+  if (!profileLoading && profileData && !profileData.me?.clinician) {
+    return (
+      <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
+        <Alert severity="warning">
+          Your account isn't linked to a clinician profile yet — contact your admin.
+        </Alert>
+      </Box>
+    );
+  }
+
   // ─── Process Data ─────────────────────────────────────────────────────────
-  // SUG-CLDASH-005: fix "Dr. Doctor" fallback — use null signal instead
-  const clinician = data?.getClinician || {
-    name: null,
-    clinicianType: user?.clinician?.clinician_type?.name || 'Clinician',
-    clinic: { name: user?.organisation?.name || 'Clinic' },
-  };
-  const displayName = clinician.name
-    ? `Dr. ${clinician.name}`
-    : (user?.clinician?.full_name || user?.name || 'Dr. —');
+  const clinicianType = profileData?.me?.clinician?.clinician_type?.name || 'Clinician';
+  const clinicName    = clinicianClinicName || 'Clinic';
+  const displayName   = profileData?.me?.clinician?.full_name
+    ? `Dr. ${profileData.me.clinician.full_name}`
+    : 'Dr. —';
 
-  // BUG-CLIN-007 fix: use mock data whenever live data is absent.
-  // Previously used `!data && !!error` but Apollo may not surface `error`
-  // immediately when the backend is simply unreachable — resulting in a
-  // permanently blank dashboard. Now: if `data` is absent for any reason
-  // (error, timeout, offline, auth mismatch) we fall back to mock data.
-  const isMock         = !data;
-  const baseAppointments = data?.getAppointments || (isMock ? MOCK_APPOINTMENTS : []);
-  // SUG-CLDASH-011: apply any locally-completed statuses on top of the base data
-  const allAppointments = baseAppointments.map(a =>
-    localStatusOverrides[a.id] ? { ...a, status: localStatusOverrides[a.id] } : a
-  );
-  const baseSpacers     = data?.getSpacerBlocks  || (isMock ? MOCK_SPACERS    : []);
-  const spacerBlocks    = [...baseSpacers, ...localSpacers]; // merge locally-added blocks
-  const lunchBreaks     = data?.getLunchBreaks   || (isMock ? MOCK_LUNCH      : []);
+  const allAppointments = (data?.appointments?.data || []).map(mapAppointment);
+  const spacerBlocks    = (spacersData?.getSpacerBlocks || []);
+  const lunchBreaks     = (lunchData?.getLunchBreaks || []);
 
-  const scheduledApps = allAppointments.filter(a => a.status === 'scheduled');
+  const scheduledApps = allAppointments.filter(a => isUpcomingStatus(a.status));
   const completedApps = allAppointments.filter(a => a.status === 'completed');
   const upcomingApps  = scheduledApps.filter(a =>
     dayjs(`${todayStr}T${a.startTime}`).isAfter(dayjs()));
@@ -265,39 +326,55 @@ export default function ClinicianDashboard() {
     return errs;
   };
 
-  // SUG-CLDASH-013: goes through createSpacerBlockMutation (mock) instead of writing
-  // directly to state — mirrors what a real createSpacerBlock GraphQL mutation would do.
+  // BUG021: real createSpacerBlock mutation — branches on success/userErrors
+  // (this domain's real mutation-response convention), refetches the real
+  // spacer-blocks query on success instead of hand-merging a fake local row.
   const handleSaveBlock = async () => {
     const errs = validateBlockForm();
     if (Object.keys(errs).length > 0) {
       setBlockErrors(errs);
       return; // stop — don't close drawer
     }
-    const duration = (() => {
-      const [sh, sm] = blockForm.startTime.split(':').map(Number);
-      const [eh, em] = blockForm.endTime.split(':').map(Number);
-      return (eh * 60 + em) - (sh * 60 + sm);
-    })();
-    const { data: newBlock } = await createSpacerBlockMutation({
-      startTime: blockForm.startTime,
-      endTime:   blockForm.endTime,
-      duration,
-      reason: blockForm.reason || '',
-    });
-    setLocalSpacers(prev => [...prev, newBlock]);
-    setBlockErrors({});
-    setBlockDrawerOpen(false);
-    setBlockForm({ startTime: '', endTime: '', reason: '' });
-    setSnackbar({ open: true, message: `Block ${dayjs(`2000-01-01T${blockForm.startTime}`).format('h:mm A')}–${dayjs(`2000-01-01T${blockForm.endTime}`).format('h:mm A')} added to schedule.`, severity: 'success' });
+    try {
+      const { data: result } = await createSpacerBlockMutation({
+        variables: {
+          input: {
+            clinician_id: clinicianId,
+            clinic_id: clinicianClinicId,
+            block_date: todayStr,
+            start_time: blockForm.startTime,
+            end_time: blockForm.endTime,
+            reason: blockForm.reason || '',
+            recurrence_type: 'single',
+          },
+        },
+      });
+      if (!result?.createSpacerBlock?.success) {
+        const msg = result?.createSpacerBlock?.userErrors?.[0]?.message || 'Failed to save block.';
+        setSnackbar({ open: true, message: msg, severity: 'error' });
+        return;
+      }
+      await refetchSpacers();
+      setBlockErrors({});
+      setBlockDrawerOpen(false);
+      setBlockForm({ startTime: '', endTime: '', reason: '' });
+      setSnackbar({ open: true, message: `Block ${dayjs(`2000-01-01T${blockForm.startTime}`).format('h:mm A')}–${dayjs(`2000-01-01T${blockForm.endTime}`).format('h:mm A')} added to schedule.`, severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: e.message || 'Failed to save block.', severity: 'error' });
+    }
   };
 
-  // SUG-CLDASH-011: mark the selected appointment as completed
+  // BUG021: real completeAppointment mutation — refetches today's appointments
+  // instead of a client-only status override.
   const handleMarkComplete = async (id) => {
-    const { data: result } = await markCompleteMutation(id);
-    if (!result) return;
-    setLocalStatusOverrides(prev => ({ ...prev, [id]: result.status }));
-    setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, status: result.status } : prev));
-    setSnackbar({ open: true, message: 'Appointment marked as complete.', severity: 'success' });
+    try {
+      await completeAppointmentMutation({ variables: { id } });
+      await refetch();
+      setSelectedAppt(prev => (prev && prev.id === id ? { ...prev, status: 'completed' } : prev));
+      setSnackbar({ open: true, message: 'Appointment marked as complete.', severity: 'success' });
+    } catch (e) {
+      setSnackbar({ open: true, message: e.message || 'Failed to mark complete.', severity: 'error' });
+    }
   };
 
   const handleBlockFieldChange = (field, value) => {
@@ -322,12 +399,12 @@ export default function ClinicianDashboard() {
             </Typography>
             <Stack direction="row" alignItems="center" gap={1} mt={0.5}>
               <Chip
-                label={clinician.clinicianType}
+                label={clinicianType}
                 size="small"
                 sx={{ bgcolor: 'rgba(255,255,255,0.2)', color: 'white', fontWeight: 700, fontSize: '0.7rem', height: 22, borderRadius: '6px' }}
               />
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.85)' }}>
-                {clinician.clinic?.name}
+                {clinicName}
               </Typography>
             </Stack>
             {/* SUG-CLDASH-010: last updated timestamp */}
@@ -348,19 +425,12 @@ export default function ClinicianDashboard() {
         </Stack>
       </Box>
 
-      {/* SUG-CLDASH-009: offline indicator */}
-      {isMock && (
-        <Alert severity="warning" sx={{ mb: 2, borderRadius: 2 }}>
-          ⚠ Offline — showing demo data. Changes will not be saved until reconnected.
-        </Alert>
-      )}
-
       {/* ── KPI CARDS ─────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-        <StitchKpiCard title="Total Today" value={allAppointments.length || 12}  icon={<EventNote />}    color="#3B82F6" />
-        <StitchKpiCard title="Completed"   value={completedApps.length  || 5}   icon={<CheckCircle />}  color="#10B981" />
-        <StitchKpiCard title="Remaining"   value={upcomingApps.length   || 7}   icon={<AccessTime />}   color={STITCH_BRAND} />
-        <StitchKpiCard title="Video Calls" value={videoApps.length      || 3}   icon={<Videocam />}     color="#7C3AED" />
+        <StitchKpiCard title="Total Today" value={allAppointments.length}  icon={<EventNote />}    color="#3B82F6" />
+        <StitchKpiCard title="Completed"   value={completedApps.length}   icon={<CheckCircle />}  color="#10B981" />
+        <StitchKpiCard title="Remaining"   value={upcomingApps.length}    icon={<AccessTime />}   color={STITCH_BRAND} />
+        <StitchKpiCard title="Video Calls" value={videoApps.length}       icon={<Videocam />}     color="#7C3AED" />
       </Box>
       {/* NEW-CLDASH-019: completed/total progress bar */}
       {allAppointments.length > 0 && (
@@ -437,7 +507,7 @@ export default function ClinicianDashboard() {
                 const colLeft          = `calc(64px + ${(col / totalCols) * 100}%)`;
 
                 return (
-                  <Tooltip key={appt.id} title={`${appt.patient.firstName} ${appt.patient.lastName} · ${dayjs(`${todayStr}T${appt.startTime}`).format('h:mm A')}`} placement="left">
+                  <Tooltip key={appt.id} title={`${appt.patient.full_name} · ${dayjs(`${todayStr}T${appt.startTime}`).format('h:mm A')}`} placement="left">
                     <Card
                       elevation={0}
                       sx={{
@@ -461,7 +531,7 @@ export default function ClinicianDashboard() {
                       <Stack direction="row" justifyContent="space-between" alignItems="flex-start">
                         <Box overflow="hidden">
                           <Typography variant="caption" fontWeight={800} noWrap display="block">
-                            {appt.patient.firstName} {appt.patient.lastName}
+                            {appt.patient.full_name}
                           </Typography>
                           {height > 30 && (
                             <Typography variant="caption" sx={{ opacity: 0.85, fontSize: '0.66rem' }} noWrap>
@@ -490,25 +560,14 @@ export default function ClinicianDashboard() {
                 );
               })}
 
-              {/* Spacer / Blocked — SUG-CLDASH-016: delete button on each block */}
+              {/* Spacer / Blocked */}
               {spacerBlocks.map((sb) => {
                 const { top, height } = getTopAndHeight(sb.startTime, sb.duration || sb.endTime);
-                const isLocal = sb.id?.startsWith('local-');
                 return (
                   <Tooltip key={sb.id} title={sb.reason || 'Blocked time'}>
                     <Box sx={{ position: 'absolute', left: 64, right: 12, top, height: Math.max(height, 28), bgcolor: '#F8FAFC', border: '1.5px dashed #CBD5E1', borderRadius: 1.5, display: 'flex', alignItems: 'center', gap: 0.75, px: 1, pr: 0.5 }}>
                       <DoNotDisturb sx={{ fontSize: 13, color: '#94A3B8', flexShrink: 0 }} />
                       <Typography variant="caption" color="text.secondary" fontWeight={600} noWrap sx={{ flex: 1 }}>Blocked{sb.reason ? `: ${sb.reason}` : ''}</Typography>
-                      {/* SUG-CLDASH-016: remove locally-added blocks without page refresh */}
-                      {isLocal && (
-                        <IconButton
-                          size="small"
-                          onClick={(e) => { e.stopPropagation(); setLocalSpacers(prev => prev.filter(s => s.id !== sb.id)); }}
-                          sx={{ p: 0, color: '#94A3B8', '&:hover': { color: 'error.main' }, flexShrink: 0 }}
-                        >
-                          <CloseIcon sx={{ fontSize: 12 }} />
-                        </IconButton>
-                      )}
                     </Box>
                   </Tooltip>
                 );
@@ -536,7 +595,7 @@ export default function ClinicianDashboard() {
                       sx={{ width: 56, height: 56, border: `2px solid ${STITCH_BRAND}30` }} />
                     <Box>
                       <Typography variant="subtitle1" fontWeight={800}>
-                        {nextAppt.patient.firstName} {nextAppt.patient.lastName}
+                        {nextAppt.patient.full_name}
                       </Typography>
                       <Typography variant="body2" color="text.secondary" fontWeight={500}>
                         {dayjs(`${todayStr}T${nextAppt.startTime}`).format('h:mm A')} · {nextAppt.duration || 30} mins · {nextAppt.type === 'video' ? 'Video' : 'In-Person'}
@@ -585,7 +644,7 @@ export default function ClinicianDashboard() {
                         <Avatar src={`https://www.gravatar.com/avatar/${appt.patient.id}?d=mp`} />
                       </ListItemAvatar>
                       <ListItemText
-                        primary={<Typography variant="subtitle2" fontWeight={700}>{appt.patient.firstName} {appt.patient.lastName}</Typography>}
+                        primary={<Typography variant="subtitle2" fontWeight={700}>{appt.patient.full_name}</Typography>}
                         secondary={<Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>{dayjs(`${todayStr}T${appt.startTime}`).format('h:mm A')} · {appt.product?.name}</Typography>}
                       />
                       {appt.type === 'video' && <Videocam sx={{ color: STITCH_BRAND, fontSize: 16 }} />}
@@ -702,12 +761,10 @@ export default function ClinicianDashboard() {
                   fontWeight: 800, fontSize: '1rem',
                   position: 'absolute',
                   zIndex: -1,
-                }}>{
-                  `${selectedAppt.patient.firstName[0]}${selectedAppt.patient.lastName[0]}`.toUpperCase()
-                }</Avatar>
+                }}>{patientInitials(selectedAppt.patient.full_name)}</Avatar>
                 <Box>
                   <Typography variant="subtitle1" fontWeight={800}>
-                    {selectedAppt.patient.firstName} {selectedAppt.patient.lastName}
+                    {selectedAppt.patient.full_name}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {dayjs(`${todayStr}T${selectedAppt.startTime}`).format('h:mm A')} · {selectedAppt.duration || 30} mins
@@ -724,8 +781,8 @@ export default function ClinicianDashboard() {
             </Box>
             <Box sx={{ p: 3, borderTop: '1px solid #E2E8F0', flexShrink: 0 }}>
               <Stack spacing={1.5}>
-                {/* SUG-CLDASH-011: Mark Complete — only offered for still-scheduled appointments */}
-                {selectedAppt.status === 'scheduled' && (
+                {/* Mark Complete — only offered for still-upcoming appointments */}
+                {isUpcomingStatus(selectedAppt.status) && (
                   <Button variant="contained" fullWidth startIcon={<CheckCircle />}
                     onClick={() => handleMarkComplete(selectedAppt.id)} disabled={markingComplete}
                     sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2, fontWeight: 700 }}>
