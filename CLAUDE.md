@@ -1048,6 +1048,14 @@ npm run test:int          # integration suite — 120 tests / 3 suites, ~117s, R
                           # connection is hardcoded to localhost:5433, a host-side port mapping
                           # the container's own network namespace can't resolve to the real
                           # postgres_test service (found 2026-08-24, PLAN073)
+                          # Prefer the host for the UNIT suite too (`npx jest --maxWorkers=2`, not
+                          # `docker exec medibook_backend npm test`) — the container path measured
+                          # dramatically slower (shared host CPU across ~7-8 other running
+                          # containers, plus macOS bind-mount I/O overhead on ./backend:/app), and
+                          # CI never runs backend tests inside this container at all
+                          # (.github/workflows/ci.yml's backend job runs on a bare ubuntu-latest
+                          # runner) — no correctness reason to prefer the container here, unlike
+                          # test:int above (REQ103, 2026-08-26).
 npm run test -- <pattern> # run a single test file/suite, e.g. `npm run test -- appointments.service`
 npx prisma validate        # validate schema.prisma after editing it
 npx prisma migrate deploy  # apply migrations
