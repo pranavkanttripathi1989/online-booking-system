@@ -40,7 +40,13 @@ export class BlocksResolver {
     return this.blocksService.getSpacerBlocks(clinicianId, date, user);
   }
 
-  @Auth('manager', 'admin', 'super_admin')
+  // clinician/Dashboard.jsx's own "Add Block" self-service action (BUG021) --
+  // getSpacerBlocks above was already widened to 'clinician' with a
+  // self-scope check; this create path had never been, so a real clinician
+  // could read but never actually save their own block. blocks.service.ts's
+  // createSpacerBlock enforces a clinician caller can only target their own
+  // clinician_id.
+  @Auth('manager', 'admin', 'super_admin', 'clinician')
   @Mutation(() => SpacerBlockMutationResultType)
   createSpacerBlock(@Args('input') input: CreateSpacerBlockInput, @CurrentUser() user: JwtPayload) {
     return this.blocksService.createSpacerBlock(input, user);

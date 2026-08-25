@@ -126,6 +126,12 @@ export class BlocksService {
   }
 
   async createSpacerBlock(input: CreateSpacerBlockInput, user: JwtPayload) {
+    // BUG021: mirrors getSpacerBlocks' own self-scope check -- a clinician
+    // caller may only ever create a block attributed to themselves, never to
+    // an arbitrary clinician_id in the same or another org.
+    if (user.roles.includes('clinician') && input.clinician_id !== user.clinician_id) {
+      return { success: false, userErrors: [{ message: 'Clinician not found' }] };
+    }
     if (!(await this.assertClinicInOrg(input.clinic_id, user))) {
       return { success: false, userErrors: [{ message: 'Clinic not found' }] };
     }

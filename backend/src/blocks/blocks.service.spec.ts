@@ -65,6 +65,24 @@ describe('BlocksService — create-path org scoping', () => {
     expect(result.success).toBe(true);
     expect(prisma.clinics.findUnique).not.toHaveBeenCalled();
   });
+
+  // BUG021: createSpacerBlock was widened to allow 'clinician' (previously
+  // manager/admin/super_admin only) so clinician/Dashboard.jsx's own "Add
+  // Block" action can actually save. Without this self-scope check, any
+  // clinician could create a block attributed to a DIFFERENT clinician.
+  it('allows a clinician to create a block for their own clinician_id', async () => {
+    prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+    const clinicianSelf: JwtPayload = { sub: 'u-5', roles: ['clinician'], client_org_id: 'org-1', clinician_id: 'cln-1' } as JwtPayload;
+    const result = await service.createSpacerBlock(spacerInput as any, clinicianSelf);
+    expect(result.success).toBe(true);
+  });
+
+  it('rejects a clinician creating a block attributed to a DIFFERENT clinician_id', async () => {
+    const clinicianOther: JwtPayload = { sub: 'u-6', roles: ['clinician'], client_org_id: 'org-1', clinician_id: 'cln-OTHER' } as JwtPayload;
+    const result = await service.createSpacerBlock(spacerInput as any, clinicianOther);
+    expect(result.success).toBe(false);
+    expect(prisma.spacerBlocks.create).not.toHaveBeenCalled();
+  });
 });
 
 // BUG012: getSpacerBlocks previously took no `user` at all -- zero self- or
