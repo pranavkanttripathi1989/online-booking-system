@@ -10,6 +10,7 @@ import {
   ApplyTemplateInput,
   CreateAttachmentInput,
 } from './dto/encounter.input';
+import { PatientsService } from '../patients/patients.service';
 
 // REQ020 (Phase 1, slice 2) P0 -- consultation workspace / clinical records.
 // Encounters owns client_org_id directly (denormalized from the
@@ -17,7 +18,10 @@ import {
 // Patients itself has no client_org_id column of its own.
 @Injectable()
 export class EncountersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly patientsService: PatientsService,
+  ) {}
 
   private toGraphQL(encounter: any) {
     if (!encounter) return null;
@@ -58,8 +62,14 @@ export class EncountersService {
   // keyed directly by patientId rather than by an encounter this caller
   // already owns.
   private async assertPatientAccess(patientId: string, user: JwtPayload) {
+    // REQ065 (REQ018 US-BOOK-02 residue) — widened to a dependant's own
+    // records too, matching prescriptions.service.ts/test-results.service.ts's
+    // identical fix. This call site was not one of the three the original
+    // residue note flagged, found while building REQ024's own US-MSG-05
+    // (message-thread timeline linkage) directly touches this same method.
     if (user.roles.includes('patient')) {
-      if (patientId !== (user.patient_id ?? '__no_patient_link__')) {
+      const allowedIds = await this.patientsService.ownAndDependantPatientIds(user);
+      if (!allowedIds.includes(patientId)) {
         throw new NotFoundException('Patient not found');
       }
       return;
@@ -312,13 +322,18 @@ export class EncountersService {
 
   // US-EMR-07: aggregates Encounters (as visit events, with a complaints
   // snippet), Diagnoses/allergies, Attachments, and the already-real
-  // TestResults into one chronological, typed array. Messages/prescriptions
-  // are real domains too but cross-module aggregation there is deliberately
-  // out of scope this slice (REQ020's own plan) -- prescriptions don't exist
-  // until REQ021.
+  // TestResults into one chronological, typed array. Prescriptions'
+  // cross-module aggregation is still deliberately out of scope. Messages
+  // are now included (REQ024 US-MSG-05) -- scoped to patient_clinic
+  // threads the patient's own real login account participates in; a
+  // dependant with no login of their own (patients.service.ts's own
+  // documented design) simply has none to surface, which is correct, not
+  // a gap -- see context/open-questions.md #16 for the standing question
+  // on whether that should ever change.
   async patientTimeline(patientId: string, user: JwtPayload) {
     await this.assertPatientAccess(patientId, user);
-    const [encounters, diagnoses, attachments, testResults] = await Promise.all([
+    const patientUserProfile = await this.prisma.userProfiles.findFirst({ where: { patient_id: patientId, is_deleted: false } });
+    const [encounters, diagnoses, attachments, testResults, clinicalThreads] = await Promise.all([
       this.prisma.encounters.findMany({
         where: { patient_id: patientId },
         include: { notes: true },
@@ -336,6 +351,12 @@ export class EncountersService {
         where: { patient_id: patientId, is_deleted: false },
         orderBy: { date_ordered: 'desc' },
       }),
+      patientUserProfile
+        ? this.prisma.messageThreads.findMany({
+            where: { thread_type: 'patient_clinic', participants: { some: { user_id: patientUserProfile.id } } },
+            orderBy: { last_activity: 'desc' },
+          })
+        : Promise.resolve([]),
     ]);
 
     const events = [
@@ -369,6 +390,15 @@ export class EncountersService {
         date: t.date_ordered,
         title: t.test_name,
         summary: t.status as string,
+        encounter_id: undefined,
+      })),
+      // REQ024 (US-MSG-05).
+      ...clinicalThreads.map((th) => ({
+        id: th.id,
+        type: 'message_thread',
+        date: th.last_activity,
+        title: 'Clinical messaging thread',
+        summary: th.last_message ?? undefined,
         encounter_id: undefined,
       })),
     ];

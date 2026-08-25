@@ -3,9 +3,10 @@ import { EncountersService } from './encounters.service';
 import { EncountersResolver } from './encounters.resolver';
 import { AttachmentsController } from './attachments.controller';
 import { AuthModule } from '../auth/auth.module';
+import { PatientsModule } from '../patients/patients.module';
 
 @Module({
-  imports: [AuthModule],
+  imports: [AuthModule, PatientsModule],
   controllers: [AttachmentsController],
   providers: [EncountersService, EncountersResolver],
   // REQ057 — documents.module.ts reuses encounter() rather than

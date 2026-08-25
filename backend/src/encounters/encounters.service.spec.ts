@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { EncountersService } from './encounters.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PatientsService } from '../patients/patients.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // REQ020 P0. Encounters owns client_org_id directly (like Resources,
@@ -11,6 +12,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('EncountersService', () => {
   let service: EncountersService;
   let prisma: any;
+  let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
   const clinicianA: JwtPayload = { sub: 'clin-a', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-a' } as JwtPayload;
   const clinicianB: JwtPayload = { sub: 'clin-b', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-b' } as JwtPayload;
@@ -37,10 +39,25 @@ describe('EncountersService', () => {
       encounterTemplates: { findMany: jest.fn(), create: jest.fn(), findUnique: jest.fn() },
       appointments: { findUnique: jest.fn(), findFirst: jest.fn() },
       testResults: { findMany: jest.fn().mockResolvedValue([]) },
+      userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
+      messageThreads: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [EncountersService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        EncountersService,
+        { provide: PrismaService, useValue: prisma },
+        {
+          provide: PatientsService,
+          // Mirrors the real ownAndDependantPatientIds()'s own behaviour for
+          // a patient with no configured dependants -- existing tests below
+          // (written before dependant self-scoping existed here) keep
+          // working unchanged.
+          useValue: (patientsService = {
+            ownAndDependantPatientIds: jest.fn().mockImplementation(async (user: JwtPayload) => [user.patient_id ?? '__no_patient_link__']),
+          }),
+        },
+      ],
     }).compile();
     service = module.get(EncountersService);
   });
@@ -325,6 +342,39 @@ describe('EncountersService', () => {
       const result = await service.patientTimeline('pat-a', patientA);
       expect(result).toHaveLength(4);
       expect(result.map((e: any) => e.type)).toEqual(['test_result', 'diagnosis', 'encounter', 'attachment']);
+    });
+
+    // REQ065 (REQ018 US-BOOK-02 residue) — found and fixed while building
+    // REQ024's own US-MSG-05.
+    it('allows a patient to read a dependant\'s timeline', async () => {
+      patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-a', 'dep-1']);
+      await expect(service.patientTimeline('dep-1', patientA)).resolves.toBeDefined();
+    });
+
+    it('still rejects a timeline for neither the caller nor their dependant', async () => {
+      patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-a', 'dep-1']);
+      await expect(service.patientTimeline('pat-x', patientA)).rejects.toThrow(NotFoundException);
+    });
+
+    // REQ024 (US-MSG-05).
+    it('includes a patient_clinic message thread the patient\'s own login participates in', async () => {
+      prisma.userProfiles.findFirst.mockResolvedValue({ id: 'user-a' });
+      prisma.messageThreads.findMany.mockResolvedValue([
+        { id: 'thread-1', last_message: 'How are the test results?', last_activity: new Date('2026-08-23') },
+      ]);
+      const result = await service.patientTimeline('pat-a', patientA);
+      const threadEvent: any = result.find((e: any) => e.type === 'message_thread');
+      expect(threadEvent).toBeDefined();
+      expect(threadEvent!.summary).toBe('How are the test results?');
+      expect(prisma.messageThreads.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ thread_type: 'patient_clinic', participants: { some: { user_id: 'user-a' } } }) }),
+      );
+    });
+
+    it('does not query message threads for a patient with no real login account', async () => {
+      prisma.userProfiles.findFirst.mockResolvedValue(null);
+      await service.patientTimeline('pat-a', patientA);
+      expect(prisma.messageThreads.findMany).not.toHaveBeenCalled();
     });
   });
 });
