@@ -718,6 +718,7 @@ model ClientOrganizations {
   discountApprovalRequests DiscountApprovalRequests[]
   cashDrawerCloseouts    CashDrawerCloseouts[]
   products               Products[]
+  patients               Patients[]
   productCategories      ProductCategories[]
   productSubcategories   ProductSubcategories[]
   drugs                  Drugs[]
@@ -1027,6 +1028,13 @@ model OrganizationSubscriptions {
 
 model Patients {
   id                    String   @id @default(uuid())
+  // F-04 (project-plans/02-findings-register.md) — Patients had no
+  // client_org_id of its own; org-scoping fell back to a relation through
+  // Appointments.clinic, and a patient with zero appointments (freshly
+  // registered, before their first booking) was visible to any
+  // authenticated staff caller regardless of org. Nullable, backfilled
+  // from appointment history, same shape as BUG001's Products.client_org_id.
+  client_org_id         String?
   first_name            String
   last_name             String
   date_of_birth         DateTime
@@ -1068,6 +1076,8 @@ model Patients {
   created_at            DateTime @default(now())
   updated_at            DateTime @updatedAt
 
+  client_organization ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+
   appointments Appointments[]
   userProfiles UserProfiles[]
   reviews      Reviews[]
@@ -1087,6 +1097,7 @@ model Patients {
   @@index([is_deleted, created_at])
   @@index([email])
   @@index([phone])
+  @@index([client_org_id])
 }
 
 // REQ018 (Phase 1, slice 5) P0 -- US-BOOK-02: one phone-verified login

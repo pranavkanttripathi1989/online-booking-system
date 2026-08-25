@@ -18,10 +18,12 @@ describe('PatientsService — access scoping', () => {
   const unlinkedPatientUser: JwtPayload = { sub: 'user-2', roles: ['patient'], client_org_id: 'org-1', patient_id: null } as JwtPayload;
   const clinicianUser: JwtPayload = { sub: 'user-3', roles: ['clinician'], client_org_id: 'org-1', clinician_id: 'cln-1' } as JwtPayload;
 
+  const platformAdmin: JwtPayload = { sub: 'admin-1', roles: ['admin'], client_org_id: null } as JwtPayload;
+
   beforeEach(async () => {
     prisma = {
       patients: { findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
-      appointments: { findFirst: jest.fn().mockResolvedValue(null), updateMany: jest.fn() },
+      appointments: { findFirst: jest.fn().mockResolvedValue(null), findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0), updateMany: jest.fn() },
       patientRelations: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), updateMany: jest.fn() },
       patientMerges: { create: jest.fn() },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null), updateMany: jest.fn() },
@@ -69,6 +71,20 @@ describe('PatientsService — access scoping', () => {
       const where = prisma.patients.findMany.mock.calls[0][0].where;
       expect(where.appointments).toEqual({ some: { clinician_id: 'cln-1' } });
     });
+
+    // F-04 (project-plans/02-findings-register.md) — Patients now has its
+    // own client_org_id column; a staff caller is scoped to it directly.
+    it('scopes a staff caller to their own org via the direct client_org_id column', async () => {
+      await service.findAll(undefined, 20, 1, staffUser);
+      const where = prisma.patients.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBe('org-1');
+    });
+
+    it('applies no org filter for a platform operator', async () => {
+      await service.findAll(undefined, 20, 1, platformAdmin);
+      const where = prisma.patients.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBeUndefined();
+    });
   });
 
   describe('findOne', () => {
@@ -98,6 +114,81 @@ describe('PatientsService — access scoping', () => {
       prisma.patients.findUnique.mockResolvedValue({ id: 'pat-9', is_deleted: false, first_name: 'A', last_name: 'B' });
       prisma.appointments.findFirst.mockResolvedValue(null); // no shared appointment
       await expect(service.findOne('pat-9', clinicianUser)).rejects.toThrow(NotFoundException);
+    });
+
+    // F-04 — a staff caller (no patient/clinician-specific identity check
+    // of their own) is gated purely by the direct client_org_id column.
+    it('a staff caller can load a patient in their own org', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, first_name: 'A', last_name: 'B', client_org_id: 'org-1' });
+      await expect(service.findOne('pat-1', staffUser)).resolves.toBeDefined();
+    });
+
+    it('a staff caller is rejected reading a patient in a different org', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, first_name: 'A', last_name: 'B', client_org_id: 'org-2' });
+      await expect(service.findOne('pat-1', staffUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('a staff caller is rejected reading a patient with no client_org_id (predates any appointment)', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, first_name: 'A', last_name: 'B', client_org_id: null });
+      await expect(service.findOne('pat-1', staffUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('a platform operator can load a patient with no client_org_id', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, first_name: 'A', last_name: 'B', client_org_id: null });
+      await expect(service.findOne('pat-1', platformAdmin)).resolves.toBeDefined();
+    });
+
+    it('a patient caller can still load their own record even when it has no client_org_id yet (no assertSameOrg stacked on top of identity check)', async () => {
+      prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', is_deleted: false, first_name: 'A', last_name: 'B', client_org_id: null });
+      await expect(service.findOne('pat-1', patientUser)).resolves.toBeDefined();
+    });
+  });
+
+  // F-04
+  describe('create', () => {
+    const validInput = { first_name: 'C', last_name: 'D', email: 'c@d.com', phone: '456', date_of_birth: '2000-01-01' };
+
+    it('stamps the caller\'s own org onto a new patient', async () => {
+      prisma.patients.create.mockResolvedValue({ id: 'pat-new', first_name: 'C', last_name: 'D' });
+      await service.create(validInput as any, staffUser);
+      expect(prisma.patients.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ client_org_id: 'org-1' }) }),
+      );
+    });
+
+    it('rejects an org-less non-platform caller rather than writing an org-less row', async () => {
+      const orgLessManager: JwtPayload = { sub: 'u-9', roles: ['manager'], client_org_id: null } as JwtPayload;
+      await expect(service.create(validInput as any, orgLessManager)).rejects.toThrow();
+      expect(prisma.patients.create).not.toHaveBeenCalled();
+    });
+  });
+
+  // F-05 (project-plans/02-findings-register.md) — this resolve-field
+  // previously took no @CurrentUser() at all.
+  describe('appointments (resolve-field)', () => {
+    it('scopes to the caller\'s own org via the clinic relation', async () => {
+      await service.appointments('pat-1', 20, 1, staffUser);
+      const where = prisma.appointments.count.mock.calls[0][0].where;
+      expect(where.clinic).toEqual({ client_org_id: 'org-1' });
+      expect(where.patient_id).toBe('pat-1');
+    });
+
+    it('restricts a clinician caller to only the appointments where they treated this patient', async () => {
+      await service.appointments('pat-1', 20, 1, clinicianUser);
+      const where = prisma.appointments.count.mock.calls[0][0].where;
+      expect(where.clinician_id).toBe('cln-1');
+    });
+
+    it('does not narrow by the caller\'s own patient_id for a patient viewer (would break the dependant case)', async () => {
+      await service.appointments('dep-1', 20, 1, patientUser);
+      const where = prisma.appointments.count.mock.calls[0][0].where;
+      expect(where.patient_id).toBe('dep-1');
+    });
+
+    it('applies no org filter for a platform operator', async () => {
+      await service.appointments('pat-1', 20, 1, platformAdmin);
+      const where = prisma.appointments.count.mock.calls[0][0].where;
+      expect(where.clinic).toBeUndefined();
     });
   });
 
@@ -146,7 +237,7 @@ describe('PatientsService — access scoping', () => {
 
     beforeEach(() => {
       prisma.patients.findUnique.mockImplementation(({ where }: any) =>
-        Promise.resolve({ id: where.id, is_deleted: false, first_name: 'A', last_name: 'B' }));
+        Promise.resolve({ id: where.id, is_deleted: false, first_name: 'A', last_name: 'B', client_org_id: 'org-1' }));
     });
 
     it('rejects merging a patient into themself', async () => {

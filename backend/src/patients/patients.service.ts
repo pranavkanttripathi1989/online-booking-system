@@ -2,10 +2,24 @@ import { Injectable, NotFoundException, ForbiddenException, BadRequestException 
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientInput, AddDependantInput, MergePatientsInput } from './dto/patient.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScope, orgScopeVia, orgIdForWrite, assertSameOrg } from '../common/scoping/tenant-scope';
 
 @Injectable()
 export class PatientsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  // Restricts a clinician caller to only the appointments where THEY
+  // treated this patient, mirroring appointments.service.ts's own
+  // selfScope() for the clinician branch. Deliberately does NOT repeat the
+  // patient branch that top-level helper has — the `where` this feeds into
+  // already fixes patient_id to the specific parent Patient being resolved
+  // (own or a genuine dependant, already validated by findOne() before this
+  // resolve-field can run), so a second, caller-derived patient_id filter
+  // here would silently break the dependant case instead of restricting it.
+  private appointmentSelfScope(user: JwtPayload) {
+    if (user.roles.includes('clinician')) return { clinician_id: user.clinician_id ?? '__no_clinician_link__' };
+    return {};
+  }
 
   private toGraphQL(patient: any) {
     const { medical_notes, ...rest } = patient;
@@ -16,21 +30,6 @@ export class PatientsService {
     };
   }
 
-  // Patients has no client_org_id column of its own (a pre-existing schema
-  // gap, not introduced here — flagged in context/backend-api-requirements-master-plan.md).
-  // Scope indirectly via any appointment's clinic org; a patient with zero
-  // appointments yet (freshly registered, e.g. via the booking wizard) has no
-  // org path to check yet and is visible to any authenticated staff role —
-  // same fallback already established for TestResults.ordered_by_user_id-less rows.
-  private orgScope(user: JwtPayload) {
-    if (!user.client_org_id) return undefined;
-    return {
-      OR: [
-        { appointments: { some: { clinic: { client_org_id: user.client_org_id } } } },
-        { appointments: { none: {} } },
-      ],
-    };
-  }
 
   // SECURITY: patients() previously only org-scoped, never self-scoped --
   // any authenticated 'patient' role account could read every patient's
@@ -74,7 +73,7 @@ export class PatientsService {
     const ownAndDependantIds = user.roles.includes('patient') ? await this.ownAndDependantPatientIds(user) : undefined;
     const where = {
       is_deleted: false,
-      ...this.orgScope(user),
+      ...orgScope(user),
       ...this.selfScope(user, ownAndDependantIds),
       ...(search
         ? {
@@ -115,9 +114,19 @@ export class PatientsService {
     if (!patient || patient.is_deleted) {
       throw new NotFoundException('Patient not found');
     }
+    // Each role branch below is its own sufficient proof of legitimate
+    // access and returns directly -- deliberately NOT also running
+    // assertSameOrg() afterward. A patient's own (or a genuine dependant's)
+    // record, or a patient a clinician has a real appointment with, can
+    // still have client_org_id: null if it predates any appointment
+    // history (see F-04's backfill note on the schema) -- stacking the org
+    // check on top would lock a patient out of their own profile in that
+    // case. The org check below is reserved for the one path with no
+    // identity-based proof of its own: staff/manager/admin/super_admin.
     if (user.roles.includes('patient')) {
       const allowedIds = await this.ownAndDependantPatientIds(user);
       if (!allowedIds.includes(id)) throw new NotFoundException('Patient not found');
+      return this.toGraphQL(patient);
     }
     if (user.roles.includes('clinician')) {
       const treated = await this.prisma.appointments.findFirst({
@@ -126,21 +135,27 @@ export class PatientsService {
       if (!treated) {
         throw new NotFoundException('Patient not found');
       }
+      return this.toGraphQL(patient);
     }
-    if (user.client_org_id) {
-      const hasAccess = await this.prisma.appointments.findFirst({
-        where: { patient_id: id, clinic: { client_org_id: user.client_org_id } },
-      });
-      const hasAnyAppointment = await this.prisma.appointments.findFirst({ where: { patient_id: id } });
-      if (hasAnyAppointment && !hasAccess) {
-        throw new NotFoundException('Patient not found');
-      }
-    }
+    assertSameOrg(user, patient.client_org_id, 'Patient');
     return this.toGraphQL(patient);
   }
 
-  async appointments(patientId: string, first: number, page: number) {
-    const where = { patient_id: patientId, is_deleted: false };
+  // F-05 (project-plans/02-findings-register.md) — this resolve-field
+  // used to take no @CurrentUser() at all, filtering only on patient_id.
+  // A patient treated at two organisations exposed their entire cross-org
+  // appointment history to a clinician at either one, once that clinician
+  // could resolve the parent Patient (which the treated-by check in
+  // findOne() permits). Now applies the exact same org+self scoping
+  // appointments.service.ts's own top-level findAll() uses, via clinic
+  // (Appointments has no client_org_id of its own).
+  async appointments(patientId: string, first: number, page: number, user: JwtPayload) {
+    const where = {
+      patient_id: patientId,
+      is_deleted: false,
+      ...orgScopeVia(user, 'clinic'),
+      ...this.appointmentSelfScope(user),
+    };
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.appointments.count({ where }),
       this.prisma.appointments.findMany({
@@ -271,9 +286,10 @@ export class PatientsService {
     return { id: relation.id, patient: this.toGraphQL(relation.related_patient), relation: relation.relation };
   }
 
-  async create(input: PatientInput) {
+  async create(input: PatientInput, user: JwtPayload) {
     const patient = await this.prisma.patients.create({
       data: {
+        client_org_id: orgIdForWrite(user, 'Patient'),
         first_name: input.first_name,
         last_name: input.last_name,
         email: input.email,

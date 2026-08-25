@@ -275,8 +275,8 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
 
   await prisma.patients.createMany({
     data: [
-      { id: IDS.patientA, first_name: 'Pat', last_name: 'AOrg', date_of_birth: new Date('1990-01-01'), email: 'pat@org-a.test', phone: '+914444444441', address: '2 A Road' },
-      { id: IDS.patientB, first_name: 'Pat', last_name: 'BOrg', date_of_birth: new Date('1990-01-01'), email: 'pat@org-b.test', phone: '+914444444442', address: '2 B Road' },
+      { id: IDS.patientA, client_org_id: IDS.orgA, first_name: 'Pat', last_name: 'AOrg', date_of_birth: new Date('1990-01-01'), email: 'pat@org-a.test', phone: '+914444444441', address: '2 A Road' },
+      { id: IDS.patientB, client_org_id: IDS.orgB, first_name: 'Pat', last_name: 'BOrg', date_of_birth: new Date('1990-01-01'), email: 'pat@org-b.test', phone: '+914444444442', address: '2 B Road' },
     ],
   });
 

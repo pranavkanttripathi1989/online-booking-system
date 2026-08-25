@@ -33,14 +33,15 @@ export class PatientsResolver {
     @Parent() patient: PatientType,
     @Args('first', { type: () => Int, defaultValue: 20 }) first: number,
     @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.patientsService.appointments(patient.id, first, page);
+    return this.patientsService.appointments(patient.id, first, page, user);
   }
 
   @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')
   @Mutation(() => PatientType)
-  createPatient(@Args('input') input: PatientInput) {
-    return this.patientsService.create(input);
+  createPatient(@Args('input') input: PatientInput, @CurrentUser() user: JwtPayload) {
+    return this.patientsService.create(input, user);
   }
 
   // 'patient' added so a patient can edit their own profile
