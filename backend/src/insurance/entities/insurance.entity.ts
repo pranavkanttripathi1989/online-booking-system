@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
 import { ClinicType } from '../../clinics/entities/clinic.entity';
 
 @ObjectType('Payer')
@@ -30,4 +30,15 @@ export class PatientInsurancePolicyType {
   @Field() valid_from: Date;
   @Field({ nullable: true }) valid_until?: Date;
   @Field() is_active: boolean;
+}
+
+// REQ031 (US-INS-02).
+@ObjectType('PayerTariff')
+export class PayerTariffType {
+  @Field(() => ID) id: string;
+  @Field(() => PayerType) payer: PayerType;
+  @Field(() => ID) product_id: string;
+  @Field({ nullable: true }) product_name?: string;
+  @Field(() => Float) tariff_price: number;
+  @Field() updated_at: Date;
 }

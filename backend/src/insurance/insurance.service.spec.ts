@@ -15,6 +15,8 @@ describe('InsuranceService', () => {
     payerEmpanelments: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     patientInsurancePolicies: { findMany: jest.Mock; create: jest.Mock };
     clinics: { findUnique: jest.Mock };
+    payerTariffs: { findMany: jest.Mock; upsert: jest.Mock };
+    products: { findUnique: jest.Mock };
   };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
@@ -28,6 +30,8 @@ describe('InsuranceService', () => {
       payerEmpanelments: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       patientInsurancePolicies: { findMany: jest.fn(), create: jest.fn() },
       clinics: { findUnique: jest.fn() },
+      payerTariffs: { findMany: jest.fn(), upsert: jest.fn() },
+      products: { findUnique: jest.fn() },
     };
     patientsService = { ownAndDependantPatientIds: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
@@ -92,6 +96,62 @@ describe('InsuranceService', () => {
       await expect(
         service.createPolicy({ patient_id: 'p1', payer_id: 'nope', policy_number: 'X', policy_holder_name: 'X', valid_from: '2026-01-01' } as any, orgAUser),
       ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // REQ031 (US-INS-02) — payer-specific tariff master data, deliberately
+  // not wired into billing yet (see PayerTariffs' own schema comment).
+  describe('findTariffs / setPayerTariff', () => {
+    it('scopes findTariffs to the caller org', async () => {
+      prisma.payerTariffs.findMany.mockResolvedValue([]);
+      await service.findTariffs(undefined, undefined, orgAUser);
+      expect(prisma.payerTariffs.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('converts tariff_price from paise to rupees and flattens the product name', async () => {
+      prisma.payerTariffs.findMany.mockResolvedValue([
+        { id: 't1', payer_id: 'payer-1', product_id: 'prod-1', tariff_price: 45000, updated_at: new Date(), payer: { id: 'payer-1', name: 'Star Health' }, product: { id: 'prod-1', name: 'GP Consultation' } },
+      ]);
+      const [result] = await service.findTariffs(undefined, undefined, orgAUser);
+      expect(result.tariff_price).toBe(450);
+      expect(result.product_name).toBe('GP Consultation');
+      expect(result.payer.name).toBe('Star Health');
+    });
+
+    it('rejects an unknown payer_id on setPayerTariff', async () => {
+      prisma.payers.findUnique.mockResolvedValue(null);
+      await expect(
+        service.setPayerTariff({ payer_id: 'nope', product_id: 'prod-1', tariff_price: 500 } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a cross-org product on setPayerTariff (Hard Rule 6)', async () => {
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1', name: 'Star Health' });
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-b', client_org_id: 'org-b', is_deleted: false });
+      await expect(
+        service.setPayerTariff({ payer_id: 'payer-1', product_id: 'prod-b', tariff_price: 500 } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.payerTariffs.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts a tariff, converting rupees to paise', async () => {
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1', name: 'Star Health' });
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-1', client_org_id: 'org-a', is_deleted: false });
+      prisma.payerTariffs.upsert.mockResolvedValue({
+        id: 't1', payer_id: 'payer-1', product_id: 'prod-1', tariff_price: 45000, updated_at: new Date(),
+        payer: { id: 'payer-1', name: 'Star Health' }, product: { id: 'prod-1', name: 'GP Consultation' },
+      });
+      const result = await service.setPayerTariff({ payer_id: 'payer-1', product_id: 'prod-1', tariff_price: 450 } as any, orgAUser);
+      expect(prisma.payerTariffs.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { payer_id_product_id: { payer_id: 'payer-1', product_id: 'prod-1' } },
+          create: expect.objectContaining({ tariff_price: 45000, client_org_id: 'org-a' }),
+          update: { tariff_price: 45000 },
+        }),
+      );
+      expect(result.tariff_price).toBe(450);
     });
   });
 });

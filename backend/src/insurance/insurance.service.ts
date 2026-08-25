@@ -6,6 +6,7 @@ import {
   PayerEmpanelmentInput,
   UpdatePayerEmpanelmentStatusInput,
   PatientInsurancePolicyInput,
+  PayerTariffInput,
 } from './dto/insurance.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-scope';
@@ -112,5 +113,45 @@ export class InsuranceService {
       },
       include: { payer: true },
     });
+  }
+
+  private tariffToGraphQL(row: any) {
+    return {
+      id: row.id,
+      payer: row.payer,
+      product_id: row.product_id,
+      product_name: row.product?.name,
+      tariff_price: row.tariff_price / 100,
+      updated_at: row.updated_at,
+    };
+  }
+
+  // REQ031 (US-INS-02) — master data only, see PayerTariffs' own schema
+  // comment for why billing itself is not wired to this yet.
+  async findTariffs(payerId: string | undefined, productId: string | undefined, user: JwtPayload) {
+    const rows = await this.prisma.payerTariffs.findMany({
+      where: { ...(payerId ? { payer_id: payerId } : {}), ...(productId ? { product_id: productId } : {}), ...orgScope(user) },
+      include: { payer: true, product: true },
+      orderBy: { updated_at: 'desc' },
+    });
+    return rows.map((r) => this.tariffToGraphQL(r));
+  }
+
+  async setPayerTariff(input: PayerTariffInput, user: JwtPayload) {
+    const payer = await this.prisma.payers.findUnique({ where: { id: input.payer_id } });
+    if (!payer) throw new BadRequestException('Payer not found');
+    const product = await this.prisma.products.findUnique({ where: { id: input.product_id } });
+    if (!product || product.is_deleted) throw new BadRequestException('Service or product not found');
+    if (!isSameOrg(user, product.client_org_id)) throw new BadRequestException('Service or product not found');
+    const orgId = product.client_org_id ?? orgIdForWrite(user, 'PayerTariff');
+    if (!orgId) throw new BadRequestException('Cannot record a tariff without an organization');
+    const tariffPricePaise = Math.round(input.tariff_price * 100);
+    const row = await this.prisma.payerTariffs.upsert({
+      where: { payer_id_product_id: { payer_id: input.payer_id, product_id: input.product_id } },
+      create: { payer_id: input.payer_id, product_id: input.product_id, client_org_id: orgId, tariff_price: tariffPricePaise },
+      update: { tariff_price: tariffPricePaise },
+      include: { payer: true, product: true },
+    });
+    return this.tariffToGraphQL(row);
   }
 }

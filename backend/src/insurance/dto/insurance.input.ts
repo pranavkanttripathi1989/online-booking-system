@@ -1,5 +1,5 @@
-import { InputType, Field, ID } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsIn, IsDateString } from 'class-validator';
+import { InputType, Field, ID, Float } from '@nestjs/graphql';
+import { IsNotEmpty, IsOptional, IsIn, IsDateString, IsNumber, Min } from 'class-validator';
 
 // REQ031 (US-INS-01) — global reference data (like Languages), no
 // client_org_id: insurers/TPAs are shared across every tenant, not owned
@@ -38,4 +38,13 @@ export class PatientInsurancePolicyInput {
   @Field() @IsNotEmpty() policy_holder_name: string;
   @Field() @IsDateString() valid_from: string;
   @Field({ nullable: true }) @IsOptional() @IsDateString() valid_until?: string;
+}
+
+// REQ031 (US-INS-02) — master data only, deliberately not wired into
+// billing yet (see PayerTariffs' own schema comment for why).
+@InputType('PayerTariffInput')
+export class PayerTariffInput {
+  @Field(() => ID) @IsNotEmpty() payer_id: string;
+  @Field(() => ID) @IsNotEmpty() product_id: string;
+  @Field(() => Float) @IsNumber() @Min(0) tariff_price: number;
 }
