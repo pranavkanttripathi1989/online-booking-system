@@ -1,5 +1,5 @@
-import { InputType, Field, ID } from '@nestjs/graphql';
-import { IsNotEmpty, IsBoolean, IsIn, IsOptional } from 'class-validator';
+import { InputType, Field, ID, Int } from '@nestjs/graphql';
+import { IsNotEmpty, IsBoolean, IsIn, IsOptional, IsInt, Min } from 'class-validator';
 
 // REQ034 — purpose-specific, individually withdrawable consent, per the
 // requirement doc's own DPDP-grounded acceptance criteria (a single
@@ -31,4 +31,18 @@ export class RequestDataRightsInput {
 export class ResolveRightsRequestInput {
   @Field() @IsIn(['approved', 'rejected', 'completed']) status: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
+}
+
+// REQ034 (US-DPDP-06) — RetentionPurgeService's own SUPPORTED_DATA_CLASSES
+// is the authority on which of these it actually purges against today; a
+// policy for an unsupported class is still real, stored master data
+// (the requirement's own "documented retention schedule" half of the
+// acceptance criterion), just not yet enforced by the sweep.
+export const RETENTION_DATA_CLASSES = ['clinical_records', 'test_results', 'consents', 'messages'] as const;
+
+@InputType('RetentionPolicyInput')
+export class RetentionPolicyInput {
+  @Field() @IsIn(RETENTION_DATA_CLASSES) data_class: string;
+  @Field(() => Int) @IsInt() @Min(1) retention_years: number;
+  @Field({ nullable: true }) @IsOptional() @IsBoolean() legal_hold?: boolean;
 }

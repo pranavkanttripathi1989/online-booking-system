@@ -14,16 +14,19 @@ describe('ConsentService', () => {
   let prisma: {
     consents: { findMany: jest.Mock; create: jest.Mock };
     rightsRequests: { findMany: jest.Mock; create: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+    retentionPolicies: { findMany: jest.Mock; upsert: jest.Mock };
   };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const patientCaller: JwtPayload = { sub: 'u2', roles: ['patient'], client_org_id: 'org-a', patient_id: 'patient-self', clinician_id: null } as JwtPayload;
+  const platformAdmin: JwtPayload = { sub: 'u3', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
 
   beforeEach(async () => {
     prisma = {
       consents: { findMany: jest.fn(), create: jest.fn() },
       rightsRequests: { findMany: jest.fn(), create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+      retentionPolicies: { findMany: jest.fn(), upsert: jest.fn() },
     };
     patientsService = { ownAndDependantPatientIds: jest.fn().mockResolvedValue(['patient-self', 'patient-dependant']) };
     const module: TestingModule = await Test.createTestingModule({
@@ -90,6 +93,46 @@ describe('ConsentService', () => {
         where: { id: 'r1' },
         data: { status: 'completed', notes: 'Exported and emailed', resolved_at: expect.any(Date), resolved_by_user_id: 'u1' },
       });
+    });
+  });
+
+  // REQ034 (US-DPDP-06) — retention policies, master data only; the actual
+  // purge is a separate cron job (retention-purge.service.spec.ts).
+  describe('findRetentionPolicies / setRetentionPolicy', () => {
+    it('scopes findRetentionPolicies to the caller org', async () => {
+      prisma.retentionPolicies.findMany.mockResolvedValue([]);
+      await service.findRetentionPolicies(orgAUser);
+      expect(prisma.retentionPolicies.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { client_org_id: 'org-a' } }),
+      );
+    });
+
+    it('rejects a platform operator with no org of their own', async () => {
+      await expect(
+        service.setRetentionPolicy({ data_class: 'test_results', retention_years: 5 } as any, platformAdmin),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.retentionPolicies.upsert).not.toHaveBeenCalled();
+    });
+
+    it('upserts on the client_org_id + data_class composite key, defaulting legal_hold to false', async () => {
+      prisma.retentionPolicies.upsert.mockResolvedValue({ id: 'rp-1' });
+      await service.setRetentionPolicy({ data_class: 'test_results', retention_years: 5 } as any, orgAUser);
+      expect(prisma.retentionPolicies.upsert).toHaveBeenCalledWith({
+        where: { client_org_id_data_class: { client_org_id: 'org-a', data_class: 'test_results' } },
+        create: { client_org_id: 'org-a', data_class: 'test_results', retention_years: 5, legal_hold: false },
+        update: { retention_years: 5, legal_hold: false },
+      });
+    });
+
+    it('honors an explicit legal_hold: true', async () => {
+      prisma.retentionPolicies.upsert.mockResolvedValue({ id: 'rp-1' });
+      await service.setRetentionPolicy({ data_class: 'test_results', retention_years: 10, legal_hold: true } as any, orgAUser);
+      expect(prisma.retentionPolicies.upsert).toHaveBeenCalledWith(
+        expect.objectContaining({
+          create: expect.objectContaining({ legal_hold: true }),
+          update: expect.objectContaining({ legal_hold: true }),
+        }),
+      );
     });
   });
 });

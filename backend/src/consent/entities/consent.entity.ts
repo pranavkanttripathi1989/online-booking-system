@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 
 @ObjectType('Consent')
 export class ConsentType {
@@ -21,4 +21,14 @@ export class RightsRequestType {
   @Field({ nullable: true }) resolved_at?: Date;
   @Field({ nullable: true }) notes?: string;
   @Field() created_at: Date;
+}
+
+// REQ034 (US-DPDP-06).
+@ObjectType('RetentionPolicy')
+export class RetentionPolicyType {
+  @Field(() => ID) id: string;
+  @Field() data_class: string;
+  @Field(() => Int) retention_years: number;
+  @Field() legal_hold: boolean;
+  @Field() updated_at: Date;
 }

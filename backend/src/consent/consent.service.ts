@@ -1,7 +1,7 @@
 import { Injectable, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientsService } from '../patients/patients.service';
-import { UpdateConsentInput, RequestDataRightsInput, ResolveRightsRequestInput, NOTICE_VERSION } from './dto/consent.input';
+import { UpdateConsentInput, RequestDataRightsInput, ResolveRightsRequestInput, RetentionPolicyInput, NOTICE_VERSION } from './dto/consent.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-scope';
 
@@ -97,6 +97,23 @@ export class ConsentService {
         resolved_at: new Date(),
         resolved_by_user_id: user.sub,
       },
+    });
+  }
+
+  // REQ034 (US-DPDP-06) — a documented retention schedule per data class.
+  // No policy exists until an admin explicitly creates one; the purge job
+  // (retention-purge.service.ts) does nothing for a class with no row.
+  async findRetentionPolicies(user: JwtPayload) {
+    return this.prisma.retentionPolicies.findMany({ where: orgScope(user), orderBy: { data_class: 'asc' } });
+  }
+
+  async setRetentionPolicy(input: RetentionPolicyInput, user: JwtPayload) {
+    const orgId = orgIdForWrite(user, 'RetentionPolicy');
+    if (!orgId) throw new BadRequestException('Cannot configure a retention policy without an organization');
+    return this.prisma.retentionPolicies.upsert({
+      where: { client_org_id_data_class: { client_org_id: orgId, data_class: input.data_class } },
+      create: { client_org_id: orgId, data_class: input.data_class, retention_years: input.retention_years, legal_hold: input.legal_hold ?? false },
+      update: { retention_years: input.retention_years, legal_hold: input.legal_hold ?? false },
     });
   }
 }

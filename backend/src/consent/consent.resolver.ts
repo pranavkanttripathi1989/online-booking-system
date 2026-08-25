@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { ConsentService } from './consent.service';
-import { ConsentType, RightsRequestType } from './entities/consent.entity';
-import { UpdateConsentInput, RequestDataRightsInput, ResolveRightsRequestInput } from './dto/consent.input';
+import { ConsentType, RightsRequestType, RetentionPolicyType } from './entities/consent.entity';
+import { UpdateConsentInput, RequestDataRightsInput, ResolveRightsRequestInput, RetentionPolicyInput } from './dto/consent.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -45,5 +45,18 @@ export class ConsentResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.consentService.resolveRightsRequest(id, input, user);
+  }
+
+  // REQ034 (US-DPDP-06).
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => [RetentionPolicyType])
+  retentionPolicies(@CurrentUser() user: JwtPayload) {
+    return this.consentService.findRetentionPolicies(user);
+  }
+
+  @Auth('manager', 'admin', 'super_admin')
+  @Mutation(() => RetentionPolicyType)
+  setRetentionPolicy(@Args('input') input: RetentionPolicyInput, @CurrentUser() user: JwtPayload) {
+    return this.consentService.setRetentionPolicy(input, user);
   }
 }
