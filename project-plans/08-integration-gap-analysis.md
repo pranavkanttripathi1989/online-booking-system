@@ -87,6 +87,15 @@ delivery mechanism before assuming email vs. SMS/OTP) + a route, following
 `AuthLayout`'s existing pattern from `login.jsx`/`forgot-password.jsx`.
 
 ### A-2 · S2 · `drugs.createDrug` / `updateDrug` / `deleteDrug` — no drug master catalog UI
+
+**Fixed 2026-08-25 together with A-3 — `REQ059`/`PLAN086`/`TP113`/
+`TR112`, `context/pharmacy-2026-08-25-req059/manifest.md`.** A tab on the
+existing pharmacy page (option two of this finding's own two suggested
+fixes), not a standalone route — kept the whole pharmacy domain in one
+place under tabs. Also found and fixed a real routing/nav gap while
+implementing: `/manager/pharmacy` was manager-only gated on both the
+route and the sidebar, while the backend has always allowed `staff` too.
+
 **Backend:** `backend/src/drugs/drugs.resolver.ts` — full CRUD exists and is
 tested.
 **Frontend:** `pages/manager/pharmacy/index.jsx:16` only *reads* the drug
@@ -104,6 +113,13 @@ page) with a create/edit/delete form. Gate matching `drugs.resolver.ts`'s
 own `@Auth()`.
 
 ### A-3 · S2 · `pharmacy.dispensePrescriptionItem` + `stockMovements` — the ledger's own "dispense" step and history view are both missing
+
+**Fixed 2026-08-25 together with A-2** — see the status note under A-2
+above for the shared doc chain. Dispense flow reached via a real patient
+search → `patientPrescriptions`, not from `PrescriptionPrint.jsx` (this
+finding's own alternative suggestion) — the print view's own query
+deliberately omits the real `id`/`drug_id` a dispense action needs.
+
 **Backend:** `backend/src/pharmacy/pharmacy.resolver.ts` — `dispensePrescriptionItem`
 (consumes stock against a real `PrescriptionItems` row) and `stockMovements`
 (the append-only ledger's read-side history) both exist and are tested.
@@ -404,7 +420,8 @@ order:
    above; turned out to be five more real defects in the same file, not a
    small fix in the end.
 4. **A-2/A-3** (drugs + pharmacy dispense/history) — S2, closes REQ022's
-   own P0 story properly.
+   own P0 story properly. **Done 2026-08-25** — see the status notes
+   under A-2/A-3 above.
 5. **A-4 through A-8** — S3, smaller additive UI slices, can be batched
    the way Phase G+1/G+2/G+3 batched similarly-scoped work.
 6. **A-9, A-10** — S4, opportunistic, low urgency.
@@ -413,8 +430,8 @@ order:
    CLAUDE.md after this document was written).
 
 Each slice gets its own `REQ`/`PLAN`/`TP`/`TR` under the feature slug
-matching its domain (`security` for A-1, `pharmacy` for A-2/A-3,
-`clinical-records` for A-5/A-6, `insurance-claims` for A-7,
+matching its domain (`security` for A-1, `pharmacy` for A-2/A-3 (done —
+see above), `clinical-records` for A-5/A-6, `insurance-claims` for A-7,
 `platform-integrations` for A-8/A-9, `catalog-master-data` for A-10,
 `clinician-dashboard` for B-1 (done — see above), and `appointments` for
 B-2 (done — see above; used `appointments` rather than the `platform-nfr`

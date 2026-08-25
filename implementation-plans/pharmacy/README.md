@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN086 | improvement | Drug catalog, dispense, and movement-history UI | done | 2026-08-25 | 2026-08-25 | REQ059 | [PLAN086-pharmacy-2026-08-25-drug-catalog-dispense-and-movement-history-ui.md](./improvement/PLAN086-pharmacy-2026-08-25-drug-catalog-dispense-and-movement-history-ui.md) |
 
 ## bug
 

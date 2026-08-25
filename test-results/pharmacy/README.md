@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR112 | improvement | Results for the pharmacy UI completion | pass | 2026-08-25 | 2026-08-25 | TP113 | [TR112-pharmacy-2026-08-25-drug-catalog-dispense-and-movement-history-ui.md](./improvement/TR112-pharmacy-2026-08-25-drug-catalog-dispense-and-movement-history-ui.md) |
 
 ## bug
 

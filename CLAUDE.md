@@ -699,7 +699,34 @@ existing e2e coverage of `appointments/edit.jsx` proved the save flow
 worked** — none existed before this fix; the new
 `frontend/e2e/appointments-edit.spec.js` is the first.
 
-The remaining 9 findings (`A-2` through `A-10`, `B-3`, `B-4`) are still
+**A-2/A-3 (pharmacy drug catalog + dispense/history) closed the same day,
+`REQ059`/`PLAN086`/`TP113`/`TR112`** — `pages/manager/pharmacy/index.jsx`
+wired *receive* and *adjust* only; the real, already-tested
+`createDrug`/`updateDrug`/`deleteDrug` and
+`dispensePrescriptionItem`/`stockMovements` operations had no frontend
+UI at all, leaving `REQ022`'s own "receive → dispense → adjust" design
+two-thirds built. The page is now three tabs — Stock (unchanged), Drug
+Catalog (new CRUD, platform-seeded rows hide edit/delete matching the
+backend's own write restriction), Dispense (new — patient search → real
+prescriptions/items → a batch picker restricted client-side to the
+matching drug → `dispensePrescriptionItem`) — plus a "History" action on
+each Stock-tab batch row. A real, additional gap found while
+implementing, not in the original scope: `/manager/pharmacy` was
+manager-only gated on *both* the route (`App.jsx`) and the sidebar
+(`AppShell.jsx`'s `NAV_CONFIG`), while `pharmacy.resolver.ts` has always
+allowed `staff` too — real pharmacy staff had no way to reach or even
+discover a page the backend already let them use. Fixed by moving the
+route into the existing staff-inclusive `RoleGuard` block and promoting
+"Pharmacy" to a top-level nav entry, matching how "Patients"/
+"Clinicians"/"Live Queue" already sit outside the manager-only
+collapsible section for the identical reason. **Read this before
+assuming a `/manager/...` route's role gate matches its backend
+resolver** — this is now the second instance this session found of a
+frontend route/nav gate narrower than its real backend `@Auth()` (the
+first being Phase G+3's own `webhooks`/`api-keys` finding, see that
+section above) — check both, not just one.
+
+The remaining 7 findings (`A-4` through `A-10`, `B-3`, `B-4`) are still
 open — see that document's own "Fix sequencing" section for the priority
 order and feature-slug classification before starting the next one.
 

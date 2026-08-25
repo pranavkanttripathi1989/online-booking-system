@@ -8,7 +8,7 @@
 | compliance-dpdp | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [compliance-dpdp](./compliance-dpdp/README.md) |
 | platform-integrations | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [platform-integrations](./platform-integrations/README.md) |
 | insurance-claims | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [insurance-claims](./insurance-claims/README.md) |
-| pharmacy | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [pharmacy](./pharmacy/README.md) |
+| pharmacy | 1 | 1 | 0 | 0 | 2 | 2026-08-25 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [prescriptions](./prescriptions/README.md) |
 | clinical-records | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
