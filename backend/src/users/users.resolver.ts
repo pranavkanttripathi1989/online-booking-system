@@ -60,8 +60,9 @@ export class UsersResolver {
     @Args('offset', { type: () => Int, nullable: true }) offset: number,
     @Args('action', { nullable: true }) action: string,
     @Args('resource', { nullable: true }) resource: string,
+    @CurrentUser() user: JwtPayload,
   ) {
-    return this.usersService.getAuditLogs(limit, offset, action, resource);
+    return this.usersService.getAuditLogs(limit, offset, action, resource, user);
   }
 
   @Auth('admin', 'super_admin')

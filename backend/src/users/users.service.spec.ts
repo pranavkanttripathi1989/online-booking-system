@@ -13,7 +13,7 @@ describe('UsersService', () => {
   let prisma: {
     userProfiles: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     userRoles: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
-    permissions: { findMany: jest.Mock };
+    permissions: { findMany: jest.Mock; count: jest.Mock };
     rolePermissions: { findMany: jest.Mock; deleteMany: jest.Mock; createMany: jest.Mock };
     auditLogs: { findMany: jest.Mock };
     users: { create: jest.Mock };
@@ -54,7 +54,7 @@ describe('UsersService', () => {
     prisma = {
       userProfiles: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       userRoles: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
-      permissions: { findMany: jest.fn() },
+      permissions: { findMany: jest.fn(), count: jest.fn() },
       rolePermissions: { findMany: jest.fn(), deleteMany: jest.fn(), createMany: jest.fn() },
       auditLogs: { findMany: jest.fn() },
       users: { create: jest.fn() },
@@ -160,6 +160,11 @@ describe('UsersService', () => {
   });
 
   describe('updateRolePermissions', () => {
+    beforeEach(() => {
+      prisma.userRoles.findUnique.mockResolvedValue({ id: 'role-1', is_deleted: false, is_system: false });
+      prisma.permissions.count.mockResolvedValue(2);
+    });
+
     it('replaces the role\'s permission set atomically', async () => {
       await service.updateRolePermissions('role-1', ['p1', 'p2']);
       expect(tx.rolePermissions.deleteMany).toHaveBeenCalledWith({ where: { role_id: 'role-1' } });
@@ -173,6 +178,24 @@ describe('UsersService', () => {
       expect(tx.rolePermissions.deleteMany).toHaveBeenCalled();
       expect(tx.rolePermissions.createMany).not.toHaveBeenCalled();
     });
+
+    // F-06 (project-plans/02-findings-register.md)
+    it('rejects changing a system role\'s permissions, matching updateRole/deleteRole\'s own guard', async () => {
+      prisma.userRoles.findUnique.mockResolvedValue({ id: 'role-1', is_deleted: false, is_system: true });
+      await expect(service.updateRolePermissions('role-1', ['p1'])).rejects.toThrow(ConflictException);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown role', async () => {
+      prisma.userRoles.findUnique.mockResolvedValue(null);
+      await expect(service.updateRolePermissions('missing', ['p1'])).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects an unknown permission id before writing anything', async () => {
+      prisma.permissions.count.mockResolvedValue(1); // only 1 of 2 ids is real
+      await expect(service.updateRolePermissions('role-1', ['p1', 'p2'])).rejects.toThrow();
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
   });
 
   describe('getAuditLogs', () => {
@@ -184,7 +207,7 @@ describe('UsersService', () => {
           user: { id: 'user-a1', userProfiles: { first_name: 'Asha', last_name: 'Patel', email: 'a@org-a.dev' } },
         },
       ]);
-      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined);
+      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined, platformUser);
       expect(result.user).toEqual({ id: 'user-a1', firstName: 'Asha', lastName: 'Patel', email: 'a@org-a.dev' });
       expect(result.details).toBe(JSON.stringify({ foo: 'bar' }));
     });
@@ -193,7 +216,7 @@ describe('UsersService', () => {
       prisma.auditLogs.findMany.mockResolvedValue([
         { id: 'log-1', action: 'login', resource: 'Auth', resource_id: null, ip_address: null, created_at: new Date(), details: null, user: null },
       ]);
-      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined);
+      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined, platformUser);
       expect(result.user).toBeUndefined();
     });
 
@@ -205,7 +228,7 @@ describe('UsersService', () => {
           created_at: new Date(), details: {}, user: null,
         },
       ]);
-      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined);
+      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined, platformUser);
       expect(result.userAgent).toBe('Mozilla/5.0 test-agent');
       expect(result.outcome).toBe('success');
     });
@@ -214,9 +237,34 @@ describe('UsersService', () => {
       prisma.auditLogs.findMany.mockResolvedValue([
         { id: 'log-0', action: 'create', resource: 'Appointment', resource_id: null, ip_address: null, created_at: new Date(), details: null, user: null },
       ]);
-      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined);
+      const [result] = await service.getAuditLogs(undefined, undefined, undefined, undefined, platformUser);
       expect(result.userAgent).toBeUndefined();
       expect(result.outcome).toBeUndefined();
+    });
+
+    // F-06 — org-scoping added so a future @Auth widening to a real
+    // org-scoped role (e.g. 'manager') can't leak every tenant's audit
+    // trail, matching the webhooks/api-keys lesson already in CLAUDE.md.
+    it('applies no org filter for a platform operator', async () => {
+      prisma.auditLogs.findMany.mockResolvedValue([]);
+      await service.getAuditLogs(undefined, undefined, undefined, undefined, platformUser);
+      const where = prisma.auditLogs.findMany.mock.calls[0][0].where;
+      expect(where.user).toBeUndefined();
+    });
+
+    it('scopes to the caller org via user.userProfiles for a non-platform caller', async () => {
+      prisma.auditLogs.findMany.mockResolvedValue([]);
+      await service.getAuditLogs(undefined, undefined, undefined, undefined, orgAUser);
+      const where = prisma.auditLogs.findMany.mock.calls[0][0].where;
+      expect(where.user).toEqual({ userProfiles: { client_org_id: 'org-a' } });
+    });
+
+    it('scopes an org-less non-platform caller to an impossible sentinel', async () => {
+      prisma.auditLogs.findMany.mockResolvedValue([]);
+      const orgLess = { sub: 'u-9', roles: ['manager'], client_org_id: null } as any;
+      await service.getAuditLogs(undefined, undefined, undefined, undefined, orgLess);
+      const where = prisma.auditLogs.findMany.mock.calls[0][0].where;
+      expect(where.user).toEqual({ userProfiles: { client_org_id: '__no_org__' } });
     });
   });
 

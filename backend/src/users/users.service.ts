@@ -1,9 +1,9 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { PrismaService } from '../prisma/prisma.service';
 import { UserInput, UserUpdateInput, AppRoleInput } from './dto/user-admin.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgIdForWrite, orgScope } from '../common/scoping/tenant-scope';
+import { orgIdForWrite, orgScope, isPlatformOperator } from '../common/scoping/tenant-scope';
 import { BCRYPT_COST } from '../common/crypto/bcrypt-cost';
 
 
@@ -95,7 +95,24 @@ export class UsersService {
     }));
   }
 
+  // F-06 (project-plans/02-findings-register.md) — this was the one
+  // Role-CRUD mutation without the is_system guard updateRole()/deleteRole()
+  // already have, so it could strip every permission from a system role
+  // (e.g. 'admin' itself) via this path alone. permissionIds also went
+  // straight to createMany with no existence check, surfacing a raw
+  // Prisma FK error on a bad id instead of a clean rejection.
   async updateRolePermissions(roleId: string, permissionIds: string[]) {
+    const role = await this.prisma.userRoles.findUnique({ where: { id: roleId } });
+    if (!role || role.is_deleted) throw new NotFoundException('Role not found');
+    if (role.is_system) {
+      throw new ConflictException('System roles cannot have their permissions changed');
+    }
+    if (permissionIds.length) {
+      const validCount = await this.prisma.permissions.count({ where: { id: { in: permissionIds } } });
+      if (validCount !== permissionIds.length) {
+        throw new BadRequestException('One or more permission ids do not exist');
+      }
+    }
     await this.prisma.$transaction(async (tx) => {
       await tx.rolePermissions.deleteMany({ where: { role_id: roleId } });
       if (permissionIds.length) {
@@ -107,12 +124,21 @@ export class UsersService {
     return true;
   }
 
-  async getAuditLogs(limit: number | undefined, offset: number | undefined, action: string | undefined, resource: string | undefined) {
+  // F-06 — AuditLogs has no client_org_id of its own; scope through
+  // user.userProfiles (two hops -- Users is a thin identity table, the real
+  // profile/org lives on UserProfiles). This query is admin/super_admin-only
+  // today (both platform-wide by isPlatformOperator()'s own design), so this
+  // scoping is currently a no-op for every real caller -- added anyway so a
+  // future widening of the @Auth gate to a real org-scoped role (the exact
+  // webhooks/api-keys lesson already recorded in CLAUDE.md) doesn't silently
+  // leak every tenant's audit trail to it.
+  async getAuditLogs(limit: number | undefined, offset: number | undefined, action: string | undefined, resource: string | undefined, user: JwtPayload) {
     const rows = await this.prisma.auditLogs.findMany({
       where: {
         is_deleted: false,
         action: action ?? undefined,
         resource: resource ?? undefined,
+        ...(isPlatformOperator(user) ? {} : { user: { userProfiles: { client_org_id: user.client_org_id ?? '__no_org__' } } }),
       },
       include: { user: { include: { userProfiles: true } } },
       orderBy: { created_at: 'desc' },
