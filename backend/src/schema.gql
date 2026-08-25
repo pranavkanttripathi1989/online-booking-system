@@ -1130,6 +1130,7 @@ type Drug {
   is_platform_seeded: Boolean!
   manufacturer: String
   name: String!
+  reorder_level: Int
   schedule_class: String
   strength: String
 }
@@ -1139,6 +1140,7 @@ type DrugBatch {
   clinic_id: ID!
   created_at: DateTime!
   drug_id: ID!
+  drug_name: String
   expiry_date: DateTime!
   id: ID!
   mrp: Float
@@ -1153,6 +1155,7 @@ input DrugInput {
   hsn: String
   manufacturer: String
   name: String!
+  reorder_level: Int
   schedule_class: String
   strength: String
 }
@@ -1340,6 +1343,13 @@ type LookupMutationResult {
   userErrors: [UserError!]!
 }
 
+type LowStockDrug {
+  drug_id: ID!
+  drug_name: String!
+  quantity_on_hand: Int!
+  reorder_level: Int!
+}
+
 input LunchBreakInput {
   clinicianId: String!
   dayOfWeek: String!
@@ -1516,8 +1526,10 @@ type Mutation {
   selectOnboardingPlan(orgId: String!, planId: String!): OrganizationOnboarding!
   sendMessage(body: String!, threadId: ID!): MessageThread!
   setHeadOfficeClinic(id: ID!): Clinic!
+  setPayerTariff(input: PayerTariffInput!): PayerTariff!
   setPlanActive(id: ID!, is_active: Boolean!): Plan!
   setProductBranchOverride(input: SetProductBranchOverrideInput!): SetProductBranchOverrideResult!
+  setRetentionPolicy(input: RetentionPolicyInput!): RetentionPolicy!
   signEncounter(encounter_id: ID!): Encounter!
   skipQueueEntry(input: SkipQueueEntryInput!): QueueEntry!
   startConsultation(id: ID!): Appointment!
@@ -1546,6 +1558,7 @@ type Mutation {
   updateMyNotificationProviderConfig(input: UpdateNotificationProviderConfigInput!): NotificationProviderConfigResult!
   updateMyOrgBookingPolicies(input: UpdateOrgBookingPoliciesInput!): OrgBookingPoliciesMutationResult!
   updateMyOrgBranding(input: UpdateOrgBrandingInput!): OrgBrandingMutationResult!
+  updateMyOrgClinicalHours(input: UpdateOrgClinicalHoursInput!): OrgClinicalHoursMutationResult!
   updateMyOrgCommunicationSettings(input: UpdateOrgCommunicationSettingsInput!): OrgCommunicationSettingsMutationResult!
   updateMyOrgSecuritySettings(input: UpdateOrgSecuritySettingsInput!): OrgSecuritySettingsMutationResult!
   updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
@@ -1621,6 +1634,13 @@ type Notification {
   priority: String!
   title: String!
   type: String!
+}
+
+type NotificationDeliveryStat {
+  channel: String!
+  count: Int!
+  event_type: String!
+  status: String!
 }
 
 type NotificationMutationResult {
@@ -1713,6 +1733,18 @@ type OrgBrandingMutationResult {
 
 type OrgBrandingUserError {
   message: String!
+}
+
+type OrgClinicalHours {
+  clinical_hours_auto_reply_message: String
+  clinical_hours_end: String
+  clinical_hours_start: String
+}
+
+type OrgClinicalHoursMutationResult {
+  settings: OrgClinicalHours
+  success: Boolean!
+  userErrors: [OrgCommunicationSettingsUserError!]!
 }
 
 type OrgCommunicationSettings {
@@ -2012,6 +2044,21 @@ input PayerInput {
   payer_type: String!
 }
 
+type PayerTariff {
+  id: ID!
+  payer: Payer!
+  product_id: ID!
+  product_name: String
+  tariff_price: Float!
+  updated_at: DateTime!
+}
+
+input PayerTariffInput {
+  payer_id: ID!
+  product_id: ID!
+  tariff_price: Float!
+}
+
 input PaymentTenderInput {
   amount: Float!
   reference: String
@@ -2160,6 +2207,18 @@ type PrescriptionSetItem {
   id: ID!
   instructions: String
   route: String
+}
+
+type PriceHistory {
+  applied: Boolean!
+  changed_by_name: String
+  changed_by_user_id: ID!
+  created_at: DateTime!
+  effective_from: DateTime!
+  id: ID!
+  new_price: Float!
+  old_price: Float
+  product_id: ID!
 }
 
 type Product {
@@ -2402,6 +2461,7 @@ type Query {
   getUsers(limit: Int, offset: Int, role: String, search: String): [AdminUser!]!
   intakeFieldConfigs(clinic_id: ID, product_id: ID): [IntakeFieldConfig!]!
   languages: [Language!]!
+  lowStockDrugs(clinic_id: ID): [LowStockDrug!]!
   me: User!
   messageableContacts: [MessageableContact!]!
   myBreakGlassGrants: [BreakGlassGrant!]!
@@ -2413,10 +2473,13 @@ type Query {
   myNotificationProviderConfig(channel: String!): NotificationProviderConfig
   myOrgBookingPolicies: OrgBookingPolicies
   myOrgBranding: OrgBranding
+  myOrgClinicalHours: OrgClinicalHours
   myOrgCommunicationSettings: OrgCommunicationSettings
   myOrgSecuritySettings: OrgSecuritySettings
   myProfile: MyProfile
   mySessions: [Session!]!
+  nearExpiryBatches(clinic_id: ID, horizon_days: Int = 90): [DrugBatch!]!
+  notificationDeliveryAnalytics: [NotificationDeliveryStat!]!
   notificationProviders: [NotificationProviderOption!]!
   notifications(filter: String): [Notification!]!
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
@@ -2430,6 +2493,7 @@ type Query {
   patientTimeline(patient_id: ID!): [TimelineEvent!]!
   patients(first: Int! = 20, page: Int! = 1, search: String): PatientPaginated!
   payerEmpanelments(clinic_id: ID): [PayerEmpanelment!]!
+  payerTariffs(payer_id: ID, product_id: ID): [PayerTariff!]!
   payers(is_active: Boolean): [Payer!]!
   plan(id: ID!): Plan
   plans: [Plan!]!
@@ -2437,6 +2501,7 @@ type Query {
   prescription(id: ID!): Prescription
   prescriptionSets(specialty: String): [PrescriptionSet!]!
   prescriptions: [Prescription!]!
+  priceHistory(product_id: ID!): [PriceHistory!]!
   printPrescription(id: ID!): PrescriptionPrintPayload!
   product(id: ID!): Product
   productBranchOverrides(clinic_id: ID): [ProductBranchOverride!]!
@@ -2448,6 +2513,7 @@ type Query {
   repeatPrescription(source_id: ID!): PrescriptionDraft!
   resource(id: ID!): Resource
   resources(clinic_id: ID): [Resource!]!
+  retentionPolicies: [RetentionPolicy!]!
   reviews(filter: ReviewFilterInput): [Review!]!
   rightsRequests(status: String): [RightsRequest!]!
   roles: [AppRole!]!
@@ -2603,6 +2669,20 @@ type ResourceMutationResult {
 
 type ResourceUserError {
   message: String!
+}
+
+type RetentionPolicy {
+  data_class: String!
+  id: ID!
+  legal_hold: Boolean!
+  retention_years: Int!
+  updated_at: DateTime!
+}
+
+input RetentionPolicyInput {
+  data_class: String!
+  legal_hold: Boolean
+  retention_years: Int!
 }
 
 type RevenueByClinicPoint {
@@ -2795,6 +2875,7 @@ input ServiceInput {
   department_id: ID
   description: String
   duration_minutes: Int
+  effective_from: String
   hsn: String
   is_active: Boolean
   is_tax_exempt: Boolean
@@ -3136,6 +3217,12 @@ input UpdateOrgBrandingInput {
   secondary_color: String
 }
 
+input UpdateOrgClinicalHoursInput {
+  clinical_hours_auto_reply_message: String
+  clinical_hours_end: String
+  clinical_hours_start: String
+}
+
 input UpdateOrgCommunicationSettingsInput {
   email_from_address: String
   email_from_name: String
@@ -3173,6 +3260,7 @@ input UpdateProductCategoryInput {
 input UpdateProductInput {
   category_id: String
   description: String
+  effective_from: String
   hsn: String
   is_active: Boolean
   is_tax_exempt: Boolean

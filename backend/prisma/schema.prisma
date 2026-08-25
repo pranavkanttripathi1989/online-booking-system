@@ -89,6 +89,9 @@ enum NotificationEventType {
   // entire requestBreakGlassAccess mutation for orgs with any admin/
   // manager to notify. Found live via a real e2e run, not a code review.
   break_glass_requested
+  // REQ022 (US-PHR-09, scoped) — a drug's total remaining stock has crossed
+  // at or below its own configured reorder_level.
+  low_stock_alert
 }
 
 enum NotificationPriority {
@@ -688,6 +691,17 @@ model ClientOrganizations {
   // PLAN022) -- purely a stored value a manager must be able to re-save
   // without hitting a rejection on a default they never touched.
   secondary_color String  @default("#007680")
+  // REQ024 (US-MSG-04) — org-configurable clinical hours for the
+  // patient<->clinic messaging auto-responder. "HH:MM" strings, same shape
+  // and IST-implicit convention as NotificationPreferences' own
+  // quiet_hours_start/end (see notification-trigger.service.ts). Null
+  // start/end or a null auto-reply message means the auto-responder is
+  // off — an org must explicitly configure all three before anything
+  // fires, matching this schema's own "off by default" convention for
+  // every optional behavioral toggle.
+  clinical_hours_start             String?
+  clinical_hours_end               String?
+  clinical_hours_auto_reply_message String?
   created_at    DateTime @default(now())
   updated_at    DateTime @default(now())
 
@@ -716,6 +730,8 @@ model ClientOrganizations {
   bookingWidgetConfigs   BookingWidgetConfig[]
   consents               Consents[]
   rightsRequests         RightsRequests[]
+  retentionPolicies      RetentionPolicies[]
+  payerTariffs           PayerTariffs[]
   webhookEndpoints       WebhookEndpoints[]
   payerEmpanelments      PayerEmpanelments[]
   patientInsurancePolicies PatientInsurancePolicies[]
@@ -1600,6 +1616,15 @@ model Drugs {
   hsn            String?
   gst_rate       Float?
   manufacturer   String?
+  // REQ022 (US-PHR-09, scoped) — a per-drug reorder threshold. Null means
+  // no low-stock alert is configured for this drug (fail-safe default,
+  // matching every other optional-behavior-toggle field in this schema) —
+  // an org must explicitly set one before the alert can ever fire.
+  // Deliberately org-wide per drug, not per-clinic: a drug's own reasonable
+  // reorder point doesn't usually vary by branch, and per-clinic overrides
+  // can be added later without a breaking change if that assumption proves
+  // wrong.
+  reorder_level  Int?
   is_deleted     Boolean  @default(false)
   created_at     DateTime @default(now())
   updated_at     DateTime @default(now())
@@ -1669,12 +1694,39 @@ model Products {
   intakeFieldConfigs ClinicIntakeFieldConfig[]
   packageItems      PackageItems[]
   branchOverrides   ProductBranchOverrides[]
+  priceHistory      PriceHistory[]
+  payerTariffs      PayerTariffs[]
 
   @@index([client_org_id, is_deleted])
   @@index([category_id])
   @@index([subcategory_id])
   @@index([clinic_id])
   @@index([department_id])
+}
+
+// REQ016 (US-CAT-05) — every price change logged with who/when/old/new. A
+// change with a future effective_from is recorded immediately but not
+// applied to Products.price until that date arrives (applied flips to true
+// when PriceHistorySweepService's own cron applies it) — the acceptance
+// criterion's own "prior price remains visible in the audit history for
+// bills issued before the change" is satisfied by this row never being
+// mutated after creation, only ever appended to.
+model PriceHistory {
+  id             String   @id @default(uuid())
+  product_id     String
+  client_org_id  String?
+  old_price      Int? // paise; null for the very first price ever set on a product
+  new_price      Int  // paise
+  effective_from DateTime @default(now())
+  applied        Boolean  @default(true) // false only while effective_from is still in the future
+  changed_by_user_id String
+  created_at     DateTime @default(now())
+
+  product   Products @relation(fields: [product_id], references: [id])
+  changedBy Users    @relation(fields: [changed_by_user_id], references: [id])
+
+  @@index([product_id, created_at])
+  @@index([applied, effective_from])
 }
 
 // REQ055 (US-ORG-05) — "masters cascade". A clinical service created via
@@ -1930,6 +1982,7 @@ model Users {
   cashDrawerCloseouts         CashDrawerCloseouts[]
   messageAttachmentsUploaded  MessageAttachments[]
   cannedRepliesCreated        CannedReplies[]
+  priceChangesRecorded        PriceHistory[]
 }
 
 // REQ005 Notifications tab. No code path in this codebase currently reads
@@ -1971,10 +2024,22 @@ model NotificationSendLog {
   event_type String
   channel    String
   sent_at    DateTime @default(now())
+  // REQ025 (US-NOT-05) — this row used to be written only on a confirmed
+  // successful external send (see notification-trigger.service.ts's own
+  // history); a failed attempt left no record at all, so "delivery
+  // analytics" had no failures to show. Now written on every attempt.
+  // client_org_id is denormalized from the recipient at write time (the
+  // same trade-off orgScopeVia's own sibling denormalized columns make
+  // elsewhere in this schema) so the analytics query is a single indexed
+  // WHERE, not a join through Users for every row.
+  status        String  @default("sent") // sent | failed
+  error_message String?
+  client_org_id String?
 
   user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, sent_at])
+  @@index([client_org_id, event_type, sent_at])
 }
 
 model UserProfiles {
@@ -2214,6 +2279,36 @@ model Consents {
   @@index([client_org_id])
 }
 
+// REQ034 (US-DPDP-06) — a documented retention schedule per data class,
+// with automated purge. No policy exists for a data class until an admin
+// explicitly creates one (fail-safe default — REQ034's own doc flags that
+// statutory retention periods need legal review, so this codebase does not
+// invent one). legal_hold suspends purging for that class org-wide without
+// deleting the policy itself — a coarser, org-level hold, not a per-record
+// one; a genuinely per-record legal hold (e.g. one patient's records under
+// active litigation while the rest of that data class purges normally) is
+// out of scope for this slice, logged as a real, stated scope-cut.
+model RetentionPolicies {
+  id              String   @id @default(uuid())
+  client_org_id   String
+  // clinical_records | test_results | consents | messages — see
+  // retention-policies.service.ts's own SUPPORTED_DATA_CLASSES for which
+  // of these the purge job actually acts on today; a policy for an
+  // unsupported class is stored (so the schedule is documented) but never
+  // purged against, and is surfaced as such to the admin, not silently
+  // ignored.
+  data_class      String
+  retention_years Int
+  legal_hold      Boolean  @default(false)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+
+  @@unique([client_org_id, data_class])
+  @@index([client_org_id])
+}
+
 model RightsRequests {
   id            String    @id @default(uuid())
   patient_id    String
@@ -2342,6 +2437,36 @@ model Payers {
 
   empanelments PayerEmpanelments[]
   policies     PatientInsurancePolicies[]
+  tariffs      PayerTariffs[]
+}
+
+// REQ031 (US-INS-02) — a payer-specific contracted rate for a service/
+// package, master data only. Deliberately NOT wired into
+// resolveServicePrice()/billing yet: whether a payer tariff should
+// outrank a branch override or a patient-category override (both already
+// resolution-order decisions in that shared helper) is a genuine billing
+// judgment call this slice does not make unilaterally — logged as a real,
+// stated follow-on, not guessed at. This table gives the Insurance Desk
+// Executive a real place to maintain the master, matching this codebase's
+// own precedent of shipping master data ahead of its own billing
+// integration when the integration itself needs a decision (see REQ022's
+// own "receive/dispense/adjust before purchase orders" phasing).
+model PayerTariffs {
+  id            String @id @default(uuid())
+  payer_id      String
+  product_id    String
+  client_org_id String
+  tariff_price  Int // paise, same unit as Products.price
+  created_at    DateTime @default(now())
+  updated_at    DateTime @updatedAt
+
+  payer               Payers              @relation(fields: [payer_id], references: [id])
+  product             Products            @relation(fields: [product_id], references: [id])
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+
+  @@unique([payer_id, product_id])
+  @@index([client_org_id])
+  @@index([product_id])
 }
 
 model PayerEmpanelments {
