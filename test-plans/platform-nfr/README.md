@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP109 | improvement | Phase G+3 frontend completion verification | approved | 2026-08-25 | 2026-08-25 | PLAN082 | [TP109](./improvement/TP109-platform-nfr-2026-08-25-phase-g3-frontend-completion.md) |
 | TP100 | improvement | Phase G+2 frontend completion verification | approved | 2026-08-24 | 2026-08-24 | PLAN073 | [TP100](./improvement/TP100-platform-nfr-2026-08-24-phase-g2-frontend-completion.md) |
 | TP069 | improvement | Pagination safety-net middleware verification | approved | 2026-08-23 | 2026-08-23 | REQ039 | [TP069](./improvement/TP069-platform-nfr-2026-08-23-pagination-safety-net-middleware-verification.md) |
 | TP067 | improvement | Security headers, NODE_ENV assertion, throttle redesign verification | approved | 2026-08-23 | 2026-08-23 | REQ038 | [TP067](./improvement/TP067-platform-nfr-2026-08-23-helmet-csp-hsts-node-env-assertion-throttle-redesign-verification.md) |
