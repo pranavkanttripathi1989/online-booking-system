@@ -305,6 +305,22 @@ replacing), and wire both write actions to the real
 implementation plan this analysis feeds into.
 
 ### B-2 · S2 · `pages/appointments/edit.jsx` — clinician/room dropdowns fall back to mock data on a genuine empty result, not just an error
+
+**Fixed 2026-08-25 — `BUG023`/`PLAN085`/`TP112`/`TR111`,
+`context/appointments-2026-08-25-bug023/manifest.md`.** Reading the whole
+file to fix this narrow finding surfaced four more real defects in the
+same file, the worst found only by live-testing: `AppointmentUpdateInput`
+has no `end_datetime` field, and `edit.jsx` sent one unconditionally,
+rejecting **every save this page has ever attempted** at the GraphQL
+variable-coercion layer, since the day it shipped. Filed as one bug
+(`BUG023`) covering all six defects, under a dedicated `appointments`
+slug rather than the `platform-nfr` slug originally suggested below — see
+`BUG023`'s own account for the full defect list and `TR111` for the live
+reproduction evidence. Verified against the real backend (new
+`frontend/e2e/appointments-edit.spec.js`, 3/3), including a real edit
+surviving a page reload — the exact path that was silently broken end to
+end before this fix.
+
 **Evidence:** `edit.jsx:31-38`:
 ```js
 const clinicians = cliniciansData?.clinicians?.data?.length
@@ -384,7 +400,9 @@ order:
    correction was folded into this same slice's docs commit, per §C's own
    note.
 3. **B-2** (appointments/edit.jsx mock fallback) — S2, a real live-data
-   bug, small fix.
+   bug, small fix. **Done 2026-08-25** — see the status note under B-2
+   above; turned out to be five more real defects in the same file, not a
+   small fix in the end.
 4. **A-2/A-3** (drugs + pharmacy dispense/history) — S2, closes REQ022's
    own P0 story properly.
 5. **A-4 through A-8** — S3, smaller additive UI slices, can be batched
@@ -398,5 +416,7 @@ Each slice gets its own `REQ`/`PLAN`/`TP`/`TR` under the feature slug
 matching its domain (`security` for A-1, `pharmacy` for A-2/A-3,
 `clinical-records` for A-5/A-6, `insurance-claims` for A-7,
 `platform-integrations` for A-8/A-9, `catalog-master-data` for A-10,
-`clinician-dashboard` for B-1 (done — see above), and `platform-nfr` for
-B-2, per `CLAUDE.md`'s own classification rule.
+`clinician-dashboard` for B-1 (done — see above), and `appointments` for
+B-2 (done — see above; used `appointments` rather than the `platform-nfr`
+originally suggested here, matching B-1's own single-domain reasoning),
+per `CLAUDE.md`'s own classification rule.

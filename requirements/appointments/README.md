@@ -16,6 +16,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG023 | bug | `edit.jsx` fell back to fake data on empty results and its own Save button has never actually worked | done | 2026-08-25 | 2026-08-25 | — | [BUG023-appointments-2026-08-25-edit-page-fake-data-and-broken-save.md](./bug/BUG023-appointments-2026-08-25-edit-page-fake-data-and-broken-save.md) |
 | BUG020 | bug | "No Show" filter test assumes zero real no-show appointments exist, breaks at realistic volume | open | 2026-08-24 | 2026-08-24 | REQ018 | [BUG020-appointments-2026-08-24-no-show-test-assumes-zero-instances.md](./bug/BUG020-appointments-2026-08-24-no-show-test-assumes-zero-instances.md) |
 | BUG019 | bug | At realistic data volume, today's appointments can fall outside the default list/calendar window | done | 2026-08-23 | 2026-08-24 | REQ018 | [BUG019-appointments-2026-08-23-realistic-volume-hides-todays-appointments.md](./bug/BUG019-appointments-2026-08-23-realistic-volume-hides-todays-appointments.md) |
 | BUG011 | bug | The public booking wizard never showed real data, and its own e2e coverage never caught it | done | 2026-08-23 | 2026-08-23 | REQ018 | [BUG011-appointments-2026-08-23-public-booking-wizard-never-showed-real-data.md](./bug/BUG011-appointments-2026-08-23-public-booking-wizard-never-showed-real-data.md) |

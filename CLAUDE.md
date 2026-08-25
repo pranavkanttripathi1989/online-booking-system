@@ -668,10 +668,40 @@ new password was actually persisted (and the old one now rejected) — not
 just a UI success message. Also folded in §C's one-line correction (the
 `admin-roles.spec.js` note above, now marked stale-as-of-2026-08-25).
 
-The remaining 10 findings (`A-2` through `A-10`, `B-2` through `B-4`) are
-still open — see that document's own "Fix sequencing" section for the
-priority order and feature-slug classification before starting the next
-one.
+**B-2 (`appointments/edit.jsx` mock fallback) closed the same day,
+`BUG023`/`PLAN085`/`TP112`/`TR111`** — reading the whole file to fix the
+narrowly-scoped originally-flagged dropdown fallback surfaced four more
+real defects in the same file, the worst found only by live-testing the
+fix, not by reading code: **`AppointmentUpdateInput` has no
+`end_datetime` field**, and `edit.jsx`'s `handleSubmit` sent one
+unconditionally — since `form.end` is always populated from the loaded
+appointment, this rejected the mutation at the GraphQL variable-coercion
+layer on **every single save, unconditionally**. A real user clicking
+"Save Changes" on this page has never once succeeded, since the day it
+shipped. Confirmed live twice (including once with `click({force: true})`
+to rule out an unrelated click-interception cause) — the browser console
+captured the exact rejection (`Field "end_datetime" is not defined by
+type "AppointmentUpdateInput"`), and a direct backend query after each
+attempt confirmed nothing had persisted. Fixed by removing `end_datetime`
+from the mutation input entirely and disabling the "End Date & Time"
+picker (not independently editable on this backend — it's derived from
+the service duration), plus: real `error`-gating on the clinician/room
+dropdowns and the appointment fetch itself (the originally-flagged
+finding), a real not-found state instead of an infinite loading skeleton
+for a genuinely-deleted appointment, no more silent "mock mode" fake
+success on a real save failure, and a missing `'scheduled'` status option
+(the real default status of a freshly-created appointment). Filed under a
+dedicated `appointments` feature slug (`BUG023`) rather than the
+`platform-nfr` slug this document originally suggested for B-2 — matching
+B-1's own precedent, this turned out scoped to one file's own defects,
+not a cross-cutting completion pass. **Read this before assuming any
+existing e2e coverage of `appointments/edit.jsx` proved the save flow
+worked** — none existed before this fix; the new
+`frontend/e2e/appointments-edit.spec.js` is the first.
+
+The remaining 9 findings (`A-2` through `A-10`, `B-3`, `B-4`) are still
+open — see that document's own "Fix sequencing" section for the priority
+order and feature-slug classification before starting the next one.
 
 ### What Phase F did NOT close — read before assuming coverage
 
