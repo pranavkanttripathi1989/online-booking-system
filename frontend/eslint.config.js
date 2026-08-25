@@ -66,4 +66,26 @@ export default [
       'no-console': ['warn', { allow: ['warn', 'error'] }],
     },
   },
+  // F-19 (project-plans/02-findings-register.md) — Hard Rule 5 ("theme
+  // tokens only — no #RRGGBB literals in pages/, components/, layouts/")
+  // has been a documented rule with no enforcement at all: 90 of 122 files
+  // in those three directories still hardcode hex colors as of 2026-08-25,
+  // unchanged since this finding was first logged 2026-08-22. This adds
+  // the ratchet, not the fix — a mechanical sweep of 90 files is its own
+  // dedicated slice, deliberately out of scope here. Scoped to exactly the
+  // three directories the hard rule names, not the whole src/ tree — files
+  // like theme/theme.js are the legitimate source of truth for these hex
+  // values and must keep using literals.
+  {
+    files: ['src/pages/**/*.{js,jsx}', 'src/components/**/*.{js,jsx}', 'src/layouts/**/*.{js,jsx}'],
+    rules: {
+      'no-restricted-syntax': [
+        'warn',
+        {
+          selector: "Literal[value=/^#([0-9a-fA-F]{3}){1,2}$/]",
+          message: 'Use a theme token instead of a literal hex color — see project-plans/technical-plans/06-frontend-architecture-and-mobile.md',
+        },
+      ],
+    },
+  },
 ]
