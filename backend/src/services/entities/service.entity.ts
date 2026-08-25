@@ -57,4 +57,11 @@ export class ServiceType {
   @Field(() => ChannelPricingType, { nullable: true }) channel_pricing?: ChannelPricingType;
   // REQ018 (US-BOOK-03).
   @Field() prepayment_policy: string;
+  // REQ111 — the underlying Products row already carries this (REQ055's
+  // own org->branch masters cascade needs it to tell a master service
+  // clinic_id: null apart from a clinic-scoped one), but it was never
+  // declared on this GraphQL entity before, so the gateway stripped it.
+  // toGraphQL()'s existing ...rest spread already passes the value
+  // through untouched — no service-layer change needed.
+  @Field(() => ID, { nullable: true }) clinic_id?: string;
 }
