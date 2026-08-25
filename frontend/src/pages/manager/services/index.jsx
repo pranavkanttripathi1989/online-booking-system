@@ -2,16 +2,18 @@ import { useState, useEffect } from 'react'
 import { useApolloClient, gql } from '@apollo/client'
 import {
   Alert, Box, Button, Card, CardContent, CardActions, Chip, CircularProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, FormControlLabel, Grid,
-  IconButton, InputAdornment, List, ListItemButton, ListItemText, Paper, Stack,
-  Switch, TextField, Typography,
+  Dialog, DialogTitle, DialogContent, DialogActions, Divider, FormControlLabel, Grid,
+  IconButton, InputAdornment, List, ListItemButton, ListItemText, MenuItem, Paper, Stack,
+  Switch, TextField, Tooltip, Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import SearchIcon from '@mui/icons-material/Search'
+import StoreIcon from '@mui/icons-material/Store'
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog'
 import ErrorBoundary from '../../../components/ErrorBoundary'
+import { CLINICS_QUERY } from '../../../graphql/queries'
 
 const BRAND = '#006D77'
 
@@ -26,7 +28,7 @@ const BRAND = '#006D77'
 const GET_SERVICES_DATA = gql`
   query GetServicesData {
     services {
-      id name description duration_minutes price is_active
+      id name description duration_minutes price is_active clinic_id
       category { id name }
       clinicians { id full_name }
     }
@@ -35,6 +37,18 @@ const GET_SERVICES_DATA = gql`
 `
 const CREATE_SERVICE  = gql`mutation CreateService($input: ServiceInput!) { createService(input: $input) { id } }`
 const UPDATE_SERVICE  = gql`mutation UpdateService($id: ID!, $input: ServiceInput!) { updateService(id: $id, input: $input) { id } }`
+
+// REQ111 — admin UI for REQ055's already-shipped branch-override backend.
+const GET_BRANCH_OVERRIDES = gql`
+  query GetProductBranchOverrides {
+    productBranchOverrides { id product_id clinic_id mode override_price }
+  }
+`
+const SET_BRANCH_OVERRIDE = gql`
+  mutation SetProductBranchOverride($input: SetProductBranchOverrideInput!) {
+    setProductBranchOverride(input: $input) { success userErrors { message } }
+  }
+`
 
 const CREATE_CATEGORY = gql`mutation CreateProductCategory($input: CreateProductCategoryInput!) { createProductCategory(input: $input) { success userErrors { message } } }`
 const UPDATE_CATEGORY = gql`mutation UpdateProductCategory($id: ID!, $input: UpdateProductCategoryInput!) { updateProductCategory(id: $id, input: $input) { success userErrors { message } } }`
@@ -78,12 +92,27 @@ function ServiceCatalog() {
   const [successMsg, setSuccessMsg] = useState(null)
   const [submitting, setSubmitting] = useState(false)
 
+  // REQ111 — branch pricing dialog state
+  const [clinics, setClinics] = useState([])
+  const [branchOverrides, setBranchOverrides] = useState([])
+  const [branchDialogOpen, setBranchDialogOpen] = useState(false)
+  const [branchDialogService, setBranchDialogService] = useState(null)
+  const [branchEdits, setBranchEdits] = useState({})
+  const [branchError, setBranchError] = useState(null)
+  const [branchSaving, setBranchSaving] = useState(false)
+
   const loadData = async () => {
     setLoading(true)
     try {
-      const { data } = await client.query({ query: GET_SERVICES_DATA, fetchPolicy: 'network-only' })
+      const [{ data }, { data: branchData }, { data: clinicsData }] = await Promise.all([
+        client.query({ query: GET_SERVICES_DATA, fetchPolicy: 'network-only' }),
+        client.query({ query: GET_BRANCH_OVERRIDES, fetchPolicy: 'network-only' }),
+        client.query({ query: CLINICS_QUERY, fetchPolicy: 'network-only' }),
+      ])
       setServices(data?.services || [])
       setCategories(data?.productCategories || [])
+      setBranchOverrides(branchData?.productBranchOverrides || [])
+      setClinics(clinicsData?.clinics || [])
       setIsMockData(false)
     } catch (err) {
       setServices(MOCK_SERVICES)
@@ -154,6 +183,68 @@ function ServiceCatalog() {
       await loadData()
     } catch (err) {
       setFormError(err.message || 'Failed to update service.')
+    }
+  }
+
+  // ── Branch pricing (REQ111) ───────────────────────────────────────────────
+  const openBranchPricing = (svc) => {
+    setBranchDialogService(svc)
+    setBranchError(null)
+    const edits = {}
+    clinics.forEach((c) => {
+      const existing = branchOverrides.find((o) => o.product_id === svc.id && o.clinic_id === c.id)
+      edits[c.id] = existing
+        ? { mode: existing.mode, price: existing.override_price ?? '' }
+        : { mode: 'inherit', price: '' }
+    })
+    setBranchEdits(edits)
+    setBranchDialogOpen(true)
+  }
+
+  const setBranchEdit = (clinicId, patch) => {
+    setBranchEdits((prev) => ({ ...prev, [clinicId]: { ...prev[clinicId], ...patch } }))
+  }
+
+  const handleSaveBranchPricing = async () => {
+    setBranchError(null)
+    const invalid = Object.entries(branchEdits).find(
+      ([, e]) => e.mode === 'override' && (e.price === '' || e.price == null)
+    )
+    if (invalid) {
+      setBranchError('An override requires at least a price value.')
+      return
+    }
+    setBranchSaving(true)
+    try {
+      const changed = Object.entries(branchEdits).filter(([clinicId, e]) => {
+        const existing = branchOverrides.find((o) => o.product_id === branchDialogService.id && o.clinic_id === clinicId)
+        const existingMode = existing?.mode ?? 'inherit'
+        const existingPrice = existing?.override_price ?? ''
+        return e.mode !== existingMode || (e.mode === 'override' && String(e.price) !== String(existingPrice))
+      })
+      for (const [clinicId, e] of changed) {
+        const res = await client.mutate({
+          mutation: SET_BRANCH_OVERRIDE,
+          variables: {
+            input: {
+              product_id: branchDialogService.id,
+              clinic_id: clinicId,
+              mode: e.mode,
+              override_price: e.mode === 'override' ? Number(e.price) : undefined,
+            },
+          },
+        })
+        if (!res.data?.setProductBranchOverride?.success) {
+          throw new Error(res.data?.setProductBranchOverride?.userErrors?.[0]?.message || 'Failed to save branch pricing.')
+        }
+      }
+      setBranchDialogOpen(false)
+      showSuccess('Branch pricing updated.')
+      await loadData()
+    } catch (err) {
+      setBranchError(err.message)
+    } finally {
+      setBranchSaving(false)
     }
   }
 
@@ -341,6 +432,19 @@ function ServiceCatalog() {
                   </CardContent>
 
                   <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'flex-end' }}>
+                    <Tooltip title={svc.clinic_id ? 'This service is not an org-level master and cannot be overridden per branch' : 'Branch pricing'}>
+                      <span>
+                        <IconButton
+                          size="small"
+                          aria-label={`Branch pricing for ${svc.name}`}
+                          disabled={!!svc.clinic_id}
+                          onClick={() => openBranchPricing(svc)}
+                          sx={{ bgcolor: 'action.hover' }}
+                        >
+                          <StoreIcon fontSize="small" />
+                        </IconButton>
+                      </span>
+                    </Tooltip>
                     <IconButton size="small" aria-label={`Edit service ${svc.name}`} onClick={() => openEditService(svc)} sx={{ bgcolor: 'action.hover' }}>
                       <EditIcon fontSize="small" />
                     </IconButton>
@@ -405,6 +509,47 @@ function ServiceCatalog() {
           <Button onClick={() => setShowCatForm(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
           <Button variant="contained" disabled={submitting || !catForm.name.trim()} onClick={handleSaveCategory} sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>
             {editCat ? 'Save Changes' : 'Add Category'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* BRANCH PRICING DIALOG (REQ111) */}
+      <Dialog open={branchDialogOpen} onClose={() => setBranchDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle>Branch pricing — {branchDialogService?.name}</DialogTitle>
+        <DialogContent sx={{ pt: 2 }}>
+          {branchError && <Alert severity="error" sx={{ mb: 2 }}>{branchError}</Alert>}
+          {clinics.length === 0 && <Typography color="text.secondary">No branches found for this organization.</Typography>}
+          <Stack divider={<Divider />} spacing={2}>
+            {clinics.map((c) => {
+              const edit = branchEdits[c.id] || { mode: 'inherit', price: '' }
+              return (
+                <Stack key={c.id} direction="row" spacing={2} alignItems="center" pt={1}>
+                  <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 600 }}>{c.name}</Typography>
+                  <TextField
+                    select size="small" value={edit.mode} sx={{ width: 140 }}
+                    onChange={(e) => setBranchEdit(c.id, { mode: e.target.value })}
+                  >
+                    <MenuItem value="inherit">Inherit</MenuItem>
+                    <MenuItem value="override">Override</MenuItem>
+                    <MenuItem value="skip">Skip</MenuItem>
+                  </TextField>
+                  {edit.mode === 'override' && (
+                    <TextField
+                      size="small" type="number" label="Price (₹)" sx={{ width: 140 }}
+                      value={edit.price}
+                      onChange={(e) => setBranchEdit(c.id, { price: e.target.value })}
+                      InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                    />
+                  )}
+                </Stack>
+              )
+            })}
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ p: 3, borderTop: '1px solid #E2E8F0', gap: 1 }}>
+          <Button onClick={() => setBranchDialogOpen(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
+          <Button variant="contained" onClick={handleSaveBranchPricing} disabled={branchSaving} sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>
+            {branchSaving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
