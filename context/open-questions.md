@@ -2,6 +2,41 @@
 
 Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the question, why it's genuinely ambiguous (not just unimplemented), and current status.
 
+## 16. Should a patient caller be able to see a dependant's messages, given a dependant has no login of their own?
+
+**Status:** Open, raised 2026-08-25 while closing `REQ018`'s own residue
+note on dependant self-scoping (`REQ065`).
+
+`REQ018`'s family/dependant profiles feature (2026-08-24) let one
+phone-verified patient login manage multiple `Patients` records — a
+dependant `Patients` row is created with `email: ''` and no linked
+`UserProfiles` row at all (`patients.service.ts`'s own comment:
+"dependants have no login/contact of their own this slice"). Prescriptions
+and test results are keyed by `patient_id` directly, so widening their
+self-scope to include dependant ids (`REQ065`) was a mechanical,
+low-risk extension of the same "own or dependant" definition
+`appointments.service.ts` already uses.
+
+Messages are structurally different: `MessageThreads`/`Messages` have no
+`patient_id` column at all — access is scoped entirely by
+`MessageParticipants.user_id`, a real `UserProfiles.id`. A dependant has
+no `UserProfiles` row to be a participant under, so there is no existing
+concept of "a dependant's message thread" for a parent to be widened
+into seeing. Making this work would require inventing new data model
+(e.g. tagging a thread with a `patient_id` the way prescriptions/test
+results already are, or a "linked account acts as" participant
+substitution) — a real product/schema decision, not a bug fix.
+
+**Decision needed from the user:** is "message a clinic on a dependant's
+behalf" an actual near-term requirement? If yes, it needs its own
+requirement doc scoping the data model change (most likely: an optional
+`patient_id` on `MessageThreads`, set at thread-creation time when the
+caller specifies which of their own/dependant profiles the thread is
+about, then included in `threads()`'s own scoping alongside the existing
+`user_id` check). If no, `REQ018`'s own residue note should be corrected
+to say two of its three flagged domains are closed, not three, since the
+third was never a like-for-like gap.
+
 ## 6. admin/Communications.jsx's "Global Settings" tab lets an org pick Twilio/Vonage + paste a raw API key — contradicts the fixed-vendor rule
 
 **Status:** ~~Open~~ — **resolved 2026-08-21**, by explicit user direction mid-session (`REQ008`, `PLAN017`): rather than either removing the picker or keeping a single hardcoded MSG91 vendor, the vendor rule itself was revised (CLAUDE.md Hard Rule 9) to make OTP/SMS providers the one deliberate per-org-configurable exception — a standard multi-tenant SaaS pattern, not a "for simplicity" shortcut. Built as a real pluggable provider registry (MSG91/Gupshup/Twilio/AWS SNS), each with its own declared credential fields, encrypted at rest (`common/crypto/secrets.ts`, AES-256-GCM) and never re-exposed to the client. See `PLAN017` for the full design.

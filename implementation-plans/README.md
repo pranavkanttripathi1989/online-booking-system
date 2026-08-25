@@ -17,7 +17,7 @@
 | organizations | 2 | 2 | 0 | 0 | 4 | 2026-08-25 | [organizations](./organizations/README.md) |
 | queue-management | 1 | 2 | 0 | 0 | 3 | 2026-08-25 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 6 | 11 | 0 | 17 | 2026-08-25 | [platform-nfr](./platform-nfr/README.md) |
-| appointments | 2 | 1 | 4 | 0 | 7 | 2026-08-25 | [appointments](./appointments/README.md) |
+| appointments | 2 | 2 | 4 | 0 | 8 | 2026-08-25 | [appointments](./appointments/README.md) |
 | test-coverage-audit | 4 | 0 | 0 | 0 | 4 | 2026-08-22 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | communications-policies | 2 | 2 | 0 | 0 | 4 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |

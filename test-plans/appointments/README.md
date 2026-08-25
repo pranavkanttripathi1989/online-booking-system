@@ -12,6 +12,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP119 | improvement | Dependant self-scoping for prescriptions and test results | approved | 2026-08-25 | 2026-08-25 | PLAN092 | [TP119-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md](./improvement/TP119-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md) |
 | TP102 | improvement | Auto-no-show + intake fields verification | approved | 2026-08-25 | 2026-08-25 | PLAN075 | [TP102-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/TP102-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 
 ## bug
