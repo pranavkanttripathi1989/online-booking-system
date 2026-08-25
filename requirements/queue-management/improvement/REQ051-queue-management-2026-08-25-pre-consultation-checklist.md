@@ -4,7 +4,7 @@ type: improvement
 feature: queue-management
 created: 2026-08-25
 updated: 2026-08-25
-status: in-progress
+status: done
 parent: REQ019
 related: [REQ019]
 ---

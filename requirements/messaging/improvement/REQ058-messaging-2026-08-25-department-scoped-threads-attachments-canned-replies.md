@@ -4,7 +4,7 @@ type: improvement
 feature: messaging
 created: 2026-08-25
 updated: 2026-08-25
-status: in-progress
+status: done
 parent: REQ024
 related: [REQ024, REQ050, REQ014, REQ020]
 ---

@@ -4,7 +4,7 @@ type: improvement
 feature: security
 created: 2026-08-25
 updated: 2026-08-25
-status: in-progress
+status: done
 parent: REQ015
 related: [REQ015]
 ---

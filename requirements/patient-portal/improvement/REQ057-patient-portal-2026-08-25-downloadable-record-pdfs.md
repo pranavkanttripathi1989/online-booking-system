@@ -4,7 +4,7 @@ type: improvement
 feature: patient-portal
 created: 2026-08-25
 updated: 2026-08-25
-status: in-progress
+status: done
 parent: REQ027
 related: [REQ027, REQ021, REQ023, REQ020]
 ---

@@ -14,7 +14,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | REQ060 | improvement | Clinician verification UI | done | 2026-08-25 | 2026-08-25 | REQ015 | [REQ060-security-2026-08-25-clinician-verification-ui.md](./improvement/REQ060-security-2026-08-25-clinician-verification-ui.md) |
-| REQ053 | improvement | Break-glass emergency access + support impersonation audit trail | in-progress | 2026-08-25 | 2026-08-25 | REQ015 | [REQ053-security-2026-08-25-break-glass-and-impersonation.md](./improvement/REQ053-security-2026-08-25-break-glass-and-impersonation.md) |
+| REQ053 | improvement | Break-glass emergency access + support impersonation audit trail | done | 2026-08-25 | 2026-08-25 | REQ015 | [REQ053-security-2026-08-25-break-glass-and-impersonation.md](./improvement/REQ053-security-2026-08-25-break-glass-and-impersonation.md) |
 
 ## bug
 
