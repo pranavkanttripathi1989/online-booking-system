@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { TestResultsService } from './test-results.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PatientsService } from '../patients/patients.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: testResults() had no @Auth() role gate and
@@ -10,6 +11,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('TestResultsService — access scoping', () => {
   let service: TestResultsService;
   let prisma: { testResults: { findMany: jest.Mock; findUnique: jest.Mock } };
+  let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['clinician'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -20,7 +22,20 @@ describe('TestResultsService — access scoping', () => {
   beforeEach(async () => {
     prisma = { testResults: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn() } };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [TestResultsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        TestResultsService,
+        { provide: PrismaService, useValue: prisma },
+        {
+          provide: PatientsService,
+          // Mirrors the real ownAndDependantPatientIds()'s own behaviour for
+          // a patient with no configured dependants -- existing tests below
+          // (written before dependant self-scoping existed) keep working
+          // unchanged; only the new dependant-specific cases override this.
+          useValue: (patientsService = {
+            ownAndDependantPatientIds: jest.fn().mockImplementation(async (user: JwtPayload) => [user.patient_id ?? '__no_patient_link__']),
+          }),
+        },
+      ],
     }).compile();
     service = module.get(TestResultsService);
   });
@@ -31,10 +46,37 @@ describe('TestResultsService — access scoping', () => {
     expect(where.patient_id).toBeUndefined();
   });
 
-  it('restricts a patient caller to only their own linked patient_id', async () => {
+  it('restricts a patient caller to only their own linked patient_id (plus any dependants)', async () => {
     await service.findAll(undefined, undefined, undefined, patientUser);
     const where = prisma.testResults.findMany.mock.calls[0][0].where;
-    expect(where.patient_id).toBe('pat-1');
+    expect(where.patient_id).toEqual({ in: ['pat-1'] });
+  });
+
+  // REQ065 (REQ018 US-BOOK-02 residue) — a patient caller may read a
+  // dependant's test results too, not just their own.
+  it('includes a dependant\'s patient_id in the findAll filter', async () => {
+    patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-1', 'dep-1']);
+    await service.findAll(undefined, undefined, undefined, patientUser);
+    const where = prisma.testResults.findMany.mock.calls[0][0].where;
+    expect(where.patient_id).toEqual({ in: ['pat-1', 'dep-1'] });
+  });
+
+  it('allows a patient to read a dependant\'s test result via findOne', async () => {
+    patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-1', 'dep-1']);
+    prisma.testResults.findUnique.mockResolvedValue({
+      id: 'tr-1', is_deleted: false, patient_id: 'dep-1', status: 'completed', date_ordered: new Date(), values: [],
+      ordered_by: { client_org_id: 'org-1' },
+    });
+    await expect(service.findOne('tr-1', patientUser)).resolves.toBeDefined();
+  });
+
+  it('still rejects a test result belonging to neither the caller nor their dependants', async () => {
+    patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-1', 'dep-1']);
+    prisma.testResults.findUnique.mockResolvedValue({
+      id: 'tr-1', is_deleted: false, patient_id: 'pat-2', status: 'completed', date_ordered: new Date(), values: [],
+      ordered_by: { client_org_id: 'org-1' },
+    });
+    await expect(service.findOne('tr-1', patientUser)).rejects.toThrow(NotFoundException);
   });
 
   it('a patient caller is rejected reading another patient\'s test result', async () => {
@@ -78,6 +120,6 @@ describe('TestResultsService — access scoping', () => {
     // The key must be PRESENT and impossible to match. Absent — or present and
     // `undefined` — means Prisma applies no filter at all.
     expect(where.ordered_by).toEqual({ client_org_id: '__no_org__' });
-    expect(where.patient_id).toBe('__no_patient_link__');
+    expect(where.patient_id).toEqual({ in: ['__no_patient_link__'] });
   });
 });

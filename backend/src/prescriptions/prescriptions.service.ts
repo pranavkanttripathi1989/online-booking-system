@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScopeVia, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-scope';
 import { CreatePrescriptionInput, CreatePrescriptionSetInput, PrescriptionItemInput } from './dto/prescription.input';
+import { PatientsService } from '../patients/patients.service';
 
 // REQ021 (Phase 1, slice 3) P0 -- prescription builder, print view, and
 // repeat-Rx. Prescriptions has no client_org_id of its own -- scoped
@@ -23,7 +24,10 @@ const FREQUENCY_PER_DAY: Record<string, number | null> = {
 
 @Injectable()
 export class PrescriptionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly patientsService: PatientsService,
+  ) {}
 
   private calculateQty(frequency: string, durationDays?: number): number | undefined {
     const perDay = FREQUENCY_PER_DAY[frequency];
@@ -51,8 +55,14 @@ export class PrescriptionsService {
     if (!isSameOrg(user, prescription.encounter.client_org_id)) {
       throw new NotFoundException('Prescription not found');
     }
-    if (user.roles.includes('patient') && prescription.patient_id !== (user.patient_id ?? '__no_patient_link__')) {
-      throw new NotFoundException('Prescription not found');
+    // REQ065 (REQ018 US-BOOK-02 residue) — a patient caller may read a
+    // dependant's prescription too, not just their own, matching
+    // patients.service.ts's own "own or dependant" definition.
+    if (user.roles.includes('patient')) {
+      const allowedIds = await this.patientsService.ownAndDependantPatientIds(user);
+      if (!allowedIds.includes(prescription.patient_id)) {
+        throw new NotFoundException('Prescription not found');
+      }
     }
     if (user.roles.includes('clinician') && prescription.clinician_id !== (user.clinician_id ?? '__no_clinician_link__')) {
       throw new NotFoundException('Prescription not found');
@@ -85,8 +95,11 @@ export class PrescriptionsService {
   }
 
   async patientPrescriptions(patientId: string, user: JwtPayload) {
-    if (user.roles.includes('patient') && patientId !== (user.patient_id ?? '__no_patient_link__')) {
-      throw new NotFoundException('Patient not found');
+    if (user.roles.includes('patient')) {
+      const allowedIds = await this.patientsService.ownAndDependantPatientIds(user);
+      if (!allowedIds.includes(patientId)) {
+        throw new NotFoundException('Patient not found');
+      }
     }
     if (user.roles.includes('clinician')) {
       const treated = await this.prisma.appointments.findFirst({

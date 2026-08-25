@@ -3,10 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { OrderTestInput } from './dto/order-test.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { isPlatformOperator, orgScopeVia } from '../common/scoping/tenant-scope';
+import { PatientsService } from '../patients/patients.service';
 
 @Injectable()
 export class TestResultsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly patientsService: PatientsService,
+  ) {}
 
   // TC-PAT-API-010: values withheld until status === 'completed', regardless
   // of caller role — enforced here, not left to the frontend to hide.
@@ -25,6 +29,11 @@ export class TestResultsService {
   }
 
   async findAll(search: string | undefined, type: string | undefined, status: string | undefined, user: JwtPayload) {
+    // REQ065 (REQ018 US-BOOK-02 residue) — a patient caller may read a
+    // dependant's results too, not just their own.
+    const allowedPatientIds = user.roles.includes('patient')
+      ? await this.patientsService.ownAndDependantPatientIds(user)
+      : undefined;
     const rows = await this.prisma.testResults.findMany({
       where: {
         is_deleted: false,
@@ -47,9 +56,10 @@ export class TestResultsService {
         // SECURITY: this query had no @Auth() role gate and no per-patient
         // scoping -- any authenticated 'patient' role account could read
         // every patient's lab values within the org. Restrict to the
-        // caller's own linked patient_id (see patients.service.ts's
-        // selfScope for the identical JWT-embedded pattern).
-        ...(user.roles.includes('patient') ? { patient_id: user.patient_id ?? '__no_patient_link__' } : {}),
+        // caller's own linked patient_id, or their dependants' (see
+        // patients.service.ts's selfScope for the identical JWT-embedded
+        // pattern).
+        ...(allowedPatientIds ? { patient_id: { in: allowedPatientIds } } : {}),
       },
       orderBy: { date_ordered: 'desc' },
     });
@@ -80,10 +90,14 @@ export class TestResultsService {
         throw new NotFoundException('Test result not found');
       }
     }
+    // REQ065 (REQ018 US-BOOK-02 residue) — a patient caller may read a
+    // dependant's result too, not just their own.
     if (user.roles.includes('patient')) {
-      // An unlinked patient account (patient_id null) matches nothing, rather
-      // than matching every row that also has a null patient_id.
-      if (!user.patient_id || row.patient_id !== user.patient_id) {
+      const allowedIds = await this.patientsService.ownAndDependantPatientIds(user);
+      // An unlinked/null patient_id (free-text result, or an unlinked
+      // caller) matches nothing — ownAndDependantPatientIds' sentinel
+      // never collides with a real row id, so this stays fail-closed.
+      if (!row.patient_id || !allowedIds.includes(row.patient_id)) {
         throw new NotFoundException('Test result not found');
       }
     }

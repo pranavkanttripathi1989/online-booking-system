@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrescriptionsService } from './prescriptions.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PatientsService } from '../patients/patients.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // REQ021 P0. Prescriptions has no client_org_id of its own — org isolation
@@ -11,6 +12,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('PrescriptionsService', () => {
   let service: PrescriptionsService;
   let prisma: any;
+  let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
   const clinicianA: JwtPayload = { sub: 'clin-a', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-a' } as JwtPayload;
   const clinicianB: JwtPayload = { sub: 'clin-b', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-b' } as JwtPayload;
@@ -40,7 +42,20 @@ describe('PrescriptionsService', () => {
       prescriptionSets: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), findUnique: jest.fn() },
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PrescriptionsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        PrescriptionsService,
+        { provide: PrismaService, useValue: prisma },
+        {
+          provide: PatientsService,
+          // Mirrors the real ownAndDependantPatientIds()'s own behaviour for
+          // a patient with no configured dependants -- existing tests below
+          // (written before dependant self-scoping existed) keep working
+          // unchanged; only the new dependant-specific cases override this.
+          useValue: (patientsService = {
+            ownAndDependantPatientIds: jest.fn().mockImplementation(async (user: JwtPayload) => [user.patient_id ?? '__no_patient_link__']),
+          }),
+        },
+      ],
     }).compile();
     service = module.get(PrescriptionsService);
   });
@@ -170,6 +185,34 @@ describe('PrescriptionsService', () => {
       prisma.prescriptions.findMany.mockResolvedValue([prescriptionOpen]);
       const result = await service.patientPrescriptions('pat-a', patientA);
       expect(result).toHaveLength(1);
+    });
+
+    // REQ065 (REQ018 US-BOOK-02 residue) — a patient caller may read a
+    // dependant's prescriptions too, not just their own.
+    it('allows a patient to read a dependant\'s prescription via prescription()', async () => {
+      patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-a', 'dep-1']);
+      prisma.prescriptions.findUnique.mockResolvedValue({ ...prescriptionOpen, patient_id: 'dep-1' });
+      const result = await service.prescription('rx-1', patientA);
+      expect(result.patient_id).toBe('dep-1');
+    });
+
+    it('still rejects a prescription belonging to neither the caller nor their dependants', async () => {
+      patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-a', 'dep-1']);
+      prisma.prescriptions.findUnique.mockResolvedValue({ ...prescriptionOpen, patient_id: 'pat-x' });
+      await expect(service.prescription('rx-1', patientA)).rejects.toThrow(NotFoundException);
+    });
+
+    it('allows a patient to list a dependant\'s prescriptions via patientPrescriptions()', async () => {
+      patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-a', 'dep-1']);
+      prisma.prescriptions.findMany.mockResolvedValue([{ ...prescriptionOpen, patient_id: 'dep-1' }]);
+      const result = await service.patientPrescriptions('dep-1', patientA);
+      expect(result).toHaveLength(1);
+    });
+
+    it('rejects patientPrescriptions for a patient who is neither the caller nor a dependant', async () => {
+      patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-a', 'dep-1']);
+      await expect(service.patientPrescriptions('pat-x', patientA)).rejects.toThrow(NotFoundException);
+      expect(prisma.prescriptions.findMany).not.toHaveBeenCalled();
     });
   });
 
