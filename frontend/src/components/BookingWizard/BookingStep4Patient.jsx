@@ -10,8 +10,12 @@ import {
   CircularProgress,
   Divider,
   FormControlLabel,
+  FormControl,
+  FormLabel,
   Grid,
   MenuItem,
+  Radio,
+  RadioGroup,
   Stack,
   TextField,
   ToggleButton,
@@ -26,6 +30,29 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs from 'dayjs'
 
 import { PATIENTS_QUERY } from '../../graphql/queries'
+import { useAuth } from '../../hooks/useAuth'
+
+// REQ027 (US-PAT-01) — a logged-in patient booking through this internal
+// wizard (reachable by any authenticated role; no RoleGuard on
+// /appointments/new) previously saw the exact same staff-oriented
+// search-existing/register-new toggle a front-desk user does. A patient
+// caller has no legitimate reason to search an arbitrary other patient or
+// register a brand-new one here — they may only book for themselves or a
+// real, already-linked dependant (createAppointment's own server-side
+// validation, shipped with REQ018, already enforces this; this closes the
+// matching frontend gap).
+//
+// network-only + a dedicated query rather than useAuth().user.patient.id:
+// AuthContext.jsx has a documented, pre-existing bug (see
+// context/settings-privacy-tab's own comment on GET_MY_PATIENT_LINK) where
+// a freshly-logged-in patient session's cached user object never carries
+// `patient`, since LOGIN_MUTATION's own selection set omits it. Every
+// existing workaround in this codebase re-queries fresh rather than
+// trusting the cache; this follows the same pattern.
+const GET_MY_PATIENT_LINK = gql`query MyPatientLinkForBooking { me { patient { id full_name } } }`
+const MY_DEPENDANTS_QUERY_FOR_BOOKING = gql`
+  query MyDependantsForBooking { myDependants { id relation patient { id full_name } } }
+`
 
 // REQ052 (US-BOOK-06) — per-clinic (optionally per-service) configurable
 // booking intake fields. Page-local gql const, matching this codebase's own
@@ -56,9 +83,40 @@ const newPatientSchema = z.object({
 const GENDER_OPTIONS = ['male', 'female', 'other', 'prefer_not_to_say']
 
 export default function BookingStep4Patient({ wizardData, updateWizard }) {
+  const { hasRole } = useAuth()
+  const isBookingPatient = hasRole('patient')
+
   const [patientMode, setPatientMode] = useState(wizardData.patientMode ?? 'existing')
   const [searchInput, setSearchInput] = useState('')
   const [selectedPatient, setSelectedPatient] = useState(wizardData.patient ?? null)
+
+  // REQ027 (US-PAT-01) — skipped entirely for a staff caller, so this
+  // adds zero extra network traffic to the existing, already-live
+  // front-desk booking flow.
+  const { data: myLinkData, loading: loadingMyLink } = useQuery(GET_MY_PATIENT_LINK, {
+    skip: !isBookingPatient, fetchPolicy: 'network-only',
+  })
+  const { data: myDependantsData, loading: loadingDependants } = useQuery(MY_DEPENDANTS_QUERY_FOR_BOOKING, {
+    skip: !isBookingPatient,
+  })
+  const myPatient = myLinkData?.me?.patient
+  const myDependants = myDependantsData?.myDependants ?? []
+
+  // Defaults to "book for me" the moment the self-link resolves, matching
+  // this step's own established "sync selection into wizard state" pattern.
+  useEffect(() => {
+    if (isBookingPatient && myPatient && !wizardData.patient) {
+      setSelectedPatient(myPatient)
+      updateWizard({ patient: myPatient, patientMode: 'existing' })
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isBookingPatient, myPatient])
+
+  const handleBookingForChange = (_, value) => {
+    const patient = value === 'self' ? myPatient : myDependants.find((d) => d.patient.id === value)?.patient
+    setSelectedPatient(patient ?? null)
+    updateWizard({ patient: patient ?? null, patientMode: 'existing' })
+  }
 
   const { data: patientsData, loading: loadingPatients } = useQuery(PATIENTS_QUERY, {
     variables: { search: searchInput, first: 20 },
@@ -139,10 +197,40 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
       <Box>
         <Typography variant="h6" fontWeight={700} mb={0.5}>Patient Details</Typography>
         <Typography variant="body2" color="text.secondary" mb={3}>
-          Search for an existing patient or register a new one.
+          {isBookingPatient ? 'Who is this appointment for?' : 'Search for an existing patient or register a new one.'}
         </Typography>
 
+        {/* REQ027 (US-PAT-01) — a patient caller picks themself or a real
+            dependant only; never the staff search-existing/register-new flow. */}
+        {isBookingPatient && (
+          <Box mb={3}>
+            {(loadingMyLink || loadingDependants) ? (
+              <CircularProgress size={22} />
+            ) : (
+              <FormControl>
+                <FormLabel id="booking-for-label" sx={{ fontSize: '0.8rem', fontWeight: 700, mb: 0.5 }}>Booking for</FormLabel>
+                <RadioGroup
+                  aria-labelledby="booking-for-label"
+                  value={selectedPatient?.id === myPatient?.id ? 'self' : (selectedPatient?.id ?? '')}
+                  onChange={handleBookingForChange}
+                >
+                  {myPatient && <FormControlLabel value="self" control={<Radio />} label="Myself" />}
+                  {myDependants.map((d) => (
+                    <FormControlLabel key={d.id} value={d.patient.id} control={<Radio />} label={`${d.patient.full_name} (${d.relation})`} />
+                  ))}
+                </RadioGroup>
+                {!myPatient && !loadingMyLink && (
+                  <Typography variant="caption" color="text.secondary">
+                    Your account isn't linked to a patient profile yet — contact the clinic to book on your behalf.
+                  </Typography>
+                )}
+              </FormControl>
+            )}
+          </Box>
+        )}
+
         {/* Mode toggle */}
+        {!isBookingPatient && (
         <ToggleButtonGroup
           value={patientMode}
           exclusive
@@ -159,9 +247,10 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
             New Patient
           </ToggleButton>
         </ToggleButtonGroup>
+        )}
 
         {/* Existing patient autocomplete */}
-        {patientMode === 'existing' && (
+        {!isBookingPatient && patientMode === 'existing' && (
           <Autocomplete
             value={selectedPatient}
             inputValue={searchInput}
@@ -192,7 +281,7 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
         )}
 
         {/* New patient form */}
-        {patientMode === 'new' && (
+        {!isBookingPatient && patientMode === 'new' && (
           <Grid container spacing={2}>
             <Grid item xs={12} sm={6}>
               <Controller
