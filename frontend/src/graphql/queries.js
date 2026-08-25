@@ -73,6 +73,10 @@ export const CLINICIAN_FIELDS = gql`
     clinician_type { id name description }
     clinics { id name city }
     services { id name duration_minutes price }
+    registration_number
+    medical_council
+    verification_status
+    verified_at
   }
 `
 

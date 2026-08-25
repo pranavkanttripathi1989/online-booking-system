@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
+import { useQuery, useMutation, gql } from '@apollo/client'
 import {
   Box, Button, Avatar, Typography, Chip, Tabs, Tab, Grid, Card, CardContent,
   Stack, Divider, IconButton, Tooltip, Paper, Table, TableBody, TableCell,
@@ -38,6 +39,30 @@ import ForumRoundedIcon from '@mui/icons-material/ForumRounded'
 import MarkEmailReadRoundedIcon from '@mui/icons-material/MarkEmailReadRounded'
 import SmsRoundedIcon from '@mui/icons-material/SmsRounded'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
+import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded'
+
+// A-7 (project-plans/08-integration-gap-analysis.md) — real, tested backend
+// (patientInsurancePolicies/createPatientInsurancePolicy) with no capture UI
+// anywhere. This page's own other 7 tabs are still local-state-only mock
+// content pending a real product decision (context/open-questions.md #13) —
+// this Insurance tab is deliberately independent of that: real GraphQL
+// against the real `id` route param (which IS the real patient database id,
+// even though MOCK_PATIENTS_DETAIL below doesn't know about it), not a rider
+// on the page's own broader, already-flagged, already-paused mock status.
+const GET_PATIENT_INSURANCE = gql`
+  query GetPatientInsurance($patient_id: ID!) {
+    payers(is_active: true) { id name payer_type }
+    patientInsurancePolicies(patient_id: $patient_id) {
+      id policy_number policy_holder_name valid_from valid_until is_active
+      payer { id name }
+    }
+  }
+`
+const CREATE_PATIENT_INSURANCE_POLICY = gql`
+  mutation CreatePatientInsurancePolicy($input: PatientInsurancePolicyInput!) {
+    createPatientInsurancePolicy(input: $input) { id }
+  }
+`
 
 // ─── Mock patients (BUG-004 fix: keyed by id so URL param resolves correctly) ─
 // Supports both 'pt-1'..'pt-5' (clinician patients list) and '1'..'5' (admin list)
@@ -184,6 +209,30 @@ export default function PatientDetailPage() {
   const { enqueueSnackbar } = useSnackbar()
   const [tab, setTab] = useState(0)
   const p = MOCK_PATIENTS_DETAIL[id] ?? MOCK_PATIENT_DEFAULT  // BUG-004 fix: look up by URL id
+
+  // A-7 — Insurance tab (real data, see the import-block comment above).
+  const { data: insuranceData, loading: insuranceLoading, refetch: refetchInsurance } = useQuery(GET_PATIENT_INSURANCE, { variables: { patient_id: id }, skip: !id })
+  const [createPolicy, { loading: creatingPolicy }] = useMutation(CREATE_PATIENT_INSURANCE_POLICY)
+  const payers = insuranceData?.payers ?? []
+  const policies = insuranceData?.patientInsurancePolicies ?? []
+  const [policyForm, setPolicyForm] = useState({ payer_id: '', policy_number: '', policy_holder_name: '', valid_from: '', valid_until: '' })
+  const [policyFormOpen, setPolicyFormOpen] = useState(false)
+  const submitPolicy = async (e) => {
+    e.preventDefault()
+    if (!policyForm.payer_id || !policyForm.policy_number.trim() || !policyForm.policy_holder_name.trim() || !policyForm.valid_from) {
+      enqueueSnackbar('Payer, policy number, policy holder, and valid-from date are all required', { variant: 'error' })
+      return
+    }
+    try {
+      await createPolicy({ variables: { input: { patient_id: id, payer_id: policyForm.payer_id, policy_number: policyForm.policy_number.trim(), policy_holder_name: policyForm.policy_holder_name.trim(), valid_from: policyForm.valid_from, valid_until: policyForm.valid_until || undefined } } })
+      enqueueSnackbar('Insurance policy recorded.', { variant: 'success' })
+      setPolicyForm({ payer_id: '', policy_number: '', policy_holder_name: '', valid_from: '', valid_until: '' })
+      setPolicyFormOpen(false)
+      refetchInsurance()
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message, { variant: 'error' })
+    }
+  }
 
   // SUG-PT-003 / SUG-PAT-013: "View Result" dialog state
   const [viewResult, setViewResult] = useState(null)
@@ -414,6 +463,7 @@ export default function PatientDetailPage() {
           <Tab icon={<AssignmentRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Intake Form" />
           <Tab icon={<DescriptionRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Letters (${letters.length})`} />
           <Tab icon={<ForumRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Communication Log (${commLog.length})`} />
+          <Tab icon={<LocalHospitalRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Insurance (${policies.length})`} />
         </Tabs>
 
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
@@ -804,6 +854,71 @@ export default function PatientDetailPage() {
                 ))}
               </Stack>
             )}
+          </TabPanel>
+
+          {/* ── Insurance (A-7, real GraphQL) ────────────────────────────── */}
+          <TabPanel value={tab} index={8}>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="subtitle1" fontWeight={800}>Insurance Policies</Typography>
+              <Button variant="contained" size="small" startIcon={<AddRoundedIcon />} onClick={() => setPolicyFormOpen(true)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                Add Policy
+              </Button>
+            </Stack>
+            {insuranceLoading ? (
+              <LinearProgress />
+            ) : policies.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No insurance policies recorded for this patient yet.</Typography>
+            ) : (
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Payer</TableCell>
+                      <TableCell>Policy Number</TableCell>
+                      <TableCell>Policy Holder</TableCell>
+                      <TableCell>Valid From</TableCell>
+                      <TableCell>Valid Until</TableCell>
+                      <TableCell>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {policies.map((policy) => (
+                      <TableRow key={policy.id}>
+                        <TableCell>{policy.payer.name}</TableCell>
+                        <TableCell>{policy.policy_number}</TableCell>
+                        <TableCell>{policy.policy_holder_name}</TableCell>
+                        <TableCell>{dayjs(policy.valid_from).format('DD MMM YYYY')}</TableCell>
+                        <TableCell>{policy.valid_until ? dayjs(policy.valid_until).format('DD MMM YYYY') : '—'}</TableCell>
+                        <TableCell><Chip size="small" label={policy.is_active ? 'Active' : 'Inactive'} color={policy.is_active ? 'success' : 'default'} /></TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            <Dialog open={policyFormOpen} onClose={() => setPolicyFormOpen(false)} fullWidth maxWidth="sm">
+              <DialogTitle>Add Insurance Policy</DialogTitle>
+              <DialogContent>
+                <Box component="form" id="policy-form" onSubmit={submitPolicy} sx={{ pt: 1 }}>
+                  <Stack spacing={2}>
+                    <TextField select fullWidth required label="Payer" value={policyForm.payer_id} onChange={(e) => setPolicyForm((f) => ({ ...f, payer_id: e.target.value }))}>
+                      {payers.map((payer) => <MenuItem key={payer.id} value={payer.id}>{payer.name}</MenuItem>)}
+                    </TextField>
+                    <TextField fullWidth required label="Policy Number" value={policyForm.policy_number} onChange={(e) => setPolicyForm((f) => ({ ...f, policy_number: e.target.value }))} />
+                    <TextField fullWidth required label="Policy Holder Name" value={policyForm.policy_holder_name} onChange={(e) => setPolicyForm((f) => ({ ...f, policy_holder_name: e.target.value }))} />
+                    <Stack direction="row" spacing={2}>
+                      <TextField fullWidth required type="date" label="Valid From" InputLabelProps={{ shrink: true }} value={policyForm.valid_from} onChange={(e) => setPolicyForm((f) => ({ ...f, valid_from: e.target.value }))} />
+                      <TextField fullWidth type="date" label="Valid Until (optional)" InputLabelProps={{ shrink: true }} value={policyForm.valid_until} onChange={(e) => setPolicyForm((f) => ({ ...f, valid_until: e.target.value }))} />
+                    </Stack>
+                  </Stack>
+                </Box>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setPolicyFormOpen(false)}>Cancel</Button>
+                <Button type="submit" form="policy-form" variant="contained" disabled={creatingPolicy}>Save</Button>
+              </DialogActions>
+            </Dialog>
           </TabPanel>
 
         </Box>

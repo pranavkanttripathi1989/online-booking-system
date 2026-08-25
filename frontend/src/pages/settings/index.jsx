@@ -149,6 +149,16 @@ const CREATE_WEBHOOK_ENDPOINT = gql`
 const DEACTIVATE_WEBHOOK_ENDPOINT = gql`
   mutation DeactivateWebhookEndpoint($id: ID!) { deactivateWebhookEndpoint(id: $id) { id is_active } }
 `
+// A-8 (project-plans/08-integration-gap-analysis.md) — webhookDeliveryLog
+// exists and is tested backend-side but had no UI; a failed delivery (the
+// common case against a real customer endpoint) was previously invisible.
+const GET_WEBHOOK_DELIVERY_LOG = gql`
+  query GetWebhookDeliveryLog($endpoint_id: ID!) {
+    webhookDeliveryLog(endpoint_id: $endpoint_id) {
+      id event_type status http_status attempted_at response_snippet
+    }
+  }
+`
 const CREATE_API_KEY = gql`
   mutation CreateApiKey($input: ApiKeyInput!) { createApiKey(input: $input) { id key_prefix name raw_key } }
 `
@@ -382,6 +392,18 @@ export default function SettingsPage() {
   const deactivateWebhook = async (id) => {
     try { await client.mutate({ mutation: DEACTIVATE_WEBHOOK_ENDPOINT, variables: { id } }); loadIntegrations() }
     catch (err) { setIntegrationsError(err.message) }
+  }
+  const [deliveryLogFor, setDeliveryLogFor] = useState(null) // webhook endpoint being viewed, or null
+  const [deliveryLog, setDeliveryLog] = useState([])
+  const [deliveryLogLoading, setDeliveryLogLoading] = useState(false)
+  const viewDeliveryLog = async (endpoint) => {
+    setDeliveryLogFor(endpoint)
+    setDeliveryLogLoading(true)
+    try {
+      const { data } = await client.query({ query: GET_WEBHOOK_DELIVERY_LOG, variables: { endpoint_id: endpoint.id }, fetchPolicy: 'network-only' })
+      setDeliveryLog(data?.webhookDeliveryLog ?? [])
+    } catch (err) { setIntegrationsError(err.message) }
+    finally { setDeliveryLogLoading(false) }
   }
 
   const submitApiKey = async () => {
@@ -1251,7 +1273,12 @@ export default function SettingsPage() {
                           <TableCell><Typography variant="body2" sx={{ wordBreak: 'break-all' }}>{w.url}</Typography></TableCell>
                           <TableCell>{(w.event_types ?? []).map((e) => <Chip key={e} size="small" label={e} sx={{ mr: 0.5, mb: 0.5 }} />)}</TableCell>
                           <TableCell>{w.is_active ? <Chip size="small" label="Active" color="success" /> : <Chip size="small" label="Inactive" />}</TableCell>
-                          <TableCell>{w.is_active && <Button size="small" color="error" onClick={() => deactivateWebhook(w.id)}>Deactivate</Button>}</TableCell>
+                          <TableCell>
+                            <Stack direction="row" spacing={1}>
+                              <Button size="small" onClick={() => viewDeliveryLog(w)}>Delivery Log</Button>
+                              {w.is_active && <Button size="small" color="error" onClick={() => deactivateWebhook(w.id)}>Deactivate</Button>}
+                            </Stack>
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1339,6 +1366,37 @@ export default function SettingsPage() {
 
         </Box>
       </Paper>
+      {/* A-8 — webhook delivery log */}
+      <Dialog open={Boolean(deliveryLogFor)} onClose={() => setDeliveryLogFor(null)} maxWidth="sm" fullWidth>
+        <DialogTitle fontWeight={700}>Delivery Log</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, wordBreak: 'break-all' }}>{deliveryLogFor?.url}</Typography>
+          {deliveryLogLoading ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}><CircularProgress size={28} /></Box>
+          ) : deliveryLog.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">No deliveries recorded yet.</Typography>
+          ) : (
+            <TableContainer sx={{ border: '1px solid #E8EAED', borderRadius: 2 }}>
+              <Table size="small">
+                <TableHead><TableRow><TableCell>Event</TableCell><TableCell>Status</TableCell><TableCell>HTTP</TableCell><TableCell>When</TableCell></TableRow></TableHead>
+                <TableBody>
+                  {deliveryLog.map((entry) => (
+                    <TableRow key={entry.id}>
+                      <TableCell>{entry.event_type}</TableCell>
+                      <TableCell><Chip size="small" label={entry.status} color={entry.status === 'success' ? 'success' : 'error'} /></TableCell>
+                      <TableCell>{entry.http_status ?? '—'}</TableCell>
+                      <TableCell>{new Date(entry.attempted_at).toLocaleString()}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDeliveryLogFor(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
       {/* SUG-SET-004: Deactivate Account confirmation dialog */}
       {/* REQ053 (US-SEC-05) — Emergency Access request: self-service, immediately granted */}
       <Dialog open={breakGlassDialogOpen} onClose={() => { setBreakGlassDialogOpen(false); setBreakGlassError(null) }} maxWidth="xs" fullWidth>

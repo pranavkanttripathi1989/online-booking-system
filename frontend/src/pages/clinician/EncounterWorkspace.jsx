@@ -82,6 +82,22 @@ const CREATE_ATTACHMENT = gql`
   }
 `
 
+// A-5/A-6 (project-plans/08-integration-gap-analysis.md) — both real,
+// tested mutations with no UI at all: diagnoses were queried but never
+// once rendered (not even read-only), and encounterTemplates' own
+// "No templates yet." empty state could never resolve itself through the
+// app since nothing ever called createEncounterTemplate.
+const CREATE_DIAGNOSIS = gql`
+  mutation CreateDiagnosis($input: CreateDiagnosisInput!) {
+    createDiagnosis(input: $input) { id type icd10_code text status created_at }
+  }
+`
+const CREATE_ENCOUNTER_TEMPLATE = gql`
+  mutation CreateEncounterTemplate($input: CreateEncounterTemplateInput!) {
+    createEncounterTemplate(input: $input) { id name specialty sections_json }
+  }
+`
+
 const SECTIONS = [
   { key: 'complaints', label: 'Chief Complaints' },
   { key: 'history', label: 'History' },
@@ -127,10 +143,12 @@ function TimelinePane({ patientId }) {
 }
 
 // ─── Center pane: structured note sections ─────────────────────────────────
-function NotesPane({ encounter, onSaveNote, onAddAddendum }) {
+function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis }) {
   const [drafts, setDrafts] = useState({})
   const [addendumOpen, setAddendumOpen] = useState(false)
   const [addendumText, setAddendumText] = useState('')
+  const [diagnosisOpen, setDiagnosisOpen] = useState(false)
+  const [diagnosisForm, setDiagnosisForm] = useState({ type: 'diagnosis', text: '', icd10_code: '' })
 
   useEffect(() => {
     const next = {}
@@ -166,6 +184,35 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum }) {
             />
           </Box>
         ))}
+
+        <Box>
+          <Divider sx={{ my: 1 }} />
+          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+            <Typography variant="subtitle2" fontWeight={700}>Diagnoses</Typography>
+            {!locked && (
+              <Button size="small" startIcon={<MedicationRoundedIcon fontSize="small" />} onClick={() => setDiagnosisOpen(true)}>
+                Add Diagnosis
+              </Button>
+            )}
+          </Stack>
+          {(encounter?.diagnoses?.length ?? 0) === 0 ? (
+            <Typography variant="body2" color="text.secondary">No diagnoses recorded yet.</Typography>
+          ) : (
+            <Stack spacing={1}>
+              {encounter.diagnoses.map((d) => (
+                <Paper key={d.id} variant="outlined" sx={{ p: 1.5, bgcolor: d.type === 'allergy' ? '#FFF4E5' : '#FAFAFA' }}>
+                  <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+                    <Chip size="small" label={d.type} sx={{ textTransform: 'capitalize' }} />
+                    {d.status && <Chip size="small" label={d.status} variant="outlined" sx={{ textTransform: 'capitalize' }} />}
+                    {d.icd10_code && <Typography variant="caption" color="text.secondary">{d.icd10_code}</Typography>}
+                  </Stack>
+                  <Typography variant="body2">{d.text}</Typography>
+                </Paper>
+              ))}
+            </Stack>
+          )}
+        </Box>
+
         {encounter?.addenda?.length > 0 && (
           <Box>
             <Divider sx={{ my: 1 }} />
@@ -207,16 +254,56 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum }) {
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={diagnosisOpen} onClose={() => setDiagnosisOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Add Diagnosis</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              select fullWidth label="Type" value={diagnosisForm.type}
+              onChange={(e) => setDiagnosisForm((f) => ({ ...f, type: e.target.value }))}
+              SelectProps={{ native: true }}
+            >
+              <option value="diagnosis">Diagnosis</option>
+              <option value="allergy">Allergy</option>
+            </TextField>
+            <TextField
+              fullWidth multiline minRows={2} label="Description" value={diagnosisForm.text}
+              onChange={(e) => setDiagnosisForm((f) => ({ ...f, text: e.target.value }))}
+            />
+            <TextField
+              fullWidth label="ICD-10 code (optional)" value={diagnosisForm.icd10_code}
+              onChange={(e) => setDiagnosisForm((f) => ({ ...f, icd10_code: e.target.value }))}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDiagnosisOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!diagnosisForm.text.trim()}
+            onClick={async () => {
+              await onAddDiagnosis({ type: diagnosisForm.type, text: diagnosisForm.text.trim(), icd10_code: diagnosisForm.icd10_code.trim() || undefined })
+              setDiagnosisForm({ type: 'diagnosis', text: '', icd10_code: '' })
+              setDiagnosisOpen(false)
+            }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   )
 }
 
 // ─── Right pane: templates, attachments, sign-off ──────────────────────────
-function ActionsPane({ encounter, onApplyTemplate, onSign, onUpload, onNewPrescription }) {
-  const { data: templatesData } = useQuery(ENCOUNTER_TEMPLATES)
+function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onUpload, onNewPrescription }) {
+  const { data: templatesData, refetch: refetchTemplates } = useQuery(ENCOUNTER_TEMPLATES)
   const templates = templatesData?.encounterTemplates ?? []
   const [signOpen, setSignOpen] = useState(false)
   const [downloadingSummary, setDownloadingSummary] = useState(false)
+  const [saveTemplateOpen, setSaveTemplateOpen] = useState(false)
+  const [templateForm, setTemplateForm] = useState({ name: '', specialty: '' })
   const { enqueueSnackbar } = useSnackbar()
   const locked = !!encounter?.locked
 
@@ -235,7 +322,10 @@ function ActionsPane({ encounter, onApplyTemplate, onSign, onUpload, onNewPrescr
 
   return (
     <Paper variant="outlined" sx={{ p: 2, height: '100%', overflowY: 'auto' }}>
-      <Typography variant="subtitle2" fontWeight={700} mb={1}>Templates</Typography>
+      <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+        <Typography variant="subtitle2" fontWeight={700}>Templates</Typography>
+        <Button size="small" disabled={locked} onClick={() => setSaveTemplateOpen(true)}>Save as template</Button>
+      </Stack>
       <List dense disablePadding>
         {templates.length === 0 && (
           <Typography variant="body2" color="text.secondary">No templates yet.</Typography>
@@ -251,6 +341,34 @@ function ActionsPane({ encounter, onApplyTemplate, onSign, onUpload, onNewPrescr
           </ListItemButton>
         ))}
       </List>
+
+      <Dialog open={saveTemplateOpen} onClose={() => setSaveTemplateOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Save Current Note as Template</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>
+            Saves this encounter's current section content as a reusable, org-shared template.
+          </DialogContentText>
+          <Stack spacing={2}>
+            <TextField fullWidth label="Template Name" value={templateForm.name} onChange={(e) => setTemplateForm((f) => ({ ...f, name: e.target.value }))} />
+            <TextField fullWidth label="Specialty (optional)" value={templateForm.specialty} onChange={(e) => setTemplateForm((f) => ({ ...f, specialty: e.target.value }))} />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSaveTemplateOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!templateForm.name.trim()}
+            onClick={async () => {
+              await onSaveAsTemplate({ name: templateForm.name.trim(), specialty: templateForm.specialty.trim() || undefined })
+              setTemplateForm({ name: '', specialty: '' })
+              setSaveTemplateOpen(false)
+              refetchTemplates()
+            }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Divider sx={{ my: 2 }} />
 
@@ -348,6 +466,8 @@ function EncounterWorkspace() {
   const [signEncounter] = useMutation(SIGN_ENCOUNTER)
   const [applyTemplate] = useMutation(APPLY_TEMPLATE)
   const [createAttachment] = useMutation(CREATE_ATTACHMENT)
+  const [createDiagnosis] = useMutation(CREATE_DIAGNOSIS)
+  const [createEncounterTemplate] = useMutation(CREATE_ENCOUNTER_TEMPLATE)
 
   const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, {
     variables: { patient_id: encounter?.patient_id }, skip: !encounter?.patient_id,
@@ -389,6 +509,22 @@ function EncounterWorkspace() {
       refetch()
     } catch (err) { reportError(err, 'Failed to apply template') }
   }, [applyTemplate, encounterId, refetch, reportError])
+
+  const handleAddDiagnosis = useCallback(async (input) => {
+    try {
+      await createDiagnosis({ variables: { input: { encounter_id: encounterId, ...input } } })
+      refetch()
+    } catch (err) { reportError(err, 'Failed to add diagnosis') }
+  }, [createDiagnosis, encounterId, refetch, reportError])
+
+  const handleSaveAsTemplate = useCallback(async ({ name, specialty }) => {
+    try {
+      const sections = {}
+      SECTIONS.forEach((s) => { sections[s.key] = sectionContent(encounter?.notes, s.key) })
+      await createEncounterTemplate({ variables: { input: { name, specialty, sections_json: JSON.stringify(sections), org_shared: true } } })
+      enqueueSnackbar('Template saved.', { variant: 'success' })
+    } catch (err) { reportError(err, 'Failed to save template') }
+  }, [createEncounterTemplate, encounter?.notes, enqueueSnackbar, reportError])
 
   const handleUpload = useCallback(async (e) => {
     const file = e.target.files?.[0]
@@ -453,12 +589,13 @@ function EncounterWorkspace() {
               <TimelinePane patientId={encounter.patient_id} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} />
+              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} />
             </Grid>
             <Grid item xs={12} md={3}>
               <ActionsPane
                 encounter={encounter}
                 onApplyTemplate={handleApplyTemplate}
+                onSaveAsTemplate={handleSaveAsTemplate}
                 onSign={handleSign}
                 onUpload={handleUpload}
                 onNewPrescription={() => navigate(`/clinician/prescriptions/new?encounterId=${encounter.id}&patientId=${encounter.patient_id}`)}

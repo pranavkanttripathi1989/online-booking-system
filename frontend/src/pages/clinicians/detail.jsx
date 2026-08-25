@@ -1,7 +1,8 @@
 import { useState } from 'react'
-import { useQuery } from '@apollo/client'
+import { useQuery, useMutation, gql } from '@apollo/client'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
+import { useSnackbar } from 'notistack'
 import {
   Box, Button, Avatar, Typography, Chip, Grid, Card, CardContent,
   Stack, Divider, Paper, Tabs, Tab, Skeleton,
@@ -13,8 +14,21 @@ import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
 import LocationOnRoundedIcon from '@mui/icons-material/LocationOnRounded'
 import TranslateRoundedIcon from '@mui/icons-material/TranslateRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded'
 
 import { CLINICIAN_DETAIL_QUERY } from '../../graphql/queries'
+import { useAuth } from '../../hooks/useAuth'
+
+// A-4 (project-plans/08-integration-gap-analysis.md) — REQ015's own
+// admin-attested clinician verification had a real, tested mutation
+// (updateClinicianVerification) and a real field (verification_status)
+// with no UI anywhere to display or action it.
+const UPDATE_CLINICIAN_VERIFICATION = gql`
+  mutation UpdateClinicianVerification($id: ID!, $status: String!) {
+    updateClinicianVerification(id: $id, status: $status) { id verification_status verified_at }
+  }
+`
+const VERIFICATION_COLOR = { verified: 'success', pending: 'warning', rejected: 'error', unverified: 'default' }
 
 // Priority 3 mock-removal sweep (2026-08-22) — this page was previously a
 // single hardcoded MOCK_CLINICIAN object ("Dr. Jane Smith") with zero real
@@ -55,11 +69,25 @@ export default function ClinicianDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const [tab, setTab] = useState(0)
+  const { user } = useAuth()
+  const { enqueueSnackbar } = useSnackbar()
+  const isVerifier = user?.roles?.some((r) => ['admin', 'super_admin'].includes(r.name))
+  const [updateVerification, { loading: verifying }] = useMutation(UPDATE_CLINICIAN_VERIFICATION)
 
-  const { data, loading } = useQuery(CLINICIAN_DETAIL_QUERY, { variables: { id }, skip: !id })
+  const { data, loading, refetch } = useQuery(CLINICIAN_DETAIL_QUERY, { variables: { id }, skip: !id })
   const c = data?.clinician
   const templates = c?.availability_templates ?? []
   const services = c?.services ?? []
+
+  const setVerification = async (status) => {
+    try {
+      await updateVerification({ variables: { id, status } })
+      enqueueSnackbar(`Clinician marked ${status}.`, { variant: 'success' })
+      refetch()
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message, { variant: 'error' })
+    }
+  }
 
   if (loading && !c) {
     return (
@@ -109,9 +137,31 @@ export default function ClinicianDetailPage() {
               <Stack direction="row" alignItems="center" spacing={1.5} mb={0.5} flexWrap="wrap">
                 <Typography variant="h5" fontWeight={800} sx={{ color: 'text.primary' }}>{c.full_name}</Typography>
                 {c.clinician_type && <Chip label={c.clinician_type.name} variant="outlined" size="small" sx={{ fontWeight: 700 }} />}
+                <Chip
+                  icon={<VerifiedRoundedIcon sx={{ fontSize: '1rem' }} />}
+                  label={c.verification_status || 'unverified'}
+                  color={VERIFICATION_COLOR[c.verification_status] ?? 'default'}
+                  size="small" sx={{ fontWeight: 700, textTransform: 'capitalize' }}
+                />
               </Stack>
               {c.consultation_fee != null && (
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>₹{Number(c.consultation_fee).toFixed(2)} per consultation</Typography>
+              )}
+              {(c.registration_number || c.medical_council) && (
+                <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                  {c.registration_number}{c.registration_number && c.medical_council ? ' · ' : ''}{c.medical_council}
+                </Typography>
+              )}
+              {isVerifier && c.verification_status !== 'verified' && c.verification_status !== 'rejected' && (
+                <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
+                  <Button size="small" variant="contained" color="success" disabled={verifying} onClick={() => setVerification('verified')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Verify</Button>
+                  <Button size="small" variant="outlined" color="error" disabled={verifying} onClick={() => setVerification('rejected')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Reject</Button>
+                </Stack>
+              )}
+              {isVerifier && (c.verification_status === 'verified' || c.verification_status === 'rejected') && (
+                <Button size="small" sx={{ mt: 1, textTransform: 'none', fontWeight: 700, color: 'text.secondary' }} disabled={verifying} onClick={() => setVerification('pending')}>
+                  Re-open for review
+                </Button>
               )}
             </Grid>
             <Grid item xs={12} sm="auto">

@@ -1,0 +1,154 @@
+import { render, screen, waitFor, within } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
+import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MockedProvider } from '@apollo/client/testing'
+import { SnackbarProvider } from 'notistack'
+import { gql } from '@apollo/client'
+import EncounterWorkspace from './EncounterWorkspace'
+import { useAuth } from '../../hooks/useAuth'
+
+jest.mock('../../hooks/useAuth', () => ({
+  useAuth: jest.fn(),
+}))
+
+// A-5/A-6 (project-plans/08-integration-gap-analysis.md) — re-declared to
+// match EncounterWorkspace.jsx's own gql documents exactly (query AST
+// equality, same convention as clinician/Dashboard.test.jsx).
+const GET_OR_CREATE_ENCOUNTER = gql`
+  mutation GetOrCreateEncounter($appointment_id: ID!) {
+    getOrCreateEncounter(appointment_id: $appointment_id) { id patient_id clinician_id }
+  }
+`
+const ENCOUNTER_QUERY = gql`
+  query Encounter($id: ID!) {
+    encounter(id: $id) {
+      id patient_id status locked signed_at
+      notes { id section content version }
+      addenda { id author_id content reason created_at }
+      diagnoses { id type icd10_code text status created_at }
+      attachments { id file_ref mime_type original_filename created_at }
+    }
+  }
+`
+const PATIENT_ALLERGY_BANNER = gql`
+  query PatientAllergyBanner($patient_id: ID!) {
+    patientAllergyBanner(patient_id: $patient_id) { id text icd10_code }
+  }
+`
+const PATIENT_TIMELINE = gql`
+  query PatientTimeline($patient_id: ID!) {
+    patientTimeline(patient_id: $patient_id) { id type date title summary encounter_id }
+  }
+`
+const ENCOUNTER_TEMPLATES = gql`
+  query EncounterTemplates { encounterTemplates { id name specialty sections_json } }
+`
+const CREATE_DIAGNOSIS = gql`
+  mutation CreateDiagnosis($input: CreateDiagnosisInput!) {
+    createDiagnosis(input: $input) { id type icd10_code text status created_at }
+  }
+`
+const CREATE_ENCOUNTER_TEMPLATE = gql`
+  mutation CreateEncounterTemplate($input: CreateEncounterTemplateInput!) {
+    createEncounterTemplate(input: $input) { id name specialty sections_json }
+  }
+`
+
+const APPOINTMENT_ID = 'appt-1'
+const ENCOUNTER_ID = 'enc-1'
+const PATIENT_ID = 'pat-1'
+
+function encounter(overrides = {}) {
+  return {
+    __typename: 'Encounter',
+    id: ENCOUNTER_ID,
+    patient_id: PATIENT_ID,
+    status: 'in_progress',
+    locked: false,
+    signed_at: null,
+    notes: [],
+    addenda: [],
+    diagnoses: [],
+    attachments: [],
+    ...overrides,
+  }
+}
+
+function baseMocks(enc) {
+  return [
+    { request: { query: GET_OR_CREATE_ENCOUNTER, variables: { appointment_id: APPOINTMENT_ID } }, result: { data: { getOrCreateEncounter: { __typename: 'Encounter', id: ENCOUNTER_ID, patient_id: PATIENT_ID, clinician_id: 'cln-1' } } } },
+    { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: enc } } },
+    { request: { query: PATIENT_ALLERGY_BANNER, variables: { patient_id: PATIENT_ID } }, result: { data: { patientAllergyBanner: [] } } },
+    { request: { query: PATIENT_TIMELINE, variables: { patient_id: PATIENT_ID } }, result: { data: { patientTimeline: [] } } },
+    { request: { query: ENCOUNTER_TEMPLATES }, result: { data: { encounterTemplates: [] } } },
+  ]
+}
+
+function renderPage(mocks) {
+  useAuth.mockReturnValue({ hasRole: (r) => r === 'clinician' })
+  return render(
+    <MemoryRouter initialEntries={[`/clinician/encounters/${APPOINTMENT_ID}`]}>
+      <SnackbarProvider>
+        <MockedProvider mocks={mocks}>
+          <Routes>
+            <Route path="/clinician/encounters/:appointmentId" element={<EncounterWorkspace />} />
+          </Routes>
+        </MockedProvider>
+      </SnackbarProvider>
+    </MemoryRouter>
+  )
+}
+
+describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => {
+  it('renders real recorded diagnoses, not just an empty state', async () => {
+    const enc = encounter({
+      diagnoses: [{ __typename: 'EncounterDiagnosis', id: 'dx-1', type: 'diagnosis', icd10_code: 'J06.9', text: 'Upper respiratory infection', status: 'active', created_at: '2026-08-25T10:00:00.000Z' }],
+    })
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByText('Upper respiratory infection')).toBeInTheDocument())
+    expect(screen.getByText('J06.9')).toBeInTheDocument()
+  })
+
+  it('adds a diagnosis via the real createDiagnosis mutation and refetches', async () => {
+    const enc = encounter()
+    const withDiagnosis = encounter({
+      diagnoses: [{ __typename: 'EncounterDiagnosis', id: 'dx-2', type: 'allergy', icd10_code: null, text: 'Penicillin allergy', status: 'active', created_at: '2026-08-25T10:00:00.000Z' }],
+    })
+    renderPage([
+      ...baseMocks(enc),
+      { request: { query: CREATE_DIAGNOSIS, variables: { input: { encounter_id: ENCOUNTER_ID, type: 'diagnosis', text: 'Penicillin allergy' } } }, result: { data: { createDiagnosis: { __typename: 'EncounterDiagnosis', id: 'dx-2', type: 'diagnosis', icd10_code: null, text: 'Penicillin allergy', status: 'active', created_at: '2026-08-25T10:00:00.000Z' } } } },
+      { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withDiagnosis } } },
+    ])
+
+    await waitFor(() => expect(screen.getByText('No diagnoses recorded yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Add Diagnosis' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Description'), 'Penicillin allergy')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(screen.getByText('Penicillin allergy')).toBeInTheDocument())
+  }, 20000)
+
+  it('saves the current note content as a reusable template', async () => {
+    const enc = encounter()
+    renderPage([
+      ...baseMocks(enc),
+      {
+        request: {
+          query: CREATE_ENCOUNTER_TEMPLATE,
+          variables: { input: { name: 'Standard OPD Note', specialty: undefined, sections_json: JSON.stringify({ complaints: '', history: '', exam: '', vitals: '', diagnosis: '', investigations: '', advice: '', follow_up: '' }), org_shared: true } },
+        },
+        result: { data: { createEncounterTemplate: { __typename: 'EncounterTemplate', id: 'tpl-1', name: 'Standard OPD Note', specialty: null, sections_json: '{}' } } },
+      },
+      { request: { query: ENCOUNTER_TEMPLATES }, result: { data: { encounterTemplates: [{ __typename: 'EncounterTemplate', id: 'tpl-1', name: 'Standard OPD Note', specialty: null, sections_json: '{}' }] } } },
+    ])
+
+    await waitFor(() => expect(screen.getByText('No templates yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: /save as template/i }))
+    await userEvent.type(screen.getByLabelText('Template Name'), 'Standard OPD Note')
+    await userEvent.click(screen.getByRole('dialog').querySelector('button.MuiButton-contained'))
+
+    await waitFor(() => expect(screen.getByText(/template saved/i)).toBeInTheDocument())
+  })
+})
