@@ -12,7 +12,7 @@ import { ServiceCatalog } from './index'
 const GET_SERVICES_DATA = gql`
   query GetServicesData {
     services {
-      id name description duration_minutes price is_active clinic_id
+      id name description duration_minutes price is_active clinic_id gst_rate
       category { id name }
       clinicians { id full_name }
     }

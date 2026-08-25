@@ -52,6 +52,8 @@ export default function EditClinicPage() {
       address:   c.address   || '',
       city:      c.city      || '',
       postcode:  c.postcode  || '',
+      state:     c.state     || '',
+      gstin:     c.gstin     || '',
       phone:     c.phone     || '',
       email:     c.email     || '',
       timezone:  c.timezone  || 'Europe/London',
@@ -113,6 +115,8 @@ export default function EditClinicPage() {
               <Grid item xs={12}><TextField fullWidth label="Address" value={form.address} onChange={set('address')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="City" value={form.city} onChange={set('city')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Postcode" value={form.postcode} onChange={set('postcode')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="State" value={form.state} onChange={set('state')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
+              <Grid item xs={12} sm={6}><TextField fullWidth label="GSTIN" value={form.gstin} onChange={set('gstin')} helperText="15-character GST registration number" sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Phone" value={form.phone} onChange={set('phone')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12} sm={6}><TextField fullWidth label="Email" value={form.email} onChange={set('email')} error={!!errors.email} helperText={errors.email} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }} /></Grid>
               <Grid item xs={12}><TextField select fullWidth label="Timezone" value={form.timezone} onChange={set('timezone')} sx={{ '& .MuiOutlinedInput-root':{borderRadius:2} }}>{TIMEZONES.map(tz => <MenuItem key={tz} value={tz}>{tz}</MenuItem>)}</TextField></Grid>

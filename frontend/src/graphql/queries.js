@@ -453,6 +453,8 @@ export const CLINIC_DETAIL_QUERY = gql`
       address
       city
       postcode
+      state
+      gstin
       phone
       email
       timezone

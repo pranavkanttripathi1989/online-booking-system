@@ -28,7 +28,7 @@ const BRAND = '#006D77'
 const GET_SERVICES_DATA = gql`
   query GetServicesData {
     services {
-      id name description duration_minutes price is_active clinic_id
+      id name description duration_minutes price is_active clinic_id gst_rate
       category { id name }
       clinicians { id full_name }
     }
@@ -54,7 +54,7 @@ const CREATE_CATEGORY = gql`mutation CreateProductCategory($input: CreateProduct
 const UPDATE_CATEGORY = gql`mutation UpdateProductCategory($id: ID!, $input: UpdateProductCategoryInput!) { updateProductCategory(id: $id, input: $input) { success userErrors { message } } }`
 const DELETE_CATEGORY = gql`mutation DeleteProductCategory($id: ID!) { deleteProductCategory(id: $id) { success userErrors { message } } }`
 
-const dfService  = { name: '', description: '', duration_minutes: '', price: '', is_active: true }
+const dfService  = { name: '', description: '', duration_minutes: '', price: '', is_active: true, gst_rate: '' }
 const dfCategory = { name: '', description: '' }
 
 // ─── Mock data fallback (visible banner, not silent — Priority 3 point 3) ─────
@@ -142,6 +142,7 @@ function ServiceCatalog() {
       duration_minutes: svc.duration_minutes ?? '',
       price: svc.price ?? '',
       is_active: svc.is_active,
+      gst_rate: svc.gst_rate ?? '',
     })
     setFormError(null)
     setShowForm(true)
@@ -158,6 +159,7 @@ function ServiceCatalog() {
         duration_minutes: form.duration_minutes === '' ? undefined : Number(form.duration_minutes),
         price: form.price === '' ? undefined : Number(form.price),
         is_active: form.is_active,
+        gst_rate: form.gst_rate === '' ? undefined : Number(form.gst_rate),
       }
       if (editService) {
         await client.mutate({ mutation: UPDATE_SERVICE, variables: { id: editService.id, input } })
@@ -474,6 +476,12 @@ function ServiceCatalog() {
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
               InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+            />
+            <TextField
+              fullWidth label="GST Rate (%)" type="number"
+              value={form.gst_rate}
+              onChange={(e) => setForm({ ...form, gst_rate: e.target.value })}
+              helperText="Leave blank until this service's GST treatment is confirmed"
             />
             <FormControlLabel
               control={<Switch checked={form.is_active} onChange={(e) => setForm({ ...form, is_active: e.target.checked })} />}
