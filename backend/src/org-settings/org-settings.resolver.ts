@@ -9,12 +9,15 @@ import {
   OrgSecuritySettingsMutationResultType,
   OrgBrandingType,
   OrgBrandingMutationResultType,
+  OrgClinicalHoursType,
+  OrgClinicalHoursMutationResultType,
 } from './entities/org-settings.entity';
 import {
   UpdateOrgCommunicationSettingsInput,
   UpdateOrgBookingPoliciesInput,
   UpdateOrgSecuritySettingsInput,
   UpdateOrgBrandingInput,
+  UpdateOrgClinicalHoursInput,
 } from './dto/org-settings.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -37,6 +40,20 @@ export class OrgSettingsResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.orgSettingsService.updateMyCommunicationSettings(input, user);
+  }
+
+  // REQ024 (US-MSG-04) — manager+, matching every other org-settings
+  // read/write pair's own gate.
+  @Query(() => OrgClinicalHoursType, { name: 'myOrgClinicalHours', nullable: true })
+  @Auth('manager', 'admin', 'super_admin')
+  myOrgClinicalHours(@CurrentUser() user: JwtPayload) {
+    return this.orgSettingsService.myClinicalHours(user);
+  }
+
+  @Mutation(() => OrgClinicalHoursMutationResultType, { name: 'updateMyOrgClinicalHours' })
+  @Auth('manager', 'admin', 'super_admin')
+  updateMyOrgClinicalHours(@Args('input') input: UpdateOrgClinicalHoursInput, @CurrentUser() user: JwtPayload) {
+    return this.orgSettingsService.updateMyClinicalHours(input, user);
   }
 
   @Query(() => OrgBookingPoliciesType, { name: 'myOrgBookingPolicies', nullable: true })

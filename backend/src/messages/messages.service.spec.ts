@@ -16,13 +16,13 @@ describe('MessagesService', () => {
     messageAttachments: { create: jest.Mock };
     cannedReplies: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     userProfiles: { findMany: jest.Mock; findFirst: jest.Mock; findUnique: jest.Mock };
-    clientOrganizations: { findFirst: jest.Mock };
+    clientOrganizations: { findFirst: jest.Mock; findUnique: jest.Mock };
     clinicians: { findMany: jest.Mock };
     clinics: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
   let pubSub: { publish: jest.Mock };
-  let notificationTrigger: { dispatch: jest.Mock };
+  let notificationTrigger: { dispatch: jest.Mock; isWithinQuietHours: jest.Mock };
   let departmentsService: { assertDepartmentInScope: jest.Mock };
 
   const meUser: JwtPayload = { sub: 'user-me', roles: ['patient'], client_org_id: 'org-a', patient_id: 'pat-1', clinician_id: null } as JwtPayload;
@@ -54,13 +54,15 @@ describe('MessagesService', () => {
       messageAttachments: { create: jest.fn() },
       cannedReplies: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       userProfiles: { findMany: jest.fn(), findFirst: jest.fn(), findUnique: jest.fn() },
-      clientOrganizations: { findFirst: jest.fn() },
+      clientOrganizations: { findFirst: jest.fn(), findUnique: jest.fn() },
       clinicians: { findMany: jest.fn() },
       clinics: { findUnique: jest.fn() },
       $transaction: jest.fn((cb) => cb(makeTx())),
     };
     pubSub = { publish: jest.fn() };
-    notificationTrigger = { dispatch: jest.fn() };
+    // Default: no clinical-hours config on file, so the auto-responder's
+    // own early-return keeps every pre-existing sendMessage test unchanged.
+    notificationTrigger = { dispatch: jest.fn(), isWithinQuietHours: jest.fn().mockReturnValue(false) };
     departmentsService = { assertDepartmentInScope: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -163,6 +165,86 @@ describe('MessagesService', () => {
       );
       expect(notificationTrigger.dispatch).not.toHaveBeenCalledWith('user-me', expect.anything(), expect.anything());
     });
+
+    // REQ024 (US-MSG-04) — clinical-hours auto-responder.
+    describe('clinical-hours auto-reply', () => {
+      const patientThread = { id: 'thread-1', client_org_id: 'org-a', thread_type: 'patient_clinic', assigned_to_user_id: 'staff-1' };
+      const org = { clinical_hours_start: '09:00', clinical_hours_end: '18:00', clinical_hours_auto_reply_message: 'We are closed, back at 9am.' };
+
+      beforeEach(() => {
+        prisma.messageParticipants.findUnique.mockResolvedValue(participantRow('user-me'));
+        prisma.messageThreads.findUnique.mockResolvedValue(patientThread);
+        prisma.messageParticipants.findMany.mockResolvedValueOnce([{ thread_id: 'thread-1', user_id: 'staff-1' }]);
+      });
+
+      it('does nothing when the thread is not patient_clinic', async () => {
+        prisma.messageThreads.findUnique.mockResolvedValue({ ...patientThread, thread_type: 'staff_internal' });
+        prisma.clientOrganizations.findUnique.mockResolvedValue(org);
+        await service.sendMessage('thread-1', 'hello', meUser);
+        expect(prisma.$transaction).toHaveBeenCalledTimes(1); // sendMessage's own transaction only
+      });
+
+      it('does nothing when the sender is not a patient', async () => {
+        const staffUser = { sub: 'staff-2', roles: ['staff'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+        prisma.messageParticipants.findUnique.mockResolvedValue(participantRow('staff-2'));
+        prisma.clientOrganizations.findUnique.mockResolvedValue(org);
+        await service.sendMessage('thread-1', 'hello', staffUser);
+        expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      });
+
+      it('does nothing when the thread has no assigned staff member', async () => {
+        prisma.messageThreads.findUnique.mockResolvedValue({ ...patientThread, assigned_to_user_id: null });
+        prisma.clientOrganizations.findUnique.mockResolvedValue(org);
+        await service.sendMessage('thread-1', 'hello', meUser);
+        expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      });
+
+      it('does nothing when clinical hours are not fully configured for the org', async () => {
+        prisma.clientOrganizations.findUnique.mockResolvedValue({ clinical_hours_start: '09:00', clinical_hours_end: null, clinical_hours_auto_reply_message: null });
+        await service.sendMessage('thread-1', 'hello', meUser);
+        expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      });
+
+      it('does nothing when the message arrives inside clinical hours', async () => {
+        prisma.clientOrganizations.findUnique.mockResolvedValue(org);
+        // maybeSendClinicalHoursAutoReply reuses isWithinQuietHours() against
+        // the clinical_hours_start/end window itself: true means "now falls
+        // inside that window" (i.e. the clinic is open), which suppresses
+        // the auto-reply.
+        notificationTrigger.isWithinQuietHours.mockReturnValue(true);
+        await service.sendMessage('thread-1', 'hello', meUser);
+        expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      });
+
+      it('sends an auto-reply from the assignee when outside clinical hours and none sent yet this burst', async () => {
+        prisma.clientOrganizations.findUnique.mockResolvedValue(org);
+        notificationTrigger.isWithinQuietHours.mockReturnValue(false); // outside the clinical-hours window — clinic closed
+        // First messages.findMany call is maybeSendClinicalHoursAutoReply's own
+        // lastTwo lookup; the second is the final toGraphQL(includeMessages:true)
+        // call, whose content is irrelevant to this assertion.
+        prisma.messages.findMany.mockResolvedValueOnce([
+          { from_id: 'user-me', sent_at: new Date() }, // lastTwo[0]: the message just sent
+          { from_id: 'user-other', sent_at: new Date() }, // lastTwo[1]: not the assignee
+        ]).mockResolvedValueOnce([]);
+
+        await service.sendMessage('thread-1', 'hello', meUser);
+
+        expect(prisma.$transaction).toHaveBeenCalledTimes(2);
+      });
+
+      it('skips a second auto-reply within the same burst', async () => {
+        prisma.clientOrganizations.findUnique.mockResolvedValue(org);
+        notificationTrigger.isWithinQuietHours.mockReturnValue(false);
+        prisma.messages.findMany.mockResolvedValueOnce([
+          { from_id: 'user-me', sent_at: new Date() },
+          { from_id: 'staff-1', sent_at: new Date() }, // lastTwo[1]: the assignee's own prior auto-reply
+        ]).mockResolvedValueOnce([]);
+
+        await service.sendMessage('thread-1', 'hello', meUser);
+
+        expect(prisma.$transaction).toHaveBeenCalledTimes(1);
+      });
+    });
   });
 
   describe('createThread', () => {
@@ -190,7 +272,7 @@ describe('MessagesService', () => {
 
       await service.createThread({ participant_ids: ['user-me', 'user-other'], first_message: 'hi' } as any, meUser);
       expect(tx.messageThreads.create).toHaveBeenCalledWith({
-        data: { client_org_id: 'org-a', last_message: 'hi', last_activity: expect.any(Date) },
+        data: expect.objectContaining({ client_org_id: 'org-a', last_message: 'hi', last_activity: expect.any(Date) }),
       });
     });
 
@@ -288,6 +370,36 @@ describe('MessagesService', () => {
         const call = tx.messageParticipants.createMany.mock.calls[0][0];
         const addedIds = call.data.map((d: any) => d.user_id);
         expect(addedIds.filter((id: string) => id === 'user-other')).toHaveLength(1);
+      });
+    });
+
+    // REQ024 (US-MSG-04) — thread_type inference, which the auto-responder
+    // depends on to know whether a thread is patient-facing at all.
+    describe('thread_type inference', () => {
+      it('infers patient_clinic when any participant is a patient', async () => {
+        prisma.userProfiles.findFirst.mockResolvedValue({ id: 'user-other' }); // matched the patient-role query
+        const tx = makeTx();
+        tx.messageThreads.create.mockResolvedValue(thread1);
+        prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+        await service.createThread({ participant_ids: ['user-other'], first_message: 'hi' } as any, meUser);
+
+        expect(tx.messageThreads.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ thread_type: 'patient_clinic' }) }),
+        );
+      });
+
+      it('infers staff_internal when no participant is a patient', async () => {
+        prisma.userProfiles.findFirst.mockResolvedValue(null); // no patient-role match
+        const tx = makeTx();
+        tx.messageThreads.create.mockResolvedValue(thread1);
+        prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+        await service.createThread({ participant_ids: ['user-other'], first_message: 'hi' } as any, meUser);
+
+        expect(tx.messageThreads.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ thread_type: 'staff_internal' }) }),
+        );
       });
     });
   });

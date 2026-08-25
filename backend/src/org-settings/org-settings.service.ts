@@ -5,6 +5,7 @@ import {
   UpdateOrgBookingPoliciesInput,
   UpdateOrgSecuritySettingsInput,
   UpdateOrgBrandingInput,
+  UpdateOrgClinicalHoursInput,
 } from './dto/org-settings.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { contrastRatio, WCAG_AA_MIN_CONTRAST } from '../common/utils/contrast';
@@ -82,6 +83,40 @@ export class OrgSettingsService {
       return { success: true, userErrors: [], settings: this.toCommunicationSettings(row) };
     } catch (e: any) {
       return { success: false, userErrors: [{ message: e.message ?? 'Failed to update communication settings' }] };
+    }
+  }
+
+  // REQ024 (US-MSG-04).
+  private toClinicalHours(row: any) {
+    return {
+      clinical_hours_start: row.clinical_hours_start ?? undefined,
+      clinical_hours_end: row.clinical_hours_end ?? undefined,
+      clinical_hours_auto_reply_message: row.clinical_hours_auto_reply_message ?? undefined,
+    };
+  }
+
+  async myClinicalHours(user: JwtPayload) {
+    if (!user.client_org_id) return null;
+    const row = await this.prisma.clientOrganizations.findUnique({ where: { id: user.client_org_id } });
+    return row ? this.toClinicalHours(row) : null;
+  }
+
+  async updateMyClinicalHours(input: UpdateOrgClinicalHoursInput, user: JwtPayload) {
+    if (!user.client_org_id) {
+      return { success: false, userErrors: [{ message: NOT_LINKED_ERROR }] };
+    }
+    try {
+      const row = await this.prisma.clientOrganizations.update({
+        where: { id: user.client_org_id },
+        data: {
+          clinical_hours_start: input.clinical_hours_start,
+          clinical_hours_end: input.clinical_hours_end,
+          clinical_hours_auto_reply_message: input.clinical_hours_auto_reply_message,
+        },
+      });
+      return { success: true, userErrors: [], settings: this.toClinicalHours(row) };
+    } catch (e: any) {
+      return { success: false, userErrors: [{ message: e.message ?? 'Failed to update clinical hours' }] };
     }
   }
 

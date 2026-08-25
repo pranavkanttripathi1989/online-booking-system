@@ -157,7 +157,48 @@ export class MessagesService {
         action_url: `/messages/${threadId}`,
       });
     }
+
+    await this.maybeSendClinicalHoursAutoReply(thread, user);
+
     return this.toGraphQL(thread, user.sub, true);
+  }
+
+  // REQ024 (US-MSG-04) — an auto-reply on a patient<->clinic thread when a
+  // patient messages outside the org's configured clinical hours. Fires at
+  // most once per still-outside-hours "burst": if the thread's own most
+  // recent message before this one already IS an auto-reply, skip sending
+  // another (a patient sending several messages in a row overnight gets
+  // one notice, not one per message). Off by default -- all three fields
+  // (start/end/message) must be explicitly configured, and the thread
+  // needs a real assigned staff member to send "from" (no fabricated
+  // system sender identity — see PLAN093/REQ065's own precedent for why
+  // this codebase doesn't invent one).
+  private async maybeSendClinicalHoursAutoReply(thread: { id: string; thread_type: string; client_org_id: string; assigned_to_user_id: string | null } | null, user: JwtPayload) {
+    if (!thread || thread.thread_type !== 'patient_clinic' || !user.roles.includes('patient') || !thread.assigned_to_user_id) return;
+
+    const org = await this.prisma.clientOrganizations.findUnique({ where: { id: thread.client_org_id } });
+    if (!org?.clinical_hours_start || !org.clinical_hours_end || !org.clinical_hours_auto_reply_message) return;
+    if (this.notificationTrigger.isWithinQuietHours(org.clinical_hours_start, org.clinical_hours_end, new Date())) return;
+
+    const lastTwo = await this.prisma.messages.findMany({
+      where: { thread_id: thread.id },
+      orderBy: { sent_at: 'desc' },
+      take: 2,
+    });
+    // lastTwo[0] is the message sendMessage() just created above; [1] is
+    // whatever preceded it. An auto-reply from the assignee immediately
+    // before this patient message means one already went out this burst.
+    const alreadyReplied = lastTwo[1]?.from_id === thread.assigned_to_user_id;
+    if (alreadyReplied) return;
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.messages.create({ data: { thread_id: thread.id, from_id: thread.assigned_to_user_id as string, body: org.clinical_hours_auto_reply_message as string } });
+      await tx.messageThreads.update({ where: { id: thread.id }, data: { last_message: org.clinical_hours_auto_reply_message as string, last_activity: new Date() } });
+      await tx.messageParticipants.updateMany({
+        where: { thread_id: thread.id, user_id: { not: thread.assigned_to_user_id as string } },
+        data: { unread_count: { increment: 1 } },
+      });
+    });
   }
 
   async markThreadRead(threadId: string, user: JwtPayload) {
@@ -247,6 +288,20 @@ export class MessagesService {
     return [];
   }
 
+  // REQ024 (US-MSG-04) — a thread with any patient participant is
+  // patient_clinic (the "future, still-P1 story" this column's own
+  // comment names); everything else stays staff_internal, the pre-
+  // existing default. Derived from participant roles rather than an
+  // explicit caller-supplied thread_type input, since a caller has no
+  // reason to lie about who they're messaging and inferring it here means
+  // every existing createThread() call site keeps working unchanged.
+  private async inferThreadType(participantIds: string[]): Promise<string> {
+    const patientParticipant = await this.prisma.userProfiles.findFirst({
+      where: { id: { in: participantIds }, role: { name: 'patient' } },
+    });
+    return patientParticipant ? 'patient_clinic' : 'staff_internal';
+  }
+
   async createThread(input: CreateThreadInput, user: JwtPayload) {
     if (!input.participant_ids.includes(user.sub)) {
       input.participant_ids = [...input.participant_ids, user.sub];
@@ -285,6 +340,7 @@ export class MessagesService {
     }
     const scopedMemberIds = await this.resolveScopedMemberUserIds(departmentId, clinicId);
     const allParticipantIds = [...new Set([...input.participant_ids, ...scopedMemberIds])];
+    const threadType = await this.inferThreadType(allParticipantIds);
 
     const thread = await this.prisma.$transaction(async (tx) => {
       const created = await tx.messageThreads.create({
@@ -294,6 +350,7 @@ export class MessagesService {
           last_activity: new Date(),
           department_id: departmentId,
           clinic_id: clinicId,
+          thread_type: threadType,
         },
       });
       await tx.messageParticipants.createMany({

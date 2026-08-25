@@ -23,6 +23,21 @@ export class OrgCommunicationSettingsMutationResultType {
   @Field(() => OrgCommunicationSettingsType, { nullable: true }) settings?: OrgCommunicationSettingsType;
 }
 
+// REQ024 (US-MSG-04).
+@ObjectType('OrgClinicalHours')
+export class OrgClinicalHoursType {
+  @Field({ nullable: true }) clinical_hours_start?: string;
+  @Field({ nullable: true }) clinical_hours_end?: string;
+  @Field({ nullable: true }) clinical_hours_auto_reply_message?: string;
+}
+
+@ObjectType('OrgClinicalHoursMutationResult')
+export class OrgClinicalHoursMutationResultType {
+  @Field() success: boolean;
+  @Field(() => [OrgCommunicationSettingsUserErrorType]) userErrors: OrgCommunicationSettingsUserErrorType[];
+  @Field(() => OrgClinicalHoursType, { nullable: true }) settings?: OrgClinicalHoursType;
+}
+
 // admin/Policies.jsx "Booking Policies" tab -- No-Show Fee / Slot Buffer /
 // Max Reschedules / Retention only. See context/open-questions.md #7 for
 // why the Cancellation Policy/Late Fee sliders are deliberately not

@@ -11,6 +11,17 @@ export class UpdateOrgCommunicationSettingsInput {
   @Field({ nullable: true }) @IsOptional() @IsBoolean() email_include_branding?: boolean;
 }
 
+// REQ024 (US-MSG-04) — all three optional; the auto-responder in
+// messages.service.ts only fires once all three are set. Explicit null
+// clears a field back to "not configured" (matching session_timeout_minutes'
+// own nullable-clear convention below); omitted leaves it untouched.
+@InputType('UpdateOrgClinicalHoursInput')
+export class UpdateOrgClinicalHoursInput {
+  @Field({ nullable: true }) @IsOptional() @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'clinical_hours_start must be HH:MM' }) clinical_hours_start?: string;
+  @Field({ nullable: true }) @IsOptional() @Matches(/^([01]\d|2[0-3]):[0-5]\d$/, { message: 'clinical_hours_end must be HH:MM' }) clinical_hours_end?: string;
+  @Field({ nullable: true }) @IsOptional() @IsNotEmpty() clinical_hours_auto_reply_message?: string;
+}
+
 @InputType('UpdateOrgBookingPoliciesInput')
 export class UpdateOrgBookingPoliciesInput {
   @Field(() => Float, { nullable: true }) @IsOptional() @Min(0) no_show_fee?: number;

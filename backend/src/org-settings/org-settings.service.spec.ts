@@ -225,4 +225,71 @@ describe('OrgSettingsService', () => {
       expect(call.data.logo_url).toBeUndefined();
     });
   });
+
+  // REQ024 (US-MSG-04) — org-configured clinical hours driving
+  // messages.service.ts's own auto-responder.
+  describe('myClinicalHours / updateMyClinicalHours', () => {
+    it('returns null for a platform-wide caller with no org to scope to', async () => {
+      expect(await service.myClinicalHours(platformUser)).toBeNull();
+      expect(prisma.clientOrganizations.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('scopes strictly to the caller\'s own org id', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(orgRow({ clinical_hours_start: '09:00', clinical_hours_end: '18:00', clinical_hours_auto_reply_message: 'Closed.' }));
+      const result = await service.myClinicalHours(orgUser);
+      expect(prisma.clientOrganizations.findUnique).toHaveBeenCalledWith({ where: { id: 'org-a' } });
+      expect(result).toEqual({ clinical_hours_start: '09:00', clinical_hours_end: '18:00', clinical_hours_auto_reply_message: 'Closed.' });
+    });
+
+    it('returns undefined fields (not null) when clinical hours were never configured', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(orgRow({ clinical_hours_start: null, clinical_hours_end: null, clinical_hours_auto_reply_message: null }));
+      const result = await service.myClinicalHours(orgUser);
+      expect(result).toEqual({ clinical_hours_start: undefined, clinical_hours_end: undefined, clinical_hours_auto_reply_message: undefined });
+    });
+
+    it('rejects an org-less caller on update', async () => {
+      const result = await service.updateMyClinicalHours({ clinical_hours_start: '09:00' } as any, platformUser);
+      expect(result.success).toBe(false);
+      expect(prisma.clientOrganizations.update).not.toHaveBeenCalled();
+    });
+
+    it('updates all three fields for the caller\'s own org', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow({ clinical_hours_start: '21:00', clinical_hours_end: '08:00', clinical_hours_auto_reply_message: 'We reopen at 8am.' }));
+      const result = await service.updateMyClinicalHours(
+        { clinical_hours_start: '21:00', clinical_hours_end: '08:00', clinical_hours_auto_reply_message: 'We reopen at 8am.' } as any,
+        orgUser,
+      );
+      expect(prisma.clientOrganizations.update).toHaveBeenCalledWith({
+        where: { id: 'org-a' },
+        data: { clinical_hours_start: '21:00', clinical_hours_end: '08:00', clinical_hours_auto_reply_message: 'We reopen at 8am.' },
+      });
+      expect(result.success).toBe(true);
+      expect(result.settings?.clinical_hours_start).toBe('21:00');
+    });
+
+    // The partial-update convention this codebase uses throughout: explicit
+    // null clears a field, an omitted field leaves the stored value alone
+    // (see CLAUDE.md's own quiet-hours "Clear" button bug for why this
+    // distinction matters — silently dropped once already).
+    it('an explicit null clears a field', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow({ clinical_hours_start: null }));
+      await service.updateMyClinicalHours({ clinical_hours_start: null } as any, orgUser);
+      const call = prisma.clientOrganizations.update.mock.calls[0][0];
+      expect(call.data.clinical_hours_start).toBeNull();
+    });
+
+    it('omitting a field leaves it untouched', async () => {
+      prisma.clientOrganizations.update.mockResolvedValue(orgRow());
+      await service.updateMyClinicalHours({ clinical_hours_start: '09:00' } as any, orgUser);
+      const call = prisma.clientOrganizations.update.mock.calls[0][0];
+      expect(call.data.clinical_hours_end).toBeUndefined();
+      expect(call.data.clinical_hours_auto_reply_message).toBeUndefined();
+    });
+
+    it('returns a failure result rather than throwing when the update fails', async () => {
+      prisma.clientOrganizations.update.mockRejectedValue(new Error('db exploded'));
+      const result = await service.updateMyClinicalHours({ clinical_hours_start: '09:00' } as any, orgUser);
+      expect(result.success).toBe(false);
+    });
+  });
 });
