@@ -114,6 +114,34 @@ describe('MessagesService', () => {
         expect.objectContaining({ where: { user_id: 'user-me' } }),
       );
     });
+
+    // F-15 (project-plans/02-findings-register.md) — toGraphQL()'s own
+    // participantsFor() call used to issue one messageParticipants.findMany
+    // PER thread. For a caller with N threads, threads() must now issue a
+    // bounded number of calls regardless of N, not one per thread.
+    it('batches every thread\'s participants into one query, not one per thread', async () => {
+      const thread2 = { id: 'thread-2', client_org_id: 'org-a', last_message: 'hey', last_activity: new Date() };
+      prisma.messageParticipants.findMany
+        .mockResolvedValueOnce([
+          { thread_id: 'thread-1', user_id: 'user-me', thread: thread1 },
+          { thread_id: 'thread-2', user_id: 'user-me', thread: thread2 },
+        ])
+        .mockResolvedValueOnce([
+          participantRow('user-me'),
+          { ...participantRow('user-other'), thread_id: 'thread-2' },
+        ]);
+      prisma.messageParticipants.findUnique.mockResolvedValue(participantRow('user-me'));
+
+      const result = await service.threads(meUser);
+
+      // Exactly 2 calls total: the caller's own participations, then one
+      // batched query for every thread's participants -- never N+1.
+      expect(prisma.messageParticipants.findMany).toHaveBeenCalledTimes(2);
+      expect(prisma.messageParticipants.findMany).toHaveBeenNthCalledWith(2,
+        expect.objectContaining({ where: { thread_id: { in: ['thread-1', 'thread-2'] } } }),
+      );
+      expect(result).toHaveLength(2);
+    });
   });
 
   describe('thread — cross-user access rejected (self-scoping equivalent)', () => {

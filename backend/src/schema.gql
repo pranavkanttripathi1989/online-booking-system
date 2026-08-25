@@ -1696,6 +1696,7 @@ type NotificationProviderOption {
 
 input OrderTestInput {
   patient: String!
+  patient_id: String!
   testType: String!
 }
 

@@ -19,11 +19,14 @@ export class MessagesService {
     private readonly departmentsService: DepartmentsService,
   ) {}
 
-  private async participantsFor(threadId: string) {
-    const rows = await this.prisma.messageParticipants.findMany({
-      where: { thread_id: threadId },
-      include: { user: { include: { userProfiles: { include: { role: true } } } } },
-    });
+  // F-15 (project-plans/02-findings-register.md) — the `preloaded` param
+  // lets threads() (below) batch every thread's participants into ONE
+  // query up front and pass the pre-fetched rows in, instead of this
+  // method issuing its own messageParticipants.findMany per thread (an
+  // N+1 for a caller with N threads). thread()/sendMessage() call this
+  // with no preloaded map and keep their existing single-query behaviour
+  // unchanged — batching only matters when listing many threads at once.
+  private mapParticipantRows(rows: any[]) {
     return rows
       .filter((r) => r.user.userProfiles)
       .map((r) => ({
@@ -33,6 +36,14 @@ export class MessagesService {
       }));
   }
 
+  private async participantsFor(threadId: string, preloaded?: Map<string, any[]>) {
+    const rows = preloaded?.get(threadId) ?? await this.prisma.messageParticipants.findMany({
+      where: { thread_id: threadId },
+      include: { user: { include: { userProfiles: { include: { role: true } } } } },
+    });
+    return this.mapParticipantRows(rows);
+  }
+
   private async assigneeFor(assignedToUserId: string | null) {
     if (!assignedToUserId) return undefined;
     const row = await this.prisma.userProfiles.findUnique({ where: { id: assignedToUserId }, include: { role: true } });
@@ -40,11 +51,17 @@ export class MessagesService {
     return { id: row.id, name: `${row.first_name} ${row.last_name}`, role: row.role.name };
   }
 
-  private async toGraphQL(thread: any, currentUserId: string, includeMessages: boolean) {
-    const participants = await this.participantsFor(thread.id);
-    const myParticipant = await this.prisma.messageParticipants.findUnique({
-      where: { thread_id_user_id: { thread_id: thread.id, user_id: currentUserId } },
-    });
+  private async toGraphQL(thread: any, currentUserId: string, includeMessages: boolean, preloadedParticipants?: Map<string, any[]>) {
+    const participants = await this.participantsFor(thread.id, preloadedParticipants);
+    // Same preload reuse for unread_count -- the caller's own participant
+    // row for this thread is already inside the preloaded rows, no need
+    // for a second per-thread findUnique when threads() has provided one.
+    const preloadedRows = preloadedParticipants?.get(thread.id);
+    const myParticipant = preloadedRows
+      ? preloadedRows.find((r: any) => r.user_id === currentUserId)
+      : await this.prisma.messageParticipants.findUnique({
+          where: { thread_id_user_id: { thread_id: thread.id, user_id: currentUserId } },
+        });
     const result: any = {
       id: thread.id,
       participants,
@@ -114,7 +131,21 @@ export class MessagesService {
       include: { thread: true },
       orderBy: { thread: { last_activity: 'desc' } },
     });
-    return Promise.all(participations.map((p) => this.toGraphQL(p.thread, user.sub, false)));
+    // F-15 — one query for every thread's participants instead of one
+    // per thread (participantsFor()'s own default behaviour).
+    const threadIds = participations.map((p) => p.thread_id);
+    const allParticipantRows = threadIds.length
+      ? await this.prisma.messageParticipants.findMany({
+          where: { thread_id: { in: threadIds } },
+          include: { user: { include: { userProfiles: { include: { role: true } } } } },
+        })
+      : [];
+    const byThread = new Map<string, any[]>();
+    for (const row of allParticipantRows) {
+      if (!byThread.has(row.thread_id)) byThread.set(row.thread_id, []);
+      byThread.get(row.thread_id)!.push(row);
+    }
+    return Promise.all(participations.map((p) => this.toGraphQL(p.thread, user.sub, false, byThread)));
   }
 
   async thread(id: string, user: JwtPayload) {
