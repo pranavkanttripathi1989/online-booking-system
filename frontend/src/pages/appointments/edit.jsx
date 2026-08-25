@@ -6,7 +6,7 @@ import { useSnackbar } from 'notistack'
 import dayjs from 'dayjs'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import {
-  Box, Button, CircularProgress, Grid, IconButton, MenuItem,
+  Alert, Box, Button, CircularProgress, Grid, IconButton, MenuItem,
   Paper, Skeleton, Stack, TextField, Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
@@ -17,7 +17,16 @@ import { UPDATE_APPOINTMENT_MUTATION }  from '../../graphql/mutations'
 import { APPOINTMENT_DETAIL_QUERY, CLINICIANS_QUERY, ROOMS_QUERY } from '../../graphql/queries'
 import * as MockStore from '../../mocks/store'
 
-const STATUS_OPTIONS = ['pending','confirmed','cancelled','completed','no_show']
+// Found live while verifying B-2 (project-plans/08-integration-gap-analysis.md):
+// missing 'scheduled' — a real, valid status (AppointmentUpdateInput's own
+// @IsIn list, backend/src/appointments/dto/appointment.input.ts) and the
+// default status a freshly-created appointment actually has. Editing any
+// appointment still in that state hit MUI's "out-of-range value" Select
+// warning and, from there, the Save button stopped registering clicks
+// (confirmed live: notes typed correctly, but nothing ever reached the
+// updateAppointment mutation) — a real, previously-shipped defect, not
+// something this fix introduced.
+const STATUS_OPTIONS = ['scheduled','pending','confirmed','cancelled','completed','no_show']
 
 export default function EditAppointmentPage() {
   const { id }   = useParams()
@@ -25,22 +34,38 @@ export default function EditAppointmentPage() {
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm]     = useState(null)
 
-  const { data, loading: fetching } = useQuery(APPOINTMENT_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
-  const { data: cliniciansData }    = useQuery(CLINICIANS_QUERY, { variables: { first: 100, is_active: true } })
-  const { data: roomsData }         = useQuery(ROOMS_QUERY)
-  const clinicians = cliniciansData?.clinicians?.data?.length
-    ? cliniciansData.clinicians.data
-    : MockStore.getClinicians()
-  const rooms = roomsData?.rooms?.length
-    ? roomsData.rooms
-    : MockStore.getAppointments().reduce((acc, a) => {
+  // BUG022's sibling finding (B-2, project-plans/08-integration-gap-analysis.md):
+  // these three fallbacks all used `.length`/`??` truthy checks, the same
+  // anti-pattern already fixed twice elsewhere in this codebase
+  // (appointments/index.jsx, calendar/index.jsx) — they substituted
+  // fabricated MockStore data on a genuine EMPTY result, not just a real
+  // query error, and `data?.appointment ?? MockStore...` additionally
+  // masked a real fetch error entirely (this page never even read `error`
+  // off the appointment query before this fix). Gated on `error` only,
+  // matching the established convention.
+  const { data, loading: fetching, error } = useQuery(APPOINTMENT_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
+  // A genuinely nonexistent/deleted appointment id comes back from the real
+  // backend as a GraphQL error (appointments.service.ts's own
+  // NotFoundException), not a successful `{appointment: null}` result —
+  // distinguished from a real connectivity/server error so it gets the
+  // real not-found state below instead of a MockStore fallback masking a
+  // "this record is genuinely gone" response as a degraded-but-working page.
+  const isNotFound = error?.graphQLErrors?.[0]?.message === 'Appointment not found'
+  const { data: cliniciansData, error: cliniciansError } = useQuery(CLINICIANS_QUERY, { variables: { first: 100, is_active: true } })
+  const { data: roomsData, error: roomsError }           = useQuery(ROOMS_QUERY)
+  const clinicians = cliniciansError
+    ? MockStore.getClinicians()
+    : (cliniciansData?.clinicians?.data ?? [])
+  const rooms = roomsError
+    ? MockStore.getAppointments().reduce((acc, a) => {
         if (a.room && !acc.find(r => r.id === a.room.id)) acc.push(a.room)
         return acc
       }, [])
+    : (roomsData?.rooms ?? [])
 
   useEffect(() => {
-    // Use GraphQL data first, fallback to MockStore when backend is offline
-    const a = data?.appointment ?? MockStore.getAppointmentById(id)
+    if (isNotFound) return
+    const a = error ? MockStore.getAppointmentById(id) : data?.appointment
     if (!a) return
     setForm({
       status:       a.status ?? 'pending',
@@ -51,39 +76,42 @@ export default function EditAppointmentPage() {
       notes:        a.notes         ?? '',
       cancellation_reason: a.cancellation_reason ?? '',
     })
-  }, [data, id])
+  }, [data, error, isNotFound, id])
 
   const [updateAppointment, { loading }] = useMutation(UPDATE_APPOINTMENT_MUTATION, {
     onCompleted: () => {
       enqueueSnackbar('Appointment updated successfully', { variant: 'success' })
       navigate(`/appointments/${id}`)
     },
+    // A save that never reached the real backend must never look like it
+    // succeeded — the prior "mock mode" branch here silently wrote the
+    // edit into an in-memory MockStore record, showed a success toast, and
+    // navigated away as if the change were persisted, when nothing was
+    // actually saved. A real failure is always a real failure.
     onError: (err) => {
-      // If the backend is offline (network error), simulate a successful save using MockStore
-      const isNetworkError = err.networkError || err.message?.toLowerCase().includes('network')
-      if (isNetworkError) {
-        // Optimistically update the in-memory mock record
-        const existing = MockStore.getAppointmentById(id)
-        if (existing) {
-          Object.assign(existing, {
-            status:         form.status,
-            start_datetime: form.start ? form.start.toISOString() : existing.start_datetime,
-            end_datetime:   form.end   ? form.end.toISOString()   : existing.end_datetime,
-            clinician:      form.clinician_id
-              ? MockStore.getClinicians().find(c => c.id === form.clinician_id) ?? existing.clinician
-              : existing.clinician,
-            notes: form.notes ?? existing.notes,
-          })
-        }
-        enqueueSnackbar('Appointment updated successfully (mock mode)', { variant: 'success' })
-        navigate(`/appointments/${id}`)
-      } else {
-        enqueueSnackbar(err.message, { variant: 'error' })
-      }
+      enqueueSnackbar(err.message, { variant: 'error' })
     },
   })
 
-  if (fetching || !form) return (
+  if (fetching) return (
+    <Box><Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
+      <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 3 }} /></Box>
+  )
+
+  // A genuinely nonexistent/deleted appointment — either a real backend
+  // NotFoundException (isNotFound) or, in principle, a successful query
+  // that simply returns a null appointment — previously left `form` stuck
+  // at null forever, rendering the loading skeleton indefinitely instead
+  // of a real not-found state.
+  if (isNotFound || (!error && data && !data.appointment)) return (
+    <Alert severity="warning" action={
+      <Button color="inherit" size="small" onClick={() => navigate('/appointments')}>Back to Appointments</Button>
+    }>
+      This appointment could not be found.
+    </Alert>
+  )
+
+  if (!form) return (
     <Box><Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
       <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 3 }} /></Box>
   )
@@ -99,13 +127,23 @@ export default function EditAppointmentPage() {
       return
     }
 
+    // BUG022's sibling finding (B-2), found live while verifying this same
+    // slice: AppointmentUpdateInput (backend/src/appointments/dto/
+    // appointment.input.ts) has no end_datetime field at all — sending one
+    // rejects the ENTIRE mutation with a GraphQL variable-coercion error
+    // before it ever reaches the resolver ("Field \"end_datetime\" is not
+    // defined by type \"AppointmentUpdateInput\""), unconditionally, since
+    // form.end is always populated from the loaded appointment. This page's
+    // Save button has never actually worked. End time isn't independently
+    // editable on the backend (it's derived from start_datetime + the
+    // service's own duration) — the End Date & Time field stays visible as
+    // read-only context, not sent in the update.
     updateAppointment({
       variables: {
         id,
         input: {
           status:       form.status,
           start_datetime: form.start ? form.start.toISOString() : undefined,
-          end_datetime:   form.end   ? form.end.toISOString()   : undefined,
           clinician_id:   form.clinician_id || undefined,
           room_id:        form.room_id       || undefined,
           notes:          form.notes         || undefined,
@@ -115,7 +153,7 @@ export default function EditAppointmentPage() {
     })
   }
 
-  const apt = data?.appointment ?? MockStore.getAppointmentById(id)
+  const apt = error ? MockStore.getAppointmentById(id) : data?.appointment
   return (
     <Box className="page-enter">
       <Helmet><title>Edit Appointment — MediBook</title></Helmet>
@@ -158,13 +196,12 @@ export default function EditAppointmentPage() {
                   slotProps={{ textField: { fullWidth: true, sx: { '& .MuiOutlinedInput-root': { borderRadius: 2 } } } }} />
               </Grid>
               <Grid item xs={12} sm={6}>
-                <DateTimePicker label="End Date & Time" value={form.end}
-                  onChange={(v) => setForm(f => ({ ...f, end: v }))}
+                <DateTimePicker label="End Date & Time" value={form.end} disabled
                   slotProps={{
                     textField: {
                       fullWidth: true,
                       error: !!endBeforeStart,
-                      helperText: endBeforeStart ? 'End time must be after start time' : '',
+                      helperText: endBeforeStart ? 'End time must be after start time' : 'Set automatically from the service duration',
                       sx: { '& .MuiOutlinedInput-root': { borderRadius: 2 } },
                     }
                   }} />
