@@ -785,6 +785,91 @@ still qualifies). **The lesson**: a gate's exemption list is only as
 current as the last time someone re-read the file it exempts — verifying
 it is part of running the gate, not an optional extra step.
 
+### Phase G+4 — eight more P1-residue slices shipped 2026-08-25, closing the
+"pick 8 of them" continuation of the Phase G-series batching pattern
+
+Picked from the three items this session's own prior fix (`REQ065`,
+dependant self-scoping) left as the standing backlog, cross-checked
+against `REQ016`/`REQ022`/`REQ024`/`REQ025`/`REQ027`/`REQ031`/`REQ034`'s
+own already-logged P1 residue. Same selection criterion as every prior
+G-series pass — additive, isolated, no new external vendor integration —
+and, like Phase G+2/G+3, all 8 written before one consolidated
+verification pass at the end.
+
+| Requirement | What shipped | Deliberately NOT built |
+|---|---|---|
+| `REQ066` (catalog-master-data, `US-CAT-05`) | Price-change audit log (`PriceHistory`) with an optional deferred `effective_from`, applied by a new hourly `PriceHistorySweepService` | — |
+| `REQ067` (pharmacy, `US-PHR-09`) | `nearExpiryBatches`/`lowStockDrugs` queries, `Drugs.reorder_level`, a daily `LowStockSweepService` (once-per-recipient-per-day dedup) | — |
+| `REQ068` (insurance-claims, `US-INS-02`) | `PayerTariffs` master data, Hard-Rule-6-validated | Wiring into `resolveServicePrice()` — a genuine, logged, deferred design question (where a payer tariff ranks against branch/category overrides) |
+| `REQ069` (notifications, `US-NOT-05`) | `NotificationSendLog` now logs every attempted send (not just successes) with `status`/`error_message`; `notificationDeliveryAnalytics` query; the daily frequency cap now only counts successful sends | — |
+| `REQ070` (messaging, `US-MSG-04`) | Clinical-hours auto-responder — at most once per burst, from a real assigned staff member, no fabricated sender | — |
+| `REQ071` (messaging, `US-MSG-05`) | Message-thread events on `patientTimeline()` | — |
+| `REQ072` (patient-portal, `US-PAT-01`) | Internal booking wizard's Step 4 shows a "Myself"/dependant picker for a `'patient'`-role caller | A live browser pass — no browser-automation tool was available this session, logged honestly in `TR125`, not silently skipped |
+| `REQ073` (compliance-dpdp, `US-DPDP-06`) | `RetentionPolicies` + a daily `RetentionPurgeService`, soft-delete only | Enforcement for `clinical_records`/`consents`/`messages` — each has its own real, distinct blocker (see `REQ073`'s own account); only `test_results` is enforced |
+
+See `PLAN093`–`PLAN100`/`TP120`–`TP127`/`TR119`–`TR126` and each
+`context/<feature>-2026-08-25-reqXXX/manifest.md` bundle for full detail.
+
+**A scope swap mid-batch, worth internalizing**: the slice originally
+planned as an org-level notification sender-identity setting
+(`whatsapp_sender_name`/`sms_sender_id` on `ClientOrganizations`) was
+found redundant during research — every registered SMS/WhatsApp provider
+(`msg91`, `gupshup`, `gupshup_whatsapp`, `twilio`) already requires its
+own sender-identity field as part of its stored credentials (`REQ008`'s
+own registry). The schema fields and wiring were added, then fully
+reverted via a corrective follow-up migration, and the slice was
+rescoped to `REQ068` (payer tariffs) before any of the reverted code was
+tested or committed. Recorded here because it's a real example of
+research reshaping a batch's own scope mid-flight, the same discipline
+`REQ055`/`REQ057` used in Phase G+3 — not something to redo if this
+sender-identity gap is ever revisited; it's genuinely already closed via
+the per-provider credential fields.
+
+**One real, adjacent bug found and fixed while extending `REQ071`, not
+originally scoped**: `encounters.service.ts#assertPatientAccess()`'s
+patient-role branch used a strict own-`patient_id` equality check — the
+exact bug class `REQ065` closed the same day for
+`prescriptions`/`test-results`. Found by reading the method in full
+before extending `patientTimeline()`, fixed the identical way
+(`PatientsService.ownAndDependantPatientIds`).
+
+**One real, pre-existing test broke as a direct, correct consequence of
+`REQ070`'s own change, not a regression to chase**: `createThread`'s
+`thread_type` field (from the earlier `REQ058`) went from
+sometimes-`undefined` to always-a-real-value once `REQ070`'s own
+`inferThreadType()` call became unconditional. One pre-existing test's
+exact-object assertion on the `messageThreads.create` call broke as a
+result — fixed by loosening it to `objectContaining`, the same pattern
+every other assertion in that describe block already used.
+
+Full verification for the batch: backend unit **84 suites / 1293
+tests**, integration **4 suites / 369 tests**, `eslint`/`tsc --noEmit`
+clean throughout — all run once, at the end, after all 8 slices' code
+was written (matching Phase G+2's own precedent that this doesn't
+sacrifice rigor: 3 new real defects still surfaced at the test-writing
+stage, see above). Frontend: lint/unit/build all green for `REQ072`'s
+own change; the 4 frontend test suites that failed in a full parallel run
+(`settings/index.test.jsx`, `patients/detail.test.jsx`,
+`EncounterWorkspace.test.jsx`, `booking/index.test.jsx`) were confirmed
+pre-existing, resource-contention timeout flakiness unrelated to this
+batch — none import the touched file, and 3 of 4 pass cleanly in
+isolation.
+
+Live verification against the real dev stack for every backend slice
+except the purge sweep's own cron trigger (mocked-Prisma unit coverage
+only, deliberately, for an automated data-destruction job): immediate
+and deferred price changes on the shared "GP Consultation" fixture (both
+reverted via direct SQL afterward); `nearExpiryBatches` against a real
+seeded Paracetamol batch; `setPayerTariff`/`payerTariffs` against the
+real "E2E Star Health" payer (left in place, inert); a full clinical-
+hours auto-responder round trip — real thread, real assignment, a real
+auto-reply outside the configured window, burst suppression confirmed on
+a second message, config reverted via explicit `null`; `patientTimeline`
+confirmed returning a real `message_thread` event after temp-linking a
+demo account to a real `Patients` row (reverted after); `setRetentionPolicy`/
+`retentionPolicies` against the real dev DB (left in place, inert — 7
+years retention has no effect on data this young).
+
 ### What Phase F did NOT close — read before assuming coverage
 
 - **Tenancy matrix now covers 31 tenant-scoped domains plus 12 honestly-EXEMPT

@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN100 | improvement | Retention policies and an automated purge sweep | done | 2026-08-25 | 2026-08-25 | REQ073 | [PLAN100-compliance-dpdp-2026-08-25-retention-policies-and-purge.md](./improvement/PLAN100-compliance-dpdp-2026-08-25-retention-policies-and-purge.md) |
 
 ## bug
 

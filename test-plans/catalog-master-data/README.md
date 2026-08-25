@@ -11,6 +11,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP120 | improvement | Price-change audit log with optional deferred effective date | approved | 2026-08-25 | 2026-08-25 | PLAN093 | [TP120-catalog-master-data-2026-08-25-price-change-audit-log.md](./improvement/TP120-catalog-master-data-2026-08-25-price-change-audit-log.md) |
 | TP104 | improvement | Multi-sitting service packages verification | approved | 2026-08-25 | 2026-08-25 | PLAN077 | [TP104-catalog-master-data-2026-08-25-service-packages.md](./improvement/TP104-catalog-master-data-2026-08-25-service-packages.md) |
 | TP074 | improvement | Drug master reference table verification | approved | 2026-08-23 | 2026-08-23 | REQ044 | [TP074-catalog-master-data-2026-08-23-drug-master-verification.md](./improvement/TP074-catalog-master-data-2026-08-23-drug-master-verification.md) |
 

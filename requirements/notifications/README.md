@@ -10,7 +10,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ069 | improvement | Notification delivery analytics | done | 2026-08-25 | 2026-08-25 | REQ025 | [REQ069-notifications-2026-08-25-delivery-analytics.md](./improvement/REQ069-notifications-2026-08-25-delivery-analytics.md) |
 
 ## bug
 

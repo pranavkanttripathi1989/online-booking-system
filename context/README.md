@@ -4,6 +4,14 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| compliance-dpdp-2026-08-25-req073 | compliance-dpdp | 2026-08-25 | REQ073, PLAN100, TP127, TR126 | done | [manifest.md](./compliance-dpdp-2026-08-25-req073/manifest.md) |
+| patient-portal-2026-08-25-req072 | patient-portal | 2026-08-25 | REQ072, PLAN099, TP126, TR125 | done | [manifest.md](./patient-portal-2026-08-25-req072/manifest.md) |
+| messaging-2026-08-25-req071 | messaging | 2026-08-25 | REQ071, PLAN098, TP125, TR124 | done | [manifest.md](./messaging-2026-08-25-req071/manifest.md) |
+| messaging-2026-08-25-req070 | messaging | 2026-08-25 | REQ070, PLAN097, TP124, TR123 | done | [manifest.md](./messaging-2026-08-25-req070/manifest.md) |
+| notifications-2026-08-25-req069 | notifications | 2026-08-25 | REQ069, PLAN096, TP123, TR122 | done | [manifest.md](./notifications-2026-08-25-req069/manifest.md) |
+| insurance-claims-2026-08-25-req068 | insurance-claims | 2026-08-25 | REQ068, PLAN095, TP122, TR121 | done | [manifest.md](./insurance-claims-2026-08-25-req068/manifest.md) |
+| pharmacy-2026-08-25-req067 | pharmacy | 2026-08-25 | REQ067, PLAN094, TP121, TR120 | done | [manifest.md](./pharmacy-2026-08-25-req067/manifest.md) |
+| catalog-master-data-2026-08-25-req066 | catalog-master-data | 2026-08-25 | REQ066, PLAN093, TP120, TR119 | done | [manifest.md](./catalog-master-data-2026-08-25-req066/manifest.md) |
 | platform-integrations-2026-08-25-req064 | platform-integrations | 2026-08-25 | REQ064, PLAN091, TP118, TR117 | done | [manifest.md](./platform-integrations-2026-08-25-req064/manifest.md) |
 | platform-integrations-2026-08-25-req063 | platform-integrations | 2026-08-25 | REQ063, PLAN090, TP117, TR116 | done | [manifest.md](./platform-integrations-2026-08-25-req063/manifest.md) |
 | insurance-claims-2026-08-25-req062 | insurance-claims | 2026-08-25 | REQ062, PLAN089, TP116, TR115 | done | [manifest.md](./insurance-claims-2026-08-25-req062/manifest.md) |

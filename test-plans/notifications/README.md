@@ -11,7 +11,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP123 | improvement | Notification delivery analytics | approved | 2026-08-25 | 2026-08-25 | PLAN096 | [TP123-notifications-2026-08-25-delivery-analytics.md](./improvement/TP123-notifications-2026-08-25-delivery-analytics.md) |
 
 ## bug
 

@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN099 | improvement | Booking wizard "who is this for" patient/dependant picker | done | 2026-08-25 | 2026-08-25 | REQ072 | [PLAN099-patient-portal-2026-08-25-booking-wizard-dependant-picker.md](./improvement/PLAN099-patient-portal-2026-08-25-booking-wizard-dependant-picker.md) |
 | PLAN080 | improvement | Downloadable PDFs for prescriptions, invoices, and visit summaries | done | 2026-08-25 | 2026-08-25 | REQ057 | [PLAN080-patient-portal-2026-08-25-downloadable-record-pdfs.md](./improvement/PLAN080-patient-portal-2026-08-25-downloadable-record-pdfs.md) |
 
 ## bug

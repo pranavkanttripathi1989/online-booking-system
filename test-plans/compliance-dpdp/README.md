@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP127 | improvement | Retention policies and an automated purge sweep | approved | 2026-08-25 | 2026-08-25 | PLAN100 | [TP127-compliance-dpdp-2026-08-25-retention-policies-and-purge.md](./improvement/TP127-compliance-dpdp-2026-08-25-retention-policies-and-purge.md) |
 
 ## bug
 

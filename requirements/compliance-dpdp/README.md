@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ073 | improvement | Retention policies and an automated purge sweep | done | 2026-08-25 | 2026-08-25 | REQ034 | [REQ073-compliance-dpdp-2026-08-25-retention-policies-and-purge.md](./improvement/REQ073-compliance-dpdp-2026-08-25-retention-policies-and-purge.md) |
 
 ## bug
 

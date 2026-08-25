@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN095 | improvement | Payer tariffs | done | 2026-08-25 | 2026-08-25 | REQ068 | [PLAN095-insurance-claims-2026-08-25-payer-tariffs.md](./improvement/PLAN095-insurance-claims-2026-08-25-payer-tariffs.md) |
 | PLAN089 | improvement | Patient insurance policy capture UI | done | 2026-08-25 | 2026-08-25 | REQ062 | [PLAN089-insurance-claims-2026-08-25-patient-policy-capture-ui.md](./improvement/PLAN089-insurance-claims-2026-08-25-patient-policy-capture-ui.md) |
 
 ## bug

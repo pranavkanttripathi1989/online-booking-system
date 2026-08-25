@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ072 | improvement | Booking wizard "who is this for" patient/dependant picker | done | 2026-08-25 | 2026-08-25 | REQ027 | [REQ072-patient-portal-2026-08-25-booking-wizard-dependant-picker.md](./improvement/REQ072-patient-portal-2026-08-25-booking-wizard-dependant-picker.md) |
 | REQ057 | improvement | Downloadable PDFs for prescriptions, invoices, and visit summaries | in-progress | 2026-08-25 | 2026-08-25 | REQ027 | [REQ057-patient-portal-2026-08-25-downloadable-record-pdfs.md](./improvement/REQ057-patient-portal-2026-08-25-downloadable-record-pdfs.md) |
 
 ## bug
