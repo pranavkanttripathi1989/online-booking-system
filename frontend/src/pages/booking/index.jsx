@@ -102,6 +102,17 @@ const SESSION_AVAILABILITY_QUERY = gql`
   }
 `;
 
+// REQ105 — best-effort, UX-level origin check for an embedded ?widget=
+// link. Not a security boundary (the real one would be a server-set
+// X-Frame-Options/CSP frame-ancestors header, out of scope for this
+// slice) — this only avoids a confusing broken-looking booking flow when
+// a widget is loaded somewhere it was never allowlisted for.
+const VALIDATE_BOOKING_WIDGET_EMBED = gql`
+  query ValidateBookingWidgetEmbed($slug: String!, $origin: String!) {
+    validateBookingWidgetEmbed(slug: $slug, origin: $origin)
+  }
+`;
+
 // Named bookPatientAppointment (not createAppointment) deliberately -- this
 // page's camelCase input shape (clinicianId/productId/variationId/patientDetails)
 // collides with the canonical snake_case createAppointment/AppointmentInput
@@ -401,6 +412,24 @@ export default function BookingWizard() {
     skip: !clinicianId || !bookingData.date || activeStep !== 0 || !isSessionDay,
     fetchPolicy: 'network-only',
   });
+
+  // REQ105 — only relevant when actually iframed with a ?widget= slug.
+  // document.referrer is empty for a direct visit (not embedded) and can
+  // also be empty inside a real iframe if the parent page sets a strict
+  // referrer-policy — that's a known, accepted limitation (skip, don't
+  // block) rather than a false-positive rejection.
+  const widgetSlug = searchParams.get('widget');
+  const isEmbedded = typeof window !== 'undefined' && window.self !== window.top;
+  const embedOrigin = useMemo(() => {
+    if (!document.referrer) return null;
+    try { return new URL(document.referrer).origin; } catch { return null; }
+  }, []);
+  const { data: embedValidation, loading: embedValidationLoading } = useQuery(VALIDATE_BOOKING_WIDGET_EMBED, {
+    variables: { slug: widgetSlug, origin: embedOrigin },
+    skip: !isEmbedded || !widgetSlug || !embedOrigin,
+  });
+  const embedBlocked = isEmbedded && widgetSlug && embedOrigin && !embedValidationLoading
+    && embedValidation?.validateBookingWidgetEmbed === false;
 
   const handleNext = () => setActiveStep((prev) => prev + 1);
   const handleBack = () => setActiveStep((prev) => prev - 1);
@@ -731,6 +760,14 @@ export default function BookingWizard() {
       <Box p={4} maxWidth="sm" mx="auto" textAlign="center">
         <Alert severity="warning" sx={{ mb: 3 }}>No doctor selected. Please choose a doctor to book an appointment with.</Alert>
         <Button variant="contained" onClick={() => navigate('/')}>Find a Doctor</Button>
+      </Box>
+    );
+  }
+
+  if (embedBlocked) {
+    return (
+      <Box p={4}>
+        <Alert severity="error">This booking widget is not authorized to be embedded on this site.</Alert>
       </Box>
     );
   }

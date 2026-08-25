@@ -28,9 +28,16 @@ const MY_NOTIFICATION_PREFERENCES_QUERY = gql`query MyNotificationPreferences { 
 const GET_ORG_BRANDING = gql`query MyOrgBranding { myOrgBranding { name logo_url primary_color secondary_color } }`
 const GET_INTEGRATIONS = gql`
   query GetIntegrations {
-    bookingWidgetConfigs { id allowed_origins short_link_slug is_active }
+    bookingWidgetConfigs { id allowed_origins short_link_slug is_active clinic { id } }
     webhookEndpoints { id url event_types is_active }
     apiKeys { id key_prefix name is_active last_used_at }
+  }
+`
+const EMBED_CLINICIANS_QUERY = gql`
+  query EmbedClinicians($clinic_id: ID, $first: Int = 100) {
+    clinicians(clinic_id: $clinic_id, first: $first) {
+      data { id first_name last_name }
+    }
   }
 `
 const GET_WEBHOOK_DELIVERY_LOG = gql`
@@ -112,7 +119,7 @@ describe('settings/index.jsx — webhook delivery log (A-8)', () => {
 
 describe('settings/index.jsx — booking widget edit (A-9)', () => {
   it('edits an existing widget\'s allowed origins via the real updateBookingWidgetConfig mutation, without a new slug', async () => {
-    const widget = { __typename: 'BookingWidgetConfig', id: WIDGET_ID, allowed_origins: ['https://old-clinic.com'], short_link_slug: 'abc123', is_active: true }
+    const widget = { __typename: 'BookingWidgetConfig', id: WIDGET_ID, allowed_origins: ['https://old-clinic.com'], short_link_slug: 'abc123', is_active: true, clinic: null }
     renderPage([
       ...baseMocks({ widgetConfigs: [widget] }),
       {
@@ -134,4 +141,28 @@ describe('settings/index.jsx — booking widget edit (A-9)', () => {
     await waitFor(() => expect(screen.getByText('https://new-clinic.com')).toBeInTheDocument())
     expect(screen.getByText('abc123')).toBeInTheDocument()
   }, 20000)
+})
+
+describe('settings/index.jsx — booking widget Embed Code (REQ105)', () => {
+  it('generates a copyable iframe snippet for a chosen clinician', async () => {
+    const widget = { __typename: 'BookingWidgetConfig', id: WIDGET_ID, allowed_origins: ['https://old-clinic.com'], short_link_slug: 'abc123', is_active: true, clinic: null }
+    renderPage([
+      ...baseMocks({ widgetConfigs: [widget] }),
+      {
+        request: { query: EMBED_CLINICIANS_QUERY, variables: { clinic_id: undefined, first: 100 } },
+        result: { data: { clinicians: { data: [{ __typename: 'Clinician', id: 'clin-1', first_name: 'Sarah', last_name: 'Mitchell' }] } } },
+      },
+    ])
+
+    await waitFor(() => expect(screen.getByText('https://old-clinic.com')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: /Embed Code/i }))
+
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByLabelText('Clinician'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Sarah Mitchell' }))
+
+    const snippetField = within(dialog).getByLabelText('Embed snippet')
+    expect(snippetField.value).toContain('doctor=clin-1')
+    expect(snippetField.value).toContain('widget=abc123')
+  })
 })

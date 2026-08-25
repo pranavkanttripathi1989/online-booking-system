@@ -20,6 +20,8 @@ import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import DevicesRoundedIcon from '@mui/icons-material/DevicesRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import CodeRoundedIcon from '@mui/icons-material/CodeRounded'
+import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import { useAuth } from '../../context/AuthContext'
 
 function TabPanel({ value, index, children }) {
@@ -128,7 +130,7 @@ const UPDATE_ORG_BRANDING = gql`
 // ─── REQ018/REQ030/REQ015 — Integrations tab (booking widget, webhooks, API keys) ──
 const GET_INTEGRATIONS = gql`
   query GetIntegrations {
-    bookingWidgetConfigs { id allowed_origins short_link_slug is_active }
+    bookingWidgetConfigs { id allowed_origins short_link_slug is_active clinic { id } }
     webhookEndpoints { id url event_types is_active }
     apiKeys { id key_prefix name is_active last_used_at }
   }
@@ -148,6 +150,16 @@ const DEACTIVATE_BOOKING_WIDGET = gql`
 const UPDATE_BOOKING_WIDGET = gql`
   mutation UpdateBookingWidgetConfig($id: ID!, $input: BookingWidgetConfigInput!) {
     updateBookingWidgetConfig(id: $id, input: $input) { success userErrors { message } config { id allowed_origins short_link_slug } }
+  }
+`
+// REQ105 — Embed Code dialog's clinician picker. Deliberately a lightweight
+// inline query (id + name only) rather than the full CLINICIAN_FIELDS
+// fragment CLINICIANS_QUERY pulls — this dialog only needs a name list.
+const EMBED_CLINICIANS_QUERY = gql`
+  query EmbedClinicians($clinic_id: ID, $first: Int = 100) {
+    clinicians(clinic_id: $clinic_id, first: $first) {
+      data { id first_name last_name }
+    }
   }
 `
 const CREATE_WEBHOOK_ENDPOINT = gql`
@@ -385,6 +397,35 @@ export default function SettingsPage() {
     try { await client.mutate({ mutation: DEACTIVATE_BOOKING_WIDGET, variables: { id } }); loadIntegrations() }
     catch (err) { setIntegrationsError(err.message) }
   }
+  // REQ105 — Embed Code dialog
+  const [embedWidget, setEmbedWidget] = useState(null)
+  const [embedClinicians, setEmbedClinicians] = useState([])
+  const [embedClinicianId, setEmbedClinicianId] = useState('')
+  const [embedCopied, setEmbedCopied] = useState(false)
+  const openEmbedCode = async (w) => {
+    setEmbedWidget(w)
+    setEmbedClinicianId('')
+    setEmbedCopied(false)
+    try {
+      const { data } = await client.query({
+        query: EMBED_CLINICIANS_QUERY,
+        variables: { clinic_id: w.clinic?.id || undefined },
+        fetchPolicy: 'network-only',
+      })
+      setEmbedClinicians(data?.clinicians?.data ?? [])
+    } catch (err) { setEmbedClinicians([]) }
+  }
+  const embedSnippet = embedWidget && embedClinicianId
+    ? `<iframe src="${window.location.origin}/appointments/book?doctor=${embedClinicianId}&widget=${embedWidget.short_link_slug}" width="100%" height="800" style="border:none" title="Book an appointment"></iframe>`
+    : ''
+  const copyEmbedSnippet = async () => {
+    try {
+      await navigator.clipboard.writeText(embedSnippet)
+      setEmbedCopied(true)
+      setTimeout(() => setEmbedCopied(false), 2000)
+    } catch (err) { /* clipboard unavailable — the snippet is still visible to copy manually */ }
+  }
+
   const [editingWidget, setEditingWidget] = useState(null) // { id, allowed_origins } or null
   const [editWidgetOrigins, setEditWidgetOrigins] = useState('')
   const openEditWidget = (w) => { setEditingWidget(w); setEditWidgetOrigins((w.allowed_origins ?? []).join(', ')) }
@@ -1259,6 +1300,7 @@ export default function SettingsPage() {
                           <TableCell>
                             {w.is_active && (
                               <Stack direction="row" spacing={1}>
+                                <Button size="small" startIcon={<CodeRoundedIcon fontSize="small" />} onClick={() => openEmbedCode(w)}>Embed Code</Button>
                                 <Button size="small" onClick={() => openEditWidget(w)}>Edit</Button>
                                 <Button size="small" color="error" onClick={() => deactivateWidget(w.id)}>Deactivate</Button>
                               </Stack>
@@ -1409,6 +1451,45 @@ export default function SettingsPage() {
         <DialogActions>
           <Button onClick={() => setEditingWidget(null)}>Cancel</Button>
           <Button variant="contained" disabled={integrationsSubmitting} onClick={submitEditWidget}>Save</Button>
+        </DialogActions>
+      </Dialog>
+      {/* REQ105 — embed snippet for a chosen clinician at this widget's config */}
+      <Dialog open={Boolean(embedWidget)} onClose={() => setEmbedWidget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle fontWeight={700}>Embed Code</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+            Pick which clinician this embed should book for, then copy the snippet into your site.
+          </Typography>
+          <TextField
+            select fullWidth label="Clinician" value={embedClinicianId}
+            onChange={(e) => setEmbedClinicianId(e.target.value)}
+            sx={{ mb: 2, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+          >
+            {embedClinicians.length === 0 && <MenuItem value="" disabled>No clinicians found</MenuItem>}
+            {embedClinicians.map((c) => (
+              <MenuItem key={c.id} value={c.id}>{c.first_name} {c.last_name}</MenuItem>
+            ))}
+          </TextField>
+          {embedSnippet && (
+            <>
+              <TextField
+                fullWidth multiline rows={3} label="Embed snippet" value={embedSnippet}
+                InputProps={{ readOnly: true, sx: { fontFamily: 'monospace', fontSize: '0.8rem' } }}
+                sx={{ mb: 1 }}
+              />
+              <Stack direction="row" spacing={1.5} alignItems="center">
+                <Button size="small" startIcon={<ContentCopyRoundedIcon fontSize="small" />} onClick={copyEmbedSnippet}>
+                  {embedCopied ? 'Copied!' : 'Copy'}
+                </Button>
+                <Button size="small" component="a" href={`/appointments/book?doctor=${embedClinicianId}&widget=${embedWidget?.short_link_slug}`} target="_blank" rel="noreferrer">
+                  Preview
+                </Button>
+              </Stack>
+            </>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEmbedWidget(null)}>Close</Button>
         </DialogActions>
       </Dialog>
       {/* A-8 — webhook delivery log */}
