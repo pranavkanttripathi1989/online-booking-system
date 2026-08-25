@@ -1214,7 +1214,16 @@ is fixed (`BUG011`). Both closed 2026-08-23.
    to exactly their own `patient_id`, not their dependants' too — real,
    separate, security-sensitive follow-on work per domain, not a single
    mechanical find-and-replace (get the query wrong in any one of them and
-   it's a cross-patient PHI leak).
+   it's a cross-patient PHI leak). **Two of the three closed 2026-08-25**
+   (`REQ065`/`PLAN092`/`TP119`/`TR118`) — `prescriptions` and
+   `test-results` both now widen via the same
+   `PatientsService.ownAndDependantPatientIds()` helper, live-verified
+   over real GraphQL, not just the mocked-Prisma suite. `messages` turned
+   out not to be a like-for-like gap: `MessageThreads`/`Messages` have no
+   `patient_id` column at all, and a dependant has no login account to be
+   a `MessageParticipants.user_id` under — reclassified as
+   `context/open-questions.md` #16, a genuine product/schema decision,
+   not a bug fix.
 4. **`REQ032`** — not started; see the Phase G section above.
 
 Also unproven: **the CI workflow has never executed on GitHub.** The first push
