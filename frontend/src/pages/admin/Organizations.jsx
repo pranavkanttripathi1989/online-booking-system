@@ -10,7 +10,9 @@ import AddIcon from '@mui/icons-material/Add';
 import EditIcon from '@mui/icons-material/Edit';
 import DeleteIcon from '@mui/icons-material/Delete';
 import BusinessIcon from '@mui/icons-material/Business';
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong';
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog';
+import { formatDate, formatCurrency } from '../../utils/dateTime';
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 
@@ -27,6 +29,20 @@ const GET_ORGS = gql`
         address { line1 line2 city state pincode country }
       }
       pageInfo { total limit offset hasNextPage hasPreviousPage }
+    }
+  }
+`;
+// Read-back for OrganizationSubscriptions/SubscriptionPlans — these tables
+// already existed (written once during self-serve onboarding) but nothing
+// ever read them back until now. Most real orgs today have none at all
+// (admin-created orgs never go through the onboarding wizard) — a null
+// result here is a real, expected state, not an error.
+const GET_ORG_SUBSCRIPTION = gql`
+  query GetOrgSubscription($orgId: ID!) {
+    organizationSubscription(orgId: $orgId) {
+      id plan_name status billing_cycle
+      current_period_start current_period_end
+      price_monthly price_yearly max_clinics max_users
     }
   }
 `;
@@ -63,6 +79,11 @@ export default function AdminOrganizations() {
   const [formError, setFormError]     = useState(null);
   const [successMsg, setSuccessMsg]   = useState(null);
   const [submitting, setSubmitting]   = useState(false);
+  const [subOpen, setSubOpen]         = useState(false);
+  const [subOrgName, setSubOrgName]   = useState('');
+  const [subLoading, setSubLoading]   = useState(false);
+  const [subData, setSubData]         = useState(undefined); // undefined = not yet loaded, null = confirmed no subscription
+  const [subError, setSubError]       = useState(null);
 
   const load = async (searchVal = search) => {
     setLoading(true);
@@ -123,6 +144,22 @@ export default function AdminOrganizations() {
       setDialogOpen(false); load();
     } catch (err) { setFormError(err.message); }
     finally { setSubmitting(false); }
+  };
+
+  const openSubscription = async (org) => {
+    setSubOrgName(org.name);
+    setSubData(undefined);
+    setSubError(null);
+    setSubOpen(true);
+    setSubLoading(true);
+    try {
+      const { data } = await client.query({ query: GET_ORG_SUBSCRIPTION, variables: { orgId: org.id }, fetchPolicy: 'network-only' });
+      setSubData(data?.organizationSubscription ?? null);
+    } catch (err) {
+      setSubError(err.message);
+    } finally {
+      setSubLoading(false);
+    }
   };
 
   const confirmDelete = async () => {
@@ -217,6 +254,7 @@ export default function AdminOrganizations() {
                   </TableCell>
                   <TableCell>
                     <Stack direction="row" spacing={0.5}>
+                      <IconButton size="small" onClick={() => openSubscription(org)} title="View subscription"><ReceiptLongIcon fontSize="small" /></IconButton>
                       <IconButton size="small" onClick={() => openEdit(org)}><EditIcon fontSize="small" /></IconButton>
                       <IconButton size="small" color="error" onClick={() => { setDeletingId(org.id); setConfirmOpen(true); }}><DeleteIcon fontSize="small" /></IconButton>
                     </Stack>
@@ -258,6 +296,43 @@ export default function AdminOrganizations() {
       </Dialog>
 
       <ConfirmDialog isOpen={confirmOpen} title="Delete Organization" message="Delete this organization? All associated data may be affected. This cannot be undone." onConfirm={confirmDelete} onCancel={() => { setConfirmOpen(false); setDeletingId(null); }} />
+
+      {/* Subscription view — read-only, see GET_ORG_SUBSCRIPTION above for
+          why most real orgs today will show the empty state. */}
+      <Dialog open={subOpen} onClose={() => setSubOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={700}>Subscription — {subOrgName}</DialogTitle>
+        <DialogContent dividers>
+          {subLoading && <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>}
+          {!subLoading && subError && <Alert severity="error">{subError}</Alert>}
+          {!subLoading && !subError && subData === null && (
+            <Box sx={{ textAlign: 'center', py: 3 }}>
+              <ReceiptLongIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
+              <Typography color="text.secondary">No subscription on file for this organization.</Typography>
+            </Box>
+          )}
+          {!subLoading && !subError && subData && (
+            <Stack spacing={1.5}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center">
+                <Typography variant="body1" fontWeight={700}>{subData.plan_name}</Typography>
+                <Chip
+                  label={subData.status} size="small" sx={{ textTransform: 'capitalize', fontWeight: 700,
+                    bgcolor: subData.status === 'active' ? '#D1FAE5' : subData.status === 'trial' ? '#DBEAFE' : '#FEE2E2',
+                    color: subData.status === 'active' ? '#065F46' : subData.status === 'trial' ? '#1E40AF' : '#991B1B' }}
+                />
+              </Stack>
+              <Divider />
+              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Billing cycle</Typography><Typography variant="body2" sx={{ textTransform: 'capitalize' }}>{subData.billing_cycle}</Typography></Stack>
+              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Price</Typography><Typography variant="body2">{formatCurrency(subData.billing_cycle === 'yearly' ? subData.price_yearly : subData.price_monthly)} / {subData.billing_cycle === 'yearly' ? 'yr' : 'mo'}</Typography></Stack>
+              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Current period</Typography><Typography variant="body2">{formatDate(subData.current_period_start)} – {formatDate(subData.current_period_end)}</Typography></Stack>
+              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">Clinic limit</Typography><Typography variant="body2">{subData.max_clinics}</Typography></Stack>
+              <Stack direction="row" justifyContent="space-between"><Typography variant="body2" color="text.secondary">User limit</Typography><Typography variant="body2">{subData.max_users}</Typography></Stack>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setSubOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 }
