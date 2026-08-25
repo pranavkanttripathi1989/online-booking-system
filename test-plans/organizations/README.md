@@ -15,6 +15,7 @@
 | TP073 | improvement | Head-office branch designation verification | approved | 2026-08-23 | 2026-08-23 | REQ041 | [TP073-organizations-2026-08-23-head-office-branch-verification.md](./improvement/TP073-organizations-2026-08-23-head-office-branch-verification.md) |
 | TP105 | improvement | Org->branch masters cascade | approved | 2026-08-25 | 2026-08-25 | PLAN078 | [TP105-organizations-2026-08-25-branch-masters-cascade.md](./improvement/TP105-organizations-2026-08-25-branch-masters-cascade.md) |
 | TP137 | improvement | Subscription read-back visibility | approved | 2026-08-26 | 2026-08-26 | PLAN110 | [TP137-organizations-2026-08-26-subscription-visibility.md](./improvement/TP137-organizations-2026-08-26-subscription-visibility.md) |
+| TP162 | improvement | Branch-override admin UI | approved | 2026-08-26 | 2026-08-26 | PLAN151 | [TP162-organizations-2026-08-26-branch-override-admin-ui.md](./improvement/TP162-organizations-2026-08-26-branch-override-admin-ui.md) |
 
 ## bug
 
