@@ -38,6 +38,10 @@ const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; a
   new_review: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
   payment_received: { email_enabled: true, sms_enabled: true, app_enabled: true, whatsapp_enabled: true },
   system_announcement: { email_enabled: true, sms_enabled: false, app_enabled: false, whatsapp_enabled: false },
+  // REQ053 (US-SEC-05) — an admin/manager alerted about a break-glass
+  // request needs to actually see it; app+email, no SMS/WhatsApp for an
+  // internal ops alert.
+  break_glass_requested: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
 };
 
 // US-NOT-04's own acceptance criterion names "an imminent appointment

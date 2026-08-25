@@ -98,6 +98,27 @@ describe('PackagesService', () => {
       expect(result.success).toBe(false);
     });
 
+    // createProduct never accepts a clinic_id — every real product is an
+    // org-level master (clinic_id: null). A strict clinic_id equality
+    // check rejected every real product in this codebase (live-confirmed
+    // via e2e), so a null clinic_id must be accepted, gated on org instead.
+    it('accepts an org-level master product (clinic_id: null) belonging to the same org', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicA);
+      prisma.products.findMany.mockResolvedValue([{ id: 'prod-master', clinic_id: null, client_org_id: 'org-a' }]);
+      prisma.packages.create.mockResolvedValue({ id: 'pkg-a1' });
+      prisma.packages.findUnique.mockResolvedValue(pkgRow);
+      const result = await service.create({ clinic_id: 'clinic-a', name: 'x', total_sittings: 10, price: 100, product_ids: ['prod-master'] }, orgAUser);
+      expect(result.success).toBe(true);
+    });
+
+    it('rejects an org-level master product belonging to a different org', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicA);
+      prisma.products.findMany.mockResolvedValue([{ id: 'prod-master', clinic_id: null, client_org_id: 'org-b' }]);
+      const result = await service.create({ clinic_id: 'clinic-a', name: 'x', total_sittings: 10, price: 100, product_ids: ['prod-master'] }, orgAUser);
+      expect(result.success).toBe(false);
+      expect(prisma.packages.create).not.toHaveBeenCalled();
+    });
+
     it('creates a package with its items in one transaction, converting rupees to paise', async () => {
       prisma.clinics.findUnique.mockResolvedValue(clinicA);
       prisma.products.findMany.mockResolvedValue([{ id: 'prod-1', clinic_id: 'clinic-a' }]);

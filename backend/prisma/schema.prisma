@@ -82,6 +82,13 @@ enum NotificationEventType {
   new_review
   payment_received
   system_announcement
+  // REQ053 (US-SEC-05) — break-glass.service.ts's request() already called
+  // dispatch(admin.id, 'break_glass_requested', ...) without this value
+  // ever existing here; Prisma's runtime enum validation rejected every
+  // such call, throwing out of the awaited Promise.all and failing the
+  // entire requestBreakGlassAccess mutation for orgs with any admin/
+  // manager to notify. Found live via a real e2e run, not a code review.
+  break_glass_requested
 }
 
 enum NotificationPriority {

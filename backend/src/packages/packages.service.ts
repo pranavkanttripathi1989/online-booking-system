@@ -90,8 +90,18 @@ export class PackagesService {
       return { success: false, userErrors: [{ message: 'This clinic has no organization to anchor the package to' }] };
     }
 
+    // createProduct never accepts a clinic_id (products.resolver.ts) — every
+    // real product is an org-level master (clinic_id: null), the same
+    // convention REQ055's branch-overrides feature already established
+    // (available at every branch unless overridden). A strict clinic_id
+    // equality check rejected every real product a package could ever be
+    // built from; a null clinic_id is valid too, gated on the SAME org
+    // instead (clinic_id alone doesn't imply org — a master product has no
+    // clinic to derive one from).
     const products = await this.prisma.products.findMany({ where: { id: { in: input.product_ids } } });
-    const invalidProduct = products.length !== input.product_ids.length || products.some((p) => p.clinic_id !== input.clinic_id);
+    const invalidProduct =
+      products.length !== input.product_ids.length ||
+      products.some((p) => (p.clinic_id === null ? p.client_org_id !== clinic.client_org_id : p.clinic_id !== input.clinic_id));
     if (invalidProduct) {
       return { success: false, userErrors: [{ message: 'One or more products do not belong to this clinic' }] };
     }
