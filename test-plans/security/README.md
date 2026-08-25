@@ -16,5 +16,7 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP111 | bug | Test plan for the new reset-password page | approved | 2026-08-25 | 2026-08-25 | PLAN084 | [TP111-security-2026-08-25-add-reset-password-page.md](./bug/TP111-security-2026-08-25-add-reset-password-page.md) |
 

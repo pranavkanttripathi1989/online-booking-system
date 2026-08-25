@@ -54,6 +54,20 @@ recorded below so they don't get re-discovered.
 ## A. Backend created, frontend not there or not integrated
 
 ### A-1 · S2 · `auth.resetPassword` — the password-reset flow has no second step
+
+**Fixed 2026-08-25 — `BUG022`/`PLAN084`/`TP111`/`TR110`,
+`context/security-2026-08-25-bug022/manifest.md`.** New
+`pages/auth/reset-password.jsx` (token from the URL query string —
+confirmed the delivery mechanism is a `[EMAIL STUB]` console-log token,
+no real AWS SES send exists yet, a pre-existing separate gap) + a new
+`/reset-password` route under the same `AuthLayout` block `/login`/
+`/forgot-password` already use. Verified end-to-end against the real
+backend (new `frontend/e2e/reset-password.spec.js`, 3/3): a real
+`forgotPassword` call, the real token read straight from the backend's
+own stub log, a real `resetPassword` completion, and a real subsequent
+login proving the new password was actually persisted (and the old one
+rejected) — not just a UI success message.
+
 **Backend:** `backend/src/auth/auth.resolver.ts:116` — `resetPassword(input:
 ResetPasswordInput!)`, consumes a reset token + sets a new password. Real,
 tested (`auth.resolver.spec.ts`/`auth.service.spec.ts`).
@@ -365,7 +379,10 @@ order:
    `platform-nfr` as suggested below — this fix turned out scoped
    entirely to one pre-existing page's own defect, not a follow-on to a
    just-shipped cross-cutting backend batch the way B-2 still is.
-2. **A-1** (password reset) — S2, a broken core-auth flow.
+2. **A-1** (password reset) — S2, a broken core-auth flow. **Done
+   2026-08-25** — see the status note under A-1 above. The §C CLAUDE.md
+   correction was folded into this same slice's docs commit, per §C's own
+   note.
 3. **B-2** (appointments/edit.jsx mock fallback) — S2, a real live-data
    bug, small fix.
 4. **A-2/A-3** (drugs + pharmacy dispense/history) — S2, closes REQ022's
@@ -373,8 +390,9 @@ order:
 5. **A-4 through A-8** — S3, smaller additive UI slices, can be batched
    the way Phase G+1/G+2/G+3 batched similarly-scoped work.
 6. **A-9, A-10** — S4, opportunistic, low urgency.
-7. **§C** — a one-line CLAUDE.md correction, folded into whichever slice
-   above touches CLAUDE.md next.
+7. **§C** — a one-line CLAUDE.md correction. **Done 2026-08-25**, folded
+   into the A-1 slice's docs commit (the next slice that touched
+   CLAUDE.md after this document was written).
 
 Each slice gets its own `REQ`/`PLAN`/`TP`/`TR` under the feature slug
 matching its domain (`security` for A-1, `pharmacy` for A-2/A-3,

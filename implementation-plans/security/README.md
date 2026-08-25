@@ -16,5 +16,7 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN084 | bug | Add the missing `reset-password` page | done | 2026-08-25 | 2026-08-25 | BUG022 | [PLAN084-security-2026-08-25-add-reset-password-page.md](./bug/PLAN084-security-2026-08-25-add-reset-password-page.md) |
 

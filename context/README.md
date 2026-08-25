@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| security-2026-08-25-bug022 | security | 2026-08-25 | BUG022, PLAN084, TP111, TR110 | done | [manifest.md](./security-2026-08-25-bug022/manifest.md) |
 | clinician-dashboard-2026-08-25-bug021 | clinician-dashboard | 2026-08-25 | BUG021, PLAN083, TP110, TR109 | done | [manifest.md](./clinician-dashboard-2026-08-25-bug021/manifest.md) |
 | platform-nfr-2026-08-25-phase-g3-frontend-completion | platform-nfr | 2026-08-25 | PLAN082, TP109, TR108 | done | [manifest.md](./platform-nfr-2026-08-25-phase-g3-frontend-completion/manifest.md) |
 | messaging-2026-08-25-req058 | messaging | 2026-08-25 | REQ058, PLAN081, TP108, TR107 | done | [manifest.md](./messaging-2026-08-25-req058/manifest.md) |

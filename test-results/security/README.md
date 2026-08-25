@@ -16,5 +16,7 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR110 | bug | Results for the new reset-password page | pass | 2026-08-25 | 2026-08-25 | TP111 | [TR110-security-2026-08-25-add-reset-password-page.md](./bug/TR110-security-2026-08-25-add-reset-password-page.md) |
 

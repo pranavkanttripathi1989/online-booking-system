@@ -25,7 +25,7 @@
 | notifications | 3 | 0 | 0 | 1 | 2 | 2026-08-23 | [notifications](./notifications/README.md) |
 | organization-branding | 1 | 0 | 0 | 1 | 0 | 2026-08-21 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 1 | 0 | 2026-08-21 | [products](./products/README.md) |
-| security | 3 | 1 | 0 | 1 | 3 | 2026-08-25 | [security](./security/README.md) |
+| security | 3 | 1 | 1 | 1 | 4 | 2026-08-25 | [security](./security/README.md) |
 | settings | 3 | 0 | 0 | 2 | 1 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 1 | 1 | 0 | 1 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | patient-payments | 4 | 2 | 0 | 2 | 4 | 2026-08-25 | [patient-payments](./patient-payments/README.md) |
