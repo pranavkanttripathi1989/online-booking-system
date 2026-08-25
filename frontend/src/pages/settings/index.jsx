@@ -81,6 +81,21 @@ const MY_SESSIONS_QUERY = gql`
 const REVOKE_MY_SESSION = gql`
   mutation RevokeMySession($id: String!) { revokeMySession(id: $id) { success message } }
 `
+// REQ053 (US-SEC-05) — self-service, immediately-granted emergency access.
+// No admin-review query exists on the backend (myBreakGlassGrants is
+// strictly self-scoped) — this is a "my own grants" list, not an oversight
+// page. revokeBreakGlassAccess is manager+-gated server-side.
+const MY_BREAK_GLASS_GRANTS_QUERY = gql`
+  query MyBreakGlassGrants { myBreakGlassGrants { id reason granted_at expires_at revoked_at is_active } }
+`
+const REQUEST_BREAK_GLASS_ACCESS = gql`
+  mutation RequestBreakGlassAccess($input: RequestBreakGlassAccessInput!) {
+    requestBreakGlassAccess(input: $input) { success userErrors { message } grant { id expires_at } }
+  }
+`
+const REVOKE_BREAK_GLASS_ACCESS = gql`
+  mutation RevokeBreakGlassAccess($id: ID!) { revokeBreakGlassAccess(id: $id) { success userErrors { message } } }
+`
 const DEACTIVATE_MY_ACCOUNT = gql`
   mutation DeactivateMyAccount { deactivateMyAccount { success message } }
 `
@@ -161,7 +176,7 @@ const REQUEST_DATA_RIGHTS = gql`
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const { user, updateUser, logout } = useAuth()
+  const { user, updateUser, logout, hasRole } = useAuth()
   const client = useApolloClient()
   const navigate = useNavigate()
   const location = useLocation()
@@ -202,6 +217,15 @@ export default function SettingsPage() {
   // doesn't retain its own refresh_token to identify "this" session), so
   // they're dropped from the UI entirely rather than shown as fake data.
   const [sessions, setSessions] = useState([])
+
+  // REQ053 (US-SEC-05) — Emergency Access (break-glass). Self-service
+  // request + the caller's own grant history only — myBreakGlassGrants has
+  // no org-wide review query, so there is no "review all pending" surface.
+  const [breakGlassGrants, setBreakGlassGrants] = useState([])
+  const [breakGlassDialogOpen, setBreakGlassDialogOpen] = useState(false)
+  const [breakGlassReason, setBreakGlassReason] = useState('')
+  const [requestingBreakGlass, setRequestingBreakGlass] = useState(false)
+  const [breakGlassError, setBreakGlassError] = useState(null)
 
   // 2FA (TOTP) — PLAN016 Slice C: real enrollment against startTotpEnrollment/
   // confirmTotpEnrollment/disableTotp, seeded from myProfile.totp_enabled.
@@ -601,6 +625,43 @@ export default function SettingsPage() {
     } catch (err) { setProfileError(err.message) }
   }
 
+  // REQ053 (US-SEC-05) — loaded independently of loadAccountTabs' own
+  // Promise.all rather than folded in, so a break-glass query failure can
+  // never block the rest of the Account & Security tab from loading.
+  const loadBreakGlassGrants = async () => {
+    try {
+      const { data } = await client.query({ query: MY_BREAK_GLASS_GRANTS_QUERY, fetchPolicy: 'network-only' })
+      setBreakGlassGrants(data?.myBreakGlassGrants ?? [])
+    } catch { /* non-fatal — the rest of the tab still works */ }
+  }
+  useEffect(() => { loadBreakGlassGrants() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleRequestBreakGlass = async () => {
+    setBreakGlassError(null); setRequestingBreakGlass(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: REQUEST_BREAK_GLASS_ACCESS,
+        variables: { input: { reason: breakGlassReason } },
+      })
+      const result = data?.requestBreakGlassAccess
+      if (!result?.success) throw new Error(result?.userErrors?.[0]?.message ?? 'Failed to request emergency access')
+      setBreakGlassDialogOpen(false)
+      setBreakGlassReason('')
+      await loadBreakGlassGrants()
+    } catch (err) { setBreakGlassError(err.message) }
+    finally { setRequestingBreakGlass(false) }
+  }
+
+  const handleRevokeBreakGlass = async (id) => {
+    try {
+      const { data } = await client.mutate({ mutation: REVOKE_BREAK_GLASS_ACCESS, variables: { id } })
+      if (!data?.revokeBreakGlassAccess?.success) {
+        throw new Error(data?.revokeBreakGlassAccess?.userErrors?.[0]?.message ?? 'Failed to revoke access')
+      }
+      await loadBreakGlassGrants()
+    } catch (err) { setBreakGlassError(err.message) }
+  }
+
   // REQ012/PLAN021 Slice 3 — myDataExport returns null when the org hasn't
   // enabled patient data export OR this account has no linked Patients row
   // (both real, distinct states the backend deliberately collapses into one
@@ -837,6 +898,46 @@ export default function SettingsPage() {
                     </Paper>
                   ))}
                   {sessions.length === 0 && <Typography variant="body2" color="text.secondary">No active sessions.</Typography>}
+                </Stack>
+              </Box>
+              <Divider />
+              {/* REQ053 (US-SEC-05) — Emergency Access (break-glass) */}
+              <Box>
+                <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}><SecurityRoundedIcon sx={{ fontSize: '1.1rem', color: '#D93025' }} /> Emergency Access</Typography>
+                <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+                  Emergency access grants temporary elevated permissions for urgent situations. Every request and use is logged.
+                </Typography>
+                {breakGlassError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setBreakGlassError(null)}>{breakGlassError}</Alert>}
+                <Button variant="outlined" color="error" onClick={() => setBreakGlassDialogOpen(true)}
+                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, mb: 2 }}>
+                  Request Emergency Access
+                </Button>
+                <Stack spacing={1.5}>
+                  {breakGlassGrants.map((g) => {
+                    const isExpired = !g.revoked_at && new Date(g.expires_at) < new Date()
+                    const statusLabel = g.revoked_at ? 'Revoked' : (g.is_active ? 'Active' : (isExpired ? 'Expired' : 'Inactive'))
+                    const statusColor = g.is_active ? 'success' : (g.revoked_at ? 'default' : 'default')
+                    return (
+                      <Paper key={g.id} variant="outlined" sx={{ p: 2, borderRadius: 2.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+                        <Box>
+                          <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 0.5 }}>
+                            <Chip size="small" label={statusLabel} color={statusColor} sx={{ fontWeight: 700, height: 20, fontSize: '0.68rem' }} />
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Expires {new Date(g.expires_at).toLocaleString()}
+                            </Typography>
+                          </Stack>
+                          <Typography variant="body2">{g.reason}</Typography>
+                        </Box>
+                        {g.is_active && (hasRole('manager') || hasRole('admin') || hasRole('super_admin')) && (
+                          <Button size="small" color="error" variant="outlined" onClick={() => handleRevokeBreakGlass(g.id)}
+                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                            Revoke now
+                          </Button>
+                        )}
+                      </Paper>
+                    )
+                  })}
+                  {breakGlassGrants.length === 0 && <Typography variant="body2" color="text.secondary">No emergency access grants.</Typography>}
                 </Stack>
               </Box>
               {isPatient && (
@@ -1239,6 +1340,26 @@ export default function SettingsPage() {
         </Box>
       </Paper>
       {/* SUG-SET-004: Deactivate Account confirmation dialog */}
+      {/* REQ053 (US-SEC-05) — Emergency Access request: self-service, immediately granted */}
+      <Dialog open={breakGlassDialogOpen} onClose={() => { setBreakGlassDialogOpen(false); setBreakGlassError(null) }} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={700} sx={{ color: '#D93025' }}>Request Emergency Access</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+            Describe the urgent situation requiring elevated access. This is granted immediately and logged.
+          </Typography>
+          {breakGlassError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setBreakGlassError(null)}>{breakGlassError}</Alert>}
+          <TextField fullWidth multiline rows={3} label="Reason" value={breakGlassReason}
+            onChange={(e) => setBreakGlassReason(e.target.value)}
+            sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => { setBreakGlassDialogOpen(false); setBreakGlassError(null) }} disabled={requestingBreakGlass}>Cancel</Button>
+          <Button variant="contained" color="error" disabled={requestingBreakGlass || !breakGlassReason.trim()}
+            onClick={handleRequestBreakGlass}
+          >{requestingBreakGlass ? 'Requesting…' : 'Request Access'}</Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog open={deactivateOpen} onClose={() => setDeactivateOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle fontWeight={700} sx={{ color: '#D93025' }}>Deactivate Account?</DialogTitle>
         <DialogContent>

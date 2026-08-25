@@ -8,7 +8,10 @@ const ME_RESULT = { me: { id: 'u-1', name: 'Ada Manager', email: 'manager@medibo
 // A minimal consumer so this exercises the real context/provider wiring, not
 // a reach into React internals.
 function Probe() {
-  const { user, token, isAuthenticated, isLoading, login, logout, hasRole, hasPermission } = useAuth()
+  const {
+    user, token, isAuthenticated, isLoading, login, logout, hasRole, hasPermission,
+    isImpersonating, startImpersonating, endImpersonating,
+  } = useAuth()
   return (
     <div>
       <div data-testid="isAuthenticated">{String(isAuthenticated)}</div>
@@ -17,6 +20,7 @@ function Probe() {
       <div data-testid="token">{token ?? 'none'}</div>
       <div data-testid="hasRoleManager">{String(hasRole('manager'))}</div>
       <div data-testid="hasPermissionEdit">{String(hasPermission('appointments.edit'))}</div>
+      <div data-testid="isImpersonating">{String(isImpersonating)}</div>
       <button onClick={() => login('real-jwt', { email: 'manager@medibook.dev', roles: [{ name: 'manager' }], permissions: [{ name: 'appointments.edit' }] })}>
         login-remember
       </button>
@@ -31,6 +35,9 @@ function Probe() {
         login-with-1min-timeout
       </button>
       <button onClick={() => logout()}>logout</button>
+      {/* REQ053/Phase G+3 — admin impersonation */}
+      <button onClick={() => startImpersonating('impersonation-jwt')}>start-impersonating</button>
+      <button onClick={() => endImpersonating()}>end-impersonating</button>
     </div>
   )
 }
@@ -204,5 +211,74 @@ describe('AuthProvider — idle-timeout auto-logout (REQ012/PLAN021)', () => {
     // 90s of wall time has passed but activity at 45s reset the 60s timer,
     // so only 45s has elapsed since the reset — still authenticated.
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true')
+  })
+})
+
+// REQ053/Phase G+3 — admin impersonation. The caller (e.g. admin/users/
+// index.jsx) mints the access_token via the StartImpersonation mutation
+// itself; this context only owns the client-side token-swap/restore.
+describe('AuthProvider — impersonation', () => {
+  afterEach(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
+
+  it('starts logged out (isImpersonating false) with no stashed session', () => {
+    renderProbe()
+    expect(screen.getByTestId('isImpersonating')).toHaveTextContent('false')
+  })
+
+  it('startImpersonating stashes the real session and swaps in the impersonation token', () => {
+    renderProbe()
+    fireEvent.click(screen.getByText('login-remember'))
+    expect(localStorage.getItem('medibook_token')).toBe('real-jwt')
+
+    fireEvent.click(screen.getByText('start-impersonating'))
+
+    expect(screen.getByTestId('isImpersonating')).toHaveTextContent('true')
+    // The impersonation token always lands in localStorage — apollo/
+    // client.js's auth link only ever reads it from there, regardless of
+    // which storage the real admin's own session was using.
+    expect(localStorage.getItem('medibook_token')).toBe('impersonation-jwt')
+    // The real session is stashed in sessionStorage, distinct from the
+    // live medibook_token/medibook_user keys.
+    expect(sessionStorage.getItem('medibook_pre_impersonation_token')).toBe('real-jwt')
+  })
+
+  it('endImpersonating restores the real session and clears the impersonation flag', () => {
+    renderProbe()
+    fireEvent.click(screen.getByText('login-remember'))
+    fireEvent.click(screen.getByText('start-impersonating'))
+    expect(screen.getByTestId('isImpersonating')).toHaveTextContent('true')
+
+    fireEvent.click(screen.getByText('end-impersonating'))
+
+    expect(screen.getByTestId('isImpersonating')).toHaveTextContent('false')
+    expect(localStorage.getItem('medibook_token')).toBe('real-jwt')
+    expect(sessionStorage.getItem('medibook_pre_impersonation_token')).toBeNull()
+  })
+
+  it('a session-only (rememberMe=false) real login is restored to sessionStorage, not localStorage, on end', () => {
+    renderProbe()
+    fireEvent.click(screen.getByText('login-session-only'))
+    expect(sessionStorage.getItem('medibook_token')).toBe('real-jwt')
+
+    fireEvent.click(screen.getByText('start-impersonating'))
+    expect(localStorage.getItem('medibook_token')).toBe('impersonation-jwt')
+    expect(sessionStorage.getItem('medibook_token')).toBeNull()
+
+    fireEvent.click(screen.getByText('end-impersonating'))
+    expect(sessionStorage.getItem('medibook_token')).toBe('real-jwt')
+    expect(localStorage.getItem('medibook_token')).toBeNull()
+  })
+
+  it('endImpersonating with no stashed session falls back to a clean logout', () => {
+    renderProbe()
+    // No login(), no startImpersonating() first — a stray call with nothing
+    // stashed (e.g. storage cleared mid-session) must not leave a dangling
+    // session, matching the real implementation's own documented fallback.
+    fireEvent.click(screen.getByText('end-impersonating'))
+    expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('false')
+    expect(screen.getByTestId('isImpersonating')).toHaveTextContent('false')
   })
 })

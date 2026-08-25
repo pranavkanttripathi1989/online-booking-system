@@ -165,6 +165,8 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
             slot_id: slot?.id,
             start_datetime: slot?.start_datetime,
             notes: notes || undefined,
+            // REQ052 (US-BOOK-06)
+            intake_responses: wizardData.intake_responses ?? [],
           },
         },
       })

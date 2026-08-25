@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo } from 'react'
-import { useQuery, useMutation } from '@apollo/client'
+import { useQuery, useMutation, gql } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
@@ -23,6 +23,12 @@ import {
   InputAdornment,
   useMediaQuery,
   Slide,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Stack,
+  Alert,
 } from '@mui/material'
 import { useTheme } from '@mui/material/styles'
 import { DataGrid } from '@mui/x-data-grid'
@@ -41,11 +47,30 @@ import UpcomingRoundedIcon from '@mui/icons-material/UpcomingRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import CancelScheduleSendRoundedIcon from '@mui/icons-material/CancelScheduleSendRounded'
 import DeselctRoundedIcon from '@mui/icons-material/DeselectRounded'
+import PointOfSaleRoundedIcon from '@mui/icons-material/PointOfSaleRounded'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 
-import { APPOINTMENTS_QUERY, CLINICIANS_QUERY } from '../../graphql/queries'
+import { APPOINTMENTS_QUERY, CLINICIANS_QUERY, CLINICS_QUERY } from '../../graphql/queries'
 import { CANCEL_APPOINTMENT_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations'
 import CancelDialog from '../../components/Appointments/CancelDialog'
 import Menu from '@mui/material/Menu'
+import { useAuth } from '../../hooks/useAuth'
+
+// REQ056 (US-BIL-04, scoped subset) — page-local gql, matching this
+// codebase's real convention. closeCashDrawer's own @Auth gate is wider
+// (staff+) than /finances' route guard (manager+), so the write action
+// lives here rather than on that page — any front-desk staff can already
+// reach /appointments.
+const CLOSE_CASH_DRAWER_MUTATION = gql`
+  mutation CloseCashDrawerFromAppointments($input: CloseCashDrawerInput!) {
+    closeCashDrawer(input: $input) {
+      success
+      message
+      closeout { id total_expected total_counted variance }
+    }
+  }
+`
 
 // ─── Mock Appointments — now from centralized store (35 records, plan-compliant)
 // BACKEND SWAP: remove these lines and use only apiRows from useQuery
@@ -116,6 +141,26 @@ function EmptyState({ hasFilters, onClearFilters }) {
 export default function AppointmentsPage() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
+  const { hasRole } = useAuth()
+
+  // REQ056 (US-BIL-04, scoped subset) — day-end cash drawer close.
+  const [cashDrawerOpen, setCashDrawerOpen] = useState(false)
+  const [cashDrawerClinicId, setCashDrawerClinicId] = useState('')
+  const [cashDrawerDate, setCashDrawerDate] = useState(dayjs())
+  const [cashDrawerCounted, setCashDrawerCounted] = useState([{ tender_type: 'cash', amount: '' }])
+  const [cashDrawerNotes, setCashDrawerNotes] = useState('')
+  const [cashDrawerError, setCashDrawerError] = useState(null)
+  const [cashDrawerResult, setCashDrawerResult] = useState(null)
+  const { data: cashDrawerClinicsData } = useQuery(CLINICS_QUERY, { skip: !cashDrawerOpen })
+  const [closeCashDrawer, { loading: closingDrawer }] = useMutation(CLOSE_CASH_DRAWER_MUTATION, {
+    onCompleted: (d) => {
+      if (!d?.closeCashDrawer?.success) { setCashDrawerError(d?.closeCashDrawer?.message ?? 'Failed to close cash drawer'); return }
+      setCashDrawerResult(d.closeCashDrawer.closeout)
+      setCashDrawerError(null)
+      enqueueSnackbar('Cash drawer closed', { variant: 'success' })
+    },
+    onError: (err) => setCashDrawerError(err.message),
+  })
 
   // SUG-APPT-008: Upcoming / Past / All tab view
   const [viewTab, setViewTab] = useState('upcoming') // 'upcoming' | 'past' | 'all'
@@ -591,6 +636,31 @@ export default function AppointmentsPage() {
           </Box>
           {/* SUG-APPT-009: Export CSV + New Booking buttons */}
           <Box sx={{ display: 'flex', gap: 1.5, width: { xs: '100%', sm: 'auto' }, flexDirection: { xs: 'column', sm: 'row' } }}>
+            {/* REQ056 (US-BIL-04, scoped subset) — any front-desk staff can
+                close a drawer; closeCashDrawer's own gate is wider than
+                /finances' manager+ route guard. */}
+            {(hasRole('staff') || hasRole('manager') || hasRole('admin') || hasRole('super_admin')) && (
+              <Button
+                variant="outlined"
+                startIcon={<PointOfSaleRoundedIcon />}
+                onClick={() => {
+                  setCashDrawerClinicId('')
+                  setCashDrawerDate(dayjs())
+                  setCashDrawerCounted([{ tender_type: 'cash', amount: '' }])
+                  setCashDrawerNotes('')
+                  setCashDrawerError(null)
+                  setCashDrawerResult(null)
+                  setCashDrawerOpen(true)
+                }}
+                sx={{
+                  borderRadius: 2, fontWeight: 700,
+                  borderColor: '#DADCE0', color: '#5F6368',
+                  '&:hover': { bgcolor: '#F1F3F4', borderColor: '#9AA0A6' },
+                }}
+              >
+                Close Cash Drawer
+              </Button>
+            )}
             <Tooltip title={`Export ${displayRows.length} ${viewTab} appointments as CSV`}>
               <Button
                 variant="outlined"
@@ -869,6 +939,77 @@ export default function AppointmentsPage() {
           onClose={() => { setCancelOpen(false); setCancelId(null) }}
           onConfirm={handleOptimisticCancel}
         />
+
+        {/* REQ056 (US-BIL-04, scoped subset) — day-end cash drawer close */}
+        <Dialog open={cashDrawerOpen} onClose={() => setCashDrawerOpen(false)} maxWidth="sm" fullWidth>
+          <DialogTitle>Close Cash Drawer</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {cashDrawerError && <Alert severity="error" onClose={() => setCashDrawerError(null)}>{cashDrawerError}</Alert>}
+              {cashDrawerResult ? (
+                <Alert severity={Math.abs(cashDrawerResult.variance) < 0.005 ? 'success' : 'warning'}>
+                  Closed. Expected ₹{cashDrawerResult.total_expected.toFixed(2)}, counted ₹{cashDrawerResult.total_counted.toFixed(2)}
+                  {' '}— variance ₹{cashDrawerResult.variance.toFixed(2)}.
+                </Alert>
+              ) : (
+                <>
+                  <TextField select label="Clinic" size="small" value={cashDrawerClinicId}
+                    onChange={(e) => setCashDrawerClinicId(e.target.value)}>
+                    {(cashDrawerClinicsData?.clinics ?? []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                  </TextField>
+                  <DatePicker
+                    label="Business date"
+                    value={cashDrawerDate}
+                    onChange={setCashDrawerDate}
+                    slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                  />
+                  {cashDrawerCounted.map((t, i) => (
+                    <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
+                      <TextField select label="Tender" size="small" value={t.tender_type}
+                        onChange={(e) => setCashDrawerCounted((prev) => prev.map((row, idx) => idx === i ? { ...row, tender_type: e.target.value } : row))}
+                        sx={{ width: 130 }}>
+                        {['cash', 'upi', 'card', 'cheque'].map((tt) => <MenuItem key={tt} value={tt}>{tt.toUpperCase()}</MenuItem>)}
+                      </TextField>
+                      <TextField label="Counted amount" type="number" size="small" value={t.amount}
+                        onChange={(e) => setCashDrawerCounted((prev) => prev.map((row, idx) => idx === i ? { ...row, amount: e.target.value } : row))}
+                        inputProps={{ min: 0, step: 0.01 }} sx={{ flex: 1 }} />
+                      <IconButton size="small" disabled={cashDrawerCounted.length === 1}
+                        onClick={() => setCashDrawerCounted((prev) => prev.filter((_, idx) => idx !== i))}>
+                        <DeleteOutlineRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  ))}
+                  <Button size="small" startIcon={<AddRoundedIcon />} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+                    onClick={() => setCashDrawerCounted((prev) => [...prev, { tender_type: 'cash', amount: '' }])}>
+                    Add another tender
+                  </Button>
+                  <TextField label="Notes" size="small" multiline rows={2} value={cashDrawerNotes}
+                    onChange={(e) => setCashDrawerNotes(e.target.value)} placeholder="Optional" />
+                </>
+              )}
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setCashDrawerOpen(false)}>{cashDrawerResult ? 'Done' : 'Cancel'}</Button>
+            {!cashDrawerResult && (
+              <Button
+                variant="contained"
+                disabled={closingDrawer || !cashDrawerClinicId || cashDrawerCounted.some((t) => t.amount === '')}
+                onClick={() => {
+                  setCashDrawerError(null)
+                  closeCashDrawer({ variables: { input: {
+                    clinic_id: cashDrawerClinicId,
+                    business_date: cashDrawerDate.format('YYYY-MM-DD'),
+                    counted: cashDrawerCounted.map((t) => ({ tender_type: t.tender_type, amount: parseFloat(t.amount) || 0 })),
+                    notes: cashDrawerNotes || undefined,
+                  } } })
+                }}
+              >
+                {closingDrawer ? 'Closing…' : 'Close Drawer'}
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
       </Box>
     </LocalizationProvider>
   )

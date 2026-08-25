@@ -1,18 +1,21 @@
 import { useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useQuery, useMutation } from '@apollo/client'
+import { useQuery, useMutation, gql } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
 import dayjs from 'dayjs'
 import {
-  Avatar, Box, Button, Chip, Dialog, DialogTitle, DialogContent,
+  Avatar, Box, Button, Chip, Checkbox, Dialog, DialogTitle, DialogContent,
   DialogActions, Divider, FormControl, FormControlLabel, FormLabel,
   Grid, IconButton, Paper, Radio, RadioGroup, Skeleton, Stack,
-  Tooltip, Typography, TextField, MenuItem, Alert,
+  Tooltip, Typography, TextField, MenuItem, Alert, ToggleButton, ToggleButtonGroup,
+  CircularProgress,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import CardMembershipRoundedIcon from '@mui/icons-material/CardMembershipRounded'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -46,6 +49,49 @@ import { CANCEL_APPOINTMENT_MUTATION, COMPLETE_APPOINTMENT_MUTATION, MARK_NO_SHO
 import * as MockStore from '../../mocks/store'
 import CancelDialog from '../../components/Appointments/CancelDialog'
 import { useAuth } from '../../hooks/useAuth'
+import { downloadAuthenticatedPdf } from '../../utils/documents'
+
+// REQ051 (US-QUE-06) — pre-visit checklist. Page-local gql consts, matching
+// this codebase's real convention (every manager/staff page defines its
+// own inline operations rather than importing from a shared file).
+const CHECKLIST_ITEMS_QUERY = gql`
+  query ChecklistItems($clinic_id: ID) {
+    checklistItems(clinic_id: $clinic_id) { id product_id label is_required sort_order }
+  }
+`
+const CHECKLIST_COMPLETIONS_QUERY = gql`
+  query ChecklistCompletions($appointment_id: ID!) {
+    checklistCompletions(appointment_id: $appointment_id) { id checklist_item_id }
+  }
+`
+const COMPLETE_CHECKLIST_ITEM_MUTATION = gql`
+  mutation CompleteChecklistItem($checklist_item_id: ID!, $appointment_id: ID!) {
+    completeChecklistItem(checklist_item_id: $checklist_item_id, appointment_id: $appointment_id) {
+      success
+      userErrors { message }
+    }
+  }
+`
+
+// REQ054 (US-CAT-01) — redeem a purchased package sitting instead of taking a tender payment.
+const PATIENT_PACKAGES_QUERY = gql`
+  query PatientPackagesForRedeem($patient_id: ID!) {
+    patientPackages(patient_id: $patient_id) {
+      id sittings_remaining expires_at is_expired
+      package { name }
+    }
+  }
+`
+const REDEEM_PACKAGE_SITTING_MUTATION = gql`
+  mutation RedeemPackageSittingOnAppointment($input: RedeemPackageSittingInput!) {
+    redeemPackageSitting(input: $input) {
+      success
+      message
+      payment_id
+      sittings_remaining
+    }
+  }
+`
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CFG = {
@@ -328,6 +374,16 @@ export default function AppointmentDetailPage() {
   const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
   const [tenders, setTenders] = useState([{ tender_type: 'cash', amount: '', reference: '' }])
   const [paymentError, setPaymentError] = useState(null)
+  const [paymentInfo, setPaymentInfo] = useState(null)
+  // REQ056 (US-BIL-03) — discount fields on the same dialog.
+  const [discountAmount, setDiscountAmount] = useState('')
+  const [discountReason, setDiscountReason] = useState('')
+  // REQ054 (US-CAT-01) — mode toggle: pay by tender vs. redeem a package sitting.
+  const [paymentMode, setPaymentMode] = useState('tender')
+  const [selectedPatientPackageId, setSelectedPatientPackageId] = useState('')
+  // REQ057 (US-PAT-02) — invoice PDF download state, once a payment succeeds.
+  const [downloadingInvoice, setDownloadingInvoice] = useState(false)
+  const [lastPaymentId, setLastPaymentId] = useState(null)
 
   const { data, loading, refetch } = useQuery(APPOINTMENT_DETAIL_QUERY, {
     variables: { id }, skip: !id, fetchPolicy: 'network-only',
@@ -348,15 +404,87 @@ export default function AppointmentDetailPage() {
 
   const [recordCounterPayment, { loading: recordingPayment }] = useMutation(RECORD_COUNTER_PAYMENT_MUTATION, {
     onCompleted: (d) => {
-      if (!d?.recordCounterPayment?.success) { setPaymentError(d?.recordCounterPayment?.message ?? 'Failed to record payment'); return }
-      enqueueSnackbar(`Payment recorded${d.recordCounterPayment.invoice_number ? ` — ${d.recordCounterPayment.invoice_number}` : ''}`, { variant: 'success' })
-      setPaymentDialogOpen(false)
+      const result = d?.recordCounterPayment
+      if (!result?.success) { setPaymentError(result?.message ?? 'Failed to record payment'); return }
+      if (result.pending_approval_id) {
+        // REQ056 (US-BIL-03) — a discount above the org's threshold was
+        // queued for manager approval, not applied. No payment exists yet.
+        setPaymentInfo('This discount exceeds the auto-approval threshold — it has been sent to a manager for approval. No payment has been recorded yet.')
+        setPaymentError(null)
+        return
+      }
+      enqueueSnackbar(`Payment recorded${result.invoice_number ? ` — ${result.invoice_number}` : ''}`, { variant: 'success' })
+      // Deliberately does NOT close the dialog — the Download Invoice button
+      // lives inside it and only ever renders once lastPaymentId is set,
+      // which happens right here; closing immediately made that button
+      // unreachable in practice (found live: the dialog vanished the
+      // instant the condition that reveals it became true). The user closes
+      // it themselves via the existing Close button once they're done.
       setTenders([{ tender_type: 'cash', amount: '', reference: '' }])
+      setDiscountAmount('')
+      setDiscountReason('')
       setPaymentError(null)
+      setPaymentInfo('Payment recorded.')
+      setLastPaymentId(result.payment_id ?? null)
       refetch()
     },
-    onError: (err) => setPaymentError(err.message),
+    onError: (err) => setPaymentError(err?.graphQLErrors?.[0]?.message || err.message),
   })
+
+  // REQ054 (US-CAT-01) — redeem a purchased package sitting instead of paying.
+  const { data: patientPackagesData } = useQuery(PATIENT_PACKAGES_QUERY, {
+    variables: { patient_id: apt?.patient?.id },
+    skip: !paymentDialogOpen || !apt?.patient?.id,
+    fetchPolicy: 'network-only',
+  })
+  const availablePatientPackages = (patientPackagesData?.patientPackages ?? []).filter(
+    (pp) => pp.sittings_remaining > 0 && !pp.is_expired,
+  )
+  const [redeemPackageSitting, { loading: redeemingPackage }] = useMutation(REDEEM_PACKAGE_SITTING_MUTATION, {
+    onCompleted: (d) => {
+      const result = d?.redeemPackageSitting
+      if (!result?.success) { setPaymentError(result?.message ?? 'Failed to redeem package sitting'); return }
+      enqueueSnackbar(`Package sitting redeemed — ${result.sittings_remaining} remaining`, { variant: 'success' })
+      setPaymentDialogOpen(false)
+      setSelectedPatientPackageId('')
+      setPaymentError(null)
+      setLastPaymentId(result.payment_id ?? null)
+      refetch()
+    },
+    onError: (err) => setPaymentError(err?.graphQLErrors?.[0]?.message || err.message),
+  })
+
+  // REQ051 (US-QUE-06) — pre-visit checklist.
+  const { data: checklistData } = useQuery(CHECKLIST_ITEMS_QUERY, {
+    variables: { clinic_id: apt?.clinic?.id }, skip: !apt?.clinic?.id,
+  })
+  const { data: completionsData, refetch: refetchCompletions } = useQuery(CHECKLIST_COMPLETIONS_QUERY, {
+    variables: { appointment_id: apt?.id }, skip: !apt?.id,
+  })
+  const [completeChecklistItem] = useMutation(COMPLETE_CHECKLIST_ITEM_MUTATION, {
+    onCompleted: (d) => {
+      if (!d?.completeChecklistItem?.success) {
+        enqueueSnackbar(d?.completeChecklistItem?.userErrors?.[0]?.message ?? 'Failed to update checklist', { variant: 'error' })
+        return
+      }
+      refetchCompletions()
+    },
+  })
+  const checklistItems = checklistData?.checklistItems ?? []
+  const completedItemIds = new Set((completionsData?.checklistCompletions ?? []).map((c) => c.checklist_item_id))
+
+  // REQ057 (US-PAT-02) — invoice PDF download once a payment/redemption id exists.
+  const handleDownloadInvoice = async (paymentId) => {
+    setDownloadingInvoice(true)
+    try {
+      await downloadAuthenticatedPdf(`/documents/invoices/${paymentId}/pdf`, `invoice-${paymentId}.pdf`)
+    } catch (err) {
+      enqueueSnackbar(err.message || 'Failed to download invoice', { variant: 'error' })
+    } finally {
+      setDownloadingInvoice(false)
+    }
+  }
+
   const [markNoShow]          = useMutation(MARK_NO_SHOW_MUTATION, {
     onCompleted: () => { enqueueSnackbar('Marked no-show', { variant: 'warning' }); refetch() }
   })
@@ -702,7 +830,16 @@ export default function AppointmentDetailPage() {
                   {/* REQ023 (US-BIL-01, scoped subset) — front-desk staff, not clinician */}
                   {(hasRole('staff') || hasRole('manager') || hasRole('admin') || hasRole('super_admin')) && apt.service?.price != null && (
                     <Button fullWidth variant="outlined" startIcon={<PaymentsRoundedIcon />}
-                      onClick={() => setPaymentDialogOpen(true)}
+                      onClick={() => {
+                        setPaymentMode('tender')
+                        setDiscountAmount('')
+                        setDiscountReason('')
+                        setSelectedPatientPackageId('')
+                        setPaymentError(null)
+                        setPaymentInfo(null)
+                        setLastPaymentId(null)
+                        setPaymentDialogOpen(true)
+                      }}
                       sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
                         borderColor: '#0F9D58', color: '#0B8043', '&:hover': { bgcolor: 'rgba(15,157,88,0.06)', borderColor: '#0F9D58' },
                       }}
@@ -755,6 +892,49 @@ export default function AppointmentDetailPage() {
                     {reminderSending ? 'Sending…' : 'Send Reminder'}
                   </Button>
                 </Stack>
+              </Box>
+            </Card>
+          )}
+
+          {/* REQ051 (US-QUE-06) — real, staff-facing, backend-driven
+              pre-consultation checklist. Gates QueueService.callNext() on
+              the backend; distinct from the static patient-prep-tips card
+              below (SUG-APPT-012), which is unrelated mock/decorative
+              content, not the same feature. */}
+          {checklistItems.length > 0 && (
+            <Card accent="linear-gradient(90deg,#006D77,#00858F)" sx={{ mb: 3 }}>
+              <Box sx={{ p: 3 }}>
+                <Stack direction="row" spacing={1} alignItems="center" mb={2}>
+                  <TaskAltRoundedIcon sx={{ color: '#006D77', fontSize: '1.1rem' }} />
+                  <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#202124' }}>
+                    Pre-Consultation Checklist
+                  </Typography>
+                </Stack>
+                <Stack spacing={1}>
+                  {checklistItems.map((item) => {
+                    const done = completedItemIds.has(item.id)
+                    return (
+                      <Stack key={item.id} direction="row" spacing={1} alignItems="center">
+                        <Checkbox
+                          checked={done}
+                          disabled={done}
+                          size="small"
+                          inputProps={{ 'aria-label': `Complete ${item.label}` }}
+                          onChange={() => completeChecklistItem({ variables: { checklist_item_id: item.id, appointment_id: apt.id } })}
+                          sx={{ p: 0.5, color: '#006D77', '&.Mui-checked': { color: '#0F9D58' } }}
+                        />
+                        <Typography variant="body2" sx={{ color: done ? '#9AA0A6' : '#3C4043', textDecoration: done ? 'line-through' : 'none' }}>
+                          {item.label}{item.is_required && <Typography component="span" sx={{ color: '#D93025', ml: 0.5 }}>*</Typography>}
+                        </Typography>
+                      </Stack>
+                    )
+                  })}
+                </Stack>
+                {checklistItems.some((i) => i.is_required && !completedItemIds.has(i.id)) && (
+                  <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
+                    Required items must be completed before this patient can be called in from the queue.
+                  </Alert>
+                )}
               </Box>
             </Card>
           )}
@@ -812,66 +992,155 @@ export default function AppointmentDetailPage() {
         patientPhone={apt?.patient?.phone}
       />
 
-      {/* REQ023 (US-BIL-01, scoped subset) — mixed-tender counter payment */}
-      <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Record Counter Payment</DialogTitle>
+      {/* REQ023 (US-BIL-01, scoped subset) — mixed-tender counter payment.
+          REQ054 (US-CAT-01) — a mode toggle also allows redeeming a
+          purchased package sitting instead of taking a tender payment.
+          REQ056 (US-BIL-03) — optional discount fields on the tender path. */}
+      <Dialog
+        open={paymentDialogOpen}
+        onClose={() => { setPaymentDialogOpen(false); setPaymentInfo(null); setPaymentError(null) }}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>Take Payment</DialogTitle>
         <DialogContent>
-          {(() => {
-            const amountDue = apt?.service?.price ?? 0
-            const total = tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
-            const matches = Math.abs(total - amountDue) < 0.005
-            return (
-              <Stack spacing={2} sx={{ mt: 1 }}>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {availablePatientPackages.length > 0 && (
+              <ToggleButtonGroup
+                exclusive
+                size="small"
+                value={paymentMode}
+                onChange={(_, v) => v && setPaymentMode(v)}
+                sx={{ alignSelf: 'flex-start' }}
+              >
+                <ToggleButton value="tender" sx={{ textTransform: 'none', fontWeight: 700 }}>Pay by tender</ToggleButton>
+                <ToggleButton value="redeem" sx={{ textTransform: 'none', fontWeight: 700 }}>Redeem package sitting</ToggleButton>
+              </ToggleButtonGroup>
+            )}
+            {paymentError && <Alert severity="error" onClose={() => setPaymentError(null)}>{paymentError}</Alert>}
+            {paymentInfo && <Alert severity="info" onClose={() => setPaymentInfo(null)}>{paymentInfo}</Alert>}
+
+            {paymentMode === 'redeem' ? (
+              <Stack spacing={2}>
                 <Typography variant="body2" color="text.secondary">
-                  Amount due: <strong>₹{amountDue.toFixed(2)}</strong>
+                  Select a package with sittings remaining for {apt.patient?.full_name}.
                 </Typography>
-                {paymentError && <Alert severity="error" onClose={() => setPaymentError(null)}>{paymentError}</Alert>}
-                {tenders.map((t, i) => (
-                  <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
-                    <TextField select label="Tender" size="small" value={t.tender_type}
-                      onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, tender_type: e.target.value } : row))}
-                      sx={{ width: 120 }}>
-                      {['cash', 'upi', 'card', 'cheque'].map((tt) => <MenuItem key={tt} value={tt}>{tt.toUpperCase()}</MenuItem>)}
-                    </TextField>
-                    <TextField label="Amount" type="number" size="small" value={t.amount}
-                      onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, amount: e.target.value } : row))}
-                      inputProps={{ min: 0, step: 0.01 }} sx={{ width: 110 }} />
-                    <TextField label="Reference" size="small" value={t.reference}
-                      onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, reference: e.target.value } : row))}
-                      placeholder="Optional" sx={{ flex: 1 }} />
-                    <IconButton size="small" disabled={tenders.length === 1}
-                      onClick={() => setTenders((prev) => prev.filter((_, idx) => idx !== i))}>
-                      <DeleteOutlineRoundedIcon fontSize="small" />
-                    </IconButton>
-                  </Stack>
-                ))}
-                <Button size="small" startIcon={<AddRoundedIcon />} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
-                  onClick={() => setTenders((prev) => [...prev, { tender_type: 'cash', amount: '', reference: '' }])}>
-                  Add another tender
-                </Button>
-                <Divider />
-                <Typography variant="body2" fontWeight={700} color={matches ? 'success.main' : 'text.secondary'}>
-                  Total entered: ₹{total.toFixed(2)} {matches ? '✓' : `(₹${(amountDue - total).toFixed(2)} remaining)`}
-                </Typography>
+                <TextField
+                  select
+                  label="Patient package"
+                  data-testid="patient-package-select"
+                  size="small"
+                  value={selectedPatientPackageId}
+                  onChange={(e) => setSelectedPatientPackageId(e.target.value)}
+                >
+                  {availablePatientPackages.map((pp) => (
+                    <MenuItem key={pp.id} value={pp.id}>
+                      {pp.package?.name} — {pp.sittings_remaining} sitting(s) left, expires {dayjs(pp.expires_at).format('DD MMM YYYY')}
+                    </MenuItem>
+                  ))}
+                </TextField>
               </Stack>
-            )
-          })()}
+            ) : (() => {
+              const amountDue = apt?.service?.price ?? 0
+              const discount = parseFloat(discountAmount) || 0
+              const netDue = Math.max(0, amountDue - discount)
+              const total = tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+              const matches = Math.abs(total - netDue) < 0.005
+              return (
+                <Stack spacing={2}>
+                  <Typography variant="body2" color="text.secondary">
+                    Amount due: <strong>₹{amountDue.toFixed(2)}</strong>
+                    {discount > 0 && <> — after discount: <strong>₹{netDue.toFixed(2)}</strong></>}
+                  </Typography>
+                  {tenders.map((t, i) => (
+                    <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
+                      <TextField select label="Tender" size="small" value={t.tender_type}
+                        onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, tender_type: e.target.value } : row))}
+                        sx={{ width: 120 }}>
+                        {['cash', 'upi', 'card', 'cheque'].map((tt) => <MenuItem key={tt} value={tt}>{tt.toUpperCase()}</MenuItem>)}
+                      </TextField>
+                      <TextField label="Amount" type="number" size="small" value={t.amount}
+                        onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, amount: e.target.value } : row))}
+                        inputProps={{ min: 0, step: 0.01 }} sx={{ width: 110 }} />
+                      <TextField label="Reference" size="small" value={t.reference}
+                        onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, reference: e.target.value } : row))}
+                        placeholder="Optional" sx={{ flex: 1 }} />
+                      <IconButton size="small" disabled={tenders.length === 1}
+                        onClick={() => setTenders((prev) => prev.filter((_, idx) => idx !== i))}>
+                        <DeleteOutlineRoundedIcon fontSize="small" />
+                      </IconButton>
+                    </Stack>
+                  ))}
+                  <Button size="small" startIcon={<AddRoundedIcon />} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+                    onClick={() => setTenders((prev) => [...prev, { tender_type: 'cash', amount: '', reference: '' }])}>
+                    Add another tender
+                  </Button>
+                  <Divider />
+                  <Stack direction="row" spacing={1}>
+                    <TextField label="Discount amount (₹)" type="number" size="small" value={discountAmount}
+                      onChange={(e) => setDiscountAmount(e.target.value)}
+                      inputProps={{ min: 0, step: 0.01 }} sx={{ width: 170 }} />
+                    <TextField label="Discount reason" size="small" value={discountReason}
+                      onChange={(e) => setDiscountReason(e.target.value)}
+                      placeholder="Required if a discount is given" sx={{ flex: 1 }} />
+                  </Stack>
+                  <Typography variant="body2" fontWeight={700} color={matches ? 'success.main' : 'text.secondary'}>
+                    Total entered: ₹{total.toFixed(2)} {matches ? '✓' : `(₹${(netDue - total).toFixed(2)} remaining)`}
+                  </Typography>
+                </Stack>
+              )
+            })()}
+          </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setPaymentDialogOpen(false)}>Cancel</Button>
-          <Button
-            variant="contained"
-            disabled={recordingPayment || Math.abs(tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0) - (apt?.service?.price ?? 0)) >= 0.005}
-            onClick={() => {
-              setPaymentError(null)
-              recordCounterPayment({ variables: { input: {
-                appointment_id: apt.id,
-                tenders: tenders.map((t) => ({ tender_type: t.tender_type, amount: parseFloat(t.amount) || 0, reference: t.reference || undefined })),
-              } } })
-            }}
-          >
-            {recordingPayment ? 'Recording…' : 'Record Payment'}
-          </Button>
+          {lastPaymentId && (
+            <Button
+              startIcon={downloadingInvoice ? <CircularProgress size={16} /> : <DownloadRoundedIcon />}
+              disabled={downloadingInvoice}
+              onClick={() => handleDownloadInvoice(lastPaymentId)}
+              sx={{ mr: 'auto', textTransform: 'none' }}
+            >
+              Download Invoice
+            </Button>
+          )}
+          <Button onClick={() => { setPaymentDialogOpen(false); setPaymentInfo(null); setPaymentError(null) }}>Close</Button>
+          {paymentMode === 'redeem' ? (
+            <Button
+              variant="contained"
+              startIcon={<CardMembershipRoundedIcon />}
+              disabled={redeemingPackage || !selectedPatientPackageId}
+              onClick={() => {
+                setPaymentError(null)
+                redeemPackageSitting({ variables: { input: { appointment_id: apt.id, patient_package_id: selectedPatientPackageId } } })
+              }}
+            >
+              {redeemingPackage ? 'Redeeming…' : 'Redeem Sitting'}
+            </Button>
+          ) : (
+            <Button
+              variant="contained"
+              disabled={
+                recordingPayment ||
+                (parseFloat(discountAmount) > 0 && !discountReason.trim()) ||
+                Math.abs(
+                  tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0) -
+                  Math.max(0, (apt?.service?.price ?? 0) - (parseFloat(discountAmount) || 0)),
+                ) >= 0.005
+              }
+              onClick={() => {
+                setPaymentError(null)
+                setPaymentInfo(null)
+                recordCounterPayment({ variables: { input: {
+                  appointment_id: apt.id,
+                  tenders: tenders.map((t) => ({ tender_type: t.tender_type, amount: parseFloat(t.amount) || 0, reference: t.reference || undefined })),
+                  discount_amount: parseFloat(discountAmount) || undefined,
+                  discount_reason: discountReason.trim() || undefined,
+                } } })
+              }}
+            >
+              {recordingPayment ? 'Recording…' : 'Record Payment'}
+            </Button>
+          )}
         </DialogActions>
       </Dialog>
     </Box>

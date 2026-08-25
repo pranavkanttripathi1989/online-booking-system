@@ -1,7 +1,11 @@
+import { useState } from 'react'
 import { useParams } from 'react-router-dom'
 import { useQuery, gql } from '@apollo/client'
+import { useSnackbar } from 'notistack'
 import { Alert, Box, Button, CircularProgress, Divider, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import { downloadAuthenticatedPdf } from '../../utils/documents'
 
 // REQ021 US-RX-03/06 -- one rendering path for both on-screen preview and
 // window.print(), the only print precedent this codebase has
@@ -23,8 +27,23 @@ const PRINT_QUERY = gql`
 
 function PrescriptionPrint() {
   const { id } = useParams()
+  const { enqueueSnackbar } = useSnackbar()
+  const [downloading, setDownloading] = useState(false)
   const { data, loading, error } = useQuery(PRINT_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
   const payload = data?.printPrescription
+
+  // REQ057 (US-PAT-02) — real server-side PDF, separate rendering path from
+  // this page's own window.print() (see PLAN080 for why the two aren't unified).
+  const handleDownload = async () => {
+    setDownloading(true)
+    try {
+      await downloadAuthenticatedPdf(`/documents/prescriptions/${id}/pdf`, `prescription-${id}.pdf`)
+    } catch (err) {
+      enqueueSnackbar(err?.message || 'Failed to download prescription PDF', { variant: 'error' })
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   if (loading) return <Box p={4}><CircularProgress /></Box>
   if (error) return <Box p={4}><Alert severity="error">{error.message}</Alert></Box>
@@ -40,9 +59,19 @@ function PrescriptionPrint() {
       }}
     >
       <Box sx={{ '@media print': { display: 'none' }, mb: 2 }}>
-        <Button variant="contained" startIcon={<PrintRoundedIcon />} onClick={() => window.print()}>
-          Print
-        </Button>
+        <Stack direction="row" spacing={1.5}>
+          <Button variant="contained" startIcon={<PrintRoundedIcon />} onClick={() => window.print()}>
+            Print
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={downloading ? <CircularProgress size={16} /> : <DownloadRoundedIcon />}
+            onClick={handleDownload}
+            disabled={downloading}
+          >
+            {downloading ? 'Preparing PDF…' : 'Download PDF'}
+          </Button>
+        </Stack>
       </Box>
 
       {isReprint && (

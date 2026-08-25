@@ -1,12 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useQuery } from '@apollo/client'
+import { useQuery, gql } from '@apollo/client'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { z } from 'zod'
 import {
   Autocomplete,
   Box,
+  Checkbox,
   CircularProgress,
+  Divider,
+  FormControlLabel,
   Grid,
   MenuItem,
   Stack,
@@ -23,6 +26,22 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs from 'dayjs'
 
 import { PATIENTS_QUERY } from '../../graphql/queries'
+
+// REQ052 (US-BOOK-06) — per-clinic (optionally per-service) configurable
+// booking intake fields. Page-local gql const, matching this codebase's own
+// established per-page convention (no shared query for this).
+const INTAKE_FIELD_CONFIGS_QUERY = gql`
+  query IntakeFieldConfigs($clinic_id: ID, $product_id: ID) {
+    intakeFieldConfigs(clinic_id: $clinic_id, product_id: $product_id) {
+      id
+      key
+      label
+      field_type
+      is_required
+      sort_order
+    }
+  }
+`
 
 // ─── New patient validation schema ───────────────────────────────────────────
 const newPatientSchema = z.object({
@@ -48,6 +67,43 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
   })
 
   const patients = patientsData?.patients?.data ?? []
+
+  // REQ052 (US-BOOK-06) — clinic is known from step 1, service from step 2;
+  // both are already in wizardData by the time this step renders.
+  const { data: intakeData } = useQuery(INTAKE_FIELD_CONFIGS_QUERY, {
+    variables: { clinic_id: wizardData.clinic?.id, product_id: wizardData.service?.id },
+    skip: !wizardData.clinic?.id,
+    fetchPolicy: 'network-only',
+  })
+  const rawIntakeFields = intakeData?.intakeFieldConfigs
+  const intakeFields = [...(rawIntakeFields ?? [])].sort((a, b) => a.sort_order - b.sort_order)
+
+  const [intakeAnswers, setIntakeAnswers] = useState(() => {
+    const initial = {}
+    ;(wizardData.intake_responses ?? []).forEach((r) => { initial[r.key] = r.value })
+    return initial
+  })
+
+  // Recompute validity once the field config loads (or changes) — separate
+  // from handleIntakeChange below, which keeps validity current as the user
+  // types. Both write intakeFieldsValid so BookingWizard's canProceed() can
+  // gate the Next button without re-fetching the config itself.
+  useEffect(() => {
+    if (!rawIntakeFields) return
+    const allRequiredFilled = rawIntakeFields.every((f) => !f.is_required || (intakeAnswers[f.key] ?? '') !== '')
+    updateWizard({ intakeFieldsValid: allRequiredFilled })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rawIntakeFields])
+
+  const handleIntakeChange = (key, value) => {
+    const next = { ...intakeAnswers, [key]: value }
+    setIntakeAnswers(next)
+    const responses = Object.entries(next)
+      .filter(([, v]) => v !== undefined && v !== '')
+      .map(([k, v]) => ({ key: k, value: v }))
+    const allRequiredFilled = intakeFields.every((f) => !f.is_required || (next[f.key] ?? '') !== '')
+    updateWizard({ intake_responses: responses, intakeFieldsValid: allRequiredFilled })
+  }
 
   const { control, handleSubmit, getValues, formState: { errors }, reset } = useForm({
     resolver: zodResolver(newPatientSchema),
@@ -238,6 +294,44 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
               />
             </Grid>
           </Grid>
+        )}
+
+        {/* REQ052 (US-BOOK-06) — clinic-configured intake fields */}
+        {intakeFields.length > 0 && (
+          <Box mt={3}>
+            <Divider sx={{ mb: 2 }} />
+            <Typography variant="subtitle2" fontWeight={700} mb={1.5}>
+              Additional Information
+            </Typography>
+            <Grid container spacing={2}>
+              {intakeFields.map((f) => (
+                <Grid item xs={12} sm={f.field_type === 'textarea' ? 12 : 6} key={f.id}>
+                  {f.field_type === 'boolean' ? (
+                    <FormControlLabel
+                      control={
+                        <Checkbox
+                          checked={intakeAnswers[f.key] === 'true'}
+                          onChange={(e) => handleIntakeChange(f.key, e.target.checked ? 'true' : 'false')}
+                        />
+                      }
+                      label={f.is_required ? `${f.label} *` : f.label}
+                    />
+                  ) : (
+                    <TextField
+                      label={f.is_required ? `${f.label} *` : f.label}
+                      fullWidth
+                      type={f.field_type === 'number' ? 'number' : 'text'}
+                      multiline={f.field_type === 'textarea'}
+                      rows={f.field_type === 'textarea' ? 3 : undefined}
+                      value={intakeAnswers[f.key] ?? ''}
+                      onChange={(e) => handleIntakeChange(f.key, e.target.value)}
+                      required={f.is_required}
+                    />
+                  )}
+                </Grid>
+              ))}
+            </Grid>
+          </Box>
         )}
 
         {/* Internal notes */}

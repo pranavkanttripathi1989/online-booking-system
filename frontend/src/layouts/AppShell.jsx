@@ -8,7 +8,7 @@
  */
 import React, { useState, useEffect, useRef, useCallback } from 'react'
 import { Outlet, useNavigate, useLocation } from 'react-router-dom'
-import { useQuery, gql } from '@apollo/client'
+import { useQuery, useMutation, gql } from '@apollo/client'
 import {
   Box, AppBar, Toolbar, Drawer, List, ListItemButton, ListItemIcon,
   ListItemText, Typography, Avatar, IconButton, Stack, Divider, Chip,
@@ -97,6 +97,17 @@ function resolveLogoSrc(logoUrl) {
   return `${apiBase}${logoUrl}`
 }
 
+// REQ053/Phase G+3 — the client-side half of ending an impersonation
+// session lives in AuthContext's endImpersonating(); the caller (here)
+// is responsible for the EndImpersonation mutation itself, best-effort —
+// even if this call fails, endImpersonating() still restores the real
+// admin's stashed session, since an un-ended impersonation token simply
+// expires on its own ≤30-minute TTL regardless.
+const END_IMPERSONATION_MUTATION = gql`
+  mutation EndImpersonationFromShell { endImpersonation { success userErrors { message } } }
+`
+const IMPERSONATION_BANNER_HEIGHT = 36
+
 // ─── Search mock data ─────────────────────────────────────────────────────────
 const SEARCH_DATA = [
   { type: 'patient',     label: 'Alice Thompson',    sub: 'GP Consultation · alice@example.com',        path: '/patients', Icon: PersonRoundedIcon },
@@ -170,6 +181,10 @@ const MANAGER_CHILDREN = [
   { label: 'Services',     path: '/manager/services',     icon: <MedicalServicesIcon /> },
   { label: 'Pharmacy',     path: '/manager/pharmacy',     icon: <MedicationIcon /> },
   { label: 'Patient Reports', path: '/manager/reports',   icon: <SummarizeIcon /> },
+  // Phase G+3 — checklist + intake-field config (REQ051/REQ052).
+  { label: 'Clinic Forms', path: '/manager/clinic-forms', icon: <FormatListNumberedIcon /> },
+  // Phase G+3 — multi-sitting service packages (REQ054).
+  { label: 'Packages',     path: '/manager/packages',     icon: <WorkspacePremiumIcon /> },
 ]
 
 const BOTTOM_NAV = [
@@ -450,7 +465,7 @@ function DrawerContent({ user, navItems, location, navigate, expandedAdmin, setE
 }
 
 // ─── Top Navigation Bar ────────────────────────────────────────────────────────
-function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMenu, branding }) {
+function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMenu, branding, bannerOffset = 0 }) {
   const [moreAnchor, setMoreAnchor] = useState(null)
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/')
 
@@ -460,7 +475,7 @@ function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMen
 
   return (
     <Box sx={{
-      position: 'fixed', top: 0, left: 0, right: 0, zIndex: 1200,
+      position: 'fixed', top: bannerOffset, left: 0, right: 0, zIndex: 1200,
       bgcolor: '#1A2332',
       borderBottom: '1px solid rgba(255,255,255,0.08)',
       boxShadow: '0 2px 12px rgba(0,0,0,0.25)',
@@ -558,7 +573,14 @@ export default function AppShell() {
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const location = useLocation()
-  const { user, logout } = useAuth()
+  const { user, logout, isImpersonating, endImpersonating } = useAuth()
+  const [endImpersonationMutation] = useMutation(END_IMPERSONATION_MUTATION)
+  const handleExitImpersonation = async () => {
+    try { await endImpersonationMutation() } catch { /* best-effort — restore the real session regardless */ }
+    endImpersonating()
+    navigate('/')
+  }
+  const bannerOffset = isImpersonating ? IMPERSONATION_BANNER_HEIGHT : 0
   // REQ002/PLAN022 — org branding for the sidebar/top-nav header. Resolves
   // to null (not an error) for a platform-wide caller, which the render
   // below treats as "show the default HealthSync branding."
@@ -693,6 +715,33 @@ export default function AppShell() {
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
 
+      {/* REQ053/Phase G+3 — persistent impersonation banner. Fixed, above
+          everything else (AppBar/Drawer/TopNavBar are all offset down by
+          IMPERSONATION_BANNER_HEIGHT via bannerOffset when this is shown). */}
+      {isImpersonating && (
+        <Box sx={{
+          position: 'fixed', top: 0, left: 0, right: 0, zIndex: theme.zIndex.drawer + 10,
+          height: IMPERSONATION_BANNER_HEIGHT,
+          bgcolor: '#D93025', color: '#fff',
+          display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1.5,
+          fontFamily: '"Plus Jakarta Sans", sans-serif', fontSize: '0.8rem', fontWeight: 700,
+        }}>
+          <WarningRoundedIcon sx={{ fontSize: '1rem' }} />
+          Impersonating {displayName}
+          <Button
+            size="small"
+            onClick={handleExitImpersonation}
+            sx={{
+              color: '#fff', textTransform: 'none', fontWeight: 800, minWidth: 0,
+              px: 1, py: 0.1, ml: 1, borderRadius: 1.5,
+              bgcolor: 'rgba(255,255,255,0.18)', '&:hover': { bgcolor: 'rgba(255,255,255,0.28)' },
+            }}
+          >
+            Exit
+          </Button>
+        </Box>
+      )}
+
       {/* SUG-AUTH-003: Inactivity warning Snackbar */}
       <Snackbar
         open={warnSeconds !== null}
@@ -721,6 +770,7 @@ export default function AppShell() {
       {!isTopNav && (
         <AppBar position="fixed" elevation={0} sx={{
           zIndex: theme.zIndex.drawer + 1,
+          top: bannerOffset,
           bgcolor: '#fff',
           color: 'text.primary',
           borderBottom: '1px solid #E8EAED',
@@ -888,6 +938,7 @@ export default function AppShell() {
           onToggleLayout={toggleLayout}
           onOpenUserMenu={e => setAnchorEl(e.currentTarget)}
           branding={branding}
+          bannerOffset={bannerOffset}
         />
       )}
 
@@ -935,7 +986,7 @@ export default function AppShell() {
       {!isTopNav && (
         isMobile ? (
           <Drawer variant="temporary" open={mobileOpen} onClose={() => setMobileOpen(false)} ModalProps={{ keepMounted: true }}
-            PaperProps={{ sx: { width: DRAWER_WIDTH, bgcolor: '#1A2332', borderRight: 'none' } }}>
+            PaperProps={{ sx: { width: DRAWER_WIDTH, bgcolor: '#1A2332', borderRight: 'none', top: bannerOffset, height: `calc(100% - ${bannerOffset}px)` } }}>
             <DrawerContent user={user} navItems={navItems} location={location} navigate={navigate}
               expandedAdmin={expandedAdmin} setExpandedAdmin={setExpandedAdmin}
               expandedManager={expandedManager} setExpandedManager={setExpandedManager}
@@ -944,7 +995,7 @@ export default function AppShell() {
           </Drawer>
         ) : (
           <Drawer variant="permanent" open
-            PaperProps={{ sx: { width: DRAWER_WIDTH, bgcolor: '#1A2332', borderRight: 'none' } }}>
+            PaperProps={{ sx: { width: DRAWER_WIDTH, bgcolor: '#1A2332', borderRight: 'none', top: bannerOffset, height: `calc(100% - ${bannerOffset}px)` } }}>
             <DrawerContent user={user} navItems={navItems} location={location} navigate={navigate}
               expandedAdmin={expandedAdmin} setExpandedAdmin={setExpandedAdmin}
               expandedManager={expandedManager} setExpandedManager={setExpandedManager}
@@ -956,7 +1007,7 @@ export default function AppShell() {
       {/* ── Main Content ──────────────────────────────────────────────────────── */}
       <Box component="main" sx={{
         ml: (isTopNav || isMobile) ? 0 : `${DRAWER_WIDTH}px`,
-        mt: isTopNav ? '57px' : `${headerHeight + 3}px`,
+        mt: `${(isTopNav ? 57 : headerHeight + 3) + bannerOffset}px`,
         p: { xs: 2, sm: 2.5, md: 3 },
         bgcolor: 'background.default',
         minHeight: '100vh',

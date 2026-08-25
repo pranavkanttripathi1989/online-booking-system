@@ -59,9 +59,13 @@ export default function BookingWizard() {
       case 0: return !!wizardData.clinic
       case 1: return !!wizardData.clinician && !!wizardData.service
       case 2: return !!wizardData.slot
-      case 3:
-        if (wizardData.patientMode === 'existing') return !!wizardData.patient
-        return !!wizardData.newPatient
+      case 3: {
+        const patientOk = wizardData.patientMode === 'existing' ? !!wizardData.patient : !!wizardData.newPatient
+        // REQ052 (US-BOOK-06) — undefined (config hasn't loaded/no fields
+        // configured yet) is treated as valid, matching this step's own
+        // "nothing required until proven otherwise" default.
+        return patientOk && wizardData.intakeFieldsValid !== false
+      }
       case 4: return true
       default: return false
     }

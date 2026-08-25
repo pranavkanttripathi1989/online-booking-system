@@ -1,4 +1,4 @@
-import { createContext, useContext, useReducer, useEffect, useCallback, useRef } from 'react'
+import { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from 'react'
 import { useLazyQuery, useApolloClient } from '@apollo/client'
 import { ME_QUERY } from '../graphql/queries'
 
@@ -192,8 +192,94 @@ export function AuthProvider({ children }) {
     dispatch({ type: 'SET_USER', payload: { user: next } })
   }, [state.user])
 
+  // REQ053/Phase G+3 — admin impersonation. `startImpersonating` takes the
+  // already-minted `access_token` from the StartImpersonation mutation (the
+  // caller, e.g. admin/users/index.jsx, runs that mutation itself — this
+  // context has no GraphQL mutation dependency of its own beyond the
+  // existing ME_QUERY lazy query).
+  //
+  // apollo/client.js's auth link reads the bearer token from
+  // `localStorage.medibook_token` ONLY (never sessionStorage) — so
+  // regardless of which storage the real admin's own session lives in
+  // (rememberMe true/false), the impersonation token must land in
+  // localStorage or it would silently never be sent on outgoing requests.
+  // The real session is stashed in sessionStorage (short-lived, tab-scoped,
+  // and distinct from the live `medibook_token`/`medibook_user` keys so a
+  // stray read of those during impersonation can't resurrect the real
+  // session by accident) and restored verbatim on endImpersonating().
+  const [isImpersonating, setIsImpersonating] = useState(
+    () => typeof window !== 'undefined' && !!sessionStorage.getItem('medibook_pre_impersonation_token'),
+  )
+
+  const startImpersonating = useCallback((accessToken) => {
+    const realToken = localStorage.getItem('medibook_token') ?? sessionStorage.getItem('medibook_token')
+    const realUser = localStorage.getItem('medibook_user') ?? sessionStorage.getItem('medibook_user')
+    const realWasSessionOnly = !localStorage.getItem('medibook_token') && !!sessionStorage.getItem('medibook_token')
+
+    if (realToken) sessionStorage.setItem('medibook_pre_impersonation_token', realToken)
+    if (realUser) sessionStorage.setItem('medibook_pre_impersonation_user', realUser)
+    sessionStorage.setItem('medibook_pre_impersonation_was_session', realWasSessionOnly ? '1' : '0')
+
+    if (realWasSessionOnly) {
+      sessionStorage.removeItem('medibook_token')
+      sessionStorage.removeItem('medibook_user')
+    }
+    localStorage.setItem('medibook_token', accessToken)
+    localStorage.removeItem('medibook_user') // force a fresh ME_QUERY load of the target's own identity
+
+    setIsImpersonating(true)
+    dispatch({ type: 'LOGIN', payload: { token: accessToken, user: null } })
+    // LOGIN always sets isLoading:false (correct for a real login, which
+    // already has the user object in hand) — but here `user` is
+    // deliberately null until ME_QUERY resolves. Without this, the
+    // caller's own immediate `navigate('/')` hits RootRoute while
+    // `isAuthenticated:true` but `user:null`, and getPostLoginRedirect's
+    // null-user fallback ('/dashboard') fires before the impersonated
+    // user's real role is known — sending every impersonation start
+    // through a flash-redirect to /dashboard that RoleGuard then rejects
+    // the instant the real (non-admin) role loads a moment later.
+    dispatch({ type: 'SET_LOADING', payload: true })
+    fetchMe()
+  }, [fetchMe])
+
+  // Client-side restoration only — the caller is responsible for invoking
+  // the EndImpersonation mutation itself (best-effort; even if that call
+  // fails, restoring the stashed real session here is still correct, since
+  // an impersonation token that's simply left un-ended will expire in its
+  // own ≤30-minute TTL regardless).
+  const endImpersonating = useCallback(() => {
+    const preToken = sessionStorage.getItem('medibook_pre_impersonation_token')
+    const preUser = sessionStorage.getItem('medibook_pre_impersonation_user')
+    const wasSession = sessionStorage.getItem('medibook_pre_impersonation_was_session') === '1'
+    sessionStorage.removeItem('medibook_pre_impersonation_token')
+    sessionStorage.removeItem('medibook_pre_impersonation_user')
+    sessionStorage.removeItem('medibook_pre_impersonation_was_session')
+    setIsImpersonating(false)
+
+    if (!preToken) {
+      // Nothing real to restore (e.g. storage was cleared mid-session) —
+      // fall back to a clean logout rather than leaving a dangling session.
+      logout()
+      return
+    }
+
+    localStorage.removeItem('medibook_token')
+    localStorage.removeItem('medibook_user')
+    sessionStorage.removeItem('medibook_token')
+    sessionStorage.removeItem('medibook_user')
+    const restoreStorage = wasSession ? sessionStorage : localStorage
+    restoreStorage.setItem('medibook_token', preToken)
+    if (preUser) restoreStorage.setItem('medibook_user', preUser)
+
+    dispatch({ type: 'LOGIN', payload: { token: preToken, user: preUser ? JSON.parse(preUser) : null } })
+    // Same defensive fallback as startImpersonating, above, for the rare
+    // case there's no cached preUser to restore synchronously.
+    if (!preUser) dispatch({ type: 'SET_LOADING', payload: true })
+    fetchMe()
+  }, [fetchMe, logout])
+
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, updateUser, hasRole, hasPermission }}>
+    <AuthContext.Provider value={{ ...state, login, logout, updateUser, hasRole, hasPermission, isImpersonating, startImpersonating, endImpersonating }}>
       {children}
     </AuthContext.Provider>
   )

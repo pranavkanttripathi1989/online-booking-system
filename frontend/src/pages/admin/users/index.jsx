@@ -11,13 +11,15 @@ import {
 } from '@mui/material';
 import {
   PersonAdd, Edit, Block, ExpandMore, ExpandLess, Restore, Search,
-  VerifiedUser, History, PeopleAlt, Shield, CheckCircle
+  VerifiedUser, History, PeopleAlt, Shield, CheckCircle, SupervisorAccount
 } from '@mui/icons-material';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import dayjs from 'dayjs';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { useSnackbar } from 'notistack';
+import { useAuth } from '../../../hooks/useAuth';
 
 dayjs.extend(relativeTime);
 
@@ -56,6 +58,18 @@ const TOGGLE_USER = gql`
 const UPDATE_ROLE_PERMS = gql`
   mutation UpdateRolePermissions($roleId: ID!, $permissionIds: [ID!]!) {
     updateRolePermissions(roleId: $roleId, permissionIds: $permissionIds)
+  }
+`;
+// REQ053/Phase G+3 — admin-only impersonation. target_user_id is the same
+// shared UserProfiles/Users id every getUsers() row's own `id` already is.
+const START_IMPERSONATION = gql`
+  mutation StartImpersonation($target_user_id: String!, $reason: String!) {
+    startImpersonation(target_user_id: $target_user_id, reason: $reason) {
+      success
+      userErrors { message }
+      access_token
+      expires_in
+    }
   }
 `;
 
@@ -137,6 +151,12 @@ function StatCard({ icon, value, label, color }) {
 export default function AdminUsers() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { enqueueSnackbar } = useSnackbar();
+  const { user: currentUser, startImpersonating } = useAuth();
+
+  // REQ053/Phase G+3 — impersonation reason-prompt dialog state
+  const [impersonateTarget, setImpersonateTarget] = useState(null);
+  const [impersonateReason, setImpersonateReason] = useState('');
   // NEW-ADMIN-002: support ?tab=N so sidebar "Audit Log" link (/admin/users?tab=2) opens correct tab
   const [adminTab, setAdminTab] = useState(() => {
     const t = parseInt(searchParams.get('tab') ?? '0', 10);
@@ -185,6 +205,28 @@ export default function AdminUsers() {
 
   const [toggleUserMutation] = useMutation(TOGGLE_USER);
   const [updateRolePermissions] = useMutation(UPDATE_ROLE_PERMS);
+  const [startImpersonationMutation, { loading: impersonateLoading }] = useMutation(START_IMPERSONATION);
+
+  const handleConfirmImpersonate = async () => {
+    if (!impersonateTarget || !impersonateReason.trim()) return;
+    try {
+      const { data } = await startImpersonationMutation({
+        variables: { target_user_id: impersonateTarget.id, reason: impersonateReason.trim() },
+      });
+      const result = data?.startImpersonation;
+      if (!result?.success) {
+        enqueueSnackbar(result?.userErrors?.[0]?.message ?? 'Failed to start impersonation', { variant: 'error' });
+        return;
+      }
+      startImpersonating(result.access_token);
+      enqueueSnackbar(`Now viewing as ${impersonateTarget.firstName} ${impersonateTarget.lastName}`, { variant: 'info' });
+      setImpersonateTarget(null);
+      setImpersonateReason('');
+      navigate('/');
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message ?? err.message ?? 'Failed to start impersonation', { variant: 'error' });
+    }
+  };
 
   React.useEffect(() => {
     if (rbacData) {
@@ -366,6 +408,14 @@ export default function AdminUsers() {
                             {u.isActive ? <Block fontSize="small" /> : <Restore fontSize="small" />}
                           </IconButton>
                         </Tooltip>
+                        {/* REQ053/Phase G+3 — can't impersonate yourself */}
+                        {u.id !== currentUser?.id && (
+                          <Tooltip title="Impersonate">
+                            <IconButton size="small" aria-label={`Impersonate ${u.email}`} onClick={() => setImpersonateTarget(u)} sx={{ color: '#6D28D9', '&:hover': { bgcolor: '#EDE9FE' } }}>
+                              <SupervisorAccount fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
                       </TableCell>
                     </TableRow>
                   );
@@ -617,6 +667,37 @@ export default function AdminUsers() {
         <DialogActions sx={{ p: 2.5, gap: 1 }}>
           <Button onClick={() => setUserDialogOpen(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
           <Button variant="contained" sx={{ bgcolor: BRAND, borderRadius: 2, fontWeight: 700 }}>Save User</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* REQ053/Phase G+3 — impersonation reason prompt */}
+      <Dialog open={!!impersonateTarget} onClose={() => setImpersonateTarget(null)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800 }}>Impersonate User</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            You are about to view MediBook as <strong>{impersonateTarget?.firstName} {impersonateTarget?.lastName}</strong>.
+            This session is time-boxed and every action you take is logged under your own account.
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            label="Reason"
+            placeholder="e.g. Investigating a support ticket about booking failures"
+            value={impersonateReason}
+            onChange={(e) => setImpersonateReason(e.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ p: 2.5, gap: 1 }}>
+          <Button onClick={() => setImpersonateTarget(null)} sx={{ color: 'text.secondary' }}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!impersonateReason.trim() || impersonateLoading}
+            onClick={handleConfirmImpersonate}
+            sx={{ bgcolor: BRAND, borderRadius: 2, fontWeight: 700 }}
+          >
+            {impersonateLoading ? 'Starting…' : 'Start Impersonation'}
+          </Button>
         </DialogActions>
       </Dialog>
 

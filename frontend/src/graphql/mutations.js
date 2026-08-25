@@ -155,6 +155,11 @@ export const COMPLETE_APPOINTMENT_MUTATION = gql`
 `
 
 // REQ023 (US-BIL-01, scoped subset) — front-desk mixed-tender counter billing.
+// REQ056 (US-BIL-03) — discount_amount/discount_reason on the input, and
+// pending_approval_id on the response: when a discount exceeds the org's
+// configured threshold, payment_id/invoice_number are left unset and
+// pending_approval_id is set instead (queued for a manager to decide via
+// decideDiscountApproval, not applied inline).
 export const RECORD_COUNTER_PAYMENT_MUTATION = gql`
   mutation RecordCounterPayment($input: RecordCounterPaymentInput!) {
     recordCounterPayment(input: $input) {
@@ -162,6 +167,7 @@ export const RECORD_COUNTER_PAYMENT_MUTATION = gql`
       message
       payment_id
       invoice_number
+      pending_approval_id
     }
   }
 `

@@ -14,8 +14,10 @@ import NoteAddRoundedIcon from '@mui/icons-material/NoteAddRounded'
 import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded'
 import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded'
 import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import { useAuth } from '../../hooks/useAuth'
 import ErrorBoundary from '../../components/ErrorBoundary'
+import { downloadAuthenticatedPdf } from '../../utils/documents'
 
 // ─── GraphQL (REQ020 P0) ────────────────────────────────────────────────────
 // A new domain, no pre-existing frontend contract to match (Hard Rule 7 is
@@ -214,7 +216,22 @@ function ActionsPane({ encounter, onApplyTemplate, onSign, onUpload, onNewPrescr
   const { data: templatesData } = useQuery(ENCOUNTER_TEMPLATES)
   const templates = templatesData?.encounterTemplates ?? []
   const [signOpen, setSignOpen] = useState(false)
+  const [downloadingSummary, setDownloadingSummary] = useState(false)
+  const { enqueueSnackbar } = useSnackbar()
   const locked = !!encounter?.locked
+
+  // REQ057 (US-PAT-02) — real server-side PDF, not window.print().
+  const handleDownloadSummary = useCallback(async () => {
+    if (!encounter?.id) return
+    setDownloadingSummary(true)
+    try {
+      await downloadAuthenticatedPdf(`/documents/visit-summaries/${encounter.id}/pdf`, `visit-summary-${encounter.id}.pdf`)
+    } catch (err) {
+      enqueueSnackbar(err?.message || 'Failed to download visit summary', { variant: 'error' })
+    } finally {
+      setDownloadingSummary(false)
+    }
+  }, [encounter?.id, enqueueSnackbar])
 
   return (
     <Paper variant="outlined" sx={{ p: 2, height: '100%', overflowY: 'auto' }}>
@@ -261,9 +278,18 @@ function ActionsPane({ encounter, onApplyTemplate, onSign, onUpload, onNewPrescr
       <Button
         fullWidth variant="outlined" startIcon={<MedicationRoundedIcon />}
         onClick={onNewPrescription}
-        sx={{ mb: 2 }}
+        sx={{ mb: 1 }}
       >
         New Prescription
+      </Button>
+
+      <Button
+        fullWidth variant="outlined" startIcon={downloadingSummary ? <CircularProgress size={16} /> : <DownloadRoundedIcon />}
+        onClick={handleDownloadSummary}
+        disabled={downloadingSummary}
+        sx={{ mb: 2 }}
+      >
+        {downloadingSummary ? 'Preparing PDF…' : 'Download Visit Summary PDF'}
       </Button>
 
       <Button

@@ -5,7 +5,7 @@ import {
   Box, Typography, Avatar, Badge, IconButton, InputBase, Chip,
   List, ListItemButton, Dialog, DialogTitle, DialogContent, DialogActions,
   Button, TextField, Autocomplete, Tooltip, CircularProgress,
-  Select, MenuItem, FormControl,
+  Select, MenuItem, FormControl, Menu, Divider, Stack, InputLabel,
 } from '@mui/material'
 import { Helmet } from 'react-helmet-async'
 import DoneAllRoundedIcon         from '@mui/icons-material/DoneAllRounded'
@@ -22,9 +22,14 @@ import EditRoundedIcon             from '@mui/icons-material/EditRounded'
 import PersonRoundedIcon           from '@mui/icons-material/PersonRounded'
 import LocalHospitalRoundedIcon    from '@mui/icons-material/LocalHospitalRounded'
 import BadgeRoundedIcon            from '@mui/icons-material/BadgeRounded'
+import CloseRoundedIcon            from '@mui/icons-material/CloseRounded'
+import ContentPasteRoundedIcon     from '@mui/icons-material/ContentPasteRounded'
+import DeleteOutlineRoundedIcon    from '@mui/icons-material/DeleteOutlineRounded'
+import ApartmentRoundedIcon        from '@mui/icons-material/ApartmentRounded'
 import { useAuth } from '../../context/AuthContext'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { formatRelativeTime } from '../../utils/dateTime'
+import { CLINICS_QUERY } from '../../graphql/queries'
 
 // backend/src/messages/** was built from scratch to match this page's exact
 // shape (participants/last_message/last_activity/unread_count/messages) --
@@ -48,7 +53,7 @@ const THREAD_DETAIL_FIELDS = gql`
     last_message
     last_activity
     unread_count
-    messages { id from_id from_name body sent_at read }
+    messages { id from_id from_name body sent_at read attachments { id file_ref mime_type original_filename } }
     assigned_to { id name role }
     sla_due_at
   }
@@ -99,6 +104,44 @@ const MESSAGE_RECEIVED = gql`
     messageReceived(userId: $userId) { ...ThreadSummaryFields }
   }
   ${THREAD_FIELDS}
+`
+
+// REQ058 (US-MSG-01) -- department/branch-scoped threads, oversight view.
+const GET_DEPARTMENTS_FOR_MESSAGES = gql`
+  query GetDepartmentsForMessages { departments { id name clinic { id name } } }
+`
+const GET_DEPARTMENT_THREADS = gql`
+  query GetDepartmentThreads($departmentId: ID!) {
+    departmentThreads(departmentId: $departmentId) { ...ThreadSummaryFields }
+  }
+  ${THREAD_FIELDS}
+`
+// REQ058 (US-MSG-01) -- the DB-row-creation half of the two-step upload
+// (message-attachments.controller.ts's own POST /upload handles the file
+// itself; this persists the metadata row once a real message id exists).
+const CREATE_MESSAGE_ATTACHMENT = gql`
+  mutation CreateMessageAttachment($input: CreateMessageAttachmentInput!) {
+    createMessageAttachment(input: $input) { id file_ref mime_type original_filename }
+  }
+`
+// REQ058 (US-MSG-03) -- canned replies.
+const GET_CANNED_REPLIES = gql`
+  query GetCannedReplies { cannedReplies { id title body created_at } }
+`
+const CREATE_CANNED_REPLY = gql`
+  mutation CreateCannedReply($input: CreateCannedReplyInput!) {
+    createCannedReply(input: $input) { success userErrors { message } cannedReply { id title body } }
+  }
+`
+const UPDATE_CANNED_REPLY = gql`
+  mutation UpdateCannedReply($id: ID!, $input: UpdateCannedReplyInput!) {
+    updateCannedReply(id: $id, input: $input) { success userErrors { message } cannedReply { id title body } }
+  }
+`
+const DELETE_CANNED_REPLY = gql`
+  mutation DeleteCannedReply($id: ID!) {
+    deleteCannedReply(id: $id) { success userErrors { message } }
+  }
 `
 
 // ─── Role colour map (SUG-MSG-005) ───────────────────────────────────────────
@@ -199,6 +242,25 @@ function MessageBubble({ msg, currentUserId }) {
           <Typography sx={{ fontSize: '0.875rem', fontWeight: 400, lineHeight: 1.6, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
             {msg.body}
           </Typography>
+          {/* REQ058 (US-MSG-01) -- message attachments */}
+          {msg.attachments?.length > 0 && (
+            <Stack spacing={0.5} sx={{ mt: 0.75 }}>
+              {msg.attachments.map((a) => {
+                const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
+                return (
+                  <Typography
+                    key={a.id} component="a" href={`${apiBase}${a.file_ref}`} target="_blank" rel="noreferrer"
+                    sx={{
+                      fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 0.5, textDecoration: 'underline',
+                      color: isMe ? 'rgba(255,255,255,0.9)' : '#1A73E8',
+                    }}
+                  >
+                    <AttachFileRoundedIcon sx={{ fontSize: '0.85rem' }} /> {a.original_filename}
+                  </Typography>
+                )
+              })}
+            </Stack>
+          )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', gap: 0.4, mt: 0.4 }}>
           <Typography variant="caption" sx={{ color: '#9AA0A6', fontSize: '0.68rem' }}>
@@ -232,8 +294,12 @@ function RoleChip({ role }) {
 
 // ─── MessagesPage ─────────────────────────────────────────────────────────────
 function MessagesPage() {
-  const { user } = useAuth()
+  const { user, hasRole } = useAuth()
   const currentUserId = user?.id ?? user?.clinician?.id
+  // REQ058 (US-MSG-01/03) -- department/clinic scoping, canned replies, and
+  // the department-oversight view are all staff concepts; messageableContacts/
+  // threads themselves stay open to every role, unchanged by this slice.
+  const isManagerish = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
 
   const [activeThreadId, setActiveThreadId] = useState(null)
   const [input,        setInput]        = useState('')
@@ -243,6 +309,26 @@ function MessagesPage() {
   const [composeOpen,    setComposeOpen]    = useState(false)
   const [composeRecip,   setComposeRecip]   = useState(null)
   const [composeMsg,     setComposeMsg]     = useState('')
+  // REQ058 (US-MSG-01) -- optional department/clinic scope on a new thread.
+  const [composeDept,    setComposeDept]    = useState(null)
+  const [composeClinic,  setComposeClinic]  = useState(null)
+
+  // REQ058 (US-MSG-01) -- staged file for the message currently being composed.
+  const [stagedFile, setStagedFile] = useState(null)
+  const [uploadingAttachment, setUploadingAttachment] = useState(false)
+  const fileInputRef = useRef(null)
+
+  // REQ058 (US-MSG-03) -- canned-reply menu + inline management dialog.
+  const [cannedMenuAnchor, setCannedMenuAnchor] = useState(null)
+  const [manageCannedOpen, setManageCannedOpen] = useState(false)
+  const [cannedEditingId,  setCannedEditingId]  = useState(null)
+  const [cannedTitle,      setCannedTitle]      = useState('')
+  const [cannedBody,       setCannedBody]       = useState('')
+
+  // REQ058 (US-MSG-01) -- department-threads oversight filter (manager+ only;
+  // threads() itself stays participant-only, unchanged by this slice).
+  const [deptFilterOn, setDeptFilterOn] = useState(false)
+  const [deptFilterId, setDeptFilterId] = useState('')
 
   const theme     = useTheme()
   const isMobile  = useMediaQuery(theme.breakpoints.down('sm'))
@@ -251,7 +337,17 @@ function MessagesPage() {
   const { data: threadsData, refetch: refetchThreads } = useQuery(GET_THREADS, { fetchPolicy: 'cache-and-network' })
   const threads = threadsData?.threads ?? []
 
-  const { data: activeThreadData } = useQuery(GET_THREAD, {
+  const { data: deptThreadsData } = useQuery(GET_DEPARTMENT_THREADS, {
+    variables: { departmentId: deptFilterId },
+    skip: !isManagerish || !deptFilterOn || !deptFilterId,
+    fetchPolicy: 'cache-and-network',
+  })
+  const threadsSource = useMemo(
+    () => (deptFilterOn && deptFilterId) ? (deptThreadsData?.departmentThreads ?? []) : threads,
+    [deptFilterOn, deptFilterId, deptThreadsData, threads],
+  )
+
+  const { data: activeThreadData, refetch: refetchActiveThread } = useQuery(GET_THREAD, {
     variables: { id: activeThreadId },
     skip: !activeThreadId,
     fetchPolicy: 'cache-and-network',
@@ -261,10 +357,22 @@ function MessagesPage() {
   const { data: contactsData } = useQuery(GET_MESSAGEABLE_CONTACTS)
   const composeContacts = contactsData?.messageableContacts ?? []
 
+  const { data: departmentsData } = useQuery(GET_DEPARTMENTS_FOR_MESSAGES, { skip: !isManagerish })
+  const departments = departmentsData?.departments ?? []
+  const { data: clinicsData } = useQuery(CLINICS_QUERY, { skip: !isManagerish })
+  const clinicsList = clinicsData?.clinics ?? []
+
+  const { data: cannedRepliesData, refetch: refetchCannedReplies } = useQuery(GET_CANNED_REPLIES, { skip: !isManagerish })
+  const cannedReplies = cannedRepliesData?.cannedReplies ?? []
+
   const [sendMessageMutation]    = useMutation(SEND_MESSAGE)
   const [markThreadReadMutation] = useMutation(MARK_THREAD_READ)
   const [createThreadMutation]   = useMutation(CREATE_THREAD)
   const [assignThreadMutation]   = useMutation(ASSIGN_THREAD)
+  const [createMessageAttachmentMutation] = useMutation(CREATE_MESSAGE_ATTACHMENT)
+  const [createCannedReplyMutation] = useMutation(CREATE_CANNED_REPLY)
+  const [updateCannedReplyMutation] = useMutation(UPDATE_CANNED_REPLY)
+  const [deleteCannedReplyMutation] = useMutation(DELETE_CANNED_REPLY)
 
   // Real-time: replaces MockStore.subscribe's fake local pub-sub with the
   // real graphql-ws subscription (next-10-features-implementation-plan.md #10).
@@ -290,14 +398,17 @@ function MessagesPage() {
   }, [threads]) // eslint-disable-line
 
   // BUG-MSG-004 fix: use useMemo instead of inline filter to avoid race condition
+  // REQ058 (US-MSG-01) -- filters whichever list is currently active: the
+  // normal participant-scoped threads, or (manager+, when toggled) the
+  // department-oversight list.
   const displayedThreads = useMemo(() => {
-    if (!searchQ.trim()) return threads
+    if (!searchQ.trim()) return threadsSource
     const q = searchQ.toLowerCase()
-    return threads.filter(t =>
+    return threadsSource.filter(t =>
       t.participants.some(p => p.name?.toLowerCase().includes(q)) ||
       t.last_message?.toLowerCase().includes(q)
     )
-  }, [threads, searchQ])
+  }, [threadsSource, searchQ])
 
 
   // BUG-MSG-001 fix: mark thread as read when selected
@@ -308,10 +419,54 @@ function MessagesPage() {
     }
   }
 
+  // REQ058 (US-MSG-01) -- stages a file for the next send; the actual
+  // upload happens in handleSend, once a real message id exists to attach
+  // it to (matches this file's other REST-alongside-Apollo endpoints).
+  const handleFileSelected = (e) => {
+    const file = e.target.files?.[0]
+    if (file) setStagedFile(file)
+    e.target.value = ''
+  }
+
+  const uploadStagedAttachment = async (file, messageId) => {
+    const token = localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')
+    const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
+    const formData = new FormData()
+    formData.append('file', file)
+    const res = await fetch(`${apiBase}/message-attachments/upload`, {
+      method: 'POST',
+      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      body: formData,
+    })
+    const upload = await res.json()
+    if (!res.ok || !upload.file_ref) throw new Error(upload.message || 'Failed to upload attachment')
+    await createMessageAttachmentMutation({
+      variables: { input: { message_id: messageId, file_ref: upload.file_ref, mime_type: upload.mime_type, original_filename: file.name } },
+    })
+  }
+
   const handleSend = async () => {
-    if (!input.trim() || !activeThreadId) return
+    if ((!input.trim() && !stagedFile) || !activeThreadId) return
+    const body = input.trim() || `📎 ${stagedFile.name}`
+    const fileToUpload = stagedFile
     setInput('')
-    await sendMessageMutation({ variables: { threadId: activeThreadId, body: input.trim() } })
+    setStagedFile(null)
+    const { data } = await sendMessageMutation({ variables: { threadId: activeThreadId, body } })
+    if (fileToUpload) {
+      setUploadingAttachment(true)
+      try {
+        const messages = data?.sendMessage?.messages ?? []
+        const newMessage = messages[messages.length - 1]
+        if (newMessage) await uploadStagedAttachment(fileToUpload, newMessage.id)
+        refetchActiveThread()
+      } catch {
+        // Message itself already sent successfully; the attachment upload
+        // failing is a secondary, recoverable problem, not a reason to
+        // pretend the send itself failed.
+      } finally {
+        setUploadingAttachment(false)
+      }
+    }
     refetchThreads()
   }
 
@@ -326,8 +481,17 @@ function MessagesPage() {
       await sendMessageMutation({ variables: { threadId: existingThread.id, body: composeMsg.trim() } })
       setActiveThreadId(existingThread.id)
     } else {
+      // REQ058 (US-MSG-01) -- department_id, when chosen, already implies
+      // its own clinic server-side; a separately-chosen clinic only applies
+      // when no department was picked (a branch-wide, not department-
+      // specific, thread).
       const { data } = await createThreadMutation({
-        variables: { input: { participant_ids: [composeRecip.id], first_message: composeMsg.trim() } },
+        variables: { input: {
+          participant_ids: [composeRecip.id],
+          first_message: composeMsg.trim(),
+          ...(composeDept ? { department_id: composeDept.id } : {}),
+          ...(!composeDept && composeClinic ? { clinic_id: composeClinic.id } : {}),
+        } },
       })
       setActiveThreadId(data.createThread.id)
     }
@@ -335,6 +499,28 @@ function MessagesPage() {
     setComposeOpen(false)
     setComposeRecip(null)
     setComposeMsg('')
+    setComposeDept(null)
+    setComposeClinic(null)
+  }
+
+  // REQ058 (US-MSG-03) -- canned-reply management (inline mini-dialog, not
+  // a separate page -- these are just title+body).
+  const resetCannedForm = () => { setCannedEditingId(null); setCannedTitle(''); setCannedBody('') }
+
+  const handleSaveCannedReply = async () => {
+    if (!cannedTitle.trim() || !cannedBody.trim()) return
+    if (cannedEditingId) {
+      await updateCannedReplyMutation({ variables: { id: cannedEditingId, input: { title: cannedTitle.trim(), body: cannedBody.trim() } } })
+    } else {
+      await createCannedReplyMutation({ variables: { input: { title: cannedTitle.trim(), body: cannedBody.trim() } } })
+    }
+    resetCannedForm()
+    refetchCannedReplies()
+  }
+
+  const handleDeleteCannedReply = async (id) => {
+    await deleteCannedReplyMutation({ variables: { id } })
+    refetchCannedReplies()
   }
 
   const activeMessages     = activeThread?.messages ?? []
@@ -395,6 +581,34 @@ function MessagesPage() {
                 </IconButton>
               </Tooltip>
             </Box>
+            {/* REQ058 (US-MSG-01) -- department-oversight filter, manager+
+                only; threads() itself (the default view) is unaffected. */}
+            {isManagerish && (
+              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1.25, flexWrap: 'wrap', rowGap: 0.75 }}>
+                <Chip
+                  icon={<ApartmentRoundedIcon sx={{ fontSize: '0.85rem !important' }} />}
+                  label="Department view"
+                  size="small"
+                  onClick={() => setDeptFilterOn((v) => !v)}
+                  color={deptFilterOn ? 'primary' : 'default'}
+                  variant={deptFilterOn ? 'filled' : 'outlined'}
+                  sx={{ fontWeight: 600, fontSize: '0.7rem' }}
+                />
+                {deptFilterOn && (
+                  <FormControl size="small" sx={{ minWidth: 150 }}>
+                    <Select
+                      value={deptFilterId}
+                      displayEmpty
+                      onChange={(e) => setDeptFilterId(e.target.value)}
+                      sx={{ fontSize: '0.78rem', '& .MuiSelect-select': { py: 0.5 } }}
+                    >
+                      <MenuItem value="" disabled>Choose department…</MenuItem>
+                      {departments.map((d) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+                    </Select>
+                  </FormControl>
+                )}
+              </Stack>
+            )}
           </Box>
 
           {/* Thread list */}
@@ -518,39 +732,73 @@ function MessagesPage() {
               </Box>
 
               {/* Input */}
-              <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #F5F7FA', bgcolor: '#fff', display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Tooltip title="Attach file">
-                  <IconButton aria-label="Attach file" size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><AttachFileRoundedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
-                </Tooltip>
-                <Tooltip title="Emoji">
-                  <IconButton aria-label="Insert emoji" size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><EmojiEmotionsOutlinedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
-                </Tooltip>
-                <Box sx={{
-                  flex: 1, bgcolor: '#F8F9FA', border: '1.5px solid #E8EAED', borderRadius: '12px', px: 2, py: 1,
-                  display: 'flex', alignItems: 'center',
-                  '&:focus-within': { borderColor: '#1A73E8', boxShadow: '0 0 0 3px rgba(26,115,232,0.12)', bgcolor: '#fff' },
-                  transition: 'all 0.18s',
-                }}>
-                  <InputBase
-                    id="message-input"
-                    value={input}
-                    onChange={e => setInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
-                    placeholder="Type a message…"
-                    multiline maxRows={3}
-                    sx={{ flex: 1, fontSize: { xs: '16px', sm: '0.875rem' }, fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
+              <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #F5F7FA', bgcolor: '#fff' }}>
+                {/* REQ058 (US-MSG-01) -- staged attachment preview */}
+                {stagedFile && (
+                  <Chip
+                    size="small"
+                    icon={<AttachFileRoundedIcon sx={{ fontSize: '0.85rem !important' }} />}
+                    label={stagedFile.name}
+                    onDelete={() => setStagedFile(null)}
+                    deleteIcon={<CloseRoundedIcon sx={{ fontSize: '0.9rem !important' }} />}
+                    sx={{ mb: 1, maxWidth: 260 }}
+                  />
+                )}
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <input type="file" ref={fileInputRef} hidden onChange={handleFileSelected} />
+                  <Tooltip title="Attach file">
+                    <IconButton aria-label="Attach file" size="small" onClick={() => fileInputRef.current?.click()} sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><AttachFileRoundedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
+                  </Tooltip>
+                  <Tooltip title="Emoji">
+                    <IconButton aria-label="Insert emoji" size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><EmojiEmotionsOutlinedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
+                  </Tooltip>
+                  {/* REQ058 (US-MSG-03) -- canned replies */}
+                  {isManagerish && (
+                    <Tooltip title="Insert canned reply">
+                      <IconButton aria-label="Insert canned reply" size="small" onClick={(e) => setCannedMenuAnchor(e.currentTarget)} sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}>
+                        <ContentPasteRoundedIcon sx={{ fontSize: '1.05rem' }} />
+                      </IconButton>
+                    </Tooltip>
+                  )}
+                  <Menu anchorEl={cannedMenuAnchor} open={!!cannedMenuAnchor} onClose={() => setCannedMenuAnchor(null)}>
+                    {cannedReplies.length === 0 && <MenuItem disabled>No canned replies yet</MenuItem>}
+                    {cannedReplies.map((cr) => (
+                      <MenuItem key={cr.id} onClick={() => { setInput(cr.body); setCannedMenuAnchor(null) }}>
+                        {cr.title}
+                      </MenuItem>
+                    ))}
+                    <Divider />
+                    <MenuItem onClick={() => { setCannedMenuAnchor(null); resetCannedForm(); setManageCannedOpen(true) }}>
+                      Manage canned replies…
+                    </MenuItem>
+                  </Menu>
+                  <Box sx={{
+                    flex: 1, bgcolor: '#F8F9FA', border: '1.5px solid #E8EAED', borderRadius: '12px', px: 2, py: 1,
+                    display: 'flex', alignItems: 'center',
+                    '&:focus-within': { borderColor: '#1A73E8', boxShadow: '0 0 0 3px rgba(26,115,232,0.12)', bgcolor: '#fff' },
+                    transition: 'all 0.18s',
+                  }}>
+                    <InputBase
+                      id="message-input"
+                      value={input}
+                      onChange={e => setInput(e.target.value)}
+                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                      placeholder="Type a message…"
+                      multiline maxRows={3}
+                      sx={{ flex: 1, fontSize: { xs: '16px', sm: '0.875rem' }, fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
+                  </Box>
+                  <Tooltip title="Send">
+                    <span>
+                      <IconButton
+                        id="send-message-btn"
+                        onClick={handleSend} size="small" disabled={(!input.trim() && !stagedFile) || uploadingAttachment}
+                        sx={{ bgcolor: (input.trim() || stagedFile) ? '#1A73E8' : '#E8EAED', color: (input.trim() || stagedFile) ? '#fff' : '#9AA0A6', width: 36, height: 36, transition: 'all 0.18s', '&:hover': { bgcolor: (input.trim() || stagedFile) ? '#1557B0' : '#E8EAED' } }}
+                      >
+                        {uploadingAttachment ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SendRoundedIcon sx={{ fontSize: '1rem' }} />}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
                 </Box>
-                <Tooltip title="Send">
-                  <span>
-                    <IconButton
-                      id="send-message-btn"
-                      onClick={handleSend} size="small" disabled={!input.trim()}
-                      sx={{ bgcolor: input.trim() ? '#1A73E8' : '#E8EAED', color: input.trim() ? '#fff' : '#9AA0A6', width: 36, height: 36, transition: 'all 0.18s', '&:hover': { bgcolor: input.trim() ? '#1557B0' : '#E8EAED' } }}
-                    >
-                      <SendRoundedIcon sx={{ fontSize: '1rem' }} />
-                    </IconButton>
-                  </span>
-                </Tooltip>
               </Box>
             </>
           ) : (
@@ -600,6 +848,43 @@ function MessagesPage() {
             )}
             sx={{ mb: 2 }}
           />
+          {/* REQ058 (US-MSG-01) -- optional department/branch scope, staff only.
+              Picking a department implies its own clinic server-side, so the
+              clinic select is only meaningful when no department is chosen. */}
+          {isManagerish && (
+            <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} sx={{ mb: 2 }}>
+              <FormControl size="small" fullWidth>
+                <InputLabel id="compose-department-label">Department (optional)</InputLabel>
+                <Select
+                  labelId="compose-department-label"
+                  label="Department (optional)"
+                  value={composeDept?.id ?? ''}
+                  onChange={(e) => {
+                    const dept = departments.find((d) => d.id === e.target.value) ?? null
+                    setComposeDept(dept)
+                    if (dept) setComposeClinic(null)
+                  }}
+                  displayEmpty
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {departments.map((d) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+              <FormControl size="small" fullWidth disabled={!!composeDept}>
+                <InputLabel id="compose-clinic-label">Clinic / branch (optional)</InputLabel>
+                <Select
+                  labelId="compose-clinic-label"
+                  label="Clinic / branch (optional)"
+                  value={composeClinic?.id ?? ''}
+                  onChange={(e) => setComposeClinic(clinicsList.find((c) => c.id === e.target.value) ?? null)}
+                  displayEmpty
+                >
+                  <MenuItem value="">None</MenuItem>
+                  {clinicsList.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                </Select>
+              </FormControl>
+            </Stack>
+          )}
           <TextField
             id="compose-message-body"
             label="Message"
@@ -620,6 +905,54 @@ function MessagesPage() {
             startIcon={<SendRoundedIcon />}
           >
             Send
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* REQ058 (US-MSG-03) -- canned-reply management (inline, not a
+          separate page -- these are just a title and a body). */}
+      <Dialog open={manageCannedOpen} onClose={() => { setManageCannedOpen(false); resetCannedForm() }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+        <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Manage Canned Replies</DialogTitle>
+        <DialogContent sx={{ pt: '8px !important' }}>
+          <Stack spacing={1.5} sx={{ mb: 2.5, maxHeight: 260, overflowY: 'auto' }}>
+            {cannedReplies.length === 0 && (
+              <Typography variant="body2" color="text.secondary">No canned replies yet — add one below.</Typography>
+            )}
+            {cannedReplies.map((cr) => (
+              <Box key={cr.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1.25, borderRadius: 2, border: '1px solid #F1F3F4' }}>
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" fontWeight={700}>{cr.title}</Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                    {cr.body}
+                  </Typography>
+                </Box>
+                <IconButton size="small" onClick={() => { setCannedEditingId(cr.id); setCannedTitle(cr.title); setCannedBody(cr.body) }}>
+                  <EditRoundedIcon fontSize="small" />
+                </IconButton>
+                <IconButton size="small" onClick={() => handleDeleteCannedReply(cr.id)}>
+                  <DeleteOutlineRoundedIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            ))}
+          </Stack>
+          <Divider sx={{ mb: 2 }} />
+          <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+            {cannedEditingId ? 'Edit reply' : 'Add new reply'}
+          </Typography>
+          <Stack spacing={1.5}>
+            <TextField label="Title" size="small" fullWidth value={cannedTitle} onChange={(e) => setCannedTitle(e.target.value)} />
+            <TextField label="Reply text" size="small" fullWidth multiline rows={3} value={cannedBody} onChange={(e) => setCannedBody(e.target.value)} />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          {cannedEditingId && <Button onClick={resetCannedForm} sx={{ textTransform: 'none' }}>Cancel edit</Button>}
+          <Button onClick={() => { setManageCannedOpen(false); resetCannedForm() }} sx={{ textTransform: 'none' }}>Close</Button>
+          <Button
+            variant="contained" disabled={!cannedTitle.trim() || !cannedBody.trim()}
+            onClick={handleSaveCannedReply}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: '#006D77', '&:hover': { bgcolor: '#005B64' } }}
+          >
+            {cannedEditingId ? 'Save changes' : 'Add reply'}
           </Button>
         </DialogActions>
       </Dialog>

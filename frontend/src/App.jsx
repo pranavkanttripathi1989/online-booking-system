@@ -139,6 +139,9 @@ const EditServicePage   = lazy(() => import('./pages/manager/services/edit'))
 const ManagerProducts     = lazy(() => import('./pages/manager/products/index'))
 const CreateProductPage   = lazy(() => import('./pages/manager/products/create'))
 const EditProductPage     = lazy(() => import('./pages/manager/products/edit'))
+// Phase G+3 — checklist/intake-field config (REQ051/REQ052) and multi-sitting packages (REQ054)
+const ManagerClinicForms  = lazy(() => import('./pages/manager/clinic-forms/index'))
+const ManagerPackages     = lazy(() => import('./pages/manager/packages/index'))
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 const AdminUsers          = lazy(() => import('./pages/admin/users/index'))
@@ -377,6 +380,9 @@ function App() {
             <Route path="/manager/products"          element={<Suspense fallback={<ShellPageLoader />}><ManagerProducts /></Suspense>} />
             <Route path="/manager/products/new"      element={<Suspense fallback={<ShellPageLoader />}><CreateProductPage /></Suspense>} />
             <Route path="/manager/products/:id/edit" element={<Suspense fallback={<ShellPageLoader />}><EditProductPage /></Suspense>} />
+            {/* Phase G+3 — checklist/intake-field config (REQ051/REQ052), packages (REQ054) */}
+            <Route path="/manager/clinic-forms"      element={<Suspense fallback={<ShellPageLoader />}><ManagerClinicForms /></Suspense>} />
+            <Route path="/manager/packages"          element={<Suspense fallback={<ShellPageLoader />}><ManagerPackages /></Suspense>} />
             {/* Shared manager/admin pages */}
             <Route path="/tasks"               element={<Suspense fallback={<ShellPageLoader />}><TasksPage /></Suspense>} />
             <Route path="/waiting-room"        element={<Suspense fallback={<ShellPageLoader />}><WaitingRoomPage /></Suspense>} />

@@ -1,11 +1,12 @@
 import { useState, useMemo, useEffect } from 'react'
-import { useApolloClient, gql } from '@apollo/client'
+import { useApolloClient, gql, useQuery, useMutation } from '@apollo/client'
 import { useTheme, useMediaQuery } from '@mui/material'
 import {
   Box, Typography, Card, CardContent, Grid, Chip, Divider,
   Table, TableHead, TableBody, TableRow, TableCell, TableContainer,
   Tabs, Tab, Button, Paper, Avatar, IconButton, Tooltip, Stack,
   ToggleButton, ToggleButtonGroup, Drawer, MenuItem, TextField, Alert,
+  Collapse, Skeleton,
 } from '@mui/material'
 import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
@@ -18,10 +19,47 @@ import FileDownloadRoundedIcon           from '@mui/icons-material/FileDownloadR
 import BarChartRoundedIcon               from '@mui/icons-material/BarChartRounded'
 import CloseRoundedIcon                  from '@mui/icons-material/CloseRounded'
 import PrintRoundedIcon                  from '@mui/icons-material/PrintRounded'
+import LocalOfferRoundedIcon             from '@mui/icons-material/LocalOfferRounded'
+import PointOfSaleRoundedIcon            from '@mui/icons-material/PointOfSaleRounded'
+import CheckRoundedIcon                  from '@mui/icons-material/CheckRounded'
+import KeyboardArrowDownRoundedIcon      from '@mui/icons-material/KeyboardArrowDownRounded'
+import KeyboardArrowRightRoundedIcon     from '@mui/icons-material/KeyboardArrowRightRounded'
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip as ReTooltip,
   Legend, ResponsiveContainer,
 } from 'recharts'
+
+// REQ056 (US-BIL-03/US-BIL-04) — page-local gql consts, matching this
+// file's own established convention (GET_FINANCE_TRANSACTIONS above is
+// already defined inline, not imported from a shared file).
+const DISCOUNT_APPROVAL_REQUESTS_QUERY = gql`
+  query DiscountApprovalRequests($clinic_id: ID) {
+    discountApprovalRequests(clinic_id: $clinic_id) {
+      id appointment_id clinic_id discount_amount discount_reason expected_amount status created_at
+    }
+  }
+`
+
+const DECIDE_DISCOUNT_APPROVAL_MUTATION = gql`
+  mutation DecideDiscountApproval($input: DecideDiscountApprovalInput!) {
+    decideDiscountApproval(input: $input) { success message payment_id }
+  }
+`
+
+const CASH_DRAWER_CLOSEOUTS_QUERY = gql`
+  query CashDrawerCloseouts($clinic_id: ID) {
+    cashDrawerCloseouts(clinic_id: $clinic_id) {
+      id clinic_id business_date total_expected total_counted variance closed_by_user_id created_at
+      breakdown { tender_type expected counted variance }
+    }
+  }
+`
+
+const DISCOUNT_STATUS_CFG = {
+  pending:  { bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', label: 'Pending' },
+  approved: { bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', label: 'Approved' },
+  rejected: { bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', label: 'Rejected' },
+}
 
 // ─── REQ004 slice 2 — real GraphQL (backend/src/appointment-payments) ─────────
 // Income (real captured/attempted Razorpay payments) only — expense-row
@@ -220,6 +258,9 @@ export default function FinancesPage() {
   const [drawerTx, setDrawerTx] = useState(null)
   const [drawerOpen, setDrawerOpen] = useState(false)
 
+  // REQ056 (US-BIL-03/04) — expanded cash-drawer breakdown row
+  const [expandedCloseout, setExpandedCloseout] = useState(null)
+
   // Real data (backend/src/appointment-payments) — replaces TRANSACTIONS/
   // ALL_MONTHLY_REVENUE. Re-fetched whenever the date range changes since
   // the range drives both the transaction list and the summary's monthly chart.
@@ -245,6 +286,27 @@ export default function FinancesPage() {
       })
       .catch((err) => setLoadError(err.message))
   }, [client, rangeDays])
+
+  // REQ056 (US-BIL-03/04) — org-wide oversight, no clinic_id filter, only
+  // fetched once the relevant tab is actually opened.
+  const { data: discountData, loading: discountLoading, refetch: refetchDiscountRequests } = useQuery(DISCOUNT_APPROVAL_REQUESTS_QUERY, {
+    skip: tab !== 3, fetchPolicy: 'network-only',
+  })
+  const [decideDiscountApproval, { loading: decidingDiscount }] = useMutation(DECIDE_DISCOUNT_APPROVAL_MUTATION, {
+    onCompleted: (d) => {
+      if (!d?.decideDiscountApproval?.success) {
+        enqueueSnackbar(d?.decideDiscountApproval?.message ?? 'Failed to decide discount request', { variant: 'error' })
+        return
+      }
+      enqueueSnackbar('Discount request updated', { variant: 'success' })
+      refetchDiscountRequests()
+    },
+    onError: (err) => enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to decide discount request', { variant: 'error' }),
+  })
+
+  const { data: closeoutData, loading: closeoutLoading } = useQuery(CASH_DRAWER_CLOSEOUTS_QUERY, {
+    skip: tab !== 4, fetchPolicy: 'network-only',
+  })
 
   // Only a status filter now — no income/expense type filter (income only, see above)
   const filtered = useMemo(() => {
@@ -349,6 +411,9 @@ export default function FinancesPage() {
           <Tab label="Payment History"   icon={<ReceiptLongRoundedIcon  sx={{ fontSize: '1rem' }} />} iconPosition="start" sx={{ minHeight: 52, fontSize: '0.875rem', fontWeight: 600, gap: 0.5 }} />
           <Tab label="Revenue Chart"     icon={<BarChartRoundedIcon     sx={{ fontSize: '1rem' }} />} iconPosition="start" sx={{ minHeight: 52, fontSize: '0.875rem', fontWeight: 600, gap: 0.5 }} />
           <Tab label="Payment Methods"   icon={<AddCardRoundedIcon      sx={{ fontSize: '1rem' }} />} iconPosition="start" sx={{ minHeight: 52, fontSize: '0.875rem', fontWeight: 600, gap: 0.5 }} />
+          {/* REQ056 (US-BIL-03/04) */}
+          <Tab label="Discount Approvals" icon={<LocalOfferRoundedIcon  sx={{ fontSize: '1rem' }} />} iconPosition="start" sx={{ minHeight: 52, fontSize: '0.875rem', fontWeight: 600, gap: 0.5 }} />
+          <Tab label="Cash Drawer"       icon={<PointOfSaleRoundedIcon  sx={{ fontSize: '1rem' }} />} iconPosition="start" sx={{ minHeight: 52, fontSize: '0.875rem', fontWeight: 600, gap: 0.5 }} />
         </Tabs>
 
         {/* Tab 0: Payment History */}
@@ -524,6 +589,162 @@ export default function FinancesPage() {
             <Alert severity="info">
               Saved payment methods aren't built yet — MediBook uses Razorpay's own Checkout for every payment, which doesn't require or store a card on file. Card tokenization for repeat/saved payments is a separate, PCI-scoped feature.
             </Alert>
+          </Box>
+        )}
+
+        {/* Tab 3: Discount Approvals — REQ056 (US-BIL-03) */}
+        {tab === 3 && (
+          <Box sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography fontWeight={800} sx={{ color: '#202124', mb: 0.5 }}>Discount Approvals</Typography>
+            <Typography variant="body2" sx={{ color: '#5F6368', mb: 2.5 }}>
+              A counter-payment discount above the org's configured threshold is queued here until a manager decides it.
+            </Typography>
+            {discountLoading ? (
+              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
+            ) : (
+              <TableContainer sx={{ borderRadius: 2, border: '1px solid #E2E8F0', overflow: 'auto' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      {['Appointment', 'Discount', 'Reason', 'Expected Amount', 'Status', 'Requested At', ''].map((h) => (
+                        <TableCell key={h}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(discountData?.discountApprovalRequests ?? []).length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={7} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                          No discount requests yet.
+                        </TableCell>
+                      </TableRow>
+                    ) : discountData.discountApprovalRequests.map((req) => {
+                      const sCfg = DISCOUNT_STATUS_CFG[req.status] ?? DISCOUNT_STATUS_CFG.pending
+                      return (
+                        <TableRow key={req.id} sx={{ '&:hover': { bgcolor: '#F8FAFC' }, transition: 'background 0.15s' }}>
+                          <TableCell><Typography variant="caption" sx={{ color: '#B8C6D4', fontWeight: 600, fontFamily: 'monospace' }}>{req.appointment_id.slice(0, 8)}</Typography></TableCell>
+                          <TableCell><Typography fontWeight={800} sx={{ color: '#0B7B5C', fontSize: '0.9rem' }}>₹{req.discount_amount.toLocaleString()}</Typography></TableCell>
+                          <TableCell><Typography variant="body2" sx={{ color: '#3D5A72' }}>{req.discount_reason}</Typography></TableCell>
+                          <TableCell><Typography variant="body2" sx={{ color: '#3D5A72' }}>₹{req.expected_amount.toLocaleString()}</Typography></TableCell>
+                          <TableCell>
+                            <Chip label={sCfg.label} size="small" sx={{ bgcolor: sCfg.bg, color: sCfg.color, border: `1px solid ${sCfg.border}`, fontWeight: 700, borderRadius: '8px', height: 24 }} />
+                          </TableCell>
+                          <TableCell><Typography variant="body2" sx={{ color: '#7A96AE' }}>{new Date(req.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</Typography></TableCell>
+                          <TableCell>
+                            {req.status === 'pending' && (
+                              <Stack direction="row" spacing={0.5}>
+                                <Tooltip title="Approve">
+                                  <span>
+                                    <IconButton size="small" aria-label="Approve" disabled={decidingDiscount}
+                                      onClick={() => decideDiscountApproval({ variables: { input: { request_id: req.id, decision: 'approve' } } })}
+                                      sx={{ color: '#0F9D58', '&:hover': { bgcolor: '#E6F4EA' } }}>
+                                      <CheckRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                                <Tooltip title="Reject">
+                                  <span>
+                                    <IconButton size="small" aria-label="Reject" disabled={decidingDiscount}
+                                      onClick={() => decideDiscountApproval({ variables: { input: { request_id: req.id, decision: 'reject' } } })}
+                                      sx={{ color: '#D93025', '&:hover': { bgcolor: '#FCE8E6' } }}>
+                                      <CloseRoundedIcon fontSize="small" />
+                                    </IconButton>
+                                  </span>
+                                </Tooltip>
+                              </Stack>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+        )}
+
+        {/* Tab 4: Cash Drawer — REQ056 (US-BIL-04, scoped subset) */}
+        {tab === 4 && (
+          <Box sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography fontWeight={800} sx={{ color: '#202124', mb: 0.5 }}>Cash Drawer Closeouts</Typography>
+            <Typography variant="body2" sx={{ color: '#5F6368', mb: 2.5 }}>
+              Expected totals are computed server-side from real succeeded payments; only the counted (physical) totals come from staff.
+            </Typography>
+            {closeoutLoading ? (
+              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
+            ) : (
+              <TableContainer sx={{ borderRadius: 2, border: '1px solid #E2E8F0', overflow: 'auto' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      {['', 'Business Date', 'Total Expected', 'Total Counted', 'Variance', 'Closed At'].map((h) => (
+                        <TableCell key={h}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(closeoutData?.cashDrawerCloseouts ?? []).length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                          No cash drawer closeouts recorded yet.
+                        </TableCell>
+                      </TableRow>
+                    ) : closeoutData.cashDrawerCloseouts.map((c) => {
+                      const isExpanded = expandedCloseout === c.id
+                      const reconciled = Math.abs(c.variance) <= 0.005
+                      return (
+                        <>
+                          <TableRow key={c.id} sx={{ '&:hover': { bgcolor: '#F8FAFC' }, transition: 'background 0.15s' }}>
+                            <TableCell>
+                              <IconButton size="small" onClick={() => setExpandedCloseout(isExpanded ? null : c.id)}>
+                                {isExpanded ? <KeyboardArrowDownRoundedIcon fontSize="small" /> : <KeyboardArrowRightRoundedIcon fontSize="small" />}
+                              </IconButton>
+                            </TableCell>
+                            <TableCell><Typography variant="body2" sx={{ color: '#3D5A72' }}>{new Date(c.business_date).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</Typography></TableCell>
+                            <TableCell><Typography variant="body2" fontWeight={700} sx={{ color: '#0D1B2E' }}>₹{c.total_expected.toLocaleString()}</Typography></TableCell>
+                            <TableCell><Typography variant="body2" fontWeight={700} sx={{ color: '#0D1B2E' }}>₹{c.total_counted.toLocaleString()}</Typography></TableCell>
+                            <TableCell>
+                              <Typography variant="body2" fontWeight={800} sx={{ color: reconciled ? '#137333' : '#A50E0E' }}>
+                                {c.variance > 0 ? '+' : ''}₹{c.variance.toLocaleString()}
+                              </Typography>
+                            </TableCell>
+                            <TableCell><Typography variant="body2" sx={{ color: '#7A96AE' }}>{new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}</Typography></TableCell>
+                          </TableRow>
+                          <TableRow>
+                            <TableCell colSpan={6} sx={{ p: 0, border: isExpanded ? undefined : 'none' }}>
+                              <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                                <Box sx={{ p: 2, bgcolor: '#FAFBFC' }}>
+                                  <Table size="small">
+                                    <TableHead>
+                                      <TableRow>
+                                        {['Tender Type', 'Expected', 'Counted', 'Variance'].map((h) => <TableCell key={h}>{h}</TableCell>)}
+                                      </TableRow>
+                                    </TableHead>
+                                    <TableBody>
+                                      {c.breakdown.map((b) => (
+                                        <TableRow key={b.tender_type}>
+                                          <TableCell sx={{ textTransform: 'capitalize' }}>{b.tender_type}</TableCell>
+                                          <TableCell>₹{b.expected.toLocaleString()}</TableCell>
+                                          <TableCell>₹{b.counted.toLocaleString()}</TableCell>
+                                          <TableCell sx={{ color: Math.abs(b.variance) > 0.005 ? '#A50E0E' : '#137333', fontWeight: 700 }}>
+                                            {b.variance > 0 ? '+' : ''}₹{b.variance.toLocaleString()}
+                                          </TableCell>
+                                        </TableRow>
+                                      ))}
+                                    </TableBody>
+                                  </Table>
+                                </Box>
+                              </Collapse>
+                            </TableCell>
+                          </TableRow>
+                        </>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Box>
         )}
       </Card>

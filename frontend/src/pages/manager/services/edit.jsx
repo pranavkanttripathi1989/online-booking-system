@@ -1,17 +1,52 @@
 import { useState, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { useMutation, useQuery } from '@apollo/client'
+import { useMutation, useQuery, gql } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
 import {
   Box, Button, CircularProgress, FormControlLabel, Grid, IconButton,
-  InputAdornment, MenuItem, Paper, Skeleton, Stack, Switch, TextField, Typography,
+  InputAdornment, MenuItem, Paper, Skeleton, Stack, Switch, Table, TableBody,
+  TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import EditRoundedIcon      from '@mui/icons-material/EditRounded'
 import SaveRoundedIcon      from '@mui/icons-material/SaveRounded'
 import { UPDATE_SERVICE_MUTATION } from '../../../graphql/mutations'
-import { SERVICE_DETAIL_QUERY }   from '../../../graphql/queries'
+import { SERVICE_DETAIL_QUERY, CLINICS_QUERY } from '../../../graphql/queries'
+
+// REQ055 (US-ORG-05) — a service created via createService always has
+// clinic_id: null (an org-level master, by this codebase's own convention —
+// see services.service.ts's create()), so every service reachable from this
+// edit page is a master; no clinic_id gate is needed on the service itself.
+// productBranchOverrides() takes an optional clinic_id and scopes org-wide
+// when omitted (confirmed against the resolver) — fetched once, unfiltered,
+// then matched client-side against this service's own id per clinic, rather
+// than firing one query per clinic (Apollo hooks can't be called in a loop).
+const PRODUCT_BRANCH_OVERRIDES_QUERY = gql`
+  query ProductBranchOverrides {
+    productBranchOverrides {
+      id
+      product_id
+      clinic_id
+      mode
+      override_price
+    }
+  }
+`
+const SET_PRODUCT_BRANCH_OVERRIDE_MUTATION = gql`
+  mutation SetProductBranchOverride($input: SetProductBranchOverrideInput!) {
+    setProductBranchOverride(input: $input) {
+      success
+      userErrors { message }
+      branchOverride { id product_id clinic_id mode override_price }
+    }
+  }
+`
+const BRANCH_OVERRIDE_MODES = [
+  { value: 'inherit', label: 'Inherit master price' },
+  { value: 'override', label: 'Override price' },
+  { value: 'skip', label: 'Not offered at this branch' },
+]
 
 // REQ016 (US-CAT-04) — mirrors create.jsx's own field set exactly.
 const CATEGORY_OVERRIDE_FIELDS = [
@@ -37,6 +72,55 @@ export default function EditServicePage() {
   const [categoryPricing, setCategoryPricing] = useState({ corporate: '', staff: '', camp: '' })
   const [channelPricing, setChannelPricing] = useState({ online: '', walkin: '' })
   const { data, loading: fetching } = useQuery(SERVICE_DETAIL_QUERY, { variables:{ id }, fetchPolicy:'network-only' })
+
+  // REQ055 (US-ORG-05) — branch pricing overrides.
+  const { data: clinicsData } = useQuery(CLINICS_QUERY)
+  const { data: overridesData, refetch: refetchOverrides } = useQuery(PRODUCT_BRANCH_OVERRIDES_QUERY, { fetchPolicy: 'network-only' })
+  const [branchRows, setBranchRows] = useState({}) // clinic_id -> { mode, override_price }
+  const [savingClinicId, setSavingClinicId] = useState(null)
+
+  useEffect(() => {
+    if (!clinicsData?.clinics) return
+    const existing = (overridesData?.productBranchOverrides ?? []).filter((o) => o.product_id === id)
+    const next = {}
+    for (const clinic of clinicsData.clinics) {
+      const row = existing.find((o) => o.clinic_id === clinic.id)
+      next[clinic.id] = { mode: row?.mode ?? 'inherit', override_price: row?.override_price != null ? String(row.override_price) : '' }
+    }
+    setBranchRows(next)
+  }, [clinicsData, overridesData, id])
+
+  const [setProductBranchOverride] = useMutation(SET_PRODUCT_BRANCH_OVERRIDE_MUTATION, {
+    onCompleted: (d) => {
+      setSavingClinicId(null)
+      if (!d?.setProductBranchOverride?.success) {
+        enqueueSnackbar(d?.setProductBranchOverride?.userErrors?.[0]?.message ?? 'Failed to save branch override', { variant: 'error' })
+        return
+      }
+      enqueueSnackbar('Branch override saved', { variant: 'success' })
+      refetchOverrides()
+    },
+    onError: (err) => { setSavingClinicId(null); enqueueSnackbar(err.message, { variant: 'error' }) },
+  })
+
+  const saveBranchOverride = (clinicId) => {
+    const row = branchRows[clinicId]
+    if (row.mode === 'override' && !row.override_price) {
+      enqueueSnackbar('Enter an override price, or choose Inherit/Skip instead', { variant: 'warning' })
+      return
+    }
+    setSavingClinicId(clinicId)
+    setProductBranchOverride({
+      variables: {
+        input: {
+          product_id: id,
+          clinic_id: clinicId,
+          mode: row.mode,
+          override_price: row.mode === 'override' ? parseFloat(row.override_price) : undefined,
+        },
+      },
+    })
+  }
 
   useEffect(() => {
     if (!data?.service) return
@@ -131,6 +215,62 @@ export default function EditServicePage() {
                 </Grid>
               ))}
             </Grid>
+          </Paper>
+
+          {/* REQ055 (US-ORG-05) — org->branch masters cascade */}
+          <Paper elevation={0} sx={{ p:3, borderRadius:3, border:'1px solid #E8EAED', mt:3 }}>
+            <Typography variant="subtitle1" fontWeight={700} mb={0.5}>Branch Pricing Overrides</Typography>
+            <Typography variant="body2" color="text.secondary" mb={2}>
+              Every branch inherits this service and its price by default. Override a branch's price, or mark it as not offered there.
+            </Typography>
+            <TableContainer sx={{ overflowX: 'auto' }}>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Clinic</TableCell>
+                    <TableCell>Mode</TableCell>
+                    <TableCell>Override Price</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {(clinicsData?.clinics ?? []).map((clinic) => {
+                    const row = branchRows[clinic.id] ?? { mode: 'inherit', override_price: '' }
+                    return (
+                      <TableRow key={clinic.id}>
+                        <TableCell>{clinic.name}</TableCell>
+                        <TableCell>
+                          <TextField select size="small" value={row.mode}
+                            onChange={(e) => setBranchRows((prev) => ({ ...prev, [clinic.id]: { ...row, mode: e.target.value } }))}
+                            sx={{ minWidth: 200 }}>
+                            {BRANCH_OVERRIDE_MODES.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+                          </TextField>
+                        </TableCell>
+                        <TableCell>
+                          <TextField size="small" type="number" value={row.override_price}
+                            disabled={row.mode !== 'override'}
+                            onChange={(e) => setBranchRows((prev) => ({ ...prev, [clinic.id]: { ...row, override_price: e.target.value } }))}
+                            inputProps={{ min: 0, step: 0.01 }}
+                            InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
+                            sx={{ width: 140 }} />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Button size="small" variant="outlined"
+                            disabled={savingClinicId === clinic.id}
+                            onClick={() => saveBranchOverride(clinic.id)}
+                            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>
+                            {savingClinicId === clinic.id ? 'Saving…' : 'Save'}
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {!(clinicsData?.clinics ?? []).length && (
+                    <TableRow><TableCell colSpan={4}><Typography variant="body2" color="text.secondary">No clinics found.</Typography></TableCell></TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
