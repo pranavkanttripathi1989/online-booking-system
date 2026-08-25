@@ -13,6 +13,7 @@
 |---|---|---|---|---|---|---|---|
 | PLAN092 | improvement | Dependant self-scoping for prescriptions and test results | done | 2026-08-25 | 2026-08-25 | REQ065 | [PLAN092-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md](./improvement/PLAN092-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md) |
 | PLAN075 | improvement | Auto-no-show sweep + configurable intake fields | done | 2026-08-25 | 2026-08-25 | REQ052 | [PLAN075-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/PLAN075-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
+| PLAN145 | improvement | Booking-widget embed code UI | done | 2026-08-26 | 2026-08-26 | REQ105 | [PLAN145-appointments-2026-08-26-booking-widget-embed-code-ui.md](./improvement/PLAN145-appointments-2026-08-26-booking-widget-embed-code-ui.md) |
 
 ## bug
 

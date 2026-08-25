@@ -15,7 +15,7 @@
 | messaging | 1 | 4 | 0 | 0 | 5 | 2026-08-26 | [messaging](./messaging/README.md) |
 | queue-management | 1 | 2 | 0 | 0 | 3 | 2026-08-25 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 6 | 11 | 0 | 17 | 2026-08-25 | [platform-nfr](./platform-nfr/README.md) |
-| appointments | 3 | 2 | 4 | 1 | 8 | 2026-08-25 | [appointments](./appointments/README.md) |
+| appointments | 3 | 3 | 4 | 1 | 9 | 2026-08-26 | [appointments](./appointments/README.md) |
 | clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
 | organizations | 3 | 4 | 0 | 1 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 3 | 0 | 0 | 5 | 2026-08-25 | [catalog-master-data](./catalog-master-data/README.md) |
