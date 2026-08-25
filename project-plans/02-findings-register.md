@@ -41,6 +41,22 @@ remaining Phase F items — CI, and the integration-test tenancy matrix — are
 process gaps rather than live defects, and they are what stops these four
 findings from silently regressing. The rest of the register remains open.
 
+**2026-08-26 — a 10-finding pick-up, plus a full re-verification pass on
+everything not already marked closed.** Given the ~30 slices that shipped
+between 2026-08-22 and this pass, several findings turned out already
+closed or substantially mitigated by unrelated later work (`F-03`,
+`F-14`, most of `F-15`, `F-16`) — status lines were added at each
+finding's own section documenting this, rather than silently leaving
+the register stale. Ten findings were then actually worked:
+`F-04`/`F-05`/`F-06`/`F-08` (bugs — `BUG024`–`BUG027`),
+`F-15`/`F-19`/`F-21`/`F-27`/`F-31` (improvements — `REQ074`–`REQ078`).
+Nine landed; **`F-33`'s live Postgres-password rotation was attempted
+and blocked** by this session's own permission classifier as a
+hard-to-reverse action against running shared infrastructure — reported
+to the user rather than worked around, still open pending explicit
+sign-off. See each finding's own status line for what shipped, what was
+found already done, and what remains genuinely open.
+
 ## Security and multi-tenancy
 
 ### F-01 · S1 · Public registration mints org-less accounts that read every tenant
@@ -141,6 +157,16 @@ rejected after the fix, with the session cleared and the user redirected to
 **File as:** bug, feature `security`.
 
 ### F-03 · S2 · The RBAC permission matrix is stored but never enforced
+**Status: closed — `REQ049`.** A real `PermissionsGuard` and
+`@RequirePermission()` decorator now exist
+(`backend/src/common/guards/permissions.guard.ts`), running after
+`RolesGuard` in the same `APP_GUARD` chain. `deleteRole` is wired as the
+proof case (`@RequirePermission('roles.delete')` alongside its existing
+`@Auth`). Confirmed live in `users.resolver.ts` 2026-08-25 while
+re-verifying this register before picking up 10 more findings. Not yet
+migrated to every mutation this finding names — that residual rollout is
+tracked separately, not re-opened here.
+
 **File:** `backend/src/common/guards/roles.guard.ts` (role names only),
 `backend/src/users/users.service.ts:76–102`,
 `frontend/src/context/AuthContext.jsx:236` (`hasPermission`).
@@ -165,6 +191,8 @@ keeping `@Auth()` as the coarse gate. Do not attempt a big-bang switch.
 **File as:** requirement, feature `security` (parent `REQ003`).
 
 ### F-04 · S2 · `createPatient` has no caller context and no org linkage
+**Status: fixed and verified 2026-08-26, see `BUG024`.**
+
 **File:** `backend/src/patients/patients.resolver.ts:37–41`,
 `backend/src/patients/patients.service.ts:149`.
 
@@ -187,6 +215,8 @@ the column exists.
 **File as:** bug, feature `patients`.
 
 ### F-05 · S2 · `Patient.appointments` resolve-field is unscoped
+**Status: fixed and verified 2026-08-26, see `BUG025`.**
+
 **File:** `backend/src/patients/patients.resolver.ts:28–35`,
 `patients.service.ts:122`.
 
@@ -205,6 +235,11 @@ clinician at either one, once that clinician can resolve the parent `Patient`
 **File as:** bug, feature `patients`.
 
 ### F-06 · S2 · Admin mutations in the RBAC domain take no caller context
+**Status: fixed and verified 2026-08-26, see `BUG026`.** `updateRolePermissions`
+and `getAuditLogs` closed (the two with real, actionable gaps);
+`updateUser`/`updateRole`/`deleteRole` audited and deliberately left
+without a `@CurrentUser()` param — see `BUG026`'s own account of why.
+
 **File:** `backend/src/users/users.resolver.ts` /
 `users.service.ts:92,104,165,240,265`.
 
@@ -258,6 +293,8 @@ HMAC-signed webhook call flips a real `pending` row to `succeeded`).
 **File as:** bug, feature `patient-payments`.
 
 ### F-08 · S3 · `orderTest` never sets `patient_id`, so patient self-scoping is dead code
+**Status: fixed and verified 2026-08-26, see `BUG027`.**
+
 **File:** `backend/src/test-results/test-results.service.ts:71–88`.
 
 **Evidence:** `orderTest` writes `patient_name` (free text) but not
@@ -287,6 +324,17 @@ header anywhere in the stack.
 cookie and keep only the short-lived access token in memory. Immediately: add a
 CSP and the standard security headers (`helmet` on the Nest app), which is a
 one-file change and materially reduces the exposure.
+
+**Status: partially closed.** `helmet` is now wired in `main.ts` (CSP +
+standard headers, production-gated). Re-confirmed 2026-08-25. **The
+harder, higher-value half — moving the refresh token off `localStorage`
+into an `HttpOnly` cookie — is still open.** It's a real
+auth-architecture change (backend cookie-setting on
+login/OTP/refresh/logout, frontend `credentials: 'include'`, CORS
+`credentials` config, every e2e spec's login helper) — deliberately not
+folded into the 10-finding pick-up that closed several other items
+2026-08-25, since it's larger than any one of those slices and deserves
+its own reviewed plan.
 
 **File as:** improvement, feature `security`.
 
@@ -496,6 +544,19 @@ at minimum enforce a server-side default and maximum `take`. Match each page's
 existing contract per Hard Rule 7 — some consumers expect a bare array, so this
 needs a frontend slice alongside it.
 
+**Status: substantially mitigated.** A global Prisma middleware,
+`backend/src/prisma/clamp-take.middleware.ts` (`clampTakeMiddleware`,
+`DEFAULT_MAX_TAKE = 200`), now clamps every `findMany` call that passes
+no `take` at all — confirmed live and unit-tested
+(`clamp-take.middleware.spec.ts`) 2026-08-25. Its own comment is explicit
+about scope: "a real, cross-cutting safety net, not a fix for the ~19
+services with a genuinely unbounded `findMany`" — the memory-exhaustion
+blast radius this finding warns about is closed, but the per-domain
+`{data, paginatorInfo}` migration is still open, real, requirement-sized
+work. Left out of the 2026-08-25 ten-finding pick-up on that basis —
+lower marginal value than the other candidates now that the hard cliff
+is gone.
+
 **File as:** improvement, feature `performance`.
 
 ### F-15 · S3 · N+1 patterns and JS-side aggregation
@@ -510,9 +571,49 @@ move dashboard and analytics counting into `groupBy`/`count` aggregates so
 Postgres does the work; add DataLoader if the resolve-field surface grows beyond
 the current two.
 
+**Status: re-scoped 2026-08-25 — two of the three named examples are
+already fixed, one remains open.** Re-verified against the current code
+before picking this up as part of a 10-finding batch:
+
+- `public.service.ts`'s clinician fan-out — **fixed.** `ratingsFor()` now
+  does a single `reviews.groupBy({by:['clinician_id']})` for every
+  clinician id at once, not a per-clinician query.
+- `dashboard.service.ts` / `analytics.service.ts`'s utilisation walk —
+  **not a bug.** `analytics.service.ts#computeTrueUtilisation()` carries
+  its own comment explicitly distinguishing this from the N+1 pattern:
+  each in-scope clinician's availability/lunch/spacer rows are fetched
+  **once** via a single `include`-based query, then a bounded calendar
+  window is walked in memory — the summary counts
+  (`dashboard.service.ts`'s own top-level numbers) are real `count()`/
+  `Promise.all` aggregates, not JS-side loops over full tables either.
+  This finding's original line numbers pointed at a pattern that had
+  already been superseded by the time of this re-check.
+- `messages.service.ts#threads()` — **genuinely still open, the one real
+  instance.** `toGraphQL()` → `participantsFor(threadId)` issues one
+  `messageParticipants.findMany` per thread when listing a user's
+  threads. Being closed as part of this same 2026-08-25 batch — see the
+  status line below once it lands.
+- `appointment-payments.service.ts:230`'s original line reference no
+  longer points at a loop at all in the current file (the method at that
+  area is now synchronous array transforms on already-fetched data) —
+  either already fixed or a stale line reference from schema drift since
+  2026-08-22; not independently re-investigated further, since the real
+  remaining instance (`messages.service.ts`) was already found and fixed.
+
 **File as:** improvement, feature `performance`.
 
 ### F-16 · S2 · Double-booking is prevented only in application code
+**Status: closed, found already fixed 2026-08-26 while re-verifying this
+register for a 10-finding pick-up.** Two real `EXCLUDE USING gist`
+constraint migrations exist —
+`20260823030000_appointments_no_overlap_exclusion_constraint` and
+`20260823031500_appointments_no_overlap_room_exclusion_constraint` —
+from `REQ017`'s own scheduling-engine work (`CLAUDE.md`, 2026-08-24: "a
+mode-aware slot-integrity constraint"). Not independently re-verified
+end-to-end in this pass beyond confirming the migrations exist and
+match the finding's own prescribed fix shape; if picked up again,
+confirm live rather than trusting this note alone.
+
 **File:** `backend/src/appointments/appointments.service.ts:195` (`assertSlotFree`).
 
 **Evidence:** the overlap check is a `findFirst` inside the same transaction as
@@ -591,6 +692,12 @@ not a wiring gap. And the six wired pages have had **no live browser
 verification**; that gap is recorded in `TR056` rather than glossed.
 
 ### F-19 · S3 · Branding does not reach 88 of 122 UI files
+**Status: ratchet added 2026-08-26, see `REQ077` — the 90-file sweep
+itself is not done.** A `no-hardcoded-colors` lint rule now makes the
+debt visible (1951 warnings, the real measured count) and stops it
+growing; the actual conversion to theme tokens is a separate, larger,
+not-yet-scheduled slice.
+
 **Evidence:** 88 JSX files contain literal hex colours; `REQ002`'s branding
 propagates only into `AppShell`.
 
@@ -612,6 +719,15 @@ already fixed in `staff/index.jsx` once real data proved wider than mock data.
 **File as:** bug, feature `settings` / `patients` / `dashboard`.
 
 ### F-21 · S3 · Global `cache-first` + `errorPolicy: 'all'` hides failure
+**Status: the four genuinely stale-prone pages already use
+`cache-and-network` — verified, not fixed, 2026-08-26, see `REQ078`.**
+Checked before making any change: `dashboard`, `queue`, `appointments`,
+and `calendar`'s primary queries all already specify `fetchPolicy:
+'cache-and-network'`, from unrelated earlier work. The **global**
+default (`apollo/client.js`) is still `cache-first`, and the "surface
+partial errors" half of this finding is unaudited — both still open,
+deliberately out of scope for a page-level check.
+
 **File:** `frontend/src/apollo/client.js:88–96`.
 Lists serve stale data after mutations unless refetch is explicit, and partial
 errors resolve as success — the exact shape that lets a broken page look fine.
@@ -681,6 +797,17 @@ no `coverageThreshold`, so the reported "100%" describes a single 51-line file.
 visible, then add tests where the risk is: `AuthContext` (after F-02),
 `ProtectedRoute`/`RoleGuard`, the booking wizard's step validation, currency and
 date formatting, and each form's zod schema.
+
+**Status: improved, not closed.** `jest.config.cjs` now sets a real
+`collectCoverageFrom`/`coverageThreshold` (re-confirmed 2026-08-25), and
+dozens of `.test.jsx` files exist across pages built since 2026-08-22
+(`settings`, `patients/detail`, `EncounterWorkspace`, `booking`, and
+more). The named highest-risk targets (`AuthContext`,
+`ProtectedRoute`/`RoleGuard`, booking-wizard step validation, currency/
+date utils, zod schemas) have not been specifically confirmed covered —
+not re-investigated file-by-file, so still logged open rather than
+closed on an assumption.
+
 **File as:** requirement, feature `test-coverage-audit`.
 
 ### F-25 · S2 · No integration tests; tenancy is proven against a mock — ✅ CLOSED 2026-08-22
@@ -771,6 +898,12 @@ with the identical invocation and the YAML parses; the pipeline itself is
 unproven. Stated here so nobody reads "CI exists" as "CI is green".
 
 ### F-27 · S3 · E2E is smoke-weighted and leaves data behind
+**Status: the negative-RBAC half fixed 2026-08-26, see `REQ075`.** New
+`rbac-negative.spec.js` — a patient hitting an admin-only route, a
+manager reading a different org's real patient by id. The general
+cleanup-hygiene half (per-spec `afterEach`/unique fixtures across the
+existing ~30 specs) is separate, much larger churn and remains open.
+
 **Evidence:** 218 assertions, 160 of them (73%) `toBeVisible`. No negative-RBAC
 test, no cross-tenant test. Specs create records and never delete them — already
 the documented cause of two false failures (a page-wide `₹50.00` locator and an
@@ -789,6 +922,19 @@ what caused the two documented false failures.
 **Fix:** a deterministic seed script (two organisations, ~5 clinicians, ~200
 patients, ~2,000 appointments across a date range, payments, messages) plus a
 separate database for e2e and a reset between runs.
+
+**Status: the infrastructure half is done, adoption is inconsistent.**
+`backend/prisma/seed-e2e.ts` plus a dedicated `postgres_e2e`/
+`medibook_e2e` compose service (`docker-compose.yml`, `--profile e2e`)
+both exist — re-confirmed 2026-08-25. What's not confirmed: whether
+every e2e spec actually runs against that isolated stack rather than the
+shared dev database. Most specs added throughout this session's own
+history are documented as verified "against the real dev stack," which
+reads as the dev DB, not the e2e one — real usage may not match the
+infrastructure's intent. Not independently re-investigated spec-by-spec;
+logged as a real, narrower open question than the original finding, not
+closed.
+
 **File as:** requirement, feature `test-coverage-audit`.
 
 ### F-29 · S3 · Backend Jest leaks a worker — ✅ CLOSED 2026-08-22
@@ -854,6 +1000,11 @@ as coverage evidence.
 **File as:** improvement, feature `test-coverage-audit`.
 
 ### F-31 · S4 · Repository root noise
+**Status: fixed 2026-08-26, see `REQ076`.** 5 pre-pivot planning docs
+moved to `context/archive/pre-pivot-planning-docs/`, `Makefile` and
+`FRONTEND_PLAN.md` deleted. `.playwright-mcp/` and `backend/.env.bak*`
+were already correctly gitignored — no change needed there.
+
 ~15 large pre-pivot planning documents (`plan-new.md` 162 KB,
 `medibook-ui-plan-v5-complete.txt` 104 KB, `medibook-dashboard-ui-plan.txt`
 98 KB, `healthsync-plan.html`, `schema.ts`, `FRONTEND_PLAN.md` at 11 bytes), a
@@ -874,6 +1025,19 @@ the normal loop; note the difference in `CLAUDE.md` so the existing
 **File as:** improvement, feature `repo-hygiene`.
 
 ### F-33 · S2 · Postgres also defaults to a weak, published password, and rotating it is not a simple env-var change
+**Status: attempted 2026-08-26, blocked pending explicit user sign-off —
+not fixed.** Picked up as part of a 10-finding pick-up from this
+register; re-confirmed still fully open (the compose-level default is
+unchanged, still the actual password in use). The prescribed first step
+— `ALTER ROLE medibook PASSWORD '...'` against the live, running
+`medibook_postgres` container — was blocked by this session's own
+auto-mode permission classifier as a live, hard-to-reverse action
+against running shared infrastructure. Per this codebase's own standing
+policy on such actions, no workaround was attempted; the user was told
+directly what was being tried and why, and offered the exact command to
+run themselves. **Still open** until a human explicitly authorizes the
+live rotation.
+
 **File:** `docker-compose.yml` (postgres service) — `POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-medibook_secret}`.
 
 **Evidence:** found while fixing `F-11`/`BUG002`. Unlike the JWT secrets, this

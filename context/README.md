@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| findings-register-2026-08-26-pickup | cross-cutting | 2026-08-26 | BUG024, BUG025, BUG026, BUG027, REQ074, REQ075, REQ076, REQ077, REQ078 | done | [manifest.md](./findings-register-2026-08-26-pickup/manifest.md) |
 | compliance-dpdp-2026-08-25-req073 | compliance-dpdp | 2026-08-25 | REQ073, PLAN100, TP127, TR126 | done | [manifest.md](./compliance-dpdp-2026-08-25-req073/manifest.md) |
 | patient-portal-2026-08-25-req072 | patient-portal | 2026-08-25 | REQ072, PLAN099, TP126, TR125 | done | [manifest.md](./patient-portal-2026-08-25-req072/manifest.md) |
 | messaging-2026-08-25-req071 | messaging | 2026-08-25 | REQ071, PLAN098, TP125, TR124 | done | [manifest.md](./messaging-2026-08-25-req071/manifest.md) |

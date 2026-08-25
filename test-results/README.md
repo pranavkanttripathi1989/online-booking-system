@@ -12,7 +12,7 @@
 | prescriptions | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [prescriptions](./prescriptions/README.md) |
 | clinical-records | 1 | 1 | 0 | 0 | 2 | 2026-08-25 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
-| messaging | 1 | 3 | 0 | 0 | 4 | 2026-08-25 | [messaging](./messaging/README.md) |
+| messaging | 1 | 4 | 0 | 0 | 5 | 2026-08-26 | [messaging](./messaging/README.md) |
 | queue-management | 1 | 2 | 0 | 0 | 3 | 2026-08-25 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 6 | 11 | 0 | 17 | 2026-08-25 | [platform-nfr](./platform-nfr/README.md) |
 | appointments | 3 | 2 | 4 | 1 | 8 | 2026-08-25 | [appointments](./appointments/README.md) |
@@ -23,16 +23,16 @@
 | communications-policies | 2 | 2 | 0 | 4 | 0 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
 | notifications | 3 | 1 | 0 | 1 | 3 | 2026-08-25 | [notifications](./notifications/README.md) |
-| organization-branding | 1 | 0 | 0 | 1 | 0 | 2026-08-21 | [organization-branding](./organization-branding/README.md) |
+| organization-branding | 1 | 1 | 0 | 1 | 1 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 1 | 0 | 2026-08-21 | [products](./products/README.md) |
-| security | 3 | 2 | 1 | 1 | 5 | 2026-08-25 | [security](./security/README.md) |
+| security | 3 | 2 | 2 | 1 | 6 | 2026-08-26 | [security](./security/README.md) |
 | settings | 3 | 0 | 0 | 2 | 1 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 1 | 1 | 0 | 1 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | patient-payments | 4 | 2 | 0 | 2 | 4 | 2026-08-25 | [patient-payments](./patient-payments/README.md) |
 | patient-portal | 0 | 2 | 0 | 0 | 2 | 2026-08-25 | [patient-portal](./patient-portal/README.md) |
 | clinician-availability | 1 | 0 | 0 | 0 | 1 | 2026-08-19 | [clinician-availability](./clinician-availability/README.md) |
 | auth | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [auth](./auth/README.md) |
-| patients | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [patients](./patients/README.md) |
+| patients | 1 | 0 | 2 | 0 | 3 | 2026-08-26 | [patients](./patients/README.md) |
 | phase4-5-increment3 | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
 | phase4-backend-integration | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-backend-integration](./phase4-backend-integration/README.md) |
 | test-results-page | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [test-results-page](./test-results-page/README.md) |
@@ -61,3 +61,7 @@
 | admin | 1 | 0 | 0 | 0 | 1 | 2026-03-24 | [admin](./admin/README.md) |
 | clinician-calendar | 1 | 0 | 0 | 0 | 1 | 2026-03-20 | [clinician-calendar](./clinician-calendar/README.md) |
 | patient-profile | 1 | 0 | 0 | 0 | 1 | 2026-03-19 | [patient-profile](./patient-profile/README.md) |
+| test-coverage-audit | 0 | 1 | 0 | 0 | 1 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
+| test-results | 0 | 0 | 1 | 0 | 1 | 2026-08-26 | [test-results](./test-results/README.md) |
+| repo-hygiene | 0 | 1 | 0 | 0 | 1 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
+| frontend-platform | 0 | 1 | 0 | 0 | 1 | 2026-08-26 | [frontend-platform](./frontend-platform/README.md) |

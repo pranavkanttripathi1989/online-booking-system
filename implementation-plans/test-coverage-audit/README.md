@@ -11,7 +11,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN106 | improvement | Negative-RBAC e2e coverage | done | 2026-08-26 | 2026-08-26 | REQ075 | [PLAN106-test-coverage-audit-2026-08-26-negative-rbac-e2e.md](./improvement/PLAN106-test-coverage-audit-2026-08-26-negative-rbac-e2e.md) |
 
 ## bug
 

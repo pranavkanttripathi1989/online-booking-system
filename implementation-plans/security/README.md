@@ -19,5 +19,6 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN103 | bug | Role/permission mutation guards | done | 2026-08-26 | 2026-08-26 | BUG026 | [PLAN103-security-2026-08-26-role-permission-mutation-guards.md](./bug/PLAN103-security-2026-08-26-role-permission-mutation-guards.md) |
 | PLAN084 | bug | Add the missing `reset-password` page | done | 2026-08-25 | 2026-08-25 | BUG022 | [PLAN084-security-2026-08-25-add-reset-password-page.md](./bug/PLAN084-security-2026-08-25-add-reset-password-page.md) |
 

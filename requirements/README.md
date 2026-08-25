@@ -16,23 +16,27 @@
 | compliance-dpdp | 1 | 1 | 0 | 1 | 1 | 2026-08-25 | [compliance-dpdp](./compliance-dpdp/README.md) |
 | telemedicine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [telemedicine](./telemedicine/README.md) |
 | patient-portal | 1 | 2 | 0 | 2 | 1 | 2026-08-25 | [patient-portal](./patient-portal/README.md) |
-| messaging | 2 | 3 | 0 | 2 | 3 | 2026-08-25 | [messaging](./messaging/README.md) |
+| messaging | 2 | 4 | 0 | 2 | 4 | 2026-08-26 | [messaging](./messaging/README.md) |
 | analytics-reporting | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
 | platform-integrations | 1 | 2 | 0 | 1 | 2 | 2026-08-25 | [platform-integrations](./platform-integrations/README.md) |
 | subscription-plan-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |
 | platform-nfr | 1 | 4 | 11 | 1 | 15 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
-| security | 4 | 2 | 5 | 3 | 8 | 2026-08-25 | [security](./security/README.md) |
+| security | 4 | 2 | 6 | 3 | 9 | 2026-08-26 | [security](./security/README.md) |
 | notifications | 3 | 1 | 0 | 1 | 3 | 2026-08-25 | [notifications](./notifications/README.md) |
 | patient-payments | 3 | 2 | 0 | 2 | 3 | 2026-08-25 | [patient-payments](./patient-payments/README.md) |
 | communications-policies | 1 | 2 | 0 | 0 | 3 | 2026-08-22 | [communications-policies](./communications-policies/README.md) |
-| test-coverage-audit | 1 | 0 | 0 | 0 | 1 | 2026-08-22 | [test-coverage-audit](./test-coverage-audit/README.md) |
+| test-coverage-audit | 1 | 1 | 0 | 0 | 2 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
-| organization-branding | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [organization-branding](./organization-branding/README.md) |
+| organization-branding | 1 | 1 | 0 | 0 | 2 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
 | settings | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | semble-competitive-gap | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [semble-competitive-gap](./semble-competitive-gap/README.md) |
+| patients | 0 | 0 | 2 | 0 | 2 | 2026-08-26 | [patients](./patients/README.md) |
+| test-results | 0 | 0 | 1 | 0 | 1 | 2026-08-26 | [test-results](./test-results/README.md) |
+| repo-hygiene | 0 | 1 | 0 | 0 | 1 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
+| frontend-platform | 0 | 1 | 0 | 0 | 1 | 2026-08-26 | [frontend-platform](./frontend-platform/README.md) |
 
 ## PRD-derived requirements (2026-08-22)
 

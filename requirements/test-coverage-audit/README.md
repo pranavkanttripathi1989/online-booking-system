@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ075 | improvement | Negative-RBAC e2e coverage | done | 2026-08-26 | 2026-08-26 | — | [REQ075-test-coverage-audit-2026-08-26-negative-rbac-e2e.md](./improvement/REQ075-test-coverage-audit-2026-08-26-negative-rbac-e2e.md) |
 
 ## bug
 

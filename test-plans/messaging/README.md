@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP132 | improvement | `threads()` N+1 fix | approved | 2026-08-26 | 2026-08-26 | PLAN105 | [TP132-messaging-2026-08-26-threads-n-plus-one.md](./improvement/TP132-messaging-2026-08-26-threads-n-plus-one.md) |
 | TP125 | improvement | Message-thread events on the patient clinical timeline | approved | 2026-08-25 | 2026-08-25 | PLAN098 | [TP125-messaging-2026-08-25-message-timeline-linkage.md](./improvement/TP125-messaging-2026-08-25-message-timeline-linkage.md) |
 | TP124 | improvement | Clinical-hours auto-responder | approved | 2026-08-25 | 2026-08-25 | PLAN097 | [TP124-messaging-2026-08-25-clinical-hours-auto-responder.md](./improvement/TP124-messaging-2026-08-25-clinical-hours-auto-responder.md) |
 | TP108 | improvement | Department/branch-scoped threads, attachments, and canned replies | approved | 2026-08-25 | 2026-08-25 | PLAN081 | [TP108-messaging-2026-08-25-department-scoped-threads-attachments-canned-replies.md](./improvement/TP108-messaging-2026-08-25-department-scoped-threads-attachments-canned-replies.md) |

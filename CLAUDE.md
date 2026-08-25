@@ -870,6 +870,63 @@ demo account to a real `Patients` row (reverted after); `setRetentionPolicy`/
 `retentionPolicies` against the real dev DB (left in place, inert — 7
 years retention has no effect on data this young).
 
+### A 10-finding pick-up from `project-plans/02-findings-register.md`, 2026-08-26
+
+Asked what was still pending in the original 2026-08-22 findings
+register, then asked to pick up and work 10 more. Every finding not
+already marked closed was re-verified against the current code first —
+several turned out already closed or substantially mitigated by
+unrelated later work (`F-03` via `REQ049`'s `PermissionsGuard`, `F-14`
+via a global `clampTakeMiddleware`, 3 of `F-15`'s 4 named instances,
+`F-16` via `REQ017`'s own EXCLUDE constraints) — status lines were added
+at each finding's own section in the register rather than leaving it
+stale.
+
+Nine of the ten selected findings shipped: `F-04`/`F-05` (`Patients`
+had no `client_org_id`; a zero-appointment patient leaked cross-org, and
+its `appointments` resolve-field was completely unscoped — `BUG024`/
+`BUG025`), `F-06` (`updateRolePermissions` could strip a system role's
+permissions; `getAuditLogs` unscoped — `BUG026`), `F-08` (`orderTest`
+never wrote `patient_id`, making the patient self-scoping tests already
+asserted permanently dead code — `BUG027`), `F-15` (`messages.service
+.ts#threads()`'s real N+1, re-scoped down once the other 3 named
+instances were found already fixed — `REQ074`), `F-19` (a
+`no-hardcoded-colors` lint ratchet, not the 90-file sweep — `REQ077`),
+`F-21` (verified the 4 genuinely stale-prone pages already use
+`cache-and-network` — `REQ078`), `F-27` (2 new negative-RBAC e2e
+scenarios — `REQ075`), `F-31` (repo root cleanup — `REQ076`).
+
+**`F-33` (rotate the default Postgres password) was attempted and
+blocked**, not silently skipped: the prescribed first step — `ALTER
+ROLE` against the live, running `medibook_postgres` container — was
+blocked by this session's own auto-mode permission classifier as a
+hard-to-reverse action against running shared infrastructure. No
+workaround was attempted; the user was told directly and given the
+exact command to run themselves. Still open pending explicit sign-off.
+
+Two real bugs found along the way, neither part of the original
+findings: `test/integration/tenancy.int-spec.ts`'s own `Patients`
+fixture had no `client_org_id`, breaking immediately once `BUG024`'s
+schema change landed (fixed, matching how `products`/`productCategories`
+fixtures already stamp theirs); and the new `rbac-negative.spec.js`'s
+own `psql()`-result handling silently mishandled an `INSERT ...
+RETURNING id`'s second `INSERT 0 1` status line, so a cross-org
+assertion passed for the wrong reason and cleanup left a residue row —
+found and fixed before the spec could be trusted.
+
+Full verification: backend unit 84/84 suites, 1317/1317 tests (one
+pre-existing, host-load-flaky `account.service.spec.ts` failure under
+full-parallel contention, confirmed passing 30/30 in isolation);
+integration 4/4 suites, 369/369 tests; `eslint`/`tsc --noEmit` clean.
+Frontend: lint clean at a new, honestly-measured 1951-warning ratchet
+baseline (up from 169 — the real count once `no-hardcoded-colors`
+actually ran); 5 suites flaky under full-parallel contention (the same
+4 pre-existing ones plus 1 new, `manager/pharmacy/index.test.jsx`, all 5
+confirmed passing in isolation, none importing a file this batch
+touched); build succeeded. Live-verified every shipped backend fix
+against the real dev stack. See `context/findings-register-2026-08-26-
+pickup/manifest.md` for the full account.
+
 ### What Phase F did NOT close — read before assuming coverage
 
 - **Tenancy matrix now covers 31 tenant-scoped domains plus 12 honestly-EXEMPT

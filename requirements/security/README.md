@@ -20,6 +20,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG026 | bug | `updateRolePermissions` could strip a system role's permissions; `getAuditLogs` unscoped | done | 2026-08-26 | 2026-08-26 | — | [BUG026-security-2026-08-26-role-permission-mutation-guards.md](./bug/BUG026-security-2026-08-26-role-permission-mutation-guards.md) |
 | BUG022 | bug | The password-reset flow has no second step | done | 2026-08-25 | 2026-08-25 | — | [BUG022-security-2026-08-25-password-reset-flow-has-no-second-step.md](./bug/BUG022-security-2026-08-25-password-reset-flow-has-no-second-step.md) |
 | BUG006 | bug | The F-01 "org-less caller sees everything" pattern survived in twelve more services | done | 2026-08-22 | 2026-08-22 | BUG004 | [BUG006-security-2026-08-22-org-less-caller-leaks-in-nine-services.md](./bug/BUG006-security-2026-08-22-org-less-caller-leaks-in-nine-services.md) |
 | BUG004 | bug | Public registration mints org-less accounts that read every tenant (F-01) | done | 2026-08-22 | 2026-08-22 | — | [BUG004-security-2026-08-22-tenant-scoping-org-less-caller-sees-everything.md](./bug/BUG004-security-2026-08-22-tenant-scoping-org-less-caller-sees-everything.md) |

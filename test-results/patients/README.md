@@ -12,5 +12,8 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR128 | bug | `Patient.appointments` scoping fix results | pass | 2026-08-26 | 2026-08-26 | TP129 | [TR128-patients-2026-08-26-appointments-resolve-field-unscoped.md](./bug/TR128-patients-2026-08-26-appointments-resolve-field-unscoped.md) |
+| TR127 | bug | `Patients.client_org_id` results | pass | 2026-08-26 | 2026-08-26 | TP128 | [TR127-patients-2026-08-26-createpatient-org-linkage.md](./bug/TR127-patients-2026-08-26-createpatient-org-linkage.md) |
 
