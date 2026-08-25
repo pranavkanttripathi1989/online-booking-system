@@ -43,6 +43,7 @@ function RootRoute() {
 // ─── Auth ─────────────────────────────────────────────────────────────────────
 const Login              = lazy(() => import('./pages/auth/login'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password'))
+const ResetPasswordPage  = lazy(() => import('./pages/auth/reset-password'))
 const OnboardingWizard   = lazy(() => import('./pages/onboarding/index'))
 
 // ─── Public ───────────────────────────────────────────────────────────────────
@@ -227,6 +228,9 @@ function App() {
         } />
         <Route path="/forgot-password" element={
           <Suspense fallback={<FullPageLoader />}><ForgotPasswordPage /></Suspense>
+        } />
+        <Route path="/reset-password" element={
+          <Suspense fallback={<FullPageLoader />}><ResetPasswordPage /></Suspense>
         } />
         <Route path="/get-started" element={
           <Suspense fallback={<FullPageLoader />}><OnboardingWizard /></Suspense>
