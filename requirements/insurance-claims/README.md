@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ062 | improvement | Patient insurance policy capture UI | done | 2026-08-25 | 2026-08-25 | REQ031 | [REQ062-insurance-claims-2026-08-25-patient-policy-capture-ui.md](./improvement/REQ062-insurance-claims-2026-08-25-patient-policy-capture-ui.md) |
 
 ## bug
 

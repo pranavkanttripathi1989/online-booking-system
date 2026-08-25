@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR115 | improvement | Patient insurance policy capture UI results | pass | 2026-08-25 | 2026-08-25 | TP116 | [TR115-insurance-claims-2026-08-25-patient-policy-capture-ui.md](./improvement/TR115-insurance-claims-2026-08-25-patient-policy-capture-ui.md) |
 
 ## bug
 

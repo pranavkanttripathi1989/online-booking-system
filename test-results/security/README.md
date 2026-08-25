@@ -12,6 +12,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR113 | improvement | Clinician verification UI results | pass | 2026-08-25 | 2026-08-25 | TP114 | [TR113-security-2026-08-25-clinician-verification-ui.md](./improvement/TR113-security-2026-08-25-clinician-verification-ui.md) |
 | TR102 | improvement | Break-glass + impersonation results | pass | 2026-08-25 | 2026-08-25 | TP103 | [TR102-security-2026-08-25-break-glass-and-impersonation.md](./improvement/TR102-security-2026-08-25-break-glass-and-impersonation.md) |
 
 ## bug

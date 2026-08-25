@@ -138,6 +138,13 @@ clinician's prescription view, which already knows the relevant
 table/tab driven by `stockMovements`.
 
 ### A-4 · S3 · `clinicians.updateClinicianVerification` — no admin action to verify a clinician
+
+**Fixed 2026-08-25 — `REQ060`/`PLAN087`/`TP114`/`TR113`,
+`context/security-2026-08-25-req060/manifest.md`.** A verification chip
++ registration details + Verify/Reject/Re-open-for-review actions on
+`clinicians/detail.jsx`, gated `admin`/`super_admin` matching the
+resolver's own gate.
+
 **Backend:** `backend/src/clinicians/clinicians.resolver.ts:58` —
 `updateClinicianVerification(id, status)`. Real, tested.
 **Frontend:** `registration_number`/`qualifications` are editable
@@ -156,6 +163,12 @@ and is presumably shown somewhere as read-only text at best.
 `admin`/`super_admin` matching the resolver's own gate.
 
 ### A-5 · S3 · `encounters.createDiagnosis` — no structured diagnosis entry
+
+**Fixed 2026-08-25 together with A-6 — `REQ061`/`PLAN088`/`TP115`/
+`TR114`, `context/clinical-records-2026-08-25-req061/manifest.md`.** A
+"Diagnoses" section + "Add Diagnosis" dialog on
+`EncounterWorkspace.jsx`, hidden once the encounter is locked.
+
 **Backend:** `backend/src/encounters/encounters.resolver.ts:71` —
 `createDiagnosis(input: CreateDiagnosisInput!)`, producing a real
 `Diagnosis` row (`type`, `icd10_code`, `text`, `status`). Tested.
@@ -174,6 +187,12 @@ read from yet, even though the write path already exists.
 the existing diagnoses display panel in `EncounterWorkspace.jsx`.
 
 ### A-6 · S3 · `encounters.createEncounterTemplate` — clinicians can apply templates but never create one
+
+**Fixed 2026-08-25 together with A-5** — see the status note under A-5
+above for the shared doc chain. A "Save as template" action on
+`EncounterWorkspace.jsx`'s `ActionsPane`, building `sections_json` from
+the encounter's own current note content.
+
 **Backend:** `backend/src/encounters/encounters.resolver.ts:92` —
 `createEncounterTemplate`. Tested.
 **Frontend:** `EncounterWorkspace.jsx:216-243` reads `encounterTemplates`
@@ -191,6 +210,13 @@ standalone template-management dialog, reusing the same pattern
 established for an identical "empty list, no way to seed it" shape.
 
 ### A-7 · S3 · `insurance.patientInsurancePolicies` + `createPatientInsurancePolicy` — no patient policy capture UI
+
+**Fixed 2026-08-25 — `REQ062`/`PLAN089`/`TP116`/`TR115`,
+`context/insurance-claims-2026-08-25-req062/manifest.md`.** A new
+"Insurance" tab on `patients/detail.jsx`, real GraphQL keyed on the real
+route `:id` — confirmed independent of that page's own broader,
+deliberately-paused mock status (`context/open-questions.md` #13).
+
 **Backend:** `backend/src/insurance/insurance.resolver.ts` — both exist,
 tested.
 **Frontend:** `admin/Payers.jsx` covers the payer master + branch
@@ -207,6 +233,13 @@ will need real data for.
 codebase's established "detail page tab/section" convention.
 
 ### A-8 · S3 · `webhooks.webhookDeliveryLog` — no delivery history view
+
+**Fixed 2026-08-25 — `REQ063`/`PLAN090`/`TP117`/`TR116`,
+`context/platform-integrations-2026-08-25-req063/manifest.md`.** A
+"Delivery Log" button per endpoint row on `settings/index.jsx`'s
+Integrations tab, live-verified against a real, deliberately-unreachable
+endpoint and a real fired event.
+
 **Backend:** `backend/src/webhooks/webhooks.resolver.ts` — real, tested.
 **Frontend:** `settings/index.jsx`'s Integrations tab manages webhook
 *endpoints* (create/deactivate, reveals the signing secret once) but
@@ -422,17 +455,29 @@ order:
 4. **A-2/A-3** (drugs + pharmacy dispense/history) — S2, closes REQ022's
    own P0 story properly. **Done 2026-08-25** — see the status notes
    under A-2/A-3 above.
-5. **A-4 through A-8** — S3, smaller additive UI slices, can be batched
-   the way Phase G+1/G+2/G+3 batched similarly-scoped work.
+5. **A-4 through A-8** — S3, smaller additive UI slices, batched the way
+   Phase G+1/G+2/G+3 batched similarly-scoped work. **Done 2026-08-25** —
+   `REQ060`/`REQ061`/`REQ062`/`REQ063` (four slices; A-5/A-6 shared one
+   slice, matching how the findings themselves were already paired), see
+   the status notes under A-4 through A-8 above. All four code+test
+   verified together in one pass, then split into their own
+   `REQ`/`PLAN`/`TP`/`TR` doc sets per feature slug, matching this
+   section's own classification below — not one shared `platform-nfr`
+   set, since (unlike the Phase G-series frontend-completion precedent)
+   these are four newly-discovered gaps in four already-shipped,
+   unrelated requirements, not one cross-cutting backend batch's own
+   already-known deferral.
 6. **A-9, A-10** — S4, opportunistic, low urgency.
 7. **§C** — a one-line CLAUDE.md correction. **Done 2026-08-25**, folded
    into the A-1 slice's docs commit (the next slice that touched
    CLAUDE.md after this document was written).
 
 Each slice gets its own `REQ`/`PLAN`/`TP`/`TR` under the feature slug
-matching its domain (`security` for A-1, `pharmacy` for A-2/A-3 (done —
-see above), `clinical-records` for A-5/A-6, `insurance-claims` for A-7,
-`platform-integrations` for A-8/A-9, `catalog-master-data` for A-10,
+matching its domain (`security` for A-1 and A-4 (both done — see above),
+`pharmacy` for A-2/A-3 (done — see above), `clinical-records` for A-5/A-6
+(done — see above, `REQ061`), `insurance-claims` for A-7 (done — see
+above, `REQ062`), `platform-integrations` for A-8 (done — see above,
+`REQ063`) and the still-open A-9, `catalog-master-data` for A-10,
 `clinician-dashboard` for B-1 (done — see above), and `appointments` for
 B-2 (done — see above; used `appointments` rather than the `platform-nfr`
 originally suggested here, matching B-1's own single-domain reasoning),

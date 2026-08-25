@@ -3,8 +3,8 @@
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
 | clinician-dashboard | 0 | 0 | 1 | 0 | 1 | 2026-08-25 | [clinician-dashboard](./clinician-dashboard/README.md) |
-| insurance-claims | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [insurance-claims](./insurance-claims/README.md) |
-| clinical-records | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [clinical-records](./clinical-records/README.md) |
+| insurance-claims | 1 | 1 | 0 | 1 | 1 | 2026-08-25 | [insurance-claims](./insurance-claims/README.md) |
+| clinical-records | 1 | 1 | 0 | 1 | 1 | 2026-08-25 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [scheduling-engine](./scheduling-engine/README.md) |
 | pharmacy | 1 | 1 | 0 | 1 | 1 | 2026-08-25 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [prescriptions](./prescriptions/README.md) |
@@ -18,11 +18,11 @@
 | patient-portal | 1 | 1 | 0 | 2 | 0 | 2026-08-25 | [patient-portal](./patient-portal/README.md) |
 | messaging | 2 | 1 | 0 | 2 | 1 | 2026-08-25 | [messaging](./messaging/README.md) |
 | analytics-reporting | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
-| platform-integrations | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [platform-integrations](./platform-integrations/README.md) |
+| platform-integrations | 1 | 1 | 0 | 1 | 1 | 2026-08-25 | [platform-integrations](./platform-integrations/README.md) |
 | subscription-plan-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |
 | platform-nfr | 1 | 4 | 11 | 1 | 15 | 2026-08-23 | [platform-nfr](./platform-nfr/README.md) |
-| security | 4 | 1 | 5 | 3 | 7 | 2026-08-25 | [security](./security/README.md) |
+| security | 4 | 2 | 5 | 3 | 8 | 2026-08-25 | [security](./security/README.md) |
 | notifications | 3 | 0 | 0 | 1 | 2 | 2026-08-24 | [notifications](./notifications/README.md) |
 | patient-payments | 3 | 2 | 0 | 2 | 3 | 2026-08-25 | [patient-payments](./patient-payments/README.md) |
 | communications-policies | 1 | 2 | 0 | 0 | 3 | 2026-08-22 | [communications-policies](./communications-policies/README.md) |

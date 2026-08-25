@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN090 | improvement | Webhook delivery log UI | done | 2026-08-25 | 2026-08-25 | REQ063 | [PLAN090-platform-integrations-2026-08-25-webhook-delivery-log-ui.md](./improvement/PLAN090-platform-integrations-2026-08-25-webhook-delivery-log-ui.md) |
 
 ## bug
 

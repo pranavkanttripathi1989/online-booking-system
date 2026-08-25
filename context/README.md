@@ -4,6 +4,10 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| platform-integrations-2026-08-25-req063 | platform-integrations | 2026-08-25 | REQ063, PLAN090, TP117, TR116 | done | [manifest.md](./platform-integrations-2026-08-25-req063/manifest.md) |
+| insurance-claims-2026-08-25-req062 | insurance-claims | 2026-08-25 | REQ062, PLAN089, TP116, TR115 | done | [manifest.md](./insurance-claims-2026-08-25-req062/manifest.md) |
+| clinical-records-2026-08-25-req061 | clinical-records | 2026-08-25 | REQ061, PLAN088, TP115, TR114 | done | [manifest.md](./clinical-records-2026-08-25-req061/manifest.md) |
+| security-2026-08-25-req060 | security | 2026-08-25 | REQ060, PLAN087, TP114, TR113 | done | [manifest.md](./security-2026-08-25-req060/manifest.md) |
 | pharmacy-2026-08-25-req059 | pharmacy | 2026-08-25 | REQ059, PLAN086, TP113, TR112 | done | [manifest.md](./pharmacy-2026-08-25-req059/manifest.md) |
 | appointments-2026-08-25-bug023 | appointments | 2026-08-25 | BUG023, PLAN085, TP112, TR111 | done | [manifest.md](./appointments-2026-08-25-bug023/manifest.md) |
 | security-2026-08-25-bug022 | security | 2026-08-25 | BUG022, PLAN084, TP111, TR110 | done | [manifest.md](./security-2026-08-25-bug022/manifest.md) |

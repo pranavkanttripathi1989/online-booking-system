@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN088 | improvement | Structured diagnosis entry and note-template creation UI | done | 2026-08-25 | 2026-08-25 | REQ061 | [PLAN088-clinical-records-2026-08-25-structured-diagnosis-and-note-templates-ui.md](./improvement/PLAN088-clinical-records-2026-08-25-structured-diagnosis-and-note-templates-ui.md) |
 
 ## bug
 

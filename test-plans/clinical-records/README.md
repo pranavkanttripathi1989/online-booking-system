@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP115 | improvement | Structured diagnosis entry and note-template creation UI | approved | 2026-08-25 | 2026-08-25 | PLAN088 | [TP115-clinical-records-2026-08-25-structured-diagnosis-and-note-templates-ui.md](./improvement/TP115-clinical-records-2026-08-25-structured-diagnosis-and-note-templates-ui.md) |
 
 ## bug
 

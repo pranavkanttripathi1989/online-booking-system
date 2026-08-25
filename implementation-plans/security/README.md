@@ -12,6 +12,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN087 | improvement | Clinician verification UI | done | 2026-08-25 | 2026-08-25 | REQ060 | [PLAN087-security-2026-08-25-clinician-verification-ui.md](./improvement/PLAN087-security-2026-08-25-clinician-verification-ui.md) |
 | PLAN076 | improvement | Break-glass access + impersonation audit trail | done | 2026-08-25 | 2026-08-25 | REQ053 | [PLAN076-security-2026-08-25-break-glass-and-impersonation.md](./improvement/PLAN076-security-2026-08-25-break-glass-and-impersonation.md) |
 
 ## bug
