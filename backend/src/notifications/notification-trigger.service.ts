@@ -42,6 +42,10 @@ const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; a
   // request needs to actually see it; app+email, no SMS/WhatsApp for an
   // internal ops alert.
   break_glass_requested: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  // REQ022 (US-PHR-09, scoped) — an operational stock alert for pharmacy
+  // managers, same shape as break_glass_requested's own internal-ops
+  // profile: app+email, no SMS/WhatsApp.
+  low_stock_alert: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
 };
 
 // US-NOT-04's own acceptance criterion names "an imminent appointment
@@ -108,14 +112,24 @@ export class NotificationTriggerService {
   private async underDailyFrequencyCap(userId: string): Promise<boolean> {
     const startOfToday = new Date();
     startOfToday.setUTCHours(0, 0, 0, 0);
+    // REQ025 (US-NOT-05) — status: 'sent' only. logSendAttempt() below now
+    // also logs failed attempts (for delivery analytics), which must NOT
+    // count against a recipient's own daily frequency cap — a failed send
+    // never reached them, so it shouldn't spend any of their quota.
     const count = await this.prisma.notificationSendLog.count({
-      where: { user_id: userId, sent_at: { gte: startOfToday } },
+      where: { user_id: userId, sent_at: { gte: startOfToday }, status: 'sent' },
     });
     return count < MAX_EXTERNAL_SENDS_PER_DAY;
   }
 
-  private async logExternalSend(userId: string, eventType: string, channel: string) {
-    await this.prisma.notificationSendLog.create({ data: { user_id: userId, event_type: eventType, channel } });
+  // REQ025 (US-NOT-05) — logs every attempted external send, not just
+  // successful ones, so delivery analytics has real failures to show.
+  // client_org_id is denormalized from the recipient at write time (see
+  // schema.prisma's own comment on this column).
+  private async logSendAttempt(userId: string, eventType: string, channel: string, status: 'sent' | 'failed', errorMessage: string | undefined, clientOrgId: string | null) {
+    await this.prisma.notificationSendLog.create({
+      data: { user_id: userId, event_type: eventType, channel, status, error_message: errorMessage, client_org_id: clientOrgId },
+    });
   }
 
   async dispatch(userId: string, eventType: string, payload: DispatchPayload) {
@@ -177,9 +191,10 @@ export class NotificationTriggerService {
     const result = await config.provider.send(config.credentials, profile.phone, message);
     if (!result.sent) {
       this.logger.warn(`[notification] WhatsApp send failed for user ${userId} via ${config.provider.id}: ${result.error}`);
+      await this.logSendAttempt(userId, eventType, 'whatsapp', 'failed', result.error, profile.client_org_id);
       return false;
     }
-    await this.logExternalSend(userId, eventType, 'whatsapp');
+    await this.logSendAttempt(userId, eventType, 'whatsapp', 'sent', undefined, profile.client_org_id);
     return true;
   }
 
@@ -197,9 +212,10 @@ export class NotificationTriggerService {
     const result = await config.provider.send(config.credentials, profile.phone, message);
     if (!result.sent) {
       this.logger.warn(`[notification] SMS send failed for user ${userId} via ${config.provider.id}: ${result.error}`);
+      await this.logSendAttempt(userId, eventType, 'sms', 'failed', result.error, profile.client_org_id);
       return false;
     }
-    await this.logExternalSend(userId, eventType, 'sms');
+    await this.logSendAttempt(userId, eventType, 'sms', 'sent', undefined, profile.client_org_id);
     return true;
   }
 }

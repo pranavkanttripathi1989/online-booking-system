@@ -280,5 +280,50 @@ describe('NotificationTriggerService', () => {
 
       expect(smsSend).toHaveBeenCalled();
     });
+
+    // REQ025 (US-NOT-05) — a failed send must not spend the recipient's
+    // quota, since it never actually reached them.
+    it('only counts status: sent attempts toward the daily cap, never failed ones', async () => {
+      prisma.notificationPreferences.findUnique.mockResolvedValue({ app_enabled: false, sms_enabled: true, whatsapp_enabled: false, email_enabled: false });
+      prisma.userProfiles.findUnique.mockResolvedValue({ phone: '+919810000000', client_org_id: 'org-a' });
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue({ provider: { id: 'msg91', send: jest.fn().mockResolvedValue({ sent: true }) }, credentials: {} });
+
+      await service.dispatch('user-1', 'new_appointment', payload);
+
+      expect(prisma.notificationSendLog.count).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ status: 'sent' }) }),
+      );
+    });
+  });
+
+  // REQ025 (US-NOT-05) — the delivery-analytics data source: every
+  // attempted external send is logged, success or failure, so the report
+  // has real failures to show, not just successes.
+  describe('logSendAttempt — delivery analytics data', () => {
+    it('logs a failed SMS attempt with status: failed and the provider error message', async () => {
+      const smsSend = jest.fn().mockResolvedValue({ sent: false, error: 'bad authkey' });
+      prisma.notificationPreferences.findUnique.mockResolvedValue({ app_enabled: false, sms_enabled: true, whatsapp_enabled: false, email_enabled: false });
+      prisma.userProfiles.findUnique.mockResolvedValue({ phone: '+919810000000', client_org_id: 'org-a' });
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue({ provider: { id: 'msg91', send: smsSend }, credentials: {} });
+
+      await service.dispatch('user-1', 'new_appointment', payload);
+
+      expect(prisma.notificationSendLog.create).toHaveBeenCalledWith({
+        data: { user_id: 'user-1', event_type: 'new_appointment', channel: 'sms', status: 'failed', error_message: 'bad authkey', client_org_id: 'org-a' },
+      });
+    });
+
+    it('logs a successful SMS attempt with status: sent and no error message', async () => {
+      const smsSend = jest.fn().mockResolvedValue({ sent: true });
+      prisma.notificationPreferences.findUnique.mockResolvedValue({ app_enabled: false, sms_enabled: true, whatsapp_enabled: false, email_enabled: false });
+      prisma.userProfiles.findUnique.mockResolvedValue({ phone: '+919810000000', client_org_id: 'org-a' });
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue({ provider: { id: 'msg91', send: smsSend }, credentials: {} });
+
+      await service.dispatch('user-1', 'new_appointment', payload);
+
+      expect(prisma.notificationSendLog.create).toHaveBeenCalledWith({
+        data: { user_id: 'user-1', event_type: 'new_appointment', channel: 'sms', status: 'sent', error_message: undefined, client_org_id: 'org-a' },
+      });
+    });
   });
 });

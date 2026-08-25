@@ -7,13 +7,17 @@ describe('NotificationsService', () => {
   let service: NotificationsService;
   let prisma: {
     notifications: { findMany: jest.Mock; updateMany: jest.Mock; create: jest.Mock };
+    notificationSendLog: { groupBy: jest.Mock };
   };
 
   const user: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-a', patient_id: 'pat-1', clinician_id: null } as JwtPayload;
+  const managerUser: JwtPayload = { sub: 'mgr-1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
+  const platformAdmin: JwtPayload = { sub: 'admin-1', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
 
   beforeEach(async () => {
     prisma = {
       notifications: { findMany: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
+      notificationSendLog: { groupBy: jest.fn().mockResolvedValue([]) },
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [NotificationsService, { provide: PrismaService, useValue: prisma }],
@@ -103,6 +107,38 @@ describe('NotificationsService', () => {
       expect(prisma.notifications.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ priority: 'medium' }) }),
       );
+    });
+  });
+
+  // REQ025 (US-NOT-05) — delivery analytics, aggregated from
+  // notification-trigger.service.ts's own logSendAttempt() writes.
+  describe('deliveryAnalytics', () => {
+    it('scopes the aggregation to the caller org for a regular org-scoped caller', async () => {
+      await service.deliveryAnalytics(managerUser);
+      expect(prisma.notificationSendLog.groupBy).toHaveBeenCalledWith({
+        by: ['event_type', 'channel', 'status'],
+        where: { client_org_id: 'org-a' },
+        _count: { _all: true },
+      });
+    });
+
+    it('applies no org filter for a platform operator', async () => {
+      await service.deliveryAnalytics(platformAdmin);
+      expect(prisma.notificationSendLog.groupBy).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
+    it('flattens the grouped _count into a plain count field', async () => {
+      prisma.notificationSendLog.groupBy.mockResolvedValue([
+        { event_type: 'new_appointment', channel: 'sms', status: 'sent', _count: { _all: 12 } },
+        { event_type: 'new_appointment', channel: 'sms', status: 'failed', _count: { _all: 2 } },
+      ]);
+      const result = await service.deliveryAnalytics(managerUser);
+      expect(result).toEqual([
+        { event_type: 'new_appointment', channel: 'sms', status: 'sent', count: 12 },
+        { event_type: 'new_appointment', channel: 'sms', status: 'failed', count: 2 },
+      ]);
     });
   });
 });

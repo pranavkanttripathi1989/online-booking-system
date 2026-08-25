@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { orgScope, isPlatformOperator } from '../common/scoping/tenant-scope';
 
 @Injectable()
 export class NotificationsService {
@@ -42,5 +43,20 @@ export class NotificationsService {
     return this.prisma.notifications.create({
       data: { user_id: userId, title, message, type: type as any, priority: priority as any },
     });
+  }
+
+  // REQ025 (US-NOT-05) — org-scoped delivery analytics from
+  // NotificationSendLog, which now records every attempted external send,
+  // not just successful ones (notification-trigger.service.ts's own
+  // logSendAttempt()). A caller with no org (admin/super_admin) sees every
+  // org's rows, matching this schema's own "org-less caller sees
+  // everything" convention for platform operators.
+  async deliveryAnalytics(user: JwtPayload) {
+    const rows = await this.prisma.notificationSendLog.groupBy({
+      by: ['event_type', 'channel', 'status'],
+      where: isPlatformOperator(user) ? {} : orgScope(user),
+      _count: { _all: true },
+    });
+    return rows.map((r) => ({ event_type: r.event_type, channel: r.channel, status: r.status, count: r._count._all }));
   }
 }
