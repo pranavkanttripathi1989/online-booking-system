@@ -551,6 +551,64 @@ through `context/messaging-2026-08-25-req058/manifest.md` for each
 slice's own full account, and `project-plans/07-prd-gap-analysis-and-roadmap.md`'s
 own staleness note for how this batch changes the PRD-module gap picture.
 
+**Phase G+3 frontend completion — the "no frontend UI in this slice"
+deferral on all 8 domains above is now closed (2026-08-25).** Real,
+backend-verified UI for `REQ051`–`REQ058`, matching Phase G+2's own
+frontend-completion precedent exactly. New: `pages/manager/{clinic-forms,
+packages}/index.jsx`, `utils/documents.js` (the shared authenticated-PDF
+download helper — a bare `<a href>` can't carry a Bearer header). New e2e
+spec `frontend/e2e/phase-g3-frontend-completion.spec.js`, one test per
+domain (10 total — Cash Drawer Close split out of Discount Approval once
+both needed independent fixtures), all passing against the real backend.
+See `PLAN082`/`TP109`/`TR108` and
+`context/platform-nfr-2026-08-25-phase-g3-frontend-completion/manifest.md`
+for the full account, including eight real bugs found this pass — two of
+them backend, previously shipped, invisible to any unit test:
+
+1. `break-glass.service.ts`'s own notification dispatch used an event
+   type never added to the `NotificationEventType` enum, failing the
+   *entire* `requestBreakGlassAccess` mutation for any org with an
+   admin/manager to notify. Fixed with a migration + a `DEFAULTS` entry.
+2. A real impersonation race in `AuthContext.jsx`: its null-user `LOGIN`
+   dispatch during `startImpersonating()` left `isLoading: false`, so
+   `RootRoute`'s own `navigate('/')` raced ahead of the target's real role
+   loading and flash-redirected to `/dashboard`, which `RoleGuard` then
+   rejected the instant the real role arrived. Fixed with an explicit
+   `SET_LOADING: true`.
+3. The "Download Invoice" button (built in this same pass) was
+   unreachable — `recordCounterPayment`'s success handler closed the Take
+   Payment dialog at the exact moment the condition that reveals that
+   button became true. Fixed by not closing the dialog on success.
+4. `redeemPackageSitting`'s mutation call used the wrong GraphQL argument
+   shape (two scalars instead of a wrapped `input`) — the entire
+   redeem-a-sitting feature was non-functional from the day it shipped.
+   The exact Hard Rule 7 bug class, caught only by a real HTTP round trip.
+5. `packages.service.ts` rejected every real product a package could ever
+   reference, since `createProduct` never sets a `clinic_id` (every real
+   product is an org-level master) while the validation demanded strict
+   equality. Fixed to accept a master product gated on matching org
+   instead, matching `REQ055`'s branch-overrides convention — the
+   identical bug, client-side, was also found and fixed in
+   `manager/packages/index.jsx`'s own product filter.
+6. Three real accessibility gaps (a checklist checkbox, admin users' own
+   "Impersonate" button, finances' Approve/Reject buttons) each had a
+   `Tooltip` but no `aria-label` — no accessible name at all, not just a
+   test-locator inconvenience.
+7. A genuine, previously-undocumented MUI `Select` finding: its
+   accessible name concatenates the label with the selected value once
+   one is set (both ids sit in its own `aria-labelledby`), so
+   `getByLabel('X', {exact: true})` stops matching after the first
+   selection. **When a future `Select` needs to be targeted reliably
+   after it can hold a real value, give it a `data-testid` — don't rely
+   on `getByLabel`/`getByRole(..., {name})` once a value can be set.**
+
+Also confirmed live (again): **a targeted `docker rm -f`/`docker compose
+up -d` on one wedged container can itself hang, with `docker ps` staying
+responsive throughout** — this happened twice this session. The fix both
+times was the full established recovery (quit Docker Desktop entirely,
+relaunch, wait for the daemon, *then* `docker rm -f`/`compose up -d` the
+one container) — not more targeted retries.
+
 ### What Phase F did NOT close — read before assuming coverage
 
 - **Tenancy matrix now covers 31 tenant-scoped domains plus 12 honestly-EXEMPT
