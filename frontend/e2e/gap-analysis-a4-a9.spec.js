@@ -2,16 +2,17 @@ import { execSync } from 'child_process'
 import { test, expect } from '@playwright/test'
 import { loginAs } from './helpers.js'
 
-// project-plans/08-integration-gap-analysis.md — findings A-4 through A-8:
+// project-plans/08-integration-gap-analysis.md — findings A-4 through A-9:
 // real, tested backend mutations/queries with no frontend UI at all.
 // A-4 clinicians.updateClinicianVerification, A-5/A-6 encounters'
 // createDiagnosis/createEncounterTemplate, A-7 insurance's
 // patientInsurancePolicies/createPatientInsurancePolicy, A-8 webhooks'
-// webhookDeliveryLog. One critical-path scenario per finding, against the
-// real backend, no mocks. `Payers` has no seeded row and createPayer is
-// super_admin-only (no seeded super_admin demo account exists) — inserted
-// directly via SQL, matching this suite's own established fixture pattern
-// for data the real API/UI can't create.
+// webhookDeliveryLog, A-9 booking-widget's updateBookingWidgetConfig. One
+// critical-path scenario per finding, against the real backend, no mocks.
+// `Payers` has no seeded row and createPayer is super_admin-only (no
+// seeded super_admin demo account exists) — inserted directly via SQL,
+// matching this suite's own established fixture pattern for data the
+// real API/UI can't create.
 
 const GRAPHQL_URL = process.env.E2E_GRAPHQL_URL || 'http://localhost:4000/graphql'
 const REAL_CLINICIAN_ID = '8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7' // Sarah Mitchell, seeded
@@ -50,6 +51,7 @@ let payerId
 let fixturePatientId
 let webhookEndpointId
 let webhookProbeAppointmentId
+let bookingWidgetConfigId
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
@@ -118,6 +120,9 @@ test.afterAll(async () => {
   if (webhookEndpointId) {
     safePsql(`DELETE FROM "WebhookDeliveryLog" WHERE endpoint_id='${webhookEndpointId}';`)
     safePsql(`DELETE FROM "WebhookEndpoints" WHERE id='${webhookEndpointId}';`)
+  }
+  if (bookingWidgetConfigId) {
+    safePsql(`DELETE FROM "BookingWidgetConfig" WHERE id='${bookingWidgetConfigId}';`)
   }
 })
 
@@ -231,4 +236,37 @@ test('A-8: manager views a webhook endpoint\'s real delivery log after a live ev
   const dialog = page.getByRole('dialog')
   await expect(dialog.getByText('appointment.created')).toBeVisible({ timeout: 15_000 })
   await expect(dialog.getByText('failed')).toBeVisible()
+})
+
+test('A-9: manager edits an existing booking widget\'s allowed origins, keeping the same embed slug', async ({ page, request }) => {
+  test.setTimeout(60_000)
+
+  const configData = await gql(request, managerToken, `
+    mutation($input: BookingWidgetConfigInput!) { createBookingWidgetConfig(input: $input) { success config { id short_link_slug } } }
+  `, { input: { allowed_origins: ['https://old-clinic.invalid'] } })
+  bookingWidgetConfigId = configData.createBookingWidgetConfig.config.id
+  const slug = configData.createBookingWidgetConfig.config.short_link_slug
+
+  await loginAs(page, 'Manager')
+  await page.goto('/settings', { waitUntil: 'networkidle' })
+  await page.getByRole('tab', { name: 'Integrations' }).click()
+  const row = page.locator('tr', { hasText: 'https://old-clinic.invalid' })
+  await expect(row).toBeVisible({ timeout: 15_000 })
+
+  await row.getByRole('button', { name: 'Edit' }).click()
+  const dialog = page.getByRole('dialog')
+  const originsField = dialog.getByLabel(/^Allowed origin/)
+  await originsField.fill('https://new-clinic.invalid')
+
+  const updateResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('updateBookingWidgetConfig'))
+  await dialog.getByRole('button', { name: 'Save' }).click()
+  const response = await updateResponse
+  expect(response.ok()).toBe(true)
+  const body = await response.json()
+  expect(body.errors).toBeUndefined()
+
+  await expect(page.locator('tr', { hasText: 'https://new-clinic.invalid' })).toBeVisible({ timeout: 10_000 })
+  // the embed slug must not change — this is exactly the deactivate-and-recreate
+  // pain A-9 exists to avoid.
+  await expect(page.getByText(slug)).toBeVisible()
 })

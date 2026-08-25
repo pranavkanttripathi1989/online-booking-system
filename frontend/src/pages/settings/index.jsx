@@ -141,6 +141,15 @@ const CREATE_BOOKING_WIDGET = gql`
 const DEACTIVATE_BOOKING_WIDGET = gql`
   mutation DeactivateBookingWidgetConfig($id: ID!) { deactivateBookingWidgetConfig(id: $id) { success } }
 `
+// A-9 (project-plans/08-integration-gap-analysis.md) — the only way to
+// change an existing widget's allowed origins was deactivate-and-recreate,
+// which mints a new short_link_slug and breaks anything already embedded
+// on the org's real site.
+const UPDATE_BOOKING_WIDGET = gql`
+  mutation UpdateBookingWidgetConfig($id: ID!, $input: BookingWidgetConfigInput!) {
+    updateBookingWidgetConfig(id: $id, input: $input) { success userErrors { message } config { id allowed_origins short_link_slug } }
+  }
+`
 const CREATE_WEBHOOK_ENDPOINT = gql`
   mutation CreateWebhookEndpoint($input: WebhookEndpointInput!) {
     createWebhookEndpoint(input: $input) { id url event_types secret }
@@ -375,6 +384,21 @@ export default function SettingsPage() {
   const deactivateWidget = async (id) => {
     try { await client.mutate({ mutation: DEACTIVATE_BOOKING_WIDGET, variables: { id } }); loadIntegrations() }
     catch (err) { setIntegrationsError(err.message) }
+  }
+  const [editingWidget, setEditingWidget] = useState(null) // { id, allowed_origins } or null
+  const [editWidgetOrigins, setEditWidgetOrigins] = useState('')
+  const openEditWidget = (w) => { setEditingWidget(w); setEditWidgetOrigins((w.allowed_origins ?? []).join(', ')) }
+  const submitEditWidget = async () => {
+    if (!editWidgetOrigins.trim()) { setIntegrationsError('Enter at least one allowed origin URL'); return }
+    setIntegrationsSubmitting(true)
+    setIntegrationsError(null)
+    try {
+      const { data } = await client.mutate({ mutation: UPDATE_BOOKING_WIDGET, variables: { id: editingWidget.id, input: { allowed_origins: editWidgetOrigins.split(',').map((o) => o.trim()).filter(Boolean) } } })
+      if (!data?.updateBookingWidgetConfig?.success) throw new Error(data?.updateBookingWidgetConfig?.userErrors?.[0]?.message ?? 'Failed to update widget config')
+      setEditingWidget(null)
+      loadIntegrations()
+    } catch (err) { setIntegrationsError(err.message) }
+    finally { setIntegrationsSubmitting(false) }
   }
 
   const submitWebhook = async () => {
@@ -1232,7 +1256,14 @@ export default function SettingsPage() {
                           <TableCell><Typography variant="body2">{(w.allowed_origins ?? []).join(', ')}</Typography></TableCell>
                           <TableCell><Typography variant="body2" fontFamily="monospace">{w.short_link_slug}</Typography></TableCell>
                           <TableCell>{w.is_active ? <Chip size="small" label="Active" color="success" /> : <Chip size="small" label="Inactive" />}</TableCell>
-                          <TableCell>{w.is_active && <Button size="small" color="error" onClick={() => deactivateWidget(w.id)}>Deactivate</Button>}</TableCell>
+                          <TableCell>
+                            {w.is_active && (
+                              <Stack direction="row" spacing={1}>
+                                <Button size="small" onClick={() => openEditWidget(w)}>Edit</Button>
+                                <Button size="small" color="error" onClick={() => deactivateWidget(w.id)}>Deactivate</Button>
+                              </Stack>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -1366,6 +1397,20 @@ export default function SettingsPage() {
 
         </Box>
       </Paper>
+      {/* A-9 — edit an existing booking widget's allowed origins without deactivate-and-recreate */}
+      <Dialog open={Boolean(editingWidget)} onClose={() => setEditingWidget(null)} maxWidth="sm" fullWidth>
+        <DialogTitle fontWeight={700}>Edit Booking Widget</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
+            Embed slug <code>{editingWidget?.short_link_slug}</code> stays the same — only the allowed origins change.
+          </Typography>
+          <TextField fullWidth label="Allowed origin(s), comma-separated" placeholder="https://yourclinic.com" value={editWidgetOrigins} onChange={(e) => setEditWidgetOrigins(e.target.value)} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setEditingWidget(null)}>Cancel</Button>
+          <Button variant="contained" disabled={integrationsSubmitting} onClick={submitEditWidget}>Save</Button>
+        </DialogActions>
+      </Dialog>
       {/* A-8 — webhook delivery log */}
       <Dialog open={Boolean(deliveryLogFor)} onClose={() => setDeliveryLogFor(null)} maxWidth="sm" fullWidth>
         <DialogTitle fontWeight={700}>Delivery Log</DialogTitle>
