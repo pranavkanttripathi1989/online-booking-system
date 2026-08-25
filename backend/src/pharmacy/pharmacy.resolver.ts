@@ -1,6 +1,6 @@
-import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { PharmacyService } from './pharmacy.service';
-import { DrugBatchType, StockMovementType } from './entities/pharmacy.entity';
+import { DrugBatchType, StockMovementType, LowStockDrugType } from './entities/pharmacy.entity';
 import { ReceiveStockInput, AdjustStockInput, DispensePrescriptionItemInput } from './dto/pharmacy.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -24,6 +24,23 @@ export class PharmacyResolver {
   @Query(() => [StockMovementType])
   stockMovements(@Args('batch_id', { type: () => ID }) batchId: string, @CurrentUser() user: JwtPayload) {
     return this.pharmacyService.findMovements(batchId, user);
+  }
+
+  // REQ022 (US-PHR-09, scoped).
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Query(() => [DrugBatchType])
+  nearExpiryBatches(
+    @Args('clinic_id', { type: () => ID, nullable: true }) clinicId: string | undefined,
+    @Args('horizon_days', { type: () => Int, nullable: true, defaultValue: 90 }) horizonDays: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.pharmacyService.nearExpiryBatches(clinicId, horizonDays, user);
+  }
+
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Query(() => [LowStockDrugType])
+  lowStockDrugs(@Args('clinic_id', { type: () => ID, nullable: true }) clinicId: string | undefined, @CurrentUser() user: JwtPayload) {
+    return this.pharmacyService.lowStockDrugs(clinicId, user);
   }
 
   @Auth('staff', 'manager', 'admin', 'super_admin')

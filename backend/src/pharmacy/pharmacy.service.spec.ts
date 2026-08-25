@@ -10,10 +10,10 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('PharmacyService', () => {
   let service: PharmacyService;
   let prisma: {
-    drugBatches: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+    drugBatches: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock; groupBy: jest.Mock };
     stockMovements: { findMany: jest.Mock };
     clinics: { findUnique: jest.Mock };
-    drugs: { findUnique: jest.Mock };
+    drugs: { findUnique: jest.Mock; findMany: jest.Mock };
     prescriptionItems: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -26,10 +26,10 @@ describe('PharmacyService', () => {
 
   beforeEach(async () => {
     prisma = {
-      drugBatches: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+      drugBatches: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
       stockMovements: { findMany: jest.fn() },
       clinics: { findUnique: jest.fn() },
-      drugs: { findUnique: jest.fn() },
+      drugs: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       prescriptionItems: { findUnique: jest.fn() },
       $transaction: jest.fn((cb) => cb(prisma)),
     };
@@ -122,6 +122,54 @@ describe('PharmacyService', () => {
           data: expect.objectContaining({ movement_type: 'dispense', quantity_delta: -10, reference_type: 'prescription_item', reference_id: 'item-1' }),
         }),
       );
+    });
+  });
+
+  // REQ022 (US-PHR-09, scoped).
+  describe('nearExpiryBatches', () => {
+    it('filters to batches with stock remaining, expiring within the horizon', async () => {
+      prisma.drugBatches.findMany.mockResolvedValue([]);
+      await service.nearExpiryBatches(undefined, 90, orgAUser);
+      const where = prisma.drugBatches.findMany.mock.calls[0][0].where;
+      expect(where.quantity_remaining).toEqual({ gt: 0 });
+      expect(where.expiry_date.lte).toBeInstanceOf(Date);
+      expect(where.client_org_id).toBe('org-a');
+    });
+
+    it('includes the drug name on each returned batch', async () => {
+      prisma.drugBatches.findMany.mockResolvedValue([{ ...batchA, drug: { name: 'Amoxicillin' } }]);
+      const [result] = await service.nearExpiryBatches(undefined, 90, orgAUser);
+      expect(result.drug_name).toBe('Amoxicillin');
+    });
+  });
+
+  describe('lowStockDrugs', () => {
+    it('returns nothing when no drug has a reorder_level configured', async () => {
+      prisma.drugs.findMany.mockResolvedValue([]);
+      const result = await service.lowStockDrugs(undefined, orgAUser);
+      expect(result).toEqual([]);
+      expect(prisma.drugBatches.groupBy).not.toHaveBeenCalled();
+    });
+
+    it('excludes a drug whose stock is still above its reorder level', async () => {
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-a', name: 'Amoxicillin', reorder_level: 10 }]);
+      prisma.drugBatches.groupBy.mockResolvedValue([{ drug_id: 'drug-a', _sum: { quantity_remaining: 50 } }]);
+      const result = await service.lowStockDrugs(undefined, orgAUser);
+      expect(result).toEqual([]);
+    });
+
+    it('includes a drug whose stock is at or below its reorder level', async () => {
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-a', name: 'Amoxicillin', reorder_level: 10 }]);
+      prisma.drugBatches.groupBy.mockResolvedValue([{ drug_id: 'drug-a', _sum: { quantity_remaining: 5 } }]);
+      const result = await service.lowStockDrugs(undefined, orgAUser);
+      expect(result).toEqual([{ drug_id: 'drug-a', drug_name: 'Amoxicillin', reorder_level: 10, quantity_on_hand: 5 }]);
+    });
+
+    it('treats a drug with zero matching batches as zero stock on hand, not excluded', async () => {
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-a', name: 'Amoxicillin', reorder_level: 10 }]);
+      prisma.drugBatches.groupBy.mockResolvedValue([]); // no batches at all
+      const result = await service.lowStockDrugs(undefined, orgAUser);
+      expect(result).toEqual([{ drug_id: 'drug-a', drug_name: 'Amoxicillin', reorder_level: 10, quantity_on_hand: 0 }]);
     });
   });
 });

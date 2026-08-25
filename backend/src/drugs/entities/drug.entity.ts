@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID, Float } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Float, Int } from '@nestjs/graphql';
 
 // REQ044/REQ016 — canonical (snake_case) dialect, no pre-existing frontend
 // contract to match yet.
@@ -13,6 +13,8 @@ export class DrugType {
   @Field({ nullable: true }) hsn?: string;
   @Field(() => Float, { nullable: true }) gst_rate?: number;
   @Field({ nullable: true }) manufacturer?: string;
+  // REQ022 (US-PHR-09, scoped) — null means no low-stock alert configured.
+  @Field(() => Int, { nullable: true }) reorder_level?: number;
   // true when this row has no client_org_id — a platform-seeded reference
   // entry every tenant sees, as distinct from a tenant's own custom
   // addition. Derived, not a raw column: the resolver boundary should never

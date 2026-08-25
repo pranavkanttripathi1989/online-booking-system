@@ -11,6 +11,20 @@ export class DrugBatchType {
   @Field(() => Int) quantity_remaining: number;
   @Field(() => Float, { nullable: true }) mrp?: number;
   @Field() created_at: Date;
+  // REQ022 (US-PHR-09, scoped) — populated only by nearExpiryBatches(); the
+  // real day-to-day drugBatches() query leaves this undefined, matching
+  // this schema's own convention of only resolving what a given call site
+  // actually needs.
+  @Field({ nullable: true }) drug_name?: string;
+}
+
+// REQ022 (US-PHR-09, scoped).
+@ObjectType('LowStockDrug')
+export class LowStockDrugType {
+  @Field(() => ID) drug_id: string;
+  @Field() drug_name: string;
+  @Field(() => Int) reorder_level: number;
+  @Field(() => Int) quantity_on_hand: number;
 }
 
 @ObjectType('StockMovement')

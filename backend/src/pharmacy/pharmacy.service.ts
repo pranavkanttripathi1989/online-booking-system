@@ -146,4 +146,46 @@ export class PharmacyService {
     });
     return this.batchToGraphQL(updated);
   }
+
+  // REQ022 (US-PHR-09, scoped) — batches with stock remaining, crossing a
+  // configurable expiry horizon. quantity_remaining: {gt: 0} excludes
+  // fully-consumed batches, which have no real expiry risk left to report.
+  async nearExpiryBatches(clinicId: string | undefined, horizonDays: number, user: JwtPayload) {
+    const cutoff = new Date(Date.now() + horizonDays * 24 * 60 * 60 * 1000);
+    const batches = await this.prisma.drugBatches.findMany({
+      where: {
+        ...(clinicId ? { clinic_id: clinicId } : {}),
+        ...orgScope(user),
+        quantity_remaining: { gt: 0 },
+        expiry_date: { lte: cutoff },
+      },
+      include: { drug: true },
+      orderBy: { expiry_date: 'asc' },
+    });
+    return batches.map((b: any) => ({ ...this.batchToGraphQL(b), drug_name: b.drug.name }));
+  }
+
+  // REQ022 (US-PHR-09, scoped) — a drug's total remaining stock (summed
+  // across every batch in scope) at or below its own configured
+  // reorder_level. A drug with no reorder_level set is never included —
+  // fail-safe default, matching every other optional-alert-threshold field
+  // in this schema.
+  async lowStockDrugs(clinicId: string | undefined, user: JwtPayload) {
+    const drugs = await this.prisma.drugs.findMany({
+      where: { is_deleted: false, reorder_level: { not: null }, ...orgScope(user) },
+    });
+    if (drugs.length === 0) return [];
+    const totals = await this.prisma.drugBatches.groupBy({
+      by: ['drug_id'],
+      where: {
+        drug_id: { in: drugs.map((d) => d.id) },
+        ...(clinicId ? { clinic_id: clinicId } : {}),
+      },
+      _sum: { quantity_remaining: true },
+    });
+    const totalByDrug = new Map(totals.map((t) => [t.drug_id, t._sum.quantity_remaining ?? 0]));
+    return drugs
+      .map((d) => ({ drug_id: d.id, drug_name: d.name, reorder_level: d.reorder_level as number, quantity_on_hand: totalByDrug.get(d.id) ?? 0 }))
+      .filter((d) => d.quantity_on_hand <= d.reorder_level);
+  }
 }
