@@ -252,6 +252,13 @@ integration isn't receiving events without direct DB access.
 Integrations tab.
 
 ### A-9 · S4 · `booking-widget.updateBookingWidgetConfig` — create/deactivate only, no edit
+
+**Fixed 2026-08-25 — `REQ064`/`PLAN091`/`TP118`/`TR117`,
+`context/platform-integrations-2026-08-25-req064/manifest.md`.** An
+"Edit" action per widget-config row on `settings/index.jsx`'s
+Integrations tab, calling the real `updateBookingWidgetConfig` without
+ever touching `short_link_slug`.
+
 **Backend:** `backend/src/booking-widget/booking-widget.resolver.ts` — a
 real `updateBookingWidgetConfig` mutation exists alongside `create`/
 `deactivate`.
@@ -467,7 +474,11 @@ order:
    these are four newly-discovered gaps in four already-shipped,
    unrelated requirements, not one cross-cutting backend batch's own
    already-known deferral.
-6. **A-9, A-10** — S4, opportunistic, low urgency.
+6. **A-9, A-10** — S4, opportunistic, low urgency. **A-9 done 2026-08-25**
+   — `REQ064`/`PLAN091`/`TP118`/`TR117`, see the status note under A-9
+   above; folded into the same pass as A-4–A-8 once that batch's own
+   fixture file was already in place. `A-10` remains open but is not a
+   new discovery — see its own note above.
 7. **§C** — a one-line CLAUDE.md correction. **Done 2026-08-25**, folded
    into the A-1 slice's docs commit (the next slice that touched
    CLAUDE.md after this document was written).
@@ -477,8 +488,9 @@ matching its domain (`security` for A-1 and A-4 (both done — see above),
 `pharmacy` for A-2/A-3 (done — see above), `clinical-records` for A-5/A-6
 (done — see above, `REQ061`), `insurance-claims` for A-7 (done — see
 above, `REQ062`), `platform-integrations` for A-8 (done — see above,
-`REQ063`) and the still-open A-9, `catalog-master-data` for A-10,
-`clinician-dashboard` for B-1 (done — see above), and `appointments` for
+`REQ063`) and A-9 (done — see above, `REQ064`), `catalog-master-data` for
+the still-open A-10, `clinician-dashboard` for B-1 (done — see above),
+and `appointments` for
 B-2 (done — see above; used `appointments` rather than the `platform-nfr`
 originally suggested here, matching B-1's own single-domain reasoning),
 per `CLAUDE.md`'s own classification rule.

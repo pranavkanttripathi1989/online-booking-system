@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ064 | improvement | Booking widget edit UI | done | 2026-08-25 | 2026-08-25 | REQ030 | [REQ064-platform-integrations-2026-08-25-booking-widget-edit-ui.md](./improvement/REQ064-platform-integrations-2026-08-25-booking-widget-edit-ui.md) |
 | REQ063 | improvement | Webhook delivery log UI | done | 2026-08-25 | 2026-08-25 | REQ030 | [REQ063-platform-integrations-2026-08-25-webhook-delivery-log-ui.md](./improvement/REQ063-platform-integrations-2026-08-25-webhook-delivery-log-ui.md) |
 
 ## bug

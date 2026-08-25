@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP118 | improvement | Booking widget edit UI | approved | 2026-08-25 | 2026-08-25 | PLAN091 | [TP118-platform-integrations-2026-08-25-booking-widget-edit-ui.md](./improvement/TP118-platform-integrations-2026-08-25-booking-widget-edit-ui.md) |
 | TP117 | improvement | Webhook delivery log UI | approved | 2026-08-25 | 2026-08-25 | PLAN090 | [TP117-platform-integrations-2026-08-25-webhook-delivery-log-ui.md](./improvement/TP117-platform-integrations-2026-08-25-webhook-delivery-log-ui.md) |
 
 ## bug

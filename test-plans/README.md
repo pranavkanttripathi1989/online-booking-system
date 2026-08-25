@@ -6,7 +6,7 @@
 | analytics-reporting | 2 | 0 | 0 | 2 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
 | subscription-plan-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | compliance-dpdp | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [compliance-dpdp](./compliance-dpdp/README.md) |
-| platform-integrations | 1 | 1 | 0 | 2 | 0 | 2026-08-25 | [platform-integrations](./platform-integrations/README.md) |
+| platform-integrations | 1 | 2 | 0 | 3 | 0 | 2026-08-25 | [platform-integrations](./platform-integrations/README.md) |
 | insurance-claims | 1 | 1 | 0 | 2 | 0 | 2026-08-25 | [insurance-claims](./insurance-claims/README.md) |
 | pharmacy | 1 | 1 | 0 | 1 | 1 | 2026-08-25 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 0 | 0 | 0 | 1 | 2026-08-24 | [prescriptions](./prescriptions/README.md) |

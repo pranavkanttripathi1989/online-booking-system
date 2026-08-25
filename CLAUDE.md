@@ -726,33 +726,39 @@ frontend route/nav gate narrower than its real backend `@Auth()` (the
 first being Phase G+3's own `webhooks`/`api-keys` finding, see that
 section above) — check both, not just one.
 
-**A-4 through A-8 (five S3 additive UI slices) closed the same day,
-`REQ060`–`REQ063`/`PLAN087`–`PLAN090`/`TP114`–`TP117`/`TR113`–`TR116`** —
+**A-4 through A-9 (six S3/S4 additive UI slices) closed the same day,
+`REQ060`–`REQ064`/`PLAN087`–`PLAN091`/`TP114`–`TP118`/`TR113`–`TR117`** —
 all code written first, one combined unit+e2e verification pass at the
 end, matching this document's own established Phase G+2/G+3 batching
-precedent. Unlike that precedent, this batch split into four separate
+precedent. Unlike that precedent, this batch split into five separate
 `REQ`/`PLAN`/`TP`/`TR` doc sets (one per feature slug — `security`,
-`clinical-records`, `insurance-claims`, `platform-integrations`; A-5/A-6
-shared one slice since the findings themselves were already paired),
-since these are four newly-discovered gaps in four unrelated,
-already-shipped requirements, not one cross-cutting backend batch's own
-already-known "frontend deferred" note. **A-4**: a verification chip +
-Verify/Reject/Re-open-for-review actions on `clinicians/detail.jsx`
-(admin/super_admin-gated, matching `updateClinicianVerification`'s own
-gate). **A-5/A-6**: a "Diagnoses" section + "Add Diagnosis" dialog, and a
-"Save as template" action, both on `EncounterWorkspace.jsx` — closes a
-real chicken-and-egg gap (`REQ020`'s own one-click-template feature had
-no way to ever seed its first template through the app). **A-7**: a new
-"Insurance" tab on `patients/detail.jsx`, real GraphQL keyed on the real
-route `:id` even though the rest of that page is still mock-driven
-pending a separate, unrelated product decision
-(`context/open-questions.md` #13 — insurance is not one of that note's
-five paused sub-features). **A-8**: a "Delivery Log" button per webhook
-endpoint row on `settings/index.jsx`'s Integrations tab.
+`clinical-records`, `insurance-claims`, `platform-integrations` (twice,
+A-8 and A-9 separately); A-5/A-6 shared one slice since the findings
+themselves were already paired), since these are newly-discovered gaps
+in unrelated, already-shipped requirements, not one cross-cutting
+backend batch's own already-known "frontend deferred" note. **A-4**: a
+verification chip + Verify/Reject/Re-open-for-review actions on
+`clinicians/detail.jsx` (admin/super_admin-gated, matching
+`updateClinicianVerification`'s own gate). **A-5/A-6**: a "Diagnoses"
+section + "Add Diagnosis" dialog, and a "Save as template" action, both
+on `EncounterWorkspace.jsx` — closes a real chicken-and-egg gap
+(`REQ020`'s own one-click-template feature had no way to ever seed its
+first template through the app). **A-7**: a new "Insurance" tab on
+`patients/detail.jsx`, real GraphQL keyed on the real route `:id` even
+though the rest of that page is still mock-driven pending a separate,
+unrelated product decision (`context/open-questions.md` #13 — insurance
+is not one of that note's five paused sub-features). **A-8**: a
+"Delivery Log" button per webhook endpoint row on `settings/index.jsx`'s
+Integrations tab. **A-9**: an "Edit" action per booking-widget-config
+row on the same Integrations tab, calling `updateBookingWidgetConfig`
+without ever touching `short_link_slug` — closes the
+deactivate-and-recreate footgun that used to break every embed already
+pasted onto a real customer's site.
 
-One real bug found, in the new shared e2e fixture file
-(`frontend/e2e/gap-analysis-a4-a8.spec.js`) itself, not in any of the
-four slices' product code: its own `psql()` cleanup helper was missing a
+One real bug found, in the shared e2e fixture file
+(`frontend/e2e/gap-analysis-a4-a9.spec.js`, renamed mid-batch from
+`gap-analysis-a4-a8.spec.js` once A-9 was folded in) itself, not in any
+slice's product code: its own `psql()` cleanup helper was missing a
 `return` statement, so a "find existing Payer, else create one"
 idempotency check always fell through to "create" — silently
 accumulating duplicate same-named `Payers` rows across repeated test
@@ -762,15 +768,13 @@ wrapper (catches and logs rather than throwing) so one failing cleanup
 statement can no longer abort every statement after it — confirmed via a
 direct DB check that a full run now leaves zero residue.
 
-The remaining 4 findings (`A-9`, `A-10`, `B-3`, `B-4`) are still open —
-see that document's own "Fix sequencing" section for the priority order
-and feature-slug classification before starting the next one. `A-10` is
-explicitly **not a new discovery** — `PLAN077`/`REQ054` and `PLAN082`
-already logged it as a deliberate scope cut, listed in the gap analysis
-only for completeness. `B-3`/`B-4` are S4, known, and already correctly
-deferred (both fully mock pages with no backend domain to wire to yet) —
-re-read that document's own account for each before assuming further
-work is needed there.
+**This closes out every real, actionable finding in the gap analysis.**
+`A-10` remains open but is explicitly **not a new discovery** —
+`PLAN077`/`REQ054` and `PLAN082` already logged it as a deliberate scope
+cut, listed in the gap analysis only for completeness. `B-3`/`B-4` are
+S4, known, and already correctly deferred (both fully mock pages with no
+backend domain to wire to yet) — re-read that document's own account for
+each before assuming further work is needed there.
 
 ### What Phase F did NOT close — read before assuming coverage
 
