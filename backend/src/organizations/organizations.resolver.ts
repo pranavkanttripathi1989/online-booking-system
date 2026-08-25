@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { HttpException } from '@nestjs/common';
 import { OrganizationsService } from './organizations.service';
-import { OrganizationsPaginatedType, OrganizationMutationResultType } from './entities/organization.entity';
+import { OrganizationsPaginatedType, OrganizationMutationResultType, OrganizationSubscriptionType } from './entities/organization.entity';
 import { OrganizationInput, OrganizationSearchInput } from './dto/organization.input';
 import { Auth } from '../common/decorators/auth.decorator';
 
@@ -36,6 +36,12 @@ export class OrganizationsResolver {
   @Query(() => OrganizationsPaginatedType)
   organizationsPaginated(@Args('search', { nullable: true }) search?: OrganizationSearchInput) {
     return this.organizationsService.findAllPaginated(search ?? {});
+  }
+
+  @Auth('admin', 'super_admin')
+  @Query(() => OrganizationSubscriptionType, { nullable: true })
+  organizationSubscription(@Args('orgId', { type: () => ID }) orgId: string) {
+    return this.organizationsService.getSubscription(orgId);
   }
 
   @Auth('admin', 'super_admin')

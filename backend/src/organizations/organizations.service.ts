@@ -122,4 +122,31 @@ export class OrganizationsService {
     await this.prisma.clientOrganizations.update({ where: { id }, data: { is_deleted: true, is_active: false } });
     return true;
   }
+
+  // Reads OrganizationSubscriptions back for the first time — a row is
+  // written once during self-serve onboarding (organization-onboarding
+  // .service.ts#selectPlan()) but nothing has ever read it since. Most
+  // real orgs today have none at all (the onboarding flow is a separate,
+  // rarely-exercised path from admin-created orgs) — that's a real,
+  // honest empty state, not an error.
+  async getSubscription(orgId: string) {
+    const row = await this.prisma.organizationSubscriptions.findFirst({
+      where: { client_org_id: orgId, is_deleted: false },
+      orderBy: { created_at: 'desc' },
+      include: { plan: true },
+    });
+    if (!row) return null;
+    return {
+      id: row.id,
+      plan_name: row.plan.name,
+      status: row.status,
+      billing_cycle: row.billing_cycle,
+      current_period_start: row.current_period_start,
+      current_period_end: row.current_period_end,
+      price_monthly: row.plan.price_monthly / 100,
+      price_yearly: row.plan.price_yearly / 100,
+      max_clinics: row.plan.max_clinics,
+      max_users: row.plan.max_users,
+    };
+  }
 }

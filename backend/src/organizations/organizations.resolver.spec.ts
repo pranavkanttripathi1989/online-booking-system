@@ -7,7 +7,7 @@ import { ROLES_KEY } from '../common/decorators/roles.decorator';
 
 describe('OrganizationsResolver', () => {
   let resolver: OrganizationsResolver;
-  let service: { create: jest.Mock; update: jest.Mock; softDelete: jest.Mock; findAllPaginated: jest.Mock };
+  let service: { create: jest.Mock; update: jest.Mock; softDelete: jest.Mock; findAllPaginated: jest.Mock; getSubscription: jest.Mock };
   const reflector = new Reflector();
 
   beforeEach(async () => {
@@ -16,6 +16,7 @@ describe('OrganizationsResolver', () => {
       update: jest.fn(),
       softDelete: jest.fn(),
       findAllPaginated: jest.fn(),
+      getSubscription: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [OrganizationsResolver, { provide: OrganizationsService, useValue: service }],
@@ -29,6 +30,7 @@ describe('OrganizationsResolver', () => {
   describe('role gating (@Auth annotations)', () => {
     const cases: [string, (...args: unknown[]) => unknown][] = [
       ['organizationsPaginated', OrganizationsResolver.prototype.organizationsPaginated],
+      ['organizationSubscription', OrganizationsResolver.prototype.organizationSubscription],
       ['createOrganization', OrganizationsResolver.prototype.createOrganization],
       ['updateOrganization', OrganizationsResolver.prototype.updateOrganization],
       ['deleteOrganization', OrganizationsResolver.prototype.deleteOrganization],
@@ -37,6 +39,21 @@ describe('OrganizationsResolver', () => {
     it.each(cases)('%s is gated to exactly admin/super_admin', (_name, handler) => {
       const roles = reflector.get(ROLES_KEY, handler);
       expect(roles).toEqual(['admin', 'super_admin']);
+    });
+  });
+
+  describe('organizationSubscription', () => {
+    it('delegates to the service with the given orgId', async () => {
+      service.getSubscription.mockResolvedValue({ id: 'sub-1', plan_name: 'Pro' });
+      const result = await resolver.organizationSubscription('org-1');
+      expect(service.getSubscription).toHaveBeenCalledWith('org-1');
+      expect(result).toEqual({ id: 'sub-1', plan_name: 'Pro' });
+    });
+
+    it('returns null when the org has no subscription on file', async () => {
+      service.getSubscription.mockResolvedValue(null);
+      const result = await resolver.organizationSubscription('org-1');
+      expect(result).toBeNull();
     });
   });
 

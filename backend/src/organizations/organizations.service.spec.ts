@@ -31,6 +31,7 @@ describe('OrganizationsService', () => {
       create: jest.Mock;
       update: jest.Mock;
     };
+    organizationSubscriptions: { findFirst: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -54,6 +55,7 @@ describe('OrganizationsService', () => {
         create: jest.fn(),
         update: jest.fn(),
       },
+      organizationSubscriptions: { findFirst: jest.fn() },
       $transaction: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -236,6 +238,53 @@ describe('OrganizationsService', () => {
       expect(result.pageInfo.limit).toBe(25);
       expect(result.pageInfo.offset).toBe(0);
       expect(result.pageInfo.hasPreviousPage).toBe(false);
+    });
+  });
+
+  // Read-back for OrganizationSubscriptions — a real, pre-existing table
+  // written once during onboarding (organization-onboarding.service.ts)
+  // but never read back anywhere before this.
+  describe('getSubscription', () => {
+    it('returns null when the org has no subscription on file', async () => {
+      prisma.organizationSubscriptions.findFirst.mockResolvedValue(null);
+      const result = await service.getSubscription('org-1');
+      expect(result).toBeNull();
+    });
+
+    it('scopes to the given org and excludes soft-deleted rows', async () => {
+      prisma.organizationSubscriptions.findFirst.mockResolvedValue(null);
+      await service.getSubscription('org-1');
+      expect(prisma.organizationSubscriptions.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { client_org_id: 'org-1', is_deleted: false } }),
+      );
+    });
+
+    it('converts price fields from paise to rupees', async () => {
+      prisma.organizationSubscriptions.findFirst.mockResolvedValue({
+        id: 'sub-1',
+        status: 'active',
+        billing_cycle: 'monthly',
+        current_period_start: new Date('2026-08-01'),
+        current_period_end: new Date('2026-09-01'),
+        plan: { name: 'Pro', price_monthly: 500000, price_yearly: 5000000, max_clinics: 5, max_users: 50 },
+      });
+      const result = await service.getSubscription('org-1');
+      expect(result).toMatchObject({
+        plan_name: 'Pro',
+        status: 'active',
+        billing_cycle: 'monthly',
+        price_monthly: 5000,
+        price_yearly: 50000,
+        max_clinics: 5,
+        max_users: 50,
+      });
+    });
+
+    it('returns the most recently created subscription when more than one exists', async () => {
+      await service.getSubscription('org-1');
+      expect(prisma.organizationSubscriptions.findFirst).toHaveBeenCalledWith(
+        expect.objectContaining({ orderBy: { created_at: 'desc' } }),
+      );
     });
   });
 });

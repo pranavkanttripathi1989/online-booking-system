@@ -25,6 +25,27 @@ export class OrganizationType {
   @Field() is_active: boolean;
 }
 
+// Read-back for OrganizationSubscriptions/SubscriptionPlans — these tables
+// already existed (a row is written once during self-serve onboarding,
+// organization-onboarding.service.ts#selectPlan()) but nothing ever read
+// them back: no query, no admin UI. Distinct from the newer Plans/
+// PlanVersions catalog builder (REQ032) — that system has no link to
+// ClientOrganizations at all yet (US-PLAN-03, the entitlement guard, is
+// deliberately paused). This type is for the older, already-populated table.
+@ObjectType('OrganizationSubscription')
+export class OrganizationSubscriptionType {
+  @Field(() => ID) id: string;
+  @Field() plan_name: string;
+  @Field() status: string;
+  @Field() billing_cycle: string;
+  @Field() current_period_start: Date;
+  @Field() current_period_end: Date;
+  @Field() price_monthly: number; // rupees, converted from paise at the resolver boundary
+  @Field() price_yearly: number;
+  @Field() max_clinics: number;
+  @Field() max_users: number;
+}
+
 @ObjectType('OrganizationPageInfo')
 export class OrganizationPageInfoType {
   @Field() total: number;
