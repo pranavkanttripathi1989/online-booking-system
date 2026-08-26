@@ -238,6 +238,14 @@ model Appointments {
   // GraphQL as a structured [IntakeFieldResponseType!] list (this
   // codebase's convention for every other Json column), never a raw scalar.
   intake_responses    Json?
+  // REQ107 — same shape as Users.password_reset_token/password_reset_expires
+  // (auth.service.ts): only the SHA-256 hash is ever persisted, the raw
+  // token is returned once, at generation time, and never again.
+  // checkin_token_used_at makes the token single-use, cleared atomically
+  // with the checked_in status write.
+  checkin_token_hash       String?   @unique
+  checkin_token_expires_at DateTime?
+  checkin_token_used_at    DateTime?
 
   clinic              Clinics               @relation(fields: [clinic_id], references: [id])
   room                Rooms                 @relation(fields: [room_id], references: [id])

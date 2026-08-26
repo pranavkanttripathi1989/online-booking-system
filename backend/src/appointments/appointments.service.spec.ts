@@ -1,6 +1,7 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { Prisma } from '@prisma/client';
+import * as crypto from 'crypto';
 import { AppointmentsService } from './appointments.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
@@ -36,6 +37,7 @@ describe('AppointmentsService — access scoping', () => {
   let webhookDispatch: { fireEvent: jest.Mock };
   let intakeFieldsService: { forBooking: jest.Mock };
   let waitlistService: { promoteNext: jest.Mock };
+  let queueService: { syncFromAppointmentStatus: jest.Mock; publish: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -87,7 +89,7 @@ describe('AppointmentsService — access scoping', () => {
         // REQ019: transitionStatus() now syncs a QueueEntries row inside its
         // own transaction -- mocked no-op here, exercised for real in
         // queue.service.spec.ts instead.
-        { provide: QueueService, useValue: { syncFromAppointmentStatus: jest.fn(), publish: jest.fn() } },
+        { provide: QueueService, useValue: (queueService = { syncFromAppointmentStatus: jest.fn(), publish: jest.fn() }) },
         // REQ018: create() now validates a patient caller's input.patient_id
         // against their own-or-dependant id set -- mocked to always allow
         // 'pat-1' (every existing patient-role test case in this file uses
@@ -435,6 +437,105 @@ describe('AppointmentsService — access scoping', () => {
     it('checkIn is rejected for a patient calling on someone else\'s appointment (self-scoping)', async () => {
       prisma.appointments.findUnique.mockResolvedValue({ ...baseAppointmentRow, patient_id: 'pat-2' });
       await expect(service.checkIn('appt-1', patientUser)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // REQ107 — token generation on create() for a no-prepayment (immediately
+  // 'scheduled') booking.
+  describe('create — QR self-check-in token generation (REQ107)', () => {
+    const baseInput = { clinician_id: 'cln-1', clinic_id: 'clinic-1', patient_id: 'pat-1', service_id: 'svc-1', start_datetime: new Date().toISOString(), notes: '' };
+
+    it('stores a hash, not the raw token, and returns the raw token in the response', async () => {
+      const result = await service.create(baseInput as any, staffUser);
+      const created = prisma.appointments.create.mock.calls[0][0].data;
+      expect(created.checkin_token_hash).toBeDefined();
+      expect(created.checkin_token_hash).not.toBe(result.checkin_token);
+      expect(result.checkin_token).toBeDefined();
+      expect(typeof result.checkin_token).toBe('string');
+    });
+
+    it('sets checkin_token_expires_at to end of the appointment day in IST', async () => {
+      await service.create(baseInput as any, staffUser);
+      const created = prisma.appointments.create.mock.calls[0][0].data;
+      expect(created.checkin_token_expires_at).toBeInstanceOf(Date);
+    });
+
+    it('does not generate a token when the service requires prepayment (awaiting_payment)', async () => {
+      prisma.products.findUnique.mockResolvedValue({ id: 'svc-1', duration_minutes: 30, prepayment_policy: 'required' });
+      const result = await service.create(baseInput as any, staffUser);
+      const created = prisma.appointments.create.mock.calls[0][0].data;
+      expect(created.checkin_token_hash).toBeUndefined();
+      expect(result.checkin_token).toBeUndefined();
+    });
+  });
+
+  // REQ107 — checkInWithQrToken is @Public(): no JwtPayload at all, only an
+  // opaque token. The appointment it resolves to comes entirely from the
+  // token's own hash lookup, never a client-supplied id.
+  describe('checkInWithQrToken (REQ107)', () => {
+    const rawToken = 'a'.repeat(64);
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const checkinAppointmentRow = {
+      ...baseAppointmentRow,
+      status: 'scheduled',
+      checkin_token_hash: tokenHash,
+      checkin_token_expires_at: new Date(Date.now() + 60 * 60 * 1000),
+      checkin_token_used_at: null,
+    };
+
+    it('rejects a syntactically well-formed but never-issued token exactly like "not found"', async () => {
+      prisma.appointments.findFirst.mockResolvedValue(null);
+      await expect(service.checkInWithQrToken(rawToken)).rejects.toThrow('Invalid check-in code');
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+    });
+
+    it('checks in on the happy path and marks the token used, atomically', async () => {
+      prisma.appointments.findFirst.mockResolvedValue(checkinAppointmentRow);
+      prisma.appointments.update.mockResolvedValue({ ...checkinAppointmentRow, status: 'checked_in' });
+      const result = await service.checkInWithQrToken(rawToken);
+      expect(result.status).toBe('checked_in');
+      expect(prisma.appointments.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'checked_in', checkin_token_used_at: expect.any(Date) }),
+      }));
+      expect(prisma.appointmentStatusLogs.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'checked_in', changed_by_user_id: null }),
+      }));
+    });
+
+    it('rejects an already-used token, with a distinct message from "not found"', async () => {
+      prisma.appointments.findFirst.mockResolvedValue({ ...checkinAppointmentRow, checkin_token_used_at: new Date() });
+      await expect(service.checkInWithQrToken(rawToken)).rejects.toThrow('already been used');
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an expired token, with a distinct message from "already used"', async () => {
+      prisma.appointments.findFirst.mockResolvedValue({ ...checkinAppointmentRow, checkin_token_expires_at: new Date(Date.now() - 1000) });
+      await expect(service.checkInWithQrToken(rawToken)).rejects.toThrow('expired');
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a token for a cancelled appointment', async () => {
+      prisma.appointments.findFirst.mockResolvedValue({ ...checkinAppointmentRow, status: 'cancelled' });
+      await expect(service.checkInWithQrToken(rawToken)).rejects.toThrow(/cancelled/);
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a token for an already-completed appointment', async () => {
+      prisma.appointments.findFirst.mockResolvedValue({ ...checkinAppointmentRow, status: 'completed' });
+      await expect(service.checkInWithQrToken(rawToken)).rejects.toThrow(/completed/);
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a token for a no_show appointment', async () => {
+      prisma.appointments.findFirst.mockResolvedValue({ ...checkinAppointmentRow, status: 'no_show' });
+      await expect(service.checkInWithQrToken(rawToken)).rejects.toThrow(/no show/);
+    });
+
+    it('syncs the queue entry via the same syncFromAppointmentStatus path checkIn() uses', async () => {
+      prisma.appointments.findFirst.mockResolvedValue(checkinAppointmentRow);
+      prisma.appointments.update.mockResolvedValue({ ...checkinAppointmentRow, status: 'checked_in' });
+      await service.checkInWithQrToken(rawToken);
+      expect(queueService.syncFromAppointmentStatus).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ status: 'checked_in' }), 'checked_in');
     });
   });
 

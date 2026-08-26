@@ -110,6 +110,12 @@ export class AppointmentType {
   @Field(() => AppointmentServiceType, { nullable: true }) service?: AppointmentServiceType;
   @Field(() => AppointmentBookedByUserType, { nullable: true }) booked_by_user?: AppointmentBookedByUserType;
   @Field(() => [AppointmentStatusLogType]) status_logs: AppointmentStatusLogType[];
+  // REQ107 — the ONE-TIME raw QR self-check-in token, populated only in the
+  // exact response that generates it (create(), for a no-prepayment
+  // service). Never re-derivable on a later read — only checkin_token_hash
+  // is persisted (the same password-reset-token pattern auth.service.ts
+  // already uses), so this field is null on every normal appointment query.
+  @Field({ nullable: true }) checkin_token?: string;
 }
 
 @ObjectType('AppointmentPaginatorInfo')

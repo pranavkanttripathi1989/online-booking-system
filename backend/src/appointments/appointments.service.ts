@@ -1,4 +1,5 @@
 import { Injectable, Inject, NotFoundException, BadRequestException } from '@nestjs/common';
+import * as crypto from 'crypto';
 import { PubSub } from 'graphql-subscriptions';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
@@ -69,10 +70,34 @@ export class AppointmentsService {
     if (profile) await this.notificationTrigger.dispatch(profile.id, eventType, payload);
   }
 
-  private toGraphQL(a: any, statusLogs: any[] = []) {
+  // REQ107 — same password-reset-token pattern auth.service.ts's own
+  // forgotPassword/resetPassword already use: a random raw token is
+  // returned once, only its SHA-256 hash is ever persisted. Expiry is end
+  // of the appointment's own calendar day in IST (this codebase's fixed
+  // reference timezone — notification-trigger.service.ts's own quiet-hours
+  // math uses the identical IST_OFFSET_MS constant, not a real per-user
+  // IANA timezone, a deliberate existing simplification reused here rather
+  // than reinvented).
+  private generateCheckinToken(appointmentTime: Date): { rawToken: string; tokenHash: string; expiresAt: Date } {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const IST_OFFSET_MS = (5 * 60 + 30) * 60 * 1000;
+    const istWallClock = new Date(appointmentTime.getTime() + IST_OFFSET_MS);
+    istWallClock.setUTCHours(23, 59, 59, 999);
+    const expiresAt = new Date(istWallClock.getTime() - IST_OFFSET_MS);
+    return { rawToken, tokenHash, expiresAt };
+  }
+
+  // REQ107 — rawCheckinToken is passed ONLY by the exact call site that
+  // just generated it (create(), for a no-prepayment booking); every other
+  // caller of toGraphQL() omits it, so a normal read never has it to leak
+  // — the raw token was never persisted anywhere to leak from in the
+  // first place, only its hash was.
+  private toGraphQL(a: any, statusLogs: any[] = [], rawCheckinToken?: string) {
     const start = a.appointment_time as Date;
     const end = new Date(start.getTime() + a.duration_minutes * 60000);
     return {
+      checkin_token: rawCheckinToken,
       id: a.id,
       tenant_id: a.clinic?.client_org_id ?? undefined,
       start_datetime: start,
@@ -376,6 +401,11 @@ export class AppointmentsService {
     const start = new Date(input.start_datetime);
     const durationMinutes = service.duration_minutes ?? 30;
     const end = new Date(start.getTime() + durationMinutes * 60000);
+    // REQ107 — a no-prepayment booking is immediately checkin-eligible;
+    // the awaiting_payment path gets its own token once it's confirmed
+    // (a separately scoped, deliberately deferred follow-on — see
+    // PLAN147's own Outcome note).
+    const checkinToken = initialStatus === 'scheduled' ? this.generateCheckinToken(start) : undefined;
 
     const sessionWindow = await this.findGoverningSessionWindow(input.clinician_id, start);
     const bookingMode = sessionWindow?.mode ?? 'slot';
@@ -450,6 +480,8 @@ export class AppointmentsService {
             booking_mode: bookingMode,
             token_no: tokenNo,
             intake_responses: intakeResponsesJson,
+            checkin_token_hash: checkinToken?.tokenHash,
+            checkin_token_expires_at: checkinToken?.expiresAt,
           },
           include: INCLUDE,
         });
@@ -487,7 +519,7 @@ export class AppointmentsService {
       throw error;
     }
 
-    const result = this.toGraphQL(created);
+    const result = this.toGraphQL(created, [], checkinToken?.rawToken);
     await this.notifyLinkedProfile('clinician_id', created.clinician_id, 'new_appointment', {
       title: 'New appointment booked',
       message: `${result.patient.full_name} booked ${result.service?.name ?? 'an appointment'} for ${start.toLocaleString('en-IN')}`,
@@ -616,6 +648,59 @@ export class AppointmentsService {
   // become reachable from role gates that shouldn't have them).
   resetAppointmentJourney(id: string, user: JwtPayload) {
     return this.transitionStatus(id, 'scheduled', undefined, user);
+  }
+
+  // REQ107 — @Public(), no ambient identity at all: the opaque token
+  // itself is the sole authority, resolved server-side to its own
+  // appointment. Deliberately a self-contained thin wrapper rather than
+  // widening transitionStatus() to accept a nullable actor in place of a
+  // full JwtPayload (PLAN147's own "verify carefully, don't assume
+  // trivially safe" note) — this keeps every one of transitionStatus's
+  // 60+ already-passing tests, and its tenant/self-scoping guards, ==
+  // completely untouched by a path that must never carry a JwtPayload at
+  // all. checked_in never triggers transitionStatus's own
+  // cancelled/no_show-only side effects (resource-freeing, waitlist
+  // promotion, cancellation notify/webhook), so nothing here duplicates
+  // logic those paths would otherwise need.
+  async checkInWithQrToken(rawToken: string) {
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    // A single findFirst covers "no such token" and "syntactically
+    // well-formed but never-issued" identically — both simply match no
+    // row, so neither error message below can leak which case occurred.
+    const appointment = await this.prisma.appointments.findFirst({ where: { checkin_token_hash: tokenHash }, include: INCLUDE });
+    if (!appointment) {
+      throw new NotFoundException('Invalid check-in code');
+    }
+    if (appointment.checkin_token_used_at) {
+      throw new BadRequestException('This check-in code has already been used');
+    }
+    if (!appointment.checkin_token_expires_at || appointment.checkin_token_expires_at < new Date()) {
+      throw new BadRequestException('This check-in code has expired — please see reception');
+    }
+    if (!['scheduled', 'confirmed'].includes(appointment.status)) {
+      throw new BadRequestException(`This appointment is already ${appointment.status.replace('_', ' ')} and cannot be checked in this way`);
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      // Single-use enforced atomically with the status write itself — the
+      // exact same transaction, not a separate step, so two concurrent
+      // scans of the same token can never both succeed (PLAN147's own
+      // requirement #5).
+      const row = await tx.appointments.update({
+        where: { id: appointment.id },
+        data: { status: 'checked_in', checkin_token_used_at: new Date(), updated_at: new Date() },
+        include: INCLUDE,
+      });
+      await tx.appointmentStatusLogs.create({
+        data: { appointment_id: appointment.id, status: 'checked_in', changed_by_user_id: null },
+      });
+      await this.queueService.syncFromAppointmentStatus(tx, row, 'checked_in');
+      return row;
+    });
+    const result = this.toGraphQL(updated);
+    await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
+    await this.queueService.publish(updated.clinic_id);
+    return result;
   }
 
   async update(id: string, input: AppointmentUpdateInput, user: JwtPayload) {

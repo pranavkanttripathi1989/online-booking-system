@@ -9,6 +9,7 @@ import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PUB_SUB } from '../common/pubsub.provider';
+import { Public } from '../common/decorators/public.decorator';
 
 @Resolver(() => AppointmentType)
 export class AppointmentsResolver {
@@ -84,6 +85,16 @@ export class AppointmentsResolver {
   @Mutation(() => AppointmentType)
   checkInAppointment(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
     return this.appointmentsService.checkIn(id, user);
+  }
+
+  // REQ107 — no ambient identity at all; the opaque token is the sole
+  // authority, resolved server-side to its own appointment. See
+  // AppointmentsService#checkInWithQrToken's own comment for why this
+  // is a genuine @Public() case, not a shortcut.
+  @Public()
+  @Mutation(() => AppointmentType)
+  checkInWithQrToken(@Args('token') token: string) {
+    return this.appointmentsService.checkInWithQrToken(token);
   }
 
   @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')
