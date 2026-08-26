@@ -1,11 +1,12 @@
 import { useState } from 'react'
-import { useParams } from 'react-router-dom'
+import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import { Alert, Box, Button, CircularProgress, Divider, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
+import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded'
 import { downloadAuthenticatedPdf } from '../../utils/documents'
 
 // REQ109 — {success, userErrors} only, no entity (this mutation has
@@ -48,6 +49,7 @@ const PRINT_QUERY = gql`
 
 function PrescriptionPrint() {
   const { id } = useParams()
+  const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [downloading, setDownloading] = useState(false)
   const { data, loading, error } = useQuery(PRINT_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
@@ -117,6 +119,13 @@ function PrescriptionPrint() {
             disabled={sharing}
           >
             {sharing ? 'Sending…' : 'Share via WhatsApp'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={<VerifiedRoundedIcon />}
+            onClick={() => navigate(`/prescriptions/verify?id=${id}`)}
+          >
+            Verify
           </Button>
         </Stack>
       </Box>

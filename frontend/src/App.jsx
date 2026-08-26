@@ -111,6 +111,7 @@ const ClinicianPatients     = lazy(() => import('./pages/clinician/Patients'))
 const EncounterWorkspace    = lazy(() => import('./pages/clinician/EncounterWorkspace'))
 const PrescriptionBuilder   = lazy(() => import('./pages/clinician/PrescriptionBuilder'))
 const PrescriptionPrint     = lazy(() => import('./pages/prescriptions/PrescriptionPrint'))
+const VerifyPrescription    = lazy(() => import('./pages/prescriptions/Verify'))
 const QueueBoardPage        = lazy(() => import('./pages/queue/index'))
 const QueueDisplay          = lazy(() => import('./pages/queue/display'))
 
@@ -311,6 +312,10 @@ function App() {
           <Route path="/settings"               element={<Suspense fallback={<ShellPageLoader />}><SettingsPage /></Suspense>} />
           <Route path="/notifications"          element={<Suspense fallback={<ShellPageLoader />}><NotificationsPage /></Suspense>} />
           <Route path="/profile"                element={<Suspense fallback={<ShellPageLoader />}><ProfilePage /></Suspense>} />
+          {/* REQ136 — a real frontend surface for the already-built
+              verifyPrescriptionIntegrity query (REQ129). Any authenticated
+              role, matching that query's own broad @Auth gate. */}
+          <Route path="/prescriptions/verify"   element={<Suspense fallback={<ShellPageLoader />}><VerifyPrescription /></Suspense>} />
 
           {/* ── Appointments ─────────────────────────────────────────── */}
           <Route path="/appointments"           element={<Suspense fallback={<ShellPageLoader />}><AppointmentsPage /></Suspense>} />
