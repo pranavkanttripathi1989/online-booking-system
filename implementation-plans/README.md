@@ -16,7 +16,7 @@
 | catalog-master-data | 2 | 5 | 0 | 0 | 7 | 2026-08-26 | [catalog-master-data](./catalog-master-data/README.md) |
 | organizations | 2 | 4 | 0 | 0 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
 | queue-management | 1 | 5 | 0 | 0 | 6 | 2026-08-26 | [queue-management](./queue-management/README.md) |
-| platform-nfr | 0 | 6 | 11 | 0 | 17 | 2026-08-25 | [platform-nfr](./platform-nfr/README.md) |
+| platform-nfr | 0 | 7 | 11 | 0 | 18 | 2026-08-26 | [platform-nfr](./platform-nfr/README.md) |
 | appointments | 2 | 5 | 4 | 0 | 11 | 2026-08-26 | [appointments](./appointments/README.md) |
 | test-coverage-audit | 4 | 2 | 0 | 0 | 6 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | communications-policies | 2 | 2 | 0 | 0 | 4 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |

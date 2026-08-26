@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ133 | improvement | Bounded pagination for testResults (F-14 residue) | done | 2026-08-26 | 2026-08-26 | REQ035 | [REQ133-platform-nfr-2026-08-26-testresults-bounded-pagination.md](./improvement/REQ133-platform-nfr-2026-08-26-testresults-bounded-pagination.md) |
 | REQ039 | improvement | Prisma safety-net middleware: no findMany returns an unbounded collection | done | 2026-08-23 | 2026-08-23 | REQ035 | [REQ039-platform-nfr-2026-08-23-pagination-safety-net-middleware.md](./improvement/REQ039-platform-nfr-2026-08-23-pagination-safety-net-middleware.md) |
 | REQ038 | improvement | Security headers, boot-time NODE_ENV assertion, and a redesigned auth throttle | done | 2026-08-23 | 2026-08-23 | REQ035 | [REQ038-platform-nfr-2026-08-23-helmet-csp-hsts-node-env-assertion-throttle-redesign.md](./improvement/REQ038-platform-nfr-2026-08-23-helmet-csp-hsts-node-env-assertion-throttle-redesign.md) |
 | REQ037 | improvement | Audit-log completeness: outcome, user_agent, and actually populating resource_id/details | done | 2026-08-23 | 2026-08-23 | REQ035 | [REQ037-platform-nfr-2026-08-23-audit-log-completeness.md](./improvement/REQ037-platform-nfr-2026-08-23-audit-log-completeness.md) |

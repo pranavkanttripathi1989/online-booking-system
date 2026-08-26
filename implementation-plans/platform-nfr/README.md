@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN173 | improvement | Bounded pagination for testResults (F-14 residue) | done | 2026-08-26 | 2026-08-26 | REQ133 | [PLAN173](./improvement/PLAN173-platform-nfr-2026-08-26-testresults-bounded-pagination.md) |
 | PLAN082 | improvement | Phase G+3 frontend completion (8 domains' UI) | done | 2026-08-25 | 2026-08-25 | REQ051 | [PLAN082](./improvement/PLAN082-platform-nfr-2026-08-25-phase-g3-frontend-completion.md) |
 | PLAN073 | improvement | Phase G+2 frontend completion (8 domains' UI) | done | 2026-08-24 | 2026-08-24 | REQ018 | [PLAN073](./improvement/PLAN073-platform-nfr-2026-08-24-phase-g2-frontend-completion.md) |
 | PLAN042 | improvement | Pagination safety-net middleware | done | 2026-08-23 | 2026-08-23 | REQ039 | [PLAN042](./improvement/PLAN042-platform-nfr-2026-08-23-pagination-safety-net-middleware.md) |

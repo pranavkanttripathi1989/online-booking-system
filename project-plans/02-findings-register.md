@@ -1035,6 +1035,17 @@ as coverage evidence.
 `CLAUDE.md` links to, instead of restating them by hand.
 **File as:** improvement, feature `test-coverage-audit`.
 
+**Status: fixed 2026-08-26, `REQ123`.** `scripts/test-count-status.mjs`
+now prints a live, dated unit/integration count on demand (`node
+scripts/test-count-status.mjs` / `--integration`); `CLAUDE.md`'s own
+backend command list points at it explicitly instead of restating a
+number by hand, and its own text names the exact prior instance of this
+drift as the reason ("this exact line once said '645 tests / 50 suites'
+and was still there, unnoticed, at 1470 tests / 92 suites"). Found while
+re-verifying the folded-in note in `project-plans/12-next-10-slice-batch.md`
+during `REQ133` — this status line itself is the correction that note
+flagged as missing.
+
 ### F-31 · S4 · Repository root noise
 **Status: fixed 2026-08-26, see `REQ076`.** 5 pre-pivot planning docs
 moved to `context/archive/pre-pivot-planning-docs/`, `Makefile` and

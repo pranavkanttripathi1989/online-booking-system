@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR193 | improvement | Bounded pagination for testResults results | pass | 2026-08-26 | 2026-08-26 | TP193 | [TR193](./improvement/TR193-platform-nfr-2026-08-26-testresults-bounded-pagination.md) |
 | TR108 | improvement | Phase G+3 frontend completion results | pass | 2026-08-25 | 2026-08-25 | TP109 | [TR108](./improvement/TR108-platform-nfr-2026-08-25-phase-g3-frontend-completion.md) |
 | TR099 | improvement | Phase G+2 frontend completion results | pass | 2026-08-24 | 2026-08-24 | TP100 | [TR099](./improvement/TR099-platform-nfr-2026-08-24-phase-g2-frontend-completion.md) |
 | TR068 | improvement | Pagination safety-net middleware results | pass | 2026-08-23 | 2026-08-23 | TP069 | [TR068](./improvement/TR068-platform-nfr-2026-08-23-pagination-safety-net-middleware-verification.md) |
