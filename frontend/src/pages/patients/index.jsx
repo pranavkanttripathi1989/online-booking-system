@@ -1,14 +1,11 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation } from '@apollo/client'
-import { useForm, Controller } from 'react-hook-form'
-import { zodResolver } from '@hookform/resolvers/zod'
-import { z } from 'zod'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 import {
   Alert, Avatar, Box, Button, Checkbox, Chip, CircularProgress, Dialog, DialogActions,
-  DialogContent, DialogTitle, IconButton, InputAdornment, MenuItem, Paper, Radio,
+  DialogContent, DialogTitle, IconButton, InputAdornment, Paper, Radio,
   RadioGroup, FormControlLabel, Snackbar, Stack,
   Table, TableBody, TableCell, TableContainer, TableHead, TablePagination,
   TableRow, TextField, Tooltip, Typography, ToggleButton, ToggleButtonGroup,
@@ -24,7 +21,7 @@ import MergeTypeRoundedIcon from '@mui/icons-material/MergeTypeRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 
 import { PATIENTS_QUERY } from '../../graphql/queries'
-import { CREATE_PATIENT_MUTATION, MERGE_PATIENTS_MUTATION } from '../../graphql/mutations'
+import { MERGE_PATIENTS_MUTATION } from '../../graphql/mutations'
 import { useAuth } from '../../hooks/useAuth'
 
 // ─── Mock patients fallback ───────────────────────────────────────────────────
@@ -48,80 +45,6 @@ const MOCK_PATIENTS = [
 ]
 
 const ALPHABET = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('')
-
-// ─── New Patient Zod schema ───────────────────────────────────────────────────
-const newPatientSchema = z.object({
-  first_name: z.string().min(1, 'Required'),
-  last_name: z.string().min(1, 'Required'),
-  email: z.string().email('Invalid email'),
-  phone: z.string().min(7, 'Enter a valid phone number'),
-  date_of_birth: z.string().optional(),
-  gender: z.string().optional(),
-})
-
-// ─── Add Patient Dialog ────────────────────────────────────────────────────────
-function AddPatientDialog({ open, onClose, onSuccess }) {
-  const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
-    resolver: zodResolver(newPatientSchema),
-    defaultValues: { first_name:'', last_name:'', email:'', phone:'', date_of_birth:'', gender:'' },
-  })
-
-  const [createPatient] = useMutation(CREATE_PATIENT_MUTATION, {
-    refetchQueries: [{ query: PATIENTS_QUERY, variables: { first: 25, page: 1 } }],
-    onCompleted: () => { reset(); onSuccess?.(); onClose() },
-  })
-
-  const onSubmit = async (values) => {
-    try {
-      await createPatient({ variables: { input: { first_name: values.first_name, last_name: values.last_name, email: values.email, phone: values.phone, date_of_birth: values.date_of_birth || undefined, gender: values.gender || undefined } } })
-    } catch (_) {
-      // Silently succeed in demo mode
-      reset(); onSuccess?.(); onClose()
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
-      <DialogTitle sx={{ fontWeight: 800 }}>Add New Patient</DialogTitle>
-      <DialogContent dividers>
-        <Stack spacing={2} pt={0.5}>
-          <Stack direction="row" spacing={2}>
-            <Controller name="first_name" control={control} render={({ field }) => (
-              <TextField {...field} label="First Name *" fullWidth size="small" error={!!errors.first_name} helperText={errors.first_name?.message} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-            )} />
-            <Controller name="last_name" control={control} render={({ field }) => (
-              <TextField {...field} label="Last Name *" fullWidth size="small" error={!!errors.last_name} helperText={errors.last_name?.message} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-            )} />
-          </Stack>
-          <Controller name="email" control={control} render={({ field }) => (
-            <TextField {...field} label="Email *" fullWidth size="small" type="email" error={!!errors.email} helperText={errors.email?.message} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-          )} />
-          <Controller name="phone" control={control} render={({ field }) => (
-            <TextField {...field} label="Phone *" fullWidth size="small" error={!!errors.phone} helperText={errors.phone?.message} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-          )} />
-          <Controller name="date_of_birth" control={control} render={({ field }) => (
-            <TextField {...field} label="Date of Birth" fullWidth size="small" type="date" InputLabelProps={{ shrink: true }} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-          )} />
-          <Controller name="gender" control={control} render={({ field }) => (
-            <TextField {...field} select label="Gender" fullWidth size="small" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
-              <MenuItem value="">Prefer not to say</MenuItem>
-              {['male','female','other','prefer_not_to_say'].map((g) => (
-                <MenuItem key={g} value={g} sx={{ textTransform:'capitalize' }}>{g.replace(/_/g,' ')}</MenuItem>
-              ))}
-            </TextField>
-          )} />
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} sx={{ textTransform: 'none' }}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit(onSubmit)} disabled={isSubmitting} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
-          startIcon={isSubmitting ? <CircularProgress size={16} color="inherit" /> : null}>
-          Add Patient
-        </Button>
-      </DialogActions>
-    </Dialog>
-  )
-}
 
 // ─── Merge Duplicate Patients Dialog ───────────────────────────────────────────
 // Originally built as a Semble-parity mockup (requirements/semble-competitive-
@@ -231,7 +154,6 @@ export default function PatientsPage() {
   const [rowsPerPage, setRowsPerPage] = useState(25)
   const [activeLetter, setActiveLetter] = useState(null)
   const [genderFilter, setGenderFilter] = useState('all')
-  const [addOpen, setAddOpen] = useState(false)
   const [mockPatients, setMockPatients] = useState(MOCK_PATIENTS)
   const [showArchived, setShowArchived] = useState(false)
 
