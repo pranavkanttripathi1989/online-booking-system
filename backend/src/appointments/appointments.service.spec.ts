@@ -25,7 +25,7 @@ describe('AppointmentsService — access scoping', () => {
     clinicians: { findUnique: jest.Mock };
     products: { findUnique: jest.Mock };
     patients: { findUnique: jest.Mock };
-    rooms: { findFirst: jest.Mock; findUnique: jest.Mock };
+    rooms: { findFirst: jest.Mock; findUnique: jest.Mock; findMany: jest.Mock };
     userProfiles: { findFirst: jest.Mock };
     clinicianAvailability: { findFirst: jest.Mock };
     resources: { count: jest.Mock };
@@ -71,7 +71,10 @@ describe('AppointmentsService — access scoping', () => {
       products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 30, prepayment_policy: 'none' }) },
       // REQ052: create() now also checks the caller's own no-show history.
       patients: { findUnique: jest.fn().mockResolvedValue({ id: 'pat-1', no_show_count: 0 }) },
-      rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }), findUnique: jest.fn().mockResolvedValue({ id: 'room-1' }) },
+      // REQ124: findMany drives findFreeRoom() for slot-mode bookings now --
+      // defaults to a single free room so every pre-existing slot-mode
+      // create() test keeps assigning 'room-1' unchanged.
+      rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }), findUnique: jest.fn().mockResolvedValue({ id: 'room-1' }), findMany: jest.fn().mockResolvedValue([{ id: 'room-1' }]) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
       // REQ017: default to "no session/hybrid window" so every pre-existing
       // slot-mode test in this file keeps exercising slot mode unchanged.
@@ -158,6 +161,50 @@ describe('AppointmentsService — access scoping', () => {
     it('allows creating an appointment for a clinic in the caller\'s own org', async () => {
       prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
       await expect(service.create(baseInput as any, staffUser)).resolves.toBeDefined();
+    });
+
+    // REQ124 (context/open-questions.md #14) — room assignment retries the
+    // next active room instead of only ever trying the first one.
+    describe('room assignment (REQ124)', () => {
+      beforeEach(() => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        prisma.rooms.findMany.mockResolvedValue([{ id: 'room-1' }, { id: 'room-2' }]);
+      });
+
+      it('assigns the first active room when it is free', async () => {
+        // clinician free, room-1 free
+        prisma.appointments.findFirst.mockResolvedValueOnce(null).mockResolvedValueOnce(null);
+        await service.create(baseInput as any, staffUser);
+        expect(prisma.appointments.create).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ room_id: 'room-1' }),
+        }));
+      });
+
+      it('tries the next active room when the first is busy, instead of rejecting the whole booking', async () => {
+        prisma.appointments.findFirst
+          .mockResolvedValueOnce(null) // clinician free
+          .mockResolvedValueOnce({ appointment_time: new Date(baseInput.start_datetime), duration_minutes: 30 }) // room-1 busy, overlaps
+          .mockResolvedValueOnce(null); // room-2 free
+        await service.create(baseInput as any, staffUser);
+        expect(prisma.appointments.create).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ room_id: 'room-2' }),
+        }));
+      });
+
+      it('rejects with a distinct message when every active room is busy', async () => {
+        prisma.appointments.findFirst
+          .mockResolvedValueOnce(null) // clinician free
+          .mockResolvedValueOnce({ appointment_time: new Date(baseInput.start_datetime), duration_minutes: 30 }) // room-1 busy
+          .mockResolvedValueOnce({ appointment_time: new Date(baseInput.start_datetime), duration_minutes: 30 }); // room-2 busy
+        await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('No room is free at this time');
+      });
+
+      it('rejects with the original message when the clinic has no active rooms at all', async () => {
+        prisma.appointments.findFirst.mockResolvedValueOnce(null); // clinician free
+        prisma.rooms.findMany.mockResolvedValue([]);
+        prisma.rooms.findFirst.mockResolvedValue(null);
+        await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('No active room available at this clinic');
+      });
     });
 
     // REQ008/PLAN017

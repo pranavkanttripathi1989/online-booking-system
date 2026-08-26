@@ -299,6 +299,41 @@ export class AppointmentsService {
     }
   }
 
+  // REQ124 (context/open-questions.md #14) — same overlap-detection shape
+  // as assertSlotFree(), scoped to one room instead of one clinician.
+  private async isRoomFree(roomId: string, start: Date, end: Date): Promise<boolean> {
+    const conflict = await this.prisma.appointments.findFirst({
+      where: {
+        room_id: roomId,
+        is_deleted: false,
+        status: { notIn: ['cancelled', 'no_show'] },
+        booking_mode: 'slot',
+        appointment_time: { lt: end },
+      },
+    });
+    if (!conflict) return true;
+    const conflictEnd = new Date(conflict.appointment_time.getTime() + conflict.duration_minutes * 60000);
+    return conflictEnd <= start;
+  }
+
+  // REQ124 — create() previously picked the clinic's first active room
+  // unconditionally and let the DB's own exclusion constraint reject the
+  // whole booking if that specific room happened to be busy, even when a
+  // different active room was genuinely free at the same time. Tries every
+  // active room in a stable order (oldest first) and returns the first one
+  // that's actually free, so a booking only fails when every room is
+  // genuinely busy — not when the wrong one was tried.
+  private async findFreeRoom(clinicId: string, start: Date, end: Date) {
+    const rooms = await this.prisma.rooms.findMany({
+      where: { clinic_id: clinicId, is_active: true, is_deleted: false },
+      orderBy: { created_at: 'asc' },
+    });
+    for (const room of rooms) {
+      if (await this.isRoomFree(room.id, start, end)) return room;
+    }
+    return null;
+  }
+
   // SECURITY: create() previously never validated input.clinic_id against
   // the caller's org at all -- same gap class fixed this session in
   // availability/blocks/clinicians create paths. Applies to org-affiliated
@@ -423,11 +458,26 @@ export class AppointmentsService {
       }
     }
 
-    const room = sessionWindow?.room_id
-      ? await this.prisma.rooms.findUnique({ where: { id: sessionWindow.room_id } })
-      : await this.prisma.rooms.findFirst({
+    // REQ124 — only slot mode benefits from availability-aware room
+    // selection: session/hybrid rows deliberately share one room across
+    // many concurrent tokens (capacity-gated above, not room-exclusive),
+    // so trying alternates there would be meaningless churn, not a fix.
+    let room;
+    if (sessionWindow?.room_id) {
+      room = await this.prisma.rooms.findUnique({ where: { id: sessionWindow.room_id } });
+    } else if (bookingMode === 'slot') {
+      room = await this.findFreeRoom(input.clinic_id, start, end);
+      if (!room) {
+        const anyActiveRoom = await this.prisma.rooms.findFirst({
           where: { clinic_id: input.clinic_id, is_active: true, is_deleted: false },
         });
+        throw new BadRequestException(anyActiveRoom ? 'No room is free at this time' : 'No active room available at this clinic');
+      }
+    } else {
+      room = await this.prisma.rooms.findFirst({
+        where: { clinic_id: input.clinic_id, is_active: true, is_deleted: false },
+      });
+    }
     if (!room) throw new BadRequestException('No active room available at this clinic');
 
     let created;
