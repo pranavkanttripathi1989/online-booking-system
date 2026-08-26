@@ -67,6 +67,27 @@ export class CreateDiagnosisInput {
   status?: string;
 }
 
+// REQ127 (FR-EMR-08)
+@InputType()
+export class OrderInvestigationInput {
+  @Field(() => ID)
+  @IsNotEmpty()
+  encounter_id: string;
+
+  @Field()
+  @IsNotEmpty()
+  test_name: string;
+
+  @Field()
+  @IsNotEmpty()
+  test_type: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsIn(['routine', 'urgent', 'stat'])
+  urgency?: string;
+}
+
 @InputType()
 export class CreateEncounterTemplateInput {
   @Field({ nullable: true })

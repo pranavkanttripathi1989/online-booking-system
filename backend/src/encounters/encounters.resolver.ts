@@ -8,11 +8,13 @@ import {
   AttachmentType,
   EncounterTemplateType,
   TimelineEventType,
+  InvestigationOrderType,
 } from './entities/encounter.entity';
 import {
   SaveEncounterNoteInput,
   AddAddendumInput,
   CreateDiagnosisInput,
+  OrderInvestigationInput,
   CreateEncounterTemplateInput,
   ApplyTemplateInput,
   CreateAttachmentInput,
@@ -70,6 +72,13 @@ export class EncountersResolver {
   @Mutation(() => DiagnosisType)
   createDiagnosis(@Args('input') input: CreateDiagnosisInput, @CurrentUser() user: JwtPayload) {
     return this.encountersService.createDiagnosis(input, user);
+  }
+
+  // REQ127 (FR-EMR-08)
+  @Auth('clinician')
+  @Mutation(() => InvestigationOrderType)
+  orderInvestigation(@Args('input') input: OrderInvestigationInput, @CurrentUser() user: JwtPayload) {
+    return this.encountersService.orderInvestigation(input, user);
   }
 
   @Auth('patient', 'clinician', 'manager', 'admin', 'super_admin', 'staff')

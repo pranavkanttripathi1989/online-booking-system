@@ -27,6 +27,7 @@ const ENCOUNTER_QUERY = gql`
       addenda { id author_id content reason created_at }
       diagnoses { id type icd10_code text status created_at }
       attachments { id file_ref mime_type original_filename created_at }
+      investigation_orders { id test_name test_type urgency status date_ordered }
     }
   }
 `
@@ -53,6 +54,12 @@ const CREATE_ENCOUNTER_TEMPLATE = gql`
     createEncounterTemplate(input: $input) { id name specialty sections_json }
   }
 `
+// REQ127
+const ORDER_INVESTIGATION = gql`
+  mutation OrderInvestigation($input: OrderInvestigationInput!) {
+    orderInvestigation(input: $input) { id test_name test_type urgency status date_ordered }
+  }
+`
 // REQ108
 const ICD10_SEARCH_QUERY = gql`
   query Icd10Codes($search: String) {
@@ -76,6 +83,7 @@ function encounter(overrides = {}) {
     addenda: [],
     diagnoses: [],
     attachments: [],
+    investigation_orders: [],
     ...overrides,
   }
 }
@@ -205,4 +213,42 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
 
     await waitFor(() => expect(screen.getByText(/template saved/i)).toBeInTheDocument())
   })
+})
+
+describe('EncounterWorkspace — investigation orders (REQ127)', () => {
+  it('renders real ordered investigations, not just an empty state', async () => {
+    const enc = encounter({
+      investigation_orders: [{ __typename: 'InvestigationOrder', id: 'inv-1', test_name: 'CBC', test_type: 'Blood', urgency: 'routine', status: 'pending', date_ordered: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByText('CBC')).toBeInTheDocument())
+    expect(screen.getByText('Blood')).toBeInTheDocument()
+  })
+
+  it('orders an investigation via the real orderInvestigation mutation and refetches', async () => {
+    const enc = encounter()
+    const withOrder = encounter({
+      investigation_orders: [{ __typename: 'InvestigationOrder', id: 'inv-2', test_name: 'Chest X-Ray', test_type: 'Imaging', urgency: 'urgent', status: 'pending', date_ordered: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage([
+      ...baseMocks(enc),
+      {
+        request: { query: ORDER_INVESTIGATION, variables: { input: { encounter_id: ENCOUNTER_ID, test_name: 'Chest X-Ray', test_type: 'Imaging', urgency: 'urgent' } } },
+        result: { data: { orderInvestigation: { __typename: 'InvestigationOrder', id: 'inv-2', test_name: 'Chest X-Ray', test_type: 'Imaging', urgency: 'urgent', status: 'pending', date_ordered: '2026-08-26T10:00:00.000Z' } } },
+      },
+      { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withOrder } } },
+    ])
+
+    await waitFor(() => expect(screen.getByText('No investigations ordered yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Order Investigation' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Test name'), 'Chest X-Ray')
+    await userEvent.type(within(dialog).getByLabelText('Test type'), 'Imaging')
+    await userEvent.selectOptions(within(dialog).getByLabelText('Urgency'), 'urgent')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Order' }))
+
+    await waitFor(() => expect(screen.getByText('Chest X-Ray')).toBeInTheDocument())
+    expect(screen.getByText('urgent')).toBeInTheDocument()
+  }, 20000)
 })

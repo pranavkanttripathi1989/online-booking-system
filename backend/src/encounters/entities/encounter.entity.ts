@@ -31,6 +31,24 @@ export class DiagnosisType {
   @Field() created_at: Date;
 }
 
+// REQ127 (FR-EMR-08) — the row is really a TestResults record (an order
+// and its eventual result are the same row at different lifecycle
+// points), but exposed here as its own lightweight type rather than
+// importing TestResultType across modules -- matches this codebase's own
+// established convention (see TimelineEventType below, which does the
+// same flattening for cross-domain data rather than a cross-module type
+// import).
+@ObjectType('InvestigationOrder')
+export class InvestigationOrderType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) encounter_id: string;
+  @Field() test_name: string;
+  @Field() test_type: string;
+  @Field() urgency: string;
+  @Field() status: string;
+  @Field() date_ordered: Date;
+}
+
 @ObjectType('EncounterAttachment')
 export class AttachmentType {
   @Field(() => ID) id: string;
@@ -57,6 +75,7 @@ export class EncounterType {
   @Field(() => [EncounterAddendumType]) addenda: EncounterAddendumType[];
   @Field(() => [DiagnosisType]) diagnoses: DiagnosisType[];
   @Field(() => [AttachmentType]) attachments: AttachmentType[];
+  @Field(() => [InvestigationOrderType]) investigation_orders: InvestigationOrderType[];
 }
 
 @ObjectType('EncounterTemplate')

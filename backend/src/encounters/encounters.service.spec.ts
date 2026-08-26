@@ -38,8 +38,11 @@ describe('EncountersService', () => {
       attachments: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
       encounterTemplates: { findMany: jest.fn(), create: jest.fn(), findUnique: jest.fn() },
       appointments: { findUnique: jest.fn(), findFirst: jest.fn() },
-      testResults: { findMany: jest.fn().mockResolvedValue([]) },
-      userProfiles: { findFirst: jest.fn().mockResolvedValue(null) },
+      // REQ127: create() drives orderInvestigation(); findMany() already
+      // backed patientTimeline()/withRelations().
+      testResults: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+      patients: { findUnique: jest.fn().mockResolvedValue({ id: 'pat-a', first_name: 'Anita', last_name: 'Sharma' }) },
+      userProfiles: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null) },
       messageThreads: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     };
@@ -238,6 +241,48 @@ describe('EncountersService', () => {
       expect(prisma.diagnoses.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ type: 'diagnosis', status: 'active' }) }),
       );
+    });
+  });
+
+  // REQ127 (FR-EMR-08)
+  describe('orderInvestigation', () => {
+    it('rejects ordering on a locked encounter', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterSigned);
+      await expect(
+        service.orderInvestigation({ encounter_id: 'enc-2', test_name: 'CBC', test_type: 'blood' } as any, clinicianA),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.testResults.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a pending TestResults row linked to the encounter, defaulting urgency to routine', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.testResults.create.mockResolvedValue({
+        id: 'tr-1', encounter_id: 'enc-1', test_name: 'CBC', test_type: 'blood', urgency: 'routine', status: 'pending', date_ordered: new Date('2026-08-26T00:00:00Z'),
+      });
+      const result = await service.orderInvestigation({ encounter_id: 'enc-1', test_name: 'CBC', test_type: 'blood' } as any, clinicianA);
+      expect(prisma.testResults.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          encounter_id: 'enc-1', patient_id: 'pat-a', test_name: 'CBC', test_type: 'blood',
+          urgency: 'routine', status: 'pending', ordered_by_user_id: 'clin-a',
+        }),
+      }));
+      expect(result).toEqual(expect.objectContaining({ id: 'tr-1', urgency: 'routine', status: 'pending' }));
+    });
+
+    it('honours an explicit urgency', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.testResults.create.mockResolvedValue({ id: 'tr-1', encounter_id: 'enc-1', urgency: 'stat', status: 'pending', date_ordered: new Date() });
+      await service.orderInvestigation({ encounter_id: 'enc-1', test_name: 'CBC', test_type: 'blood', urgency: 'stat' } as any, clinicianA);
+      expect(prisma.testResults.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ urgency: 'stat' }) }));
+    });
+
+    it('appears in withRelations()\'s investigation_orders once ordered', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.testResults.findMany.mockResolvedValue([
+        { id: 'tr-1', encounter_id: 'enc-1', test_name: 'CBC', test_type: 'blood', urgency: 'routine', status: 'pending', date_ordered: new Date('2026-08-26T00:00:00Z') },
+      ]);
+      const result = await service.encounter('enc-1', clinicianA);
+      expect(result.investigation_orders).toEqual([expect.objectContaining({ id: 'tr-1', test_name: 'CBC', status: 'pending' })]);
     });
   });
 

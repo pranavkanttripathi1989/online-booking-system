@@ -6,6 +6,7 @@ import {
   SaveEncounterNoteInput,
   AddAddendumInput,
   CreateDiagnosisInput,
+  OrderInvestigationInput,
   CreateEncounterTemplateInput,
   ApplyTemplateInput,
   CreateAttachmentInput,
@@ -25,18 +26,40 @@ export class EncountersService {
 
   private toGraphQL(encounter: any) {
     if (!encounter) return null;
-    const { client_org_id, notes, addenda, diagnoses, attachments, ...rest } = encounter;
+    const { client_org_id, notes, addenda, diagnoses, attachments, investigation_orders, ...rest } = encounter;
     return rest;
   }
 
+  // REQ127 — a TestResults row ordered with this encounter_id, mapped to
+  // the encounters module's own lightweight InvestigationOrderType shape.
+  private toInvestigationOrderGraphQL(row: any) {
+    return {
+      id: row.id,
+      encounter_id: row.encounter_id,
+      test_name: row.test_name,
+      test_type: row.test_type,
+      urgency: row.urgency,
+      status: row.status,
+      date_ordered: row.date_ordered,
+    };
+  }
+
   private async withRelations(encounter: any) {
-    const [notes, addenda, diagnoses, attachments] = await Promise.all([
+    const [notes, addenda, diagnoses, attachments, investigationOrders] = await Promise.all([
       this.prisma.encounterNotes.findMany({ where: { encounter_id: encounter.id }, orderBy: { section: 'asc' } }),
       this.prisma.encounterAddenda.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
       this.prisma.diagnoses.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
       this.prisma.attachments.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
+      this.prisma.testResults.findMany({ where: { encounter_id: encounter.id }, orderBy: { date_ordered: 'asc' } }),
     ]);
-    return { ...this.toGraphQL(encounter), notes, addenda, diagnoses, attachments };
+    return {
+      ...this.toGraphQL(encounter),
+      notes,
+      addenda,
+      diagnoses,
+      attachments,
+      investigation_orders: investigationOrders.map((r: any) => this.toInvestigationOrderGraphQL(r)),
+    };
   }
 
   // Org + self-scoping (a clinician sees only their own encounters, a
@@ -229,6 +252,38 @@ export class EncountersService {
         status: input.status ?? 'active',
       },
     });
+  }
+
+  // REQ127 (FR-EMR-08) — reuses TestResults (see the schema comment on
+  // TestResults.encounter_id for why this isn't a parallel table): a
+  // clinician-ordered investigation is just a TestResults row with
+  // encounter_id set and status starting at 'pending', the same lifecycle
+  // every other test result already goes through. Same locked-encounter
+  // guard as createDiagnosis() -- ordering a new investigation is new
+  // clinical content, not permitted on an already-signed encounter.
+  async orderInvestigation(input: OrderInvestigationInput, user: JwtPayload) {
+    const encounter = await this.loadEncounterForUser(input.encounter_id, user);
+    if (encounter.locked) {
+      throw new BadRequestException('This encounter has been signed and can no longer be edited. Add an addendum instead.');
+    }
+    const [patient, orderingUser] = await Promise.all([
+      this.prisma.patients.findUnique({ where: { id: encounter.patient_id } }),
+      this.prisma.userProfiles.findUnique({ where: { id: user.sub } }),
+    ]);
+    const row = await this.prisma.testResults.create({
+      data: {
+        encounter_id: input.encounter_id,
+        patient_id: encounter.patient_id,
+        patient_name: patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown',
+        test_name: input.test_name,
+        test_type: input.test_type,
+        urgency: input.urgency ?? 'routine',
+        ordered_by_name: orderingUser ? `${orderingUser.first_name} ${orderingUser.last_name}` : 'Unknown',
+        ordered_by_user_id: user.sub,
+        status: 'pending',
+      },
+    });
+    return this.toInvestigationOrderGraphQL(row);
   }
 
   // Persistent allergy banner (US-EMR-04): Diagnoses rows with type='allergy',

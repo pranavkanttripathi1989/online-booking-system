@@ -15,6 +15,7 @@ import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded'
 import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded'
 import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import BiotechRoundedIcon from '@mui/icons-material/BiotechRounded'
 import { useAuth } from '../../hooks/useAuth'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { downloadAuthenticatedPdf } from '../../utils/documents'
@@ -38,6 +39,7 @@ const ENCOUNTER_QUERY = gql`
       addenda { id author_id content reason created_at }
       diagnoses { id type icd10_code text status created_at }
       attachments { id file_ref mime_type original_filename created_at }
+      investigation_orders { id test_name test_type urgency status date_ordered }
     }
   }
 `
@@ -90,6 +92,13 @@ const CREATE_ATTACHMENT = gql`
 const CREATE_DIAGNOSIS = gql`
   mutation CreateDiagnosis($input: CreateDiagnosisInput!) {
     createDiagnosis(input: $input) { id type icd10_code text status created_at }
+  }
+`
+// REQ127 (FR-EMR-08) — structured investigation orders, distinct from the
+// pre-existing free-text "Investigations" note SECTION above.
+const ORDER_INVESTIGATION = gql`
+  mutation OrderInvestigation($input: OrderInvestigationInput!) {
+    orderInvestigation(input: $input) { id test_name test_type urgency status date_ordered }
   }
 `
 const CREATE_ENCOUNTER_TEMPLATE = gql`
@@ -149,12 +158,14 @@ function TimelinePane({ patientId }) {
 }
 
 // ─── Center pane: structured note sections ─────────────────────────────────
-function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis }) {
+function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAddInvestigation }) {
   const [drafts, setDrafts] = useState({})
   const [addendumOpen, setAddendumOpen] = useState(false)
   const [addendumText, setAddendumText] = useState('')
   const [diagnosisOpen, setDiagnosisOpen] = useState(false)
   const [diagnosisForm, setDiagnosisForm] = useState({ type: 'diagnosis', text: '', icd10_code: '' })
+  const [investigationOpen, setInvestigationOpen] = useState(false)
+  const [investigationForm, setInvestigationForm] = useState({ test_name: '', test_type: '', urgency: 'routine' })
 
   // REQ108 — ICD-10 type-ahead search, freeSolo (a clinician can still type
   // free text or leave it blank — soft validation only, per REQ108's own
@@ -228,6 +239,37 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis }) {
                     {d.icd10_code && <Typography variant="caption" color="text.secondary">{d.icd10_code}</Typography>}
                   </Stack>
                   <Typography variant="body2">{d.text}</Typography>
+                </Paper>
+              ))}
+            </Stack>
+          )}
+        </Box>
+
+        <Box>
+          <Divider sx={{ my: 1 }} />
+          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+            <Typography variant="subtitle2" fontWeight={700}>Investigations</Typography>
+            {!locked && (
+              <Button size="small" startIcon={<BiotechRoundedIcon fontSize="small" />} onClick={() => setInvestigationOpen(true)}>
+                Order Investigation
+              </Button>
+            )}
+          </Stack>
+          {(encounter?.investigation_orders?.length ?? 0) === 0 ? (
+            <Typography variant="body2" color="text.secondary">No investigations ordered yet.</Typography>
+          ) : (
+            <Stack spacing={1}>
+              {encounter.investigation_orders.map((o) => (
+                <Paper key={o.id} variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+                  <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+                    <Chip size="small" label={o.test_type} sx={{ textTransform: 'capitalize' }} />
+                    <Chip size="small" label={o.urgency} color={o.urgency === 'stat' ? 'error' : o.urgency === 'urgent' ? 'warning' : 'default'} variant="outlined" sx={{ textTransform: 'capitalize' }} />
+                    <Chip size="small" label={o.status} variant="outlined" sx={{ textTransform: 'capitalize' }} />
+                  </Stack>
+                  <Typography variant="body2">{o.test_name}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Ordered {new Date(o.date_ordered).toLocaleDateString()}
+                  </Typography>
                 </Paper>
               ))}
             </Stack>
@@ -349,6 +391,50 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis }) {
             }}
           >
             Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={investigationOpen} onClose={() => setInvestigationOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Order Investigation</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth label="Test name" value={investigationForm.test_name}
+              onChange={(e) => setInvestigationForm((f) => ({ ...f, test_name: e.target.value }))}
+            />
+            <TextField
+              fullWidth label="Test type" placeholder="e.g. Blood, Imaging, Urine"
+              value={investigationForm.test_type}
+              onChange={(e) => setInvestigationForm((f) => ({ ...f, test_type: e.target.value }))}
+            />
+            <TextField
+              select fullWidth label="Urgency" value={investigationForm.urgency}
+              onChange={(e) => setInvestigationForm((f) => ({ ...f, urgency: e.target.value }))}
+              SelectProps={{ native: true }}
+            >
+              <option value="routine">Routine</option>
+              <option value="urgent">Urgent</option>
+              <option value="stat">STAT</option>
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setInvestigationOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!investigationForm.test_name.trim() || !investigationForm.test_type.trim()}
+            onClick={async () => {
+              await onAddInvestigation({
+                test_name: investigationForm.test_name.trim(),
+                test_type: investigationForm.test_type.trim(),
+                urgency: investigationForm.urgency,
+              })
+              setInvestigationForm({ test_name: '', test_type: '', urgency: 'routine' })
+              setInvestigationOpen(false)
+            }}
+          >
+            Order
           </Button>
         </DialogActions>
       </Dialog>
@@ -527,6 +613,7 @@ function EncounterWorkspace() {
   const [applyTemplate] = useMutation(APPLY_TEMPLATE)
   const [createAttachment] = useMutation(CREATE_ATTACHMENT)
   const [createDiagnosis] = useMutation(CREATE_DIAGNOSIS)
+  const [orderInvestigationMutation] = useMutation(ORDER_INVESTIGATION)
   const [createEncounterTemplate] = useMutation(CREATE_ENCOUNTER_TEMPLATE)
 
   const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, {
@@ -576,6 +663,13 @@ function EncounterWorkspace() {
       refetch()
     } catch (err) { reportError(err, 'Failed to add diagnosis') }
   }, [createDiagnosis, encounterId, refetch, reportError])
+
+  const handleAddInvestigation = useCallback(async (input) => {
+    try {
+      await orderInvestigationMutation({ variables: { input: { encounter_id: encounterId, ...input } } })
+      refetch()
+    } catch (err) { reportError(err, 'Failed to order investigation') }
+  }, [orderInvestigationMutation, encounterId, refetch, reportError])
 
   const handleSaveAsTemplate = useCallback(async ({ name, specialty }) => {
     try {
@@ -649,7 +743,7 @@ function EncounterWorkspace() {
               <TimelinePane patientId={encounter.patient_id} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} />
+              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} onAddInvestigation={handleAddInvestigation} />
             </Grid>
             <Grid item xs={12} md={3}>
               <ActionsPane

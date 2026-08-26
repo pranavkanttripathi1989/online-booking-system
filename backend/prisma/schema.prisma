@@ -328,6 +328,7 @@ model Encounters {
   diagnoses           Diagnoses[]
   attachments         Attachments[]
   prescriptions       Prescriptions[]
+  investigationOrders TestResults[]
 
   @@index([client_org_id, patient_id])
   @@index([clinician_id])
@@ -779,6 +780,7 @@ model ClientOrganizations {
   patientPackages        PatientPackages[]
   productBranchOverrides ProductBranchOverrides[]
   cannedReplies          CannedReplies[]
+  tasks                  Tasks[]
 }
 
 model ClinicianAvailability {
@@ -1142,6 +1144,7 @@ model Patients {
   rightsRequests           RightsRequests[]
   insurancePolicies        PatientInsurancePolicies[]
   patientPackages          PatientPackages[]
+  tasks                    Tasks[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1208,13 +1211,22 @@ model TestResults {
   values           Json              @default("[]") // [{name, value, ref, flag}]
   is_deleted       Boolean           @default(false)
   created_at       DateTime          @default(now())
+  // REQ127 (FR-EMR-08) — nullable: most existing rows predate this and were
+  // never ordered from within a specific encounter (walk-in lab work, the
+  // standalone orderTest() mutation). Set only by the new orderInvestigation()
+  // path, the actual "investigation order" concept -- a test explicitly
+  // requested during a consultation, not just any lab result on file.
+  encounter_id     String?
+  urgency          String            @default("routine") // routine | urgent | stat
 
   patient       Patients?     @relation(fields: [patient_id], references: [id])
   ordered_by    UserProfiles? @relation(fields: [ordered_by_user_id], references: [id])
+  encounter     Encounters?   @relation(fields: [encounter_id], references: [id])
 
   @@index([patient_id, date_ordered])
   @@index([ordered_by_user_id])
   @@index([is_deleted, date_ordered])
+  @@index([encounter_id])
 }
 
 model PaymentTransactions {
@@ -2083,6 +2095,8 @@ model Users {
   messageAttachmentsUploaded  MessageAttachments[]
   cannedRepliesCreated        CannedReplies[]
   priceChangesRecorded        PriceHistory[]
+  tasksAssigned               Tasks[] @relation("TaskAssignee")
+  tasksCreated                Tasks[] @relation("TaskCreatedBy")
 }
 
 // REQ005 Notifications tab. No code path in this codebase currently reads
@@ -2894,4 +2908,39 @@ model PatientPackages {
 
   @@index([patient_id, expires_at])
   @@index([client_org_id, clinic_id])
+}
+
+// REQ080 (project-plans/09-next-15-slice-roadmap.md #1) — internal staff
+// follow-up tasks (Semble's Task object). Org-wide shared visibility for
+// every staff/clinician/manager/admin in the org, matching the internal
+// coordination-tool pattern this codebase already uses for the queue
+// board rather than a per-caller mailbox. task_type/priority/status are
+// plain validated strings, not Prisma enums — their real values contain
+// spaces ("Follow-up call", "In Progress"), and modelling them as
+// Postgres enums would need a @map on every value for no behavioural
+// gain over class-validator's @IsIn() at the DTO layer, which every other
+// write path already goes through.
+model Tasks {
+  id                  String    @id @default(uuid())
+  client_org_id       String
+  subject             String
+  task_type           String    @default("General")
+  priority             String    @default("Medium")
+  status              String    @default("Open")
+  due_date            DateTime?
+  assigned_to_user_id String?
+  patient_id          String?
+  created_by_user_id  String
+  is_deleted          Boolean   @default(false)
+  created_at          DateTime  @default(now())
+  updated_at          DateTime  @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  assigned_to         Users?               @relation("TaskAssignee", fields: [assigned_to_user_id], references: [id])
+  created_by          Users                @relation("TaskCreatedBy", fields: [created_by_user_id], references: [id])
+  patient             Patients?            @relation(fields: [patient_id], references: [id])
+
+  @@index([client_org_id, status])
+  @@index([assigned_to_user_id])
+  @@index([patient_id])
 }
