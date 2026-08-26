@@ -1509,7 +1509,10 @@ export default function SettingsPage() {
                   {deliveryLog.map((entry) => (
                     <TableRow key={entry.id}>
                       <TableCell>{entry.event_type}</TableCell>
-                      <TableCell><Chip size="small" label={entry.status} color={entry.status === 'success' ? 'success' : 'error'} /></TableCell>
+                      {/* REQ112: real values are succeeded/failed/exhausted, never
+                          'success' — the previous check here never matched anything,
+                          so every delivery (including real successes) rendered red. */}
+                      <TableCell><Chip size="small" label={entry.status} color={entry.status === 'succeeded' ? 'success' : 'error'} /></TableCell>
                       <TableCell>{entry.http_status ?? '—'}</TableCell>
                       <TableCell>{new Date(entry.attempted_at).toLocaleString()}</TableCell>
                     </TableRow>

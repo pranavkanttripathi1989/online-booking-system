@@ -115,6 +115,28 @@ describe('settings/index.jsx — webhook delivery log (A-8)', () => {
     await waitFor(() => expect(within(dialog).getByText('appointment.created')).toBeInTheDocument())
     expect(within(dialog).getByText('failed')).toBeInTheDocument()
   })
+
+  // REQ112 — regression test for a real pre-existing bug found while
+  // adding retry support: the chip compared status === 'success', but the
+  // real values are 'succeeded'/'failed'/'exhausted', so a genuine
+  // success always rendered as a red error chip.
+  it('renders a succeeded delivery with the success color, not the failed color', async () => {
+    renderPage([
+      ...baseMocks(),
+      {
+        request: { query: GET_WEBHOOK_DELIVERY_LOG, variables: { endpoint_id: WEBHOOK_ID } },
+        result: { data: { webhookDeliveryLog: [
+          { __typename: 'WebhookDeliveryLogEntry', id: 'log-2', event_type: 'appointment.created', status: 'succeeded', http_status: 200, attempted_at: '2026-08-25T09:00:00.000Z', response_snippet: 'ok' },
+        ] } },
+      },
+    ])
+    await waitFor(() => expect(screen.getByText('https://example.com/hook')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Delivery Log' }))
+
+    const dialog = await screen.findByRole('dialog')
+    const chip = await within(dialog).findByText('succeeded')
+    expect(chip.closest('.MuiChip-root')).toHaveClass('MuiChip-colorSuccess')
+  })
 })
 
 describe('settings/index.jsx — booking widget edit (A-9)', () => {
