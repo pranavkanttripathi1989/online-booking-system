@@ -18,7 +18,7 @@
 | appointments | 3 | 3 | 4 | 1 | 9 | 2026-08-26 | [appointments](./appointments/README.md) |
 | clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
 | organizations | 3 | 4 | 0 | 1 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
-| catalog-master-data | 2 | 3 | 0 | 0 | 5 | 2026-08-25 | [catalog-master-data](./catalog-master-data/README.md) |
+| catalog-master-data | 2 | 4 | 0 | 0 | 6 | 2026-08-26 | [catalog-master-data](./catalog-master-data/README.md) |
 | public | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [public](./public/README.md) |
 | communications-policies | 2 | 2 | 0 | 4 | 0 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
