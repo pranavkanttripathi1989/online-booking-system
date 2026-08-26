@@ -48,3 +48,24 @@ export class PayerTariffInput {
   @Field(() => ID) @IsNotEmpty() product_id: string;
   @Field(() => Float) @IsNumber() @Min(0) tariff_price: number;
 }
+
+// REQ131 (REQ031's own P2 follow-on) — a basic OPD cashless claim-tracking
+// state machine. See Claims' own schema comment for why this is manual/
+// portal-assist, not a real payer API.
+export const CLAIM_STATUSES = ['submitted', 'under_review', 'approved', 'rejected', 'settled'] as const;
+
+@InputType('SubmitClaimInput')
+export class SubmitClaimInput {
+  @Field(() => ID) @IsNotEmpty() appointment_id: string;
+  @Field(() => ID) @IsNotEmpty() payer_id: string;
+  @Field(() => ID, { nullable: true }) @IsOptional() policy_id?: string;
+  @Field(() => Float) @IsNumber() @Min(0) claim_amount: number;
+  @Field({ nullable: true }) @IsOptional() notes?: string;
+}
+
+@InputType('UpdateClaimStatusInput')
+export class UpdateClaimStatusInput {
+  @Field() @IsIn(CLAIM_STATUSES) status: string;
+  @Field(() => Float, { nullable: true }) @IsOptional() @IsNumber() @Min(0) approved_amount?: number;
+  @Field({ nullable: true }) @IsOptional() rejection_reason?: string;
+}

@@ -1,12 +1,14 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { InsuranceService } from './insurance.service';
-import { PayerType, PayerEmpanelmentType, PatientInsurancePolicyType, PayerTariffType, PayerChargeEstimateType } from './entities/insurance.entity';
+import { PayerType, PayerEmpanelmentType, PatientInsurancePolicyType, PayerTariffType, PayerChargeEstimateType, ClaimType } from './entities/insurance.entity';
 import {
   PayerInput,
   PayerEmpanelmentInput,
   UpdatePayerEmpanelmentStatusInput,
   PatientInsurancePolicyInput,
   PayerTariffInput,
+  SubmitClaimInput,
+  UpdateClaimStatusInput,
 } from './dto/insurance.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -93,5 +95,39 @@ export class InsuranceResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.insuranceService.estimatedPayerCharge(productId, payerId, patientId, user);
+  }
+
+  // REQ131 (REQ031's own P2 follow-on) — same @Auth gate as payers/
+  // payerTariffs/estimatedPayerCharge above (front-desk/insurance-desk
+  // data entry).
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Mutation(() => ClaimType)
+  submitClaim(@Args('input') input: SubmitClaimInput, @CurrentUser() user: JwtPayload) {
+    return this.insuranceService.submitClaim(input, user);
+  }
+
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Query(() => [ClaimType])
+  claims(@Args('status', { type: () => String, nullable: true }) status: string | undefined, @CurrentUser() user: JwtPayload) {
+    return this.insuranceService.claims(status, user);
+  }
+
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Query(() => ClaimType, { nullable: true })
+  claim(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.insuranceService.claim(id, user);
+  }
+
+  // Deciding a claim's outcome is a higher-trust action than submitting
+  // one — same asymmetry as updatePayerEmpanelmentStatus above (manager+
+  // only, not staff).
+  @Auth('manager', 'admin', 'super_admin')
+  @Mutation(() => ClaimType)
+  updateClaimStatus(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: UpdateClaimStatusInput,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.insuranceService.updateClaimStatus(id, input, user);
   }
 }

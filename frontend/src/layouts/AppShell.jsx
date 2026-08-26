@@ -69,6 +69,7 @@ import WarningRoundedIcon       from '@mui/icons-material/WarningRounded'
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
 import ScienceRoundedIcon       from '@mui/icons-material/ScienceRounded'
 import StarRoundedIcon          from '@mui/icons-material/StarRounded'
+import PolicyRoundedIcon        from '@mui/icons-material/PolicyRounded'
 
 import { useAuth } from '../context/AuthContext'
 import NotificationBell from '../components/shared/NotificationBell'
@@ -149,6 +150,9 @@ const NAV_CONFIG = [
   // staff pharmacy worker had no nav path to a page the backend already
   // let them use, matching App.jsx's own route-guard fix for the same gap.
   { label: 'Pharmacy',      path: '/manager/pharmacy',     icon: <MedicationIcon />,         roles: ['admin','super_admin','manager','staff'] },
+  // REQ131 — insurance.resolver.ts's claims/submitClaim share the same
+  // staff-inclusive @Auth gate as Pharmacy above.
+  { label: 'Insurance Claims', path: '/manager/claims',    icon: <PolicyRoundedIcon />,      roles: ['admin','super_admin','manager','staff'] },
   // ── Shared ────────────────────────────────────────────────────────────────
   { label: 'Messages',      path: '/messages',             icon: <MessageIcon />,            roles: 'all', badge: 0 },
   { label: 'Staff',         path: '/staff',                icon: <BadgeIcon />,              roles: ['admin','super_admin','manager'] },

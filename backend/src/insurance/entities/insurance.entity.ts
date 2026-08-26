@@ -49,3 +49,25 @@ export class PayerChargeEstimateType {
   @Field(() => Float, { nullable: true }) amount?: number;
   @Field() has_tariff: boolean;
 }
+
+// REQ131 — a basic OPD cashless claim-tracking record. claim_amount/
+// approved_amount cross the resolver boundary as rupees (Float), same
+// paise->rupees convention as PayerTariffType.tariff_price above.
+@ObjectType('Claim')
+export class ClaimType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) appointment_id: string;
+  @Field() appointment_date: Date;
+  @Field(() => ID) patient_id: string;
+  @Field() patient_name: string;
+  @Field(() => PayerType) payer: PayerType;
+  @Field(() => ID, { nullable: true }) policy_id?: string;
+  @Field(() => Float) claim_amount: number;
+  @Field(() => Float, { nullable: true }) approved_amount?: number;
+  @Field() status: string;
+  @Field({ nullable: true }) rejection_reason?: string;
+  @Field() submitted_at: Date;
+  @Field({ nullable: true }) decided_at?: Date;
+  @Field({ nullable: true }) settled_at?: Date;
+  @Field({ nullable: true }) notes?: string;
+}

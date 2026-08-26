@@ -7,10 +7,23 @@ import {
   UpdatePayerEmpanelmentStatusInput,
   PatientInsurancePolicyInput,
   PayerTariffInput,
+  SubmitClaimInput,
+  UpdateClaimStatusInput,
 } from './dto/insurance.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScope, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-scope';
+import { orgScope, orgScopeVia, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-scope';
 import { resolveServicePrice } from '../common/pricing/resolve-price';
+
+// REQ131 — the only legal forward transitions; submitted/under_review are
+// the working states, rejected/settled are terminal (no map entry = no
+// legal transition out).
+const CLAIM_TRANSITIONS: Record<string, string[]> = {
+  submitted: ['under_review'],
+  under_review: ['approved', 'rejected'],
+  approved: ['settled'],
+  rejected: [],
+  settled: [],
+};
 
 // REQ031 (US-INS-01/03, P1 scope) — payer/tariff master + patient policy
 // capture only. No claim/pre-auth state machine (that's the requirement
@@ -177,5 +190,114 @@ export class InsuranceService {
     });
     const amountPaise = resolveServicePrice(product, patient, undefined, null, tariff?.tariff_price ?? undefined);
     return { amount: amountPaise != null ? amountPaise / 100 : null, has_tariff: !!tariff };
+  }
+
+  private claimsOrgScope(user: JwtPayload) {
+    // 2-level nesting (Claims has no client_org_id/clinic_id of its own),
+    // same idiom pharmacy.service.ts's pendingDispenseItems() established:
+    // orgScopeVia(user, 'clinic') already returns {clinic: {client_org_id}},
+    // wrapped one level deeper under 'appointment'.
+    return { appointment: orgScopeVia(user, 'clinic') };
+  }
+
+  private toClaimGraphQL(row: any) {
+    return {
+      ...row,
+      patient_name: row.patient ? `${row.patient.first_name} ${row.patient.last_name}` : 'Unknown',
+      appointment_date: row.appointment?.appointment_date,
+      claim_amount: row.claim_amount / 100,
+      approved_amount: row.approved_amount != null ? row.approved_amount / 100 : undefined,
+    };
+  }
+
+  // REQ131 (REQ031's own P2 follow-on). patient_id is derived from the
+  // already-org-validated appointment, never taken from the input (Hard
+  // Rule 6) -- a caller cannot submit a claim against an arbitrary patient.
+  async submitClaim(input: SubmitClaimInput, user: JwtPayload) {
+    const appointment = await this.prisma.appointments.findUnique({
+      where: { id: input.appointment_id },
+      include: { clinic: true },
+    });
+    if (!appointment || appointment.is_deleted) throw new BadRequestException('Appointment not found');
+    if (!isSameOrg(user, appointment.clinic.client_org_id)) throw new BadRequestException('Appointment not found');
+
+    const payer = await this.prisma.payers.findUnique({ where: { id: input.payer_id } });
+    if (!payer) throw new BadRequestException('Payer not found');
+
+    if (input.policy_id) {
+      const policy = await this.prisma.patientInsurancePolicies.findUnique({ where: { id: input.policy_id } });
+      if (!policy || policy.patient_id !== appointment.patient_id) {
+        throw new BadRequestException('Policy not found for this patient');
+      }
+    }
+
+    const row = await this.prisma.claims.create({
+      data: {
+        appointment_id: input.appointment_id,
+        patient_id: appointment.patient_id,
+        payer_id: input.payer_id,
+        policy_id: input.policy_id,
+        claim_amount: Math.round(input.claim_amount * 100),
+        notes: input.notes,
+        submitted_by_user_id: user.sub,
+      },
+      include: { payer: true, patient: true, appointment: true },
+    });
+    return this.toClaimGraphQL(row);
+  }
+
+  async claims(status: string | undefined, user: JwtPayload) {
+    const rows = await this.prisma.claims.findMany({
+      where: { ...(status ? { status } : {}), ...this.claimsOrgScope(user) },
+      include: { payer: true, patient: true, appointment: true },
+      orderBy: { submitted_at: 'desc' },
+    });
+    return rows.map((r) => this.toClaimGraphQL(r));
+  }
+
+  private async loadClaimForUser(id: string, user: JwtPayload) {
+    const claim = await this.prisma.claims.findUnique({
+      where: { id },
+      include: { payer: true, patient: true, appointment: { include: { clinic: true } } },
+    });
+    if (!claim) throw new NotFoundException('Claim not found');
+    if (!isSameOrg(user, claim.appointment.clinic.client_org_id)) throw new NotFoundException('Claim not found');
+    return claim;
+  }
+
+  async claim(id: string, user: JwtPayload) {
+    const claim = await this.loadClaimForUser(id, user);
+    return this.toClaimGraphQL(claim);
+  }
+
+  // REQ131 — enforces the state machine (CLAIM_TRANSITIONS): a caller
+  // cannot skip states or move a terminal claim (rejected/settled)
+  // anywhere. approved_amount is required to move into 'approved',
+  // rejection_reason is required to move into 'rejected' -- both real
+  // decision artifacts, not optional metadata.
+  async updateClaimStatus(id: string, input: UpdateClaimStatusInput, user: JwtPayload) {
+    const claim = await this.loadClaimForUser(id, user);
+    const legalNext = CLAIM_TRANSITIONS[claim.status] ?? [];
+    if (!legalNext.includes(input.status)) {
+      throw new BadRequestException(`Cannot move a claim from '${claim.status}' to '${input.status}'`);
+    }
+    if (input.status === 'approved' && input.approved_amount == null) {
+      throw new BadRequestException('approved_amount is required when approving a claim');
+    }
+    if (input.status === 'rejected' && !input.rejection_reason) {
+      throw new BadRequestException('rejection_reason is required when rejecting a claim');
+    }
+    const row = await this.prisma.claims.update({
+      where: { id },
+      data: {
+        status: input.status,
+        approved_amount: input.status === 'approved' ? Math.round(input.approved_amount! * 100) : claim.approved_amount,
+        rejection_reason: input.status === 'rejected' ? input.rejection_reason : claim.rejection_reason,
+        decided_at: ['approved', 'rejected'].includes(input.status) ? new Date() : claim.decided_at,
+        settled_at: input.status === 'settled' ? new Date() : claim.settled_at,
+      },
+      include: { payer: true, patient: true, appointment: true },
+    });
+    return this.toClaimGraphQL(row);
   }
 }

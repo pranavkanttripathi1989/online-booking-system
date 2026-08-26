@@ -166,6 +166,7 @@ const AdminPlans          = lazy(() => import('./pages/admin/Plans'))
 const AdminPayers         = lazy(() => import('./pages/admin/Payers'))
 const AdminRightsRequests = lazy(() => import('./pages/admin/RightsRequests'))
 const ManagerPharmacy     = lazy(() => import('./pages/manager/pharmacy/index'))
+const ManagerClaims       = lazy(() => import('./pages/manager/claims/index'))
 const ManagerReports      = lazy(() => import('./pages/manager/reports/index'))
 import AdminLayout from './layouts/AdminLayout'
 
@@ -365,6 +366,11 @@ function App() {
                 block below, so real pharmacy staff got this app's own 403 page
                 before ever reaching a page the backend already lets them use. */}
             <Route path="/manager/pharmacy"        element={<Suspense fallback={<ShellPageLoader />}><ManagerPharmacy /></Suspense>} />
+            {/* REQ131 — insurance.resolver.ts's claims/submitClaim are
+                @Auth('staff','manager','admin','super_admin'); same
+                staff-inclusive gate as pharmacy above, matching its own
+                previously-fixed frontend/backend gate mismatch. */}
+            <Route path="/manager/claims"          element={<Suspense fallback={<ShellPageLoader />}><ManagerClaims /></Suspense>} />
           </Route>
 
           {/* ── Manager / admin ───────────────────────────────────────── */}

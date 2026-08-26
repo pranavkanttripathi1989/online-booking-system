@@ -262,6 +262,7 @@ model Appointments {
   encounter           Encounters?
   queue_entry         QueueEntries?
   checklist_completions ChecklistCompletions[]
+  claims              Claims[]
 
   @@index([clinician_id, appointment_time])
   @@index([clinic_id, appointment_time])
@@ -1199,6 +1200,7 @@ model Patients {
   encounters   Encounters[]
   prescriptions Prescriptions[]
   referrals    Referrals[]
+  claims       Claims[]
   dependantsOwned    PatientRelations[] @relation("PatientRelationOwner")
   dependantOf        PatientRelations[] @relation("PatientRelationDependant")
   mergesSurvived     PatientMerges[]    @relation("PatientMergeSurvivor")
@@ -2307,6 +2309,7 @@ model UserProfiles {
   patientMergesPerformed PatientMerges[]     @relation("PatientMergePerformedBy")
   uploadedAttachments Attachments[]          @relation("AttachmentUploadedBy")
   recordedVitals     Vitals[]
+  submittedClaims    Claims[]
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])
@@ -2653,6 +2656,7 @@ model Payers {
   empanelments PayerEmpanelments[]
   policies     PatientInsurancePolicies[]
   tariffs      PayerTariffs[]
+  claims       Claims[]
 }
 
 // REQ031 (US-INS-02) — a payer-specific contracted rate for a service/
@@ -2718,9 +2722,52 @@ model PatientInsurancePolicies {
   patient             Patients             @relation(fields: [patient_id], references: [id])
   payer               Payers               @relation(fields: [payer_id], references: [id])
   client_organization ClientOrganizations  @relation(fields: [client_org_id], references: [id])
+  claims              Claims[]
 
   @@index([patient_id])
   @@index([client_org_id])
+}
+
+// REQ131 (REQ031's own explicit P2 follow-on) -- a basic OPD cashless
+// claim-tracking state machine (submitted -> under_review -> approved |
+// rejected; approved -> settled). Deliberately manual/portal-assist per
+// the PRD's own R11 risk mitigation ("most insurers/TPAs still work
+// through bespoke portals and email") -- no real payer API, no
+// benefit-wallet auto-adjudication (that needs REQ023's bill-split
+// mechanism as its own foundation, per REQ031's own dependency note).
+// No client_org_id/clinic_id column of its own -- scoped via
+// appointment.clinic.client_org_id, the same 2-level-nesting idiom
+// pharmacy.service.ts's pendingDispenseItems() already established.
+// patient_id is still stored directly (denormalized, matching
+// Referrals' own precedent) purely for query ergonomics.
+model Claims {
+  id                    String    @id @default(uuid())
+  appointment_id        String
+  patient_id            String
+  payer_id              String
+  policy_id             String?
+  claim_amount          Int       // paise
+  approved_amount       Int?      // paise, set only once a decision is made
+  status                String    @default("submitted") // submitted | under_review | approved | rejected | settled
+  rejection_reason      String?
+  submitted_by_user_id  String
+  submitted_at          DateTime  @default(now())
+  decided_at            DateTime?
+  settled_at            DateTime?
+  notes                 String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  appointment  Appointments               @relation(fields: [appointment_id], references: [id])
+  patient      Patients                   @relation(fields: [patient_id], references: [id])
+  payer        Payers                     @relation(fields: [payer_id], references: [id])
+  policy       PatientInsurancePolicies?  @relation(fields: [policy_id], references: [id])
+  submitted_by UserProfiles               @relation(fields: [submitted_by_user_id], references: [id])
+
+  @@index([status])
+  @@index([patient_id])
+  @@index([appointment_id])
+  @@index([payer_id])
 }
 
 // ============================================================

@@ -13,27 +13,40 @@ describe('InsuranceService', () => {
   let prisma: {
     payers: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock };
     payerEmpanelments: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
-    patientInsurancePolicies: { findMany: jest.Mock; create: jest.Mock };
+    patientInsurancePolicies: { findMany: jest.Mock; create: jest.Mock; findUnique: jest.Mock };
     clinics: { findUnique: jest.Mock };
     payerTariffs: { findMany: jest.Mock; upsert: jest.Mock; findUnique: jest.Mock };
     products: { findUnique: jest.Mock };
     patients: { findUnique: jest.Mock };
+    appointments: { findUnique: jest.Mock };
+    claims: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
   };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const clinicA = { id: 'clinic-a', client_org_id: 'org-a', is_deleted: false };
   const clinicB = { id: 'clinic-b', client_org_id: 'org-b', is_deleted: false };
+  const appointmentOpen = { id: 'appt-1', is_deleted: false, patient_id: 'pat-a', appointment_date: new Date('2026-08-20'), clinic: clinicA };
+  const claimSubmitted = {
+    id: 'claim-1', appointment_id: 'appt-1', patient_id: 'pat-a', payer_id: 'payer-1', policy_id: null,
+    claim_amount: 500000, approved_amount: null, status: 'submitted', rejection_reason: null,
+    submitted_by_user_id: 'u1', submitted_at: new Date('2026-08-26'), decided_at: null, settled_at: null, notes: null,
+    payer: { id: 'payer-1', name: 'Star Health', payer_type: 'insurer', is_active: true },
+    patient: { id: 'pat-a', first_name: 'Anita', last_name: 'Sharma' },
+    appointment: appointmentOpen,
+  };
 
   beforeEach(async () => {
     prisma = {
       payers: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn() },
       payerEmpanelments: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
-      patientInsurancePolicies: { findMany: jest.fn(), create: jest.fn() },
+      patientInsurancePolicies: { findMany: jest.fn(), create: jest.fn(), findUnique: jest.fn() },
       clinics: { findUnique: jest.fn() },
       payerTariffs: { findMany: jest.fn(), upsert: jest.fn(), findUnique: jest.fn() },
       products: { findUnique: jest.fn() },
       patients: { findUnique: jest.fn() },
+      appointments: { findUnique: jest.fn() },
+      claims: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), update: jest.fn() },
     };
     patientsService = { ownAndDependantPatientIds: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
@@ -192,6 +205,137 @@ describe('InsuranceService', () => {
       prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1', name: 'Star Health' });
       patientsService.ownAndDependantPatientIds.mockResolvedValue(['own-patient']);
       await expect(service.estimatedPayerCharge('prod-1', 'payer-1', 'someone-elses-patient', patientUser)).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  // REQ131 (REQ031's own P2 follow-on)
+  describe('submitClaim — Hard Rule 6', () => {
+    it('rejects an unknown appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(null);
+      await expect(
+        service.submitClaim({ appointment_id: 'nope', payer_id: 'payer-1', claim_amount: 5000 } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a cross-org appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...appointmentOpen, clinic: clinicB });
+      await expect(
+        service.submitClaim({ appointment_id: 'appt-1', payer_id: 'payer-1', claim_amount: 5000 } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects an unknown payer', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
+      prisma.payers.findUnique.mockResolvedValue(null);
+      await expect(
+        service.submitClaim({ appointment_id: 'appt-1', payer_id: 'nope', claim_amount: 5000 } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a policy that belongs to a different patient than the appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1' });
+      prisma.patientInsurancePolicies.findUnique.mockResolvedValue({ id: 'pol-1', patient_id: 'someone-else' });
+      await expect(
+        service.submitClaim({ appointment_id: 'appt-1', payer_id: 'payer-1', policy_id: 'pol-1', claim_amount: 5000 } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('derives patient_id from the appointment, not the input, and converts rupees to paise', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1' });
+      prisma.claims.create.mockResolvedValue(claimSubmitted);
+      await service.submitClaim({ appointment_id: 'appt-1', payer_id: 'payer-1', claim_amount: 5000 } as any, orgAUser);
+      expect(prisma.claims.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ patient_id: 'pat-a', claim_amount: 500000, submitted_by_user_id: 'u1' }),
+      }));
+    });
+
+    it('returns claim_amount as rupees (Float) and a flattened patient_name, not paise/a raw join', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1' });
+      prisma.claims.create.mockResolvedValue(claimSubmitted);
+      const result = await service.submitClaim({ appointment_id: 'appt-1', payer_id: 'payer-1', claim_amount: 5000 } as any, orgAUser);
+      expect(result.claim_amount).toBe(5000);
+      expect(result.patient_name).toBe('Anita Sharma');
+    });
+  });
+
+  describe('claims / claim — tenant isolation', () => {
+    it('scopes the list via appointment.clinic.client_org_id (2-level nesting)', async () => {
+      await service.claims(undefined, orgAUser);
+      expect(prisma.claims.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: { appointment: { clinic: { client_org_id: 'org-a' } } },
+      }));
+    });
+
+    it('rejects a cross-org claim read', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, appointment: { ...appointmentOpen, clinic: clinicB } });
+      await expect(service.claim('claim-1', orgAUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns a same-org claim with claim_amount converted to rupees', async () => {
+      prisma.claims.findUnique.mockResolvedValue(claimSubmitted);
+      const result = await service.claim('claim-1', orgAUser);
+      expect(result.claim_amount).toBe(5000);
+    });
+  });
+
+  describe('updateClaimStatus — state machine', () => {
+    it('rejects an illegal transition (submitted -> approved, skipping under_review)', async () => {
+      prisma.claims.findUnique.mockResolvedValue(claimSubmitted);
+      await expect(
+        service.updateClaimStatus('claim-1', { status: 'approved', approved_amount: 5000 } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.claims.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects moving a terminal claim (rejected) anywhere', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, status: 'rejected' });
+      await expect(
+        service.updateClaimStatus('claim-1', { status: 'under_review' } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects approving with no approved_amount', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, status: 'under_review' });
+      await expect(
+        service.updateClaimStatus('claim-1', { status: 'approved' } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects rejecting with no rejection_reason', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, status: 'under_review' });
+      await expect(
+        service.updateClaimStatus('claim-1', { status: 'rejected' } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+    });
+
+    it('moves submitted -> under_review, stamping no decision fields yet', async () => {
+      prisma.claims.findUnique.mockResolvedValue(claimSubmitted);
+      prisma.claims.update.mockResolvedValue({ ...claimSubmitted, status: 'under_review' });
+      await service.updateClaimStatus('claim-1', { status: 'under_review' } as any, orgAUser);
+      expect(prisma.claims.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'under_review', decided_at: null, settled_at: null }),
+      }));
+    });
+
+    it('moves under_review -> approved, converting approved_amount to paise and stamping decided_at', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, status: 'under_review' });
+      prisma.claims.update.mockResolvedValue({ ...claimSubmitted, status: 'approved', approved_amount: 450000 });
+      await service.updateClaimStatus('claim-1', { status: 'approved', approved_amount: 4500 } as any, orgAUser);
+      expect(prisma.claims.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'approved', approved_amount: 450000, decided_at: expect.any(Date) }),
+      }));
+    });
+
+    it('moves approved -> settled, stamping settled_at', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, status: 'approved', approved_amount: 450000, decided_at: new Date() });
+      prisma.claims.update.mockResolvedValue({ ...claimSubmitted, status: 'settled' });
+      await service.updateClaimStatus('claim-1', { status: 'settled' } as any, orgAUser);
+      expect(prisma.claims.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ status: 'settled', settled_at: expect.any(Date) }),
+      }));
     });
   });
 });
