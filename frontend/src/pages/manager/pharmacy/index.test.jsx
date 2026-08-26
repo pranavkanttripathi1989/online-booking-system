@@ -130,6 +130,39 @@ describe('manager/pharmacy (REQ059)', () => {
     expect(listbox.queryByText(/OTHER-1/)).not.toBeInTheDocument()
   })
 
+  // REQ125 (US-PHR-02) — FEFO default. findBatches() already orders by
+  // expiry_date ascending server-side, so the mock array below is supplied
+  // in that same real order; the earliest-expiring batch must be
+  // pre-selected without the user touching the dropdown at all.
+  it('Dispense: defaults the batch picker to the earliest-expiring batch (FEFO)', async () => {
+    const batches = [
+      { id: 'batch-early', drug_id: 'drug-tenant', batch_number: 'EARLY-1', quantity_received: 20, quantity_remaining: 20, expiry_date: '2027-01-01', mrp: null },
+      { id: 'batch-late', drug_id: 'drug-tenant', batch_number: 'LATE-1', quantity_received: 20, quantity_remaining: 20, expiry_date: '2029-01-01', mrp: null },
+    ]
+    const patient = { __typename: 'Patient', id: 'pat-1', first_name: 'Test', last_name: 'Patient', full_name: 'Test Patient', email: 'test@example.com', phone: '9000000000', date_of_birth: '1990-01-01', gender: null, address: null, notes: null, created_at: '2026-01-01T00:00:00.000Z' }
+    const mocks = [
+      clinicsMock, drugsMock(), batchesMock(batches),
+      { request: { query: PATIENTS_QUERY, variables: { search: 'Test', first: 10 } }, result: { data: { patients: { __typename: 'PatientPaginated', data: [patient], paginatorInfo: { __typename: 'PatientPaginatorInfo', count: 1, currentPage: 1, hasMorePages: false, lastPage: 1, perPage: 10, total: 1 } } } } },
+      { request: { query: GET_PATIENT_PRESCRIPTIONS, variables: { patient_id: 'pat-1' } }, result: { data: { patientPrescriptions: [{ __typename: 'Prescription', id: 'rx-1', issued_at: '2026-08-01T00:00:00.000Z', items: [{ __typename: 'PrescriptionItem', id: 'item-1', drug_id: 'drug-tenant', drug_name: 'CustomDrug', dose: '1 tab', frequency: 'OD', duration_days: 5, qty: 5 }] }] } } },
+      { request: { query: DISPENSE_PRESCRIPTION_ITEM, variables: { input: { prescription_item_id: 'item-1', batch_id: 'batch-early', quantity: 2 } } }, result: { data: { dispensePrescriptionItem: { __typename: 'DrugBatch', id: 'batch-early', quantity_remaining: 18 } } } },
+      batchesMock(batches),
+    ]
+    renderPage(mocks)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Dispense' }))
+    fireEvent.change(screen.getByLabelText('Search patient by name, email, or phone'), { target: { value: 'Test' } })
+    await waitFor(() => expect(screen.getByText('Test Patient')).toBeInTheDocument())
+    fireEvent.click(screen.getByText('Test Patient'))
+    await waitFor(() => expect(screen.getByText('CustomDrug')).toBeInTheDocument())
+    fireEvent.click(screen.getByRole('button', { name: 'Dispense' }))
+
+    // No dropdown interaction at all -- just fill quantity and submit,
+    // proving EARLY-1 was already selected as the default.
+    fireEvent.change(screen.getByLabelText(/^Quantity/), { target: { value: '2' } })
+    fireEvent.click(screen.getByRole('dialog').querySelector('button[type="submit"]'))
+
+    await waitFor(() => expect(screen.getByText('Dispensed.')).toBeInTheDocument())
+  })
+
   it('Dispense: a real dispensePrescriptionItem call is made with the right variables', async () => {
     const batches = [{ id: 'batch-match', drug_id: 'drug-tenant', batch_number: 'MATCH-1', quantity_received: 50, quantity_remaining: 50, expiry_date: '2028-01-01', mrp: null }]
     const patient = { __typename: 'Patient', id: 'pat-1', first_name: 'Test', last_name: 'Patient', full_name: 'Test Patient', email: 'test@example.com', phone: '9000000000', date_of_birth: '1990-01-01', gender: null, address: null, notes: null, created_at: '2026-01-01T00:00:00.000Z' }

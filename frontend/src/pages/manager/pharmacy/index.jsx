@@ -293,13 +293,19 @@ export default function PharmacyPage() {
     }
   }
 
+  const matchingBatches = (item) => (item ? batches.filter((b) => b.drug_id === item.drug_id && b.quantity_remaining > 0) : [])
+
   const openDispenseForm = (item) => {
     setDispensingItem(item)
-    setDispenseBatchId('')
+    // REQ125 (US-PHR-02) — FEFO default: findBatches() already orders by
+    // expiry_date ascending server-side, so matchingBatches(item)[0] is
+    // always the earliest-expiring batch with stock. Defaulting to it
+    // means expiring stock actually gets used first instead of relying on
+    // staff to notice and hand-pick it every time — still fully
+    // overridable via the dropdown below.
+    setDispenseBatchId(matchingBatches(item)[0]?.id ?? '')
     setDispenseQty(item.qty ? String(item.qty) : '')
   }
-
-  const matchingBatches = (item) => (item ? batches.filter((b) => b.drug_id === item.drug_id && b.quantity_remaining > 0) : [])
 
   const submitDispense = async (e) => {
     e.preventDefault()
@@ -638,6 +644,9 @@ export default function PharmacyPage() {
         <DialogTitle>Dispense {dispensingItem?.drug_name}</DialogTitle>
         <DialogContent>
           <Box component="form" id="dispense-form" onSubmit={submitDispense} sx={{ pt: 1 }}>
+            <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+              Earliest-expiring batch with stock is selected by default — change it below if needed.
+            </Typography>
             <TextField
               select fullWidth required size="small" label="Batch" data-testid="dispense-batch-select"
               value={dispenseBatchId} onChange={(e) => setDispenseBatchId(e.target.value)} sx={{ mb: 2 }}
@@ -646,7 +655,7 @@ export default function PharmacyPage() {
                 <MenuItem value="" disabled>No batches in stock for this drug</MenuItem>
               )}
               {matchingBatches(dispensingItem).map((b) => (
-                <MenuItem key={b.id} value={b.id}>{b.batch_number} — {b.quantity_remaining} remaining</MenuItem>
+                <MenuItem key={b.id} value={b.id}>{b.batch_number} — exp {new Date(b.expiry_date).toLocaleDateString('en-IN')} — {b.quantity_remaining} remaining</MenuItem>
               ))}
             </TextField>
             <TextField fullWidth required size="small" type="number" label="Quantity" value={dispenseQty} onChange={(e) => setDispenseQty(e.target.value)} inputProps={{ min: 1 }} />
