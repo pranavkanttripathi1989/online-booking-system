@@ -1,8 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { CreatePackageInput, UpdatePackageInput, PurchasePackageInput } from './dto/package.input';
+import { CreatePackageInput, UpdatePackageInput, PurchasePackageInput, TransferPackageInput } from './dto/package.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScopeVia } from '../common/scoping/tenant-scope';
+import { orgScopeVia, isPlatformOperator, isSameOrg } from '../common/scoping/tenant-scope';
 
 const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
 const PAISE_TO_RUPEES = (paise: number) => paise / 100;
@@ -198,15 +198,73 @@ export class PackagesService {
   }
 
   async patientPackages(patientId: string, user: JwtPayload) {
+    // REQ110 — F-01/BUG004 bug class: the ternary this replaced returned NO
+    // filter (spread to nothing) for an org-less caller, which is "see
+    // everything", not "see nothing". isPlatformOperator/isSameOrg fail
+    // closed instead.
     const rows = await this.prisma.patientPackages.findMany({
       where: {
         patient_id: patientId,
         is_deleted: false,
-        ...(user.client_org_id ? { client_org_id: user.client_org_id } : {}),
+        ...(isPlatformOperator(user) ? {} : { client_org_id: user.client_org_id ?? '__no_org__' }),
       },
       include: { package: { include: { items: true } } },
       orderBy: { purchased_at: 'desc' },
     });
     return rows.map((r) => this.toPatientPackageGraphQL(r));
+  }
+
+  // REQ110 — moves ownership of the existing PatientPackages row; leaves an
+  // append-only PackageTransferLog entry (this codebase has no generic
+  // domain-action audit log, per REQ056's own note — matches
+  // StockMovements' precedent instead).
+  async transferPackage(input: TransferPackageInput, user: JwtPayload) {
+    const patientPackage = await this.prisma.patientPackages.findUnique({ where: { id: input.patient_package_id } });
+    if (!patientPackage || patientPackage.is_deleted) {
+      return { success: false, userErrors: [{ message: 'Package not found' }] };
+    }
+    if (!isSameOrg(user, patientPackage.client_org_id)) {
+      return { success: false, userErrors: [{ message: 'Package not found' }] };
+    }
+    if (patientPackage.expires_at < new Date()) {
+      return { success: false, userErrors: [{ message: 'This package has expired' }] };
+    }
+    if (patientPackage.sittings_remaining < 1) {
+      return { success: false, userErrors: [{ message: 'This package has no sittings remaining to transfer' }] };
+    }
+    if (input.to_patient_id === patientPackage.patient_id) {
+      return { success: false, userErrors: [{ message: 'This package already belongs to that patient' }] };
+    }
+    const toPatient = await this.prisma.patients.findUnique({ where: { id: input.to_patient_id } });
+    if (!toPatient || toPatient.is_deleted) {
+      return { success: false, userErrors: [{ message: 'Target patient not found' }] };
+    }
+    if (!isSameOrg(user, toPatient.client_org_id)) {
+      return { success: false, userErrors: [{ message: 'Target patient not found' }] };
+    }
+
+    try {
+      const updated = await this.prisma.$transaction(async (tx) => {
+        const row = await tx.patientPackages.update({
+          where: { id: input.patient_package_id },
+          data: { patient_id: input.to_patient_id },
+          include: { package: { include: { items: true } } },
+        });
+        await tx.packageTransferLog.create({
+          data: {
+            patient_package_id: input.patient_package_id,
+            from_patient_id: patientPackage.patient_id,
+            to_patient_id: input.to_patient_id,
+            transferred_by_user_id: user.sub,
+            sittings_at_transfer: patientPackage.sittings_remaining,
+            client_org_id: patientPackage.client_org_id,
+          },
+        });
+        return row;
+      });
+      return { success: true, userErrors: [], patientPackage: this.toPatientPackageGraphQL(updated) };
+    } catch (e: any) {
+      return { success: false, userErrors: [{ message: e.message ?? 'Failed to transfer package' }] };
+    }
   }
 }

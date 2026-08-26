@@ -1084,6 +1084,10 @@ model Patients {
   updated_at            DateTime @updatedAt
 
   client_organization ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  // REQ110 — a patient can appear as either side of a package transfer
+  // across different transfers, hence two named relations.
+  packageTransfersFrom PackageTransferLog[] @relation("PackageTransferFrom")
+  packageTransfersTo   PackageTransferLog[] @relation("PackageTransferTo")
 
   appointments Appointments[]
   userProfiles UserProfiles[]
@@ -2740,6 +2744,27 @@ model Packages {
   @@index([client_org_id, clinic_id])
 }
 
+// REQ110 — append-only transfer history, matching StockMovements' own
+// established append-only-ledger convention (this codebase has no generic
+// domain-action audit log write, per REQ056's own note).
+model PackageTransferLog {
+  id                      String   @id @default(uuid())
+  patient_package_id      String
+  from_patient_id         String
+  to_patient_id           String
+  transferred_by_user_id  String
+  sittings_at_transfer    Int
+  client_org_id           String
+  created_at              DateTime @default(now())
+
+  patientPackage PatientPackages @relation(fields: [patient_package_id], references: [id])
+  fromPatient    Patients        @relation("PackageTransferFrom", fields: [from_patient_id], references: [id])
+  toPatient      Patients        @relation("PackageTransferTo", fields: [to_patient_id], references: [id])
+
+  @@index([patient_package_id])
+  @@index([client_org_id])
+}
+
 // Which service(s)/product(s) a sitting from this package may be redeemed
 // against — a package bundles one or more, per US-CAT-01's own wording.
 model PackageItems {
@@ -2777,6 +2802,7 @@ model PatientPackages {
   patient             Patients            @relation(fields: [patient_id], references: [id])
   client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
   clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  transferLogs        PackageTransferLog[]
 
   @@index([patient_id, expires_at])
   @@index([client_org_id, clinic_id])

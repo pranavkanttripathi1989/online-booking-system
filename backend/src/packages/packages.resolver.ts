@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { PackagesService } from './packages.service';
 import { PackageType, PatientPackageType, PackageMutationResultType, PurchasePackageResultType } from './entities/package.entity';
-import { CreatePackageInput, UpdatePackageInput, PurchasePackageInput } from './dto/package.input';
+import { CreatePackageInput, UpdatePackageInput, PurchasePackageInput, TransferPackageInput } from './dto/package.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -46,5 +46,12 @@ export class PackagesResolver {
   @Auth(...CATALOG_STAFF_ROLES)
   purchasePackage(@Args('input') input: PurchasePackageInput, @CurrentUser() user: JwtPayload) {
     return this.packagesService.purchase(input, user);
+  }
+
+  // REQ110 — same {success, userErrors, patientPackage} shape as purchasePackage.
+  @Mutation(() => PurchasePackageResultType, { name: 'transferPackage' })
+  @Auth(...CATALOG_STAFF_ROLES)
+  transferPackage(@Args('input') input: TransferPackageInput, @CurrentUser() user: JwtPayload) {
+    return this.packagesService.transferPackage(input, user);
   }
 }

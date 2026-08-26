@@ -31,3 +31,10 @@ export class PurchasePackageInput {
   @Field() @IsIn(TENDER_TYPES) purchase_tender_type: string;
   @Field({ nullable: true }) @IsOptional() purchase_reference?: string;
 }
+
+// REQ110
+@InputType('TransferPackageInput')
+export class TransferPackageInput {
+  @Field(() => ID) @IsNotEmpty() patient_package_id: string;
+  @Field(() => ID) @IsNotEmpty() to_patient_id: string;
+}
