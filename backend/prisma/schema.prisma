@@ -330,6 +330,7 @@ model Encounters {
   prescriptions       Prescriptions[]
   investigationOrders TestResults[]
   referrals           Referrals[]
+  vitals              Vitals[]
 
   @@index([client_org_id, patient_id])
   @@index([clinician_id])
@@ -419,6 +420,29 @@ model Referrals {
   @@index([encounter_id])
   @@index([patient_id])
   @@index([referred_to_clinician_id])
+}
+
+// REQ130 (FR-EMR-05) -- one row per discrete vital-sign reading, not one
+// wide "vitals" row per encounter: a code/value/unit shape (matching this
+// requirement's own Data Model Impact section verbatim) lets a growth chart
+// query one code (e.g. weight_kg) across every encounter for a patient
+// without a schema change per new vital type. No patient_id column, same
+// reasoning as Diagnoses/Referrals -- a cross-encounter query joins via
+// encounter.patient_id (see EncountersService#patientVitals).
+model Vitals {
+  id           String   @id @default(uuid())
+  encounter_id String
+  code         String   // height_cm | weight_kg | temperature_c | pulse_bpm | bp_systolic | bp_diastolic | spo2_percent
+  value        Float
+  unit         String
+  recorded_by_user_id String
+  recorded_at  DateTime @default(now())
+
+  encounter   Encounters   @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
+  recorded_by UserProfiles @relation(fields: [recorded_by_user_id], references: [id])
+
+  @@index([encounter_id])
+  @@index([code])
 }
 
 // file_ref is a local-filesystem URL under /uploads/attachments/, written by
@@ -2282,6 +2306,7 @@ model UserProfiles {
   queueEvents        QueueEvents[]           @relation("QueueEventChangedBy")
   patientMergesPerformed PatientMerges[]     @relation("PatientMergePerformedBy")
   uploadedAttachments Attachments[]          @relation("AttachmentUploadedBy")
+  recordedVitals     Vitals[]
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])

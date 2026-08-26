@@ -11,6 +11,17 @@ jest.mock('../../hooks/useAuth', () => ({
   useAuth: jest.fn(),
 }))
 
+// REQ130 -- jsdom has no ResizeObserver, which recharts' own
+// ResponsiveContainer requires to measure its parent before rendering a
+// chart at all; without this stub every chart in this file's growth-chart
+// test throws inside an ErrorBoundary instead of rendering.
+class ResizeObserverStub {
+  observe() {}
+  unobserve() {}
+  disconnect() {}
+}
+global.ResizeObserver = ResizeObserverStub
+
 // A-5/A-6 (project-plans/08-integration-gap-analysis.md) — re-declared to
 // match EncounterWorkspace.jsx's own gql documents exactly (query AST
 // equality, same convention as clinician/Dashboard.test.jsx).
@@ -29,6 +40,7 @@ const ENCOUNTER_QUERY = gql`
       attachments { id file_ref mime_type original_filename created_at }
       investigation_orders { id test_name test_type urgency status date_ordered }
       referrals { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
+      vitals { id code value unit recorded_at }
     }
   }
 `
@@ -67,6 +79,17 @@ const CREATE_REFERRAL = gql`
     createReferral(input: $input) { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
   }
 `
+// REQ130
+const RECORD_VITALS = gql`
+  mutation RecordVitals($input: RecordVitalsInput!) {
+    recordVitals(input: $input) { id code value unit recorded_at }
+  }
+`
+const PATIENT_VITALS = gql`
+  query PatientVitals($patient_id: ID!, $code: String!) {
+    patientVitals(patient_id: $patient_id, code: $code) { id code value unit recorded_at }
+  }
+`
 // REQ108
 const ICD10_SEARCH_QUERY = gql`
   query Icd10Codes($search: String) {
@@ -92,6 +115,7 @@ function encounter(overrides = {}) {
     attachments: [],
     investigation_orders: [],
     referrals: [],
+    vitals: [],
     ...overrides,
   }
 }
@@ -296,4 +320,58 @@ describe('EncounterWorkspace — referrals (REQ128)', () => {
     await waitFor(() => expect(screen.getByText('Chronic knee pain')).toBeInTheDocument())
     expect(screen.getByText('Orthopaedics')).toBeInTheDocument()
   }, 20000)
+})
+
+describe('EncounterWorkspace — vitals + growth chart (REQ130)', () => {
+  it('renders real recorded vitals as chips, not just an empty state', async () => {
+    const enc = encounter({
+      vitals: [{ __typename: 'Vital', id: 'v-1', code: 'weight_kg', value: 25, unit: 'kg', recorded_at: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByText('Weight: 25 kg')).toBeInTheDocument())
+  })
+
+  it('records a batch of vitals via the real recordVitals mutation and refetches', async () => {
+    const enc = encounter()
+    const withVitals = encounter({
+      vitals: [{ __typename: 'Vital', id: 'v-2', code: 'weight_kg', value: 30, unit: 'kg', recorded_at: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage([
+      ...baseMocks(enc),
+      {
+        request: { query: RECORD_VITALS, variables: { input: { encounter_id: ENCOUNTER_ID, readings: [{ code: 'weight_kg', value: 30 }] } } },
+        result: { data: { recordVitals: [{ __typename: 'Vital', id: 'v-2', code: 'weight_kg', value: 30, unit: 'kg', recorded_at: '2026-08-26T10:00:00.000Z' }] } },
+      },
+      { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withVitals } } },
+    ])
+
+    await waitFor(() => expect(screen.getByText('No vitals recorded yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Record Vitals' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Weight (kg)'), '30')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(screen.getByText('Weight: 30 kg')).toBeInTheDocument())
+  }, 20000)
+
+  it('opens the growth chart and shows real weight/height trend data', async () => {
+    const enc = encounter()
+    renderPage([
+      ...baseMocks(enc),
+      {
+        request: { query: PATIENT_VITALS, variables: { patient_id: PATIENT_ID, code: 'weight_kg' } },
+        result: { data: { patientVitals: [{ __typename: 'Vital', id: 'v-1', code: 'weight_kg', value: 20, unit: 'kg', recorded_at: '2026-01-01T00:00:00.000Z' }] } },
+      },
+      {
+        request: { query: PATIENT_VITALS, variables: { patient_id: PATIENT_ID, code: 'height_cm' } },
+        result: { data: { patientVitals: [] } },
+      },
+    ])
+
+    await waitFor(() => expect(screen.getByText('No vitals recorded yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Growth Chart' }))
+    await waitFor(() => expect(screen.getByText('No height readings recorded yet.')).toBeInTheDocument())
+    expect(screen.queryByText('No weight readings recorded yet.')).not.toBeInTheDocument()
+  })
 })

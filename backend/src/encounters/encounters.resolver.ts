@@ -10,6 +10,7 @@ import {
   TimelineEventType,
   InvestigationOrderType,
   ReferralType,
+  VitalType,
 } from './entities/encounter.entity';
 import {
   SaveEncounterNoteInput,
@@ -17,6 +18,7 @@ import {
   CreateDiagnosisInput,
   OrderInvestigationInput,
   CreateReferralInput,
+  RecordVitalsInput,
   CreateEncounterTemplateInput,
   ApplyTemplateInput,
   CreateAttachmentInput,
@@ -88,6 +90,26 @@ export class EncountersResolver {
   @Mutation(() => ReferralType)
   createReferral(@Args('input') input: CreateReferralInput, @CurrentUser() user: JwtPayload) {
     return this.encountersService.createReferral(input, user);
+  }
+
+  // REQ130 (FR-EMR-05)
+  @Auth('clinician')
+  @Mutation(() => [VitalType])
+  recordVitals(@Args('input') input: RecordVitalsInput, @CurrentUser() user: JwtPayload) {
+    return this.encountersService.recordVitals(input, user);
+  }
+
+  // REQ130 (FR-EMR-05) — the growth-chart query. Same @Auth gate as
+  // patientAllergyBanner/patientTimeline below (a patient may read their
+  // own trend).
+  @Auth('patient', 'clinician', 'manager', 'admin', 'super_admin', 'staff')
+  @Query(() => [VitalType])
+  patientVitals(
+    @Args('patient_id', { type: () => ID }) patientId: string,
+    @Args('code') code: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.encountersService.patientVitals(patientId, code, user);
   }
 
   @Auth('patient', 'clinician', 'manager', 'admin', 'super_admin', 'staff')

@@ -1,7 +1,22 @@
-import { InputType, Field, ID } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsIn, IsBoolean, IsString } from 'class-validator';
+import { InputType, Field, ID, Float } from '@nestjs/graphql';
+import { IsNotEmpty, IsOptional, IsIn, IsBoolean, IsString, IsNumber, IsArray, ArrayMinSize, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 const NOTE_SECTIONS = ['complaints', 'history', 'exam', 'vitals', 'diagnosis', 'investigations', 'advice', 'follow_up'];
+
+// REQ130 (FR-EMR-05) -- fixed set of discrete vital-sign codes, matching
+// the requirement's own Data Model Impact section's code/value/unit shape.
+export const VITAL_CODES = ['height_cm', 'weight_kg', 'temperature_c', 'pulse_bpm', 'bp_systolic', 'bp_diastolic', 'spo2_percent'] as const;
+// Server-derived, never client-supplied -- see VitalReadingInput below.
+export const VITAL_UNITS: Record<(typeof VITAL_CODES)[number], string> = {
+  height_cm: 'cm',
+  weight_kg: 'kg',
+  temperature_c: '°C',
+  pulse_bpm: 'bpm',
+  bp_systolic: 'mmHg',
+  bp_diastolic: 'mmHg',
+  spo2_percent: '%',
+};
 
 @InputType()
 export class SaveEncounterNoteInput {
@@ -113,6 +128,35 @@ export class CreateReferralInput {
   @IsOptional()
   @IsIn(['routine', 'urgent'])
   urgency?: string;
+}
+
+// REQ130 (FR-EMR-05) -- no client-supplied unit: EncountersService derives
+// it from code via a fixed map (VITAL_UNITS), so a growth chart can never
+// end up with mixed units (e.g. 'kg' vs 'Kg' vs 'kilograms') for the same
+// code from an inconsistent client.
+@InputType()
+export class VitalReadingInput {
+  @Field()
+  @IsIn(VITAL_CODES)
+  code: string;
+
+  @Field(() => Float)
+  @IsNumber()
+  value: number;
+}
+
+@InputType()
+export class RecordVitalsInput {
+  @Field(() => ID)
+  @IsNotEmpty()
+  encounter_id: string;
+
+  @Field(() => [VitalReadingInput])
+  @IsArray()
+  @ArrayMinSize(1)
+  @ValidateNested({ each: true })
+  @Type(() => VitalReadingInput)
+  readings: VitalReadingInput[];
 }
 
 @InputType()

@@ -5,7 +5,7 @@ import { useSnackbar } from 'notistack'
 import {
   Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogContentText, DialogTitle, Divider, Grid, List,
-  ListItemButton, ListItemText, Paper, Stack, TextField, Typography,
+  ListItemButton, ListItemText, Paper, Stack, TextField, Typography, useTheme,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import LockRoundedIcon from '@mui/icons-material/LockRounded'
@@ -17,6 +17,9 @@ import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import BiotechRoundedIcon from '@mui/icons-material/BiotechRounded'
 import ForwardToInboxRoundedIcon from '@mui/icons-material/ForwardToInboxRounded'
+import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded'
+import ShowChartRoundedIcon from '@mui/icons-material/ShowChartRounded'
+import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../../hooks/useAuth'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { downloadAuthenticatedPdf } from '../../utils/documents'
@@ -42,6 +45,7 @@ const ENCOUNTER_QUERY = gql`
       attachments { id file_ref mime_type original_filename created_at }
       investigation_orders { id test_name test_type urgency status date_ordered }
       referrals { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
+      vitals { id code value unit recorded_at }
     }
   }
 `
@@ -109,6 +113,17 @@ const CREATE_REFERRAL = gql`
     createReferral(input: $input) { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
   }
 `
+// REQ130 (FR-EMR-05)
+const RECORD_VITALS = gql`
+  mutation RecordVitals($input: RecordVitalsInput!) {
+    recordVitals(input: $input) { id code value unit recorded_at }
+  }
+`
+const PATIENT_VITALS = gql`
+  query PatientVitals($patient_id: ID!, $code: String!) {
+    patientVitals(patient_id: $patient_id, code: $code) { id code value unit recorded_at }
+  }
+`
 const CREATE_ENCOUNTER_TEMPLATE = gql`
   mutation CreateEncounterTemplate($input: CreateEncounterTemplateInput!) {
     createEncounterTemplate(input: $input) { id name specialty sections_json }
@@ -134,6 +149,88 @@ const SECTIONS = [
 
 function sectionContent(notes, key) {
   return notes?.find((n) => n.section === key)?.content ?? ''
+}
+
+// REQ130 (FR-EMR-05) -- matches VITAL_CODES/VITAL_UNITS in
+// backend/src/encounters/dto/encounter.input.ts verbatim; unit is display-only
+// here (never sent to the server, which derives its own from code).
+const VITAL_FIELDS = [
+  { code: 'height_cm', label: 'Height', unit: 'cm' },
+  { code: 'weight_kg', label: 'Weight', unit: 'kg' },
+  { code: 'temperature_c', label: 'Temperature', unit: '°C' },
+  { code: 'pulse_bpm', label: 'Pulse', unit: 'bpm' },
+  { code: 'bp_systolic', label: 'BP Systolic', unit: 'mmHg' },
+  { code: 'bp_diastolic', label: 'BP Diastolic', unit: 'mmHg' },
+  { code: 'spo2_percent', label: 'SpO2', unit: '%' },
+]
+
+// REQ130 (FR-EMR-05) -- the growth-chart view: one code's readings across
+// every encounter for the patient, chronological. A separate component (not
+// inlined in NotesPane) so its two useQuery calls only fire once the dialog
+// is actually open (skip: !open).
+function GrowthChartDialog({ open, onClose, patientId }) {
+  const theme = useTheme()
+  const { data: weightData, loading: weightLoading } = useQuery(PATIENT_VITALS, {
+    variables: { patient_id: patientId, code: 'weight_kg' }, skip: !open || !patientId,
+  })
+  const { data: heightData, loading: heightLoading } = useQuery(PATIENT_VITALS, {
+    variables: { patient_id: patientId, code: 'height_cm' }, skip: !open || !patientId,
+  })
+  const weightSeries = (weightData?.patientVitals ?? []).map((v) => ({ date: v.recorded_at, value: v.value }))
+  const heightSeries = (heightData?.patientVitals ?? []).map((v) => ({ date: v.recorded_at, value: v.value }))
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <DialogTitle>Growth Chart</DialogTitle>
+      <DialogContent>
+        <Stack spacing={3} sx={{ mt: 1 }}>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} mb={1}>Weight (kg)</Typography>
+            {weightLoading && <CircularProgress size={20} />}
+            {!weightLoading && weightSeries.length === 0 && (
+              <Typography variant="body2" color="text.secondary">No weight readings recorded yet.</Typography>
+            )}
+            {!weightLoading && weightSeries.length > 0 && (
+              <Box sx={{ height: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={weightSeries}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip labelFormatter={(d) => new Date(d).toLocaleDateString('en-IN')} formatter={(v) => [`${v} kg`, 'Weight']} />
+                    <Line type="monotone" dataKey="value" stroke={theme.palette.primary.main} strokeWidth={2} dot />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Box>
+          <Box>
+            <Typography variant="subtitle2" fontWeight={700} mb={1}>Height (cm)</Typography>
+            {heightLoading && <CircularProgress size={20} />}
+            {!heightLoading && heightSeries.length === 0 && (
+              <Typography variant="body2" color="text.secondary">No height readings recorded yet.</Typography>
+            )}
+            {!heightLoading && heightSeries.length > 0 && (
+              <Box sx={{ height: 220 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={heightSeries}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} />
+                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} />
+                    <YAxis tick={{ fontSize: 11 }} />
+                    <Tooltip labelFormatter={(d) => new Date(d).toLocaleDateString('en-IN')} formatter={(v) => [`${v} cm`, 'Height']} />
+                    <Line type="monotone" dataKey="value" stroke={theme.palette.success.main} strokeWidth={2} dot />
+                  </LineChart>
+                </ResponsiveContainer>
+              </Box>
+            )}
+          </Box>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Close</Button>
+      </DialogActions>
+    </Dialog>
+  )
 }
 
 // ─── Left pane: patient timeline ───────────────────────────────────────────
@@ -166,7 +263,7 @@ function TimelinePane({ patientId }) {
 }
 
 // ─── Center pane: structured note sections ─────────────────────────────────
-function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAddInvestigation, onAddReferral }) {
+function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAddInvestigation, onAddReferral, onRecordVitals }) {
   const [drafts, setDrafts] = useState({})
   const [addendumOpen, setAddendumOpen] = useState(false)
   const [addendumText, setAddendumText] = useState('')
@@ -176,6 +273,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
   const [investigationForm, setInvestigationForm] = useState({ test_name: '', test_type: '', urgency: 'routine' })
   const [referralOpen, setReferralOpen] = useState(false)
   const [referralForm, setReferralForm] = useState({ referred_to_specialty: '', reason: '', urgency: 'routine' })
+  const [vitalsOpen, setVitalsOpen] = useState(false)
+  const [vitalsForm, setVitalsForm] = useState({})
+  const [chartOpen, setChartOpen] = useState(false)
 
   // REQ108 — ICD-10 type-ahead search, freeSolo (a clinician can still type
   // free text or leave it blank — soft validation only, per REQ108's own
@@ -312,6 +412,32 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
                     Referred {new Date(r.created_at).toLocaleDateString()}
                   </Typography>
                 </Paper>
+              ))}
+            </Stack>
+          )}
+        </Box>
+
+        <Box>
+          <Divider sx={{ my: 1 }} />
+          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1} flexWrap="wrap" gap={1}>
+            <Typography variant="subtitle2" fontWeight={700}>Vitals</Typography>
+            <Stack direction="row" spacing={1}>
+              <Button size="small" startIcon={<ShowChartRoundedIcon fontSize="small" />} onClick={() => setChartOpen(true)}>
+                Growth Chart
+              </Button>
+              {!locked && (
+                <Button size="small" startIcon={<MonitorHeartRoundedIcon fontSize="small" />} onClick={() => setVitalsOpen(true)}>
+                  Record Vitals
+                </Button>
+              )}
+            </Stack>
+          </Stack>
+          {(encounter?.vitals?.length ?? 0) === 0 ? (
+            <Typography variant="body2" color="text.secondary">No vitals recorded yet.</Typography>
+          ) : (
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {encounter.vitals.map((v) => (
+                <Chip key={v.id} size="small" label={`${VITAL_FIELDS.find((f) => f.code === v.code)?.label ?? v.code}: ${v.value} ${v.unit}`} />
               ))}
             </Stack>
           )}
@@ -522,6 +648,43 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
           </Button>
         </DialogActions>
       </Dialog>
+
+      <Dialog open={vitalsOpen} onClose={() => setVitalsOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Record Vitals</DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ mb: 2 }}>Leave any field blank to skip it.</DialogContentText>
+          <Grid container spacing={2}>
+            {VITAL_FIELDS.map((f) => (
+              <Grid item xs={6} key={f.code}>
+                <TextField
+                  fullWidth type="number" label={`${f.label} (${f.unit})`}
+                  value={vitalsForm[f.code] ?? ''}
+                  onChange={(e) => setVitalsForm((form) => ({ ...form, [f.code]: e.target.value }))}
+                />
+              </Grid>
+            ))}
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setVitalsOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={VITAL_FIELDS.every((f) => vitalsForm[f.code] === undefined || vitalsForm[f.code] === '')}
+            onClick={async () => {
+              const readings = VITAL_FIELDS
+                .filter((f) => vitalsForm[f.code] !== undefined && vitalsForm[f.code] !== '')
+                .map((f) => ({ code: f.code, value: Number(vitalsForm[f.code]) }))
+              await onRecordVitals(readings)
+              setVitalsForm({})
+              setVitalsOpen(false)
+            }}
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <GrowthChartDialog open={chartOpen} onClose={() => setChartOpen(false)} patientId={encounter?.patient_id} />
     </Paper>
   )
 }
@@ -699,6 +862,7 @@ function EncounterWorkspace() {
   const [createDiagnosis] = useMutation(CREATE_DIAGNOSIS)
   const [orderInvestigationMutation] = useMutation(ORDER_INVESTIGATION)
   const [createReferralMutation] = useMutation(CREATE_REFERRAL)
+  const [recordVitalsMutation] = useMutation(RECORD_VITALS)
   const [createEncounterTemplate] = useMutation(CREATE_ENCOUNTER_TEMPLATE)
 
   const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, {
@@ -762,6 +926,13 @@ function EncounterWorkspace() {
       refetch()
     } catch (err) { reportError(err, 'Failed to refer patient') }
   }, [createReferralMutation, encounterId, refetch, reportError])
+
+  const handleRecordVitals = useCallback(async (readings) => {
+    try {
+      await recordVitalsMutation({ variables: { input: { encounter_id: encounterId, readings } } })
+      refetch()
+    } catch (err) { reportError(err, 'Failed to record vitals') }
+  }, [recordVitalsMutation, encounterId, refetch, reportError])
 
   const handleSaveAsTemplate = useCallback(async ({ name, specialty }) => {
     try {
@@ -835,7 +1006,7 @@ function EncounterWorkspace() {
               <TimelinePane patientId={encounter.patient_id} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} onAddInvestigation={handleAddInvestigation} onAddReferral={handleAddReferral} />
+              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} onAddInvestigation={handleAddInvestigation} onAddReferral={handleAddReferral} onRecordVitals={handleRecordVitals} />
             </Grid>
             <Grid item xs={12} md={3}>
               <ActionsPane

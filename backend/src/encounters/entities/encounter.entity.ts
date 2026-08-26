@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 
 @ObjectType('EncounterNote')
 export class EncounterNoteType {
@@ -66,6 +66,21 @@ export class ReferralType {
   @Field() created_at: Date;
 }
 
+// REQ130 (FR-EMR-05) — one discrete vital-sign reading. `code` is one of a
+// fixed set (see VITAL_CODES in dto/encounter.input.ts); a growth chart
+// queries a single code across every encounter for a patient
+// (EncountersService#patientVitals), which is exactly what this shape
+// exists to make cheap.
+@ObjectType('Vital')
+export class VitalType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) encounter_id: string;
+  @Field() code: string;
+  @Field(() => Float) value: number;
+  @Field() unit: string;
+  @Field() recorded_at: Date;
+}
+
 @ObjectType('EncounterAttachment')
 export class AttachmentType {
   @Field(() => ID) id: string;
@@ -94,6 +109,7 @@ export class EncounterType {
   @Field(() => [AttachmentType]) attachments: AttachmentType[];
   @Field(() => [InvestigationOrderType]) investigation_orders: InvestigationOrderType[];
   @Field(() => [ReferralType]) referrals: ReferralType[];
+  @Field(() => [VitalType]) vitals: VitalType[];
 }
 
 @ObjectType('EncounterTemplate')

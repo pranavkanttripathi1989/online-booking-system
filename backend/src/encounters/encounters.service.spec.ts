@@ -43,6 +43,9 @@ describe('EncountersService', () => {
       testResults: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
       // REQ128: create() drives createReferral(); findMany() backs withRelations().
       referrals: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+      // REQ130: createMany() drives recordVitals(); findMany() also backs
+      // withRelations() and patientVitals().
+      vitals: { findMany: jest.fn().mockResolvedValue([]), createMany: jest.fn() },
       // REQ128: findUnique() validates a caller-supplied referred_to_clinician_id.
       clinicians: { findUnique: jest.fn() },
       patients: { findUnique: jest.fn().mockResolvedValue({ id: 'pat-a', first_name: 'Anita', last_name: 'Sharma' }) },
@@ -356,6 +359,62 @@ describe('EncountersService', () => {
       ]);
       const result = await service.encounter('enc-1', clinicianA);
       expect(result.referrals).toEqual([expect.objectContaining({ id: 'ref-1', referred_to_specialty: 'Cardiology', status: 'pending' })]);
+    });
+  });
+
+  describe('recordVitals', () => {
+    it('rejects recording vitals on a locked encounter', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterSigned);
+      await expect(
+        service.recordVitals({ encounter_id: 'enc-2', readings: [{ code: 'weight_kg', value: 25 }] } as any, clinicianA),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.vitals.createMany).not.toHaveBeenCalled();
+    });
+
+    it('creates a batch of readings in one call, deriving unit from code (never client-supplied)', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.vitals.findMany.mockResolvedValue([
+        { id: 'v-1', encounter_id: 'enc-1', code: 'weight_kg', value: 25, unit: 'kg', recorded_at: new Date() },
+        { id: 'v-2', encounter_id: 'enc-1', code: 'height_cm', value: 110, unit: 'cm', recorded_at: new Date() },
+      ]);
+      await service.recordVitals({ encounter_id: 'enc-1', readings: [{ code: 'weight_kg', value: 25 }, { code: 'height_cm', value: 110 }] } as any, clinicianA);
+      expect(prisma.vitals.createMany).toHaveBeenCalledWith({
+        data: [
+          { encounter_id: 'enc-1', code: 'weight_kg', value: 25, unit: 'kg', recorded_by_user_id: 'clin-a' },
+          { encounter_id: 'enc-1', code: 'height_cm', value: 110, unit: 'cm', recorded_by_user_id: 'clin-a' },
+        ],
+      });
+    });
+
+    it('returns every reading for the encounter after the batch create', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      const rows = [{ id: 'v-1', encounter_id: 'enc-1', code: 'pulse_bpm', value: 88, unit: 'bpm', recorded_at: new Date() }];
+      prisma.vitals.findMany.mockResolvedValue(rows);
+      const result = await service.recordVitals({ encounter_id: 'enc-1', readings: [{ code: 'pulse_bpm', value: 88 }] } as any, clinicianA);
+      expect(result).toEqual(rows);
+    });
+  });
+
+  describe('patientVitals — growth-chart query, gated by patient access', () => {
+    it('rejects a different patient reading someone else\'s vitals', async () => {
+      await expect(service.patientVitals('pat-a', 'weight_kg', patientOther)).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a clinician who never treated this patient', async () => {
+      prisma.appointments.findFirst.mockResolvedValue(null);
+      await expect(service.patientVitals('pat-a', 'weight_kg', clinicianB)).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns readings for exactly one code, chronological, across every encounter', async () => {
+      prisma.vitals.findMany.mockResolvedValue([
+        { id: 'v-1', code: 'weight_kg', value: 20, unit: 'kg', recorded_at: new Date('2026-01-01') },
+        { id: 'v-2', code: 'weight_kg', value: 25, unit: 'kg', recorded_at: new Date('2026-08-01') },
+      ]);
+      const result = await service.patientVitals('pat-a', 'weight_kg', patientA);
+      expect(prisma.vitals.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { code: 'weight_kg', encounter: { patient_id: 'pat-a' } }, orderBy: { recorded_at: 'asc' } }),
+      );
+      expect(result).toHaveLength(2);
     });
   });
 

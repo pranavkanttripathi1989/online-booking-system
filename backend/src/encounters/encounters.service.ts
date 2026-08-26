@@ -8,6 +8,8 @@ import {
   CreateDiagnosisInput,
   OrderInvestigationInput,
   CreateReferralInput,
+  RecordVitalsInput,
+  VITAL_UNITS,
   CreateEncounterTemplateInput,
   ApplyTemplateInput,
   CreateAttachmentInput,
@@ -27,7 +29,7 @@ export class EncountersService {
 
   private toGraphQL(encounter: any) {
     if (!encounter) return null;
-    const { client_org_id, notes, addenda, diagnoses, attachments, investigation_orders, referrals, ...rest } = encounter;
+    const { client_org_id, notes, addenda, diagnoses, attachments, investigation_orders, referrals, vitals, ...rest } = encounter;
     return rest;
   }
 
@@ -46,13 +48,14 @@ export class EncountersService {
   }
 
   private async withRelations(encounter: any) {
-    const [notes, addenda, diagnoses, attachments, investigationOrders, referrals] = await Promise.all([
+    const [notes, addenda, diagnoses, attachments, investigationOrders, referrals, vitals] = await Promise.all([
       this.prisma.encounterNotes.findMany({ where: { encounter_id: encounter.id }, orderBy: { section: 'asc' } }),
       this.prisma.encounterAddenda.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
       this.prisma.diagnoses.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
       this.prisma.attachments.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
       this.prisma.testResults.findMany({ where: { encounter_id: encounter.id }, orderBy: { date_ordered: 'asc' } }),
       this.prisma.referrals.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
+      this.prisma.vitals.findMany({ where: { encounter_id: encounter.id }, orderBy: { recorded_at: 'asc' } }),
     ]);
     return {
       ...this.toGraphQL(encounter),
@@ -62,6 +65,7 @@ export class EncountersService {
       attachments,
       investigation_orders: investigationOrders.map((r: any) => this.toInvestigationOrderGraphQL(r)),
       referrals,
+      vitals,
     };
   }
 
@@ -319,6 +323,39 @@ export class EncountersService {
         reason: input.reason,
         urgency: input.urgency ?? 'routine',
       },
+    });
+  }
+
+  // REQ130 (FR-EMR-05) -- a batch of readings recorded together (one
+  // "taking vitals" moment), matching createPrescription's own items-array
+  // batch-create pattern. Same locked-encounter guard as
+  // createDiagnosis()/orderInvestigation()/createReferral(). unit is
+  // server-derived from code (VITAL_UNITS), never client-supplied.
+  async recordVitals(input: RecordVitalsInput, user: JwtPayload) {
+    const encounter = await this.loadEncounterForUser(input.encounter_id, user);
+    if (encounter.locked) {
+      throw new BadRequestException('This encounter has been signed and can no longer be edited. Add an addendum instead.');
+    }
+    await this.prisma.vitals.createMany({
+      data: input.readings.map((reading) => ({
+        encounter_id: input.encounter_id,
+        code: reading.code,
+        value: reading.value,
+        unit: VITAL_UNITS[reading.code as keyof typeof VITAL_UNITS],
+        recorded_by_user_id: user.sub,
+      })),
+    });
+    return this.prisma.vitals.findMany({ where: { encounter_id: input.encounter_id }, orderBy: { recorded_at: 'asc' } });
+  }
+
+  // REQ130 (FR-EMR-05) -- the growth-chart query: every reading of one
+  // code across every encounter for a patient, chronological. Same access
+  // control as patientAllergyBanner()/patientTimeline() (assertPatientAccess).
+  async patientVitals(patientId: string, code: string, user: JwtPayload) {
+    await this.assertPatientAccess(patientId, user);
+    return this.prisma.vitals.findMany({
+      where: { code, encounter: { patient_id: patientId } },
+      orderBy: { recorded_at: 'asc' },
     });
   }
 
