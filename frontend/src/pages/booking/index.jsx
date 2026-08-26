@@ -16,6 +16,7 @@ import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import { DatePicker } from '@mui/x-date-pickers/DatePicker';
 import dayjs from 'dayjs';
+import { useSnackbar } from 'notistack';
 
 import { useAuth } from '../../hooks/useAuth';
 
@@ -145,6 +146,22 @@ const VERIFY_RAZORPAY_PAYMENT = gql`
     verifyRazorpayPayment(input: $input) {
       success
       message
+    }
+  }
+`;
+
+// REQ106 — canonical/admin dialect (snake_case, {success, userErrors, entity}),
+// same as every other new domain module this session — deliberately not the
+// public camelCase dialect the rest of this page uses, since joining a
+// waitlist requires a real, authenticated patient account (see REQ106's own
+// "deliberately NOT anonymous" scope note), the same boundary every other
+// canonical-dialect operation in this codebase sits behind.
+const JOIN_WAITLIST = gql`
+  mutation JoinWaitlist($input: JoinWaitlistInput!) {
+    joinWaitlist(input: $input) {
+      success
+      userErrors { message }
+      waitlistEntry { id position }
     }
   }
 `;
@@ -337,8 +354,29 @@ export default function BookingWizard() {
   const [searchParams] = useSearchParams();
   const clinicianId = routeClinicianId || searchParams.get('doctor') || undefined;
   const location = useLocation();
-  const { user } = useAuth();
+  const { user, isAuthenticated, hasRole } = useAuth();
   const navigate = useNavigate();
+  const { enqueueSnackbar } = useSnackbar();
+
+  // REQ106 — waitlist join state, only ever reachable for an authenticated
+  // patient (see JOIN_WAITLIST's own comment on why this is the canonical
+  // dialect, not the public one the rest of this page uses).
+  const [joinWaitlist, { loading: joiningWaitlist }] = useMutation(JOIN_WAITLIST);
+  const [waitlistJoinedFor, setWaitlistJoinedFor] = useState(null); // `${clinicianId}:${date}` once joined
+  const handleJoinWaitlist = async () => {
+    const dateStr = bookingData.date.format('YYYY-MM-DD');
+    try {
+      const { data } = await joinWaitlist({ variables: { input: { clinician_id: clinicianId, date: dateStr } } });
+      if (data?.joinWaitlist?.success) {
+        setWaitlistJoinedFor(`${clinicianId}:${dateStr}`);
+        enqueueSnackbar(`You're #${data.joinWaitlist.waitlistEntry.position} on the waitlist for this date.`, { variant: 'success' });
+      } else {
+        enqueueSnackbar(data?.joinWaitlist?.userErrors?.[0]?.message || 'Failed to join waitlist', { variant: 'error' });
+      }
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message, { variant: 'error' });
+    }
+  };
 
   const [activeStep, setActiveStep] = useState(0);
   const [bookingData, setBookingData] = useState({
@@ -593,7 +631,33 @@ export default function BookingWizard() {
                   ))}
                 </Grid>
               ) : (
-                <Alert severity="info" sx={{ mt: 1 }}>No availability for this date. Please select another date.</Alert>
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  No availability for this date. Please select another date.
+                  {/* REQ106 -- deliberately NOT anonymous (see JOIN_WAITLIST's own
+                      comment): a real patient-linked account is required, so an
+                      anonymous visitor sees a login prompt instead of the action. */}
+                  {clinicianId && (
+                    isAuthenticated && hasRole('patient') ? (
+                      waitlistJoinedFor === `${clinicianId}:${bookingData.date.format('YYYY-MM-DD')}` ? (
+                        <Box sx={{ mt: 1 }}>
+                          <Chip label="You're on the waitlist for this date" size="small" color="success" />
+                        </Box>
+                      ) : (
+                        <Box sx={{ mt: 1 }}>
+                          <Button size="small" variant="outlined" disabled={joiningWaitlist} onClick={handleJoinWaitlist}>
+                            Join Waitlist
+                          </Button>
+                        </Box>
+                      )
+                    ) : (
+                      <Box sx={{ mt: 1 }}>
+                        <Button size="small" variant="text" onClick={() => navigate('/login', { state: { from: location } })}>
+                          Log in to join the waitlist
+                        </Button>
+                      </Box>
+                    )
+                  )}
+                </Alert>
               )}
             </Box>
           </Grid>

@@ -17,10 +17,32 @@ import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward';
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useSnackbar } from 'notistack';
-import { useQuery, useMutation } from '@apollo/client';
+import { useQuery, useMutation, gql } from '@apollo/client';
 import dayjs from 'dayjs';
 import { APPOINTMENTS_QUERY } from '../../graphql/queries';
 import { CANCEL_APPOINTMENT_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations';
+
+// REQ106 — self-scoped via the JWT's own patient_id (see waitlist.service.ts's
+// own comment on myWaitlistEntries); never a client-supplied patient id.
+const MY_WAITLIST_ENTRIES_QUERY = gql`
+  query MyWaitlistEntries {
+    myWaitlistEntries {
+      id
+      waitlist_date
+      status
+      position
+      claim_expires_at
+    }
+  }
+`;
+const CANCEL_WAITLIST_ENTRY_MUTATION = gql`
+  mutation CancelWaitlistEntry($id: ID!) {
+    cancelWaitlistEntry(id: $id) {
+      success
+      userErrors { message }
+    }
+  }
+`;
 
 // F-18 / BUG009. This page rendered four hardcoded appointments while
 // backend/src/appointments has been real and tested for months. The UI below is
@@ -166,6 +188,26 @@ export default function PatientAppointments() {
 
   const [cancelId, setCancelId] = useState(null);
 
+  // REQ106 — Waitlist tab (real data; see MY_WAITLIST_ENTRIES_QUERY's own comment).
+  const { data: waitlistData, loading: waitlistLoading, refetch: refetchWaitlist } = useQuery(MY_WAITLIST_ENTRIES_QUERY, {
+    fetchPolicy: 'cache-and-network',
+  });
+  const waitlistEntries = waitlistData?.myWaitlistEntries ?? [];
+  const [cancelWaitlistEntry, { loading: cancellingWaitlistEntry }] = useMutation(CANCEL_WAITLIST_ENTRY_MUTATION);
+  const handleCancelWaitlistEntry = async (id) => {
+    try {
+      const { data: result } = await cancelWaitlistEntry({ variables: { id } });
+      if (result?.cancelWaitlistEntry?.success) {
+        enqueueSnackbar('Removed from waitlist', { variant: 'success' });
+        await refetchWaitlist();
+      } else {
+        enqueueSnackbar(result?.cancelWaitlistEntry?.userErrors?.[0]?.message || 'Failed to cancel', { variant: 'error' });
+      }
+    } catch (e) {
+      enqueueSnackbar(e.message || 'Failed to cancel', { variant: 'error' });
+    }
+  };
+
   // Self-scoped server-side: appointments.service.ts narrows a `patient` caller
   // to their own patient_id from the JWT, so this returns only this patient's
   // records without the page passing an id (and without being able to ask for
@@ -291,9 +333,57 @@ export default function PatientAppointments() {
       <Tabs value={tab} onChange={handleTabChange} sx={{ borderBottom: '1px solid #D0E8EA', mb: 2 }}>
         <Tab label={`Upcoming (${upcoming.length})`} />
         <Tab label={`Past (${past.length})`} />
+        <Tab label={`Waitlist (${waitlistEntries.length})`} />
       </Tabs>
 
+      {/* REQ106 — Waitlist tab has its own list, not the search/sort/
+          AppointmentCard machinery below (a waitlist entry isn't an
+          appointment). */}
+      {tab === 2 ? (
+        waitlistLoading ? (
+          <AppointmentsListSkeleton />
+        ) : waitlistEntries.length === 0 ? (
+          <EmptyState
+            icon={CalendarMonthIcon}
+            title="No waitlist entries"
+            subtitle="When a clinician's date is fully booked, you can join the waitlist from the booking page."
+          />
+        ) : (
+          <Stack spacing={2}>
+            {waitlistEntries.map((entry) => (
+              <Paper key={entry.id} variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                <Stack direction="row" justifyContent="space-between" alignItems="center">
+                  <Box>
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      {dayjs(entry.waitlist_date).format('DD MMM YYYY')} — #{entry.position} in queue
+                    </Typography>
+                    <Chip
+                      size="small"
+                      sx={{ mt: 0.5, textTransform: 'capitalize' }}
+                      label={entry.status}
+                      color={entry.status === 'notified' ? 'success' : entry.status === 'waiting' ? 'default' : 'default'}
+                    />
+                    {entry.status === 'notified' && entry.claim_expires_at && (
+                      <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                        A slot is open — book by {dayjs(entry.claim_expires_at).format('hh:mm A, DD MMM')}
+                      </Typography>
+                    )}
+                  </Box>
+                  {['waiting', 'notified'].includes(entry.status) && (
+                    <Button size="small" color="error" disabled={cancellingWaitlistEntry} onClick={() => handleCancelWaitlistEntry(entry.id)}>
+                      Cancel
+                    </Button>
+                  )}
+                </Stack>
+              </Paper>
+            ))}
+          </Stack>
+        )
+      ) : null}
+
       {/* Search + sort — sort is now controlled (SUG-PTAPPT-002) */}
+      {tab !== 2 && (
+      <>
       <Stack direction="row" spacing={2} sx={{ mb: 2 }}>
         <TextField
           size="small" placeholder="Search by doctor or specialty..."
@@ -355,6 +445,8 @@ export default function PatientAppointments() {
             />
           ))}
         </Stack>
+      )}
+      </>
       )}
 
       {/* SUG-PTAPPT-001: Cancel Confirm Dialog */}
