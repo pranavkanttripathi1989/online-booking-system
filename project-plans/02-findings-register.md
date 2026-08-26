@@ -339,6 +339,22 @@ its own reviewed plan.
 **File as:** improvement, feature `security`.
 
 ### F-10 · S3 · Audit log records too little to be an audit trail
+**Status: fixed and verified 2026-08-26** — closed as a side effect of
+`REQ053`'s break-glass/impersonation audit-trail work (migration
+`20260825050000_break_glass_and_impersonation`, 2026-08-25), never
+cross-referenced back to this register until now. Read the live
+`audit-log.interceptor.ts` and `AuditLogs` model directly rather than
+trusting either doc: the interceptor now writes `resource_id`
+(from the caller's own args or the mutation's result), `outcome`
+(`'success' | 'failure'`, both paths logged via the `tap({next, error})`
+pair — a rejected mutation is captured, not silently dropped),
+sanitised `details` (a `REDACTED_ARG_KEYS` set strips
+passwords/tokens/OTP/secrets before persisting), and `user_agent`. The
+prescribed indexes both exist: `@@index([user_id, created_at])` and
+`@@index([resource, resource_id])`. `REQ053` also added
+`acting_as_user_id`, going beyond this finding's original ask to
+distinguish a real actor from an impersonated identity.
+
 **File:** `backend/src/common/interceptors/audit-log.interceptor.ts:70–96`.
 
 **Evidence:** the `AuditLogs` model has `resource_id` and a `details` JSON
@@ -635,6 +651,15 @@ timestamps with no stored zone, which will not survive a multi-city tenant.
 **File as:** bug, feature `appointments`.
 
 ### F-17 · S3 · Patient payments carry no GST fields
+**Status: fixed and verified 2026-08-26, see `REQ047`** (US-BIL-09,
+2026-08-23). Confirmed directly against `schema.prisma`'s live
+`AppointmentPayments` model, not just the requirement doc's own claim:
+`gstin`, `hsn_sac_code`, `gst_rate`, `cgst_amount`, `sgst_amount`,
+`igst_amount`, `place_of_supply`, and `invoice_number` all exist. Per
+`REQ047`'s own note, `place_of_supply` has no reliable source yet in
+this slice rather than inventing one — a real, narrower residual gap,
+not the "no GST fields at all" this finding originally described.
+
 **Evidence:** GST columns exist on `PaymentTransactions` (tenant SaaS billing via
 Stripe) but not on `AppointmentPayments` (patient payments via Razorpay).
 
@@ -712,6 +737,17 @@ line afterwards.
 **File as:** improvement, feature `organization-branding`.
 
 ### F-20 · S3 · Three tables still lack `TableContainer`
+**Status: fixed and verified 2026-08-26.** Checked all three named files
+directly rather than trusting an older audit: every `<Table>` in
+`pages/settings/index.jsx` (5 tables), `pages/patients/detail.jsx` (3
+tables), and `components/Dashboard/RecentAppointmentsTable.jsx` (1
+table) is now nested inside a `<TableContainer>` — closed somewhere
+across this session's many "add the missing wrapper" fixes (Hard Rule 5
+itself notes this class of bug "has now been violated three times"),
+never explicitly traced back to this finding until now. No ESLint rule
+enforces it yet — that half of the original fix suggestion remains open,
+not silently dropped.
+
 `pages/settings/index.jsx`, `pages/patients/detail.jsx`,
 `components/Dashboard/RecentAppointmentsTable.jsx` — the exact overflow class
 already fixed in `staff/index.jsx` once real data proved wider than mock data.
@@ -1017,6 +1053,23 @@ the archive-sweep script can manage them, delete the stale `Makefile` and
 **File as:** improvement, feature `repo-hygiene`.
 
 ### F-32 · S4 · Backend test suite is unusable inside the container
+**Status: fixed and verified 2026-08-26, see `REQ103`** (2026-08-26).
+Found the finding's own premise partly wrong before "fixing" it: CI never
+runs the backend suite inside `medibook_backend` at all
+(`.github/workflows/ci.yml`'s `backend` job runs on a bare
+`ubuntu-latest` runner), so the in-container slowness this finding
+describes was never a CI risk — only a developer-experience cost for
+someone choosing `docker exec medibook_backend npm test` over the host
+path. `REQ103` added `isolatedModules: true` to `jest.config.js` (mirroring
+`jest.integration.config.js`'s already-proven tradeoff — type errors are
+still caught by `tsc --noEmit` and the editor, just not re-checked on
+every test transform) and added the explicit host-preference callout to
+`CLAUDE.md`'s Commands section this finding's own fix asked for.
+Deliberately did not touch `docker-compose.yml`'s resource allocation —
+investigation found no CPU/memory limit set on the `backend` service to
+relax; the residual gap is bind-mount I/O overhead plus host contention,
+neither controllable from compose config alone.
+
 **Evidence:** a single spec file exceeded 400s in `medibook_backend`; the same
 file runs in 42s on the host, and the full suite in 140s.
 **Fix:** raise the container's CPU/memory allocation or run tests on the host in

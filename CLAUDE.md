@@ -1037,12 +1037,20 @@ Never run `npm run build` inside the same container as the active `start:dev` wa
 ```bash
 npm run start:dev        # nest start --watch (this is what the backend container runs)
 npm run lint              # eslint --fix
-npx jest --maxWorkers=2   # THE way to run the unit suite here — 645 tests / 50 suites, ~130s.
+npx jest --maxWorkers=2   # THE way to run the unit suite here. Suite/test counts are
+                          # intentionally NOT hand-typed here anymore (REQ123, 2026-08-26) — every
+                          # prior number written into this file went stale within a session or two
+                          # (this exact line once said "645 tests / 50 suites" and was still there,
+                          # unnoticed, at 1470 tests / 92 suites). Run `node scripts/test-count-status.mjs`
+                          # from the repo root for a live, dated count instead of trusting any number
+                          # written in prose, including elsewhere in this file.
                           # A bare `npm test` (default workers) gets OOM-killed on this host (exit 137).
                           # `account`/`staff` also time out on bcrypt under contention but pass
                           # in isolation — re-run a suspect suite alone before believing a failure.
-npm run test:int          # integration suite — 120 tests / 3 suites, ~117s, REAL Postgres + real
-                          # HTTP. Prerequisite: docker compose --profile test up -d postgres_test
+npm run test:int          # integration suite — REAL Postgres + real HTTP (count intentionally not
+                          # hand-typed here either, per the same REQ123 note above — run
+                          # `node scripts/test-count-status.mjs --integration` for a live count).
+                          # Prerequisite: docker compose --profile test up -d postgres_test
                           # MUST run from the host (cd backend && npm run test:int), NOT
                           # `docker exec medibook_backend npm run test:int` — its postgres_test
                           # connection is hardcoded to localhost:5433, a host-side port mapping
