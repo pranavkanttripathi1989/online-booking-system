@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR178 | improvement | Delay broadcast results | pass | 2026-08-26 | 2026-08-26 | TP178 | [TR178-queue-management-2026-08-26-delay-broadcast.md](./improvement/TR178-queue-management-2026-08-26-delay-broadcast.md) |
 | TR177 | improvement | Predictive rolling-median ETA results | pass | 2026-08-26 | 2026-08-26 | TP177 | [TR177-queue-management-2026-08-26-predictive-eta.md](./improvement/TR177-queue-management-2026-08-26-predictive-eta.md) |
 | TR171 | improvement | QR self-check-in results | pass | 2026-08-26 | 2026-08-26 | TP171 | [TR171-queue-management-2026-08-26-qr-self-checkin.md](./improvement/TR171-queue-management-2026-08-26-qr-self-checkin.md) |
 | TR100 | improvement | Pre-consultation checklist results | pass | 2026-08-25 | 2026-08-25 | TP101 | [TR100-queue-management-2026-08-25-pre-consultation-checklist.md](./improvement/TR100-queue-management-2026-08-25-pre-consultation-checklist.md) |
