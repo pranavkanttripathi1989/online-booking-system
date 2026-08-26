@@ -4,7 +4,7 @@
 |---|---|---|---|---|---|---|---|
 | clinician-dashboard | 0 | 0 | 1 | 0 | 1 | 2026-08-25 | [clinician-dashboard](./clinician-dashboard/README.md) |
 | insurance-claims | 1 | 4 | 0 | 1 | 4 | 2026-08-26 | [insurance-claims](./insurance-claims/README.md) |
-| clinical-records | 1 | 5 | 0 | 1 | 5 | 2026-08-26 | [clinical-records](./clinical-records/README.md) |
+| clinical-records | 1 | 6 | 0 | 1 | 6 | 2026-08-26 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 2 | 0 | 1 | 2 | 2026-08-26 | [scheduling-engine](./scheduling-engine/README.md) |
 | pharmacy | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [prescriptions](./prescriptions/README.md) |

@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ135 | improvement | Referral status-transition mutation | done | 2026-08-26 | 2026-08-26 | REQ128 | [REQ135-clinical-records-2026-08-26-referral-status-transition.md](./improvement/REQ135-clinical-records-2026-08-26-referral-status-transition.md) |
 | REQ130 | improvement | Discrete vitals for growth charts (FR-EMR-05) | done | 2026-08-26 | 2026-08-26 | REQ020 | [REQ130-clinical-records-2026-08-26-discrete-vitals-growth-chart.md](./improvement/REQ130-clinical-records-2026-08-26-discrete-vitals-growth-chart.md) |
 | REQ128 | improvement | Referrals (FR-EMR-10) | done | 2026-08-26 | 2026-08-26 | REQ020 | [REQ128-clinical-records-2026-08-26-referrals.md](./improvement/REQ128-clinical-records-2026-08-26-referrals.md) |
 | REQ127 | improvement | Investigation orders (FR-EMR-08) | done | 2026-08-26 | 2026-08-26 | REQ020 | [REQ127-clinical-records-2026-08-26-investigation-orders.md](./improvement/REQ127-clinical-records-2026-08-26-investigation-orders.md) |

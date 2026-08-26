@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN175 | improvement | Referral status-transition mutation | done | 2026-08-26 | 2026-08-26 | REQ135 | [PLAN175-clinical-records-2026-08-26-referral-status-transition.md](./improvement/PLAN175-clinical-records-2026-08-26-referral-status-transition.md) |
 | PLAN170 | improvement | Discrete vitals for growth charts (FR-EMR-05) | done | 2026-08-26 | 2026-08-26 | REQ130 | [PLAN170-clinical-records-2026-08-26-discrete-vitals-growth-chart.md](./improvement/PLAN170-clinical-records-2026-08-26-discrete-vitals-growth-chart.md) |
 | PLAN168 | improvement | Referrals (FR-EMR-10) | done | 2026-08-26 | 2026-08-26 | REQ128 | [PLAN168-clinical-records-2026-08-26-referrals.md](./improvement/PLAN168-clinical-records-2026-08-26-referrals.md) |
 | PLAN167 | improvement | Investigation orders (FR-EMR-08) | done | 2026-08-26 | 2026-08-26 | REQ127 | [PLAN167-clinical-records-2026-08-26-investigation-orders.md](./improvement/PLAN167-clinical-records-2026-08-26-investigation-orders.md) |

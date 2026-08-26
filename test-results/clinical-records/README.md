@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR195 | improvement | Referral status-transition mutation results | pass | 2026-08-26 | 2026-08-26 | TP195 | [TR195-clinical-records-2026-08-26-referral-status-transition.md](./improvement/TR195-clinical-records-2026-08-26-referral-status-transition.md) |
 | TR190 | improvement | Discrete vitals for growth charts (FR-EMR-05) results | pass | 2026-08-26 | 2026-08-26 | TP190 | [TR190-clinical-records-2026-08-26-discrete-vitals-growth-chart.md](./improvement/TR190-clinical-records-2026-08-26-discrete-vitals-growth-chart.md) |
 | TR188 | improvement | Referrals (FR-EMR-10) results | pass | 2026-08-26 | 2026-08-26 | TP188 | [TR188-clinical-records-2026-08-26-referrals.md](./improvement/TR188-clinical-records-2026-08-26-referrals.md) |
 | TR187 | improvement | Investigation orders (FR-EMR-08) results | pass | 2026-08-26 | 2026-08-26 | TP187 | [TR187-clinical-records-2026-08-26-investigation-orders.md](./improvement/TR187-clinical-records-2026-08-26-investigation-orders.md) |
