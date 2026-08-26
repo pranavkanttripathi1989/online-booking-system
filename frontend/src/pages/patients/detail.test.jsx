@@ -47,6 +47,22 @@ const TRANSFER_PACKAGE = gql`
   }
 `
 
+// REQ115 — Sell Package dialog. Query/mutation text must exactly match
+// detail.jsx's own inline gql — MockedProvider matches by query-AST equality.
+const GET_SELLABLE_PACKAGES = gql`
+  query GetSellablePackages {
+    packages { id name total_sittings price validity_days is_active }
+  }
+`
+const PURCHASE_PACKAGE = gql`
+  mutation PurchasePackage($input: PurchasePackageInput!) {
+    purchasePackage(input: $input) {
+      success
+      userErrors { message }
+    }
+  }
+`
+
 // A real, non-mock-recognized UUID — confirms this tab queries the real
 // route :id even though the rest of the page falls back to a default mock.
 const PATIENT_ID = '8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7'
@@ -193,5 +209,31 @@ describe('patients/detail.jsx — Packages tab (REQ110)', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Transfer' }))
 
     await waitFor(() => expect(screen.getByText('No packages purchased for this patient yet.')).toBeInTheDocument())
+  }, 20000)
+
+  it('sells a package to this patient via the real purchasePackage mutation (REQ115)', async () => {
+    const sellablePackage = { __typename: 'Package', id: 'pkg-2', name: 'Dental Whitening', total_sittings: 5, price: 3000, validity_days: 90, is_active: true }
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      { request: { query: GET_SELLABLE_PACKAGES }, result: { data: { packages: [sellablePackage] } } },
+      {
+        request: { query: PURCHASE_PACKAGE, variables: { input: { package_id: 'pkg-2', patient_id: PATIENT_ID, purchase_tender_type: 'cash', purchase_reference: 'REF1' } } },
+        result: { data: { purchasePackage: { success: true, userErrors: [] } } },
+      },
+      packagesMock({ packages: [activePackage] }),
+    ])
+    await openPackagesTab()
+    await waitFor(() => expect(screen.getByText('No packages purchased for this patient yet.')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Sell Package' }))
+    const dialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(dialog).getByLabelText('Package')).toBeInTheDocument())
+    await userEvent.click(within(dialog).getByLabelText('Package'))
+    await userEvent.click(await screen.findByRole('option', { name: /Dental Whitening/ }))
+    await userEvent.type(within(dialog).getByLabelText('Reference (optional)'), 'REF1')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Sell' }))
+
+    await waitFor(() => expect(screen.getByText('Physio 10-Sitting Pack')).toBeInTheDocument())
   }, 20000)
 })

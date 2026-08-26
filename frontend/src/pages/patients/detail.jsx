@@ -89,6 +89,25 @@ const TRANSFER_PACKAGE = gql`
   }
 `
 
+// REQ115 — `purchasePackage` has been real and tested since REQ054 but had
+// no frontend caller anywhere (grep confirmed zero usage). The patient's own
+// record is the natural place to sell one — the patient is already known,
+// unlike manager/packages/index.jsx's catalog view where a patient would
+// still need to be looked up.
+const GET_SELLABLE_PACKAGES = gql`
+  query GetSellablePackages {
+    packages { id name total_sittings price validity_days is_active }
+  }
+`
+const PURCHASE_PACKAGE = gql`
+  mutation PurchasePackage($input: PurchasePackageInput!) {
+    purchasePackage(input: $input) {
+      success
+      userErrors { message }
+    }
+  }
+`
+
 // ─── Mock patients (BUG-004 fix: keyed by id so URL param resolves correctly) ─
 // Supports both 'pt-1'..'pt-5' (clinician patients list) and '1'..'5' (admin list)
 const MOCK_PATIENTS_DETAIL = {
@@ -287,6 +306,42 @@ export default function PatientDetailPage() {
         refetchPackages()
       } else {
         enqueueSnackbar(data?.transferPackage?.userErrors?.[0]?.message || 'Failed to transfer package', { variant: 'error' })
+      }
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message, { variant: 'error' })
+    }
+  }
+
+  // REQ115 — Sell Package dialog state
+  const [sellDialogOpen, setSellDialogOpen] = useState(false)
+  const [sellPackageId, setSellPackageId] = useState('')
+  const [sellTenderType, setSellTenderType] = useState('cash')
+  const [sellReference, setSellReference] = useState('')
+  const { data: sellablePackagesData, loading: loadingSellablePackages } = useQuery(GET_SELLABLE_PACKAGES, {
+    skip: !sellDialogOpen,
+    fetchPolicy: 'network-only',
+  })
+  const sellablePackages = (sellablePackagesData?.packages ?? []).filter((pk) => pk.is_active)
+  const selectedSellPackage = sellablePackages.find((pk) => pk.id === sellPackageId) ?? null
+  const [purchasePackageMutation, { loading: purchasing }] = useMutation(PURCHASE_PACKAGE)
+  const closeSellDialog = () => {
+    setSellDialogOpen(false)
+    setSellPackageId('')
+    setSellTenderType('cash')
+    setSellReference('')
+  }
+  const submitSell = async () => {
+    if (!sellPackageId) return
+    try {
+      const { data } = await purchasePackageMutation({
+        variables: { input: { package_id: sellPackageId, patient_id: id, purchase_tender_type: sellTenderType, purchase_reference: sellReference || undefined } },
+      })
+      if (data?.purchasePackage?.success) {
+        enqueueSnackbar('Package sold.', { variant: 'success' })
+        closeSellDialog()
+        refetchPackages()
+      } else {
+        enqueueSnackbar(data?.purchasePackage?.userErrors?.[0]?.message || 'Failed to sell package', { variant: 'error' })
       }
     } catch (err) {
       enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message, { variant: 'error' })
@@ -983,7 +1038,12 @@ export default function PatientDetailPage() {
 
           {/* ── Packages (REQ110) ────────────────────────────────────────── */}
           <TabPanel value={tab} index={9}>
-            <Typography variant="subtitle1" fontWeight={800} mb={2}>Purchased Packages</Typography>
+            <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
+              <Typography variant="subtitle1" fontWeight={800}>Purchased Packages</Typography>
+              <Button size="small" variant="contained" startIcon={<CardMembershipRoundedIcon />} onClick={() => setSellDialogOpen(true)}>
+                Sell Package
+              </Button>
+            </Stack>
             {packagesLoading ? (
               <LinearProgress />
             ) : patientPackages.length === 0 ? (
@@ -1077,6 +1137,42 @@ export default function PatientDetailPage() {
                 <Button onClick={closeTransferDialog}>Cancel</Button>
                 <Button variant="contained" disabled={!transferSelectedPatient || transferring} onClick={submitTransfer}>
                   Transfer
+                </Button>
+              </DialogActions>
+            </Dialog>
+
+            <Dialog open={sellDialogOpen} onClose={closeSellDialog} fullWidth maxWidth="sm">
+              <DialogTitle>Sell Package to {p.full_name}</DialogTitle>
+              <DialogContent>
+                <Stack spacing={2} sx={{ pt: 1 }}>
+                  {loadingSellablePackages ? (
+                    <Box display="flex" justifyContent="center" py={2}><CircularProgress size={24} /></Box>
+                  ) : sellablePackages.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">No active packages available for sale.</Typography>
+                  ) : (
+                    <>
+                      <TextField select label="Package" size="small" value={sellPackageId} onChange={(e) => setSellPackageId(e.target.value)}>
+                        {sellablePackages.map((pk) => (
+                          <MenuItem key={pk.id} value={pk.id}>{pk.name} — ₹{Number(pk.price).toFixed(2)} ({pk.total_sittings} sittings)</MenuItem>
+                        ))}
+                      </TextField>
+                      {selectedSellPackage && (
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedSellPackage.total_sittings} sittings, valid {selectedSellPackage.validity_days} days from purchase.
+                        </Typography>
+                      )}
+                      <TextField select label="Tender" size="small" value={sellTenderType} onChange={(e) => setSellTenderType(e.target.value)}>
+                        {['cash', 'upi', 'card', 'cheque'].map((tt) => <MenuItem key={tt} value={tt}>{tt.toUpperCase()}</MenuItem>)}
+                      </TextField>
+                      <TextField label="Reference (optional)" size="small" value={sellReference} onChange={(e) => setSellReference(e.target.value)} />
+                    </>
+                  )}
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={closeSellDialog}>Cancel</Button>
+                <Button variant="contained" disabled={!sellPackageId || purchasing} onClick={submitSell}>
+                  {purchasing ? 'Selling…' : 'Sell'}
                 </Button>
               </DialogActions>
             </Dialog>
