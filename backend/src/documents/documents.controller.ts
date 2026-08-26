@@ -68,6 +68,14 @@ export class DocumentsController {
     this.sendPdf(res, buffer, `visit-summary-${id}.pdf`);
   }
 
+  // REQ138 (US-INS-06's own follow-on)
+  @Get('claims/:id/reimbursement-pack/pdf')
+  async reimbursementPackPdf(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
+    const user = await this.authenticate(req);
+    const buffer = await this.documentsService.reimbursementPackPdf(id, user);
+    this.sendPdf(res, buffer, `reimbursement-pack-${id}.pdf`);
+  }
+
   // REQ109 — genuinely public: no Bearer token, no `authenticate()` call.
   // The signed link token + OTP together ARE the access control (the
   // prescriptionId is never a client-supplied URL/body id -- it's derived

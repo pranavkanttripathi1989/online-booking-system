@@ -1,9 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, ForbiddenException } from '@nestjs/common';
 import { DocumentsService } from './documents.service';
 import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import { AppointmentPaymentsService } from '../appointment-payments/appointment-payments.service';
 import { EncountersService } from '../encounters/encounters.service';
+import { InsuranceService } from '../insurance/insurance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
@@ -15,6 +16,7 @@ describe('DocumentsService', () => {
   let prescriptionsService: { printPrescription: jest.Mock; assembleForShare: jest.Mock; verifyShareOtp: jest.Mock };
   let appointmentPaymentsService: { invoiceForDownload: jest.Mock };
   let encountersService: { encounter: jest.Mock };
+  let insuranceService: { claim: jest.Mock; claimEvidencePrescriptions: jest.Mock };
   let prisma: {
     patients: { findUnique: jest.Mock };
     clinicians: { findUnique: jest.Mock };
@@ -22,11 +24,13 @@ describe('DocumentsService', () => {
   };
 
   const user: JwtPayload = { sub: 'u1', roles: ['patient'], client_org_id: 'org-a', patient_id: 'patient-1', clinician_id: null } as JwtPayload;
+  const staffUser: JwtPayload = { sub: 'staff-1', roles: ['staff'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
 
   beforeEach(async () => {
     prescriptionsService = { printPrescription: jest.fn(), assembleForShare: jest.fn(), verifyShareOtp: jest.fn() };
     appointmentPaymentsService = { invoiceForDownload: jest.fn() };
     encountersService = { encounter: jest.fn() };
+    insuranceService = { claim: jest.fn(), claimEvidencePrescriptions: jest.fn() };
     prisma = {
       patients: { findUnique: jest.fn() },
       clinicians: { findUnique: jest.fn() },
@@ -38,6 +42,7 @@ describe('DocumentsService', () => {
         { provide: PrescriptionsService, useValue: prescriptionsService },
         { provide: AppointmentPaymentsService, useValue: appointmentPaymentsService },
         { provide: EncountersService, useValue: encountersService },
+        { provide: InsuranceService, useValue: insuranceService },
         { provide: PrismaService, useValue: prisma },
       ],
     }).compile();
@@ -185,6 +190,62 @@ describe('DocumentsService', () => {
       prisma.appointments.findUnique.mockResolvedValue(null);
 
       const buffer = await service.visitSummaryPdf('enc-1', user);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+  });
+
+  // REQ138 (US-INS-06's own follow-on)
+  describe('reimbursementPackPdf', () => {
+    const claimData = {
+      id: 'claim-1', appointment_id: 'appt-1', patient_name: 'Anita Sharma',
+      payer: { id: 'payer-1', name: 'Star Health', payer_type: 'insurer', is_active: true },
+      appointment_date: new Date('2026-08-20'), claim_amount: 5000, approved_amount: undefined,
+      status: 'submitted', rejection_reason: undefined, notes: undefined,
+      submitted_at: new Date('2026-08-26'), decided_at: undefined, settled_at: undefined,
+    };
+    const evidenceRx = [{
+      issued_at: new Date('2026-08-20'),
+      items: [{ drug_name: 'Amoxicillin', dose: '500mg', frequency: 'BD', route: 'oral', duration_days: 5, qty: 10, instructions: null }],
+    }];
+
+    it('rejects a patient/clinician caller before ever calling InsuranceService — role gating REST bypasses GraphQL\'s own @Auth', async () => {
+      await expect(service.reimbursementPackPdf('claim-1', user)).rejects.toThrow(ForbiddenException);
+      expect(insuranceService.claim).not.toHaveBeenCalled();
+    });
+
+    it('propagates claim()\'s own cross-org access-control failure rather than swallowing it', async () => {
+      insuranceService.claim.mockRejectedValue(new NotFoundException('Claim not found'));
+      insuranceService.claimEvidencePrescriptions.mockResolvedValue([]);
+      await expect(service.reimbursementPackPdf('claim-1', staffUser)).rejects.toThrow('Claim not found');
+    });
+
+    it('renders a real PDF with claim details and evidence prescriptions for an authorized staff caller', async () => {
+      insuranceService.claim.mockResolvedValue(claimData);
+      insuranceService.claimEvidencePrescriptions.mockResolvedValue(evidenceRx);
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: { name: 'MG Road Clinic', phone: '+911234' } });
+
+      const buffer = await service.reimbursementPackPdf('claim-1', staffUser);
+
+      expect(insuranceService.claim).toHaveBeenCalledWith('claim-1', staffUser);
+      expect(insuranceService.claimEvidencePrescriptions).toHaveBeenCalledWith('claim-1', staffUser);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+
+    it('still renders a real PDF with an honest "no prescriptions" note when there is no evidence yet', async () => {
+      insuranceService.claim.mockResolvedValue(claimData);
+      insuranceService.claimEvidencePrescriptions.mockResolvedValue([]);
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: { name: 'MG Road Clinic', phone: '+911234' } });
+
+      const buffer = await service.reimbursementPackPdf('claim-1', staffUser);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+
+    it('still renders when the clinic lookup resolves to null', async () => {
+      insuranceService.claim.mockResolvedValue(claimData);
+      insuranceService.claimEvidencePrescriptions.mockResolvedValue([]);
+      prisma.appointments.findUnique.mockResolvedValue(null);
+
+      const buffer = await service.reimbursementPackPdf('claim-1', staffUser);
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     });
   });

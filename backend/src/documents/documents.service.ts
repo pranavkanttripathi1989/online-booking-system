@@ -1,7 +1,13 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, ForbiddenException } from '@nestjs/common';
 import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import { AppointmentPaymentsService } from '../appointment-payments/appointment-payments.service';
 import { EncountersService } from '../encounters/encounters.service';
+// REQ138 (US-INS-06's own follow-on) — reuses InsuranceService's own
+// already-org-scoped claim() and claimEvidencePrescriptions() rather than
+// re-deriving claim access control here, same "compose existing scoped
+// assembly methods" pattern this module already uses for
+// prescriptionPdf/invoicePdf/visitSummaryPdf.
+import { InsuranceService } from '../insurance/insurance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { renderPdfToBuffer, drawLetterhead } from '../common/pdf/render-pdf';
@@ -28,6 +34,7 @@ export class DocumentsService {
     private readonly prescriptionsService: PrescriptionsService,
     private readonly appointmentPaymentsService: AppointmentPaymentsService,
     private readonly encountersService: EncountersService,
+    private readonly insuranceService: InsuranceService,
     private readonly prisma: PrismaService,
   ) {}
 
@@ -215,6 +222,84 @@ export class DocumentsService {
         for (const d of diagnoses) {
           doc.text(`${d.type === 'allergy' ? 'Allergy' : 'Diagnosis'}: ${d.text}${d.icd10_code ? ` (${d.icd10_code})` : ''} — ${d.status}`);
         }
+      }
+    });
+  }
+
+  // REQ138 (US-INS-06's own follow-on, per REQ131's doc: "a natural
+  // follow-on, not bundled here"). A single PDF a claims-desk user can
+  // hand to a payer/TPA: the claim's own tracking details plus every
+  // prescription REQ137's claimEvidencePrescriptions() already resolves
+  // for it — no separate evidence-selection step, matching that story's
+  // own "always current, no manual attach" design.
+  async reimbursementPackPdf(claimId: string, user: JwtPayload): Promise<Buffer> {
+    // InsuranceService#loadClaimForUser (which both calls below reuse)
+    // only checks org, not role -- claims()/claim()'s own role gate
+    // (staff/manager/admin/super_admin, excluding patient/clinician) is
+    // enforced entirely by InsuranceResolver's @Auth decorator, which
+    // this REST controller never passes through (its own doc comment:
+    // "the global GqlAuthGuard only protects the GraphQL execution
+    // context"). Re-asserted here explicitly, matching that same gate,
+    // so a patient/clinician JWT can't reach another user's claim data
+    // through this route just because GraphQL's own guard doesn't apply.
+    if (!user.roles.some((r) => ['staff', 'manager', 'admin', 'super_admin'].includes(r))) {
+      throw new ForbiddenException('Not authorized to view claim documents');
+    }
+    // claim()/claimEvidencePrescriptions() each throw NotFoundException on
+    // a cross-org id -- reused verbatim, same reasoning as prescriptionPdf's
+    // own comment above. claim() itself is typed nullable (a defensive
+    // { nullable: true } on the GraphQL query) but in practice always
+    // throws before returning null -- the explicit check below is belt-
+    // and-braces, matching invoicePdf's own guard on a nullable result.
+    const [claim, prescriptions] = await Promise.all([
+      this.insuranceService.claim(claimId, user),
+      this.insuranceService.claimEvidencePrescriptions(claimId, user),
+    ]);
+    if (!claim) throw new NotFoundException('Claim not found');
+
+    const appointment = await this.prisma.appointments.findUnique({
+      where: { id: claim.appointment_id },
+      include: { clinic: true },
+    });
+
+    return renderPdfToBuffer((doc) => {
+      drawLetterhead(doc, appointment?.clinic.name ?? 'Clinic', appointment?.clinic.phone);
+
+      doc.fontSize(14).font('Helvetica-Bold').text('Insurance Reimbursement Pack');
+      doc.fontSize(10).font('Helvetica');
+      doc.text(`Claim ID: ${claim.id}`);
+      doc.text(`Payer: ${claim.payer.name}`);
+      doc.text(`Patient: ${claim.patient_name}`);
+      doc.text(`Appointment Date: ${formatDate(claim.appointment_date)}`);
+      doc.text(`Status: ${claim.status}`);
+      doc.text(`Claim Amount: ${formatMoney(claim.claim_amount)}`);
+      if (claim.approved_amount != null) doc.text(`Approved Amount: ${formatMoney(claim.approved_amount)}`);
+      if (claim.rejection_reason) doc.text(`Rejection Reason: ${claim.rejection_reason}`);
+      if (claim.notes) doc.text(`Notes: ${claim.notes}`);
+      doc.moveDown(1);
+
+      doc.fontSize(12).font('Helvetica-Bold').text('Supporting Prescriptions');
+      doc.moveDown(0.5);
+      if (!(prescriptions as any[]).length) {
+        doc.fontSize(9).font('Helvetica').fillColor('#555555').text('No prescriptions on file for this claim\'s appointment.');
+        doc.fillColor('black');
+      }
+      for (const rx of prescriptions as any[]) {
+        doc.fontSize(10).font('Helvetica-Bold').text(`Prescription — ${formatDate(rx.issued_at)}`);
+        doc.fontSize(9).font('Helvetica');
+        for (const item of rx.items as any[]) {
+          const details = [
+            item.dose,
+            item.frequency,
+            item.route,
+            item.duration_days ? `${item.duration_days} days` : undefined,
+            item.qty ? `Qty: ${item.qty}` : undefined,
+          ]
+            .filter(Boolean)
+            .join('  ·  ');
+          doc.text(`${item.drug_name} — ${details}`);
+        }
+        doc.moveDown(0.5);
       }
     });
   }
