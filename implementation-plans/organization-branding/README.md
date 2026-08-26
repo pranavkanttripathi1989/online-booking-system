@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN179 | improvement | Org logo propagated into PDF letterheads | done | 2026-08-26 | 2026-08-26 | REQ139 | [PLAN179-organization-branding-2026-08-26-pdf-letterhead-logo.md](./improvement/PLAN179-organization-branding-2026-08-26-pdf-letterhead-logo.md) |
 | PLAN162 | improvement | Theme-token hex-color sweep, round 1 | done | 2026-08-26 | 2026-08-26 | REQ122 | [PLAN162-organization-branding-2026-08-26-hex-color-sweep-round-1.md](./improvement/PLAN162-organization-branding-2026-08-26-hex-color-sweep-round-1.md) |
 | PLAN108 | improvement | `no-hardcoded-colors` ESLint rule (ratchet only) | done | 2026-08-26 | 2026-08-26 | REQ077 | [PLAN108-organization-branding-2026-08-26-no-hardcoded-colors-lint-rule.md](./improvement/PLAN108-organization-branding-2026-08-26-no-hardcoded-colors-lint-rule.md) |
 
