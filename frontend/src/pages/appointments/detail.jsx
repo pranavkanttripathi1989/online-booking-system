@@ -5,10 +5,33 @@ import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
 import dayjs from 'dayjs'
 import {
-  Avatar, Box, Button, Chip, Checkbox, Dialog, DialogTitle, DialogContent,
-  DialogActions, Divider, FormControl, FormControlLabel, FormLabel,
-  Grid, IconButton, Paper, Radio, RadioGroup, Skeleton, Stack,
-  Tooltip, Typography, TextField, MenuItem, Alert, ToggleButton, ToggleButtonGroup,
+  Avatar,
+  Box,
+  Button,
+  Chip,
+  Checkbox,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  FormControl,
+  FormControlLabel,
+  FormLabel,
+  Grid,
+  IconButton,
+  Paper,
+  Radio,
+  RadioGroup,
+  Skeleton,
+  Stack,
+  Tooltip,
+  Typography,
+  TextField,
+  MenuItem,
+  Alert,
+  ToggleButton,
+  ToggleButtonGroup,
   CircularProgress,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -19,33 +42,38 @@ import CardMembershipRoundedIcon from '@mui/icons-material/CardMembershipRounded
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
-import ArrowBackRoundedIcon       from '@mui/icons-material/ArrowBackRounded'
-import EditRoundedIcon            from '@mui/icons-material/EditRounded'
-import TaskAltRoundedIcon         from '@mui/icons-material/TaskAltRounded'
-import PersonOffRoundedIcon       from '@mui/icons-material/PersonOffRounded'
-import CancelRoundedIcon          from '@mui/icons-material/CancelRounded'
-import CalendarMonthRoundedIcon   from '@mui/icons-material/CalendarMonthRounded'
-import AccessTimeRoundedIcon      from '@mui/icons-material/AccessTimeRounded'
-import LocalHospitalRoundedIcon   from '@mui/icons-material/LocalHospitalRounded'
-import MeetingRoomRoundedIcon     from '@mui/icons-material/MeetingRoomRounded'
-import EmailRoundedIcon           from '@mui/icons-material/EmailRounded'
-import PhoneRoundedIcon           from '@mui/icons-material/PhoneRounded'
-import TimerRoundedIcon           from '@mui/icons-material/TimerRounded'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import TaskAltRoundedIcon from '@mui/icons-material/TaskAltRounded'
+import PersonOffRoundedIcon from '@mui/icons-material/PersonOffRounded'
+import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
+import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
+import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
+import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded'
+import MeetingRoomRoundedIcon from '@mui/icons-material/MeetingRoomRounded'
+import EmailRoundedIcon from '@mui/icons-material/EmailRounded'
+import PhoneRoundedIcon from '@mui/icons-material/PhoneRounded'
+import TimerRoundedIcon from '@mui/icons-material/TimerRounded'
 import MedicalServicesRoundedIcon from '@mui/icons-material/MedicalServicesRounded'
-import NotesRoundedIcon           from '@mui/icons-material/NotesRounded'
-import NotificationsRoundedIcon  from '@mui/icons-material/NotificationsRounded'
-import StarRoundedIcon            from '@mui/icons-material/StarRounded'
-import CheckCircleRoundedIcon     from '@mui/icons-material/CheckCircleRounded'
-import RadioButtonUncheckedIcon   from '@mui/icons-material/RadioButtonUnchecked'
-import PrintRoundedIcon            from '@mui/icons-material/PrintRounded'
-import InfoRoundedIcon            from '@mui/icons-material/InfoRounded'
-import EventRepeatRoundedIcon     from '@mui/icons-material/EventRepeatRounded'
-import SmsRoundedIcon             from '@mui/icons-material/SmsRounded'
-import MonitorHeartRoundedIcon     from '@mui/icons-material/MonitorHeartRounded'
-
+import NotesRoundedIcon from '@mui/icons-material/NotesRounded'
+import NotificationsRoundedIcon from '@mui/icons-material/NotificationsRounded'
+import StarRoundedIcon from '@mui/icons-material/StarRounded'
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import RadioButtonUncheckedIcon from '@mui/icons-material/RadioButtonUnchecked'
+import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
+import InfoRoundedIcon from '@mui/icons-material/InfoRounded'
+import EventRepeatRoundedIcon from '@mui/icons-material/EventRepeatRounded'
+import SmsRoundedIcon from '@mui/icons-material/SmsRounded'
+import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded'
 
 import { APPOINTMENT_DETAIL_QUERY } from '../../graphql/queries'
-import { CANCEL_APPOINTMENT_MUTATION, COMPLETE_APPOINTMENT_MUTATION, MARK_NO_SHOW_MUTATION, UPDATE_APPOINTMENT_MUTATION, RECORD_COUNTER_PAYMENT_MUTATION } from '../../graphql/mutations'
+import {
+  CANCEL_APPOINTMENT_MUTATION,
+  COMPLETE_APPOINTMENT_MUTATION,
+  MARK_NO_SHOW_MUTATION,
+  UPDATE_APPOINTMENT_MUTATION,
+  RECORD_COUNTER_PAYMENT_MUTATION,
+} from '../../graphql/mutations'
 import * as MockStore from '../../mocks/store'
 import CancelDialog from '../../components/Appointments/CancelDialog'
 import { useAuth } from '../../hooks/useAuth'
@@ -56,19 +84,30 @@ import { downloadAuthenticatedPdf } from '../../utils/documents'
 // own inline operations rather than importing from a shared file).
 const CHECKLIST_ITEMS_QUERY = gql`
   query ChecklistItems($clinic_id: ID) {
-    checklistItems(clinic_id: $clinic_id) { id product_id label is_required sort_order }
+    checklistItems(clinic_id: $clinic_id) {
+      id
+      product_id
+      label
+      is_required
+      sort_order
+    }
   }
 `
 const CHECKLIST_COMPLETIONS_QUERY = gql`
   query ChecklistCompletions($appointment_id: ID!) {
-    checklistCompletions(appointment_id: $appointment_id) { id checklist_item_id }
+    checklistCompletions(appointment_id: $appointment_id) {
+      id
+      checklist_item_id
+    }
   }
 `
 const COMPLETE_CHECKLIST_ITEM_MUTATION = gql`
   mutation CompleteChecklistItem($checklist_item_id: ID!, $appointment_id: ID!) {
     completeChecklistItem(checklist_item_id: $checklist_item_id, appointment_id: $appointment_id) {
       success
-      userErrors { message }
+      userErrors {
+        message
+      }
     }
   }
 `
@@ -77,8 +116,13 @@ const COMPLETE_CHECKLIST_ITEM_MUTATION = gql`
 const PATIENT_PACKAGES_QUERY = gql`
   query PatientPackagesForRedeem($patient_id: ID!) {
     patientPackages(patient_id: $patient_id) {
-      id sittings_remaining expires_at is_expired
-      package { name }
+      id
+      sittings_remaining
+      expires_at
+      is_expired
+      package {
+        name
+      }
     }
   }
 `
@@ -95,22 +139,17 @@ const REDEEM_PACKAGE_SITTING_MUTATION = gql`
 
 // ─── Status config ────────────────────────────────────────────────────────────
 const STATUS_CFG = {
-  pending:     { label: 'Pending',     bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
-  confirmed:   { label: 'Confirmed',   bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
-  cancelled:   { label: 'Cancelled',   bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
-  completed:   { label: 'Completed',   bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
-  no_show:     { label: 'No Show',     bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED', dot: '#80868B' },
+  pending: { label: 'Pending', bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
+  confirmed: { label: 'Confirmed', bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
+  cancelled: { label: 'Cancelled', bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
+  completed: { label: 'Completed', bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
+  no_show: { label: 'No Show', bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED', dot: '#80868B' },
   rescheduled: { label: 'Rescheduled', bg: '#F3E8FD', color: '#6E2DB8', border: '#D7AEFA', dot: '#9334E6' },
 }
 
 // ─── SUG-APPT-012: Service-specific pre-visit checklists ─────────────────────
 const SERVICE_CHECKLISTS = {
-  default: [
-    'Arrive 15 minutes early for check-in',
-    'Bring a valid photo ID',
-    'Bring your insurance card',
-    'List any current medications',
-  ],
+  default: ['Arrive 15 minutes early for check-in', 'Bring a valid photo ID', 'Bring your insurance card', 'List any current medications'],
   'GP Consultation': [
     'Arrive 15 minutes early for check-in',
     'Bring a valid photo ID and insurance card',
@@ -125,7 +164,7 @@ const SERVICE_CHECKLISTS = {
     'Bring your referral letter if applicable',
     'Confidentiality: sessions are private unless safety is at risk',
   ],
-  'Physiotherapy': [
+  Physiotherapy: [
     'Wear comfortable, loose-fitting clothing',
     'Bring your referral letter or X-ray/MRI reports',
     'List any medications you are currently taking',
@@ -133,26 +172,26 @@ const SERVICE_CHECKLISTS = {
     'Arrive 5 minutes early to complete intake paperwork',
   ],
   'Child Health': [
-    'Bring the child\'s immunization record',
+    "Bring the child's immunization record",
     'Bring a valid photo ID for the parent/guardian',
     'Note any recent illnesses or medications',
-    'Bring the child\'s Medicare/insurance card',
+    "Bring the child's Medicare/insurance card",
     'Allow extra time for the child to settle',
   ],
-  'Dermatology': [
+  Dermatology: [
     'Remove nail polish from toenails if foot concern',
     'Arrive without make-up if face is being assessed',
     'Bring photos of any rash or lesion history',
     'List any topical creams or treatments currently used',
   ],
-  'Dental': [
+  Dental: [
     'Brush and floss before your appointment',
     'Bring a list of any medications you take',
     'Note any tooth pain, sensitivity, or bleeding gums',
     'Bring previous dental X-rays if available',
     'Inform us if you have any dental anxiety',
   ],
-  'Cardiology': [
+  Cardiology: [
     'Avoid caffeine 24 hours before stress tests',
     'Bring a list of current medications',
     'Bring previous ECG or echo results if available',
@@ -168,7 +207,7 @@ const SERVICE_CHECKLISTS = {
   'Lab Test': [
     'Fast for 8–12 hours if a fasting blood test is required',
     'Drink plenty of water (unless instructed otherwise)',
-    'Bring your referral form or doctor\'s request',
+    "Bring your referral form or doctor's request",
     'Avoid strenuous exercise 24 hours before',
   ],
 }
@@ -177,9 +216,8 @@ function getChecklist(serviceName) {
   if (!serviceName) return SERVICE_CHECKLISTS.default
   // Try exact match first, then partial match
   if (SERVICE_CHECKLISTS[serviceName]) return SERVICE_CHECKLISTS[serviceName]
-  const key = Object.keys(SERVICE_CHECKLISTS).find(k =>
-    serviceName.toLowerCase().includes(k.toLowerCase()) ||
-    k.toLowerCase().includes(serviceName.toLowerCase())
+  const key = Object.keys(SERVICE_CHECKLISTS).find(
+    (k) => serviceName.toLowerCase().includes(k.toLowerCase()) || k.toLowerCase().includes(serviceName.toLowerCase()),
   )
   return key ? SERVICE_CHECKLISTS[key] : SERVICE_CHECKLISTS.default
 }
@@ -189,14 +227,25 @@ function InfoTile({ icon, label, value }) {
   if (!value) return null
   return (
     <Stack direction="row" spacing={1.5} alignItems="flex-start">
-      <Box sx={{
-        width: 36, height: 36, borderRadius: 2, bgcolor: 'rgba(0,109,119,0.08)',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
-      }}>
+      <Box
+        sx={{
+          width: 36,
+          height: 36,
+          borderRadius: 2,
+          bgcolor: 'rgba(0,109,119,0.08)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          flexShrink: 0,
+        }}
+      >
         {icon}
       </Box>
       <Box>
-        <Typography variant="caption" sx={{ color: '#9AA0A6', fontWeight: 700, fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+        <Typography
+          variant="caption"
+          sx={{ color: '#9AA0A6', fontWeight: 700, fontSize: '0.62rem', textTransform: 'uppercase', letterSpacing: '0.06em' }}
+        >
           {label}
         </Typography>
         <Typography variant="body2" fontWeight={600} sx={{ color: '#202124', lineHeight: 1.3 }}>
@@ -210,15 +259,27 @@ function InfoTile({ icon, label, value }) {
 // ─── Section card ─────────────────────────────────────────────────────────────
 function Card({ children, accent, sx = {} }) {
   return (
-    <Paper elevation={0} sx={{
-      borderRadius: 3, border: '1px solid #E8EAED',
-      overflow: 'hidden', position: 'relative',
-      '&::before': accent ? {
-        content: '""', position: 'absolute', top: 0, left: 0, right: 0,
-        height: 3, background: accent,
-      } : {},
-      ...sx,
-    }}>
+    <Paper
+      elevation={0}
+      sx={{
+        borderRadius: 3,
+        border: '1px solid #E8EAED',
+        overflow: 'hidden',
+        position: 'relative',
+        '&::before': accent
+          ? {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              height: 3,
+              background: accent,
+            }
+          : {},
+        ...sx,
+      }}
+    >
       {children}
     </Paper>
   )
@@ -227,7 +288,7 @@ function Card({ children, accent, sx = {} }) {
 // ─── SUG-APPT-010: Reschedule Dialog ─────────────────────────────────────────
 function RescheduleDialog({ open, apt, onClose, onSave }) {
   const [newStart, setNewStart] = useState(apt?.start_datetime ? dayjs(apt.start_datetime) : dayjs())
-  const [newEnd, setNewEnd]     = useState(apt?.end_datetime   ? dayjs(apt.end_datetime)   : dayjs().add(apt?.duration_minutes ?? 30, 'minute'))
+  const [newEnd, setNewEnd] = useState(apt?.end_datetime ? dayjs(apt.end_datetime) : dayjs().add(apt?.duration_minutes ?? 30, 'minute'))
   const endBeforeStart = newEnd && newStart && !newEnd.isAfter(newStart)
 
   return (
@@ -239,8 +300,8 @@ function RescheduleDialog({ open, apt, onClose, onSave }) {
         </DialogTitle>
         <DialogContent sx={{ pt: 1 }}>
           <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-            Select a new date and time for <strong>{apt?.patient?.full_name ?? 'this appointment'}</strong>.
-            Current: {apt?.start_datetime ? dayjs(apt.start_datetime).format('ddd DD MMM YYYY, h:mm A') : '—'}
+            Select a new date and time for <strong>{apt?.patient?.full_name ?? 'this appointment'}</strong>. Current:{' '}
+            {apt?.start_datetime ? dayjs(apt.start_datetime).format('ddd DD MMM YYYY, h:mm A') : '—'}
           </Typography>
           <Stack spacing={2.5}>
             <DateTimePicker
@@ -255,10 +316,12 @@ function RescheduleDialog({ open, apt, onClose, onSave }) {
               onChange={setNewEnd}
               slotProps={{
                 textField: {
-                  fullWidth: true, size: 'small', required: true,
+                  fullWidth: true,
+                  size: 'small',
+                  required: true,
                   error: endBeforeStart,
                   helperText: endBeforeStart ? 'End time must be after start time' : '',
-                }
+                },
               }}
             />
           </Stack>
@@ -272,7 +335,8 @@ function RescheduleDialog({ open, apt, onClose, onSave }) {
             variant="contained"
             disabled={endBeforeStart || !newStart || !newEnd}
             sx={{
-              borderRadius: 2, fontWeight: 700,
+              borderRadius: 2,
+              fontWeight: 700,
               background: 'linear-gradient(135deg,#9334E6,#7627C8)',
               '&:hover': { background: 'linear-gradient(135deg,#7627C8,#5E1FA0)' },
             }}
@@ -315,7 +379,11 @@ function ReminderDialog({ open, onClose, onSend, patientEmail, patientPhone }) {
                   <Typography variant="body2" fontWeight={600}>
                     Email {!hasEmail && <Chip label="No email on file" size="small" sx={{ ml: 1, fontSize: '0.65rem', height: 18 }} />}
                   </Typography>
-                  {hasEmail && <Typography variant="caption" color="text.secondary">{patientEmail}</Typography>}
+                  {hasEmail && (
+                    <Typography variant="caption" color="text.secondary">
+                      {patientEmail}
+                    </Typography>
+                  )}
                 </Box>
               }
             />
@@ -328,7 +396,11 @@ function ReminderDialog({ open, onClose, onSend, patientEmail, patientPhone }) {
                   <Typography variant="body2" fontWeight={600}>
                     SMS {!hasPhone && <Chip label="No phone on file" size="small" sx={{ ml: 1, fontSize: '0.65rem', height: 18 }} />}
                   </Typography>
-                  {hasPhone && <Typography variant="caption" color="text.secondary">{patientPhone}</Typography>}
+                  {hasPhone && (
+                    <Typography variant="caption" color="text.secondary">
+                      {patientPhone}
+                    </Typography>
+                  )}
                 </Box>
               }
             />
@@ -343,7 +415,8 @@ function ReminderDialog({ open, onClose, onSend, patientEmail, patientPhone }) {
           onClick={() => onSend(channel)}
           variant="contained"
           sx={{
-            borderRadius: 2, fontWeight: 700,
+            borderRadius: 2,
+            fontWeight: 700,
             background: 'linear-gradient(135deg,#006D77,#00858F)',
             '&:hover': { background: 'linear-gradient(135deg,#005A62,#006D77)' },
           }}
@@ -357,7 +430,7 @@ function ReminderDialog({ open, onClose, onSend, patientEmail, patientPhone }) {
 
 // ─── AppointmentDetailPage ────────────────────────────────────────────────────
 export default function AppointmentDetailPage() {
-  const { id }   = useParams()
+  const { id } = useParams()
   const navigate = useNavigate()
   const { hasRole } = useAuth()
   const { enqueueSnackbar } = useSnackbar()
@@ -386,30 +459,41 @@ export default function AppointmentDetailPage() {
   const [lastPaymentId, setLastPaymentId] = useState(null)
 
   const { data, loading, refetch } = useQuery(APPOINTMENT_DETAIL_QUERY, {
-    variables: { id }, skip: !id, fetchPolicy: 'network-only',
+    variables: { id },
+    skip: !id,
+    fetchPolicy: 'network-only',
   })
 
   const mockIdx = id?.startsWith('mock-') ? parseInt(id.replace(/^mock-/, ''), 10) : null
   const allMockApts = mockIdx !== null ? MockStore.getAppointments() : []
-  const apt = data?.appointment
-    ?? MockStore.getAppointmentById(id)
-    ?? (mockIdx !== null && allMockApts.length ? allMockApts[mockIdx % allMockApts.length] : null)
+  const apt =
+    data?.appointment ??
+    MockStore.getAppointmentById(id) ??
+    (mockIdx !== null && allMockApts.length ? allMockApts[mockIdx % allMockApts.length] : null)
 
-  const statusCfg  = STATUS_CFG[apt?.status] ?? STATUS_CFG.pending
+  const statusCfg = STATUS_CFG[apt?.status] ?? STATUS_CFG.pending
   const isTerminal = ['cancelled', 'completed', 'no_show'].includes(apt?.status)
 
   const [completeAppointment] = useMutation(COMPLETE_APPOINTMENT_MUTATION, {
-    onCompleted: () => { enqueueSnackbar('Marked completed', { variant: 'success' }); refetch() }
+    onCompleted: () => {
+      enqueueSnackbar('Marked completed', { variant: 'success' })
+      refetch()
+    },
   })
 
   const [recordCounterPayment, { loading: recordingPayment }] = useMutation(RECORD_COUNTER_PAYMENT_MUTATION, {
     onCompleted: (d) => {
       const result = d?.recordCounterPayment
-      if (!result?.success) { setPaymentError(result?.message ?? 'Failed to record payment'); return }
+      if (!result?.success) {
+        setPaymentError(result?.message ?? 'Failed to record payment')
+        return
+      }
       if (result.pending_approval_id) {
         // REQ056 (US-BIL-03) — a discount above the org's threshold was
         // queued for manager approval, not applied. No payment exists yet.
-        setPaymentInfo('This discount exceeds the auto-approval threshold — it has been sent to a manager for approval. No payment has been recorded yet.')
+        setPaymentInfo(
+          'This discount exceeds the auto-approval threshold — it has been sent to a manager for approval. No payment has been recorded yet.',
+        )
         setPaymentError(null)
         return
       }
@@ -437,13 +521,14 @@ export default function AppointmentDetailPage() {
     skip: !paymentDialogOpen || !apt?.patient?.id,
     fetchPolicy: 'network-only',
   })
-  const availablePatientPackages = (patientPackagesData?.patientPackages ?? []).filter(
-    (pp) => pp.sittings_remaining > 0 && !pp.is_expired,
-  )
+  const availablePatientPackages = (patientPackagesData?.patientPackages ?? []).filter((pp) => pp.sittings_remaining > 0 && !pp.is_expired)
   const [redeemPackageSitting, { loading: redeemingPackage }] = useMutation(REDEEM_PACKAGE_SITTING_MUTATION, {
     onCompleted: (d) => {
       const result = d?.redeemPackageSitting
-      if (!result?.success) { setPaymentError(result?.message ?? 'Failed to redeem package sitting'); return }
+      if (!result?.success) {
+        setPaymentError(result?.message ?? 'Failed to redeem package sitting')
+        return
+      }
       enqueueSnackbar(`Package sitting redeemed — ${result.sittings_remaining} remaining`, { variant: 'success' })
       setPaymentDialogOpen(false)
       setSelectedPatientPackageId('')
@@ -456,10 +541,12 @@ export default function AppointmentDetailPage() {
 
   // REQ051 (US-QUE-06) — pre-visit checklist.
   const { data: checklistData } = useQuery(CHECKLIST_ITEMS_QUERY, {
-    variables: { clinic_id: apt?.clinic?.id }, skip: !apt?.clinic?.id,
+    variables: { clinic_id: apt?.clinic?.id },
+    skip: !apt?.clinic?.id,
   })
   const { data: completionsData, refetch: refetchCompletions } = useQuery(CHECKLIST_COMPLETIONS_QUERY, {
-    variables: { appointment_id: apt?.id }, skip: !apt?.id,
+    variables: { appointment_id: apt?.id },
+    skip: !apt?.id,
   })
   const [completeChecklistItem] = useMutation(COMPLETE_CHECKLIST_ITEM_MUTATION, {
     onCompleted: (d) => {
@@ -485,13 +572,19 @@ export default function AppointmentDetailPage() {
     }
   }
 
-  const [markNoShow]          = useMutation(MARK_NO_SHOW_MUTATION, {
-    onCompleted: () => { enqueueSnackbar('Marked no-show', { variant: 'warning' }); refetch() }
+  const [markNoShow] = useMutation(MARK_NO_SHOW_MUTATION, {
+    onCompleted: () => {
+      enqueueSnackbar('Marked no-show', { variant: 'warning' })
+      refetch()
+    },
   })
-  const [cancelAppointment]   = useMutation(CANCEL_APPOINTMENT_MUTATION, {
-    onCompleted: () => { setCancelOpen(false); refetch() }
+  const [cancelAppointment] = useMutation(CANCEL_APPOINTMENT_MUTATION, {
+    onCompleted: () => {
+      setCancelOpen(false)
+      refetch()
+    },
   })
-  const [updateAppointment]   = useMutation(UPDATE_APPOINTMENT_MUTATION)
+  const [updateAppointment] = useMutation(UPDATE_APPOINTMENT_MUTATION)
 
   // NEW-APPT-004: Send Reminder with channel selection
   const handleSendReminder = (channel) => {
@@ -499,9 +592,7 @@ export default function AppointmentDetailPage() {
     setReminderSending(true)
     setTimeout(() => {
       setReminderSending(false)
-      const contact = channel === 'sms'
-        ? (apt?.patient?.phone ?? 'patient phone')
-        : (apt?.patient?.email ?? 'patient email')
+      const contact = channel === 'sms' ? (apt?.patient?.phone ?? 'patient phone') : (apt?.patient?.email ?? 'patient email')
       enqueueSnackbar(`Reminder sent via ${channel.toUpperCase()} to ${contact}`, { variant: 'success' })
     }, 1500)
   }
@@ -523,27 +614,43 @@ export default function AppointmentDetailPage() {
     }
   }
 
-  const initials = (name) => name?.split(' ').map(n => n[0]).join('').toUpperCase().slice(0, 2) ?? '?'
+  const initials = (name) =>
+    name
+      ?.split(' ')
+      .map((n) => n[0])
+      .join('')
+      .toUpperCase()
+      .slice(0, 2) ?? '?'
 
-  if (loading && !apt) return (
-    <Box className="page-enter">
-      <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
-      <Grid container spacing={3}>
-        {[1,2,3].map(i => <Grid key={i} item xs={12} md={i === 3 ? 4 : 8}><Skeleton variant="rectangular" height={200} sx={{ borderRadius: 3 }} /></Grid>)}
-      </Grid>
-    </Box>
-  )
+  if (loading && !apt)
+    return (
+      <Box className="page-enter">
+        <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
+        <Grid container spacing={3}>
+          {[1, 2, 3].map((i) => (
+            <Grid key={i} item xs={12} md={i === 3 ? 4 : 8}>
+              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 3 }} />
+            </Grid>
+          ))}
+        </Grid>
+      </Box>
+    )
 
-  if (!apt) return (
-    <Box sx={{ textAlign: 'center', py: 10 }}>
-      <CalendarMonthRoundedIcon sx={{ fontSize: 64, color: '#DADCE0', mb: 2 }} />
-      <Typography variant="h6" color="text.secondary">Appointment not found</Typography>
-      <Button sx={{ mt: 2 }} onClick={() => navigate('/appointments')}>← Back</Button>
-    </Box>
-  )
+  if (!apt)
+    return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <CalendarMonthRoundedIcon sx={{ fontSize: 64, color: '#DADCE0', mb: 2 }} />
+        <Typography variant="h6" color="text.secondary">
+          Appointment not found
+        </Typography>
+        <Button sx={{ mt: 2 }} onClick={() => navigate('/appointments')}>
+          ← Back
+        </Button>
+      </Box>
+    )
 
-  const startDt  = dayjs(apt.start_datetime)
-  const endDt    = apt.end_datetime ? dayjs(apt.end_datetime) : startDt.add(apt.duration_minutes ?? 15, 'minute')
+  const startDt = dayjs(apt.start_datetime)
+  const endDt = apt.end_datetime ? dayjs(apt.end_datetime) : startDt.add(apt.duration_minutes ?? 15, 'minute')
   const duration = apt.duration_minutes ?? apt.service?.duration_minutes
 
   // SUG-APPT-012: Get service-specific checklist
@@ -551,13 +658,17 @@ export default function AppointmentDetailPage() {
 
   return (
     <Box className="page-enter" sx={{ pb: 6 }}>
-      <Helmet><title>Appointment #{id?.slice(-6)} — MediBook</title></Helmet>
+      <Helmet>
+        <title>Appointment #{id?.slice(-6)} — MediBook</title>
+      </Helmet>
 
       {/* ── Header bar ─────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 3.5, flexWrap: 'wrap', gap: 1.5 }}>
         <Stack direction="row" spacing={1.5} alignItems="center">
-          <IconButton onClick={() => navigate('/appointments')}
-            sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' }, flexShrink: 0 }}>
+          <IconButton
+            onClick={() => navigate('/appointments')}
+            sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' }, flexShrink: 0 }}
+          >
             <ArrowBackRoundedIcon />
           </IconButton>
           <Box>
@@ -570,23 +681,49 @@ export default function AppointmentDetailPage() {
           </Box>
         </Stack>
         <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-          <Chip label={statusCfg.label} sx={{
-            bgcolor: statusCfg.bg, color: statusCfg.color,
-            border: `1px solid ${statusCfg.border}`, borderLeft: `4px solid ${statusCfg.dot}`,
-            fontWeight: 800, borderRadius: '10px', fontSize: '0.78rem', height: 30,
-          }} />
+          <Chip
+            label={statusCfg.label}
+            sx={{
+              bgcolor: statusCfg.bg,
+              color: statusCfg.color,
+              border: `1px solid ${statusCfg.border}`,
+              borderLeft: `4px solid ${statusCfg.dot}`,
+              fontWeight: 800,
+              borderRadius: '10px',
+              fontSize: '0.78rem',
+              height: 30,
+            }}
+          />
           <Tooltip title="Print appointment details">
-            <Button variant="outlined" startIcon={<PrintRoundedIcon />}
+            <Button
+              variant="outlined"
+              startIcon={<PrintRoundedIcon />}
               onClick={() => window.print()}
               aria-label="Print appointment details"
-              sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, borderColor: '#E8EAED', color: '#5F6368', '&:hover': { bgcolor: '#F1F3F4', borderColor: '#BDC1C6' } }}
+              sx={{
+                borderRadius: 2.5,
+                textTransform: 'none',
+                fontWeight: 700,
+                borderColor: '#E8EAED',
+                color: '#5F6368',
+                '&:hover': { bgcolor: '#F1F3F4', borderColor: '#BDC1C6' },
+              }}
             >
               Print
             </Button>
           </Tooltip>
-          <Button variant="outlined" startIcon={<EditRoundedIcon />}
+          <Button
+            variant="outlined"
+            startIcon={<EditRoundedIcon />}
             onClick={() => navigate(`/appointments/${id}/edit`)}
-            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, borderColor: '#E8EAED', color: '#5F6368', '&:hover': { bgcolor: '#F1F3F4', borderColor: '#BDC1C6' } }}
+            sx={{
+              borderRadius: 2.5,
+              textTransform: 'none',
+              fontWeight: 700,
+              borderColor: '#E8EAED',
+              color: '#5F6368',
+              '&:hover': { bgcolor: '#F1F3F4', borderColor: '#BDC1C6' },
+            }}
           >
             Edit
           </Button>
@@ -596,32 +733,52 @@ export default function AppointmentDetailPage() {
       <Grid container spacing={3}>
         {/* ── LEFT COLUMN (65%) ────────────────────────────────────────── */}
         <Grid item xs={12} md={8}>
-
           {/* Patient card */}
           <Card accent="linear-gradient(90deg,#006D77,#00858F)" sx={{ mb: 3 }}>
             <Box sx={{ p: 3 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ sm: 'flex-start' }} justifyContent="space-between">
                 {/* Avatar + name */}
                 <Stack direction="row" spacing={2.5} alignItems="center">
-                  <Avatar src={apt.patient?.avatar_url} sx={{
-                    width: 72, height: 72, bgcolor: '#006D77', fontSize: '1.4rem', fontWeight: 800,
-                    border: '3px solid rgba(0,109,119,0.15)', boxShadow: '0 4px 14px rgba(0,109,119,0.2)',
-                  }}>
+                  <Avatar
+                    src={apt.patient?.avatar_url}
+                    sx={{
+                      width: 72,
+                      height: 72,
+                      bgcolor: '#006D77',
+                      fontSize: '1.4rem',
+                      fontWeight: 800,
+                      border: '3px solid rgba(0,109,119,0.15)',
+                      boxShadow: '0 4px 14px rgba(0,109,119,0.2)',
+                    }}
+                  >
                     {initials(apt.patient?.full_name)}
                   </Avatar>
                   <Box>
                     <Typography variant="h5" fontWeight={800} sx={{ color: '#202124', lineHeight: 1.2 }}>
                       {apt.patient?.full_name ?? '—'}
                     </Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>Patient</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      Patient
+                    </Typography>
                     <Stack direction="row" spacing={0.75} flexWrap="wrap">
-                      <Chip label={statusCfg.label} size="small" sx={{
-                        bgcolor: statusCfg.bg, color: statusCfg.color, border: `1px solid ${statusCfg.border}`,
-                        fontWeight: 700, fontSize: '0.68rem', height: 22,
-                      }} />
+                      <Chip
+                        label={statusCfg.label}
+                        size="small"
+                        sx={{
+                          bgcolor: statusCfg.bg,
+                          color: statusCfg.color,
+                          border: `1px solid ${statusCfg.border}`,
+                          fontWeight: 700,
+                          fontSize: '0.68rem',
+                          height: 22,
+                        }}
+                      />
                       {apt.patient?.date_of_birth && (
-                        <Chip label={`${dayjs().diff(apt.patient.date_of_birth, 'year')} yrs`} size="small"
-                          sx={{ bgcolor: '#F1F3F4', color: '#3C4043', fontWeight: 600, fontSize: '0.68rem', height: 22 }} />
+                        <Chip
+                          label={`${dayjs().diff(apt.patient.date_of_birth, 'year')} yrs`}
+                          size="small"
+                          sx={{ bgcolor: '#F1F3F4', color: '#3C4043', fontWeight: 600, fontSize: '0.68rem', height: 22 }}
+                        />
                       )}
                     </Stack>
                   </Box>
@@ -632,16 +789,25 @@ export default function AppointmentDetailPage() {
               <Box sx={{ mt: 3, pt: 2.5, borderTop: '1px solid #F1F3F4' }}>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}>
-                    <InfoTile icon={<CalendarMonthRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                      label="Date" value={startDt.format('ddd, DD MMM YYYY')} />
+                    <InfoTile
+                      icon={<CalendarMonthRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                      label="Date"
+                      value={startDt.format('ddd, DD MMM YYYY')}
+                    />
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                    <InfoTile icon={<AccessTimeRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                      label="Time" value={`${startDt.format('h:mm A')} – ${endDt.format('h:mm A')} (${duration ?? '?'} min)`} />
+                    <InfoTile
+                      icon={<AccessTimeRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                      label="Time"
+                      value={`${startDt.format('h:mm A')} – ${endDt.format('h:mm A')} (${duration ?? '?'} min)`}
+                    />
                   </Grid>
                   <Grid item xs={12} sm={4}>
-                    <InfoTile icon={<MedicalServicesRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                      label="Service" value={apt.service?.name} />
+                    <InfoTile
+                      icon={<MedicalServicesRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                      label="Service"
+                      value={apt.service?.name}
+                    />
                   </Grid>
                 </Grid>
               </Box>
@@ -653,20 +819,29 @@ export default function AppointmentDetailPage() {
               <Grid container spacing={2}>
                 {apt.patient?.email && (
                   <Grid item xs={12} sm={4}>
-                    <InfoTile icon={<EmailRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                      label="Email" value={apt.patient.email} />
+                    <InfoTile
+                      icon={<EmailRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                      label="Email"
+                      value={apt.patient.email}
+                    />
                   </Grid>
                 )}
                 {apt.patient?.phone && (
                   <Grid item xs={12} sm={4}>
-                    <InfoTile icon={<PhoneRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                      label="Phone" value={apt.patient.phone} />
+                    <InfoTile
+                      icon={<PhoneRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                      label="Phone"
+                      value={apt.patient.phone}
+                    />
                   </Grid>
                 )}
                 {apt.patient?.date_of_birth && (
                   <Grid item xs={12} sm={4}>
-                    <InfoTile icon={<TimerRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                      label="Date of Birth" value={dayjs(apt.patient.date_of_birth).format('DD MMM YYYY')} />
+                    <InfoTile
+                      icon={<TimerRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                      label="Date of Birth"
+                      value={dayjs(apt.patient.date_of_birth).format('DD MMM YYYY')}
+                    />
                   </Grid>
                 )}
               </Grid>
@@ -683,10 +858,14 @@ export default function AppointmentDetailPage() {
                     Notes &amp; Instructions
                   </Typography>
                 </Stack>
-                <Box sx={{
-                  bgcolor: 'rgba(147,52,230,0.04)', p: 2.5, borderRadius: 2,
-                  borderLeft: '4px solid #9334E6',
-                }}>
+                <Box
+                  sx={{
+                    bgcolor: 'rgba(147,52,230,0.04)',
+                    p: 2.5,
+                    borderRadius: 2,
+                    borderLeft: '4px solid #9334E6',
+                  }}
+                >
                   <Typography variant="body2" sx={{ color: '#3C4043', lineHeight: 1.75, fontStyle: 'italic' }}>
                     "{apt.notes}"
                   </Typography>
@@ -702,24 +881,43 @@ export default function AppointmentDetailPage() {
                 <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#202124', mb: 2.5 }}>
                   Patient Timeline
                 </Typography>
-                <Box sx={{ position: 'relative', '&::before': { content: '""', position: 'absolute', left: 11, top: 4, bottom: 4, width: 2, bgcolor: '#F1F3F4' } }}>
+                <Box
+                  sx={{
+                    position: 'relative',
+                    '&::before': { content: '""', position: 'absolute', left: 11, top: 4, bottom: 4, width: 2, bgcolor: '#F1F3F4' },
+                  }}
+                >
                   {apt.status_logs.map((log, idx) => {
                     const cfg = STATUS_CFG[log.status] ?? { dot: '#9AA0A6', label: log.status, color: '#3C4043' }
                     const isLast = idx === apt.status_logs.length - 1
                     return (
                       <Stack key={log.id ?? idx} direction="row" spacing={2} sx={{ position: 'relative', zIndex: 1, pb: isLast ? 0 : 2.5 }}>
-                        <Box sx={{
-                          width: 24, height: 24, borderRadius: '50%', flexShrink: 0, mt: 0.25,
-                          bgcolor: cfg.dot, border: '3px solid #fff', boxShadow: '0 0 0 2px ' + cfg.dot + '40',
-                          display: 'flex', alignItems: 'center', justifyContent: 'center',
-                        }}>
+                        <Box
+                          sx={{
+                            width: 24,
+                            height: 24,
+                            borderRadius: '50%',
+                            flexShrink: 0,
+                            mt: 0.25,
+                            bgcolor: cfg.dot,
+                            border: '3px solid #fff',
+                            boxShadow: '0 0 0 2px ' + cfg.dot + '40',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                          }}
+                        >
                           <CheckCircleRoundedIcon sx={{ fontSize: '0.75rem', color: '#fff' }} />
                         </Box>
                         <Box>
                           <Typography variant="body2" fontWeight={700} sx={{ color: cfg.color ?? '#202124', textTransform: 'capitalize' }}>
                             {log.status?.replace('_', ' ')}
                           </Typography>
-                          {log.reason && <Typography variant="caption" color="text.secondary" display="block">{log.reason}</Typography>}
+                          {log.reason && (
+                            <Typography variant="caption" color="text.secondary" display="block">
+                              {log.reason}
+                            </Typography>
+                          )}
                           <Typography variant="caption" color="text.disabled">
                             {dayjs(log.created_at).format('DD MMM YYYY, h:mm A')}
                             {log.changed_by_user ? ` · ${log.changed_by_user.name}` : ''}
@@ -736,18 +934,26 @@ export default function AppointmentDetailPage() {
 
         {/* ── RIGHT COLUMN (35%) ───────────────────────────────────────── */}
         <Grid item xs={12} md={4}>
-
           {/* Clinician card */}
           <Card accent="linear-gradient(90deg,#0F9D58,#0B8043)" sx={{ mb: 3 }}>
             <Box sx={{ p: 3 }}>
-              <Typography variant="caption" sx={{ color: '#9AA0A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.65rem' }}>
+              <Typography
+                variant="caption"
+                sx={{ color: '#9AA0A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.65rem' }}
+              >
                 Assigned Clinician
               </Typography>
               <Stack direction="row" spacing={2} alignItems="center" sx={{ mt: 1.5 }}>
-                <Avatar src={apt.clinician?.avatar_url} sx={{
-                  width: 56, height: 56, bgcolor: '#0F9D58', fontWeight: 800,
-                  border: '2px solid rgba(15,157,88,0.2)',
-                }}>
+                <Avatar
+                  src={apt.clinician?.avatar_url}
+                  sx={{
+                    width: 56,
+                    height: 56,
+                    bgcolor: '#0F9D58',
+                    fontWeight: 800,
+                    border: '2px solid rgba(15,157,88,0.2)',
+                  }}
+                >
                   {initials(apt.clinician?.full_name)}
                 </Avatar>
                 <Box>
@@ -763,7 +969,9 @@ export default function AppointmentDetailPage() {
                     <StarRoundedIcon sx={{ color: '#F9AB00', fontSize: '0.95rem' }} />
                     <StarRoundedIcon sx={{ color: '#F9AB00', fontSize: '0.95rem' }} />
                     <StarRoundedIcon sx={{ color: '#F9AB00', fontSize: '0.95rem' }} />
-                    <Typography variant="caption" sx={{ color: '#5F6368', ml: 0.5 }}>5.0</Typography>
+                    <Typography variant="caption" sx={{ color: '#5F6368', ml: 0.5 }}>
+                      5.0
+                    </Typography>
                   </Stack>
                 </Box>
               </Stack>
@@ -780,19 +988,37 @@ export default function AppointmentDetailPage() {
                 </Typography>
               </Stack>
               <Stack spacing={2}>
-                <InfoTile icon={<CalendarMonthRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                  label="Date" value={startDt.format('dddd, DD MMM YYYY')} />
-                <InfoTile icon={<AccessTimeRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                  label="Time" value={`${startDt.format('h:mm A')} – ${endDt.format('h:mm A')}`} />
-                <InfoTile icon={<TimerRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                  label="Duration" value={`${duration ?? '—'} min`} />
+                <InfoTile
+                  icon={<CalendarMonthRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                  label="Date"
+                  value={startDt.format('dddd, DD MMM YYYY')}
+                />
+                <InfoTile
+                  icon={<AccessTimeRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                  label="Time"
+                  value={`${startDt.format('h:mm A')} – ${endDt.format('h:mm A')}`}
+                />
+                <InfoTile
+                  icon={<TimerRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                  label="Duration"
+                  value={`${duration ?? '—'} min`}
+                />
                 <Divider />
-                <InfoTile icon={<MedicalServicesRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                  label="Service" value={apt.service?.name} />
-                <InfoTile icon={<MeetingRoomRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                  label="Room" value={apt.room?.name} />
-                <InfoTile icon={<LocalHospitalRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
-                  label="Clinic" value={apt.clinic?.name} />
+                <InfoTile
+                  icon={<MedicalServicesRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                  label="Service"
+                  value={apt.service?.name}
+                />
+                <InfoTile
+                  icon={<MeetingRoomRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                  label="Room"
+                  value={apt.room?.name}
+                />
+                <InfoTile
+                  icon={<LocalHospitalRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />}
+                  label="Clinic"
+                  value={apt.clinic?.name}
+                />
               </Stack>
             </Box>
           </Card>
@@ -808,9 +1034,16 @@ export default function AppointmentDetailPage() {
                   {/* REQ020: consultation workspace entry point — clinician-only,
                       matches EncounterWorkspace's own role gate. */}
                   {hasRole('clinician') && (
-                    <Button fullWidth variant="contained" startIcon={<MonitorHeartRoundedIcon />}
+                    <Button
+                      fullWidth
+                      variant="contained"
+                      startIcon={<MonitorHeartRoundedIcon />}
                       onClick={() => navigate(`/clinician/encounters/${apt.id}`)}
-                      sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
+                      sx={{
+                        borderRadius: 2.5,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        py: 1.25,
                         background: 'linear-gradient(135deg,#006D77,#004E56)',
                         '&:hover': { background: 'linear-gradient(135deg,#004E56,#003940)' },
                       }}
@@ -818,9 +1051,16 @@ export default function AppointmentDetailPage() {
                       Start Consultation
                     </Button>
                   )}
-                  <Button fullWidth variant="contained" startIcon={<TaskAltRoundedIcon />}
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    startIcon={<TaskAltRoundedIcon />}
                     onClick={() => completeAppointment({ variables: { id: apt.id } })}
-                    sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
+                    sx={{
+                      borderRadius: 2.5,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      py: 1.25,
                       background: 'linear-gradient(135deg,#0F9D58,#0B8043)',
                       '&:hover': { background: 'linear-gradient(135deg,#0B8043,#097A3D)', boxShadow: '0 4px 14px rgba(15,157,88,0.4)' },
                     }}
@@ -829,7 +1069,10 @@ export default function AppointmentDetailPage() {
                   </Button>
                   {/* REQ023 (US-BIL-01, scoped subset) — front-desk staff, not clinician */}
                   {(hasRole('staff') || hasRole('manager') || hasRole('admin') || hasRole('super_admin')) && apt.service?.price != null && (
-                    <Button fullWidth variant="outlined" startIcon={<PaymentsRoundedIcon />}
+                    <Button
+                      fullWidth
+                      variant="outlined"
+                      startIcon={<PaymentsRoundedIcon />}
                       onClick={() => {
                         setPaymentMode('tender')
                         setDiscountAmount('')
@@ -840,36 +1083,69 @@ export default function AppointmentDetailPage() {
                         setLastPaymentId(null)
                         setPaymentDialogOpen(true)
                       }}
-                      sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
-                        borderColor: '#0F9D58', color: '#0B8043', '&:hover': { bgcolor: 'rgba(15,157,88,0.06)', borderColor: '#0F9D58' },
+                      sx={{
+                        borderRadius: 2.5,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        py: 1.25,
+                        borderColor: '#0F9D58',
+                        color: '#0B8043',
+                        '&:hover': { bgcolor: 'rgba(15,157,88,0.06)', borderColor: '#0F9D58' },
                       }}
                     >
                       Take Payment
                     </Button>
                   )}
-                  <Button fullWidth variant="outlined" startIcon={<PersonOffRoundedIcon />}
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<PersonOffRoundedIcon />}
                     onClick={() => markNoShow({ variables: { id: apt.id } })}
-                    sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
-                      borderColor: '#F9AB00', color: '#8A4700', '&:hover': { bgcolor: '#FEF7E0', borderColor: '#F9AB00' },
+                    sx={{
+                      borderRadius: 2.5,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      py: 1.25,
+                      borderColor: '#F9AB00',
+                      color: '#8A4700',
+                      '&:hover': { bgcolor: '#FEF7E0', borderColor: '#F9AB00' },
                     }}
                   >
                     Mark No Show
                   </Button>
 
                   {/* SUG-APPT-010: Reschedule button */}
-                  <Button fullWidth variant="outlined" startIcon={<EventRepeatRoundedIcon />}
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<EventRepeatRoundedIcon />}
                     onClick={() => setRescheduleOpen(true)}
-                    sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
-                      borderColor: '#9334E6', color: '#9334E6', '&:hover': { bgcolor: 'rgba(147,52,230,0.06)', borderColor: '#9334E6' },
+                    sx={{
+                      borderRadius: 2.5,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      py: 1.25,
+                      borderColor: '#9334E6',
+                      color: '#9334E6',
+                      '&:hover': { bgcolor: 'rgba(147,52,230,0.06)', borderColor: '#9334E6' },
                     }}
                   >
                     Reschedule
                   </Button>
 
-                  <Button fullWidth variant="outlined" startIcon={<CancelRoundedIcon />}
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<CancelRoundedIcon />}
                     onClick={() => setCancelOpen(true)}
-                    sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
-                      borderColor: '#D93025', color: '#D93025', '&:hover': { bgcolor: '#FCE8E6', borderColor: '#D93025' },
+                    sx={{
+                      borderRadius: 2.5,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      py: 1.25,
+                      borderColor: '#D93025',
+                      color: '#D93025',
+                      '&:hover': { bgcolor: '#FCE8E6', borderColor: '#D93025' },
                     }}
                   >
                     Cancel Appointment
@@ -884,8 +1160,12 @@ export default function AppointmentDetailPage() {
                     disabled={reminderSending}
                     aria-label="Send appointment reminder to patient"
                     sx={{
-                      borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25,
-                      borderColor: '#006D77', color: '#006D77',
+                      borderRadius: 2.5,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      py: 1.25,
+                      borderColor: '#006D77',
+                      color: '#006D77',
                       '&:hover': { bgcolor: 'rgba(0,109,119,0.06)', borderColor: '#006D77' },
                     }}
                   >
@@ -923,8 +1203,16 @@ export default function AppointmentDetailPage() {
                           onChange={() => completeChecklistItem({ variables: { checklist_item_id: item.id, appointment_id: apt.id } })}
                           sx={{ p: 0.5, color: '#006D77', '&.Mui-checked': { color: '#0F9D58' } }}
                         />
-                        <Typography variant="body2" sx={{ color: done ? '#9AA0A6' : '#3C4043', textDecoration: done ? 'line-through' : 'none' }}>
-                          {item.label}{item.is_required && <Typography component="span" sx={{ color: '#D93025', ml: 0.5 }}>*</Typography>}
+                        <Typography
+                          variant="body2"
+                          sx={{ color: done ? '#9AA0A6' : '#3C4043', textDecoration: done ? 'line-through' : 'none' }}
+                        >
+                          {item.label}
+                          {item.is_required && (
+                            <Typography component="span" sx={{ color: '#D93025', ml: 0.5 }}>
+                              *
+                            </Typography>
+                          )}
                         </Typography>
                       </Stack>
                     )
@@ -957,7 +1245,9 @@ export default function AppointmentDetailPage() {
                     {checklist.map((item) => (
                       <Stack key={item} direction="row" spacing={1} alignItems="center">
                         <CheckCircleRoundedIcon sx={{ fontSize: '0.85rem', color: '#0F9D58', flexShrink: 0 }} />
-                        <Typography variant="caption" sx={{ color: '#3C4043', lineHeight: 1.5 }}>{item}</Typography>
+                        <Typography variant="caption" sx={{ color: '#3C4043', lineHeight: 1.5 }}>
+                          {item}
+                        </Typography>
                       </Stack>
                     ))}
                   </Stack>
@@ -976,12 +1266,7 @@ export default function AppointmentDetailPage() {
       />
 
       {/* SUG-APPT-010: Reschedule Dialog */}
-      <RescheduleDialog
-        open={rescheduleOpen}
-        apt={apt}
-        onClose={() => setRescheduleOpen(false)}
-        onSave={handleReschedule}
-      />
+      <RescheduleDialog open={rescheduleOpen} apt={apt} onClose={() => setRescheduleOpen(false)} onSave={handleReschedule} />
 
       {/* NEW-APPT-004: Reminder Channel Dialog */}
       <ReminderDialog
@@ -998,7 +1283,11 @@ export default function AppointmentDetailPage() {
           REQ056 (US-BIL-03) — optional discount fields on the tender path. */}
       <Dialog
         open={paymentDialogOpen}
-        onClose={() => { setPaymentDialogOpen(false); setPaymentInfo(null); setPaymentError(null) }}
+        onClose={() => {
+          setPaymentDialogOpen(false)
+          setPaymentInfo(null)
+          setPaymentError(null)
+        }}
         maxWidth="sm"
         fullWidth
       >
@@ -1013,12 +1302,24 @@ export default function AppointmentDetailPage() {
                 onChange={(_, v) => v && setPaymentMode(v)}
                 sx={{ alignSelf: 'flex-start' }}
               >
-                <ToggleButton value="tender" sx={{ textTransform: 'none', fontWeight: 700 }}>Pay by tender</ToggleButton>
-                <ToggleButton value="redeem" sx={{ textTransform: 'none', fontWeight: 700 }}>Redeem package sitting</ToggleButton>
+                <ToggleButton value="tender" sx={{ textTransform: 'none', fontWeight: 700 }}>
+                  Pay by tender
+                </ToggleButton>
+                <ToggleButton value="redeem" sx={{ textTransform: 'none', fontWeight: 700 }}>
+                  Redeem package sitting
+                </ToggleButton>
               </ToggleButtonGroup>
             )}
-            {paymentError && <Alert severity="error" onClose={() => setPaymentError(null)}>{paymentError}</Alert>}
-            {paymentInfo && <Alert severity="info" onClose={() => setPaymentInfo(null)}>{paymentInfo}</Alert>}
+            {paymentError && (
+              <Alert severity="error" onClose={() => setPaymentError(null)}>
+                {paymentError}
+              </Alert>
+            )}
+            {paymentInfo && (
+              <Alert severity="info" onClose={() => setPaymentInfo(null)}>
+                {paymentInfo}
+              </Alert>
+            )}
 
             {paymentMode === 'redeem' ? (
               <Stack spacing={2}>
@@ -1040,56 +1341,107 @@ export default function AppointmentDetailPage() {
                   ))}
                 </TextField>
               </Stack>
-            ) : (() => {
-              const amountDue = apt?.service?.price ?? 0
-              const discount = parseFloat(discountAmount) || 0
-              const netDue = Math.max(0, amountDue - discount)
-              const total = tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
-              const matches = Math.abs(total - netDue) < 0.005
-              return (
-                <Stack spacing={2}>
-                  <Typography variant="body2" color="text.secondary">
-                    Amount due: <strong>₹{amountDue.toFixed(2)}</strong>
-                    {discount > 0 && <> — after discount: <strong>₹{netDue.toFixed(2)}</strong></>}
-                  </Typography>
-                  {tenders.map((t, i) => (
-                    <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
-                      <TextField select label="Tender" size="small" value={t.tender_type}
-                        onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, tender_type: e.target.value } : row))}
-                        sx={{ width: 120 }}>
-                        {['cash', 'upi', 'card', 'cheque'].map((tt) => <MenuItem key={tt} value={tt}>{tt.toUpperCase()}</MenuItem>)}
-                      </TextField>
-                      <TextField label="Amount" type="number" size="small" value={t.amount}
-                        onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, amount: e.target.value } : row))}
-                        inputProps={{ min: 0, step: 0.01 }} sx={{ width: 110 }} />
-                      <TextField label="Reference" size="small" value={t.reference}
-                        onChange={(e) => setTenders((prev) => prev.map((row, idx) => idx === i ? { ...row, reference: e.target.value } : row))}
-                        placeholder="Optional" sx={{ flex: 1 }} />
-                      <IconButton size="small" disabled={tenders.length === 1}
-                        onClick={() => setTenders((prev) => prev.filter((_, idx) => idx !== i))}>
-                        <DeleteOutlineRoundedIcon fontSize="small" />
-                      </IconButton>
+            ) : (
+              (() => {
+                const amountDue = apt?.service?.price ?? 0
+                const discount = parseFloat(discountAmount) || 0
+                const netDue = Math.max(0, amountDue - discount)
+                const total = tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0)
+                const matches = Math.abs(total - netDue) < 0.005
+                return (
+                  <Stack spacing={2}>
+                    <Typography variant="body2" color="text.secondary">
+                      Amount due: <strong>₹{amountDue.toFixed(2)}</strong>
+                      {discount > 0 && (
+                        <>
+                          {' '}
+                          — after discount: <strong>₹{netDue.toFixed(2)}</strong>
+                        </>
+                      )}
+                    </Typography>
+                    {tenders.map((t, i) => (
+                      <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
+                        <TextField
+                          select
+                          label="Tender"
+                          size="small"
+                          value={t.tender_type}
+                          onChange={(e) =>
+                            setTenders((prev) => prev.map((row, idx) => (idx === i ? { ...row, tender_type: e.target.value } : row)))
+                          }
+                          sx={{ width: 120 }}
+                        >
+                          {['cash', 'upi', 'card', 'cheque'].map((tt) => (
+                            <MenuItem key={tt} value={tt}>
+                              {tt.toUpperCase()}
+                            </MenuItem>
+                          ))}
+                        </TextField>
+                        <TextField
+                          label="Amount"
+                          type="number"
+                          size="small"
+                          value={t.amount}
+                          onChange={(e) =>
+                            setTenders((prev) => prev.map((row, idx) => (idx === i ? { ...row, amount: e.target.value } : row)))
+                          }
+                          inputProps={{ min: 0, step: 0.01 }}
+                          sx={{ width: 110 }}
+                        />
+                        <TextField
+                          label="Reference"
+                          size="small"
+                          value={t.reference}
+                          onChange={(e) =>
+                            setTenders((prev) => prev.map((row, idx) => (idx === i ? { ...row, reference: e.target.value } : row)))
+                          }
+                          placeholder="Optional"
+                          sx={{ flex: 1 }}
+                        />
+                        <IconButton
+                          size="small"
+                          disabled={tenders.length === 1}
+                          onClick={() => setTenders((prev) => prev.filter((_, idx) => idx !== i))}
+                        >
+                          <DeleteOutlineRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Stack>
+                    ))}
+                    <Button
+                      size="small"
+                      startIcon={<AddRoundedIcon />}
+                      sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+                      onClick={() => setTenders((prev) => [...prev, { tender_type: 'cash', amount: '', reference: '' }])}
+                    >
+                      Add another tender
+                    </Button>
+                    <Divider />
+                    <Stack direction="row" spacing={1}>
+                      <TextField
+                        label="Discount amount (₹)"
+                        type="number"
+                        size="small"
+                        value={discountAmount}
+                        onChange={(e) => setDiscountAmount(e.target.value)}
+                        inputProps={{ min: 0, step: 0.01 }}
+                        sx={{ width: 170 }}
+                      />
+                      <TextField
+                        label="Discount reason"
+                        size="small"
+                        value={discountReason}
+                        onChange={(e) => setDiscountReason(e.target.value)}
+                        placeholder="Required if a discount is given"
+                        sx={{ flex: 1 }}
+                      />
                     </Stack>
-                  ))}
-                  <Button size="small" startIcon={<AddRoundedIcon />} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
-                    onClick={() => setTenders((prev) => [...prev, { tender_type: 'cash', amount: '', reference: '' }])}>
-                    Add another tender
-                  </Button>
-                  <Divider />
-                  <Stack direction="row" spacing={1}>
-                    <TextField label="Discount amount (₹)" type="number" size="small" value={discountAmount}
-                      onChange={(e) => setDiscountAmount(e.target.value)}
-                      inputProps={{ min: 0, step: 0.01 }} sx={{ width: 170 }} />
-                    <TextField label="Discount reason" size="small" value={discountReason}
-                      onChange={(e) => setDiscountReason(e.target.value)}
-                      placeholder="Required if a discount is given" sx={{ flex: 1 }} />
+                    <Typography variant="body2" fontWeight={700} color={matches ? 'success.main' : 'text.secondary'}>
+                      Total entered: ₹{total.toFixed(2)} {matches ? '✓' : `(₹${(netDue - total).toFixed(2)} remaining)`}
+                    </Typography>
                   </Stack>
-                  <Typography variant="body2" fontWeight={700} color={matches ? 'success.main' : 'text.secondary'}>
-                    Total entered: ₹{total.toFixed(2)} {matches ? '✓' : `(₹${(netDue - total).toFixed(2)} remaining)`}
-                  </Typography>
-                </Stack>
-              )
-            })()}
+                )
+              })()
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -1103,7 +1455,15 @@ export default function AppointmentDetailPage() {
               Download Invoice
             </Button>
           )}
-          <Button onClick={() => { setPaymentDialogOpen(false); setPaymentInfo(null); setPaymentError(null) }}>Close</Button>
+          <Button
+            onClick={() => {
+              setPaymentDialogOpen(false)
+              setPaymentInfo(null)
+              setPaymentError(null)
+            }}
+          >
+            Close
+          </Button>
           {paymentMode === 'redeem' ? (
             <Button
               variant="contained"
@@ -1124,18 +1484,26 @@ export default function AppointmentDetailPage() {
                 (parseFloat(discountAmount) > 0 && !discountReason.trim()) ||
                 Math.abs(
                   tenders.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0) -
-                  Math.max(0, (apt?.service?.price ?? 0) - (parseFloat(discountAmount) || 0)),
+                    Math.max(0, (apt?.service?.price ?? 0) - (parseFloat(discountAmount) || 0)),
                 ) >= 0.005
               }
               onClick={() => {
                 setPaymentError(null)
                 setPaymentInfo(null)
-                recordCounterPayment({ variables: { input: {
-                  appointment_id: apt.id,
-                  tenders: tenders.map((t) => ({ tender_type: t.tender_type, amount: parseFloat(t.amount) || 0, reference: t.reference || undefined })),
-                  discount_amount: parseFloat(discountAmount) || undefined,
-                  discount_reason: discountReason.trim() || undefined,
-                } } })
+                recordCounterPayment({
+                  variables: {
+                    input: {
+                      appointment_id: apt.id,
+                      tenders: tenders.map((t) => ({
+                        tender_type: t.tender_type,
+                        amount: parseFloat(t.amount) || 0,
+                        reference: t.reference || undefined,
+                      })),
+                      discount_amount: parseFloat(discountAmount) || undefined,
+                      discount_reason: discountReason.trim() || undefined,
+                    },
+                  },
+                })
               }}
             >
               {recordingPayment ? 'Recording…' : 'Record Payment'}

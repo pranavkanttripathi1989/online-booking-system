@@ -2,9 +2,27 @@ import { useState, useCallback } from 'react'
 import { useQuery, useMutation, useLazyQuery, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import {
-  Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
-  DialogContent, DialogTitle, MenuItem, Paper, Stack, Table, TableBody,
-  TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  MenuItem,
+  Paper,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Typography,
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import PolicyRoundedIcon from '@mui/icons-material/PolicyRounded'
@@ -20,41 +38,90 @@ import { downloadAuthenticatedPdf } from '../../../utils/documents'
 const GET_CLAIMS = gql`
   query GetClaims($status: String) {
     claims(status: $status) {
-      id patient_id patient_name appointment_id appointment_date
-      payer { id name }
-      claim_amount approved_amount status rejection_reason
-      submitted_at decided_at settled_at notes
+      id
+      patient_id
+      patient_name
+      appointment_id
+      appointment_date
+      payer {
+        id
+        name
+      }
+      claim_amount
+      approved_amount
+      status
+      rejection_reason
+      submitted_at
+      decided_at
+      settled_at
+      notes
     }
   }
 `
 const SEARCH_APPOINTMENTS = gql`
   query SearchAppointmentsForClaim($patient_name: String!) {
     appointments(filters: { patient_name: $patient_name }, first: 10, page: 1) {
-      data { id start_datetime patient { id full_name } clinic { id name } }
+      data {
+        id
+        start_datetime
+        patient {
+          id
+          full_name
+        }
+        clinic {
+          id
+          name
+        }
+      }
     }
   }
 `
 const GET_PAYERS_FOR_CLAIM = gql`
-  query GetPayersForClaim { payers(is_active: true) { id name payer_type } }
+  query GetPayersForClaim {
+    payers(is_active: true) {
+      id
+      name
+      payer_type
+    }
+  }
 `
 const GET_PATIENT_POLICIES_FOR_CLAIM = gql`
   query GetPatientPoliciesForClaim($patient_id: ID!) {
-    patientInsurancePolicies(patient_id: $patient_id) { id policy_number payer { id name } }
+    patientInsurancePolicies(patient_id: $patient_id) {
+      id
+      policy_number
+      payer {
+        id
+        name
+      }
+    }
   }
 `
 const SUBMIT_CLAIM = gql`
   mutation SubmitClaim($input: SubmitClaimInput!) {
-    submitClaim(input: $input) { id status }
+    submitClaim(input: $input) {
+      id
+      status
+    }
   }
 `
 const UPDATE_CLAIM_STATUS = gql`
   mutation UpdateClaimStatus($id: ID!, $input: UpdateClaimStatusInput!) {
-    updateClaimStatus(id: $id, input: $input) { id status }
+    updateClaimStatus(id: $id, input: $input) {
+      id
+      status
+    }
   }
 `
 
 const STATUS_COLOR = { submitted: 'default', under_review: 'warning', approved: 'info', rejected: 'error', settled: 'success' }
-const STATUS_LABEL = { submitted: 'Submitted', under_review: 'Under Review', approved: 'Approved', rejected: 'Rejected', settled: 'Settled' }
+const STATUS_LABEL = {
+  submitted: 'Submitted',
+  under_review: 'Under Review',
+  approved: 'Approved',
+  rejected: 'Rejected',
+  settled: 'Settled',
+}
 
 function ClaimsDesk() {
   const { enqueueSnackbar } = useSnackbar()
@@ -76,10 +143,13 @@ function ClaimsDesk() {
   const [decisionDialog, setDecisionDialog] = useState(null) // { claim, targetStatus }
   const [decisionForm, setDecisionForm] = useState({ approved_amount: '', rejection_reason: '' })
 
-  const handleSelectAppointment = useCallback((appt) => {
-    setSelectedAppointment(appt)
-    if (appt) loadPolicies({ variables: { patient_id: appt.patient.id } })
-  }, [loadPolicies])
+  const handleSelectAppointment = useCallback(
+    (appt) => {
+      setSelectedAppointment(appt)
+      if (appt) loadPolicies({ variables: { patient_id: appt.patient.id } })
+    },
+    [loadPolicies],
+  )
 
   const resetSubmitForm = () => {
     setPatientSearch('')
@@ -154,10 +224,7 @@ function ClaimsDesk() {
   const handleDownloadPack = async (claim) => {
     setDownloadingId(claim.id)
     try {
-      await downloadAuthenticatedPdf(
-        `/documents/claims/${claim.id}/reimbursement-pack/pdf`,
-        `reimbursement-pack-${claim.id}.pdf`,
-      )
+      await downloadAuthenticatedPdf(`/documents/claims/${claim.id}/reimbursement-pack/pdf`, `reimbursement-pack-${claim.id}.pdf`)
     } catch (err) {
       enqueueSnackbar(err?.message || 'Failed to download reimbursement pack', { variant: 'error' })
     } finally {
@@ -171,7 +238,9 @@ function ClaimsDesk() {
         <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
           <Stack direction="row" spacing={1} alignItems="center">
             <PolicyRoundedIcon color="primary" />
-            <Typography variant="h6" fontWeight={700}>Insurance Claims</Typography>
+            <Typography variant="h6" fontWeight={700}>
+              Insurance Claims
+            </Typography>
           </Stack>
           <Button variant="contained" startIcon={<AddRoundedIcon />} onClick={() => setSubmitOpen(true)}>
             Submit Claim
@@ -181,9 +250,7 @@ function ClaimsDesk() {
         {loading && <CircularProgress />}
         {error && <Alert severity="error">{error.message}</Alert>}
 
-        {!loading && !error && claims.length === 0 && (
-          <Alert severity="info">No claims submitted yet.</Alert>
-        )}
+        {!loading && !error && claims.length === 0 && <Alert severity="info">No claims submitted yet.</Alert>}
 
         {!loading && !error && claims.length > 0 && (
           <TableContainer component={Paper} variant="outlined">
@@ -210,25 +277,36 @@ function ClaimsDesk() {
                     <TableCell>
                       <Chip size="small" label={STATUS_LABEL[c.status]} color={STATUS_COLOR[c.status]} />
                       {c.status === 'rejected' && c.rejection_reason && (
-                        <Typography variant="caption" color="text.secondary" display="block">{c.rejection_reason}</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {c.rejection_reason}
+                        </Typography>
                       )}
                     </TableCell>
                     <TableCell>
                       <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
                         {c.status === 'submitted' && (
-                          <Button size="small" onClick={() => handleAdvance(c)}>Move to Under Review</Button>
+                          <Button size="small" onClick={() => handleAdvance(c)}>
+                            Move to Under Review
+                          </Button>
                         )}
                         {c.status === 'under_review' && (
                           <>
-                            <Button size="small" color="success" onClick={() => setDecisionDialog({ claim: c, targetStatus: 'approved' })}>Approve</Button>
-                            <Button size="small" color="error" onClick={() => setDecisionDialog({ claim: c, targetStatus: 'rejected' })}>Reject</Button>
+                            <Button size="small" color="success" onClick={() => setDecisionDialog({ claim: c, targetStatus: 'approved' })}>
+                              Approve
+                            </Button>
+                            <Button size="small" color="error" onClick={() => setDecisionDialog({ claim: c, targetStatus: 'rejected' })}>
+                              Reject
+                            </Button>
                           </>
                         )}
                         {c.status === 'approved' && (
-                          <Button size="small" onClick={() => handleAdvance(c)}>Mark Settled</Button>
+                          <Button size="small" onClick={() => handleAdvance(c)}>
+                            Mark Settled
+                          </Button>
                         )}
                         <Button
-                          size="small" variant="outlined"
+                          size="small"
+                          variant="outlined"
                           startIcon={downloadingId === c.id ? <CircularProgress size={14} /> : <DownloadRoundedIcon />}
                           disabled={downloadingId === c.id}
                           onClick={() => handleDownloadPack(c)}
@@ -246,14 +324,24 @@ function ClaimsDesk() {
       </Box>
 
       {/* ── Submit Claim dialog ─────────────────────────────────────────── */}
-      <Dialog open={submitOpen} onClose={() => { setSubmitOpen(false); resetSubmitForm() }} fullWidth maxWidth="sm">
+      <Dialog
+        open={submitOpen}
+        onClose={() => {
+          setSubmitOpen(false)
+          resetSubmitForm()
+        }}
+        fullWidth
+        maxWidth="sm"
+      >
         <DialogTitle>Submit Claim</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {!selectedAppointment ? (
               <>
                 <TextField
-                  fullWidth label="Search patient by name" value={patientSearch}
+                  fullWidth
+                  label="Search patient by name"
+                  value={patientSearch}
                   onChange={(e) => {
                     setPatientSearch(e.target.value)
                     if (e.target.value.trim().length >= 2) searchAppointments({ variables: { patient_name: e.target.value.trim() } })
@@ -263,10 +351,14 @@ function ClaimsDesk() {
                 <Stack spacing={1}>
                   {(apptData?.appointments?.data ?? []).map((appt) => (
                     <Paper
-                      key={appt.id} variant="outlined" sx={{ p: 1.5, cursor: 'pointer' }}
+                      key={appt.id}
+                      variant="outlined"
+                      sx={{ p: 1.5, cursor: 'pointer' }}
                       onClick={() => handleSelectAppointment(appt)}
                     >
-                      <Typography variant="body2" fontWeight={700}>{appt.patient.full_name}</Typography>
+                      <Typography variant="body2" fontWeight={700}>
+                        {appt.patient.full_name}
+                      </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {appt.clinic.name} — {new Date(appt.start_datetime).toLocaleDateString('en-IN')}
                       </Typography>
@@ -288,21 +380,33 @@ function ClaimsDesk() {
                 />
                 {(policiesData?.patientInsurancePolicies?.length ?? 0) > 0 && (
                   <TextField
-                    select fullWidth label="Policy (optional)" value={claimForm.policy_id}
+                    select
+                    fullWidth
+                    label="Policy (optional)"
+                    value={claimForm.policy_id}
                     onChange={(e) => setClaimForm((f) => ({ ...f, policy_id: e.target.value }))}
                   >
                     <MenuItem value="">None</MenuItem>
                     {policiesData.patientInsurancePolicies.map((p) => (
-                      <MenuItem key={p.id} value={p.id}>{p.policy_number} ({p.payer.name})</MenuItem>
+                      <MenuItem key={p.id} value={p.id}>
+                        {p.policy_number} ({p.payer.name})
+                      </MenuItem>
                     ))}
                   </TextField>
                 )}
                 <TextField
-                  fullWidth type="number" label="Claim amount (₹)" value={claimForm.claim_amount}
+                  fullWidth
+                  type="number"
+                  label="Claim amount (₹)"
+                  value={claimForm.claim_amount}
                   onChange={(e) => setClaimForm((f) => ({ ...f, claim_amount: e.target.value }))}
                 />
                 <TextField
-                  fullWidth multiline minRows={2} label="Notes (optional)" value={claimForm.notes}
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  label="Notes (optional)"
+                  value={claimForm.notes}
                   onChange={(e) => setClaimForm((f) => ({ ...f, notes: e.target.value }))}
                 />
               </>
@@ -310,13 +414,16 @@ function ClaimsDesk() {
           </Stack>
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => { setSubmitOpen(false); resetSubmitForm() }}>Cancel</Button>
+          <Button
+            onClick={() => {
+              setSubmitOpen(false)
+              resetSubmitForm()
+            }}
+          >
+            Cancel
+          </Button>
           {selectedAppointment && (
-            <Button
-              variant="contained"
-              disabled={!claimForm.payer_id || !claimForm.claim_amount || submitting}
-              onClick={handleSubmitClaim}
-            >
+            <Button variant="contained" disabled={!claimForm.payer_id || !claimForm.claim_amount || submitting} onClick={handleSubmitClaim}>
               {submitting ? 'Submitting…' : 'Submit'}
             </Button>
           )}
@@ -325,24 +432,41 @@ function ClaimsDesk() {
 
       {/* ── Approve/Reject decision dialog ──────────────────────────────── */}
       <Dialog open={!!decisionDialog} onClose={() => setDecisionDialog(null)} fullWidth maxWidth="xs">
-        <DialogTitle>{decisionDialog?.targetStatus === 'approved' ? 'Approve Claim' : decisionDialog?.targetStatus === 'rejected' ? 'Reject Claim' : 'Decide Claim'}</DialogTitle>
+        <DialogTitle>
+          {decisionDialog?.targetStatus === 'approved'
+            ? 'Approve Claim'
+            : decisionDialog?.targetStatus === 'rejected'
+              ? 'Reject Claim'
+              : 'Decide Claim'}
+        </DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             {decisionDialog?.targetStatus == null && (
               <Stack direction="row" spacing={1}>
-                <Button color="success" variant="outlined" onClick={() => setDecisionDialog((d) => ({ ...d, targetStatus: 'approved' }))}>Approve</Button>
-                <Button color="error" variant="outlined" onClick={() => setDecisionDialog((d) => ({ ...d, targetStatus: 'rejected' }))}>Reject</Button>
+                <Button color="success" variant="outlined" onClick={() => setDecisionDialog((d) => ({ ...d, targetStatus: 'approved' }))}>
+                  Approve
+                </Button>
+                <Button color="error" variant="outlined" onClick={() => setDecisionDialog((d) => ({ ...d, targetStatus: 'rejected' }))}>
+                  Reject
+                </Button>
               </Stack>
             )}
             {decisionDialog?.targetStatus === 'approved' && (
               <TextField
-                fullWidth type="number" label="Approved amount (₹)" value={decisionForm.approved_amount}
+                fullWidth
+                type="number"
+                label="Approved amount (₹)"
+                value={decisionForm.approved_amount}
                 onChange={(e) => setDecisionForm((f) => ({ ...f, approved_amount: e.target.value }))}
               />
             )}
             {decisionDialog?.targetStatus === 'rejected' && (
               <TextField
-                fullWidth multiline minRows={2} label="Rejection reason" value={decisionForm.rejection_reason}
+                fullWidth
+                multiline
+                minRows={2}
+                label="Rejection reason"
+                value={decisionForm.rejection_reason}
                 onChange={(e) => setDecisionForm((f) => ({ ...f, rejection_reason: e.target.value }))}
               />
             )}
@@ -356,7 +480,12 @@ function ClaimsDesk() {
             </Button>
           )}
           {decisionDialog?.targetStatus === 'rejected' && (
-            <Button variant="contained" color="error" disabled={!decisionForm.rejection_reason.trim()} onClick={() => handleDecision('rejected')}>
+            <Button
+              variant="contained"
+              color="error"
+              disabled={!decisionForm.rejection_reason.trim()}
+              onClick={() => handleDecision('rejected')}
+            >
               Reject
             </Button>
           )}

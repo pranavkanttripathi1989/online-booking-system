@@ -17,7 +17,9 @@ import { loginAs } from './helpers.js'
 
 test('dashboard loads with zero GraphQL/console errors for an admin', async ({ page }) => {
   const errors = []
-  page.on('console', (msg) => { if (msg.type() === 'error') errors.push(msg.text()) })
+  page.on('console', (msg) => {
+    if (msg.type() === 'error') errors.push(msg.text())
+  })
   page.on('response', (res) => {
     if (res.url().includes('/graphql') && res.status() >= 400) errors.push(`${res.status()} on ${res.url()}`)
   })

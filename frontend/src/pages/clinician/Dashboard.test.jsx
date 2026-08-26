@@ -18,7 +18,9 @@ const GET_MY_CLINICIAN_PROFILE = gql`
       clinician {
         id
         full_name
-        clinician_type { name }
+        clinician_type {
+          name
+        }
       }
     }
   }
@@ -27,7 +29,10 @@ const GET_MY_CLINICIAN_CLINIC = gql`
   query GetMyClinicianClinicForDashboard($id: ID!) {
     clinician(id: $id) {
       id
-      clinics { id name }
+      clinics {
+        id
+        name
+      }
     }
   }
 `
@@ -35,21 +40,42 @@ const GET_TODAY_APPOINTMENTS = gql`
   query GetTodayAppointmentsForDashboard($dateFrom: String!, $dateTo: String!) {
     appointments(filters: { date_from: $dateFrom, date_to: $dateTo }, first: 200) {
       data {
-        id start_datetime end_datetime duration_minutes status type
-        patient { id full_name }
-        service { name }
+        id
+        start_datetime
+        end_datetime
+        duration_minutes
+        status
+        type
+        patient {
+          id
+          full_name
+        }
+        service {
+          name
+        }
       }
     }
   }
 `
 const GET_SPACER_BLOCKS = gql`
   query GetMySpacerBlocksForDashboard($clinicianId: ID!, $date: String!) {
-    getSpacerBlocks(clinicianId: $clinicianId, date: $date) { id startTime endTime duration reason }
+    getSpacerBlocks(clinicianId: $clinicianId, date: $date) {
+      id
+      startTime
+      endTime
+      duration
+      reason
+    }
   }
 `
 const GET_LUNCH_BREAKS = gql`
   query GetMyLunchBreaksForDashboard($clinicianId: ID!) {
-    getLunchBreaks(clinicianId: $clinicianId) { id startTime endTime duration }
+    getLunchBreaks(clinicianId: $clinicianId) {
+      id
+      startTime
+      endTime
+      duration
+    }
   }
 `
 
@@ -83,7 +109,7 @@ function renderDashboard(mocks) {
       <MockedProvider mocks={mocks} addTypename={false}>
         <Dashboard />
       </MockedProvider>
-    </MemoryRouter>
+    </MemoryRouter>,
   )
 }
 
@@ -104,13 +130,7 @@ describe('clinician/Dashboard (BUG021)', () => {
       patient: { id: 'pat-1', full_name: 'Rohan Verma' },
       service: { name: 'General Consultation' },
     }
-    renderDashboard([
-      profileMock(linkedClinician),
-      clinicMock(),
-      appointmentsMock([realAppt]),
-      spacersMock(),
-      lunchMock(),
-    ])
+    renderDashboard([profileMock(linkedClinician), clinicMock(), appointmentsMock([realAppt]), spacersMock(), lunchMock()])
 
     await waitFor(() => expect(screen.getAllByText('Rohan Verma').length).toBeGreaterThan(0))
     expect(screen.queryByText('Emma Wilson')).not.toBeInTheDocument()

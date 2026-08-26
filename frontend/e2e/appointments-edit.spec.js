@@ -26,9 +26,13 @@ let appointmentId
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = authData.login.access_token
 
   const clinicsData = await gql(request, managerToken, `{ clinics { id name } }`)
@@ -37,16 +41,42 @@ test.beforeAll(async ({ playwright }) => {
   const servicesData = await gql(request, managerToken, `{ services { id name clinicians { id } } }`)
   const svc = servicesData.services.find((s) => s.clinicians.length > 0)
 
-  const patientData = await gql(request, managerToken, `
+  const patientData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: PatientInput!) { createPatient(input: $input) { id full_name } }
-  `, { input: { first_name: 'E2E', last_name: 'EditAppt', email: `e2e.editappt.${Date.now()}@example.com`, phone: `9${Date.now().toString().slice(-9)}`, date_of_birth: '1990-01-01' } })
+  `,
+    {
+      input: {
+        first_name: 'E2E',
+        last_name: 'EditAppt',
+        email: `e2e.editappt.${Date.now()}@example.com`,
+        phone: `9${Date.now().toString().slice(-9)}`,
+        date_of_birth: '1990-01-01',
+      },
+    },
+  )
 
   // Far-future, run-unique time so this fixture never collides with the
   // real seeded schedule or a previous run's own leftover appointment.
   const start = new Date(Date.now() + (400 + Math.floor(Math.random() * 400)) * 24 * 3600 * 1000)
-  const apptData = await gql(request, managerToken, `
+  const apptData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, { input: { patient_id: patientData.createPatient.id, clinician_id: svc.clinicians[0].id, service_id: svc.id, clinic_id: clinicId, start_datetime: start.toISOString() } })
+  `,
+    {
+      input: {
+        patient_id: patientData.createPatient.id,
+        clinician_id: svc.clinicians[0].id,
+        service_id: svc.id,
+        clinic_id: clinicId,
+        start_datetime: start.toISOString(),
+      },
+    },
+  )
   appointmentId = apptData.createAppointment.id
 
   await request.dispose()

@@ -2,45 +2,73 @@
  * PublicLayout — wrapper for pages accessible without login (Landing, DoctorProfile, etc.)
  * Includes a sticky top header with HealthSync branding and a footer.
  */
-import React, { useState } from 'react';
-import { Outlet, Link as RouterLink, useNavigate } from 'react-router-dom';
+import React, { useState } from 'react'
+import { Outlet, Link as RouterLink, useNavigate } from 'react-router-dom'
 import {
-  AppBar, Toolbar, Box, Typography, Button, Container, Stack, Divider,
-  IconButton, Drawer, List, ListItem, ListItemButton, ListItemText,
-  useMediaQuery, useTheme,
-} from '@mui/material';
-import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
-import MenuIcon from '@mui/icons-material/Menu';
-import CloseIcon from '@mui/icons-material/Close';
+  AppBar,
+  Toolbar,
+  Box,
+  Typography,
+  Button,
+  Container,
+  Stack,
+  Divider,
+  IconButton,
+  Drawer,
+  List,
+  ListItem,
+  ListItemButton,
+  ListItemText,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material'
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
+import MenuIcon from '@mui/icons-material/Menu'
+import CloseIcon from '@mui/icons-material/Close'
 
 const NAV_LINKS = [
   { label: 'Find a Doctor', href: '/#search' },
-  { label: 'How It Works',  href: '/#how-it-works' },
-  { label: 'Specialties',   href: '/#specialties' },
-  { label: 'For Clinicians',href: '/login' },
-];
+  { label: 'How It Works', href: '/#how-it-works' },
+  { label: 'Specialties', href: '/#specialties' },
+  { label: 'For Clinicians', href: '/login' },
+]
 
 export default function PublicLayout() {
-  const navigate   = useNavigate();
-  const theme      = useTheme();
-  const isMobile   = useMediaQuery(theme.breakpoints.down('md'));
-  const [drawerOpen, setDrawerOpen] = useState(false);
+  const navigate = useNavigate()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const [drawerOpen, setDrawerOpen] = useState(false)
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {/* ── Top Navigation ──────────────────────────────────────────────────── */}
-      <AppBar
-        position="sticky"
-        elevation={0}
-        sx={{ bgcolor: '#fff', borderBottom: '1px solid #D0E8EA', color: 'text.primary' }}
-      >
+      <AppBar position="sticky" elevation={0} sx={{ bgcolor: '#fff', borderBottom: '1px solid #D0E8EA', color: 'text.primary' }}>
         <Toolbar sx={{ gap: 2 }}>
           {/* Logo */}
-          <Stack direction="row" alignItems="center" spacing={1} component={RouterLink} to="/" sx={{ textDecoration: 'none', color: 'inherit' }}>
-            <Box sx={{ width: 32, height: 32, borderRadius: '50%', bgcolor: '#006D77', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <Stack
+            direction="row"
+            alignItems="center"
+            spacing={1}
+            component={RouterLink}
+            to="/"
+            sx={{ textDecoration: 'none', color: 'inherit' }}
+          >
+            <Box
+              sx={{
+                width: 32,
+                height: 32,
+                borderRadius: '50%',
+                bgcolor: '#006D77',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
               <MedicalServicesIcon sx={{ color: '#fff', fontSize: 16 }} />
             </Box>
-            <Typography fontWeight={800} sx={{ color: '#006D77', fontSize: '1.1rem' }}>HealthSync</Typography>
+            <Typography fontWeight={800} sx={{ color: '#006D77', fontSize: '1.1rem' }}>
+              HealthSync
+            </Typography>
           </Stack>
 
           {/* Desktop nav */}
@@ -49,7 +77,8 @@ export default function PublicLayout() {
               {NAV_LINKS.map((link) => (
                 <Button
                   key={link.label}
-                  component="a" href={link.href}
+                  component="a"
+                  href={link.href}
                   sx={{ color: 'text.secondary', fontWeight: 600, '&:hover': { color: '#006D77' } }}
                 >
                   {link.label}
@@ -62,9 +91,15 @@ export default function PublicLayout() {
 
           {!isMobile ? (
             <Stack direction="row" spacing={1.5} alignItems="center">
-              <Button onClick={() => navigate('/get-started')} sx={{ fontWeight: 700 }}>For Clinics</Button>
-              <Button variant="outlined" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>Sign In</Button>
-              <Button variant="contained" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>Book Now</Button>
+              <Button onClick={() => navigate('/get-started')} sx={{ fontWeight: 700 }}>
+                For Clinics
+              </Button>
+              <Button variant="outlined" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
+                Sign In
+              </Button>
+              <Button variant="contained" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
+                Book Now
+              </Button>
             </Stack>
           ) : (
             <IconButton onClick={() => setDrawerOpen(true)} aria-label="Open navigation menu">
@@ -90,10 +125,14 @@ export default function PublicLayout() {
             </ListItem>
           ))}
           <ListItem sx={{ pt: 2 }}>
-            <Button fullWidth variant="contained" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>Sign In / Book</Button>
+            <Button fullWidth variant="contained" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
+              Sign In / Book
+            </Button>
           </ListItem>
           <ListItem>
-            <Button fullWidth variant="outlined" onClick={() => navigate('/get-started')} sx={{ fontWeight: 700 }}>Run a clinic? Get started</Button>
+            <Button fullWidth variant="outlined" onClick={() => navigate('/get-started')} sx={{ fontWeight: 700 }}>
+              Run a clinic? Get started
+            </Button>
           </ListItem>
         </List>
       </Drawer>
@@ -110,10 +149,22 @@ export default function PublicLayout() {
             {/* Brand */}
             <Box sx={{ flex: 1 }}>
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1.5 }}>
-                <Box sx={{ width: 28, height: 28, borderRadius: '50%', bgcolor: '#83C5BE', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <Box
+                  sx={{
+                    width: 28,
+                    height: 28,
+                    borderRadius: '50%',
+                    bgcolor: '#83C5BE',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
                   <MedicalServicesIcon sx={{ color: '#003B42', fontSize: 14 }} />
                 </Box>
-                <Typography fontWeight={800} sx={{ fontSize: '1.1rem' }}>HealthSync</Typography>
+                <Typography fontWeight={800} sx={{ fontSize: '1.1rem' }}>
+                  HealthSync
+                </Typography>
               </Stack>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', maxWidth: 260 }}>
                 Connecting patients with the right clinicians, faster and simpler.
@@ -122,15 +173,27 @@ export default function PublicLayout() {
 
             {/* Links */}
             {[
-              { title: 'Patients',   items: ['Find a Doctor', 'Book Appointment', 'Video Consultation', 'Medical Records'] },
+              { title: 'Patients', items: ['Find a Doctor', 'Book Appointment', 'Video Consultation', 'Medical Records'] },
               { title: 'Clinicians', items: ['Join HealthSync', 'Clinician Portal', 'Availability Manager', 'Billing'] },
-              { title: 'Company',    items: ['About Us', 'Blog', 'Careers', 'Contact'] },
+              { title: 'Company', items: ['About Us', 'Blog', 'Careers', 'Contact'] },
             ].map(({ title, items }) => (
               <Box key={title}>
-                <Typography variant="body2" fontWeight={700} sx={{ mb: 1.5, textTransform: 'uppercase', letterSpacing: 0.5, color: '#83C5BE' }}>{title}</Typography>
+                <Typography
+                  variant="body2"
+                  fontWeight={700}
+                  sx={{ mb: 1.5, textTransform: 'uppercase', letterSpacing: 0.5, color: '#83C5BE' }}
+                >
+                  {title}
+                </Typography>
                 <Stack spacing={0.75}>
                   {items.map((item) => (
-                    <Typography key={item} variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer', '&:hover': { color: '#fff' } }}>{item}</Typography>
+                    <Typography
+                      key={item}
+                      variant="body2"
+                      sx={{ color: 'rgba(255,255,255,0.6)', cursor: 'pointer', '&:hover': { color: '#fff' } }}
+                    >
+                      {item}
+                    </Typography>
                   ))}
                 </Stack>
               </Box>
@@ -144,12 +207,18 @@ export default function PublicLayout() {
             </Typography>
             <Stack direction="row" spacing={2}>
               {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((item) => (
-                <Typography key={item} variant="caption" sx={{ color: 'rgba(255,255,255,0.45)', cursor: 'pointer', '&:hover': { color: '#83C5BE' } }}>{item}</Typography>
+                <Typography
+                  key={item}
+                  variant="caption"
+                  sx={{ color: 'rgba(255,255,255,0.45)', cursor: 'pointer', '&:hover': { color: '#83C5BE' } }}
+                >
+                  {item}
+                </Typography>
               ))}
             </Stack>
           </Stack>
         </Container>
       </Box>
     </Box>
-  );
+  )
 }

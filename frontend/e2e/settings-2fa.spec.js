@@ -56,7 +56,10 @@ test('enroll, confirm, and verify a real TOTP login (correct code, wrong code, b
   await expect(page.getByRole('button', { name: 'Disable 2FA' })).toBeVisible()
 
   // Log out and log back in — this account now requires the 2FA challenge.
-  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
   await login(page, email, password)
   await expect(page.getByText('Two-factor authentication')).toBeVisible({ timeout: 10_000 })
 
@@ -72,7 +75,10 @@ test('enroll, confirm, and verify a real TOTP login (correct code, wrong code, b
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 })
 
   // A backup code works exactly once.
-  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
   await login(page, email, password)
   await expect(page.getByText('Two-factor authentication')).toBeVisible({ timeout: 10_000 })
   const backupInput = page.locator('input[type="text"]').last()
@@ -80,7 +86,10 @@ test('enroll, confirm, and verify a real TOTP login (correct code, wrong code, b
   await page.getByRole('button', { name: 'Verify' }).click()
   await page.waitForURL((url) => !url.pathname.startsWith('/login'), { timeout: 30_000 })
 
-  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
   await login(page, email, password)
   await expect(page.getByText('Two-factor authentication')).toBeVisible({ timeout: 10_000 })
   const reuseInput = page.locator('input[type="text"]').last()

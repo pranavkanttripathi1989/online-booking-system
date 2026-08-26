@@ -1,0 +1,20 @@
+[
+  {
+    "name": "Initial bundle (entry + apollo + vendor + mui, the four chunks index.html actually modulepreloads)",
+    "path": ["dist/assets/entry-*.js", "dist/assets/apollo-*.js", "dist/assets/vendor-*.js", "dist/assets/mui-*.js"],
+    "limit": "335 KB",
+    "gzip": true
+  },
+  {
+    "name": "Largest lazy route chunk (charts/recharts)",
+    "path": "dist/assets/charts-*.js",
+    "limit": "115 KB",
+    "gzip": true
+  },
+  {
+    "name": "Initial CSS",
+    "path": "dist/assets/*.css",
+    "limit": "18 KB",
+    "gzip": true
+  }
+]

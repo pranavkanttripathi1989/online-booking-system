@@ -12,12 +12,12 @@ import './CalendarView.css'
 
 // ─── Status → background colour (Google Material 3) ──────────────────────────
 const STATUS_BG = {
-  pending:     '#F9AB00',   // Amber
-  confirmed:   '#0F9D58',   // Green
-  cancelled:   '#D93025',   // Red
-  completed:   '#006D77',   // Teal (theme primary)
-  no_show:     '#80868B',   // Gray
-  rescheduled: '#9334E6',   // Purple
+  pending: '#F9AB00', // Amber
+  confirmed: '#0F9D58', // Green
+  cancelled: '#D93025', // Red
+  completed: '#006D77', // Teal (theme primary)
+  no_show: '#80868B', // Gray
+  rescheduled: '#9334E6', // Purple
 }
 
 // ─── Rich Event Content Renderer ─────────────────────────────────────────────
@@ -29,71 +29,95 @@ function EventContent({ eventInfo }) {
 
   // Clinician initials (SUG-CAL-009)
   const clinicianInitials = extendedProps?.clinician
-    ? extendedProps.clinician.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase()
+    ? extendedProps.clinician
+        .split(' ')
+        .map((n) => n[0])
+        .join('')
+        .slice(0, 2)
+        .toUpperCase()
     : null
 
   return (
-    <Box sx={{
-      px: 0.75,
-      py: isTimeGrid ? 0.5 : 0.2,
-      overflow: 'hidden',
-      lineHeight: 1.25,
-      display: 'flex',
-      flexDirection: 'column',
-      gap: '1px',
-      width: '100%',
-    }}>
-      {/* Patient name — always shown */}
-      <Box component="span" sx={{
-        fontWeight: 700,
-        fontSize: isTimeGrid ? 11 : 10,
-        color: '#FFFFFF',
-        whiteSpace: 'nowrap',
+    <Box
+      sx={{
+        px: 0.75,
+        py: isTimeGrid ? 0.5 : 0.2,
         overflow: 'hidden',
-        textOverflow: 'ellipsis',
-        display: 'block',
-        letterSpacing: '-0.01em',
-      }}>
-        {title}
-      </Box>
-
-      {/* Service — shown in week + day views */}
-      {isTimeGrid && extendedProps?.service && (
-        <Box component="span" sx={{
-          fontSize: 10,
-          opacity: 0.88,
+        lineHeight: 1.25,
+        display: 'flex',
+        flexDirection: 'column',
+        gap: '1px',
+        width: '100%',
+      }}
+    >
+      {/* Patient name — always shown */}
+      <Box
+        component="span"
+        sx={{
+          fontWeight: 700,
+          fontSize: isTimeGrid ? 11 : 10,
           color: '#FFFFFF',
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
           display: 'block',
-        }}>
+          letterSpacing: '-0.01em',
+        }}
+      >
+        {title}
+      </Box>
+
+      {/* Service — shown in week + day views */}
+      {isTimeGrid && extendedProps?.service && (
+        <Box
+          component="span"
+          sx={{
+            fontSize: 10,
+            opacity: 0.88,
+            color: '#FFFFFF',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'block',
+          }}
+        >
           {extendedProps.service}
         </Box>
       )}
 
       {/* Clinician — only in day view */}
       {isDayView && extendedProps?.clinician && (
-        <Box component="span" sx={{
-          fontSize: 9.5,
-          opacity: 0.80,
-          color: '#FFFFFF',
-          whiteSpace: 'nowrap',
-          overflow: 'hidden',
-          textOverflow: 'ellipsis',
-          display: 'block',
-        }}>
+        <Box
+          component="span"
+          sx={{
+            fontSize: 9.5,
+            opacity: 0.8,
+            color: '#FFFFFF',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+            textOverflow: 'ellipsis',
+            display: 'block',
+          }}
+        >
           {extendedProps.clinician}
         </Box>
       )}
 
       {/* Clinician initials badge — week view only (SUG-CAL-009) */}
       {isTimeGrid && !isDayView && clinicianInitials && (
-        <Box sx={{
-          display: 'inline-flex', alignItems: 'center', justifyContent: 'center',
-          width: 14, height: 14, borderRadius: '50%',
-          bgcolor: 'rgba(255,255,255,0.25)', mt: '1px', flexShrink: 0,
-        }}>
+        <Box
+          sx={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 14,
+            height: 14,
+            borderRadius: '50%',
+            bgcolor: 'rgba(255,255,255,0.25)',
+            mt: '1px',
+            flexShrink: 0,
+          }}
+        >
           <Box component="span" sx={{ fontSize: 7, fontWeight: 800, color: '#fff', lineHeight: 1 }}>
             {clinicianInitials}
           </Box>
@@ -128,13 +152,13 @@ export default function CalendarView({ calendarRef, events, onEventClick, onSlot
       open: true,
       anchor: info.el,
       data: {
-        patient:    info.event.extendedProps?.patient,
-        clinician:  info.event.extendedProps?.clinician,
-        service:    info.event.extendedProps?.service,
-        room:       info.event.extendedProps?.room,
-        start:      info.event.start,
-        end:        info.event.end,
-        status:     info.event.extendedProps?.status,
+        patient: info.event.extendedProps?.patient,
+        clinician: info.event.extendedProps?.clinician,
+        service: info.event.extendedProps?.service,
+        room: info.event.extendedProps?.room,
+        start: info.event.start,
+        end: info.event.end,
+        status: info.event.extendedProps?.status,
       },
     })
   }
@@ -170,9 +194,9 @@ export default function CalendarView({ calendarRef, events, onEventClick, onSlot
         plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin, listPlugin]}
         initialView={currentView ?? defaultView}
         headerToolbar={{
-          left:   isMobile ? 'prev,next' : 'prev,next today',
+          left: isMobile ? 'prev,next' : 'prev,next today',
           center: 'title',
-          right:  '',
+          right: '',
         }}
         buttonText={{ today: 'Today' }}
         nowIndicator
@@ -187,7 +211,7 @@ export default function CalendarView({ calendarRef, events, onEventClick, onSlot
           const bg = STATUS_BG[info.event.extendedProps?.status]
           if (bg) {
             info.el.style.backgroundColor = bg
-            info.el.style.borderColor     = bg
+            info.el.style.borderColor = bg
           }
         }}
         eventContent={(eventInfo) => <EventContent eventInfo={eventInfo} />}

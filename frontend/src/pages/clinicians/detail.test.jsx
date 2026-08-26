@@ -17,7 +17,11 @@ jest.mock('../../hooks/useAuth', () => ({
 // regression coverage for the new verification chip/actions.
 const UPDATE_CLINICIAN_VERIFICATION = gql`
   mutation UpdateClinicianVerification($id: ID!, $status: String!) {
-    updateClinicianVerification(id: $id, status: $status) { id verification_status verified_at }
+    updateClinicianVerification(id: $id, status: $status) {
+      id
+      verification_status
+      verified_at
+    }
   }
 `
 
@@ -65,7 +69,7 @@ function renderPage(mocks, user) {
           </MockedProvider>
         </SnackbarProvider>
       </MemoryRouter>
-    </HelmetProvider>
+    </HelmetProvider>,
   )
 }
 
@@ -85,11 +89,26 @@ describe('clinicians/detail.jsx — verification (A-4)', () => {
 
   it('lets an admin verify a pending clinician and refetches the result', async () => {
     const verified = clinician({ verification_status: 'verified', verified_at: '2026-08-25T10:00:00.000Z' })
-    renderPage([
-      detailMock(clinician()),
-      { request: { query: UPDATE_CLINICIAN_VERIFICATION, variables: { id: CLINICIAN_ID, status: 'verified' } }, result: { data: { updateClinicianVerification: { __typename: 'Clinician', id: CLINICIAN_ID, verification_status: 'verified', verified_at: '2026-08-25T10:00:00.000Z' } } } },
-      detailMock(verified),
-    ], { roles: [{ name: 'admin' }] })
+    renderPage(
+      [
+        detailMock(clinician()),
+        {
+          request: { query: UPDATE_CLINICIAN_VERIFICATION, variables: { id: CLINICIAN_ID, status: 'verified' } },
+          result: {
+            data: {
+              updateClinicianVerification: {
+                __typename: 'Clinician',
+                id: CLINICIAN_ID,
+                verification_status: 'verified',
+                verified_at: '2026-08-25T10:00:00.000Z',
+              },
+            },
+          },
+        },
+        detailMock(verified),
+      ],
+      { roles: [{ name: 'admin' }] },
+    )
 
     await waitFor(() => expect(screen.getByText('Sarah Mitchell')).toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: 'Verify' }))
@@ -100,10 +119,16 @@ describe('clinicians/detail.jsx — verification (A-4)', () => {
 
   it('surfaces a real mutation error via a snackbar, not a silent failure', async () => {
     const { GraphQLError } = require('graphql')
-    renderPage([
-      detailMock(clinician()),
-      { request: { query: UPDATE_CLINICIAN_VERIFICATION, variables: { id: CLINICIAN_ID, status: 'verified' } }, result: { errors: [new GraphQLError('Not authorized')] } },
-    ], { roles: [{ name: 'admin' }] })
+    renderPage(
+      [
+        detailMock(clinician()),
+        {
+          request: { query: UPDATE_CLINICIAN_VERIFICATION, variables: { id: CLINICIAN_ID, status: 'verified' } },
+          result: { errors: [new GraphQLError('Not authorized')] },
+        },
+      ],
+      { roles: [{ name: 'admin' }] },
+    )
 
     await waitFor(() => expect(screen.getByText('Sarah Mitchell')).toBeInTheDocument())
     await userEvent.click(screen.getByRole('button', { name: 'Verify' }))

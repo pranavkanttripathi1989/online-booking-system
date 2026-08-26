@@ -30,7 +30,9 @@ async function gql(request, token, query, variables) {
 }
 
 function psql(sql) {
-  return execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -t -A -c "${sql.replace(/"/g, '\\"')}"`).toString().trim()
+  return execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -t -A -c "${sql.replace(/"/g, '\\"')}"`)
+    .toString()
+    .trim()
 }
 
 // One cleanup statement throwing (e.g. a stale/already-deleted id from a
@@ -39,7 +41,11 @@ function psql(sql) {
 // exactly because one unguarded failure skipped the rest of a single
 // afterAll invocation.
 function safePsql(sql) {
-  try { psql(sql) } catch (err) { console.warn(`cleanup statement failed (continuing): ${sql}\n${err.message}`) }
+  try {
+    psql(sql)
+  } catch (err) {
+    console.warn(`cleanup statement failed (continuing): ${sql}\n${err.message}`)
+  }
 }
 
 test.describe.configure({ mode: 'serial' })
@@ -56,14 +62,22 @@ let bookingWidgetConfigId
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
 
-  const adminAuth = await gql(request, null, `
+  const adminAuth = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "admin@medibook.dev", password: "Admin1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   adminToken = adminAuth.login.access_token
 
-  const managerAuth = await gql(request, null, `
+  const managerAuth = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = managerAuth.login.access_token
 
   // A-5/A-6 fixture: link the demo clinician account to the real seeded
@@ -82,11 +96,23 @@ test.beforeAll(async ({ playwright }) => {
   fixturePatientId = patientsData.patients.data[0]?.id
   if (!fixturePatientId) throw new Error('No patient found in the dev DB — cannot create a test appointment')
 
-  const apptData = await gql(request, managerToken, `
+  const apptData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, {
-    input: { patient_id: fixturePatientId, clinician_id: REAL_CLINICIAN_ID, service_id: serviceId, clinic_id: clinicId, start_datetime: '2027-02-20T09:00:00.000Z', notes: 'A5A6-E2E-PROBE' },
-  })
+  `,
+    {
+      input: {
+        patient_id: fixturePatientId,
+        clinician_id: REAL_CLINICIAN_ID,
+        service_id: serviceId,
+        clinic_id: clinicId,
+        start_datetime: '2027-02-20T09:00:00.000Z',
+        notes: 'A5A6-E2E-PROBE',
+      },
+    },
+  )
   appointmentId = apptData.createAppointment.id
 
   // A-7 fixture: a real Payer row (createPayer is super_admin-only and no
@@ -95,7 +121,9 @@ test.beforeAll(async ({ playwright }) => {
   // interrupted cleanup can't leave a same-named duplicate that breaks this
   // spec's own option locator.
   const existingPayer = psql(`SELECT id FROM "Payers" WHERE name = 'E2E Star Health' LIMIT 1;`)
-  payerId = existingPayer || psql(`INSERT INTO "Payers" (id, name, payer_type) VALUES (gen_random_uuid(), 'E2E Star Health', 'insurer') RETURNING id;`)
+  payerId =
+    existingPayer ||
+    psql(`INSERT INTO "Payers" (id, name, payer_type) VALUES (gen_random_uuid(), 'E2E Star Health', 'insurer') RETURNING id;`)
 
   await request.dispose()
 })
@@ -132,7 +160,9 @@ test('A-4: admin verifies a clinician from the clinician detail page', async ({ 
   await page.goto(`/clinicians/${REAL_CLINICIAN_ID}`)
   await expect(page.getByText('Sarah Mitchell')).toBeVisible({ timeout: 30_000 })
 
-  const verifyResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('updateClinicianVerification'))
+  const verifyResponse = page.waitForResponse(
+    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('updateClinicianVerification'),
+  )
   await page.getByRole('button', { name: 'Verify' }).click()
   const response = await verifyResponse
   expect(response.ok()).toBe(true)
@@ -155,7 +185,9 @@ test('A-5/A-6: clinician records a diagnosis and saves the note as a reusable te
   await page.getByRole('button', { name: 'Add Diagnosis' }).click()
   const diagnosisDialog = page.getByRole('dialog')
   await diagnosisDialog.getByLabel('Description').fill('Seasonal allergic rhinitis')
-  const createDiagnosisResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('createDiagnosis'))
+  const createDiagnosisResponse = page.waitForResponse(
+    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('createDiagnosis'),
+  )
   await diagnosisDialog.getByRole('button', { name: 'Save' }).click()
   const diagResponse = await createDiagnosisResponse
   expect(diagResponse.ok()).toBe(true)
@@ -169,7 +201,9 @@ test('A-5/A-6: clinician records a diagnosis and saves the note as a reusable te
   await page.getByRole('button', { name: 'Save as template' }).click()
   const templateDialog = page.getByRole('dialog')
   await templateDialog.getByLabel('Template Name').fill('A5A6-E2E-PROBE Template')
-  const createTemplateResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('createEncounterTemplate'))
+  const createTemplateResponse = page.waitForResponse(
+    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('createEncounterTemplate'),
+  )
   await templateDialog.getByRole('button', { name: 'Save' }).click()
   const tplResponse = await createTemplateResponse
   expect(tplResponse.ok()).toBe(true)
@@ -191,7 +225,9 @@ test('A-7: staff records a patient insurance policy', async ({ page }) => {
   await dialog.getByLabel(/^Policy Holder Name/).fill('E2E Fixture Patient')
   await dialog.getByLabel(/^Valid From/).fill('2026-01-01')
 
-  const createResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('createPatientInsurancePolicy'))
+  const createResponse = page.waitForResponse(
+    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('createPatientInsurancePolicy'),
+  )
   await dialog.getByRole('button', { name: 'Save' }).click()
   const response = await createResponse
   expect(response.ok()).toBe(true)
@@ -202,25 +238,42 @@ test('A-7: staff records a patient insurance policy', async ({ page }) => {
   await expect(page.getByText('E2E Star Health')).toBeVisible()
 })
 
-test('A-8: manager views a webhook endpoint\'s real delivery log after a live event fires', async ({ page, request }) => {
+test("A-8: manager views a webhook endpoint's real delivery log after a live event fires", async ({ page, request }) => {
   test.setTimeout(60_000)
 
   // Create the endpoint against a deliberately unreachable address, then
   // trigger a real appointment.created event — matching this codebase's own
   // established Phase G+2 live-verification precedent (a webhook logged
   // 'failed' against an unreachable test endpoint, not swallowed).
-  const endpointData = await gql(request, managerToken, `
+  const endpointData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: WebhookEndpointInput!) { createWebhookEndpoint(input: $input) { id url } }
-  `, { input: { url: 'https://e2e-unreachable.invalid/hook', event_types: ['appointment.created'] } })
+  `,
+    { input: { url: 'https://e2e-unreachable.invalid/hook', event_types: ['appointment.created'] } },
+  )
   webhookEndpointId = endpointData.createWebhookEndpoint.id
 
   const servicesData = await gql(request, managerToken, `query { services { id } }`)
   const clinicianData = await gql(request, managerToken, `query { clinician(id: "${REAL_CLINICIAN_ID}") { clinics { id } } }`)
-  const probeAppt = await gql(request, managerToken, `
+  const probeAppt = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, {
-    input: { patient_id: fixturePatientId, clinician_id: REAL_CLINICIAN_ID, service_id: servicesData.services[0].id, clinic_id: clinicianData.clinician.clinics[0].id, start_datetime: '2027-02-21T10:00:00.000Z', notes: 'A8-E2E-WEBHOOK-PROBE' },
-  })
+  `,
+    {
+      input: {
+        patient_id: fixturePatientId,
+        clinician_id: REAL_CLINICIAN_ID,
+        service_id: servicesData.services[0].id,
+        clinic_id: clinicianData.clinician.clinics[0].id,
+        start_datetime: '2027-02-21T10:00:00.000Z',
+        notes: 'A8-E2E-WEBHOOK-PROBE',
+      },
+    },
+  )
   webhookProbeAppointmentId = probeAppt.createAppointment.id
 
   await loginAs(page, 'Manager')
@@ -229,7 +282,9 @@ test('A-8: manager views a webhook endpoint\'s real delivery log after a live ev
   const row = page.locator('tr', { hasText: 'https://e2e-unreachable.invalid/hook' })
   await expect(row).toBeVisible({ timeout: 15_000 })
 
-  const logResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('webhookDeliveryLog'))
+  const logResponse = page.waitForResponse(
+    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('webhookDeliveryLog'),
+  )
   await row.getByRole('button', { name: 'Delivery Log' }).click()
   await logResponse
 
@@ -238,12 +293,17 @@ test('A-8: manager views a webhook endpoint\'s real delivery log after a live ev
   await expect(dialog.getByText('failed')).toBeVisible()
 })
 
-test('A-9: manager edits an existing booking widget\'s allowed origins, keeping the same embed slug', async ({ page, request }) => {
+test("A-9: manager edits an existing booking widget's allowed origins, keeping the same embed slug", async ({ page, request }) => {
   test.setTimeout(60_000)
 
-  const configData = await gql(request, managerToken, `
+  const configData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: BookingWidgetConfigInput!) { createBookingWidgetConfig(input: $input) { success config { id short_link_slug } } }
-  `, { input: { allowed_origins: ['https://old-clinic.invalid'] } })
+  `,
+    { input: { allowed_origins: ['https://old-clinic.invalid'] } },
+  )
   bookingWidgetConfigId = configData.createBookingWidgetConfig.config.id
   const slug = configData.createBookingWidgetConfig.config.short_link_slug
 
@@ -258,7 +318,9 @@ test('A-9: manager edits an existing booking widget\'s allowed origins, keeping 
   const originsField = dialog.getByLabel(/^Allowed origin/)
   await originsField.fill('https://new-clinic.invalid')
 
-  const updateResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('updateBookingWidgetConfig'))
+  const updateResponse = page.waitForResponse(
+    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('updateBookingWidgetConfig'),
+  )
   await dialog.getByRole('button', { name: 'Save' }).click()
   const response = await updateResponse
   expect(response.ok()).toBe(true)

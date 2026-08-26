@@ -3,10 +3,32 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useSubscription, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import {
-  Alert, Autocomplete, Box, Button, Card, CardContent, Chip, Dialog, DialogActions,
-  DialogContent, DialogTitle, Grid, IconButton, List, ListItem, ListItemText,
-  Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField,
-  Tooltip, Typography,
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  IconButton,
+  List,
+  ListItem,
+  ListItemText,
+  Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material'
 import PlayArrowRoundedIcon from '@mui/icons-material/PlayArrowRounded'
 import ReplayRoundedIcon from '@mui/icons-material/ReplayRounded'
@@ -26,27 +48,75 @@ const QUEUE_BOARD_QUERY = gql`
       clinician_name
       average_wait_minutes
       predicted_wait_minutes
-      now_serving { id appointment_id patient_name token_no status called_at }
-      waiting { id appointment_id patient_name token_no status checked_in_at }
+      now_serving {
+        id
+        appointment_id
+        patient_name
+        token_no
+        status
+        called_at
+      }
+      waiting {
+        id
+        appointment_id
+        patient_name
+        token_no
+        status
+        checked_in_at
+      }
     }
   }
 `
 const UNBILLED_VISITS_QUERY = gql`
   query UnbilledVisits($clinic_id: ID!) {
-    unbilledVisits(clinic_id: $clinic_id) { appointment_id patient_name clinician_name appointment_time }
+    unbilledVisits(clinic_id: $clinic_id) {
+      appointment_id
+      patient_name
+      clinician_name
+      appointment_time
+    }
   }
 `
 const QUEUE_UPDATED_SUBSCRIPTION = gql`
-  subscription QueueUpdated($clinic_id: ID!) { queueUpdated(clinic_id: $clinic_id) }
+  subscription QueueUpdated($clinic_id: ID!) {
+    queueUpdated(clinic_id: $clinic_id)
+  }
 `
-const CALL_NEXT = gql`mutation CallNext($clinician_id: ID!) { callNextInQueue(clinician_id: $clinician_id) { id } }`
-const RECALL = gql`mutation Recall($id: ID!) { recallQueueEntry(id: $id) { id } }`
-const SKIP = gql`mutation Skip($input: SkipQueueEntryInput!) { skipQueueEntry(input: $input) { id } }`
-const TRANSFER = gql`mutation Transfer($input: TransferQueueEntryInput!) { transferQueueEntry(input: $input) { id } }`
+const CALL_NEXT = gql`
+  mutation CallNext($clinician_id: ID!) {
+    callNextInQueue(clinician_id: $clinician_id) {
+      id
+    }
+  }
+`
+const RECALL = gql`
+  mutation Recall($id: ID!) {
+    recallQueueEntry(id: $id) {
+      id
+    }
+  }
+`
+const SKIP = gql`
+  mutation Skip($input: SkipQueueEntryInput!) {
+    skipQueueEntry(input: $input) {
+      id
+    }
+  }
+`
+const TRANSFER = gql`
+  mutation Transfer($input: TransferQueueEntryInput!) {
+    transferQueueEntry(input: $input) {
+      id
+    }
+  }
+`
 // REQ118 (US-QUE-06)
 const BROADCAST_DELAY = gql`
   mutation BroadcastQueueDelay($clinician_id: ID!, $delay_minutes: Int!) {
-    broadcastQueueDelay(clinician_id: $clinician_id, delay_minutes: $delay_minutes) { waiting_count notified_count }
+    broadcastQueueDelay(clinician_id: $clinician_id, delay_minutes: $delay_minutes) {
+      waiting_count
+      notified_count
+    }
   }
 `
 
@@ -77,7 +147,11 @@ function QueueBoardPage() {
 
   const clinicianId = selectedClinician?.id
 
-  const { data: boardData, refetch: refetchBoard, error: boardError } = useQuery(QUEUE_BOARD_QUERY, {
+  const {
+    data: boardData,
+    refetch: refetchBoard,
+    error: boardError,
+  } = useQuery(QUEUE_BOARD_QUERY, {
     variables: { clinician_id: clinicianId },
     skip: !clinicianId,
     fetchPolicy: 'cache-and-network',
@@ -90,7 +164,10 @@ function QueueBoardPage() {
   useSubscription(QUEUE_UPDATED_SUBSCRIPTION, {
     variables: { clinic_id: clinicId },
     skip: !clinicId,
-    onData: () => { refetchBoard(); refetchUnbilled() },
+    onData: () => {
+      refetchBoard()
+      refetchUnbilled()
+    },
   })
 
   const [callNext, { loading: calling }] = useMutation(CALL_NEXT, { onCompleted: () => refetchBoard() })
@@ -110,7 +187,9 @@ function QueueBoardPage() {
     }
   }
   const handleRecall = async (id) => {
-    try { await recall({ variables: { id } }) } catch (err) {
+    try {
+      await recall({ variables: { id } })
+    } catch (err) {
       enqueueSnackbar(err?.graphQLErrors?.[0]?.message || 'Failed to recall', { variant: 'error' })
     }
   }
@@ -133,11 +212,16 @@ function QueueBoardPage() {
   }
   const handleBroadcastDelay = async () => {
     const minutes = parseInt(delayMinutes, 10)
-    if (!minutes || minutes <= 0) { enqueueSnackbar('Enter a positive number of minutes', { variant: 'warning' }); return }
+    if (!minutes || minutes <= 0) {
+      enqueueSnackbar('Enter a positive number of minutes', { variant: 'warning' })
+      return
+    }
     try {
       const { data } = await broadcastDelay({ variables: { clinician_id: clinicianId, delay_minutes: minutes } })
       const { waiting_count, notified_count } = data.broadcastQueueDelay
-      enqueueSnackbar(`Notified ${notified_count} of ${waiting_count} waiting patient${waiting_count === 1 ? '' : 's'}.`, { variant: 'success' })
+      enqueueSnackbar(`Notified ${notified_count} of ${waiting_count} waiting patient${waiting_count === 1 ? '' : 's'}.`, {
+        variant: 'success',
+      })
       setDelayDialogOpen(false)
     } catch (err) {
       enqueueSnackbar(err?.graphQLErrors?.[0]?.message || 'Failed to broadcast delay', { variant: 'error' })
@@ -147,16 +231,15 @@ function QueueBoardPage() {
   return (
     <Box p={{ xs: 1.5, md: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
-        <Typography variant="h5" fontWeight={700}>Live Queue</Typography>
+        <Typography variant="h5" fontWeight={700}>
+          Live Queue
+        </Typography>
         {clinicianId && (
           <Stack direction="row" spacing={1}>
             <Button variant="outlined" color="warning" onClick={() => setDelayDialogOpen(true)}>
               Report Delay
             </Button>
-            <Button
-              startIcon={<TvRoundedIcon />} variant="outlined"
-              onClick={() => navigate(`/queue/display/${clinicianId}`)}
-            >
+            <Button startIcon={<TvRoundedIcon />} variant="outlined" onClick={() => navigate(`/queue/display/${clinicianId}`)}>
               TV Display
             </Button>
           </Stack>
@@ -170,8 +253,12 @@ function QueueBoardPage() {
             Every currently-waiting patient with a linked account will be notified.
           </Typography>
           <TextField
-            fullWidth type="number" label="Delay (minutes)" size="small"
-            value={delayMinutes} onChange={(e) => setDelayMinutes(e.target.value)}
+            fullWidth
+            type="number"
+            label="Delay (minutes)"
+            size="small"
+            value={delayMinutes}
+            onChange={(e) => setDelayMinutes(e.target.value)}
             inputProps={{ min: 1 }}
           />
         </DialogContent>
@@ -203,7 +290,9 @@ function QueueBoardPage() {
           <Grid item xs={12} md={8}>
             <Card variant="outlined" sx={{ mb: 2 }}>
               <CardContent>
-                <Typography variant="subtitle2" color="text.secondary">Now serving</Typography>
+                <Typography variant="subtitle2" color="text.secondary">
+                  Now serving
+                </Typography>
                 {board.now_serving ? (
                   <Stack direction="row" alignItems="center" spacing={2} mt={1}>
                     <Typography variant="h4" fontWeight={800}>
@@ -211,24 +300,29 @@ function QueueBoardPage() {
                     </Typography>
                     <Box>
                       <Typography variant="h6">{board.now_serving.patient_name}</Typography>
-                      <Chip size="small" label={board.now_serving.status} color={board.now_serving.status === 'in_progress' ? 'success' : 'warning'} />
+                      <Chip
+                        size="small"
+                        label={board.now_serving.status}
+                        color={board.now_serving.status === 'in_progress' ? 'success' : 'warning'}
+                      />
                     </Box>
                   </Stack>
                 ) : (
-                  <Typography variant="body2" color="text.secondary" mt={1}>No one currently being served.</Typography>
+                  <Typography variant="body2" color="text.secondary" mt={1}>
+                    No one currently being served.
+                  </Typography>
                 )}
                 <Stack direction="row" spacing={1} sx={{ mt: 2 }}>
                   <Button
-                    variant="contained" startIcon={<PlayArrowRoundedIcon />}
-                    onClick={handleCallNext} disabled={calling || board.waiting.length === 0}
+                    variant="contained"
+                    startIcon={<PlayArrowRoundedIcon />}
+                    onClick={handleCallNext}
+                    disabled={calling || board.waiting.length === 0}
                   >
                     Call Next
                   </Button>
                   {board.now_serving?.status === 'called' && (
-                    <Button
-                      variant="outlined" startIcon={<ReplayRoundedIcon />}
-                      onClick={() => handleRecall(board.now_serving.id)}
-                    >
+                    <Button variant="outlined" startIcon={<ReplayRoundedIcon />} onClick={() => handleRecall(board.now_serving.id)}>
                       Recall (stepped away)
                     </Button>
                   )}
@@ -246,7 +340,9 @@ function QueueBoardPage() {
               </CardContent>
             </Card>
 
-            <Typography variant="subtitle1" fontWeight={700} mb={1}>Waiting ({board.waiting.length})</Typography>
+            <Typography variant="subtitle1" fontWeight={700} mb={1}>
+              Waiting ({board.waiting.length})
+            </Typography>
             <TableContainer component={Card} variant="outlined">
               <Table size="small">
                 <TableHead>
@@ -265,16 +361,26 @@ function QueueBoardPage() {
                       <TableCell>{waitMinutes(e.checked_in_at)} min</TableCell>
                       <TableCell align="right">
                         <Tooltip title="Skip / park">
-                          <IconButton size="small" onClick={() => setSkipEntry(e)}><SkipNextRoundedIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" onClick={() => setSkipEntry(e)}>
+                            <SkipNextRoundedIcon fontSize="small" />
+                          </IconButton>
                         </Tooltip>
                         <Tooltip title="Transfer to another clinician">
-                          <IconButton size="small" onClick={() => setTransferEntry(e)}><SwapHorizRoundedIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" onClick={() => setTransferEntry(e)}>
+                            <SwapHorizRoundedIcon fontSize="small" />
+                          </IconButton>
                         </Tooltip>
                       </TableCell>
                     </TableRow>
                   ))}
                   {board.waiting.length === 0 && (
-                    <TableRow><TableCell colSpan={4}><Typography variant="body2" color="text.secondary">No one waiting.</Typography></TableCell></TableRow>
+                    <TableRow>
+                      <TableCell colSpan={4}>
+                        <Typography variant="body2" color="text.secondary">
+                          No one waiting.
+                        </Typography>
+                      </TableCell>
+                    </TableRow>
                   )}
                 </TableBody>
               </Table>
@@ -286,7 +392,9 @@ function QueueBoardPage() {
               <CardContent>
                 <Stack direction="row" alignItems="center" spacing={1} mb={1}>
                   <ReceiptLongRoundedIcon fontSize="small" />
-                  <Typography variant="subtitle1" fontWeight={700}>Unbilled visits</Typography>
+                  <Typography variant="subtitle1" fontWeight={700}>
+                    Unbilled visits
+                  </Typography>
                 </Stack>
                 <List dense disablePadding>
                   {unbilled.map((v) => (
@@ -298,7 +406,9 @@ function QueueBoardPage() {
                     </ListItem>
                   ))}
                   {unbilled.length === 0 && (
-                    <Typography variant="body2" color="text.secondary">Nothing outstanding.</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Nothing outstanding.
+                    </Typography>
                   )}
                 </List>
               </CardContent>
@@ -317,7 +427,9 @@ function QueueBoardPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSkipEntry(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleSkip}>Skip</Button>
+          <Button variant="contained" onClick={handleSkip}>
+            Skip
+          </Button>
         </DialogActions>
       </Dialog>
 
@@ -337,7 +449,9 @@ function QueueBoardPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setTransferEntry(null)}>Cancel</Button>
-          <Button variant="contained" onClick={handleTransfer} disabled={!transferTarget}>Transfer</Button>
+          <Button variant="contained" onClick={handleTransfer} disabled={!transferTarget}>
+            Transfer
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

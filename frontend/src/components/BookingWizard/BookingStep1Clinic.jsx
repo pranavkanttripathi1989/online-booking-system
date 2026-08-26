@@ -1,15 +1,5 @@
 import { useQuery } from '@apollo/client'
-import {
-  Alert,
-  Box,
-  Button,
-  Card,
-  CardContent,
-  Grid,
-  Skeleton,
-  Stack,
-  Typography,
-} from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Grid, Skeleton, Stack, Typography } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
 import PhoneIcon from '@mui/icons-material/Phone'
@@ -82,7 +72,9 @@ export default function BookingStep1Clinic({ wizardData, updateWizard }) {
 
   return (
     <Box>
-      <Typography variant="h6" fontWeight={700} mb={0.5}>Select a Clinic</Typography>
+      <Typography variant="h6" fontWeight={700} mb={0.5}>
+        Select a Clinic
+      </Typography>
       <Typography variant="body2" color="text.secondary" mb={3}>
         Choose the clinic where the appointment will take place.
       </Typography>
@@ -90,7 +82,11 @@ export default function BookingStep1Clinic({ wizardData, updateWizard }) {
       {error && (
         <Alert
           severity="error"
-          action={<Button size="small" startIcon={<RefreshIcon />} onClick={() => refetch()}>Retry</Button>}
+          action={
+            <Button size="small" startIcon={<RefreshIcon />} onClick={() => refetch()}>
+              Retry
+            </Button>
+          }
           sx={{ mb: 2, borderRadius: 2 }}
         >
           Could not load clinics — {error.message}
@@ -128,12 +124,7 @@ export default function BookingStep1Clinic({ wizardData, updateWizard }) {
                       },
                     }}
                   >
-                    {isSelected && (
-                      <CheckCircleIcon
-                        color="primary"
-                        sx={{ position: 'absolute', top: 12, right: 12, fontSize: 20 }}
-                      />
-                    )}
+                    {isSelected && <CheckCircleIcon color="primary" sx={{ position: 'absolute', top: 12, right: 12, fontSize: 20 }} />}
                     <CardContent>
                       <Typography variant="subtitle1" fontWeight={700} mb={1.5} pr={3}>
                         {clinic.name}

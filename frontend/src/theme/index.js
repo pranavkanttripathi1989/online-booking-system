@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles';
+import { createTheme } from '@mui/material/styles'
 
 export const medicalTheme = createTheme({
   palette: {
@@ -16,19 +16,19 @@ export const medicalTheme = createTheme({
     },
     success: { main: '#2DC653', light: '#D1FAE5', dark: '#16A34A' },
     warning: { main: '#FFB703', light: '#FEF3C7', dark: '#D97706' },
-    error:   { main: '#E63946', light: '#FFE4E6', dark: '#B91C1C' },
-    info:    { main: '#3A86FF', light: '#DBEAFE', dark: '#1D4ED8' },
+    error: { main: '#E63946', light: '#FFE4E6', dark: '#B91C1C' },
+    info: { main: '#3A86FF', light: '#DBEAFE', dark: '#1D4ED8' },
     background: { default: '#F0F7F8', paper: '#FFFFFF' },
     text: { primary: '#1A2B3C', secondary: '#5A7184' },
     divider: '#D0E8EA',
   },
   typography: {
     fontFamily: "'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif",
-    h1: { fontSize: '2rem',     fontWeight: 700, letterSpacing: '-0.5px' },
-    h2: { fontSize: '1.5rem',   fontWeight: 700, letterSpacing: '-0.3px' },
-    h3: { fontSize: '1.25rem',  fontWeight: 600 },
-    h4: { fontSize: '1rem',     fontWeight: 600 },
-    h5: { fontSize: '0.9375rem',fontWeight: 600 },
+    h1: { fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.5px' },
+    h2: { fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.3px' },
+    h3: { fontSize: '1.25rem', fontWeight: 600 },
+    h4: { fontSize: '1rem', fontWeight: 600 },
+    h5: { fontSize: '0.9375rem', fontWeight: 600 },
     h6: { fontSize: '0.875rem', fontWeight: 600 },
     body1: { fontSize: '0.9375rem' },
     body2: { fontSize: '0.8125rem' },
@@ -165,6 +165,6 @@ export const medicalTheme = createTheme({
       },
     },
   },
-});
+})
 
-export default medicalTheme;
+export default medicalTheme

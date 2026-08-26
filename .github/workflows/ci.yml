@@ -152,12 +152,26 @@ jobs:
           cache: npm
           cache-dependency-path: frontend/package-lock.json
       - run: npm ci
-      # `--max-warnings 177` is a ratchet, not a target: it blocks NEW warnings
-      # while the existing ones stay visible. Lower the number as they are fixed
-      # (197 -> 177 when BUG009 wired the fabricated pages); never raise it.
+      # `--max-warnings` is a ratchet, not a target: it blocks NEW warnings
+      # while the existing ones stay visible. Lower the number as they are
+      # fixed (197 -> 177 -> 1909 as the hex-color rule swept the real count
+      # into view, REQ077); never raise it. See package.json's own script.
       - run: npm run lint
+      # P1-03 (CI-3) — formatting is never discussed in review. The whole
+      # tree was reformatted once (REQ146) specifically so this could be a
+      # real, enforced gate from day one rather than a ratchet with nothing
+      # to ratchet (prettier has no per-file warning-count mechanism the
+      # way ESLint's hex-color rule does).
+      - run: npx prettier --check .
       - run: npm test
       - run: npm run build
+      # P1-03 (CI-5, CI-12) — budgets are calibrated to today's measured
+      # reality (.size-limit.json), not the aspirational FRONTEND_RULES
+      # PERF-1…4 numbers — the same "measure first, then ratchet down"
+      # discipline the lint warning count already uses. This is also the
+      # dependency-size check (CI-12): a new dependency that meaningfully
+      # grows the initial bundle fails here.
+      - run: npm run size
 
   structure:
     name: structural gates
@@ -170,6 +184,20 @@ jobs:
       # Catches what four separate grep-based audits missed: a page that renders
       # data-shaped UI with no route to real data. See the script's header.
       - run: node scripts/check-page-data-wiring.mjs
+
+  secrets:
+    # P1-03 (CI-11). gitleaks scans the full push/PR diff against its
+    # default ruleset (AWS/GCP/Stripe/generic high-entropy keys, etc.) — no
+    # npm dependency, no account/API key needed for this basic scan.
+    name: secret scanning
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
   # ── NOT YET ENABLED ─────────────────────────────────────────────────────────
   #

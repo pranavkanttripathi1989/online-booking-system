@@ -10,14 +10,27 @@ function withProviders(mocks, children) {
   return (
     <HelmetProvider>
       <LocalizationProvider dateAdapter={AdapterDayjs}>
-        <MockedProvider mocks={mocks} addTypename={false}>{children}</MockedProvider>
+        <MockedProvider mocks={mocks} addTypename={false}>
+          {children}
+        </MockedProvider>
       </LocalizationProvider>
     </HelmetProvider>
   )
 }
 
 const MY_DEPENDANTS_QUERY = gql`
-  query MyDependants { myDependants { id relation patient { id full_name date_of_birth gender } } }
+  query MyDependants {
+    myDependants {
+      id
+      relation
+      patient {
+        id
+        full_name
+        date_of_birth
+        gender
+      }
+    }
+  }
 `
 
 describe('Family (REQ018 US-BOOK-02)', () => {
@@ -27,7 +40,9 @@ describe('Family (REQ018 US-BOOK-02)', () => {
   })
 
   it('lists an existing dependant with their relationship label', async () => {
-    const dependants = [{ id: 'rel-1', relation: 'child', patient: { id: 'dep-1', full_name: 'Little Sharma', date_of_birth: '2018-01-01', gender: 'male' } }]
+    const dependants = [
+      { id: 'rel-1', relation: 'child', patient: { id: 'dep-1', full_name: 'Little Sharma', date_of_birth: '2018-01-01', gender: 'male' } },
+    ]
     render(withProviders([{ request: { query: MY_DEPENDANTS_QUERY }, result: { data: { myDependants: dependants } } }], <Family />))
     await waitFor(() => expect(screen.getByText('Little Sharma')).toBeInTheDocument())
     expect(screen.getByText(/child ·/)).toBeInTheDocument()

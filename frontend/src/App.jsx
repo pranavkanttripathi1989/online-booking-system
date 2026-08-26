@@ -4,10 +4,10 @@ import { Box, CircularProgress, LinearProgress } from '@mui/material'
 
 // ─── Layouts & Guards — synchronous imports (NEVER lazy) ──────────────────────
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute'
-import RoleGuard      from './components/ProtectedRoute/RoleGuard'
-import AppShell       from './layouts/AppShell'
-import PublicLayout   from './layouts/PublicLayout'
-import AuthLayout     from './layouts/AuthLayout'
+import RoleGuard from './components/ProtectedRoute/RoleGuard'
+import AppShell from './layouts/AppShell'
+import PublicLayout from './layouts/PublicLayout'
+import AuthLayout from './layouts/AuthLayout'
 import { useAuth, getPostLoginRedirect } from './context/AuthContext'
 
 // Role-aware home redirect for the AppShell index route (`/`) — found via
@@ -37,19 +37,23 @@ function RootRoute() {
   const { isAuthenticated, isLoading } = useAuth()
   if (isLoading) return <FullPageLoader />
   if (isAuthenticated) return <RoleHomeRedirect />
-  return <Suspense fallback={<FullPageLoader />}><Landing /></Suspense>
+  return (
+    <Suspense fallback={<FullPageLoader />}>
+      <Landing />
+    </Suspense>
+  )
 }
 
 // ─── Auth ─────────────────────────────────────────────────────────────────────
-const Login              = lazy(() => import('./pages/auth/login'))
+const Login = lazy(() => import('./pages/auth/login'))
 const ForgotPasswordPage = lazy(() => import('./pages/auth/forgot-password'))
-const ResetPasswordPage  = lazy(() => import('./pages/auth/reset-password'))
-const OnboardingWizard   = lazy(() => import('./pages/onboarding/index'))
+const ResetPasswordPage = lazy(() => import('./pages/auth/reset-password'))
+const OnboardingWizard = lazy(() => import('./pages/onboarding/index'))
 
 // ─── Public ───────────────────────────────────────────────────────────────────
-const Landing       = lazy(() => import('./pages/public/landing'))
+const Landing = lazy(() => import('./pages/public/landing'))
 const DoctorProfile = lazy(() => import('./pages/public/doctor-profile'))
-const Checkin       = lazy(() => import('./pages/public/checkin'))
+const Checkin = lazy(() => import('./pages/public/checkin'))
 const PrescriptionOtp = lazy(() => import('./pages/share/prescription-otp'))
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
@@ -57,118 +61,118 @@ const NotFoundPage = lazy(() => import('./pages/errors/not-found'))
 const Forbidden403 = lazy(() => import('./pages/errors/forbidden'))
 
 // ─── Core shared pages ────────────────────────────────────────────────────────
-const DashboardPage    = lazy(() => import('./pages/dashboard/index'))
-const CalendarPage     = lazy(() => import('./pages/calendar/index'))
-const MessagesPage     = lazy(() => import('./pages/messages/index'))
-const SettingsPage     = lazy(() => import('./pages/settings/index'))
-const ProfilePage      = lazy(() => import('./pages/profile/index'))
+const DashboardPage = lazy(() => import('./pages/dashboard/index'))
+const CalendarPage = lazy(() => import('./pages/calendar/index'))
+const MessagesPage = lazy(() => import('./pages/messages/index'))
+const SettingsPage = lazy(() => import('./pages/settings/index'))
+const ProfilePage = lazy(() => import('./pages/profile/index'))
 const NotificationsPage = lazy(() => import('./pages/notifications/index'))
-const AnalyticsPage    = lazy(() => import('./pages/analytics/index'))
-const FinancesPage     = lazy(() => import('./pages/finances/index'))
-const ReviewsPage      = lazy(() => import('./pages/reviews/index'))
-const TasksPage        = lazy(() => import('./pages/tasks/index'))
-const WaitingRoomPage  = lazy(() => import('./pages/waiting-room/index'))
-const TestResultsPage  = lazy(() => import('./pages/test-results/index'))
+const AnalyticsPage = lazy(() => import('./pages/analytics/index'))
+const FinancesPage = lazy(() => import('./pages/finances/index'))
+const ReviewsPage = lazy(() => import('./pages/reviews/index'))
+const TasksPage = lazy(() => import('./pages/tasks/index'))
+const WaitingRoomPage = lazy(() => import('./pages/waiting-room/index'))
+const TestResultsPage = lazy(() => import('./pages/test-results/index'))
 const VideoConsultation = lazy(() => import('./pages/video/index'))
 
 // ─── Appointments ─────────────────────────────────────────────────────────────
-const AppointmentsPage   = lazy(() => import('./pages/appointments/index'))
+const AppointmentsPage = lazy(() => import('./pages/appointments/index'))
 const NewAppointmentPage = lazy(() => import('./pages/appointments/create'))
 const EditAppointmentPage = lazy(() => import('./pages/appointments/edit'))
 const AppointmentDetailPage = lazy(() => import('./pages/appointments/detail'))
-const BookingWizard      = lazy(() => import('./pages/booking/index'))
+const BookingWizard = lazy(() => import('./pages/booking/index'))
 
 // ─── Clinicians ───────────────────────────────────────────────────────────────
-const CliniciansPage      = lazy(() => import('./pages/clinicians/index'))
+const CliniciansPage = lazy(() => import('./pages/clinicians/index'))
 const ClinicianDetailPage = lazy(() => import('./pages/clinicians/detail'))
 const CreateClinicianPage = lazy(() => import('./pages/clinicians/CreateClinicianPage'))
-const EditClinicianPage   = lazy(() => import('./pages/clinicians/EditClinicianPage'))
+const EditClinicianPage = lazy(() => import('./pages/clinicians/EditClinicianPage'))
 
 // ─── Patients ─────────────────────────────────────────────────────────────────
-const PatientsPage      = lazy(() => import('./pages/patients/index'))
+const PatientsPage = lazy(() => import('./pages/patients/index'))
 const PatientDetailPage = lazy(() => import('./pages/patients/detail'))
 const CreatePatientPage = lazy(() => import('./pages/patients/CreatePatientPage'))
-const EditPatientPage   = lazy(() => import('./pages/patients/EditPatientPage'))
+const EditPatientPage = lazy(() => import('./pages/patients/EditPatientPage'))
 
 // ─── Staff ────────────────────────────────────────────────────────────────────
-const StaffPage         = lazy(() => import('./pages/staff/index'))
-const StaffDashboard    = lazy(() => import('./pages/staff/Dashboard'))
+const StaffPage = lazy(() => import('./pages/staff/index'))
+const StaffDashboard = lazy(() => import('./pages/staff/Dashboard'))
 const StaffAppointments = lazy(() => import('./pages/staff/Appointments'))
-const StaffNew          = lazy(() => import('./pages/staff/new'))
-const StaffEdit         = lazy(() => import('./pages/staff/edit'))
+const StaffNew = lazy(() => import('./pages/staff/new'))
+const StaffEdit = lazy(() => import('./pages/staff/edit'))
 
 // ─── Patient Portal ───────────────────────────────────────────────────────────
-const PatientDashboard    = lazy(() => import('./pages/patient/Dashboard'))
+const PatientDashboard = lazy(() => import('./pages/patient/Dashboard'))
 const PatientAppointments = lazy(() => import('./pages/patient/Appointments'))
-const PatientProfile      = lazy(() => import('./pages/patient/Profile'))
-const PatientFamily       = lazy(() => import('./pages/patient/Family'))
+const PatientProfile = lazy(() => import('./pages/patient/Profile'))
+const PatientFamily = lazy(() => import('./pages/patient/Family'))
 
 // ─── Clinician Portal ─────────────────────────────────────────────────────────
-const ClinicianDashboard    = lazy(() => import('./pages/clinician/Dashboard'))
-const ClinicianCalendar     = lazy(() => import('./pages/clinician/Calendar'))
+const ClinicianDashboard = lazy(() => import('./pages/clinician/Dashboard'))
+const ClinicianCalendar = lazy(() => import('./pages/clinician/Calendar'))
 const ClinicianAvailability = lazy(() => import('./pages/clinician/Availability'))
-const ClinicianPatients     = lazy(() => import('./pages/clinician/Patients'))
-const EncounterWorkspace    = lazy(() => import('./pages/clinician/EncounterWorkspace'))
-const PrescriptionBuilder   = lazy(() => import('./pages/clinician/PrescriptionBuilder'))
-const PrescriptionPrint     = lazy(() => import('./pages/prescriptions/PrescriptionPrint'))
-const VerifyPrescription    = lazy(() => import('./pages/prescriptions/Verify'))
-const QueueBoardPage        = lazy(() => import('./pages/queue/index'))
-const QueueDisplay          = lazy(() => import('./pages/queue/display'))
+const ClinicianPatients = lazy(() => import('./pages/clinician/Patients'))
+const EncounterWorkspace = lazy(() => import('./pages/clinician/EncounterWorkspace'))
+const PrescriptionBuilder = lazy(() => import('./pages/clinician/PrescriptionBuilder'))
+const PrescriptionPrint = lazy(() => import('./pages/prescriptions/PrescriptionPrint'))
+const VerifyPrescription = lazy(() => import('./pages/prescriptions/Verify'))
+const QueueBoardPage = lazy(() => import('./pages/queue/index'))
+const QueueDisplay = lazy(() => import('./pages/queue/display'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
-const ManagerDashboard    = lazy(() => import('./pages/manager/Dashboard'))
+const ManagerDashboard = lazy(() => import('./pages/manager/Dashboard'))
 const ManagerAvailability = lazy(() => import('./pages/manager/Availability'))
-const ManagerBlocks       = lazy(() => import('./pages/manager/Blocks'))
+const ManagerBlocks = lazy(() => import('./pages/manager/Blocks'))
 
 // ─── Manager: Clinics (feature folder) ───────────────────────────────────────
-const ManagerClinics   = lazy(() => import('./pages/manager/clinics/index'))
+const ManagerClinics = lazy(() => import('./pages/manager/clinics/index'))
 const ClinicDetailPage = lazy(() => import('./pages/manager/clinics/detail'))
 const CreateClinicPage = lazy(() => import('./pages/manager/clinics/create'))
-const EditClinicPage   = lazy(() => import('./pages/manager/clinics/edit'))
+const EditClinicPage = lazy(() => import('./pages/manager/clinics/edit'))
 
 // ─── Manager: Rooms (feature folder) ─────────────────────────────────────────
-const ManagerRooms   = lazy(() => import('./pages/manager/rooms/index'))
+const ManagerRooms = lazy(() => import('./pages/manager/rooms/index'))
 const ManagerResources = lazy(() => import('./pages/manager/resources/index'))
 const RoomDetailPage = lazy(() => import('./pages/manager/rooms/detail'))
 const CreateRoomPage = lazy(() => import('./pages/manager/rooms/create'))
-const EditRoomPage   = lazy(() => import('./pages/manager/rooms/edit'))
+const EditRoomPage = lazy(() => import('./pages/manager/rooms/edit'))
 
 // ─── Manager: Services (feature folder) ──────────────────────────────────────
-const ServiceCatalog    = lazy(() => import('./pages/manager/services/index'))
+const ServiceCatalog = lazy(() => import('./pages/manager/services/index'))
 const ServiceDetailPage = lazy(() => import('./pages/manager/services/detail'))
 const CreateServicePage = lazy(() => import('./pages/manager/services/create'))
-const EditServicePage   = lazy(() => import('./pages/manager/services/edit'))
+const EditServicePage = lazy(() => import('./pages/manager/services/edit'))
 
 // ─── Manager: Products (feature folder) ──────────────────────────────────────
-const ManagerProducts     = lazy(() => import('./pages/manager/products/index'))
-const CreateProductPage   = lazy(() => import('./pages/manager/products/create'))
-const EditProductPage     = lazy(() => import('./pages/manager/products/edit'))
+const ManagerProducts = lazy(() => import('./pages/manager/products/index'))
+const CreateProductPage = lazy(() => import('./pages/manager/products/create'))
+const EditProductPage = lazy(() => import('./pages/manager/products/edit'))
 // Phase G+3 — checklist/intake-field config (REQ051/REQ052) and multi-sitting packages (REQ054)
-const ManagerClinicForms  = lazy(() => import('./pages/manager/clinic-forms/index'))
-const ManagerPackages     = lazy(() => import('./pages/manager/packages/index'))
+const ManagerClinicForms = lazy(() => import('./pages/manager/clinic-forms/index'))
+const ManagerPackages = lazy(() => import('./pages/manager/packages/index'))
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
-const AdminUsers          = lazy(() => import('./pages/admin/users/index'))
+const AdminUsers = lazy(() => import('./pages/admin/users/index'))
 const { CreateUserPage, EditUserPage } = {
-  CreateUserPage: lazy(() => import('./pages/admin/users/form').then(m => ({ default: m.CreateUserPage }))),
-  EditUserPage:   lazy(() => import('./pages/admin/users/form').then(m => ({ default: m.EditUserPage   }))),
+  CreateUserPage: lazy(() => import('./pages/admin/users/form').then((m) => ({ default: m.CreateUserPage }))),
+  EditUserPage: lazy(() => import('./pages/admin/users/form').then((m) => ({ default: m.EditUserPage }))),
 }
-const AdminOrganizations  = lazy(() => import('./pages/admin/Organizations'))
+const AdminOrganizations = lazy(() => import('./pages/admin/Organizations'))
 const AdminCommunications = lazy(() => import('./pages/admin/Communications'))
-const AdminPolicies       = lazy(() => import('./pages/admin/Policies'))
-const AdminRoles          = lazy(() => import('./pages/admin/Roles'))
+const AdminPolicies = lazy(() => import('./pages/admin/Policies'))
+const AdminRoles = lazy(() => import('./pages/admin/Roles'))
 const AdminClinicianTypes = lazy(() => import('./pages/admin/ClinicianTypes'))
-const AdminRoomTypes      = lazy(() => import('./pages/admin/RoomTypes'))
-const AdminDepartments    = lazy(() => import('./pages/admin/Departments'))
-const AdminLanguages      = lazy(() => import('./pages/admin/Languages'))
+const AdminRoomTypes = lazy(() => import('./pages/admin/RoomTypes'))
+const AdminDepartments = lazy(() => import('./pages/admin/Departments'))
+const AdminLanguages = lazy(() => import('./pages/admin/Languages'))
 const AdminEmailTemplates = lazy(() => import('./pages/admin/EmailTemplates'))
 // Phase G+2 frontend completion (REQ018/REQ032/REQ034/REQ022/REQ030/REQ031/REQ015/REQ029)
-const AdminPlans          = lazy(() => import('./pages/admin/Plans'))
-const AdminPayers         = lazy(() => import('./pages/admin/Payers'))
+const AdminPlans = lazy(() => import('./pages/admin/Plans'))
+const AdminPayers = lazy(() => import('./pages/admin/Payers'))
 const AdminRightsRequests = lazy(() => import('./pages/admin/RightsRequests'))
-const ManagerPharmacy     = lazy(() => import('./pages/manager/pharmacy/index'))
-const ManagerClaims       = lazy(() => import('./pages/manager/claims/index'))
-const ManagerReports      = lazy(() => import('./pages/manager/reports/index'))
+const ManagerPharmacy = lazy(() => import('./pages/manager/pharmacy/index'))
+const ManagerClaims = lazy(() => import('./pages/manager/claims/index'))
+const ManagerReports = lazy(() => import('./pages/manager/reports/index'))
 import AdminLayout from './layouts/AdminLayout'
 
 // ─── Loading fallbacks ────────────────────────────────────────────────────────
@@ -180,11 +184,13 @@ const FullPageLoader = () => (
 
 const ShellPageLoader = () => (
   <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
-    <LinearProgress sx={{
-      height: 3,
-      bgcolor: 'rgba(0,109,119,0.1)',
-      '& .MuiLinearProgress-bar': { bgcolor: '#006D77' }
-    }} />
+    <LinearProgress
+      sx={{
+        height: 3,
+        bgcolor: 'rgba(0,109,119,0.1)',
+        '& .MuiLinearProgress-bar': { bgcolor: '#006D77' },
+      }}
+    />
   </Box>
 )
 
@@ -209,19 +215,34 @@ function App() {
       {/* ── Public — with header/footer ──────────────────────────────── */}
       <Route element={<PublicLayout />}>
         <Route path="/" element={<RootRoute />} />
-        <Route path="/doctor/:id" element={
-          <Suspense fallback={<FullPageLoader />}><DoctorProfile /></Suspense>
-        } />
+        <Route
+          path="/doctor/:id"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <DoctorProfile />
+            </Suspense>
+          }
+        />
         {/* REQ107 — QR self-check-in landing page. No auth required at
             all: the token in the URL is the sole authority. */}
-        <Route path="/checkin/:token" element={
-          <Suspense fallback={<FullPageLoader />}><Checkin /></Suspense>
-        } />
+        <Route
+          path="/checkin/:token"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <Checkin />
+            </Suspense>
+          }
+        />
         {/* REQ109 — same "no auth required, token in the URL is the sole
             authority" shape, plus a separate OTP the visitor types in. */}
-        <Route path="/share/rx/:token" element={
-          <Suspense fallback={<FullPageLoader />}><PrescriptionOtp /></Suspense>
-        } />
+        <Route
+          path="/share/rx/:token"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <PrescriptionOtp />
+            </Suspense>
+          }
+        />
       </Route>
 
       {/* ── Booking wizard — works both logged-in and anonymous ─────────
@@ -230,56 +251,101 @@ function App() {
           buttons (as an authenticated one) — same URL and component
           either way, see OptionalAuthShell above. */}
       <Route element={<OptionalAuthShell />}>
-        <Route path="/appointments/book" element={
-          <Suspense fallback={<ShellPageLoader />}><BookingWizard /></Suspense>
-        } />
+        <Route
+          path="/appointments/book"
+          element={
+            <Suspense fallback={<ShellPageLoader />}>
+              <BookingWizard />
+            </Suspense>
+          }
+        />
       </Route>
 
       {/* ── Auth pages ───────────────────────────────────────────────── */}
       <Route element={<AuthLayout />}>
-        <Route path="/login" element={
-          <Suspense fallback={<FullPageLoader />}><Login /></Suspense>
-        } />
-        <Route path="/forgot-password" element={
-          <Suspense fallback={<FullPageLoader />}><ForgotPasswordPage /></Suspense>
-        } />
-        <Route path="/reset-password" element={
-          <Suspense fallback={<FullPageLoader />}><ResetPasswordPage /></Suspense>
-        } />
-        <Route path="/get-started" element={
-          <Suspense fallback={<FullPageLoader />}><OnboardingWizard /></Suspense>
-        } />
+        <Route
+          path="/login"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <Login />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <ForgotPasswordPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/reset-password"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <ResetPasswordPage />
+            </Suspense>
+          }
+        />
+        <Route
+          path="/get-started"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <OnboardingWizard />
+            </Suspense>
+          }
+        />
       </Route>
 
       {/* ── Error pages ──────────────────────────────────────────────── */}
-      <Route path="/403" element={
-        <Suspense fallback={<FullPageLoader />}><Forbidden403 /></Suspense>
-      } />
+      <Route
+        path="/403"
+        element={
+          <Suspense fallback={<FullPageLoader />}>
+            <Forbidden403 />
+          </Suspense>
+        }
+      />
       {/* FIX-5: /forbidden alias → redirects to /403 so both routes render the access-denied page */}
       <Route path="/forbidden" element={<Navigate to="/403" replace />} />
 
       {/* ── Video — auth required, full-screen ───────────────────────── */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/video/:id" element={
-          <Suspense fallback={<FullPageLoader />}><VideoConsultation /></Suspense>
-        } />
+        <Route
+          path="/video/:id"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <VideoConsultation />
+            </Suspense>
+          }
+        />
       </Route>
 
       {/* ── Prescription print view — auth required, no AppShell chrome ──
           Same "protected but bare" shape as /video/:id above: one rendering
           path for both on-screen preview and window.print() (REQ021 US-RX-03). */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/prescriptions/:id/print" element={
-          <Suspense fallback={<FullPageLoader />}><PrescriptionPrint /></Suspense>
-        } />
+        <Route
+          path="/prescriptions/:id/print"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <PrescriptionPrint />
+            </Suspense>
+          }
+        />
       </Route>
 
       {/* ── Queue TV display — auth required, no AppShell chrome (REQ019
           US-QUE-03): meant for a waiting-room screen, not staff navigation. */}
       <Route element={<ProtectedRoute />}>
-        <Route path="/queue/display/:clinicianId" element={
-          <Suspense fallback={<FullPageLoader />}><QueueDisplay /></Suspense>
-        } />
+        <Route
+          path="/queue/display/:clinicianId"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <QueueDisplay />
+            </Suspense>
+          }
+        />
       </Route>
 
       {/* ── Protected + AppShell ─────────────────────────────────────── */}
@@ -305,56 +371,259 @@ function App() {
               this) and see a full manager-style analytics UI, even though its data was
               mock-only. */}
           <Route element={<RoleGuard roles={['admin', 'super_admin', 'staff']} />}>
-            <Route path="/dashboard"            element={<Suspense fallback={<ShellPageLoader />}><DashboardPage /></Suspense>} />
+            <Route
+              path="/dashboard"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <DashboardPage />
+                </Suspense>
+              }
+            />
           </Route>
-          <Route path="/calendar"               element={<Suspense fallback={<ShellPageLoader />}><CalendarPage /></Suspense>} />
-          <Route path="/messages"               element={<Suspense fallback={<ShellPageLoader />}><MessagesPage /></Suspense>} />
-          <Route path="/settings"               element={<Suspense fallback={<ShellPageLoader />}><SettingsPage /></Suspense>} />
-          <Route path="/notifications"          element={<Suspense fallback={<ShellPageLoader />}><NotificationsPage /></Suspense>} />
-          <Route path="/profile"                element={<Suspense fallback={<ShellPageLoader />}><ProfilePage /></Suspense>} />
+          <Route
+            path="/calendar"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <CalendarPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/messages"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <MessagesPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/settings"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <SettingsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/notifications"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <NotificationsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/profile"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <ProfilePage />
+              </Suspense>
+            }
+          />
           {/* REQ136 — a real frontend surface for the already-built
               verifyPrescriptionIntegrity query (REQ129). Any authenticated
               role, matching that query's own broad @Auth gate. */}
-          <Route path="/prescriptions/verify"   element={<Suspense fallback={<ShellPageLoader />}><VerifyPrescription /></Suspense>} />
+          <Route
+            path="/prescriptions/verify"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <VerifyPrescription />
+              </Suspense>
+            }
+          />
 
           {/* ── Appointments ─────────────────────────────────────────── */}
-          <Route path="/appointments"           element={<Suspense fallback={<ShellPageLoader />}><AppointmentsPage /></Suspense>} />
-          <Route path="/appointments/new"        element={<Suspense fallback={<ShellPageLoader />}><NewAppointmentPage /></Suspense>} />
+          <Route
+            path="/appointments"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <AppointmentsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/appointments/new"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <NewAppointmentPage />
+              </Suspense>
+            }
+          />
           {/* /appointments/book moved to its own top-level OptionalAuthShell route
               (below) — it's the one flow meant to work both logged-in and
               anonymous, so it isn't nested under ProtectedRoute here. */}
-          <Route path="/appointments/:id"        element={<Suspense fallback={<ShellPageLoader />}><AppointmentDetailPage /></Suspense>} />
-          <Route path="/appointments/:id/edit"   element={<Suspense fallback={<ShellPageLoader />}><EditAppointmentPage /></Suspense>} />
+          <Route
+            path="/appointments/:id"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <AppointmentDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/appointments/:id/edit"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <EditAppointmentPage />
+              </Suspense>
+            }
+          />
 
           {/* ── Clinicians ───────────────────────────────────────────── */}
-          <Route path="/clinicians"              element={<Suspense fallback={<ShellPageLoader />}><CliniciansPage /></Suspense>} />
-          <Route path="/clinicians/new"          element={<Suspense fallback={<ShellPageLoader />}><CreateClinicianPage /></Suspense>} />
-          <Route path="/clinicians/:id"          element={<Suspense fallback={<ShellPageLoader />}><ClinicianDetailPage /></Suspense>} />
-          <Route path="/clinicians/:id/edit"     element={<Suspense fallback={<ShellPageLoader />}><EditClinicianPage /></Suspense>} />
+          <Route
+            path="/clinicians"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <CliniciansPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clinicians/new"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <CreateClinicianPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clinicians/:id"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <ClinicianDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clinicians/:id/edit"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <EditClinicianPage />
+              </Suspense>
+            }
+          />
 
           {/* ── Patients ─────────────────────────────────────────────── */}
-          <Route path="/patients"                element={<Suspense fallback={<ShellPageLoader />}><PatientsPage /></Suspense>} />
-          <Route path="/patients/new"            element={<Suspense fallback={<ShellPageLoader />}><CreatePatientPage /></Suspense>} />
-          <Route path="/patients/:id"            element={<Suspense fallback={<ShellPageLoader />}><PatientDetailPage /></Suspense>} />
-          <Route path="/patients/:id/edit"       element={<Suspense fallback={<ShellPageLoader />}><EditPatientPage /></Suspense>} />
+          <Route
+            path="/patients"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <PatientsPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/patients/new"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <CreatePatientPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/patients/:id"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <PatientDetailPage />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/patients/:id/edit"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <EditPatientPage />
+              </Suspense>
+            }
+          />
 
           {/* ── Patient Portal ────────────────────────────────────────── */}
-          <Route path="/patient/dashboard"      element={<Suspense fallback={<ShellPageLoader />}><PatientDashboard /></Suspense>} />
-          <Route path="/patient/appointments"   element={<Suspense fallback={<ShellPageLoader />}><PatientAppointments /></Suspense>} />
-          <Route path="/patient/profile"        element={<Suspense fallback={<ShellPageLoader />}><PatientProfile /></Suspense>} />
-          <Route path="/patient/family"         element={<Suspense fallback={<ShellPageLoader />}><PatientFamily /></Suspense>} />
+          <Route
+            path="/patient/dashboard"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <PatientDashboard />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/patient/appointments"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <PatientAppointments />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/patient/profile"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <PatientProfile />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/patient/family"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <PatientFamily />
+              </Suspense>
+            }
+          />
           {/* SUG-PTDASH-001: /booking/search used by Patient Dashboard CTAs — redirect to existing booking wizard */}
-          <Route path="/booking/search"         element={<Navigate to="/appointments/book" replace />} />
+          <Route path="/booking/search" element={<Navigate to="/appointments/book" replace />} />
           {/* SUG-PTAPPT-003: Receipt page redirect — navigates to appointments list until a receipt page is built */}
           <Route path="/patient/appointments/:id/receipt" element={<Navigate to="/patient/appointments" replace />} />
 
           {/* ── Clinician Portal ──────────────────────────────────────── */}
-          <Route path="/clinician/dashboard"    element={<Suspense fallback={<ShellPageLoader />}><ClinicianDashboard /></Suspense>} />
-          <Route path="/clinician/calendar"     element={<Suspense fallback={<ShellPageLoader />}><ClinicianCalendar /></Suspense>} />
-          <Route path="/clinician/availability" element={<Suspense fallback={<ShellPageLoader />}><ClinicianAvailability /></Suspense>} />
-          <Route path="/clinician/patients"     element={<Suspense fallback={<ShellPageLoader />}><ClinicianPatients /></Suspense>} />
-          <Route path="/clinician/encounters/:appointmentId" element={<Suspense fallback={<ShellPageLoader />}><EncounterWorkspace /></Suspense>} />
-          <Route path="/clinician/prescriptions/new" element={<Suspense fallback={<ShellPageLoader />}><PrescriptionBuilder /></Suspense>} />
+          <Route
+            path="/clinician/dashboard"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <ClinicianDashboard />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clinician/calendar"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <ClinicianCalendar />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clinician/availability"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <ClinicianAvailability />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clinician/patients"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <ClinicianPatients />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clinician/encounters/:appointmentId"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <EncounterWorkspace />
+              </Suspense>
+            }
+          />
+          <Route
+            path="/clinician/prescriptions/new"
+            element={
+              <Suspense fallback={<ShellPageLoader />}>
+                <PrescriptionBuilder />
+              </Suspense>
+            }
+          />
 
           {/* ── Staff ─────────────────────────────────────────────────── */}
           {/* Guarded to match the backend: dashboard.resolver.ts is
@@ -364,67 +633,319 @@ function App() {
               error the moment they read real data. 'manager' is included
               because managers legitimately cover the front desk. */}
           <Route element={<RoleGuard roles={['admin', 'super_admin', 'staff', 'manager']} />}>
-            <Route path="/staff/dashboard"        element={<Suspense fallback={<ShellPageLoader />}><StaffDashboard /></Suspense>} />
-            <Route path="/staff/appointments"     element={<Suspense fallback={<ShellPageLoader />}><StaffAppointments /></Suspense>} />
+            <Route
+              path="/staff/dashboard"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <StaffDashboard />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/staff/appointments"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <StaffAppointments />
+                </Suspense>
+              }
+            />
             {/* REQ059 — pharmacy.resolver.ts is @Auth('staff','manager','admin',
                 'super_admin'); this route previously sat under the manager-only
                 block below, so real pharmacy staff got this app's own 403 page
                 before ever reaching a page the backend already lets them use. */}
-            <Route path="/manager/pharmacy"        element={<Suspense fallback={<ShellPageLoader />}><ManagerPharmacy /></Suspense>} />
+            <Route
+              path="/manager/pharmacy"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerPharmacy />
+                </Suspense>
+              }
+            />
             {/* REQ131 — insurance.resolver.ts's claims/submitClaim are
                 @Auth('staff','manager','admin','super_admin'); same
                 staff-inclusive gate as pharmacy above, matching its own
                 previously-fixed frontend/backend gate mismatch. */}
-            <Route path="/manager/claims"          element={<Suspense fallback={<ShellPageLoader />}><ManagerClaims /></Suspense>} />
+            <Route
+              path="/manager/claims"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerClaims />
+                </Suspense>
+              }
+            />
           </Route>
 
           {/* ── Manager / admin ───────────────────────────────────────── */}
           <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager']} />}>
-            <Route path="/manager/dashboard"         element={<Suspense fallback={<ShellPageLoader />}><ManagerDashboard /></Suspense>} />
+            <Route
+              path="/manager/dashboard"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerDashboard />
+                </Suspense>
+              }
+            />
             {/* /manager/billing duplicated /finances (real since REQ004) — same
                 manager-scoped revenue summary, transaction list and revenue
                 chart. Its extra concepts (invoice IDs, refunds, "outstanding")
                 had no backing model at all. Redirected rather than given a
                 second, fabricated source of truth for the same numbers — the
                 same call as open-questions.md #7. */}
-            <Route path="/manager/billing"           element={<Navigate to="/finances" replace />} />
-            <Route path="/manager/availability"      element={<Suspense fallback={<ShellPageLoader />}><ManagerAvailability /></Suspense>} />
-            <Route path="/manager/blocks"            element={<Suspense fallback={<ShellPageLoader />}><ManagerBlocks /></Suspense>} />
+            <Route path="/manager/billing" element={<Navigate to="/finances" replace />} />
+            <Route
+              path="/manager/availability"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerAvailability />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/blocks"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerBlocks />
+                </Suspense>
+              }
+            />
             {/* Clinics CRUD */}
-            <Route path="/manager/clinics"           element={<Suspense fallback={<ShellPageLoader />}><ManagerClinics /></Suspense>} />
-            <Route path="/manager/clinics/new"       element={<Suspense fallback={<ShellPageLoader />}><CreateClinicPage /></Suspense>} />
-            <Route path="/manager/clinics/:id"       element={<Suspense fallback={<ShellPageLoader />}><ClinicDetailPage /></Suspense>} />
-            <Route path="/manager/clinics/:id/edit"  element={<Suspense fallback={<ShellPageLoader />}><EditClinicPage /></Suspense>} />
+            <Route
+              path="/manager/clinics"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerClinics />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/clinics/new"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <CreateClinicPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/clinics/:id"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ClinicDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/clinics/:id/edit"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <EditClinicPage />
+                </Suspense>
+              }
+            />
             {/* Rooms CRUD */}
-            <Route path="/manager/rooms"             element={<Suspense fallback={<ShellPageLoader />}><ManagerRooms /></Suspense>} />
-            <Route path="/manager/rooms/new"         element={<Suspense fallback={<ShellPageLoader />}><CreateRoomPage /></Suspense>} />
-            <Route path="/manager/rooms/:id"         element={<Suspense fallback={<ShellPageLoader />}><RoomDetailPage /></Suspense>} />
-            <Route path="/manager/rooms/:id/edit"    element={<Suspense fallback={<ShellPageLoader />}><EditRoomPage /></Suspense>} />
-            <Route path="/manager/resources"         element={<Suspense fallback={<ShellPageLoader />}><ManagerResources /></Suspense>} />
-            <Route path="/manager/reports"            element={<Suspense fallback={<ShellPageLoader />}><ManagerReports /></Suspense>} />
+            <Route
+              path="/manager/rooms"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerRooms />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/rooms/new"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <CreateRoomPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/rooms/:id"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <RoomDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/rooms/:id/edit"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <EditRoomPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/resources"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerResources />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/reports"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerReports />
+                </Suspense>
+              }
+            />
             {/* Services CRUD */}
-            <Route path="/manager/services"          element={<Suspense fallback={<ShellPageLoader />}><ServiceCatalog /></Suspense>} />
-            <Route path="/manager/services/new"      element={<Suspense fallback={<ShellPageLoader />}><CreateServicePage /></Suspense>} />
-            <Route path="/manager/services/:id"      element={<Suspense fallback={<ShellPageLoader />}><ServiceDetailPage /></Suspense>} />
-            <Route path="/manager/services/:id/edit" element={<Suspense fallback={<ShellPageLoader />}><EditServicePage /></Suspense>} />
+            <Route
+              path="/manager/services"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ServiceCatalog />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/services/new"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <CreateServicePage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/services/:id"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ServiceDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/services/:id/edit"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <EditServicePage />
+                </Suspense>
+              }
+            />
             {/* Products CRUD */}
-            <Route path="/manager/products"          element={<Suspense fallback={<ShellPageLoader />}><ManagerProducts /></Suspense>} />
-            <Route path="/manager/products/new"      element={<Suspense fallback={<ShellPageLoader />}><CreateProductPage /></Suspense>} />
-            <Route path="/manager/products/:id/edit" element={<Suspense fallback={<ShellPageLoader />}><EditProductPage /></Suspense>} />
+            <Route
+              path="/manager/products"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerProducts />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/products/new"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <CreateProductPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/products/:id/edit"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <EditProductPage />
+                </Suspense>
+              }
+            />
             {/* Phase G+3 — checklist/intake-field config (REQ051/REQ052), packages (REQ054) */}
-            <Route path="/manager/clinic-forms"      element={<Suspense fallback={<ShellPageLoader />}><ManagerClinicForms /></Suspense>} />
-            <Route path="/manager/packages"          element={<Suspense fallback={<ShellPageLoader />}><ManagerPackages /></Suspense>} />
+            <Route
+              path="/manager/clinic-forms"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerClinicForms />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/packages"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerPackages />
+                </Suspense>
+              }
+            />
             {/* Shared manager/admin pages */}
-            <Route path="/tasks"               element={<Suspense fallback={<ShellPageLoader />}><TasksPage /></Suspense>} />
-            <Route path="/waiting-room"        element={<Suspense fallback={<ShellPageLoader />}><WaitingRoomPage /></Suspense>} />
-            <Route path="/queue"               element={<Suspense fallback={<ShellPageLoader />}><QueueBoardPage /></Suspense>} />
-            <Route path="/staff"               element={<Suspense fallback={<ShellPageLoader />}><StaffPage /></Suspense>} />
-            <Route path="/staff/new"            element={<Suspense fallback={<ShellPageLoader />}><StaffNew /></Suspense>} />
-            <Route path="/staff/edit/:id"       element={<Suspense fallback={<ShellPageLoader />}><StaffEdit /></Suspense>} />
-            <Route path="/test-results"        element={<Suspense fallback={<ShellPageLoader />}><TestResultsPage /></Suspense>} />
-            <Route path="/analytics"           element={<Suspense fallback={<ShellPageLoader />}><AnalyticsPage /></Suspense>} />
-            <Route path="/finances"            element={<Suspense fallback={<ShellPageLoader />}><FinancesPage /></Suspense>} />
-            <Route path="/reviews"             element={<Suspense fallback={<ShellPageLoader />}><ReviewsPage /></Suspense>} />
+            <Route
+              path="/tasks"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <TasksPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/waiting-room"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <WaitingRoomPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/queue"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <QueueBoardPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/staff"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <StaffPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/staff/new"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <StaffNew />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/staff/edit/:id"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <StaffEdit />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/test-results"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <TestResultsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/analytics"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <AnalyticsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/finances"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <FinancesPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/reviews"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ReviewsPage />
+                </Suspense>
+              }
+            />
           </Route>
 
           {/* ── Admin only — wrapped in AdminLayout sidebar ───────────── */}
@@ -432,17 +953,94 @@ function App() {
             <Route element={<AdminLayout />}>
               {/* NEW-ADMIN-003: /admin → /admin/users default landing */}
               <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
-              <Route path="/admin/users"           element={<Suspense fallback={<ShellPageLoader />}><AdminUsers /></Suspense>} />
-              <Route path="/admin/users/new"       element={<Suspense fallback={<ShellPageLoader />}><CreateUserPage /></Suspense>} />
-              <Route path="/admin/users/:id/edit"  element={<Suspense fallback={<ShellPageLoader />}><EditUserPage /></Suspense>} />
-              <Route path="/admin/organizations"   element={<Suspense fallback={<ShellPageLoader />}><AdminOrganizations /></Suspense>} />
-              <Route path="/admin/roles"           element={<Suspense fallback={<ShellPageLoader />}><AdminRoles /></Suspense>} />
-              <Route path="/admin/clinician-types" element={<Suspense fallback={<ShellPageLoader />}><AdminClinicianTypes /></Suspense>} />
-              <Route path="/admin/room-types"      element={<Suspense fallback={<ShellPageLoader />}><AdminRoomTypes /></Suspense>} />
-              <Route path="/admin/departments"     element={<Suspense fallback={<ShellPageLoader />}><AdminDepartments /></Suspense>} />
-              <Route path="/admin/plans"           element={<Suspense fallback={<ShellPageLoader />}><AdminPlans /></Suspense>} />
-              <Route path="/admin/languages"       element={<Suspense fallback={<ShellPageLoader />}><AdminLanguages /></Suspense>} />
-              <Route path="/admin/email-templates" element={<Suspense fallback={<ShellPageLoader />}><AdminEmailTemplates /></Suspense>} />
+              <Route
+                path="/admin/users"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminUsers />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/users/new"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <CreateUserPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/users/:id/edit"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <EditUserPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/organizations"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminOrganizations />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/roles"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminRoles />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/clinician-types"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminClinicianTypes />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/room-types"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminRoomTypes />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/departments"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminDepartments />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/plans"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminPlans />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/languages"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminLanguages />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/email-templates"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminEmailTemplates />
+                  </Suspense>
+                }
+              />
             </Route>
           </Route>
 
@@ -456,19 +1054,52 @@ function App() {
                manager can reach and use them. ── */}
           <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager']} />}>
             <Route element={<AdminLayout />}>
-              <Route path="/admin/communications"  element={<Suspense fallback={<ShellPageLoader />}><AdminCommunications /></Suspense>} />
-              <Route path="/admin/policies"        element={<Suspense fallback={<ShellPageLoader />}><AdminPolicies /></Suspense>} />
-              <Route path="/admin/payers"          element={<Suspense fallback={<ShellPageLoader />}><AdminPayers /></Suspense>} />
-              <Route path="/admin/rights-requests" element={<Suspense fallback={<ShellPageLoader />}><AdminRightsRequests /></Suspense>} />
+              <Route
+                path="/admin/communications"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminCommunications />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/policies"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminPolicies />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/payers"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminPayers />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/rights-requests"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminRightsRequests />
+                  </Suspense>
+                }
+              />
             </Route>
           </Route>
         </Route>
       </Route>
 
       {/* ── 404 ──────────────────────────────────────────────────────── */}
-      <Route path="*" element={
-        <Suspense fallback={<FullPageLoader />}><NotFoundPage /></Suspense>
-      } />
+      <Route
+        path="*"
+        element={
+          <Suspense fallback={<FullPageLoader />}>
+            <NotFoundPage />
+          </Suspense>
+        }
+      />
     </Routes>
   )
 }

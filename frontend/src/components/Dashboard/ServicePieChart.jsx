@@ -1,24 +1,16 @@
-import {
-  PieChart,
-  Pie,
-  Cell,
-  Tooltip,
-  Legend,
-  ResponsiveContainer,
-} from 'recharts'
+import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Box, Typography, Paper, useTheme, useMediaQuery, alpha } from '@mui/material'
 
 // ─── Google 8-ramp chart colors ──────────────────────────────────────────────
-const COLOURS = ['#4285F4', '#0F9D58', '#F9AB00', '#D93025',
-                 '#9334E6', '#FA7B17', '#009688', '#EA4335']
+const COLOURS = ['#4285F4', '#0F9D58', '#F9AB00', '#D93025', '#9334E6', '#FA7B17', '#009688', '#EA4335']
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
 const MOCK = [
   { service_name: 'General Consultation', count: 42 },
-  { service_name: 'Physiotherapy',        count: 28 },
-  { service_name: 'Dental Check-up',      count: 19 },
-  { service_name: 'Cardiology Review',    count: 14 },
-  { service_name: 'Dermatology',          count: 11 },
+  { service_name: 'Physiotherapy', count: 28 },
+  { service_name: 'Dental Check-up', count: 19 },
+  { service_name: 'Cardiology Review', count: 14 },
+  { service_name: 'Dermatology', count: 11 },
 ]
 
 // ─── Custom Tooltip ────────────────────────────────────────────────────────────
@@ -26,15 +18,26 @@ function CustomTooltip({ active, payload }) {
   if (!active || !payload?.length) return null
   const { name, value } = payload[0]
   return (
-    <Paper elevation={0} sx={{
-      p: 2, borderRadius: 3, minWidth: 160,
-      border: '1px solid #E8EAED',
-      boxShadow: '0 4px 20px rgba(32,33,36,0.18)',
-      bgcolor: '#FFFFFF',
-    }}>
-      <Typography variant="caption" fontWeight={700} display="block" mb={0.5} sx={{ color: '#202124' }}>{name}</Typography>
-      <Typography variant="caption" sx={{ color: '#5F6368' }}>Bookings: </Typography>
-      <Typography variant="caption" fontWeight={700} sx={{ color: '#202124' }}>{value}</Typography>
+    <Paper
+      elevation={0}
+      sx={{
+        p: 2,
+        borderRadius: 3,
+        minWidth: 160,
+        border: '1px solid #E8EAED',
+        boxShadow: '0 4px 20px rgba(32,33,36,0.18)',
+        bgcolor: '#FFFFFF',
+      }}
+    >
+      <Typography variant="caption" fontWeight={700} display="block" mb={0.5} sx={{ color: '#202124' }}>
+        {name}
+      </Typography>
+      <Typography variant="caption" sx={{ color: '#5F6368' }}>
+        Bookings:{' '}
+      </Typography>
+      <Typography variant="caption" fontWeight={700} sx={{ color: '#202124' }}>
+        {value}
+      </Typography>
     </Paper>
   )
 }
@@ -50,13 +53,20 @@ function CustomLegend({ payload, isMobile }) {
           <Typography variant="caption" sx={{ color: '#5F6368' }} noWrap sx2={{ maxWidth: 130 }}>
             {entry.value}
           </Typography>
-          <Typography variant="caption" fontWeight={700} sx={{
-            ml: 'auto', pl: 1, px: 1, py: 0.25,
-            bgcolor: alpha(entry.color, 0.12),
-            color: entry.color,
-            borderRadius: '6px',
-            fontSize: '0.68rem',
-          }}>
+          <Typography
+            variant="caption"
+            fontWeight={700}
+            sx={{
+              ml: 'auto',
+              pl: 1,
+              px: 1,
+              py: 0.25,
+              bgcolor: alpha(entry.color, 0.12),
+              color: entry.color,
+              borderRadius: '6px',
+              fontSize: '0.68rem',
+            }}
+          >
             {entry.payload?.count ?? ''}
           </Typography>
         </Box>
@@ -69,13 +79,12 @@ function CustomLegend({ payload, isMobile }) {
 export default function ServicePieChart({ data }) {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
-  const chartData = (data && data.length > 0) ? data : MOCK
+  const chartData = data && data.length > 0 ? data : MOCK
   const total = chartData.reduce((s, d) => s + (d.count ?? d.value ?? 0), 0)
 
   return (
     <Box>
-      <Typography variant="subtitle1" fontWeight={700} mb={2}
-        sx={{ color: '#202124', fontSize: { xs: '0.875rem', md: '0.9375rem' } }}>
+      <Typography variant="subtitle1" fontWeight={700} mb={2} sx={{ color: '#202124', fontSize: { xs: '0.875rem', md: '0.9375rem' } }}>
         Bookings by Service
       </Typography>
       <ResponsiveContainer width="100%" height={isMobile ? 240 : 260}>

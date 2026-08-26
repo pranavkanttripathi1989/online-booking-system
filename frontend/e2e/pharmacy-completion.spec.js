@@ -40,9 +40,13 @@ let batchNumber
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = authData.login.access_token
 
   const clinicsData = await gql(request, managerToken, `{ clinics { id name } }`)
@@ -54,18 +58,36 @@ test.beforeAll(async ({ playwright }) => {
   // A real batch with stock, so the dispense flow's batch picker has a
   // real match for the seeded drug used in the prescription below.
   batchNumber = `E2E-DISPENSE-${Date.now()}`
-  await gql(request, managerToken, `
+  await gql(
+    request,
+    managerToken,
+    `
     mutation($input: ReceiveStockInput!) { receiveStock(input: $input) { id } }
-  `, { input: { drug_id: drugId, clinic_id: clinicId, batch_number: batchNumber, expiry_date: '2028-01-01', quantity: 100 } })
+  `,
+    { input: { drug_id: drugId, clinic_id: clinicId, batch_number: batchNumber, expiry_date: '2028-01-01', quantity: 100 } },
+  )
 
   // Real patient → real appointment → real encounter → real prescription
   // (createPrescription is clinician-only — link the demo clinician
   // account to a real clinician for the duration, same pattern as
   // clinician-portal.spec.js/clinician-dashboard.spec.js).
   patientLastName = `Dispense${Date.now()}`
-  const patientData = await gql(request, managerToken, `
+  const patientData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: PatientInput!) { createPatient(input: $input) { id full_name } }
-  `, { input: { first_name: 'E2E', last_name: patientLastName, email: `e2e.dispense.${Date.now()}@example.com`, phone: `9${Date.now().toString().slice(-9)}`, date_of_birth: '1990-01-01' } })
+  `,
+    {
+      input: {
+        first_name: 'E2E',
+        last_name: patientLastName,
+        email: `e2e.dispense.${Date.now()}@example.com`,
+        phone: `9${Date.now().toString().slice(-9)}`,
+        date_of_birth: '1990-01-01',
+      },
+    },
+  )
   patientId = patientData.createPatient.id
   patientName = patientData.createPatient.full_name
 
@@ -73,25 +95,57 @@ test.beforeAll(async ({ playwright }) => {
   const svc = servicesData.services.find((s) => s.clinicians.some((c) => c.id === REAL_CLINICIAN_ID)) ?? servicesData.services[0]
 
   const start = new Date(Date.now() + (500 + Math.floor(Math.random() * 300)) * 24 * 3600 * 1000)
-  const apptData = await gql(request, managerToken, `
+  const apptData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, { input: { patient_id: patientId, clinician_id: REAL_CLINICIAN_ID, service_id: svc.id, clinic_id: clinicId, start_datetime: start.toISOString() } })
+  `,
+    {
+      input: {
+        patient_id: patientId,
+        clinician_id: REAL_CLINICIAN_ID,
+        service_id: svc.id,
+        clinic_id: clinicId,
+        start_datetime: start.toISOString(),
+      },
+    },
+  )
 
   execSync(
     `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET clinician_id = '${REAL_CLINICIAN_ID}' WHERE email = 'clinician@medibook.dev';"`,
   )
-  const clinAuth = await gql(request, null, `
+  const clinAuth = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "clinician@medibook.dev", password: "Cln1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   const clinicianToken = clinAuth.login.access_token
 
-  const encounterData = await gql(request, clinicianToken, `
+  const encounterData = await gql(
+    request,
+    clinicianToken,
+    `
     mutation($appointment_id: ID!) { getOrCreateEncounter(appointment_id: $appointment_id) { id } }
-  `, { appointment_id: apptData.createAppointment.id })
+  `,
+    { appointment_id: apptData.createAppointment.id },
+  )
 
-  await gql(request, clinicianToken, `
+  await gql(
+    request,
+    clinicianToken,
+    `
     mutation($input: CreatePrescriptionInput!) { createPrescription(input: $input) { id } }
-  `, { input: { encounter_id: encounterData.getOrCreateEncounter.id, items: [{ drug_id: drugId, dose: '1 tablet', frequency: 'OD', duration_days: 5 }] } })
+  `,
+    {
+      input: {
+        encounter_id: encounterData.getOrCreateEncounter.id,
+        items: [{ drug_id: drugId, dose: '1 tablet', frequency: 'OD', duration_days: 5 }],
+      },
+    },
+  )
 
   execSync(
     `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET clinician_id = NULL WHERE email = 'clinician@medibook.dev';"`,

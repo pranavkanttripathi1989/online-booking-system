@@ -2,30 +2,51 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useSubscription, gql } from '@apollo/client'
 import { useTheme, useMediaQuery } from '@mui/material'
 import {
-  Box, Typography, Avatar, Badge, IconButton, InputBase, Chip,
-  List, ListItemButton, Dialog, DialogTitle, DialogContent, DialogActions,
-  Button, TextField, Autocomplete, Tooltip, CircularProgress,
-  Select, MenuItem, FormControl, Menu, Divider, Stack, InputLabel,
+  Box,
+  Typography,
+  Avatar,
+  Badge,
+  IconButton,
+  InputBase,
+  Chip,
+  List,
+  ListItemButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Button,
+  TextField,
+  Autocomplete,
+  Tooltip,
+  CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  Menu,
+  Divider,
+  Stack,
+  InputLabel,
 } from '@mui/material'
 import { Helmet } from 'react-helmet-async'
-import DoneAllRoundedIcon         from '@mui/icons-material/DoneAllRounded'
-import DoneRoundedIcon            from '@mui/icons-material/DoneRounded'
-import SearchRoundedIcon           from '@mui/icons-material/SearchRounded'
-import AttachFileRoundedIcon       from '@mui/icons-material/AttachFileRounded'
-import EmojiEmotionsOutlinedIcon   from '@mui/icons-material/EmojiEmotionsOutlined'
-import SendRoundedIcon             from '@mui/icons-material/SendRounded'
-import CallRoundedIcon             from '@mui/icons-material/CallRounded'
-import VideocamRoundedIcon         from '@mui/icons-material/VideocamRounded'
-import InfoOutlinedIcon            from '@mui/icons-material/InfoOutlined'
-import ArrowBackRoundedIcon        from '@mui/icons-material/ArrowBackRounded'
-import EditRoundedIcon             from '@mui/icons-material/EditRounded'
-import PersonRoundedIcon           from '@mui/icons-material/PersonRounded'
-import LocalHospitalRoundedIcon    from '@mui/icons-material/LocalHospitalRounded'
-import BadgeRoundedIcon            from '@mui/icons-material/BadgeRounded'
-import CloseRoundedIcon            from '@mui/icons-material/CloseRounded'
-import ContentPasteRoundedIcon     from '@mui/icons-material/ContentPasteRounded'
-import DeleteOutlineRoundedIcon    from '@mui/icons-material/DeleteOutlineRounded'
-import ApartmentRoundedIcon        from '@mui/icons-material/ApartmentRounded'
+import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded'
+import DoneRoundedIcon from '@mui/icons-material/DoneRounded'
+import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
+import AttachFileRoundedIcon from '@mui/icons-material/AttachFileRounded'
+import EmojiEmotionsOutlinedIcon from '@mui/icons-material/EmojiEmotionsOutlined'
+import SendRoundedIcon from '@mui/icons-material/SendRounded'
+import CallRoundedIcon from '@mui/icons-material/CallRounded'
+import VideocamRoundedIcon from '@mui/icons-material/VideocamRounded'
+import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import EditRoundedIcon from '@mui/icons-material/EditRounded'
+import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
+import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded'
+import BadgeRoundedIcon from '@mui/icons-material/BadgeRounded'
+import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
+import ContentPasteRoundedIcon from '@mui/icons-material/ContentPasteRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import ApartmentRoundedIcon from '@mui/icons-material/ApartmentRounded'
 import { useAuth } from '../../context/AuthContext'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { formatRelativeTime } from '../../utils/dateTime'
@@ -38,46 +59,85 @@ import { CLINICS_QUERY } from '../../graphql/queries'
 const THREAD_FIELDS = gql`
   fragment ThreadSummaryFields on MessageThread {
     id
-    participants { id name role }
+    participants {
+      id
+      name
+      role
+    }
     last_message
     last_activity
     unread_count
-    assigned_to { id name role }
+    assigned_to {
+      id
+      name
+      role
+    }
     sla_due_at
   }
 `
 const THREAD_DETAIL_FIELDS = gql`
   fragment ThreadDetailFields on MessageThread {
     id
-    participants { id name role }
+    participants {
+      id
+      name
+      role
+    }
     last_message
     last_activity
     unread_count
-    messages { id from_id from_name body sent_at read attachments { id file_ref mime_type original_filename } }
-    assigned_to { id name role }
+    messages {
+      id
+      from_id
+      from_name
+      body
+      sent_at
+      read
+      attachments {
+        id
+        file_ref
+        mime_type
+        original_filename
+      }
+    }
+    assigned_to {
+      id
+      name
+      role
+    }
     sla_due_at
   }
 `
 const GET_THREADS = gql`
   query GetThreads {
-    threads { ...ThreadSummaryFields }
+    threads {
+      ...ThreadSummaryFields
+    }
   }
   ${THREAD_FIELDS}
 `
 const GET_THREAD = gql`
   query GetThread($id: ID!) {
-    thread(id: $id) { ...ThreadDetailFields }
+    thread(id: $id) {
+      ...ThreadDetailFields
+    }
   }
   ${THREAD_DETAIL_FIELDS}
 `
 const GET_MESSAGEABLE_CONTACTS = gql`
   query GetMessageableContacts {
-    messageableContacts { id name role }
+    messageableContacts {
+      id
+      name
+      role
+    }
   }
 `
 const SEND_MESSAGE = gql`
   mutation SendMessage($threadId: ID!, $body: String!) {
-    sendMessage(threadId: $threadId, body: $body) { ...ThreadDetailFields }
+    sendMessage(threadId: $threadId, body: $body) {
+      ...ThreadDetailFields
+    }
   }
   ${THREAD_DETAIL_FIELDS}
 `
@@ -88,31 +148,48 @@ const MARK_THREAD_READ = gql`
 `
 const CREATE_THREAD = gql`
   mutation CreateThread($input: CreateThreadInput!) {
-    createThread(input: $input) { ...ThreadDetailFields }
+    createThread(input: $input) {
+      ...ThreadDetailFields
+    }
   }
   ${THREAD_DETAIL_FIELDS}
 `
 // REQ043 -- shared-inbox assignment + SLA timer.
 const ASSIGN_THREAD = gql`
   mutation AssignThread($threadId: ID!, $assigneeUserId: ID!) {
-    assignThread(threadId: $threadId, assigneeUserId: $assigneeUserId) { ...ThreadDetailFields }
+    assignThread(threadId: $threadId, assigneeUserId: $assigneeUserId) {
+      ...ThreadDetailFields
+    }
   }
   ${THREAD_DETAIL_FIELDS}
 `
 const MESSAGE_RECEIVED = gql`
   subscription MessageReceived($userId: ID!) {
-    messageReceived(userId: $userId) { ...ThreadSummaryFields }
+    messageReceived(userId: $userId) {
+      ...ThreadSummaryFields
+    }
   }
   ${THREAD_FIELDS}
 `
 
 // REQ058 (US-MSG-01) -- department/branch-scoped threads, oversight view.
 const GET_DEPARTMENTS_FOR_MESSAGES = gql`
-  query GetDepartmentsForMessages { departments { id name clinic { id name } } }
+  query GetDepartmentsForMessages {
+    departments {
+      id
+      name
+      clinic {
+        id
+        name
+      }
+    }
+  }
 `
 const GET_DEPARTMENT_THREADS = gql`
   query GetDepartmentThreads($departmentId: ID!) {
-    departmentThreads(departmentId: $departmentId) { ...ThreadSummaryFields }
+    departmentThreads(departmentId: $departmentId) {
+      ...ThreadSummaryFields
+    }
   }
   ${THREAD_FIELDS}
 `
@@ -121,34 +198,71 @@ const GET_DEPARTMENT_THREADS = gql`
 // itself; this persists the metadata row once a real message id exists).
 const CREATE_MESSAGE_ATTACHMENT = gql`
   mutation CreateMessageAttachment($input: CreateMessageAttachmentInput!) {
-    createMessageAttachment(input: $input) { id file_ref mime_type original_filename }
+    createMessageAttachment(input: $input) {
+      id
+      file_ref
+      mime_type
+      original_filename
+    }
   }
 `
 // REQ058 (US-MSG-03) -- canned replies.
 const GET_CANNED_REPLIES = gql`
-  query GetCannedReplies { cannedReplies { id title body created_at } }
+  query GetCannedReplies {
+    cannedReplies {
+      id
+      title
+      body
+      created_at
+    }
+  }
 `
 const CREATE_CANNED_REPLY = gql`
   mutation CreateCannedReply($input: CreateCannedReplyInput!) {
-    createCannedReply(input: $input) { success userErrors { message } cannedReply { id title body } }
+    createCannedReply(input: $input) {
+      success
+      userErrors {
+        message
+      }
+      cannedReply {
+        id
+        title
+        body
+      }
+    }
   }
 `
 const UPDATE_CANNED_REPLY = gql`
   mutation UpdateCannedReply($id: ID!, $input: UpdateCannedReplyInput!) {
-    updateCannedReply(id: $id, input: $input) { success userErrors { message } cannedReply { id title body } }
+    updateCannedReply(id: $id, input: $input) {
+      success
+      userErrors {
+        message
+      }
+      cannedReply {
+        id
+        title
+        body
+      }
+    }
   }
 `
 const DELETE_CANNED_REPLY = gql`
   mutation DeleteCannedReply($id: ID!) {
-    deleteCannedReply(id: $id) { success userErrors { message } }
+    deleteCannedReply(id: $id) {
+      success
+      userErrors {
+        message
+      }
+    }
   }
 `
 
 // ─── Role colour map (SUG-MSG-005) ───────────────────────────────────────────
 const ROLE_STYLE = {
-  patient:   { bg: '#E8F5E9', color: '#2E7D32', label: 'Patient',   icon: PersonRoundedIcon },
+  patient: { bg: '#E8F5E9', color: '#2E7D32', label: 'Patient', icon: PersonRoundedIcon },
   clinician: { bg: '#E3F2FD', color: '#1565C0', label: 'Clinician', icon: LocalHospitalRoundedIcon },
-  staff:     { bg: '#F3E5F5', color: '#6A1B9A', label: 'Staff',     icon: BadgeRoundedIcon },
+  staff: { bg: '#F3E5F5', color: '#6A1B9A', label: 'Staff', icon: BadgeRoundedIcon },
 }
 
 function getRoleStyle(role) {
@@ -157,17 +271,21 @@ function getRoleStyle(role) {
 
 // ─── Contact Item ─────────────────────────────────────────────────────────────
 function ContactItem({ thread, active, currentUserId, onClick }) {
-  const other  = thread.participants.find(p => p.id !== currentUserId) ?? thread.participants[0]
+  const other = thread.participants.find((p) => p.id !== currentUserId) ?? thread.participants[0]
   const unread = thread.unread_count ?? 0
-  const rs     = getRoleStyle(other?.role)
+  const rs = getRoleStyle(other?.role)
   const RoleIcon = rs.icon
   return (
     <ListItemButton
       onClick={onClick}
       selected={active}
       sx={{
-        py: 1.5, px: 2, gap: 1.5,
-        borderRadius: 2, mx: 1, mb: 0.5,
+        py: 1.5,
+        px: 2,
+        gap: 1.5,
+        borderRadius: 2,
+        mx: 1,
+        mb: 0.5,
         borderLeft: active ? '3px solid #1A73E8' : '3px solid transparent',
         '&.Mui-selected': { bgcolor: '#E8F0FE' },
         '&:hover': { bgcolor: active ? '#E8F0FE' : '#F8F9FA' },
@@ -175,10 +293,35 @@ function ContactItem({ thread, active, currentUserId, onClick }) {
       }}
     >
       <Box sx={{ position: 'relative', flexShrink: 0 }}>
-        <Avatar sx={{ width: 40, height: 40, bgcolor: active ? '#1A73E8' : '#E8F0FE', color: active ? '#fff' : '#1A73E8', fontSize: '0.8rem', fontWeight: 700 }}>
-          {(other?.name ?? '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+        <Avatar
+          sx={{
+            width: 40,
+            height: 40,
+            bgcolor: active ? '#1A73E8' : '#E8F0FE',
+            color: active ? '#fff' : '#1A73E8',
+            fontSize: '0.8rem',
+            fontWeight: 700,
+          }}
+        >
+          {(other?.name ?? '?')
+            .split(' ')
+            .map((w) => w[0])
+            .join('')
+            .slice(0, 2)
+            .toUpperCase()}
         </Avatar>
-        <Box sx={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', bgcolor: '#0F9D58', border: '2px solid #fff' }} />
+        <Box
+          sx={{
+            position: 'absolute',
+            bottom: 0,
+            right: 0,
+            width: 10,
+            height: 10,
+            borderRadius: '50%',
+            bgcolor: '#0F9D58',
+            border: '2px solid #fff',
+          }}
+        />
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.25 }}>
@@ -195,7 +338,20 @@ function ContactItem({ thread, active, currentUserId, onClick }) {
             {thread.last_message}
           </Typography>
           {unread > 0 && (
-            <Box sx={{ bgcolor: '#D93025', color: '#fff', borderRadius: '10px', px: 0.8, fontSize: '0.6rem', fontWeight: 700, ml: 0.5, minWidth: 18, textAlign: 'center', flexShrink: 0 }}>
+            <Box
+              sx={{
+                bgcolor: '#D93025',
+                color: '#fff',
+                borderRadius: '10px',
+                px: 0.8,
+                fontSize: '0.6rem',
+                fontWeight: 700,
+                ml: 0.5,
+                minWidth: 18,
+                textAlign: 'center',
+                flexShrink: 0,
+              }}
+            >
               {unread}
             </Box>
           )}
@@ -214,8 +370,13 @@ function ContactItem({ thread, active, currentUserId, onClick }) {
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 function MessageBubble({ msg, currentUserId }) {
-  const isMe     = msg.from_id === currentUserId
-  const initials = (msg.from_name ?? '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()
+  const isMe = msg.from_id === currentUserId
+  const initials = (msg.from_name ?? '?')
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .slice(0, 2)
+    .toUpperCase()
 
   // SUG-MSG-006: Delivery status indicator
   // Optimistic: our sent messages show "Sent" tick; older messages (read: true) show "Read" double-tick in teal
@@ -225,17 +386,30 @@ function MessageBubble({ msg, currentUserId }) {
   return (
     <Box sx={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
       {!isMe && (
-        <Avatar sx={{ width: 30, height: 30, bgcolor: '#E8F0FE', color: '#1A73E8', fontSize: '0.7rem', fontWeight: 700, mr: 1, mt: 0.5, flexShrink: 0 }}>
+        <Avatar
+          sx={{
+            width: 30,
+            height: 30,
+            bgcolor: '#E8F0FE',
+            color: '#1A73E8',
+            fontSize: '0.7rem',
+            fontWeight: 700,
+            mr: 1,
+            mt: 0.5,
+            flexShrink: 0,
+          }}
+        >
           {initials}
         </Avatar>
       )}
       <Box sx={{ maxWidth: '72%' }}>
         <Box
           sx={{
-            px: 2, py: 1.25,
+            px: 2,
+            py: 1.25,
             borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
             bgcolor: isMe ? '#1A73E8' : '#F1F3F4',
-            color:   isMe ? '#FFFFFF' : '#202124',
+            color: isMe ? '#FFFFFF' : '#202124',
             boxShadow: isMe ? '0 2px 8px rgba(26,115,232,0.20)' : '0 1px 4px rgba(32,33,36,0.06)',
           }}
         >
@@ -249,9 +423,17 @@ function MessageBubble({ msg, currentUserId }) {
                 const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
                 return (
                   <Typography
-                    key={a.id} component="a" href={`${apiBase}${a.file_ref}`} target="_blank" rel="noreferrer"
+                    key={a.id}
+                    component="a"
+                    href={`${apiBase}${a.file_ref}`}
+                    target="_blank"
+                    rel="noreferrer"
                     sx={{
-                      fontSize: '0.78rem', display: 'flex', alignItems: 'center', gap: 0.5, textDecoration: 'underline',
+                      fontSize: '0.78rem',
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: 0.5,
+                      textDecoration: 'underline',
                       color: isMe ? 'rgba(255,255,255,0.9)' : '#1A73E8',
                     }}
                   >
@@ -302,16 +484,16 @@ function MessagesPage() {
   const isManagerish = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
 
   const [activeThreadId, setActiveThreadId] = useState(null)
-  const [input,        setInput]        = useState('')
-  const [searchQ,      setSearchQ]      = useState('')
+  const [input, setInput] = useState('')
+  const [searchQ, setSearchQ] = useState('')
 
   // BUG-MSG-002: Compose dialog state
-  const [composeOpen,    setComposeOpen]    = useState(false)
-  const [composeRecip,   setComposeRecip]   = useState(null)
-  const [composeMsg,     setComposeMsg]     = useState('')
+  const [composeOpen, setComposeOpen] = useState(false)
+  const [composeRecip, setComposeRecip] = useState(null)
+  const [composeMsg, setComposeMsg] = useState('')
   // REQ058 (US-MSG-01) -- optional department/clinic scope on a new thread.
-  const [composeDept,    setComposeDept]    = useState(null)
-  const [composeClinic,  setComposeClinic]  = useState(null)
+  const [composeDept, setComposeDept] = useState(null)
+  const [composeClinic, setComposeClinic] = useState(null)
 
   // REQ058 (US-MSG-01) -- staged file for the message currently being composed.
   const [stagedFile, setStagedFile] = useState(null)
@@ -321,17 +503,17 @@ function MessagesPage() {
   // REQ058 (US-MSG-03) -- canned-reply menu + inline management dialog.
   const [cannedMenuAnchor, setCannedMenuAnchor] = useState(null)
   const [manageCannedOpen, setManageCannedOpen] = useState(false)
-  const [cannedEditingId,  setCannedEditingId]  = useState(null)
-  const [cannedTitle,      setCannedTitle]      = useState('')
-  const [cannedBody,       setCannedBody]       = useState('')
+  const [cannedEditingId, setCannedEditingId] = useState(null)
+  const [cannedTitle, setCannedTitle] = useState('')
+  const [cannedBody, setCannedBody] = useState('')
 
   // REQ058 (US-MSG-01) -- department-threads oversight filter (manager+ only;
   // threads() itself stays participant-only, unchanged by this slice).
   const [deptFilterOn, setDeptFilterOn] = useState(false)
   const [deptFilterId, setDeptFilterId] = useState('')
 
-  const theme     = useTheme()
-  const isMobile  = useMediaQuery(theme.breakpoints.down('sm'))
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const bottomRef = useRef(null)
 
   const { data: threadsData, refetch: refetchThreads } = useQuery(GET_THREADS, { fetchPolicy: 'cache-and-network' })
@@ -343,7 +525,7 @@ function MessagesPage() {
     fetchPolicy: 'cache-and-network',
   })
   const threadsSource = useMemo(
-    () => (deptFilterOn && deptFilterId) ? (deptThreadsData?.departmentThreads ?? []) : threads,
+    () => (deptFilterOn && deptFilterId ? (deptThreadsData?.departmentThreads ?? []) : threads),
     [deptFilterOn, deptFilterId, deptThreadsData, threads],
   )
 
@@ -365,10 +547,10 @@ function MessagesPage() {
   const { data: cannedRepliesData, refetch: refetchCannedReplies } = useQuery(GET_CANNED_REPLIES, { skip: !isManagerish })
   const cannedReplies = cannedRepliesData?.cannedReplies ?? []
 
-  const [sendMessageMutation]    = useMutation(SEND_MESSAGE)
+  const [sendMessageMutation] = useMutation(SEND_MESSAGE)
   const [markThreadReadMutation] = useMutation(MARK_THREAD_READ)
-  const [createThreadMutation]   = useMutation(CREATE_THREAD)
-  const [assignThreadMutation]   = useMutation(ASSIGN_THREAD)
+  const [createThreadMutation] = useMutation(CREATE_THREAD)
+  const [assignThreadMutation] = useMutation(ASSIGN_THREAD)
   const [createMessageAttachmentMutation] = useMutation(CREATE_MESSAGE_ATTACHMENT)
   const [createCannedReplyMutation] = useMutation(CREATE_CANNED_REPLY)
   const [updateCannedReplyMutation] = useMutation(UPDATE_CANNED_REPLY)
@@ -404,12 +586,10 @@ function MessagesPage() {
   const displayedThreads = useMemo(() => {
     if (!searchQ.trim()) return threadsSource
     const q = searchQ.toLowerCase()
-    return threadsSource.filter(t =>
-      t.participants.some(p => p.name?.toLowerCase().includes(q)) ||
-      t.last_message?.toLowerCase().includes(q)
+    return threadsSource.filter(
+      (t) => t.participants.some((p) => p.name?.toLowerCase().includes(q)) || t.last_message?.toLowerCase().includes(q),
     )
   }, [threadsSource, searchQ])
-
 
   // BUG-MSG-001 fix: mark thread as read when selected
   const handleSelectThread = (thread) => {
@@ -472,9 +652,8 @@ function MessagesPage() {
   // BUG-MSG-002: handle compose new message
   const handleComposeSend = async () => {
     if (!composeRecip || !composeMsg.trim()) return
-    const existingThread = threads.find(t =>
-      t.participants.some(p => p.id === composeRecip.id) &&
-      t.participants.some(p => p.id === currentUserId)
+    const existingThread = threads.find(
+      (t) => t.participants.some((p) => p.id === composeRecip.id) && t.participants.some((p) => p.id === currentUserId),
     )
     if (existingThread) {
       await sendMessageMutation({ variables: { threadId: existingThread.id, body: composeMsg.trim() } })
@@ -485,12 +664,14 @@ function MessagesPage() {
       // when no department was picked (a branch-wide, not department-
       // specific, thread).
       const { data } = await createThreadMutation({
-        variables: { input: {
-          participant_ids: [composeRecip.id],
-          first_message: composeMsg.trim(),
-          ...(composeDept ? { department_id: composeDept.id } : {}),
-          ...(!composeDept && composeClinic ? { clinic_id: composeClinic.id } : {}),
-        } },
+        variables: {
+          input: {
+            participant_ids: [composeRecip.id],
+            first_message: composeMsg.trim(),
+            ...(composeDept ? { department_id: composeDept.id } : {}),
+            ...(!composeDept && composeClinic ? { clinic_id: composeClinic.id } : {}),
+          },
+        },
       })
       setActiveThreadId(data.createThread.id)
     }
@@ -504,7 +685,11 @@ function MessagesPage() {
 
   // REQ058 (US-MSG-03) -- canned-reply management (inline mini-dialog, not
   // a separate page -- these are just title+body).
-  const resetCannedForm = () => { setCannedEditingId(null); setCannedTitle(''); setCannedBody('') }
+  const resetCannedForm = () => {
+    setCannedEditingId(null)
+    setCannedTitle('')
+    setCannedBody('')
+  }
 
   const handleSaveCannedReply = async () => {
     if (!cannedTitle.trim() || !cannedBody.trim()) return
@@ -522,25 +707,30 @@ function MessagesPage() {
     refetchCannedReplies()
   }
 
-  const activeMessages     = activeThread?.messages ?? []
-  const otherParticipant   = activeThread?.participants?.find(p => p.id !== currentUserId) ?? activeThread?.participants?.[0]
+  const activeMessages = activeThread?.messages ?? []
+  const otherParticipant = activeThread?.participants?.find((p) => p.id !== currentUserId) ?? activeThread?.participants?.[0]
 
   // BUG-MSG-003: mobile view — show conversation list OR thread
-  const showList   = !isMobile || !activeThreadId
+  const showList = !isMobile || !activeThreadId
   const showThread = !isMobile || !!activeThreadId
 
   return (
-    <Box className="page-enter" sx={{
-      display: 'flex', gap: 0, overflow: 'hidden',
-      mx: { xs: -2, sm: -2.5, md: -3 },
-      mt: { xs: -2, sm: -2.5, md: -3 },
-      mb: { xs: -2, sm: -2.5, md: -3 },
-      // xs: subtract AppBar(67px) + mobile bottom-nav(~57px) + mobile padding(16px)
-      // sm+: subtract AppBar(67px) only — bottom nav hidden above sm
-      height: { xs: `calc(100vh - 67px - 73px)`, sm: `calc(100vh - 67px)`, md: `calc(100vh - 67px)` },
-      p: { xs: 1, sm: 1.5, md: 2 },
-      bgcolor: 'background.default',
-    }}>
+    <Box
+      className="page-enter"
+      sx={{
+        display: 'flex',
+        gap: 0,
+        overflow: 'hidden',
+        mx: { xs: -2, sm: -2.5, md: -3 },
+        mt: { xs: -2, sm: -2.5, md: -3 },
+        mb: { xs: -2, sm: -2.5, md: -3 },
+        // xs: subtract AppBar(67px) + mobile bottom-nav(~57px) + mobile padding(16px)
+        // sm+: subtract AppBar(67px) only — bottom nav hidden above sm
+        height: { xs: `calc(100vh - 67px - 73px)`, sm: `calc(100vh - 67px)`, md: `calc(100vh - 67px)` },
+        p: { xs: 1, sm: 1.5, md: 2 },
+        bgcolor: 'background.default',
+      }}
+    >
       <Helmet>
         <title>Messages — MediBook</title>
         <meta name="description" content="Messages inbox — view, search, and send messages to patients and clinicians." />
@@ -548,24 +738,44 @@ function MessagesPage() {
 
       {/* ── Contact List Pane ──────────────────────────────────────────────── */}
       {showList && (
-        <Box sx={{
-          width: { xs: '100%', sm: 320 }, flexShrink: 0,
-          display: 'flex', flexDirection: 'column',
-          bgcolor: '#fff', borderRadius: 3, border: '1px solid #E2E8F0',
-          mr: { xs: 0, sm: 2 }, overflow: 'hidden',
-        }}>
+        <Box
+          sx={{
+            width: { xs: '100%', sm: 320 },
+            flexShrink: 0,
+            display: 'flex',
+            flexDirection: 'column',
+            bgcolor: '#fff',
+            borderRadius: 3,
+            border: '1px solid #E2E8F0',
+            mr: { xs: 0, sm: 2 },
+            overflow: 'hidden',
+          }}
+        >
           {/* Header — search + compose inline (BUG-MSG-002 fix) */}
           <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #F5F7FA' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {/* Search — BUG-MSG-004: useMemo filtered */}
-              <Box sx={{ display: 'flex', flex: 1, alignItems: 'center', gap: 1, bgcolor: '#F5F7FA', border: '1.5px solid #E2E8F0', borderRadius: 2, px: 1.5, py: 0.75 }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  flex: 1,
+                  alignItems: 'center',
+                  gap: 1,
+                  bgcolor: '#F5F7FA',
+                  border: '1.5px solid #E2E8F0',
+                  borderRadius: 2,
+                  px: 1.5,
+                  py: 0.75,
+                }}
+              >
                 <SearchRoundedIcon sx={{ color: '#B8C6D4', fontSize: '1rem' }} />
                 <InputBase
                   id="messages-search"
                   placeholder="Search conversations…"
                   value={searchQ}
-                  onChange={e => setSearchQ(e.target.value)}
-                  sx={{ flex: 1, fontSize: '0.82rem', fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
+                  onChange={(e) => setSearchQ(e.target.value)}
+                  sx={{ flex: 1, fontSize: '0.82rem', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                />
               </Box>
               {/* Compose button — always visible inline with search */}
               <Tooltip title="New Message">
@@ -574,7 +784,15 @@ function MessagesPage() {
                   aria-label="New message"
                   size="small"
                   onClick={() => setComposeOpen(true)}
-                  sx={{ color: '#006D77', bgcolor: '#E0F7F7', '&:hover': { bgcolor: '#C8F0F0' }, borderRadius: 1.5, flexShrink: 0, width: 36, height: 36 }}
+                  sx={{
+                    color: '#006D77',
+                    bgcolor: '#E0F7F7',
+                    '&:hover': { bgcolor: '#C8F0F0' },
+                    borderRadius: 1.5,
+                    flexShrink: 0,
+                    width: 36,
+                    height: 36,
+                  }}
                 >
                   <EditRoundedIcon sx={{ fontSize: '1rem' }} />
                 </IconButton>
@@ -601,8 +819,14 @@ function MessagesPage() {
                       onChange={(e) => setDeptFilterId(e.target.value)}
                       sx={{ fontSize: '0.78rem', '& .MuiSelect-select': { py: 0.5 } }}
                     >
-                      <MenuItem value="" disabled>Choose department…</MenuItem>
-                      {departments.map((d) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+                      <MenuItem value="" disabled>
+                        Choose department…
+                      </MenuItem>
+                      {departments.map((d) => (
+                        <MenuItem key={d.id} value={d.id}>
+                          {d.name}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
                 )}
@@ -613,20 +837,24 @@ function MessagesPage() {
           {/* Thread list */}
           <Box sx={{ flex: 1, overflowY: 'auto', py: 1 }}>
             <List disablePadding>
-              {displayedThreads.map(t => (
+              {displayedThreads.map((t) => (
                 <ContactItem
                   key={t.id}
                   thread={t}
                   active={activeThreadId === t.id}
                   currentUserId={currentUserId}
-                  onClick={() => handleSelectThread(t)}  // BUG-MSG-001 fix
+                  onClick={() => handleSelectThread(t)} // BUG-MSG-001 fix
                 />
               ))}
               {displayedThreads.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
                   <SearchRoundedIcon sx={{ fontSize: '2rem', color: '#B8C6D4', mb: 1 }} />
-                  <Typography variant="body2" color="text.secondary">No conversations found</Typography>
-                  <Typography variant="caption" color="text.secondary">Try a different name or keyword</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    No conversations found
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Try a different name or keyword
+                  </Typography>
                 </Box>
               )}
             </List>
@@ -636,13 +864,35 @@ function MessagesPage() {
 
       {/* ── Active Conversation Pane ───────────────────────────────────────── */}
       {showThread && (
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', bgcolor: '#FFFFFF', borderRadius: 3, border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+        <Box
+          sx={{
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            bgcolor: '#FFFFFF',
+            borderRadius: 3,
+            border: '1px solid #E2E8F0',
+            overflow: 'hidden',
+          }}
+        >
           {activeThreadId && !activeThread ? (
-            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}><CircularProgress /></Box>
+            <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <CircularProgress />
+            </Box>
           ) : activeThread ? (
             <>
               {/* Thread Header */}
-              <Box sx={{ px: { xs: 2, sm: 3 }, py: 2, borderBottom: '1px solid #F8F9FA', display: 'flex', alignItems: 'center', gap: { xs: 1, sm: 2 }, bgcolor: '#fff' }}>
+              <Box
+                sx={{
+                  px: { xs: 2, sm: 3 },
+                  py: 2,
+                  borderBottom: '1px solid #F8F9FA',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: { xs: 1, sm: 2 },
+                  bgcolor: '#fff',
+                }}
+              >
                 {/* BUG-MSG-003: Mobile back button */}
                 {isMobile && (
                   <IconButton
@@ -657,14 +907,34 @@ function MessagesPage() {
                 )}
                 <Box sx={{ position: 'relative' }}>
                   <Avatar sx={{ width: 40, height: 40, bgcolor: '#E8F0FE', color: '#1A73E8', fontWeight: 700 }}>
-                    {(otherParticipant?.name ?? '?').split(' ').map(w=>w[0]).join('').slice(0,2).toUpperCase()}
+                    {(otherParticipant?.name ?? '?')
+                      .split(' ')
+                      .map((w) => w[0])
+                      .join('')
+                      .slice(0, 2)
+                      .toUpperCase()}
                   </Avatar>
-                  <Box sx={{ position: 'absolute', bottom: 0, right: 0, width: 10, height: 10, borderRadius: '50%', bgcolor: '#0F9D58', border: '2px solid #fff' }} />
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      bottom: 0,
+                      right: 0,
+                      width: 10,
+                      height: 10,
+                      borderRadius: '50%',
+                      bgcolor: '#0F9D58',
+                      border: '2px solid #fff',
+                    }}
+                  />
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography fontWeight={700} sx={{ color: '#202124', fontSize: '0.95rem' }} noWrap>{otherParticipant?.name ?? 'Unknown'}</Typography>
+                  <Typography fontWeight={700} sx={{ color: '#202124', fontSize: '0.95rem' }} noWrap>
+                    {otherParticipant?.name ?? 'Unknown'}
+                  </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography variant="caption" sx={{ color: '#0F9D58', fontWeight: 600 }}>● Online</Typography>
+                    <Typography variant="caption" sx={{ color: '#0F9D58', fontWeight: 600 }}>
+                      ● Online
+                    </Typography>
                     {/* SUG-MSG-005: styled role chip in thread header */}
                     <RoleChip role={otherParticipant?.role ?? 'staff'} />
                   </Box>
@@ -677,9 +947,10 @@ function MessagesPage() {
                         size="small"
                         label={new Date(activeThread.sla_due_at) < new Date() ? 'SLA overdue' : 'SLA on track'}
                         sx={{
-                          fontWeight: 700, fontSize: '0.7rem',
+                          fontWeight: 700,
+                          fontSize: '0.7rem',
                           bgcolor: new Date(activeThread.sla_due_at) < new Date() ? '#FCE8E6' : '#E6F4EA',
-                          color:   new Date(activeThread.sla_due_at) < new Date() ? '#B3261E' : '#188038',
+                          color: new Date(activeThread.sla_due_at) < new Date() ? '#B3261E' : '#188038',
                         }}
                       />
                     </Tooltip>
@@ -689,25 +960,33 @@ function MessagesPage() {
                       value={activeThread.assigned_to?.id ?? ''}
                       displayEmpty
                       onChange={(e) => assignThreadMutation({ variables: { threadId: activeThread.id, assigneeUserId: e.target.value } })}
-                      renderValue={(v) => v ? (activeThread.assigned_to?.name ?? 'Assigned') : 'Unassigned'}
+                      renderValue={(v) => (v ? (activeThread.assigned_to?.name ?? 'Assigned') : 'Unassigned')}
                       sx={{ fontSize: '0.8rem', '& .MuiSelect-select': { py: 0.75 } }}
                       aria-label="Assign conversation"
                     >
-                      <MenuItem value="" disabled>Assign to…</MenuItem>
+                      <MenuItem value="" disabled>
+                        Assign to…
+                      </MenuItem>
                       {composeContacts.map((c) => (
-                        <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.name}
+                        </MenuItem>
                       ))}
                     </Select>
                   </FormControl>
                 </Box>
                 <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>
                   {[
-                    { Icon: CallRoundedIcon,     title: 'Call',       label: 'Start voice call' },
+                    { Icon: CallRoundedIcon, title: 'Call', label: 'Start voice call' },
                     { Icon: VideocamRoundedIcon, title: 'Video call', label: 'Start video call' },
-                    { Icon: InfoOutlinedIcon,    title: 'Info',       label: 'Conversation info' },
+                    { Icon: InfoOutlinedIcon, title: 'Info', label: 'Conversation info' },
                   ].map(({ Icon, title, label }, i) => (
                     <Tooltip key={i} title={title}>
-                      <IconButton aria-label={label} size="small" sx={{ color: '#9AA0A6', '&:hover': { bgcolor: '#F8F9FA', color: '#1A73E8' }, transition: 'all 0.15s' }}>
+                      <IconButton
+                        aria-label={label}
+                        size="small"
+                        sx={{ color: '#9AA0A6', '&:hover': { bgcolor: '#F8F9FA', color: '#1A73E8' }, transition: 'all 0.15s' }}
+                      >
                         <Icon sx={{ fontSize: '1.15rem' }} />
                       </IconButton>
                     </Tooltip>
@@ -718,13 +997,20 @@ function MessagesPage() {
               {/* Messages */}
               <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5, bgcolor: '#F5F7FA' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
-                  <Typography variant="caption" sx={{ bgcolor: '#E2E8F0', color: '#7A96AE', borderRadius: 2, px: 2, py: 0.5, fontWeight: 600 }}>
+                  <Typography
+                    variant="caption"
+                    sx={{ bgcolor: '#E2E8F0', color: '#7A96AE', borderRadius: 2, px: 2, py: 0.5, fontWeight: 600 }}
+                  >
                     {activeThread?.last_activity
-                      ? new Date(activeThread.last_activity).toLocaleDateString('en-GB', { weekday:'long', day:'numeric', month:'short' })
+                      ? new Date(activeThread.last_activity).toLocaleDateString('en-GB', {
+                          weekday: 'long',
+                          day: 'numeric',
+                          month: 'short',
+                        })
                       : 'Today'}
                   </Typography>
                 </Box>
-                {activeMessages.map(msg => (
+                {activeMessages.map((msg) => (
                   <MessageBubble key={msg.id} msg={msg} currentUserId={currentUserId} />
                 ))}
                 <div ref={bottomRef} />
@@ -746,15 +1032,29 @@ function MessagesPage() {
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <input type="file" ref={fileInputRef} hidden onChange={handleFileSelected} />
                   <Tooltip title="Attach file">
-                    <IconButton aria-label="Attach file" size="small" onClick={() => fileInputRef.current?.click()} sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><AttachFileRoundedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
+                    <IconButton
+                      aria-label="Attach file"
+                      size="small"
+                      onClick={() => fileInputRef.current?.click()}
+                      sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}
+                    >
+                      <AttachFileRoundedIcon sx={{ fontSize: '1.1rem' }} />
+                    </IconButton>
                   </Tooltip>
                   <Tooltip title="Emoji">
-                    <IconButton aria-label="Insert emoji" size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}><EmojiEmotionsOutlinedIcon sx={{ fontSize: '1.1rem' }} /></IconButton>
+                    <IconButton aria-label="Insert emoji" size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}>
+                      <EmojiEmotionsOutlinedIcon sx={{ fontSize: '1.1rem' }} />
+                    </IconButton>
                   </Tooltip>
                   {/* REQ058 (US-MSG-03) -- canned replies */}
                   {isManagerish && (
                     <Tooltip title="Insert canned reply">
-                      <IconButton aria-label="Insert canned reply" size="small" onClick={(e) => setCannedMenuAnchor(e.currentTarget)} sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}>
+                      <IconButton
+                        aria-label="Insert canned reply"
+                        size="small"
+                        onClick={(e) => setCannedMenuAnchor(e.currentTarget)}
+                        sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}
+                      >
                         <ContentPasteRoundedIcon sx={{ fontSize: '1.05rem' }} />
                       </IconButton>
                     </Tooltip>
@@ -762,38 +1062,73 @@ function MessagesPage() {
                   <Menu anchorEl={cannedMenuAnchor} open={!!cannedMenuAnchor} onClose={() => setCannedMenuAnchor(null)}>
                     {cannedReplies.length === 0 && <MenuItem disabled>No canned replies yet</MenuItem>}
                     {cannedReplies.map((cr) => (
-                      <MenuItem key={cr.id} onClick={() => { setInput(cr.body); setCannedMenuAnchor(null) }}>
+                      <MenuItem
+                        key={cr.id}
+                        onClick={() => {
+                          setInput(cr.body)
+                          setCannedMenuAnchor(null)
+                        }}
+                      >
                         {cr.title}
                       </MenuItem>
                     ))}
                     <Divider />
-                    <MenuItem onClick={() => { setCannedMenuAnchor(null); resetCannedForm(); setManageCannedOpen(true) }}>
+                    <MenuItem
+                      onClick={() => {
+                        setCannedMenuAnchor(null)
+                        resetCannedForm()
+                        setManageCannedOpen(true)
+                      }}
+                    >
                       Manage canned replies…
                     </MenuItem>
                   </Menu>
-                  <Box sx={{
-                    flex: 1, bgcolor: '#F8F9FA', border: '1.5px solid #E8EAED', borderRadius: '12px', px: 2, py: 1,
-                    display: 'flex', alignItems: 'center',
-                    '&:focus-within': { borderColor: '#1A73E8', boxShadow: '0 0 0 3px rgba(26,115,232,0.12)', bgcolor: '#fff' },
-                    transition: 'all 0.18s',
-                  }}>
+                  <Box
+                    sx={{
+                      flex: 1,
+                      bgcolor: '#F8F9FA',
+                      border: '1.5px solid #E8EAED',
+                      borderRadius: '12px',
+                      px: 2,
+                      py: 1,
+                      display: 'flex',
+                      alignItems: 'center',
+                      '&:focus-within': { borderColor: '#1A73E8', boxShadow: '0 0 0 3px rgba(26,115,232,0.12)', bgcolor: '#fff' },
+                      transition: 'all 0.18s',
+                    }}
+                  >
                     <InputBase
                       id="message-input"
                       value={input}
-                      onChange={e => setInput(e.target.value)}
-                      onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleSend()}
+                      onChange={(e) => setInput(e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && !e.shiftKey && handleSend()}
                       placeholder="Type a message…"
-                      multiline maxRows={3}
-                      sx={{ flex: 1, fontSize: { xs: '16px', sm: '0.875rem' }, fontFamily: "'Plus Jakarta Sans', sans-serif" }} />
+                      multiline
+                      maxRows={3}
+                      sx={{ flex: 1, fontSize: { xs: '16px', sm: '0.875rem' }, fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+                    />
                   </Box>
                   <Tooltip title="Send">
                     <span>
                       <IconButton
                         id="send-message-btn"
-                        onClick={handleSend} size="small" disabled={(!input.trim() && !stagedFile) || uploadingAttachment}
-                        sx={{ bgcolor: (input.trim() || stagedFile) ? '#1A73E8' : '#E8EAED', color: (input.trim() || stagedFile) ? '#fff' : '#9AA0A6', width: 36, height: 36, transition: 'all 0.18s', '&:hover': { bgcolor: (input.trim() || stagedFile) ? '#1557B0' : '#E8EAED' } }}
+                        onClick={handleSend}
+                        size="small"
+                        disabled={(!input.trim() && !stagedFile) || uploadingAttachment}
+                        sx={{
+                          bgcolor: input.trim() || stagedFile ? '#1A73E8' : '#E8EAED',
+                          color: input.trim() || stagedFile ? '#fff' : '#9AA0A6',
+                          width: 36,
+                          height: 36,
+                          transition: 'all 0.18s',
+                          '&:hover': { bgcolor: input.trim() || stagedFile ? '#1557B0' : '#E8EAED' },
+                        }}
                       >
-                        {uploadingAttachment ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : <SendRoundedIcon sx={{ fontSize: '1rem' }} />}
+                        {uploadingAttachment ? (
+                          <CircularProgress size={16} sx={{ color: '#fff' }} />
+                        ) : (
+                          <SendRoundedIcon sx={{ fontSize: '1rem' }} />
+                        )}
                       </IconButton>
                     </span>
                   </Tooltip>
@@ -801,14 +1136,29 @@ function MessagesPage() {
               </Box>
             </>
           ) : (
-            <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#B8C6D4' }}>
+            <Box
+              sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#B8C6D4' }}
+            >
               <EditRoundedIcon sx={{ fontSize: '3rem', mb: 1.5, opacity: 0.4 }} />
-              <Typography variant="h6" fontWeight={600}>Select a conversation</Typography>
-              <Typography variant="body2" sx={{ mt: 0.5 }}>Choose from the left to start messaging</Typography>
+              <Typography variant="h6" fontWeight={600}>
+                Select a conversation
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 0.5 }}>
+                Choose from the left to start messaging
+              </Typography>
               <Button
-                variant="outlined" startIcon={<EditRoundedIcon />} size="small"
+                variant="outlined"
+                startIcon={<EditRoundedIcon />}
+                size="small"
                 onClick={() => setComposeOpen(true)}
-                sx={{ mt: 2, borderRadius: 2, textTransform: 'none', color: '#006D77', borderColor: '#006D77', '&:hover': { bgcolor: '#E0F7F7', borderColor: '#006D77' } }}
+                sx={{
+                  mt: 2,
+                  borderRadius: 2,
+                  textTransform: 'none',
+                  color: '#006D77',
+                  borderColor: '#006D77',
+                  '&:hover': { bgcolor: '#E0F7F7', borderColor: '#006D77' },
+                }}
               >
                 New Message
               </Button>
@@ -824,8 +1174,8 @@ function MessagesPage() {
           <Autocomplete
             id="compose-recipient"
             options={composeContacts}
-            getOptionLabel={opt => `${opt.name} (${opt.role})`}
-            groupBy={opt => opt.role.charAt(0).toUpperCase() + opt.role.slice(1) + 's'}
+            getOptionLabel={(opt) => `${opt.name} (${opt.role})`}
+            groupBy={(opt) => opt.role.charAt(0).toUpperCase() + opt.role.slice(1) + 's'}
             value={composeRecip}
             onChange={(_, v) => setComposeRecip(v)}
             renderOption={(props, option) => {
@@ -835,15 +1185,25 @@ function MessagesPage() {
                 <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <RIcon sx={{ fontSize: '1rem', color: rs.color }} />
                   <Box>
-                    <Typography variant="body2" fontWeight={600}>{option.name}</Typography>
-                    <Typography variant="caption" sx={{ color: rs.color }}>{rs.label}</Typography>
+                    <Typography variant="body2" fontWeight={600}>
+                      {option.name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: rs.color }}>
+                      {rs.label}
+                    </Typography>
                   </Box>
                 </Box>
               )
             }}
-            renderInput={params => (
-              <TextField {...params} label="To — patient, clinician, or staff" size="small" autoFocus fullWidth
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="To — patient, clinician, or staff"
+                size="small"
+                autoFocus
+                fullWidth
+                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              />
             )}
             sx={{ mb: 2 }}
           />
@@ -866,7 +1226,11 @@ function MessagesPage() {
                   displayEmpty
                 >
                   <MenuItem value="">None</MenuItem>
-                  {departments.map((d) => <MenuItem key={d.id} value={d.id}>{d.name}</MenuItem>)}
+                  {departments.map((d) => (
+                    <MenuItem key={d.id} value={d.id}>
+                      {d.name}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
               <FormControl size="small" fullWidth disabled={!!composeDept}>
@@ -879,7 +1243,11 @@ function MessagesPage() {
                   displayEmpty
                 >
                   <MenuItem value="">None</MenuItem>
-                  {clinicsList.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                  {clinicsList.map((c) => (
+                    <MenuItem key={c.id} value={c.id}>
+                      {c.name}
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Stack>
@@ -887,18 +1255,24 @@ function MessagesPage() {
           <TextField
             id="compose-message-body"
             label="Message"
-            multiline rows={4} fullWidth size="small"
+            multiline
+            rows={4}
+            fullWidth
+            size="small"
             value={composeMsg}
-            onChange={e => setComposeMsg(e.target.value)}
+            onChange={(e) => setComposeMsg(e.target.value)}
             placeholder="Type your message…"
             sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
           />
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setComposeOpen(false)} sx={{ textTransform: 'none' }}>Cancel</Button>
+          <Button onClick={() => setComposeOpen(false)} sx={{ textTransform: 'none' }}>
+            Cancel
+          </Button>
           <Button
             id="compose-send-btn"
-            variant="contained" disabled={!composeRecip || !composeMsg.trim()}
+            variant="contained"
+            disabled={!composeRecip || !composeMsg.trim()}
             onClick={handleComposeSend}
             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: '#006D77', '&:hover': { bgcolor: '#005B64' } }}
             startIcon={<SendRoundedIcon />}
@@ -910,22 +1284,49 @@ function MessagesPage() {
 
       {/* REQ058 (US-MSG-03) -- canned-reply management (inline, not a
           separate page -- these are just a title and a body). */}
-      <Dialog open={manageCannedOpen} onClose={() => { setManageCannedOpen(false); resetCannedForm() }} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <Dialog
+        open={manageCannedOpen}
+        onClose={() => {
+          setManageCannedOpen(false)
+          resetCannedForm()
+        }}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
         <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Manage Canned Replies</DialogTitle>
         <DialogContent sx={{ pt: '8px !important' }}>
           <Stack spacing={1.5} sx={{ mb: 2.5, maxHeight: 260, overflowY: 'auto' }}>
             {cannedReplies.length === 0 && (
-              <Typography variant="body2" color="text.secondary">No canned replies yet — add one below.</Typography>
+              <Typography variant="body2" color="text.secondary">
+                No canned replies yet — add one below.
+              </Typography>
             )}
             {cannedReplies.map((cr) => (
-              <Box key={cr.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1.25, borderRadius: 2, border: '1px solid #F1F3F4' }}>
+              <Box
+                key={cr.id}
+                sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, p: 1.25, borderRadius: 2, border: '1px solid #F1F3F4' }}
+              >
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography variant="body2" fontWeight={700}>{cr.title}</Typography>
-                  <Typography variant="caption" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                  <Typography variant="body2" fontWeight={700}>
+                    {cr.title}
+                  </Typography>
+                  <Typography
+                    variant="caption"
+                    color="text.secondary"
+                    sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}
+                  >
                     {cr.body}
                   </Typography>
                 </Box>
-                <IconButton size="small" onClick={() => { setCannedEditingId(cr.id); setCannedTitle(cr.title); setCannedBody(cr.body) }}>
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    setCannedEditingId(cr.id)
+                    setCannedTitle(cr.title)
+                    setCannedBody(cr.body)
+                  }}
+                >
                   <EditRoundedIcon fontSize="small" />
                 </IconButton>
                 <IconButton size="small" onClick={() => handleDeleteCannedReply(cr.id)}>
@@ -940,14 +1341,35 @@ function MessagesPage() {
           </Typography>
           <Stack spacing={1.5}>
             <TextField label="Title" size="small" fullWidth value={cannedTitle} onChange={(e) => setCannedTitle(e.target.value)} />
-            <TextField label="Reply text" size="small" fullWidth multiline rows={3} value={cannedBody} onChange={(e) => setCannedBody(e.target.value)} />
+            <TextField
+              label="Reply text"
+              size="small"
+              fullWidth
+              multiline
+              rows={3}
+              value={cannedBody}
+              onChange={(e) => setCannedBody(e.target.value)}
+            />
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          {cannedEditingId && <Button onClick={resetCannedForm} sx={{ textTransform: 'none' }}>Cancel edit</Button>}
-          <Button onClick={() => { setManageCannedOpen(false); resetCannedForm() }} sx={{ textTransform: 'none' }}>Close</Button>
+          {cannedEditingId && (
+            <Button onClick={resetCannedForm} sx={{ textTransform: 'none' }}>
+              Cancel edit
+            </Button>
+          )}
           <Button
-            variant="contained" disabled={!cannedTitle.trim() || !cannedBody.trim()}
+            onClick={() => {
+              setManageCannedOpen(false)
+              resetCannedForm()
+            }}
+            sx={{ textTransform: 'none' }}
+          >
+            Close
+          </Button>
+          <Button
+            variant="contained"
+            disabled={!cannedTitle.trim() || !cannedBody.trim()}
             onClick={handleSaveCannedReply}
             sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: '#006D77', '&:hover': { bgcolor: '#005B64' } }}
           >
@@ -969,5 +1391,9 @@ function MessagesPage() {
 
 // ErrorBoundary wrapper for crash resilience
 export default function MessagesPageWithBoundary() {
-  return <ErrorBoundary><MessagesPage /></ErrorBoundary>
+  return (
+    <ErrorBoundary>
+      <MessagesPage />
+    </ErrorBoundary>
+  )
 }

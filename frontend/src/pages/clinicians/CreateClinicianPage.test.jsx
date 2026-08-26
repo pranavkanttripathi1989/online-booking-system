@@ -14,10 +14,16 @@ import { CREATE_CLINICIAN_MUTATION } from '../../graphql/mutations'
 // (not page-local re-declared ones) to match edit.test.jsx's own
 // precedent for pages consuming graphql/{queries,mutations}.js directly.
 
-const clinicsMock = { request: { query: CLINICS_QUERY, variables: {} }, result: { data: { clinics: [{ __typename: 'Clinic', id: 'clinic-1', name: 'MG Road Clinic', is_active: true }] } } }
+const clinicsMock = {
+  request: { query: CLINICS_QUERY, variables: {} },
+  result: { data: { clinics: [{ __typename: 'Clinic', id: 'clinic-1', name: 'MG Road Clinic', is_active: true }] } },
+}
 const typesMock = { request: { query: CLINICIAN_TYPES_QUERY, variables: {} }, result: { data: { clinicianTypes: [] } } }
 const servicesMock = { request: { query: SERVICES_QUERY, variables: {} }, result: { data: { services: [] } } }
-const cliniciansMock = { request: { query: CLINICIANS_QUERY, variables: { first: 100 } }, result: { data: { clinicians: { data: [{ __typename: 'Clinician', id: 'cln-existing', full_name: 'Dr. Sarah Mitchell' }] } } } }
+const cliniciansMock = {
+  request: { query: CLINICIANS_QUERY, variables: { first: 100 } },
+  result: { data: { clinicians: { data: [{ __typename: 'Clinician', id: 'cln-existing', full_name: 'Dr. Sarah Mitchell' }] } } },
+}
 
 function renderPage(mocks) {
   return render(
@@ -79,13 +85,45 @@ describe('clinicians/CreateClinicianPage (REQ141)', () => {
 
   it('creates a clinician end-to-end via the real createClinician mutation', async () => {
     const mocks = [
-      clinicsMock, typesMock, servicesMock, cliniciansMock,
+      clinicsMock,
+      typesMock,
+      servicesMock,
+      cliniciansMock,
       {
         request: {
           query: CREATE_CLINICIAN_MUTATION,
-          variables: { input: { first_name: 'Sarah', last_name: 'Mitchell', email: 'sarah@example.com', phone: undefined, gender: undefined, bio: undefined, consultation_fee: undefined, clinician_type_id: undefined, clinic_ids: undefined, service_ids: undefined, languages: undefined, is_active: true } },
+          variables: {
+            input: {
+              first_name: 'Sarah',
+              last_name: 'Mitchell',
+              email: 'sarah@example.com',
+              phone: undefined,
+              gender: undefined,
+              bio: undefined,
+              consultation_fee: undefined,
+              clinician_type_id: undefined,
+              clinic_ids: undefined,
+              service_ids: undefined,
+              languages: undefined,
+              is_active: true,
+            },
+          },
         },
-        result: { data: { createClinician: { id: 'cln-new', first_name: 'Sarah', last_name: 'Mitchell', full_name: 'Sarah Mitchell', consultation_fee: null, is_active: true, clinician_type: null, clinics: [], services: [] } } },
+        result: {
+          data: {
+            createClinician: {
+              id: 'cln-new',
+              first_name: 'Sarah',
+              last_name: 'Mitchell',
+              full_name: 'Sarah Mitchell',
+              consultation_fee: null,
+              is_active: true,
+              clinician_type: null,
+              clinics: [],
+              services: [],
+            },
+          },
+        },
       },
     ]
     renderPage(mocks)
@@ -99,11 +137,29 @@ describe('clinicians/CreateClinicianPage (REQ141)', () => {
 
   it('shows a real error toast, not a fake success, when the mutation fails', async () => {
     const mocks = [
-      clinicsMock, typesMock, servicesMock, cliniciansMock,
+      clinicsMock,
+      typesMock,
+      servicesMock,
+      cliniciansMock,
       {
         request: {
           query: CREATE_CLINICIAN_MUTATION,
-          variables: { input: { first_name: 'Sarah', last_name: 'Mitchell', email: 'sarah@example.com', phone: undefined, gender: undefined, bio: undefined, consultation_fee: undefined, clinician_type_id: undefined, clinic_ids: undefined, service_ids: undefined, languages: undefined, is_active: true } },
+          variables: {
+            input: {
+              first_name: 'Sarah',
+              last_name: 'Mitchell',
+              email: 'sarah@example.com',
+              phone: undefined,
+              gender: undefined,
+              bio: undefined,
+              consultation_fee: undefined,
+              clinician_type_id: undefined,
+              clinic_ids: undefined,
+              service_ids: undefined,
+              languages: undefined,
+              is_active: true,
+            },
+          },
         },
         error: new Error('A clinician with this email already exists'),
       },

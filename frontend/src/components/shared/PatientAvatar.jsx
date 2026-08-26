@@ -1,30 +1,29 @@
-import React, { useState } from 'react';
-import { Avatar } from '@mui/material';
+import React, { useState } from 'react'
+import { Avatar } from '@mui/material'
 
 function md5Hash(str) {
   // Simple Gravatar URL generation without crypto
   // Use email-based Gravatar via URL encoding
-  return str.trim().toLowerCase();
+  return str.trim().toLowerCase()
 }
 
 function getInitials(firstName, lastName) {
-  const first = firstName?.charAt(0)?.toUpperCase() || '';
-  const last = lastName?.charAt(0)?.toUpperCase() || '';
-  return `${first}${last}` || '?';
+  const first = firstName?.charAt(0)?.toUpperCase() || ''
+  const last = lastName?.charAt(0)?.toUpperCase() || ''
+  return `${first}${last}` || '?'
 }
 
-const SIZE_MAP = { sm: 32, md: 40, lg: 64, xl: 96 };
+const SIZE_MAP = { sm: 32, md: 40, lg: 64, xl: 96 }
 
 export default function PatientAvatar({ email, firstName, lastName, size = 'md', sx = {} }) {
-  const [imgError, setImgError] = useState(false);
-  const px = typeof size === 'number' ? size : SIZE_MAP[size] || 40;
+  const [imgError, setImgError] = useState(false)
+  const px = typeof size === 'number' ? size : SIZE_MAP[size] || 40
 
   // Gravatar URL using encodeURIComponent for simplicity
-  const gravatarUrl = email && !imgError
-    ? `https://www.gravatar.com/avatar/${encodeURIComponent(email.trim().toLowerCase())}?d=404&s=${px * 2}`
-    : null;
+  const gravatarUrl =
+    email && !imgError ? `https://www.gravatar.com/avatar/${encodeURIComponent(email.trim().toLowerCase())}?d=404&s=${px * 2}` : null
 
-  const initials = getInitials(firstName, lastName);
+  const initials = getInitials(firstName, lastName)
 
   return (
     <Avatar
@@ -42,5 +41,5 @@ export default function PatientAvatar({ email, firstName, lastName, size = 'md',
     >
       {initials}
     </Avatar>
-  );
+  )
 }

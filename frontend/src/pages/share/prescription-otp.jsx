@@ -35,7 +35,9 @@ export default function PrescriptionOtpPage() {
       <Paper elevation={0} sx={{ p: 4, maxWidth: 420, width: '100%', border: '1px solid #E2E8F0', borderRadius: 3 }}>
         <Stack spacing={1} alignItems="center" sx={{ mb: 3 }}>
           <LocalHospitalRoundedIcon sx={{ fontSize: 40, color: 'primary.main' }} />
-          <Typography variant="h6" fontWeight={800}>Verify to view your prescription</Typography>
+          <Typography variant="h6" fontWeight={800}>
+            Verify to view your prescription
+          </Typography>
           <Typography variant="body2" color="text.secondary" textAlign="center">
             Enter the 6-digit code sent to your phone by SMS.
           </Typography>

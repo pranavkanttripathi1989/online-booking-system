@@ -9,13 +9,37 @@
  *   The data shapes here intentionally mirror the GraphQL fragment shapes.
  */
 
-import { CLINICIANS, CLINICS, ROOMS, SERVICES, ORGANISATIONS, SUBSCRIPTION_PLANS, LANGUAGES, CLINICIAN_TYPES, ROOM_TYPES } from './data/seed'
+import {
+  CLINICIANS,
+  CLINICS,
+  ROOMS,
+  SERVICES,
+  ORGANISATIONS,
+  SUBSCRIPTION_PLANS,
+  LANGUAGES,
+  CLINICIAN_TYPES,
+  ROOM_TYPES,
+} from './data/seed'
 import { PATIENTS } from './data/patients'
 import { APPOINTMENTS } from './data/appointments'
 import { MESSAGE_THREADS, NOTIFICATIONS } from './data/messages'
-import { REVIEWS, INVOICES, PRODUCTS, AVAILABILITY_TEMPLATES, LEAVE_BLOCKS, CLINIC_BLOCKS,
-         DASHBOARD_KPIS, VOLUME_BY_DAY, UTILISATION_BY_CLINICIAN, BOOKINGS_BY_SERVICE,
-         MONTHLY_REVENUE, REVENUE_BY_CLINICIAN, ROLES_PERMISSIONS, EMAIL_TEMPLATES, POLICIES } from './data/analytics'
+import {
+  REVIEWS,
+  INVOICES,
+  PRODUCTS,
+  AVAILABILITY_TEMPLATES,
+  LEAVE_BLOCKS,
+  CLINIC_BLOCKS,
+  DASHBOARD_KPIS,
+  VOLUME_BY_DAY,
+  UTILISATION_BY_CLINICIAN,
+  BOOKINGS_BY_SERVICE,
+  MONTHLY_REVENUE,
+  REVENUE_BY_CLINICIAN,
+  ROLES_PERMISSIONS,
+  EMAIL_TEMPLATES,
+  POLICIES,
+} from './data/analytics'
 import { PERMISSIONS, ROLES, ROLE_PERMISSIONS } from './data/permissions'
 import { TASKS } from './data/tasks'
 
@@ -24,32 +48,32 @@ const clone = (data) => JSON.parse(JSON.stringify(data))
 
 // ─── In-memory store (mutable) ────────────────────────────────────────────────
 let store = {
-  appointments:          clone(APPOINTMENTS),
-  patients:              clone(PATIENTS),
-  clinicians:            clone(CLINICIANS),
-  clinics:               clone(CLINICS),
-  rooms:                 clone(ROOMS),
-  services:              clone(SERVICES),
-  products:              clone(PRODUCTS),
-  organisations:         clone(ORGANISATIONS),
-  subscription_plans:    clone(SUBSCRIPTION_PLANS),
-  languages:             clone(LANGUAGES),
-  clinician_types:       clone(CLINICIAN_TYPES),
-  room_types:            clone(ROOM_TYPES),
-  message_threads:       clone(MESSAGE_THREADS),
-  notifications:         clone(NOTIFICATIONS),
-  reviews:               clone(REVIEWS),
-  invoices:              clone(INVOICES),
-  availability_templates:clone(AVAILABILITY_TEMPLATES),
-  leave_blocks:          clone(LEAVE_BLOCKS),
-  clinic_blocks:         clone(CLINIC_BLOCKS),
-  roles_permissions:     clone(ROLES_PERMISSIONS),
-  permissions:           clone(PERMISSIONS),
-  roles:                 clone(ROLES),
-  role_permissions:      clone(ROLE_PERMISSIONS),
-  tasks:                 clone(TASKS),
-  email_templates:       clone(EMAIL_TEMPLATES),
-  policies:              clone(POLICIES),
+  appointments: clone(APPOINTMENTS),
+  patients: clone(PATIENTS),
+  clinicians: clone(CLINICIANS),
+  clinics: clone(CLINICS),
+  rooms: clone(ROOMS),
+  services: clone(SERVICES),
+  products: clone(PRODUCTS),
+  organisations: clone(ORGANISATIONS),
+  subscription_plans: clone(SUBSCRIPTION_PLANS),
+  languages: clone(LANGUAGES),
+  clinician_types: clone(CLINICIAN_TYPES),
+  room_types: clone(ROOM_TYPES),
+  message_threads: clone(MESSAGE_THREADS),
+  notifications: clone(NOTIFICATIONS),
+  reviews: clone(REVIEWS),
+  invoices: clone(INVOICES),
+  availability_templates: clone(AVAILABILITY_TEMPLATES),
+  leave_blocks: clone(LEAVE_BLOCKS),
+  clinic_blocks: clone(CLINIC_BLOCKS),
+  roles_permissions: clone(ROLES_PERMISSIONS),
+  permissions: clone(PERMISSIONS),
+  roles: clone(ROLES),
+  role_permissions: clone(ROLE_PERMISSIONS),
+  tasks: clone(TASKS),
+  email_templates: clone(EMAIL_TEMPLATES),
+  policies: clone(POLICIES),
 }
 
 // ─── ID counter ───────────────────────────────────────────────────────────────
@@ -58,8 +82,11 @@ const nextId = (prefix) => `${prefix}-${++_seq}`
 
 // ─── Listeners (for reactivity) ───────────────────────────────────────────────
 const listeners = new Set()
-export const subscribe = (fn) => { listeners.add(fn); return () => listeners.delete(fn) }
-const notify = () => listeners.forEach(fn => fn())
+export const subscribe = (fn) => {
+  listeners.add(fn)
+  return () => listeners.delete(fn)
+}
+const notify = () => listeners.forEach((fn) => fn())
 
 // ─── Read API ─────────────────────────────────────────────────────────────────
 export const getStore = () => store
@@ -69,25 +96,26 @@ export const getStore = () => store
 // ─────────────────────────────────────────────────────────────────────────────
 export function getAppointments({ status, clinicianId, clinicId, patientId, dateFrom, dateTo, search } = {}) {
   let result = store.appointments
-  if (status)      result = result.filter(a => a.status === status)
-  if (clinicianId) result = result.filter(a => a.clinician?.id === clinicianId)
-  if (clinicId)    result = result.filter(a => a.clinic?.id === clinicId)
-  if (patientId)   result = result.filter(a => a.patient?.id === patientId)
-  if (dateFrom)    result = result.filter(a => a.start_datetime >= dateFrom)
-  if (dateTo)      result = result.filter(a => a.start_datetime <= dateTo + 'T23:59:59Z')
+  if (status) result = result.filter((a) => a.status === status)
+  if (clinicianId) result = result.filter((a) => a.clinician?.id === clinicianId)
+  if (clinicId) result = result.filter((a) => a.clinic?.id === clinicId)
+  if (patientId) result = result.filter((a) => a.patient?.id === patientId)
+  if (dateFrom) result = result.filter((a) => a.start_datetime >= dateFrom)
+  if (dateTo) result = result.filter((a) => a.start_datetime <= dateTo + 'T23:59:59Z')
   if (search) {
     const q = search.toLowerCase()
-    result = result.filter(a =>
-      a.patient?.full_name?.toLowerCase().includes(q) ||
-      a.clinician?.full_name?.toLowerCase().includes(q) ||
-      a.service?.name?.toLowerCase().includes(q)
+    result = result.filter(
+      (a) =>
+        a.patient?.full_name?.toLowerCase().includes(q) ||
+        a.clinician?.full_name?.toLowerCase().includes(q) ||
+        a.service?.name?.toLowerCase().includes(q),
     )
   }
-  return result.sort((a,b) => a.start_datetime.localeCompare(b.start_datetime))
+  return result.sort((a, b) => a.start_datetime.localeCompare(b.start_datetime))
 }
 
 export function getAppointmentById(id) {
-  const appt = store.appointments.find(a => a.id === id) ?? null
+  const appt = store.appointments.find((a) => a.id === id) ?? null
   if (!appt) return null
   // Generate realistic status_logs for the detail page timeline (NEW-APPT-006)
   if (!appt.status_logs) {
@@ -95,7 +123,13 @@ export function getAppointmentById(id) {
     const updatedAt = appt.updated_at ?? new Date(new Date(createdAt).getTime() + 3600000).toISOString()
     const logs = [{ id: `log-${id}-0`, status: 'pending', reason: null, created_at: createdAt, changed_by_user: { name: 'System' } }]
     if (appt.status !== 'pending') {
-      logs.push({ id: `log-${id}-1`, status: appt.status, reason: appt.cancellation_reason ?? null, created_at: updatedAt, changed_by_user: { name: 'Admin User' } })
+      logs.push({
+        id: `log-${id}-1`,
+        status: appt.status,
+        reason: appt.cancellation_reason ?? null,
+        created_at: updatedAt,
+        changed_by_user: { name: 'Admin User' },
+      })
     }
     appt.status_logs = logs
   }
@@ -103,7 +137,7 @@ export function getAppointmentById(id) {
 }
 
 export function updateAppointmentStatus(id, status, reason = null) {
-  const appt = store.appointments.find(a => a.id === id)
+  const appt = store.appointments.find((a) => a.id === id)
   if (!appt) return null
   appt.status = status
   if (reason) appt.cancellation_reason = reason
@@ -117,7 +151,7 @@ export function updateAppointmentStatus(id, status, reason = null) {
 // requirements/semble-competitive-gap-analysis-requirements.md Scheduling table + Phase 3.
 // `dna` (did-not-attend) is a distinct terminal state from a cancelled/rescheduled appointment.
 export function checkInPatient(id) {
-  const appt = store.appointments.find(a => a.id === id)
+  const appt = store.appointments.find((a) => a.id === id)
   if (!appt) return null
   appt.journey = { ...(appt.journey ?? {}), arrived: new Date().toISOString() }
   notify()
@@ -125,7 +159,7 @@ export function checkInPatient(id) {
 }
 
 export function markConsultationStarted(id) {
-  const appt = store.appointments.find(a => a.id === id)
+  const appt = store.appointments.find((a) => a.id === id)
   if (!appt) return null
   appt.journey = { ...(appt.journey ?? {}), consultation: new Date().toISOString() }
   notify()
@@ -133,7 +167,7 @@ export function markConsultationStarted(id) {
 }
 
 export function checkOutPatient(id) {
-  const appt = store.appointments.find(a => a.id === id)
+  const appt = store.appointments.find((a) => a.id === id)
   if (!appt) return null
   appt.journey = { ...(appt.journey ?? {}), departed: new Date().toISOString() }
   notify()
@@ -141,7 +175,7 @@ export function checkOutPatient(id) {
 }
 
 export function markPatientDidNotAttend(id) {
-  const appt = store.appointments.find(a => a.id === id)
+  const appt = store.appointments.find((a) => a.id === id)
   if (!appt) return null
   appt.journey = { ...(appt.journey ?? {}), dna: new Date().toISOString() }
   notify()
@@ -149,7 +183,7 @@ export function markPatientDidNotAttend(id) {
 }
 
 export function resetPatientJourney(id) {
-  const appt = store.appointments.find(a => a.id === id)
+  const appt = store.appointments.find((a) => a.id === id)
   if (!appt) return null
   appt.journey = null
   notify()
@@ -158,25 +192,29 @@ export function resetPatientJourney(id) {
 
 export function createAppointment(data) {
   const { patientId, clinicianId, serviceId, clinicId, roomId, startDatetime, endDatetime, notes } = data
-  const service   = store.services.find(s => s.id === serviceId)
-  const clinician = store.clinicians.find(c => c.id === clinicianId)
-  const patient   = store.patients.find(p => p.id === patientId)
-  const clinic    = store.clinics.find(c => c.id === clinicId)
-  const room      = store.rooms.find(r => r.id === roomId) ?? store.rooms.find(r => r.clinic.id === clinicId)
+  const service = store.services.find((s) => s.id === serviceId)
+  const clinician = store.clinicians.find((c) => c.id === clinicianId)
+  const patient = store.patients.find((p) => p.id === patientId)
+  const clinic = store.clinics.find((c) => c.id === clinicId)
+  const room = store.rooms.find((r) => r.id === roomId) ?? store.rooms.find((r) => r.clinic.id === clinicId)
   const appt = {
-    id:                  nextId('appt'),
-    start_datetime:      startDatetime,
-    end_datetime:        endDatetime || startDatetime,
-    duration_minutes:    service?.duration_minutes ?? 15,
-    status:              'pending',
-    notes:               notes ?? null,
+    id: nextId('appt'),
+    start_datetime: startDatetime,
+    end_datetime: endDatetime || startDatetime,
+    duration_minutes: service?.duration_minutes ?? 15,
+    status: 'pending',
+    notes: notes ?? null,
     cancellation_reason: null,
-    reminder_sent_at:    null,
-    created_at:          new Date().toISOString(),
-    updated_at:          new Date().toISOString(),
-    patient, clinician, clinic, room, service,
-    booked_by_user:      null,
-    video_room_id:       service?.is_online ? nextId('room') : null,
+    reminder_sent_at: null,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    patient,
+    clinician,
+    clinic,
+    room,
+    service,
+    booked_by_user: null,
+    video_room_id: service?.is_online ? nextId('room') : null,
   }
   store.appointments.push(appt)
   notify()
@@ -190,31 +228,31 @@ export function getPatients({ search } = {}) {
   let result = store.patients
   if (search) {
     const q = search.toLowerCase()
-    result = result.filter(p =>
-      p.full_name?.toLowerCase().includes(q) ||
-      p.email?.toLowerCase().includes(q) ||
-      p.phone?.includes(q)
-    )
+    result = result.filter((p) => p.full_name?.toLowerCase().includes(q) || p.email?.toLowerCase().includes(q) || p.phone?.includes(q))
   }
   return result
 }
 
 export function getPatientById(id) {
-  return store.patients.find(p => p.id === id) ?? null
+  return store.patients.find((p) => p.id === id) ?? null
 }
 
 export function createPatient(data) {
   const patient = {
     id: nextId('pt'),
-    first_name: data.first_name, last_name: data.last_name,
+    first_name: data.first_name,
+    last_name: data.last_name,
     full_name: `${data.first_name} ${data.last_name}`,
-    date_of_birth: data.date_of_birth, gender: data.gender,
-    phone: data.phone, email: data.email,
+    date_of_birth: data.date_of_birth,
+    gender: data.gender,
+    phone: data.phone,
+    email: data.email,
     address: data.address ?? null,
     notes: data.notes ?? null,
     registered_at: new Date().toISOString(),
     // Patient safety states — requirements/semble-competitive-gap-analysis-requirements.md Phase 1
-    on_hold: false, on_hold_reason: null,
+    on_hold: false,
+    on_hold_reason: null,
     archived: false,
     labels: data.labels ?? [],
   }
@@ -266,7 +304,7 @@ export function removePatientLabel(id, labelIndex) {
 }
 
 export function updatePatient(id, data) {
-  const idx = store.patients.findIndex(p => p.id === id)
+  const idx = store.patients.findIndex((p) => p.id === id)
   if (idx === -1) return null
   store.patients[idx] = { ...store.patients[idx], ...data }
   if (data.first_name || data.last_name) {
@@ -281,35 +319,42 @@ export function updatePatient(id, data) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function getClinicians({ search, typeId, clinicId, isActive } = {}) {
   let result = store.clinicians
-  if (typeId)   result = result.filter(c => c.clinician_type?.id === typeId)
-  if (clinicId) result = result.filter(c => c.clinics?.some(cl => cl.id === clinicId))
-  if (isActive !== undefined) result = result.filter(c => c.is_active === isActive)
+  if (typeId) result = result.filter((c) => c.clinician_type?.id === typeId)
+  if (clinicId) result = result.filter((c) => c.clinics?.some((cl) => cl.id === clinicId))
+  if (isActive !== undefined) result = result.filter((c) => c.is_active === isActive)
   if (search) {
     const q = search.toLowerCase()
-    result = result.filter(c => c.full_name?.toLowerCase().includes(q))
+    result = result.filter((c) => c.full_name?.toLowerCase().includes(q))
   }
   return result
 }
 
 export function getClinicianById(id) {
-  return store.clinicians.find(c => c.id === id) ?? null
+  return store.clinicians.find((c) => c.id === id) ?? null
 }
 
 export function createClinician(data) {
-  const type = store.clinician_types.find(t => t.id === data.clinician_type_id)
-  const clinics = data.clinic_ids?.map(id => store.clinics.find(c => c.id === id)).filter(Boolean) ?? []
+  const type = store.clinician_types.find((t) => t.id === data.clinician_type_id)
+  const clinics = data.clinic_ids?.map((id) => store.clinics.find((c) => c.id === id)).filter(Boolean) ?? []
   const clinician = {
     id: nextId('cln'),
-    first_name: data.first_name, last_name: data.last_name,
+    first_name: data.first_name,
+    last_name: data.last_name,
     full_name: `${data.first_name} ${data.last_name}`,
     avatar_url: `https://i.pravatar.cc/150?u=${nextId('av')}`,
-    clinician_type: type, clinics,
-    languages: data.language_ids?.map(id => store.languages.find(l => l.id === id)).filter(Boolean) ?? [],
+    clinician_type: type,
+    clinics,
+    languages: data.language_ids?.map((id) => store.languages.find((l) => l.id === id)).filter(Boolean) ?? [],
     consultation_fee: data.consultation_fee ?? 40,
-    gender: data.gender ?? 'M', is_active: true,
+    gender: data.gender ?? 'M',
+    is_active: true,
     joined_at: new Date().toISOString(),
-    avg_rating: null, total_reviews: 0, total_patients: 0, appointments_done: 0,
-    bio: data.bio ?? '', services: [],
+    avg_rating: null,
+    total_reviews: 0,
+    total_patients: 0,
+    appointments_done: 0,
+    bio: data.bio ?? '',
+    services: [],
     // Professional fields — requirements/semble-competitive-gap-analysis-requirements.md Phase 1
     qualifications: data.qualifications ?? '',
     registration_number: data.registration_number ?? '',
@@ -325,7 +370,7 @@ export function createClinician(data) {
 }
 
 export function updateClinician(id, data) {
-  const idx = store.clinicians.findIndex(c => c.id === id)
+  const idx = store.clinicians.findIndex((c) => c.id === id)
   if (idx === -1) return null
   store.clinicians[idx] = { ...store.clinicians[idx], ...data }
   notify()
@@ -335,26 +380,37 @@ export function updateClinician(id, data) {
 // ─────────────────────────────────────────────────────────────────────────────
 // CLINICS
 // ─────────────────────────────────────────────────────────────────────────────
-export function getClinics() { return store.clinics }
-export function getClinicById(id) { return store.clinics.find(c => c.id === id) ?? null }
+export function getClinics() {
+  return store.clinics
+}
+export function getClinicById(id) {
+  return store.clinics.find((c) => c.id === id) ?? null
+}
 
 export function createClinic(data) {
-  const org = store.organisations.find(o => o.id === data.organisation_id)
+  const org = store.organisations.find((o) => o.id === data.organisation_id)
   const clinic = {
-    id: nextId('cli'), name: data.name,
-    organisation: org ?? null, city: data.city,
-    address: data.address, postcode: data.postcode ?? '',
-    timezone: data.timezone ?? 'Europe/London', phone: data.phone ?? '',
-    total_rooms: 0, total_clinicians: 0, total_services: 0,
-    appointments_month: 0, revenue_month: 0,
+    id: nextId('cli'),
+    name: data.name,
+    organisation: org ?? null,
+    city: data.city,
+    address: data.address,
+    postcode: data.postcode ?? '',
+    timezone: data.timezone ?? 'Europe/London',
+    phone: data.phone ?? '',
+    total_rooms: 0,
+    total_clinicians: 0,
+    total_services: 0,
+    appointments_month: 0,
+    revenue_month: 0,
     opening_hours: data.opening_hours ?? {
-      monday: { open:'09:00', close:'17:00', closed:false },
-      tuesday: { open:'09:00', close:'17:00', closed:false },
-      wednesday: { open:'09:00', close:'17:00', closed:false },
-      thursday: { open:'09:00', close:'17:00', closed:false },
-      friday: { open:'09:00', close:'17:00', closed:false },
-      saturday: { open:null, close:null, closed:true },
-      sunday: { open:null, close:null, closed:true },
+      monday: { open: '09:00', close: '17:00', closed: false },
+      tuesday: { open: '09:00', close: '17:00', closed: false },
+      wednesday: { open: '09:00', close: '17:00', closed: false },
+      thursday: { open: '09:00', close: '17:00', closed: false },
+      friday: { open: '09:00', close: '17:00', closed: false },
+      saturday: { open: null, close: null, closed: true },
+      sunday: { open: null, close: null, closed: true },
     },
     is_active: true,
   }
@@ -364,7 +420,7 @@ export function createClinic(data) {
 }
 
 export function updateClinic(id, data) {
-  const idx = store.clinics.findIndex(c => c.id === id)
+  const idx = store.clinics.findIndex((c) => c.id === id)
   if (idx === -1) return null
   store.clinics[idx] = { ...store.clinics[idx], ...data }
   notify()
@@ -375,21 +431,31 @@ export function updateClinic(id, data) {
 // ROOMS
 // ─────────────────────────────────────────────────────────────────────────────
 export function getRooms(clinicId) {
-  return clinicId ? store.rooms.filter(r => r.clinic?.id === clinicId) : store.rooms
+  return clinicId ? store.rooms.filter((r) => r.clinic?.id === clinicId) : store.rooms
 }
-export function getRoomById(id) { return store.rooms.find(r => r.id === id) ?? null }
+export function getRoomById(id) {
+  return store.rooms.find((r) => r.id === id) ?? null
+}
 
 export function createRoom(data) {
-  const clinic = store.clinics.find(c => c.id === data.clinic_id)
-  const type   = store.room_types.find(t => t.id === data.room_type_id)
-  const room   = { id: nextId('rm'), name: data.name, clinic, room_type: type, capacity: data.capacity ?? 2, floor: data.floor ?? 1, is_active: true }
+  const clinic = store.clinics.find((c) => c.id === data.clinic_id)
+  const type = store.room_types.find((t) => t.id === data.room_type_id)
+  const room = {
+    id: nextId('rm'),
+    name: data.name,
+    clinic,
+    room_type: type,
+    capacity: data.capacity ?? 2,
+    floor: data.floor ?? 1,
+    is_active: true,
+  }
   store.rooms.push(room)
   notify()
   return room
 }
 
 export function updateRoom(id, data) {
-  const idx = store.rooms.findIndex(r => r.id === id)
+  const idx = store.rooms.findIndex((r) => r.id === id)
   if (idx === -1) return null
   store.rooms[idx] = { ...store.rooms[idx], ...data }
   notify()
@@ -400,17 +466,27 @@ export function updateRoom(id, data) {
 // SERVICES
 // ─────────────────────────────────────────────────────────────────────────────
 export function getServices(clinicId) {
-  return clinicId ? store.services.filter(s => s.clinic?.id === clinicId) : store.services
+  return clinicId ? store.services.filter((s) => s.clinic?.id === clinicId) : store.services
 }
-export function getServiceById(id) { return store.services.find(s => s.id === id) ?? null }
+export function getServiceById(id) {
+  return store.services.find((s) => s.id === id) ?? null
+}
 
 export function createService(data) {
-  const clinic   = store.clinics.find(c => c.id === data.clinic_id)
-  const service  = {
-    id: nextId('svc'), name: data.name, clinic, duration_minutes: data.duration_minutes,
-    price: data.price, is_active: data.is_active ?? true, is_online: data.is_online ?? false,
-    description: data.description ?? '', bookings_month: 0, revenue_month: 0,
-    max_advance_days: data.max_advance_days ?? 60, assigned_clinicians: [],
+  const clinic = store.clinics.find((c) => c.id === data.clinic_id)
+  const service = {
+    id: nextId('svc'),
+    name: data.name,
+    clinic,
+    duration_minutes: data.duration_minutes,
+    price: data.price,
+    is_active: data.is_active ?? true,
+    is_online: data.is_online ?? false,
+    description: data.description ?? '',
+    bookings_month: 0,
+    revenue_month: 0,
+    max_advance_days: data.max_advance_days ?? 60,
+    assigned_clinicians: [],
   }
   store.services.push(service)
   notify()
@@ -418,7 +494,7 @@ export function createService(data) {
 }
 
 export function updateService(id, data) {
-  const idx = store.services.findIndex(s => s.id === id)
+  const idx = store.services.findIndex((s) => s.id === id)
   if (idx === -1) return null
   store.services[idx] = { ...store.services[idx], ...data }
   notify()
@@ -429,42 +505,50 @@ export function updateService(id, data) {
 // MESSAGES
 // ─────────────────────────────────────────────────────────────────────────────
 export function getThreads(userId) {
-  return store.message_threads.filter(t =>
-    t.participants.some(p => p.id === userId)
-  ).sort((a,b) => b.last_activity.localeCompare(a.last_activity))
+  return store.message_threads
+    .filter((t) => t.participants.some((p) => p.id === userId))
+    .sort((a, b) => b.last_activity.localeCompare(a.last_activity))
 }
 
-export function getThreadById(id) { return store.message_threads.find(t => t.id === id) ?? null }
+export function getThreadById(id) {
+  return store.message_threads.find((t) => t.id === id) ?? null
+}
 
 export function sendMessage(threadId, fromId, body) {
-  const thread = store.message_threads.find(t => t.id === threadId)
+  const thread = store.message_threads.find((t) => t.id === threadId)
   if (!thread) return null
-  const from = thread.participants.find(p => p.id === fromId)
-  const msg  = {
-    id: nextId('msg'), from_id: fromId,
+  const from = thread.participants.find((p) => p.id === fromId)
+  const msg = {
+    id: nextId('msg'),
+    from_id: fromId,
     from_name: from?.name ?? 'Unknown',
     from_role: from?.role ?? 'patient',
-    body, sent_at: new Date().toISOString(), read: false,
+    body,
+    sent_at: new Date().toISOString(),
+    read: false,
   }
   thread.messages.push(msg)
-  thread.last_message  = body
+  thread.last_message = body
   thread.last_activity = msg.sent_at
-  thread.unread_count  = thread.messages.filter(m => !m.read && m.from_id !== fromId).length
+  thread.unread_count = thread.messages.filter((m) => !m.read && m.from_id !== fromId).length
   notify()
   return msg
 }
 
 export function createThread(participantIds, initialMessage, fromId) {
-  const participants = participantIds.map(pid => {
-    const cl = store.clinicians.find(c => c.id === pid)
-    const pt = store.patients.find(p => p.id === pid)
+  const participants = participantIds.map((pid) => {
+    const cl = store.clinicians.find((c) => c.id === pid)
+    const pt = store.patients.find((p) => p.id === pid)
     if (cl) return { id: cl.id, name: cl.full_name, role: 'clinician', avatar: cl.avatar_url }
-    if (pt) return { id: pt.id, name: pt.full_name, role: 'patient',   avatar: `https://i.pravatar.cc/150?u=${pid}` }
+    if (pt) return { id: pt.id, name: pt.full_name, role: 'patient', avatar: `https://i.pravatar.cc/150?u=${pid}` }
     return { id: pid, name: 'Unknown', role: 'patient', avatar: null }
   })
   const thread = {
-    id: nextId('thread'), participants,
-    last_message: initialMessage, last_activity: new Date().toISOString(), unread_count: 0,
+    id: nextId('thread'),
+    participants,
+    last_message: initialMessage,
+    last_activity: new Date().toISOString(),
+    unread_count: 0,
     messages: [],
   }
   store.message_threads.push(thread)
@@ -474,9 +558,9 @@ export function createThread(participantIds, initialMessage, fromId) {
 
 // BUG-MSG-001 fix: mark all messages in thread as read for the given viewer
 export function markThreadAsRead(threadId, viewerId) {
-  const thread = store.message_threads.find(t => t.id === threadId)
+  const thread = store.message_threads.find((t) => t.id === threadId)
   if (!thread) return
-  thread.messages.forEach(m => {
+  thread.messages.forEach((m) => {
     if (m.from_id !== viewerId) m.read = true
   })
   thread.unread_count = 0
@@ -488,18 +572,23 @@ export function markThreadAsRead(threadId, viewerId) {
 // ─────────────────────────────────────────────────────────────────────────────
 export function getReviews({ clinicianId, stars } = {}) {
   let result = store.reviews
-  if (clinicianId) result = result.filter(r => r.clinician_id === clinicianId)
-  if (stars)       result = result.filter(r => r.stars === stars)
-  return result.sort((a,b) => b.created_at.localeCompare(a.created_at))
+  if (clinicianId) result = result.filter((r) => r.clinician_id === clinicianId)
+  if (stars) result = result.filter((r) => r.stars === stars)
+  return result.sort((a, b) => b.created_at.localeCompare(a.created_at))
 }
 
 export function createReview(data) {
-  const review  = {
+  const review = {
     id: nextId('rev'),
-    appointment_id: data.appointment_id, patient_id: data.patient_id,
-    patient_name: data.patient_name, clinician_id: data.clinician_id,
-    clinician_name: data.clinician_name, stars: data.stars,
-    comment: data.comment, response: null, created_at: new Date().toISOString(),
+    appointment_id: data.appointment_id,
+    patient_id: data.patient_id,
+    patient_name: data.patient_name,
+    clinician_id: data.clinician_id,
+    clinician_name: data.clinician_name,
+    stars: data.stars,
+    comment: data.comment,
+    response: null,
+    created_at: new Date().toISOString(),
   }
   store.reviews.push(review)
   notify()
@@ -507,7 +596,7 @@ export function createReview(data) {
 }
 
 export function respondToReview(id, response) {
-  const review = store.reviews.find(r => r.id === id)
+  const review = store.reviews.find((r) => r.id === id)
   if (!review) return null
   review.response = response
   notify()
@@ -516,7 +605,7 @@ export function respondToReview(id, response) {
 
 // SUG-REV-003: Persist deletes to MockStore (consistent with respondToReview)
 export function deleteReview(id) {
-  store.reviews = store.reviews.filter(r => r.id !== id)
+  store.reviews = store.reviews.filter((r) => r.id !== id)
   notify()
 }
 
@@ -528,30 +617,88 @@ export function deleteReview(id) {
 // via useMockData(), so state stays in sync for the life of the session.
 // ─────────────────────────────────────────────────────────────────────────────
 const WIDGET_NOTIFICATIONS_SEED = [
-  { id: 1, type: 'appointment', unread: true,  title: 'New Appointment Booked',  body: 'Alice Johnson booked General Consultation for Mon 16 Mar at 09:00.', time: '2 min ago',  action: '/appointments' },
-  { id: 2, type: 'patient',     unread: true,  title: 'New Patient Registered',  body: 'Frank Miller just signed up for a patient account.',                  time: '18 min ago', action: '/patients' },
-  { id: 3, type: 'review',      unread: true,  title: 'New Review Received',     body: 'Dr. Jane Smith received 5★ from Emily Chen: "Excellent care!"',       time: '1 hr ago',   action: '/reviews' },
-  { id: 4, type: 'result',      unread: false, title: 'Test Result Updated',     body: 'HbA1c result for Bob Smith is now available.',                        time: '3 hr ago',   action: '/test-results' },
-  { id: 5, type: 'appointment', unread: false, title: 'Appointment Cancelled',   body: 'Carlos Reyes cancelled his 14:00 appointment on Tue 11 Mar.',         time: '5 hr ago',   action: '/appointments' },
-  { id: 6, type: 'system',      unread: false, title: 'Scheduled Maintenance',   body: 'The system will be down Sun 15 Mar 02:00–04:00 UTC for maintenance.', time: 'Yesterday',  action: null },
-  { id: 7, type: 'patient',     unread: false, title: 'Patient Profile Updated', body: 'Diana Prince updated her contact information.',                       time: 'Yesterday',  action: '/patients/4' },
+  {
+    id: 1,
+    type: 'appointment',
+    unread: true,
+    title: 'New Appointment Booked',
+    body: 'Alice Johnson booked General Consultation for Mon 16 Mar at 09:00.',
+    time: '2 min ago',
+    action: '/appointments',
+  },
+  {
+    id: 2,
+    type: 'patient',
+    unread: true,
+    title: 'New Patient Registered',
+    body: 'Frank Miller just signed up for a patient account.',
+    time: '18 min ago',
+    action: '/patients',
+  },
+  {
+    id: 3,
+    type: 'review',
+    unread: true,
+    title: 'New Review Received',
+    body: 'Dr. Jane Smith received 5★ from Emily Chen: "Excellent care!"',
+    time: '1 hr ago',
+    action: '/reviews',
+  },
+  {
+    id: 4,
+    type: 'result',
+    unread: false,
+    title: 'Test Result Updated',
+    body: 'HbA1c result for Bob Smith is now available.',
+    time: '3 hr ago',
+    action: '/test-results',
+  },
+  {
+    id: 5,
+    type: 'appointment',
+    unread: false,
+    title: 'Appointment Cancelled',
+    body: 'Carlos Reyes cancelled his 14:00 appointment on Tue 11 Mar.',
+    time: '5 hr ago',
+    action: '/appointments',
+  },
+  {
+    id: 6,
+    type: 'system',
+    unread: false,
+    title: 'Scheduled Maintenance',
+    body: 'The system will be down Sun 15 Mar 02:00–04:00 UTC for maintenance.',
+    time: 'Yesterday',
+    action: null,
+  },
+  {
+    id: 7,
+    type: 'patient',
+    unread: false,
+    title: 'Patient Profile Updated',
+    body: 'Diana Prince updated her contact information.',
+    time: 'Yesterday',
+    action: '/patients/4',
+  },
 ]
 let _widgetNotifications = clone(WIDGET_NOTIFICATIONS_SEED)
 
-export function getWidgetNotifications() { return _widgetNotifications }
+export function getWidgetNotifications() {
+  return _widgetNotifications
+}
 
 export function markWidgetNotificationRead(id) {
-  _widgetNotifications = _widgetNotifications.map(n => n.id === id ? { ...n, unread: false } : n)
+  _widgetNotifications = _widgetNotifications.map((n) => (n.id === id ? { ...n, unread: false } : n))
   notify()
 }
 
 export function markAllWidgetNotificationsRead() {
-  _widgetNotifications = _widgetNotifications.map(n => ({ ...n, unread: false }))
+  _widgetNotifications = _widgetNotifications.map((n) => ({ ...n, unread: false }))
   notify()
 }
 
 export function dismissWidgetNotification(id) {
-  _widgetNotifications = _widgetNotifications.filter(n => n.id !== id)
+  _widgetNotifications = _widgetNotifications.filter((n) => n.id !== id)
   notify()
 }
 
@@ -559,11 +706,11 @@ export function dismissWidgetNotification(id) {
 // AVAILABILITY / BLOCKS
 // ─────────────────────────────────────────────────────────────────────────────
 export function getAvailabilityTemplate(clinicianId) {
-  return store.availability_templates.find(t => t.clinician_id === clinicianId) ?? null
+  return store.availability_templates.find((t) => t.clinician_id === clinicianId) ?? null
 }
 
 export function getLeaveBlocks(clinicianId) {
-  return store.leave_blocks.filter(l => l.clinician_id === clinicianId)
+  return store.leave_blocks.filter((l) => l.clinician_id === clinicianId)
 }
 
 export function createLeaveBlock(data) {
@@ -574,7 +721,7 @@ export function createLeaveBlock(data) {
 }
 
 export function getClinicBlocks(clinicId) {
-  return store.clinic_blocks.filter(b => b.clinic_id === clinicId)
+  return store.clinic_blocks.filter((b) => b.clinic_id === clinicId)
 }
 
 export function createClinicBlock(data) {
@@ -585,22 +732,22 @@ export function createClinicBlock(data) {
 }
 
 export function deleteClinicBlock(id) {
-  store.clinic_blocks = store.clinic_blocks.filter(b => b.id !== id)
+  store.clinic_blocks = store.clinic_blocks.filter((b) => b.id !== id)
   notify()
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ANALYTICS / BILLING READS
 // ─────────────────────────────────────────────────────────────────────────────
-export const getDashboardKpis        = () => DASHBOARD_KPIS
-export const getVolumeByDay          = () => VOLUME_BY_DAY
-export const getUtilisationData      = () => UTILISATION_BY_CLINICIAN
-export const getServiceBreakdown     = () => BOOKINGS_BY_SERVICE
-export const getMonthlyRevenue       = () => MONTHLY_REVENUE
+export const getDashboardKpis = () => DASHBOARD_KPIS
+export const getVolumeByDay = () => VOLUME_BY_DAY
+export const getUtilisationData = () => UTILISATION_BY_CLINICIAN
+export const getServiceBreakdown = () => BOOKINGS_BY_SERVICE
+export const getMonthlyRevenue = () => MONTHLY_REVENUE
 export const getRevenueByClinicianData = () => REVENUE_BY_CLINICIAN
-export const getInvoices             = () => store.invoices
-export const getNotifications        = () => store.notifications
-export const getRolesPermissions     = () => store.roles_permissions
+export const getInvoices = () => store.invoices
+export const getNotifications = () => store.notifications
+export const getRolesPermissions = () => store.roles_permissions
 
 // ─────────────────────────────────────────────────────────────────────────────
 // CUSTOM ROLES & ACCESS GROUPS (test-cases/12-admin-rbac, requirements/semble-competitive-gap-analysis-requirements.md)
@@ -613,8 +760,12 @@ export const getRolePermissionIds = (roleId) => store.role_permissions[roleId] ?
 
 export function createRole({ name, description, permission_ids }) {
   const role = {
-    id: nextId('role'), name, description: description ?? '',
-    is_active: true, is_system: false, created_at: new Date().toISOString(),
+    id: nextId('role'),
+    name,
+    description: description ?? '',
+    is_active: true,
+    is_system: false,
+    created_at: new Date().toISOString(),
   }
   store.roles.push(role)
   store.role_permissions[role.id] = permission_ids ?? []
@@ -651,10 +802,10 @@ export function deleteRole(id) {
   notify()
   return { success: true }
 }
-export const getEmailTemplates       = () => store.email_templates
-export const getPolicies             = () => store.policies
-export const getOrganisations        = () => store.organisations
-export const getSubscriptionPlans    = () => store.subscription_plans
+export const getEmailTemplates = () => store.email_templates
+export const getPolicies = () => store.policies
+export const getOrganisations = () => store.organisations
+export const getSubscriptionPlans = () => store.subscription_plans
 
 // ─────────────────────────────────────────────────────────────────────────────
 // ORGANIZATION ONBOARDING (SaaS tenant signup wizard)
@@ -680,9 +831,9 @@ export function startOrganizationOnboarding({ orgName, slug, contactEmail, owner
 }
 
 export function selectOnboardingPlan(orgId, planCode) {
-  const org = store.organisations.find(o => o.id === orgId)
+  const org = store.organisations.find((o) => o.id === orgId)
   if (!org) return null
-  const plan = store.subscription_plans.find(p => p.code === planCode)
+  const plan = store.subscription_plans.find((p) => p.code === planCode)
   org.plan = planCode
   org.onboarding_step = 'plan_selected'
   org.trial_ends_at = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString() // 14-day trial
@@ -691,7 +842,7 @@ export function selectOnboardingPlan(orgId, planCode) {
 }
 
 export function addOnboardingFirstClinic(orgId, clinicDetails) {
-  const org = store.organisations.find(o => o.id === orgId)
+  const org = store.organisations.find((o) => o.id === orgId)
   if (!org) return null
   const clinic = {
     id: nextId('cli'),
@@ -703,8 +854,11 @@ export function addOnboardingFirstClinic(orgId, clinicDetails) {
     postcode: clinicDetails.pincode, // field name kept as `postcode` to match manager/clinics pages; label is "PIN Code" in the UI
     phone: clinicDetails.phone,
     timezone: 'Asia/Kolkata',
-    total_rooms: 0, total_clinicians: 0, total_services: 0,
-    appointments_month: 0, revenue_month: 0,
+    total_rooms: 0,
+    total_clinicians: 0,
+    total_services: 0,
+    appointments_month: 0,
+    revenue_month: 0,
   }
   store.clinics.push(clinic)
   org.active_clinics = (org.active_clinics || 0) + 1
@@ -714,7 +868,7 @@ export function addOnboardingFirstClinic(orgId, clinicDetails) {
 }
 
 export function completeOrganizationOnboarding(orgId) {
-  const org = store.organisations.find(o => o.id === orgId)
+  const org = store.organisations.find((o) => o.id === orgId)
   if (!org) return null
   org.onboarding_status = 'completed'
   org.onboarding_step = null
@@ -726,12 +880,12 @@ export function completeOrganizationOnboarding(orgId) {
 // ORGANIZATION BRANDING (logo + color scheme — see requirements/organization-branding-and-management-requirements.md)
 // ─────────────────────────────────────────────────────────────────────────────
 export function getOrganizationBranding(orgId) {
-  const org = store.organisations.find(o => o.id === orgId)
+  const org = store.organisations.find((o) => o.id === orgId)
   return org?.branding ?? { logo_url: null, primary_color: '#006D77', secondary_color: '#00858F' }
 }
 
 export function updateOrganizationBranding(orgId, { logo_url, primary_color, secondary_color }) {
-  const org = store.organisations.find(o => o.id === orgId)
+  const org = store.organisations.find((o) => o.id === orgId)
   if (!org) return null
   org.branding = { ...(org.branding ?? {}), logo_url, primary_color, secondary_color }
   notify()
@@ -782,10 +936,10 @@ export function deleteTask(id) {
   return { success: true }
 }
 
-export const getLanguages            = () => store.languages
-export const getClinicianTypes       = () => store.clinician_types
-export const getRoomTypes            = () => store.room_types
-export const getProducts             = (clinicId) => clinicId ? store.products.filter(p => p.clinic_id === clinicId) : store.products
+export const getLanguages = () => store.languages
+export const getClinicianTypes = () => store.clinician_types
+export const getRoomTypes = () => store.room_types
+export const getProducts = (clinicId) => (clinicId ? store.products.filter((p) => p.clinic_id === clinicId) : store.products)
 
 // ─────────────────────────────────────────────────────────────────────────────
 // SLOT GENERATOR (Booking Wizard Step 3)
@@ -794,39 +948,39 @@ export function getAvailableSlots(clinicianId, dateStr, durationMinutes = 15) {
   const template = getAvailabilityTemplate(clinicianId)
   if (!template) return []
 
-  const date   = new Date(dateStr + 'T00:00:00Z')
-  const dayName = ['sunday','monday','tuesday','wednesday','thursday','friday','saturday'][date.getUTCDay()]
+  const date = new Date(dateStr + 'T00:00:00Z')
+  const dayName = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'][date.getUTCDay()]
   if (!template.days.includes(dayName)) return []
 
   // Check leave blocks
-  const onLeave = getLeaveBlocks(clinicianId).some(lv => lv.start_date <= dateStr && lv.end_date >= dateStr)
+  const onLeave = getLeaveBlocks(clinicianId).some((lv) => lv.start_date <= dateStr && lv.end_date >= dateStr)
   if (onLeave) return []
 
   // Generate slots
   const [sh, sm] = template.start_time.split(':').map(Number)
   const [eh, em] = template.end_time.split(':').map(Number)
   const [bsh, bsm] = (template.break_start ?? '13:00').split(':').map(Number)
-  const [beh, bem] = (template.break_end   ?? '14:00').split(':').map(Number)
+  const [beh, bem] = (template.break_end ?? '14:00').split(':').map(Number)
 
-  const startMins  = sh * 60 + sm
-  const endMins    = eh * 60 + em
+  const startMins = sh * 60 + sm
+  const endMins = eh * 60 + em
   const breakStart = bsh * 60 + bsm
-  const breakEnd   = beh * 60 + bem
+  const breakEnd = beh * 60 + bem
 
   // Already booked appointments for this clinician on this date
   const bookedSlots = store.appointments
-    .filter(a => a.clinician?.id === clinicianId && a.start_datetime.startsWith(dateStr) && !['cancelled','no_show'].includes(a.status))
-    .map(a => {
+    .filter((a) => a.clinician?.id === clinicianId && a.start_datetime.startsWith(dateStr) && !['cancelled', 'no_show'].includes(a.status))
+    .map((a) => {
       const t = new Date(a.start_datetime)
       return t.getUTCHours() * 60 + t.getUTCMinutes()
     })
 
   const slots = []
   for (let m = startMins; m + durationMinutes <= endMins; m += template.slot_minutes) {
-    const inBreak  = m < breakEnd && m + durationMinutes > breakStart
-    const isBooked = bookedSlots.some(b => m < b + 15 && m + durationMinutes > b)
-    const hh = String(Math.floor(m / 60)).padStart(2,'0')
-    const mm = String(m % 60).padStart(2,'0')
+    const inBreak = m < breakEnd && m + durationMinutes > breakStart
+    const isBooked = bookedSlots.some((b) => m < b + 15 && m + durationMinutes > b)
+    const hh = String(Math.floor(m / 60)).padStart(2, '0')
+    const mm = String(m % 60).padStart(2, '0')
     slots.push({ time: `${hh}:${mm}`, is_available: !inBreak && !isBooked })
   }
   return slots
@@ -838,21 +992,69 @@ export function getAvailableSlots(clinicianId, dateStr, durationMinutes = 15) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 const MOCK_CLINICIAN_AVAILABILITY = [
-  { id: 'av-1', clinicianId: 'clin-1', dayOfWeek: '0', startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: 'room-1' },
-  { id: 'av-2', clinicianId: 'clin-1', dayOfWeek: '1', startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: 'room-2' },
-  { id: 'av-3', clinicianId: 'clin-1', dayOfWeek: '2', startTime: '09:00', endTime: '13:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: 'room-1' },
-  { id: 'av-4', clinicianId: 'clin-1', dayOfWeek: '3', startTime: '10:00', endTime: '18:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: null     },
-  { id: 'av-5', clinicianId: 'clin-1', dayOfWeek: '4', startTime: '09:00', endTime: '15:00', recurrenceType: 'weekly',  validFrom: null, validUntil: null, roomId: 'room-3' },
+  {
+    id: 'av-1',
+    clinicianId: 'clin-1',
+    dayOfWeek: '0',
+    startTime: '09:00',
+    endTime: '17:00',
+    recurrenceType: 'weekly',
+    validFrom: null,
+    validUntil: null,
+    roomId: 'room-1',
+  },
+  {
+    id: 'av-2',
+    clinicianId: 'clin-1',
+    dayOfWeek: '1',
+    startTime: '09:00',
+    endTime: '17:00',
+    recurrenceType: 'weekly',
+    validFrom: null,
+    validUntil: null,
+    roomId: 'room-2',
+  },
+  {
+    id: 'av-3',
+    clinicianId: 'clin-1',
+    dayOfWeek: '2',
+    startTime: '09:00',
+    endTime: '13:00',
+    recurrenceType: 'weekly',
+    validFrom: null,
+    validUntil: null,
+    roomId: 'room-1',
+  },
+  {
+    id: 'av-4',
+    clinicianId: 'clin-1',
+    dayOfWeek: '3',
+    startTime: '10:00',
+    endTime: '18:00',
+    recurrenceType: 'weekly',
+    validFrom: null,
+    validUntil: null,
+    roomId: null,
+  },
+  {
+    id: 'av-5',
+    clinicianId: 'clin-1',
+    dayOfWeek: '4',
+    startTime: '09:00',
+    endTime: '15:00',
+    recurrenceType: 'weekly',
+    validFrom: null,
+    validUntil: null,
+    roomId: 'room-3',
+  },
   // Error scenario: set mockAvailabilityError = true to test error paths
 ]
 
-const MOCK_LUNCH_BREAKS = [
-  { id: 'lunch-1', clinicianId: 'clin-1', dayOfWeek: 'daily', startTime: '12:30', endTime: '13:30' },
-]
+const MOCK_LUNCH_BREAKS = [{ id: 'lunch-1', clinicianId: 'clin-1', dayOfWeek: 'daily', startTime: '12:30', endTime: '13:30' }]
 
 // In-memory copies (mutable, mimics backend state)
 let _clinicianAvailability = [...MOCK_CLINICIAN_AVAILABILITY]
-let _lunchBreaks           = [...MOCK_LUNCH_BREAKS]
+let _lunchBreaks = [...MOCK_LUNCH_BREAKS]
 
 /**
  * Fetch all availability slots for a clinician.
@@ -861,7 +1063,7 @@ let _lunchBreaks           = [...MOCK_LUNCH_BREAKS]
  */
 export function getClinicianAvailability(clinicianId, simulateError = false) {
   if (simulateError) throw new Error('Mock API error: could not fetch availability')
-  return _clinicianAvailability.filter(a => a.clinicianId === clinicianId)
+  return _clinicianAvailability.filter((a) => a.clinicianId === clinicianId)
 }
 
 /**
@@ -870,11 +1072,9 @@ export function getClinicianAvailability(clinicianId, simulateError = false) {
  */
 export function saveMockAvailability(input) {
   if (input.id) {
-    _clinicianAvailability = _clinicianAvailability.map(a =>
-      a.id === input.id ? { ...a, ...input } : a
-    )
+    _clinicianAvailability = _clinicianAvailability.map((a) => (a.id === input.id ? { ...a, ...input } : a))
     notify()
-    return _clinicianAvailability.find(a => a.id === input.id)
+    return _clinicianAvailability.find((a) => a.id === input.id)
   }
   const newSlot = { id: nextId('av'), ...input }
   _clinicianAvailability.push(newSlot)
@@ -887,7 +1087,7 @@ export function saveMockAvailability(input) {
  * @param {string} id
  */
 export function deleteMockAvailability(id) {
-  _clinicianAvailability = _clinicianAvailability.filter(a => a.id !== id)
+  _clinicianAvailability = _clinicianAvailability.filter((a) => a.id !== id)
   notify()
   return true
 }
@@ -897,7 +1097,7 @@ export function deleteMockAvailability(id) {
  * @param {string} clinicianId
  */
 export function getMockLunchBreaks(clinicianId) {
-  return _lunchBreaks.filter(lb => lb.clinicianId === clinicianId)
+  return _lunchBreaks.filter((lb) => lb.clinicianId === clinicianId)
 }
 
 /**
@@ -906,11 +1106,9 @@ export function getMockLunchBreaks(clinicianId) {
  */
 export function saveMockLunchBreak(input) {
   if (input.id) {
-    _lunchBreaks = _lunchBreaks.map(lb =>
-      lb.id === input.id ? { ...lb, ...input } : lb
-    )
+    _lunchBreaks = _lunchBreaks.map((lb) => (lb.id === input.id ? { ...lb, ...input } : lb))
     notify()
-    return _lunchBreaks.find(lb => lb.id === input.id)
+    return _lunchBreaks.find((lb) => lb.id === input.id)
   }
   const newBreak = { id: nextId('lunch'), ...input }
   _lunchBreaks.push(newBreak)
@@ -923,7 +1121,7 @@ export function saveMockLunchBreak(input) {
  * @param {string} id
  */
 export function deleteMockLunchBreak(id) {
-  _lunchBreaks = _lunchBreaks.filter(lb => lb.id !== id)
+  _lunchBreaks = _lunchBreaks.filter((lb) => lb.id !== id)
   notify()
   return true
 }
@@ -932,14 +1130,102 @@ export function deleteMockLunchBreak(id) {
 // STAFF (SUG-STAFF-010: persisted in-memory so /staff/new and edits survive navigation)
 // ─────────────────────────────────────────────────────────────────────────────
 const STAFF_SEED = [
-  { id: 'stf-1', name: 'Sara Johnson',    role: 'Receptionist',       department: 'Front Desk',       phone: '+1 555-0101', email: 'sara@medibook.dev',     status: 'active',   since: '2022-03-15', address: '12 Main St, NY', notes: 'Lead receptionist' },
-  { id: 'stf-2', name: 'Mark Thompson',   role: 'Admin',              department: 'Management',       phone: '+1 555-0102', email: 'mark@medibook.dev',     status: 'active',   since: '2021-07-01', address: '', notes: '' },
-  { id: 'stf-3', name: 'Lisa Park',       role: 'Nurse',              department: 'General Practice',  phone: '+1 555-0103', email: 'lisa@medibook.dev',     status: 'active',   since: '2023-01-22', address: '', notes: '' },
-  { id: 'stf-4', name: 'James Wilson',    role: 'Lab Technician',     department: 'Laboratory',        phone: '+1 555-0104', email: 'james@medibook.dev',    status: 'on_leave', since: '2020-09-10', address: '', notes: 'On medical leave until April 30' },
-  { id: 'stf-5', name: 'Amy Chen',        role: 'Receptionist',       department: 'Front Desk',       phone: '+1 555-0105', email: 'amy@medibook.dev',      status: 'active',   since: '2024-02-18', address: '', notes: '' },
-  { id: 'stf-6', name: 'Robert Davis',    role: 'IT Administrator',   department: 'IT & Systems',      phone: '+1 555-0106', email: 'robert@medibook.dev',   status: 'active',   since: '2019-06-05', address: '', notes: '' },
-  { id: 'stf-7', name: 'Patricia Brown',  role: 'Billing Specialist', department: 'Finance',           phone: '+1 555-0107', email: 'patricia@medibook.dev', status: 'inactive', since: '2018-11-30', address: '', notes: '' },
-  { id: 'stf-8', name: 'Kevin Lee',       role: 'Security Officer',   department: 'Security',          phone: '+1 555-0108', email: 'kevin@medibook.dev',    status: 'active',   since: '2023-08-14', address: '', notes: '' },
+  {
+    id: 'stf-1',
+    name: 'Sara Johnson',
+    role: 'Receptionist',
+    department: 'Front Desk',
+    phone: '+1 555-0101',
+    email: 'sara@medibook.dev',
+    status: 'active',
+    since: '2022-03-15',
+    address: '12 Main St, NY',
+    notes: 'Lead receptionist',
+  },
+  {
+    id: 'stf-2',
+    name: 'Mark Thompson',
+    role: 'Admin',
+    department: 'Management',
+    phone: '+1 555-0102',
+    email: 'mark@medibook.dev',
+    status: 'active',
+    since: '2021-07-01',
+    address: '',
+    notes: '',
+  },
+  {
+    id: 'stf-3',
+    name: 'Lisa Park',
+    role: 'Nurse',
+    department: 'General Practice',
+    phone: '+1 555-0103',
+    email: 'lisa@medibook.dev',
+    status: 'active',
+    since: '2023-01-22',
+    address: '',
+    notes: '',
+  },
+  {
+    id: 'stf-4',
+    name: 'James Wilson',
+    role: 'Lab Technician',
+    department: 'Laboratory',
+    phone: '+1 555-0104',
+    email: 'james@medibook.dev',
+    status: 'on_leave',
+    since: '2020-09-10',
+    address: '',
+    notes: 'On medical leave until April 30',
+  },
+  {
+    id: 'stf-5',
+    name: 'Amy Chen',
+    role: 'Receptionist',
+    department: 'Front Desk',
+    phone: '+1 555-0105',
+    email: 'amy@medibook.dev',
+    status: 'active',
+    since: '2024-02-18',
+    address: '',
+    notes: '',
+  },
+  {
+    id: 'stf-6',
+    name: 'Robert Davis',
+    role: 'IT Administrator',
+    department: 'IT & Systems',
+    phone: '+1 555-0106',
+    email: 'robert@medibook.dev',
+    status: 'active',
+    since: '2019-06-05',
+    address: '',
+    notes: '',
+  },
+  {
+    id: 'stf-7',
+    name: 'Patricia Brown',
+    role: 'Billing Specialist',
+    department: 'Finance',
+    phone: '+1 555-0107',
+    email: 'patricia@medibook.dev',
+    status: 'inactive',
+    since: '2018-11-30',
+    address: '',
+    notes: '',
+  },
+  {
+    id: 'stf-8',
+    name: 'Kevin Lee',
+    role: 'Security Officer',
+    department: 'Security',
+    phone: '+1 555-0108',
+    email: 'kevin@medibook.dev',
+    status: 'active',
+    since: '2023-08-14',
+    address: '',
+    notes: '',
+  },
 ]
 
 let _staff = clone(STAFF_SEED)
@@ -949,28 +1235,30 @@ export function getStaff({ search } = {}) {
   let result = _staff
   if (search) {
     const q = search.toLowerCase()
-    result = result.filter(s =>
-      s.name?.toLowerCase().includes(q) ||
-      s.role?.toLowerCase().includes(q) ||
-      s.department?.toLowerCase().includes(q)
+    result = result.filter(
+      (s) => s.name?.toLowerCase().includes(q) || s.role?.toLowerCase().includes(q) || s.department?.toLowerCase().includes(q),
     )
   }
   return result
 }
 
 export function getStaffById(id) {
-  return _staff.find(s => s.id === id) ?? null
+  return _staff.find((s) => s.id === id) ?? null
 }
 
 /** Create a new staff member and persist it in the in-memory store. */
 export function createStaff(data) {
   const member = {
     id: nextId('stf'),
-    name: data.name, email: data.email, phone: data.phone,
-    role: data.role, department: data.department,
+    name: data.name,
+    email: data.email,
+    phone: data.phone,
+    role: data.role,
+    department: data.department,
     status: data.status || 'active',
     since: data.since || new Date().toISOString().split('T')[0],
-    address: data.address ?? '', notes: data.notes ?? '',
+    address: data.address ?? '',
+    notes: data.notes ?? '',
   }
   _staff.push(member)
   notify()
@@ -979,7 +1267,7 @@ export function createStaff(data) {
 
 /** Update an existing staff member (used by edit page + deactivate actions). */
 export function updateStaff(id, data) {
-  const idx = _staff.findIndex(s => s.id === id)
+  const idx = _staff.findIndex((s) => s.id === id)
   if (idx === -1) return null
   _staff[idx] = { ..._staff[idx], ...data }
   notify()

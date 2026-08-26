@@ -71,8 +71,8 @@ describe('BookingStep4Patient — new-patient zod validation (F-24)', () => {
     renderStep({}, updateWizard)
     await userEvent.click(screen.getByRole('button', { name: /New Patient/i }))
     await userEvent.type(screen.getByLabelText('First Name *'), 'Anita')
-    await waitFor(() => expect(updateWizard).toHaveBeenCalledWith(
-      expect.objectContaining({ newPatient: expect.objectContaining({ first_name: 'Anita' }) }),
-    ))
+    await waitFor(() =>
+      expect(updateWizard).toHaveBeenCalledWith(expect.objectContaining({ newPatient: expect.objectContaining({ first_name: 'Anita' }) })),
+    )
   })
 })

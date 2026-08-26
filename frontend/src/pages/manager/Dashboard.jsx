@@ -1,26 +1,55 @@
-import React, { useState, useMemo } from 'react';
-import { useQuery, gql } from '@apollo/client';
+import React, { useState, useMemo } from 'react'
+import { useQuery, gql } from '@apollo/client'
 import {
-  Box, Grid, Paper, Typography, Stack, ToggleButtonGroup, ToggleButton,
-  Select, MenuItem, FormControl, InputLabel, Card, Avatar, Table,
-  TableBody, TableCell, TableContainer, TableHead, TableRow, TablePagination,
-  Skeleton, Chip, Alert, Collapse
-} from '@mui/material';
+  Box,
+  Grid,
+  Paper,
+  Typography,
+  Stack,
+  ToggleButtonGroup,
+  ToggleButton,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Card,
+  Avatar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  TablePagination,
+  Skeleton,
+  Chip,
+  Alert,
+  Collapse,
+} from '@mui/material'
+import { EventNote, AttachMoney, PeopleAlt, Speed, Cancel } from '@mui/icons-material'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
+import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
+import dayjs from 'dayjs'
 import {
-  EventNote, AttachMoney, PeopleAlt, Speed, Cancel
-} from '@mui/icons-material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider';
-import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
-import dayjs from 'dayjs';
-import {
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, Legend, ResponsiveContainer,
-  PieChart, Pie, Cell, BarChart, Bar
-} from 'recharts';
-import { useAuth } from '../../hooks/useAuth';
-import StitchKpiCard from '../../components/shared/StitchKpiCard';
-import StitchStatusChip from '../../components/shared/StitchStatusChip';
-import ErrorBoundary from '../../components/ErrorBoundary';
+  LineChart,
+  Line,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip as RechartsTooltip,
+  Legend,
+  ResponsiveContainer,
+  PieChart,
+  Pie,
+  Cell,
+  BarChart,
+  Bar,
+} from 'recharts'
+import { useAuth } from '../../hooks/useAuth'
+import StitchKpiCard from '../../components/shared/StitchKpiCard'
+import StitchStatusChip from '../../components/shared/StitchStatusChip'
+import ErrorBoundary from '../../components/ErrorBoundary'
 
 // --- GraphQL ---
 
@@ -79,7 +108,7 @@ const GET_MANAGER_DASHBOARD_DATA = gql`
       }
     }
   }
-`;
+`
 
 // Isolated in its own query/useQuery call (real backend now, REQ004) so a
 // failure here still can't take down GET_MANAGER_DASHBOARD_DATA above.
@@ -106,17 +135,17 @@ const GET_MANAGER_TRANSACTIONS = gql`
       }
     }
   }
-`;
+`
 
 // Stitch brand
-const BRAND = '#006D77';
+const BRAND = '#006D77'
 
 const PIE_COLORS = {
   Scheduled: '#3B82F6',
   Completed: '#10B981',
   Cancelled: '#EF4444',
   'No-Show': '#F59E0B',
-};
+}
 
 // SUG-DASH-002: mock clinic dropdown options, used only while the first
 // getClinics response hasn't landed yet (see `clinics` below).
@@ -124,41 +153,40 @@ const MOCK_CLINICS = [
   { id: 'cli-1', name: 'London Central' },
   { id: 'cli-2', name: 'Manchester North' },
   { id: 'cli-3', name: 'Birmingham' },
-];
+]
 
 function ManagerDashboardInner() {
-  const { user } = useAuth();
-  
+  const { user } = useAuth()
+
   // Filters state
-  const [dateFilter, setDateFilter] = useState('30d');
-  const [customStart, setCustomStart] = useState(dayjs().subtract(30, 'day'));
-  const [customEnd, setCustomEnd] = useState(dayjs());
-  const [clinicFilter, setClinicFilter] = useState('all');
+  const [dateFilter, setDateFilter] = useState('30d')
+  const [customStart, setCustomStart] = useState(dayjs().subtract(30, 'day'))
+  const [customEnd, setCustomEnd] = useState(dayjs())
+  const [clinicFilter, setClinicFilter] = useState('all')
 
   // Pagination bounds (mock implementation)
-  const [page, setPage] = useState(0);
-  const rowsPerPage = 5;
+  const [page, setPage] = useState(0)
+  const rowsPerPage = 5
 
   // Resolve dates based on toggle
   const { startStr, endStr } = useMemo(() => {
     if (dateFilter === 'custom') {
-      return { 
-        startStr: customStart?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'), 
-        endStr: customEnd?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD') 
-      };
+      return {
+        startStr: customStart?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'),
+        endStr: customEnd?.format('YYYY-MM-DD') || dayjs().format('YYYY-MM-DD'),
+      }
     }
-    
-    const days = dateFilter === '7d' ? 7 : dateFilter === '30d' ? 30 : 90;
+
+    const days = dateFilter === '7d' ? 7 : dateFilter === '30d' ? 30 : 90
     return {
       startStr: dayjs().subtract(days, 'day').format('YYYY-MM-DD'),
-      endStr: dayjs().format('YYYY-MM-DD')
-    };
-  }, [dateFilter, customStart, customEnd]);
+      endStr: dayjs().format('YYYY-MM-DD'),
+    }
+  }, [dateFilter, customStart, customEnd])
 
   // BUG-DASH-001 FIX — validate custom date range
-  const dateRangeError = dateFilter === 'custom' && customStart && customEnd && customStart.isAfter(customEnd)
-    ? 'Start date cannot be after End date.'
-    : null;
+  const dateRangeError =
+    dateFilter === 'custom' && customStart && customEnd && customStart.isAfter(customEnd) ? 'Start date cannot be after End date.' : null
 
   // Query Data
   // REQ121 (F-21) — a manager's own KPI dashboard is exactly the kind of
@@ -167,11 +195,11 @@ function ManagerDashboardInner() {
     variables: {
       clinicId: clinicFilter === 'all' ? null : clinicFilter,
       startDate: startStr,
-      endDate: endStr
+      endDate: endStr,
     },
     skip: !user || !!dateRangeError, // BUG-DASH-001: skip query when dates are inverted
     fetchPolicy: 'cache-and-network',
-  });
+  })
 
   // Separate query (see GET_MANAGER_TRANSACTIONS comment above) — real
   // backend now (REQ004), kept isolated with errorPolicy 'all' so any future
@@ -181,59 +209,76 @@ function ManagerDashboardInner() {
     skip: !user || !!dateRangeError,
     errorPolicy: 'all',
     fetchPolicy: 'cache-and-network',
-  });
+  })
 
   const handleDateToggle = (e, newFilter) => {
     if (newFilter) {
-      setDateFilter(newFilter);
+      setDateFilter(newFilter)
     }
-  };
+  }
 
   // Safe data access — KPIs/charts/clinic-filter now come from the real
   // backend/src/analytics module (context/open-questions.md #1 resolved
   // entry); only mock fallback left is a brief render before the first
   // response lands, or a genuine network failure.
-  const clinics = data?.getClinics ?? MOCK_CLINICS;
+  const clinics = data?.getClinics ?? MOCK_CLINICS
   const stats = data?.getAppointmentStats ?? {
-    totalAppointments: 0, revenue: 0, activePatients: 0, utilization: 0, cancellationRate: 0,
+    totalAppointments: 0,
+    revenue: 0,
+    activePatients: 0,
+    utilization: 0,
+    cancellationRate: 0,
     trends: { totalAppointments: 0, revenue: 0, activePatients: 0, utilization: 0, cancellationRate: 0 },
     timeSeriesData: [],
     statusDistribution: [],
     revenueByClinic: [],
     topClinicians: [],
-  };
+  }
 
   // "Recent Transactions" is real now (backend/src/appointment-payments,
   // built under REQ004 — see context/open-questions.md #1, resolved).
-  const transactions = txData?.getTransactionsByDate || [];
+  const transactions = txData?.getTransactionsByDate || []
 
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
-      
       {/* HEADER CONTROLS */}
-      <Stack direction={{ xs: 'column', md: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', md: 'center' }} mb={4} gap={3}>
+      <Stack
+        direction={{ xs: 'column', md: 'row' }}
+        justifyContent="space-between"
+        alignItems={{ xs: 'flex-start', md: 'center' }}
+        mb={4}
+        gap={3}
+      >
         <Box>
-          <Typography variant="h4" fontWeight={800}>Analytics Overview</Typography>
-          <Typography variant="body2" color="text.secondary">Comprehensive view of business performance and clinical metrics.</Typography>
+          <Typography variant="h4" fontWeight={800}>
+            Analytics Overview
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Comprehensive view of business performance and clinical metrics.
+          </Typography>
         </Box>
 
         <Stack direction={{ xs: 'column', sm: 'row' }} gap={2} alignItems="center">
           <LocalizationProvider dateAdapter={AdapterDayjs}>
             {dateFilter === 'custom' && (
               <Stack direction="row" gap={1}>
-                <DatePicker label="Start" value={customStart} onChange={setCustomStart} slotProps={{ textField: { size: 'small', sx: { width: 140 } } }} />
-                <DatePicker label="End" value={customEnd} onChange={setCustomEnd} slotProps={{ textField: { size: 'small', sx: { width: 140 } } }} />
+                <DatePicker
+                  label="Start"
+                  value={customStart}
+                  onChange={setCustomStart}
+                  slotProps={{ textField: { size: 'small', sx: { width: 140 } } }}
+                />
+                <DatePicker
+                  label="End"
+                  value={customEnd}
+                  onChange={setCustomEnd}
+                  slotProps={{ textField: { size: 'small', sx: { width: 140 } } }}
+                />
               </Stack>
             )}
           </LocalizationProvider>
 
-          <ToggleButtonGroup 
-            value={dateFilter} 
-            exclusive 
-            onChange={handleDateToggle} 
-            size="small"
-            sx={{ bgcolor: 'white' }}
-          >
+          <ToggleButtonGroup value={dateFilter} exclusive onChange={handleDateToggle} size="small" sx={{ bgcolor: 'white' }}>
             <ToggleButton value="7d">7D</ToggleButton>
             <ToggleButton value="30d">30D</ToggleButton>
             <ToggleButton value="90d">90D</ToggleButton>
@@ -244,7 +289,11 @@ function ManagerDashboardInner() {
             <InputLabel>Clinic</InputLabel>
             <Select value={clinicFilter} label="Clinic" onChange={(e) => setClinicFilter(e.target.value)}>
               <MenuItem value="all">All Clinics</MenuItem>
-              {clinics.map(c => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+              {clinics.map((c) => (
+                <MenuItem key={c.id} value={c.id}>
+                  {c.name}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Stack>
@@ -259,20 +308,56 @@ function ManagerDashboardInner() {
 
       {/* KPI ROW — Stitch KPI cards */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, overflowX: 'auto', pb: 1 }}>
-        <StitchKpiCard title="Total Appointments" value={loading ? '...' : stats.totalAppointments.toLocaleString()} icon={<EventNote />} color="#3B82F6" trend={stats.trends.totalAppointments} />
-        <StitchKpiCard title="Gross Revenue" value={loading ? '...' : `₹${stats.revenue.toLocaleString()}`} icon={<AttachMoney />} color="#10B981" trend={stats.trends.revenue} />
-        <StitchKpiCard title="Active Patients" value={loading ? '...' : stats.activePatients.toLocaleString()} icon={<PeopleAlt />} color={BRAND} trend={stats.trends.activePatients} />
-        <StitchKpiCard title="Clinician Utilization" value={loading ? '...' : `${stats.utilization}%`} icon={<Speed />} color="#7C3AED" trend={stats.trends.utilization} />
-        <StitchKpiCard title="Cancellation Rate" value={loading ? '...' : `${stats.cancellationRate}%`} icon={<Cancel />} color="#EF4444" trend={stats.trends.cancellationRate} />
+        <StitchKpiCard
+          title="Total Appointments"
+          value={loading ? '...' : stats.totalAppointments.toLocaleString()}
+          icon={<EventNote />}
+          color="#3B82F6"
+          trend={stats.trends.totalAppointments}
+        />
+        <StitchKpiCard
+          title="Gross Revenue"
+          value={loading ? '...' : `₹${stats.revenue.toLocaleString()}`}
+          icon={<AttachMoney />}
+          color="#10B981"
+          trend={stats.trends.revenue}
+        />
+        <StitchKpiCard
+          title="Active Patients"
+          value={loading ? '...' : stats.activePatients.toLocaleString()}
+          icon={<PeopleAlt />}
+          color={BRAND}
+          trend={stats.trends.activePatients}
+        />
+        <StitchKpiCard
+          title="Clinician Utilization"
+          value={loading ? '...' : `${stats.utilization}%`}
+          icon={<Speed />}
+          color="#7C3AED"
+          trend={stats.trends.utilization}
+        />
+        <StitchKpiCard
+          title="Cancellation Rate"
+          value={loading ? '...' : `${stats.cancellationRate}%`}
+          icon={<Cancel />}
+          color="#EF4444"
+          trend={stats.trends.cancellationRate}
+        />
       </Box>
 
       {/* CHARTS ROW 1 */}
       <Grid container spacing={3} mb={3}>
         <Grid item xs={12} md={8}>
           <Card elevation={0} sx={{ p: 3, border: '1px solid #E2E8F0', borderRadius: 3, height: '100%' }}>
-            <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>Appointments Over Time</Typography>
-            <Typography variant="caption" color="text.secondary" display="block" mb={2}>Scheduled vs Completed vs Cancelled</Typography>
-            {loading ? <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 2 }} /> : stats.timeSeriesData.length === 0 ? (
+            <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>
+              Appointments Over Time
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" mb={2}>
+              Scheduled vs Completed vs Cancelled
+            </Typography>
+            {loading ? (
+              <Skeleton variant="rectangular" height={280} sx={{ borderRadius: 2 }} />
+            ) : stats.timeSeriesData.length === 0 ? (
               /* SUG-DASH-003 (older file): empty state when filtered data has no rows */
               <Box sx={{ textAlign: 'center', py: 6, color: 'text.secondary' }}>
                 <Typography>No appointment data for this period.</Typography>
@@ -282,24 +367,71 @@ function ManagerDashboardInner() {
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.timeSeriesData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
-                    <XAxis dataKey="date" tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 600 }} axisLine={false} tickLine={false} dy={10} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 600 }}
+                      axisLine={false}
+                      tickLine={false}
+                      dy={10}
+                    />
                     <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
-                    <RechartsTooltip contentStyle={{ borderRadius: 10, border: '1px solid #E2E8F0', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }} />
+                    <RechartsTooltip
+                      contentStyle={{ borderRadius: 10, border: '1px solid #E2E8F0', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                    />
                     <Legend iconType="circle" wrapperStyle={{ paddingTop: 16, fontSize: 12 }} />
-                    <Line type="monotone" name="Scheduled" dataKey="scheduled" stroke={BRAND} strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: BRAND }} activeDot={{ r: 5 }} />
-                    <Line type="monotone" name="Completed" dataKey="completed" stroke="#10B981" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: '#10B981' }} activeDot={{ r: 5 }} />
-                    <Line type="monotone" name="Cancelled" dataKey="cancelled" stroke="#EF4444" strokeWidth={2.5} dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: '#EF4444' }} activeDot={{ r: 5 }} />
+                    <Line
+                      type="monotone"
+                      name="Scheduled"
+                      dataKey="scheduled"
+                      stroke={BRAND}
+                      strokeWidth={2.5}
+                      dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: BRAND }}
+                      activeDot={{ r: 5 }}
+                    />
+                    <Line
+                      type="monotone"
+                      name="Completed"
+                      dataKey="completed"
+                      stroke="#10B981"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: '#10B981' }}
+                      activeDot={{ r: 5 }}
+                    />
+                    <Line
+                      type="monotone"
+                      name="Cancelled"
+                      dataKey="cancelled"
+                      stroke="#EF4444"
+                      strokeWidth={2.5}
+                      dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: '#EF4444' }}
+                      activeDot={{ r: 5 }}
+                    />
                   </LineChart>
                 </ResponsiveContainer>
               </Box>
             )}
           </Card>
         </Grid>
-        
+
         <Grid item xs={12} md={4}>
-          <Card elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3, height: '100%', display: 'flex', flexDirection: 'column' }}>
-            <Typography variant="h6" fontWeight={700} gutterBottom>Status Distribution</Typography>
-            {loading ? <Skeleton variant="circular" width={240} height={240} sx={{ mx: 'auto', mt: 4 }} /> : (
+          <Card
+            elevation={0}
+            sx={{
+              p: 3,
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 3,
+              height: '100%',
+              display: 'flex',
+              flexDirection: 'column',
+            }}
+          >
+            <Typography variant="h6" fontWeight={700} gutterBottom>
+              Status Distribution
+            </Typography>
+            {loading ? (
+              <Skeleton variant="circular" width={240} height={240} sx={{ mx: 'auto', mt: 4 }} />
+            ) : (
               <Box height={320} flexGrow={1}>
                 <ResponsiveContainer width="100%" height="100%">
                   <PieChart>
@@ -312,15 +444,15 @@ function ManagerDashboardInner() {
                       paddingAngle={4}
                       dataKey="value"
                       label={({ cx, cy, midAngle, innerRadius, outerRadius, percent }) => {
-                        const RADIAN = Math.PI / 180;
-                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5;
-                        const x = cx + radius * Math.cos(-midAngle * RADIAN);
-                        const y = cy + radius * Math.sin(-midAngle * RADIAN);
+                        const RADIAN = Math.PI / 180
+                        const radius = innerRadius + (outerRadius - innerRadius) * 0.5
+                        const x = cx + radius * Math.cos(-midAngle * RADIAN)
+                        const y = cy + radius * Math.sin(-midAngle * RADIAN)
                         return percent > 0.05 ? (
                           <text x={x} y={y} fill="white" textAnchor="middle" dominantBaseline="central" fontSize={12} fontWeight={700}>
                             {`${(percent * 100).toFixed(0)}%`}
                           </text>
-                        ) : null;
+                        ) : null
                       }}
                     >
                       {stats.statusDistribution.map((entry, index) => (
@@ -341,16 +473,39 @@ function ManagerDashboardInner() {
       <Grid container spacing={3} mb={4}>
         <Grid item xs={12} md={6}>
           <Card elevation={0} sx={{ p: 3, border: '1px solid #E2E8F0', borderRadius: 3, height: '100%' }}>
-            <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>Revenue by Clinic</Typography>
-            <Typography variant="caption" color="text.secondary" display="block" mb={1}>Monthly earnings comparison</Typography>
-            {loading ? <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 2 }} /> : (
+            <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>
+              Revenue by Clinic
+            </Typography>
+            <Typography variant="caption" color="text.secondary" display="block" mb={1}>
+              Monthly earnings comparison
+            </Typography>
+            {loading ? (
+              <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 2 }} />
+            ) : (
               <Box height={280} mt={2}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.revenueByClinic} margin={{ top: 10, right: 10, left: -10, bottom: 5 }} layout="vertical">
                     <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E0E0E0" />
-                    <XAxis type="number" tick={{ fill: '#6B7280', fontSize: 12 }} axisLine={false} tickLine={false} tickFormatter={(value) => `₹${value/1000}k`} />
-                    <YAxis type="category" dataKey="name" tick={{ fill: '#374151', fontSize: 13, fontWeight: 500 }} axisLine={false} tickLine={false} width={120} />
-                    <RechartsTooltip cursor={{ fill: '#F3F4F6' }} contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} formatter={(value) => `₹${value.toLocaleString()}`} />
+                    <XAxis
+                      type="number"
+                      tick={{ fill: '#6B7280', fontSize: 12 }}
+                      axisLine={false}
+                      tickLine={false}
+                      tickFormatter={(value) => `₹${value / 1000}k`}
+                    />
+                    <YAxis
+                      type="category"
+                      dataKey="name"
+                      tick={{ fill: '#374151', fontSize: 13, fontWeight: 500 }}
+                      axisLine={false}
+                      tickLine={false}
+                      width={120}
+                    />
+                    <RechartsTooltip
+                      cursor={{ fill: '#F3F4F6' }}
+                      contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      formatter={(value) => `₹${value.toLocaleString()}`}
+                    />
                     <Bar dataKey="revenue" fill="#006D77" radius={[0, 4, 4, 0]} barSize={28} />
                   </BarChart>
                 </ResponsiveContainer>
@@ -361,36 +516,93 @@ function ManagerDashboardInner() {
 
         <Grid item xs={12} md={6}>
           <Card elevation={0} sx={{ p: 3, border: '1px solid #E2E8F0', borderRadius: 3, height: '100%' }}>
-            <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>Top Performing Clinicians</Typography>
-            {loading ? <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 2 }} /> : stats.topClinicians.length === 0 ? (
-              <Typography color="text.secondary" textAlign="center" py={4}>No clinician data available.</Typography>
+            <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>
+              Top Performing Clinicians
+            </Typography>
+            {loading ? (
+              <Skeleton variant="rectangular" height={250} sx={{ borderRadius: 2 }} />
+            ) : stats.topClinicians.length === 0 ? (
+              <Typography color="text.secondary" textAlign="center" py={4}>
+                No clinician data available.
+              </Typography>
             ) : (
               <TableContainer sx={{ mt: 2 }}>
                 <Table size="small">
                   <TableHead>
                     <TableRow>
-                      <TableCell sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Clinician</TableCell>
-                      <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Appts</TableCell>
-                      <TableCell align="right" sx={{ color: 'text.secondary', fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Revenue</TableCell>
+                      <TableCell
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.6,
+                        }}
+                      >
+                        Clinician
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.6,
+                        }}
+                      >
+                        Appts
+                      </TableCell>
+                      <TableCell
+                        align="right"
+                        sx={{
+                          color: 'text.secondary',
+                          fontWeight: 700,
+                          fontSize: '0.72rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: 0.6,
+                        }}
+                      >
+                        Revenue
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {stats.topClinicians.map((clinician, idx) => {
-                      const rankColors = ['#006D77', '#7C3AED', '#3B82F6'];
+                      const rankColors = ['#006D77', '#7C3AED', '#3B82F6']
                       return (
                         <TableRow key={clinician.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                           <TableCell component="th" scope="row">
                             <Stack direction="row" alignItems="center" gap={1.5}>
-                              <Avatar sx={{ width: 28, height: 28, bgcolor: `${rankColors[idx] || '#94A3B8'}20`, color: rankColors[idx] || '#94A3B8', fontSize: 12, fontWeight: 800 }}>
+                              <Avatar
+                                sx={{
+                                  width: 28,
+                                  height: 28,
+                                  bgcolor: `${rankColors[idx] || '#94A3B8'}20`,
+                                  color: rankColors[idx] || '#94A3B8',
+                                  fontSize: 12,
+                                  fontWeight: 800,
+                                }}
+                              >
                                 {idx + 1}
                               </Avatar>
-                              <Typography variant="subtitle2" fontWeight={600}>{clinician.name}</Typography>
+                              <Typography variant="subtitle2" fontWeight={600}>
+                                {clinician.name}
+                              </Typography>
                             </Stack>
                           </TableCell>
-                          <TableCell align="right"><Typography variant="body2" fontWeight={500}>{clinician.appointments}</Typography></TableCell>
-                          <TableCell align="right"><Typography variant="subtitle2" sx={{ color: BRAND }} fontWeight={700}>₹{clinician.revenue.toLocaleString()}</Typography></TableCell>
+                          <TableCell align="right">
+                            <Typography variant="body2" fontWeight={500}>
+                              {clinician.appointments}
+                            </Typography>
+                          </TableCell>
+                          <TableCell align="right">
+                            <Typography variant="subtitle2" sx={{ color: BRAND }} fontWeight={700}>
+                              ₹{clinician.revenue.toLocaleString()}
+                            </Typography>
+                          </TableCell>
                         </TableRow>
-                      );
+                      )
                     })}
                   </TableBody>
                 </Table>
@@ -404,53 +616,114 @@ function ManagerDashboardInner() {
       <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3 }}>
         <Box p={3} borderBottom="1px solid #E2E8F0" display="flex" justifyContent="space-between" alignItems="center">
           <Box>
-            <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>Recent Transactions</Typography>
+            <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>
+              Recent Transactions
+            </Typography>
           </Box>
         </Box>
         <TableContainer>
           <Table sx={{ minWidth: 650 }}>
             <TableHead sx={{ bgcolor: '#F8FAFC' }}>
               <TableRow>
-                <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Date</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Patient</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Clinician</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Service</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Amount</TableCell>
-                <TableCell align="right" sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}>Status</TableCell>
+                <TableCell
+                  sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}
+                >
+                  Date
+                </TableCell>
+                <TableCell
+                  sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}
+                >
+                  Patient
+                </TableCell>
+                <TableCell
+                  sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}
+                >
+                  Clinician
+                </TableCell>
+                <TableCell
+                  sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}
+                >
+                  Service
+                </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}
+                >
+                  Amount
+                </TableCell>
+                <TableCell
+                  align="right"
+                  sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}
+                >
+                  Status
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {loading ? (
-                Array.from({ length: 3 }).map((_, i) => (
-                  <TableRow key={i}>
-                    <TableCell><Skeleton /></TableCell><TableCell><Skeleton /></TableCell><TableCell><Skeleton /></TableCell>
-                    <TableCell><Skeleton /></TableCell><TableCell><Skeleton /></TableCell><TableCell><Skeleton /></TableCell>
-                  </TableRow>
-                ))
-              ) : transactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((trx) => (
-                <TableRow key={trx.id} hover>
-                  <TableCell><Typography variant="body2">{dayjs(trx.createdAt).format('DD MMM YYYY, h:mm A')}</Typography></TableCell>
-                  <TableCell>
-                    <Stack direction="row" alignItems="center" gap={1.5}>
-                      <Avatar src={`https://www.gravatar.com/avatar/${trx.appointment?.patient.id}?d=mp`} sx={{ width: 32, height: 32 }} />
-                      <Typography variant="subtitle2" fontWeight={600}>{trx.appointment?.patient.firstName} {trx.appointment?.patient.lastName}</Typography>
-                    </Stack>
-                  </TableCell>
-                  <TableCell><Typography variant="body2">{trx.appointment?.clinician.name}</Typography></TableCell>
-                  <TableCell><Typography variant="body2" color="text.secondary">{trx.appointment?.product.name}</Typography></TableCell>
-                  <TableCell align="right">
-                    <Typography variant="subtitle2" fontWeight={800} sx={{ color: (trx.status === 'succeeded' || trx.status === 'paid') ? BRAND : 'text.primary' }}>
-                      ₹{trx.amount.toFixed(2)}
-                    </Typography>
-                  </TableCell>
-                  <TableCell align="right">
-                    <StitchStatusChip
-                      label={trx.status === 'succeeded' ? 'Paid' : trx.status === 'failed' ? 'Failed' : trx.status}
-                      statusType={trx.status === 'succeeded' ? 'paid' : trx.status}
-                    />
-                  </TableCell>
-                </TableRow>
-              ))}
+              {loading
+                ? Array.from({ length: 3 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell>
+                        <Skeleton />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton />
+                      </TableCell>
+                      <TableCell>
+                        <Skeleton />
+                      </TableCell>
+                    </TableRow>
+                  ))
+                : transactions.slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage).map((trx) => (
+                    <TableRow key={trx.id} hover>
+                      <TableCell>
+                        <Typography variant="body2">{dayjs(trx.createdAt).format('DD MMM YYYY, h:mm A')}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Stack direction="row" alignItems="center" gap={1.5}>
+                          <Avatar
+                            src={`https://www.gravatar.com/avatar/${trx.appointment?.patient.id}?d=mp`}
+                            sx={{ width: 32, height: 32 }}
+                          />
+                          <Typography variant="subtitle2" fontWeight={600}>
+                            {trx.appointment?.patient.firstName} {trx.appointment?.patient.lastName}
+                          </Typography>
+                        </Stack>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2">{trx.appointment?.clinician.name}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" color="text.secondary">
+                          {trx.appointment?.product.name}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <Typography
+                          variant="subtitle2"
+                          fontWeight={800}
+                          sx={{ color: trx.status === 'succeeded' || trx.status === 'paid' ? BRAND : 'text.primary' }}
+                        >
+                          ₹{trx.amount.toFixed(2)}
+                        </Typography>
+                      </TableCell>
+                      <TableCell align="right">
+                        <StitchStatusChip
+                          label={trx.status === 'succeeded' ? 'Paid' : trx.status === 'failed' ? 'Failed' : trx.status}
+                          statusType={trx.status === 'succeeded' ? 'paid' : trx.status}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
             </TableBody>
           </Table>
         </TableContainer>
@@ -463,9 +736,8 @@ function ManagerDashboardInner() {
           onPageChange={(e, newPage) => setPage(newPage)}
         />
       </Card>
-
     </Box>
-  );
+  )
 }
 
 // SUG-DASH-004: wrap page in ErrorBoundary, consistent with Availability/Blocks/Billing modules
@@ -474,5 +746,5 @@ export default function ManagerDashboard() {
     <ErrorBoundary>
       <ManagerDashboardInner />
     </ErrorBoundary>
-  );
+  )
 }

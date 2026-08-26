@@ -34,7 +34,11 @@ import { UPDATE_PATIENT_MUTATION } from '../../graphql/mutations'
 
 // ─── Status chip colour ───────────────────────────────────────────────────────
 const STATUS_COLOR = {
-  pending:'warning', confirmed:'success', cancelled:'error', completed:'info', no_show:'default',
+  pending: 'warning',
+  confirmed: 'success',
+  cancelled: 'error',
+  completed: 'info',
+  no_show: 'default',
 }
 
 // ─── Info row ─────────────────────────────────────────────────────────────────
@@ -42,15 +46,19 @@ function InfoRow({ icon, text }) {
   if (!text) return null
   return (
     <Stack direction="row" spacing={1.5} alignItems="center">
-      <Box color="text.secondary" display="flex">{icon}</Box>
+      <Box color="text.secondary" display="flex">
+        {icon}
+      </Box>
       <Typography variant="body2">{text}</Typography>
     </Stack>
   )
 }
 
 // ─── Gender display ───────────────────────────────────────────────────────────
-const GENDER_CHIP = { male:'info', female:'secondary', other:'default', prefer_not_to_say:'default' }
-function genderLabel(g) { return (g ?? 'unknown').replace(/_/g,' ') }
+const GENDER_CHIP = { male: 'info', female: 'secondary', other: 'default', prefer_not_to_say: 'default' }
+function genderLabel(g) {
+  return (g ?? 'unknown').replace(/_/g, ' ')
+}
 
 // ─── Age from DOB ─────────────────────────────────────────────────────────────
 function ageFromDob(dob) {
@@ -81,9 +89,7 @@ export default function PatientDetailDrawer({ open, patientId, onClose }) {
   }
 
   const appointments = patient?.appointments?.data ?? []
-  const sortedAppts = [...appointments].sort(
-    (a, b) => new Date(b.start_datetime) - new Date(a.start_datetime)
-  )
+  const sortedAppts = [...appointments].sort((a, b) => new Date(b.start_datetime) - new Date(a.start_datetime))
   const age = ageFromDob(patient?.date_of_birth)
 
   return (
@@ -113,9 +119,7 @@ export default function PatientDetailDrawer({ open, patientId, onClose }) {
                 {loading ? <Skeleton width={160} /> : (patient?.full_name ?? '—')}
               </Typography>
               <Stack direction="row" spacing={0.75} flexWrap="wrap" mt={0.5}>
-                {age !== null && (
-                  <Chip label={`${age} yrs`} size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} />
-                )}
+                {age !== null && <Chip label={`${age} yrs`} size="small" variant="outlined" sx={{ height: 20, fontSize: 11 }} />}
                 {patient?.gender && (
                   <Chip
                     label={genderLabel(patient.gender)}
@@ -127,25 +131,32 @@ export default function PatientDetailDrawer({ open, patientId, onClose }) {
               </Stack>
             </Box>
           </Stack>
-          <IconButton size="small" onClick={onClose}><CloseIcon /></IconButton>
+          <IconButton size="small" onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
         </Stack>
       </Box>
 
       {/* Body */}
       <Box sx={{ flex: 1, overflowY: 'auto', p: 2.5 }}>
         {loading && !patient ? (
-          <Stack spacing={2}>{[...Array(5)].map((_,i) => <Skeleton key={i} variant="rounded" height={42} sx={{borderRadius:2}} />)}</Stack>
+          <Stack spacing={2}>
+            {[...Array(5)].map((_, i) => (
+              <Skeleton key={i} variant="rounded" height={42} sx={{ borderRadius: 2 }} />
+            ))}
+          </Stack>
         ) : patient ? (
           <>
             {/* Contact details */}
             <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1.25}>
               Contact Details
             </Typography>
-            <Paper elevation={0} sx={{ p: 1.75, border:'1px solid', borderColor:'divider', borderRadius:2, mb:2.5 }}>
+            <Paper elevation={0} sx={{ p: 1.75, border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 2.5 }}>
               <Stack spacing={1.25}>
                 <InfoRow icon={<EmailIcon fontSize="small" />} text={patient.email} />
                 <InfoRow icon={<PhoneIcon fontSize="small" />} text={patient.phone} />
-                <InfoRow icon={<CakeIcon fontSize="small" />}
+                <InfoRow
+                  icon={<CakeIcon fontSize="small" />}
                   text={patient.date_of_birth ? dayjs(patient.date_of_birth).format('DD MMM YYYY') : null}
                 />
                 <InfoRow icon={<HomeIcon fontSize="small" />} text={patient.address} />
@@ -155,19 +166,21 @@ export default function PatientDetailDrawer({ open, patientId, onClose }) {
             {/* Appointment history */}
             <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1.25}>
               Appointment History
-              <Chip
-                label={patient.appointments?.paginatorInfo?.total ?? 0}
-                size="small"
-                sx={{ ml: 1, height: 18, fontSize: 11 }}
-              />
+              <Chip label={patient.appointments?.paginatorInfo?.total ?? 0} size="small" sx={{ ml: 1, height: 18, fontSize: 11 }} />
             </Typography>
             {sortedAppts.length === 0 ? (
-              <Typography variant="body2" color="text.secondary" mb={2.5} textAlign="center">No appointments on record.</Typography>
+              <Typography variant="body2" color="text.secondary" mb={2.5} textAlign="center">
+                No appointments on record.
+              </Typography>
             ) : (
-              <TableContainer component={Paper} elevation={0} sx={{ border:'1px solid', borderColor:'divider', borderRadius:2, mb:2.5 }}>
+              <TableContainer
+                component={Paper}
+                elevation={0}
+                sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, mb: 2.5 }}
+              >
                 <Table size="small">
                   <TableHead>
-                    <TableRow sx={{ '& th': { fontWeight:700, fontSize:11, color:'text.secondary', bgcolor:'rgba(0,0,0,0.02)' } }}>
+                    <TableRow sx={{ '& th': { fontWeight: 700, fontSize: 11, color: 'text.secondary', bgcolor: 'rgba(0,0,0,0.02)' } }}>
                       <TableCell>Date</TableCell>
                       <TableCell>Clinician</TableCell>
                       <TableCell>Service</TableCell>
@@ -177,17 +190,15 @@ export default function PatientDetailDrawer({ open, patientId, onClose }) {
                   <TableBody>
                     {sortedAppts.map((apt) => (
                       <TableRow key={apt.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                        <TableCell sx={{ fontSize: 12 }}>
-                          {dayjs(apt.start_datetime).format('DD MMM YY')}
-                        </TableCell>
+                        <TableCell sx={{ fontSize: 12 }}>{dayjs(apt.start_datetime).format('DD MMM YY')}</TableCell>
                         <TableCell sx={{ fontSize: 12 }}>{apt.clinician?.full_name ?? '—'}</TableCell>
                         <TableCell sx={{ fontSize: 12 }}>{apt.service?.name ?? '—'}</TableCell>
                         <TableCell>
                           <Chip
-                            label={(apt.status ?? '').replace('_',' ')}
+                            label={(apt.status ?? '').replace('_', ' ')}
                             color={STATUS_COLOR[apt.status] ?? 'default'}
                             size="small"
-                            sx={{ fontWeight:600, fontSize:10, textTransform:'capitalize', height:20 }}
+                            sx={{ fontWeight: 600, fontSize: 10, textTransform: 'capitalize', height: 20 }}
                           />
                         </TableCell>
                       </TableRow>

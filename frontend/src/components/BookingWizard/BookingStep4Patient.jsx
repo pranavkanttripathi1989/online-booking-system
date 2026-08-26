@@ -49,9 +49,27 @@ import { useAuth } from '../../hooks/useAuth'
 // `patient`, since LOGIN_MUTATION's own selection set omits it. Every
 // existing workaround in this codebase re-queries fresh rather than
 // trusting the cache; this follows the same pattern.
-const GET_MY_PATIENT_LINK = gql`query MyPatientLinkForBooking { me { patient { id full_name } } }`
+const GET_MY_PATIENT_LINK = gql`
+  query MyPatientLinkForBooking {
+    me {
+      patient {
+        id
+        full_name
+      }
+    }
+  }
+`
 const MY_DEPENDANTS_QUERY_FOR_BOOKING = gql`
-  query MyDependantsForBooking { myDependants { id relation patient { id full_name } } }
+  query MyDependantsForBooking {
+    myDependants {
+      id
+      relation
+      patient {
+        id
+        full_name
+      }
+    }
+  }
 `
 
 // REQ052 (US-BOOK-06) — per-clinic (optionally per-service) configurable
@@ -94,7 +112,8 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
   // adds zero extra network traffic to the existing, already-live
   // front-desk booking flow.
   const { data: myLinkData, loading: loadingMyLink } = useQuery(GET_MY_PATIENT_LINK, {
-    skip: !isBookingPatient, fetchPolicy: 'network-only',
+    skip: !isBookingPatient,
+    fetchPolicy: 'network-only',
   })
   const { data: myDependantsData, loading: loadingDependants } = useQuery(MY_DEPENDANTS_QUERY_FOR_BOOKING, {
     skip: !isBookingPatient,
@@ -138,7 +157,9 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
 
   const [intakeAnswers, setIntakeAnswers] = useState(() => {
     const initial = {}
-    ;(wizardData.intake_responses ?? []).forEach((r) => { initial[r.key] = r.value })
+    ;(wizardData.intake_responses ?? []).forEach((r) => {
+      initial[r.key] = r.value
+    })
     return initial
   })
 
@@ -172,7 +193,13 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
   // into every Controller below were dead code -- a first/last name left
   // blank showed no validation message at all. onChange re-validates as
   // the user types, matching what the existing JSX already assumed worked.
-  const { control, handleSubmit, getValues, formState: { errors }, reset } = useForm({
+  const {
+    control,
+    handleSubmit,
+    getValues,
+    formState: { errors },
+    reset,
+  } = useForm({
     resolver: zodResolver(newPatientSchema),
     mode: 'onChange',
     defaultValues: wizardData.newPatient ?? {
@@ -205,7 +232,9 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Box>
-        <Typography variant="h6" fontWeight={700} mb={0.5}>Patient Details</Typography>
+        <Typography variant="h6" fontWeight={700} mb={0.5}>
+          Patient Details
+        </Typography>
         <Typography variant="body2" color="text.secondary" mb={3}>
           {isBookingPatient ? 'Who is this appointment for?' : 'Search for an existing patient or register a new one.'}
         </Typography>
@@ -214,11 +243,13 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
             dependant only; never the staff search-existing/register-new flow. */}
         {isBookingPatient && (
           <Box mb={3}>
-            {(loadingMyLink || loadingDependants) ? (
+            {loadingMyLink || loadingDependants ? (
               <CircularProgress size={22} />
             ) : (
               <FormControl>
-                <FormLabel id="booking-for-label" sx={{ fontSize: '0.8rem', fontWeight: 700, mb: 0.5 }}>Booking for</FormLabel>
+                <FormLabel id="booking-for-label" sx={{ fontSize: '0.8rem', fontWeight: 700, mb: 0.5 }}>
+                  Booking for
+                </FormLabel>
                 <RadioGroup
                   aria-labelledby="booking-for-label"
                   value={selectedPatient?.id === myPatient?.id ? 'self' : (selectedPatient?.id ?? '')}
@@ -226,7 +257,12 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
                 >
                   {myPatient && <FormControlLabel value="self" control={<Radio />} label="Myself" />}
                   {myDependants.map((d) => (
-                    <FormControlLabel key={d.id} value={d.patient.id} control={<Radio />} label={`${d.patient.full_name} (${d.relation})`} />
+                    <FormControlLabel
+                      key={d.id}
+                      value={d.patient.id}
+                      control={<Radio />}
+                      label={`${d.patient.full_name} (${d.relation})`}
+                    />
                   ))}
                 </RadioGroup>
                 {!myPatient && !loadingMyLink && (
@@ -241,22 +277,16 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
 
         {/* Mode toggle */}
         {!isBookingPatient && (
-        <ToggleButtonGroup
-          value={patientMode}
-          exclusive
-          onChange={handleModeChange}
-          size="small"
-          sx={{ mb: 3 }}
-        >
-          <ToggleButton value="existing">
-            <PersonSearchIcon fontSize="small" sx={{ mr: 0.75 }} />
-            Existing Patient
-          </ToggleButton>
-          <ToggleButton value="new">
-            <PersonAddIcon fontSize="small" sx={{ mr: 0.75 }} />
-            New Patient
-          </ToggleButton>
-        </ToggleButtonGroup>
+          <ToggleButtonGroup value={patientMode} exclusive onChange={handleModeChange} size="small" sx={{ mb: 3 }}>
+            <ToggleButton value="existing">
+              <PersonSearchIcon fontSize="small" sx={{ mr: 0.75 }} />
+              Existing Patient
+            </ToggleButton>
+            <ToggleButton value="new">
+              <PersonAddIcon fontSize="small" sx={{ mr: 0.75 }} />
+              New Patient
+            </ToggleButton>
+          </ToggleButtonGroup>
         )}
 
         {/* Existing patient autocomplete */}
@@ -304,7 +334,10 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
                     fullWidth
                     error={!!errors.first_name}
                     helperText={errors.first_name?.message}
-                    onChange={(e) => { field.onChange(e); syncNewPatient() }}
+                    onChange={(e) => {
+                      field.onChange(e)
+                      syncNewPatient()
+                    }}
                   />
                 )}
               />
@@ -320,7 +353,10 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
                     fullWidth
                     error={!!errors.last_name}
                     helperText={errors.last_name?.message}
-                    onChange={(e) => { field.onChange(e); syncNewPatient() }}
+                    onChange={(e) => {
+                      field.onChange(e)
+                      syncNewPatient()
+                    }}
                   />
                 )}
               />
@@ -336,7 +372,10 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
                     fullWidth
                     error={!!errors.email}
                     helperText={errors.email?.message}
-                    onChange={(e) => { field.onChange(e); syncNewPatient() }}
+                    onChange={(e) => {
+                      field.onChange(e)
+                      syncNewPatient()
+                    }}
                   />
                 )}
               />
@@ -350,7 +389,10 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
                     {...field}
                     label="Phone"
                     fullWidth
-                    onChange={(e) => { field.onChange(e); syncNewPatient() }}
+                    onChange={(e) => {
+                      field.onChange(e)
+                      syncNewPatient()
+                    }}
                   />
                 )}
               />
@@ -363,7 +405,10 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
                   <DatePicker
                     label="Date of Birth"
                     value={field.value}
-                    onChange={(val) => { field.onChange(val); syncNewPatient() }}
+                    onChange={(val) => {
+                      field.onChange(val)
+                      syncNewPatient()
+                    }}
                     disableFuture
                     slotProps={{ textField: { fullWidth: true } }}
                   />
@@ -380,7 +425,10 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
                     select
                     label="Gender"
                     fullWidth
-                    onChange={(e) => { field.onChange(e); syncNewPatient() }}
+                    onChange={(e) => {
+                      field.onChange(e)
+                      syncNewPatient()
+                    }}
                   >
                     <MenuItem value="">Prefer not to say</MenuItem>
                     {GENDER_OPTIONS.map((g) => (

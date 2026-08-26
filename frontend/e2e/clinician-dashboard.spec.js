@@ -42,9 +42,13 @@ let appointmentTimeLabel // e.g. "10:47 AM" — the exact label Dashboard.jsx re
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = authData.login.access_token
 
   execSync(
@@ -55,13 +59,27 @@ test.beforeAll(async ({ playwright }) => {
   clinicId = (clinicsData.clinics.find((c) => c.name === 'MG Road Clinic') ?? clinicsData.clinics[0]).id
 
   const servicesData = await gql(request, managerToken, `{ services { id name clinicians { id } } }`)
-  const svc = servicesData.services.find((s) => s.name === 'GP Consultation' && s.clinicians.some((c) => c.id === REAL_CLINICIAN_ID))
-    ?? servicesData.services.find((s) => s.clinicians.some((c) => c.id === REAL_CLINICIAN_ID))
+  const svc =
+    servicesData.services.find((s) => s.name === 'GP Consultation' && s.clinicians.some((c) => c.id === REAL_CLINICIAN_ID)) ??
+    servicesData.services.find((s) => s.clinicians.some((c) => c.id === REAL_CLINICIAN_ID))
   serviceId = svc.id
 
-  const patientData = await gql(request, managerToken, `
+  const patientData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: PatientInput!) { createPatient(input: $input) { id } }
-  `, { input: { first_name: 'E2E', last_name: 'ClinicianDash', email: `e2e.cliniciandash.${Date.now()}@example.com`, phone: `9${Date.now().toString().slice(-9)}`, date_of_birth: '1990-01-01' } })
+  `,
+    {
+      input: {
+        first_name: 'E2E',
+        last_name: 'ClinicianDash',
+        email: `e2e.cliniciandash.${Date.now()}@example.com`,
+        phone: `9${Date.now().toString().slice(-9)}`,
+        date_of_birth: '1990-01-01',
+      },
+    },
+  )
   patientId = patientData.createPatient.id
 
   // Cancel any still-scheduled residue from a previous interrupted run
@@ -74,14 +92,21 @@ test.beforeAll(async ({ playwright }) => {
   // UTC/IST boundary mismatch this file's own `start` calculation avoids.
   const yesterday = new Date(Date.now() - 24 * 3600 * 1000).toISOString().slice(0, 10)
   const todayUtc = new Date().toISOString().slice(0, 10)
-  const existing = await gql(request, managerToken, `
+  const existing = await gql(
+    request,
+    managerToken,
+    `
     query($d1: String!, $d2: String!) { appointments(filters: {date_from: $d1, date_to: $d2, clinician_id: "${REAL_CLINICIAN_ID}"}, first: 200) { data { id status patient { full_name } } } }
-  `, { d1: yesterday, d2: todayUtc })
+  `,
+    { d1: yesterday, d2: todayUtc },
+  )
   const staleIds = existing.appointments.data
     .filter((a) => a.patient.full_name === 'E2E ClinicianDash' && a.status !== 'cancelled')
     .map((a) => a.id)
   for (const id of staleIds) {
-    await gql(request, managerToken, `mutation($id: ID!) { cancelAppointment(id: $id, reason: "e2e stale fixture cleanup") { id } }`, { id })
+    await gql(request, managerToken, `mutation($id: ID!) { cancelAppointment(id: $id, reason: "e2e stale fixture cleanup") { id } }`, {
+      id,
+    })
   }
 
   // A time "today" — anchored to the real current instant and offset
@@ -98,9 +123,22 @@ test.beforeAll(async ({ playwright }) => {
   // local midnight, and it naturally avoids the real seeded daytime
   // schedule (including Anita Sharma's fixed 11:00 UTC slot).
   const start = new Date(Date.now() - (1 + Math.random() * 3) * 3600 * 1000)
-  await gql(request, managerToken, `
+  await gql(
+    request,
+    managerToken,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, { input: { patient_id: patientId, clinician_id: REAL_CLINICIAN_ID, service_id: serviceId, clinic_id: clinicId, start_datetime: start.toISOString() } })
+  `,
+    {
+      input: {
+        patient_id: patientId,
+        clinician_id: REAL_CLINICIAN_ID,
+        service_id: serviceId,
+        clinic_id: clinicId,
+        start_datetime: start.toISOString(),
+      },
+    },
+  )
   // Matches Dashboard.jsx's own dayjs(...).format('h:mm A') exactly, so the
   // Mark Complete test can target this fixture's own card unambiguously
   // even alongside same-named cancelled residue from an earlier run.
@@ -117,7 +155,7 @@ test.afterAll(async ({ playwright }) => {
   )
 })
 
-test('dashboard shows real today\'s appointment data, never the fabricated mock schedule', async ({ page }) => {
+test("dashboard shows real today's appointment data, never the fabricated mock schedule", async ({ page }) => {
   await loginAs(page, 'Clinician')
   await page.goto('/clinician/dashboard')
 
@@ -189,7 +227,10 @@ test('Mark Complete persists the real appointment status (survives a reload)', a
   // completeAppointment mutation persists it.
   await page.reload()
   await expect(page.getByText('E2E ClinicianDash').first()).toBeVisible({ timeout: 20_000 })
-  const apptCardAfterReload = page.locator('.MuiCard-root', { hasText: 'E2E ClinicianDash' }).filter({ hasText: appointmentTimeLabel }).first()
+  const apptCardAfterReload = page
+    .locator('.MuiCard-root', { hasText: 'E2E ClinicianDash' })
+    .filter({ hasText: appointmentTimeLabel })
+    .first()
   await apptCardAfterReload.scrollIntoViewIfNeeded()
   await apptCardAfterReload.click({ force: true })
   await expect(page.getByText('COMPLETED', { exact: true })).toBeVisible({ timeout: 15_000 })

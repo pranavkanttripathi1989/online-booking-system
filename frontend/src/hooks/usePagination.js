@@ -44,7 +44,7 @@ export function usePagination(fetchFn, limit = DEFAULT_LIMIT) {
         setLoading(false)
       }
     },
-    [fetchFn, limit]
+    [fetchFn, limit],
   )
 
   const handleSearch = useCallback(
@@ -56,7 +56,7 @@ export function usePagination(fetchFn, limit = DEFAULT_LIMIT) {
         loadData(0, value)
       }, 400)
     },
-    [loadData]
+    [loadData],
   )
 
   const nextPage = useCallback(() => {
@@ -76,13 +76,11 @@ export function usePagination(fetchFn, limit = DEFAULT_LIMIT) {
       const offset = (pageNumber - 1) * pagination.limit
       loadData(offset)
     },
-    [pagination.limit, loadData]
+    [pagination.limit, loadData],
   )
 
-  const currentPage =
-    pagination.limit > 0 ? Math.floor(pagination.offset / pagination.limit) + 1 : 1
-  const totalPages =
-    pagination.limit > 0 ? Math.ceil(pagination.total / pagination.limit) : 1
+  const currentPage = pagination.limit > 0 ? Math.floor(pagination.offset / pagination.limit) + 1 : 1
+  const totalPages = pagination.limit > 0 ? Math.ceil(pagination.total / pagination.limit) : 1
 
   return {
     data,

@@ -27,11 +27,9 @@ export async function loginAs(page, roleLabel) {
   // this race surfaced: specs asserting on real seeded names (e.g. "MG Road
   // Clinic") timed out while the page confidently displayed London mock
   // clinics. Deterministic wait, so the failure mode can't recur.
-  await page.waitForFunction(
-    () => !!(localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')),
-    null,
-    { timeout: 15_000 },
-  )
+  await page.waitForFunction(() => !!(localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')), null, {
+    timeout: 15_000,
+  })
 }
 
 const GRAPHQL_URL = process.env.E2E_GRAPHQL_URL || 'http://localhost:4000/graphql'

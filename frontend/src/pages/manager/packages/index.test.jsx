@@ -8,19 +8,48 @@ import ManagerPackages from './index'
 // packages), matching this codebase's own withProviders/MockedProvider
 // pattern (see patient/Family.test.jsx).
 
-const GET_PACKAGE_CLINICS = gql`query GetPackageClinics { clinics { id name } }`
-const GET_PACKAGE_PRODUCTS = gql`query GetPackageProducts { products { id name clinic_id } }`
+const GET_PACKAGE_CLINICS = gql`
+  query GetPackageClinics {
+    clinics {
+      id
+      name
+    }
+  }
+`
+const GET_PACKAGE_PRODUCTS = gql`
+  query GetPackageProducts {
+    products {
+      id
+      name
+      clinic_id
+    }
+  }
+`
 const GET_PACKAGES = gql`
   query GetPackages {
     packages {
-      id clinic_id name description total_sittings price validity_days is_active
-      items { id product_id }
+      id
+      clinic_id
+      name
+      description
+      total_sittings
+      price
+      validity_days
+      is_active
+      items {
+        id
+        product_id
+      }
     }
   }
 `
 
 function withProviders(mocks, children) {
-  return <MockedProvider mocks={mocks} addTypename={false}>{children}</MockedProvider>
+  return (
+    <MockedProvider mocks={mocks} addTypename={false}>
+      {children}
+    </MockedProvider>
+  )
 }
 
 const emptyMocks = [
@@ -41,10 +70,23 @@ describe('ManagerPackages (REQ054 US-CAT-01)', () => {
       { request: { query: GET_PACKAGE_PRODUCTS }, result: { data: { products: [] } } },
       {
         request: { query: GET_PACKAGES },
-        result: { data: { packages: [{
-          id: 'pkg-1', clinic_id: 'clinic-a', name: '10-Session Physio', description: null,
-          total_sittings: 10, price: 5000, validity_days: 90, is_active: true, items: [],
-        }] } },
+        result: {
+          data: {
+            packages: [
+              {
+                id: 'pkg-1',
+                clinic_id: 'clinic-a',
+                name: '10-Session Physio',
+                description: null,
+                total_sittings: 10,
+                price: 5000,
+                validity_days: 90,
+                is_active: true,
+                items: [],
+              },
+            ],
+          },
+        },
       },
     ]
     render(withProviders(mocks, <ManagerPackages />))

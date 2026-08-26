@@ -1,13 +1,6 @@
 import { useQuery } from '@apollo/client'
 import dayjs from 'dayjs'
-import {
-  Box,
-  Chip,
-  Paper,
-  Skeleton,
-  Stack,
-  Typography,
-} from '@mui/material'
+import { Box, Chip, Paper, Skeleton, Stack, Typography } from '@mui/material'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -24,17 +17,33 @@ function generateMockSlots(date, serviceId) {
   // Unavailable index positions (lunch 8-9, plus 2 random)
   const blocked = new Set([8, 9, Math.floor(Math.random() * 7), Math.floor(Math.random() * 8) + 10])
   const times = [
-    '08:00','08:30','09:00','09:30','10:00','10:30','11:00','11:30',
-    '12:00','12:30','13:00','13:30','14:00','14:30','15:00','15:30','16:00','16:30',
+    '08:00',
+    '08:30',
+    '09:00',
+    '09:30',
+    '10:00',
+    '10:30',
+    '11:00',
+    '11:30',
+    '12:00',
+    '12:30',
+    '13:00',
+    '13:30',
+    '14:00',
+    '14:30',
+    '15:00',
+    '15:30',
+    '16:00',
+    '16:30',
   ]
   times.forEach((t, idx) => {
     const [h, m] = t.split(':').map(Number)
     const start = d.hour(h).minute(m).second(0)
-    const end   = start.add(30, 'minute')
+    const end = start.add(30, 'minute')
     slots.push({
       id: `mock-slot-${idx}`,
       start_datetime: start.toISOString(),
-      end_datetime:   end.toISOString(),
+      end_datetime: end.toISOString(),
       is_available: !blocked.has(idx),
     })
   })
@@ -56,10 +65,12 @@ function SlotChip({ slot, selected, onSelect }) {
         fontWeight: selected ? 700 : 500,
         transition: 'all 0.15s ease',
         cursor: isAvailable ? 'pointer' : 'not-allowed',
-        '&:hover': isAvailable ? {
-          borderColor: 'primary.main',
-          transform: 'scale(1.05)',
-        } : {},
+        '&:hover': isAvailable
+          ? {
+              borderColor: 'primary.main',
+              transform: 'scale(1.05)',
+            }
+          : {},
         ...(selected && {
           boxShadow: '0 4px 12px rgba(99,102,241,0.35)',
         }),
@@ -98,7 +109,9 @@ export default function BookingStep3Slot({ wizardData, updateWizard }) {
   return (
     <LocalizationProvider dateAdapter={AdapterDayjs}>
       <Box>
-        <Typography variant="h6" fontWeight={700} mb={0.5}>Choose Date & Time</Typography>
+        <Typography variant="h6" fontWeight={700} mb={0.5}>
+          Choose Date & Time
+        </Typography>
         <Typography variant="body2" color="text.secondary" mb={3}>
           Select an available date, then pick your preferred time slot.
         </Typography>
@@ -115,26 +128,13 @@ export default function BookingStep3Slot({ wizardData, updateWizard }) {
               flexShrink: 0,
             }}
           >
-            <DateCalendar
-              value={selectedDate}
-              onChange={handleDateChange}
-              disablePast
-              sx={{ m: 0 }}
-            />
+            <DateCalendar value={selectedDate} onChange={handleDateChange} disablePast sx={{ m: 0 }} />
           </Paper>
 
           {/* Slots panel */}
           <Box flex={1} minWidth={220}>
             {!selectedDate ? (
-              <Box
-                display="flex"
-                flexDirection="column"
-                alignItems="center"
-                justifyContent="center"
-                py={6}
-                color="text.disabled"
-                gap={1}
-              >
+              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" py={6} color="text.disabled" gap={1}>
                 <CalendarTodayIcon sx={{ fontSize: 48 }} />
                 <Typography variant="body2">Select a date to see available slots</Typography>
               </Box>
@@ -150,14 +150,7 @@ export default function BookingStep3Slot({ wizardData, updateWizard }) {
                 </Box>
               </Box>
             ) : slots.length === 0 ? (
-              <Box
-                display="flex"
-                flexDirection="column"
-                alignItems="center"
-                py={6}
-                color="text.disabled"
-                gap={1}
-              >
+              <Box display="flex" flexDirection="column" alignItems="center" py={6} color="text.disabled" gap={1}>
                 <EventBusyIcon sx={{ fontSize: 48 }} />
                 <Typography variant="body2">No slots available on this date</Typography>
                 <Typography variant="caption">Please choose another date</Typography>
@@ -174,12 +167,7 @@ export default function BookingStep3Slot({ wizardData, updateWizard }) {
                 </Stack>
                 <Box display="flex" flexWrap="wrap" gap={1}>
                   {slots.map((slot) => (
-                    <SlotChip
-                      key={slot.id}
-                      slot={slot}
-                      selected={selectedSlot?.id === slot.id}
-                      onSelect={handleSlotSelect}
-                    />
+                    <SlotChip key={slot.id} slot={slot} selected={selectedSlot?.id === slot.id} onSelect={handleSlotSelect} />
                   ))}
                 </Box>
                 {selectedSlot && (
@@ -193,7 +181,8 @@ export default function BookingStep3Slot({ wizardData, updateWizard }) {
                     }}
                   >
                     <Typography variant="body2" fontWeight={600} color="primary">
-                      ✓ Selected: {dayjs(selectedSlot.start_datetime).format('h:mm A')} — {dayjs(selectedSlot.end_datetime).format('h:mm A')}
+                      ✓ Selected: {dayjs(selectedSlot.start_datetime).format('h:mm A')} —{' '}
+                      {dayjs(selectedSlot.end_datetime).format('h:mm A')}
                     </Typography>
                   </Box>
                 )}

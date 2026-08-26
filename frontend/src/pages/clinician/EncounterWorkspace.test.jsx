@@ -27,79 +27,197 @@ global.ResizeObserver = ResizeObserverStub
 // equality, same convention as clinician/Dashboard.test.jsx).
 const GET_OR_CREATE_ENCOUNTER = gql`
   mutation GetOrCreateEncounter($appointment_id: ID!) {
-    getOrCreateEncounter(appointment_id: $appointment_id) { id patient_id clinician_id }
+    getOrCreateEncounter(appointment_id: $appointment_id) {
+      id
+      patient_id
+      clinician_id
+    }
   }
 `
 const ENCOUNTER_QUERY = gql`
   query Encounter($id: ID!) {
     encounter(id: $id) {
-      id patient_id status locked signed_at
-      notes { id section content version }
-      addenda { id author_id content reason created_at }
-      diagnoses { id type icd10_code text status created_at }
-      attachments { id file_ref mime_type original_filename created_at }
-      investigation_orders { id test_name test_type urgency status date_ordered }
-      referrals { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
-      vitals { id code value unit recorded_at }
+      id
+      patient_id
+      status
+      locked
+      signed_at
+      notes {
+        id
+        section
+        content
+        version
+      }
+      addenda {
+        id
+        author_id
+        content
+        reason
+        created_at
+      }
+      diagnoses {
+        id
+        type
+        icd10_code
+        text
+        status
+        created_at
+      }
+      attachments {
+        id
+        file_ref
+        mime_type
+        original_filename
+        created_at
+      }
+      investigation_orders {
+        id
+        test_name
+        test_type
+        urgency
+        status
+        date_ordered
+      }
+      referrals {
+        id
+        referred_to_specialty
+        referred_to_clinician_id
+        reason
+        urgency
+        status
+        created_at
+      }
+      vitals {
+        id
+        code
+        value
+        unit
+        recorded_at
+      }
     }
   }
 `
 const PATIENT_ALLERGY_BANNER = gql`
   query PatientAllergyBanner($patient_id: ID!) {
-    patientAllergyBanner(patient_id: $patient_id) { id text icd10_code }
+    patientAllergyBanner(patient_id: $patient_id) {
+      id
+      text
+      icd10_code
+    }
   }
 `
 const PATIENT_TIMELINE = gql`
   query PatientTimeline($patient_id: ID!) {
-    patientTimeline(patient_id: $patient_id) { id type date title summary encounter_id }
+    patientTimeline(patient_id: $patient_id) {
+      id
+      type
+      date
+      title
+      summary
+      encounter_id
+    }
   }
 `
 const ENCOUNTER_TEMPLATES = gql`
-  query EncounterTemplates { encounterTemplates { id name specialty sections_json } }
+  query EncounterTemplates {
+    encounterTemplates {
+      id
+      name
+      specialty
+      sections_json
+    }
+  }
 `
 const CREATE_DIAGNOSIS = gql`
   mutation CreateDiagnosis($input: CreateDiagnosisInput!) {
-    createDiagnosis(input: $input) { id type icd10_code text status created_at }
+    createDiagnosis(input: $input) {
+      id
+      type
+      icd10_code
+      text
+      status
+      created_at
+    }
   }
 `
 const CREATE_ENCOUNTER_TEMPLATE = gql`
   mutation CreateEncounterTemplate($input: CreateEncounterTemplateInput!) {
-    createEncounterTemplate(input: $input) { id name specialty sections_json }
+    createEncounterTemplate(input: $input) {
+      id
+      name
+      specialty
+      sections_json
+    }
   }
 `
 // REQ127
 const ORDER_INVESTIGATION = gql`
   mutation OrderInvestigation($input: OrderInvestigationInput!) {
-    orderInvestigation(input: $input) { id test_name test_type urgency status date_ordered }
+    orderInvestigation(input: $input) {
+      id
+      test_name
+      test_type
+      urgency
+      status
+      date_ordered
+    }
   }
 `
 // REQ128
 const CREATE_REFERRAL = gql`
   mutation CreateReferral($input: CreateReferralInput!) {
-    createReferral(input: $input) { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
+    createReferral(input: $input) {
+      id
+      referred_to_specialty
+      referred_to_clinician_id
+      reason
+      urgency
+      status
+      created_at
+    }
   }
 `
 // REQ135
 const UPDATE_REFERRAL_STATUS = gql`
   mutation UpdateReferralStatus($id: ID!, $input: UpdateReferralStatusInput!) {
-    updateReferralStatus(id: $id, input: $input) { id status }
+    updateReferralStatus(id: $id, input: $input) {
+      id
+      status
+    }
   }
 `
 // REQ130
 const RECORD_VITALS = gql`
   mutation RecordVitals($input: RecordVitalsInput!) {
-    recordVitals(input: $input) { id code value unit recorded_at }
+    recordVitals(input: $input) {
+      id
+      code
+      value
+      unit
+      recorded_at
+    }
   }
 `
 const PATIENT_VITALS = gql`
   query PatientVitals($patient_id: ID!, $code: String!) {
-    patientVitals(patient_id: $patient_id, code: $code) { id code value unit recorded_at }
+    patientVitals(patient_id: $patient_id, code: $code) {
+      id
+      code
+      value
+      unit
+      recorded_at
+    }
   }
 `
 // REQ108
 const ICD10_SEARCH_QUERY = gql`
   query Icd10Codes($search: String) {
-    icd10Codes(search: $search) { id code description category }
+    icd10Codes(search: $search) {
+      id
+      code
+      description
+      category
+    }
   }
 `
 
@@ -132,7 +250,12 @@ function icd10Mock(search, codes = []) {
 
 function baseMocks(enc) {
   return [
-    { request: { query: GET_OR_CREATE_ENCOUNTER, variables: { appointment_id: APPOINTMENT_ID } }, result: { data: { getOrCreateEncounter: { __typename: 'Encounter', id: ENCOUNTER_ID, patient_id: PATIENT_ID, clinician_id: 'cln-1' } } } },
+    {
+      request: { query: GET_OR_CREATE_ENCOUNTER, variables: { appointment_id: APPOINTMENT_ID } },
+      result: {
+        data: { getOrCreateEncounter: { __typename: 'Encounter', id: ENCOUNTER_ID, patient_id: PATIENT_ID, clinician_id: 'cln-1' } },
+      },
+    },
     { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: enc } } },
     { request: { query: PATIENT_ALLERGY_BANNER, variables: { patient_id: PATIENT_ID } }, result: { data: { patientAllergyBanner: [] } } },
     { request: { query: PATIENT_TIMELINE, variables: { patient_id: PATIENT_ID } }, result: { data: { patientTimeline: [] } } },
@@ -151,14 +274,24 @@ function renderPage(mocks) {
           </Routes>
         </MockedProvider>
       </SnackbarProvider>
-    </MemoryRouter>
+    </MemoryRouter>,
   )
 }
 
 describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => {
   it('renders real recorded diagnoses, not just an empty state', async () => {
     const enc = encounter({
-      diagnoses: [{ __typename: 'EncounterDiagnosis', id: 'dx-1', type: 'diagnosis', icd10_code: 'J06.9', text: 'Upper respiratory infection', status: 'active', created_at: '2026-08-25T10:00:00.000Z' }],
+      diagnoses: [
+        {
+          __typename: 'EncounterDiagnosis',
+          id: 'dx-1',
+          type: 'diagnosis',
+          icd10_code: 'J06.9',
+          text: 'Upper respiratory infection',
+          status: 'active',
+          created_at: '2026-08-25T10:00:00.000Z',
+        },
+      ],
     })
     renderPage(baseMocks(enc))
 
@@ -169,12 +302,40 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
   it('adds a diagnosis via the real createDiagnosis mutation and refetches', async () => {
     const enc = encounter()
     const withDiagnosis = encounter({
-      diagnoses: [{ __typename: 'EncounterDiagnosis', id: 'dx-2', type: 'allergy', icd10_code: null, text: 'Penicillin allergy', status: 'active', created_at: '2026-08-25T10:00:00.000Z' }],
+      diagnoses: [
+        {
+          __typename: 'EncounterDiagnosis',
+          id: 'dx-2',
+          type: 'allergy',
+          icd10_code: null,
+          text: 'Penicillin allergy',
+          status: 'active',
+          created_at: '2026-08-25T10:00:00.000Z',
+        },
+      ],
     })
     renderPage([
       ...baseMocks(enc),
       icd10Mock(undefined),
-      { request: { query: CREATE_DIAGNOSIS, variables: { input: { encounter_id: ENCOUNTER_ID, type: 'diagnosis', text: 'Penicillin allergy' } } }, result: { data: { createDiagnosis: { __typename: 'EncounterDiagnosis', id: 'dx-2', type: 'diagnosis', icd10_code: null, text: 'Penicillin allergy', status: 'active', created_at: '2026-08-25T10:00:00.000Z' } } } },
+      {
+        request: {
+          query: CREATE_DIAGNOSIS,
+          variables: { input: { encounter_id: ENCOUNTER_ID, type: 'diagnosis', text: 'Penicillin allergy' } },
+        },
+        result: {
+          data: {
+            createDiagnosis: {
+              __typename: 'EncounterDiagnosis',
+              id: 'dx-2',
+              type: 'diagnosis',
+              icd10_code: null,
+              text: 'Penicillin allergy',
+              status: 'active',
+              created_at: '2026-08-25T10:00:00.000Z',
+            },
+          },
+        },
+      },
       { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withDiagnosis } } },
     ])
 
@@ -206,12 +367,54 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
     renderPage([
       ...baseMocks(enc),
       icd10Mock(undefined),
-      icd10Mock('J0', [{ __typename: 'Icd10Code', id: 'icd-1', code: 'J06.9', description: 'Acute upper respiratory infection, unspecified', category: 'Respiratory' }]),
+      icd10Mock('J0', [
+        {
+          __typename: 'Icd10Code',
+          id: 'icd-1',
+          code: 'J06.9',
+          description: 'Acute upper respiratory infection, unspecified',
+          category: 'Respiratory',
+        },
+      ]),
       {
-        request: { query: CREATE_DIAGNOSIS, variables: { input: { encounter_id: ENCOUNTER_ID, type: 'diagnosis', text: 'URI', icd10_code: 'J06.9' } } },
-        result: { data: { createDiagnosis: { __typename: 'EncounterDiagnosis', id: 'dx-3', type: 'diagnosis', icd10_code: 'J06.9', text: 'URI', status: 'active', created_at: '2026-08-25T10:00:00.000Z' } } },
+        request: {
+          query: CREATE_DIAGNOSIS,
+          variables: { input: { encounter_id: ENCOUNTER_ID, type: 'diagnosis', text: 'URI', icd10_code: 'J06.9' } },
+        },
+        result: {
+          data: {
+            createDiagnosis: {
+              __typename: 'EncounterDiagnosis',
+              id: 'dx-3',
+              type: 'diagnosis',
+              icd10_code: 'J06.9',
+              text: 'URI',
+              status: 'active',
+              created_at: '2026-08-25T10:00:00.000Z',
+            },
+          },
+        },
       },
-      { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: encounter({ diagnoses: [{ __typename: 'EncounterDiagnosis', id: 'dx-3', type: 'diagnosis', icd10_code: 'J06.9', text: 'URI', status: 'active', created_at: '2026-08-25T10:00:00.000Z' }] }) } } },
+      {
+        request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } },
+        result: {
+          data: {
+            encounter: encounter({
+              diagnoses: [
+                {
+                  __typename: 'EncounterDiagnosis',
+                  id: 'dx-3',
+                  type: 'diagnosis',
+                  icd10_code: 'J06.9',
+                  text: 'URI',
+                  status: 'active',
+                  created_at: '2026-08-25T10:00:00.000Z',
+                },
+              ],
+            }),
+          },
+        },
+      },
     ])
 
     await waitFor(() => expect(screen.getByText('No diagnoses recorded yet.')).toBeInTheDocument())
@@ -237,11 +440,46 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
       {
         request: {
           query: CREATE_ENCOUNTER_TEMPLATE,
-          variables: { input: { name: 'Standard OPD Note', specialty: undefined, sections_json: JSON.stringify({ complaints: '', history: '', exam: '', vitals: '', diagnosis: '', investigations: '', advice: '', follow_up: '' }), org_shared: true } },
+          variables: {
+            input: {
+              name: 'Standard OPD Note',
+              specialty: undefined,
+              sections_json: JSON.stringify({
+                complaints: '',
+                history: '',
+                exam: '',
+                vitals: '',
+                diagnosis: '',
+                investigations: '',
+                advice: '',
+                follow_up: '',
+              }),
+              org_shared: true,
+            },
+          },
         },
-        result: { data: { createEncounterTemplate: { __typename: 'EncounterTemplate', id: 'tpl-1', name: 'Standard OPD Note', specialty: null, sections_json: '{}' } } },
+        result: {
+          data: {
+            createEncounterTemplate: {
+              __typename: 'EncounterTemplate',
+              id: 'tpl-1',
+              name: 'Standard OPD Note',
+              specialty: null,
+              sections_json: '{}',
+            },
+          },
+        },
       },
-      { request: { query: ENCOUNTER_TEMPLATES }, result: { data: { encounterTemplates: [{ __typename: 'EncounterTemplate', id: 'tpl-1', name: 'Standard OPD Note', specialty: null, sections_json: '{}' }] } } },
+      {
+        request: { query: ENCOUNTER_TEMPLATES },
+        result: {
+          data: {
+            encounterTemplates: [
+              { __typename: 'EncounterTemplate', id: 'tpl-1', name: 'Standard OPD Note', specialty: null, sections_json: '{}' },
+            ],
+          },
+        },
+      },
     ])
 
     await waitFor(() => expect(screen.getByText('No templates yet.')).toBeInTheDocument())
@@ -256,7 +494,17 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
 describe('EncounterWorkspace — investigation orders (REQ127)', () => {
   it('renders real ordered investigations, not just an empty state', async () => {
     const enc = encounter({
-      investigation_orders: [{ __typename: 'InvestigationOrder', id: 'inv-1', test_name: 'CBC', test_type: 'Blood', urgency: 'routine', status: 'pending', date_ordered: '2026-08-26T10:00:00.000Z' }],
+      investigation_orders: [
+        {
+          __typename: 'InvestigationOrder',
+          id: 'inv-1',
+          test_name: 'CBC',
+          test_type: 'Blood',
+          urgency: 'routine',
+          status: 'pending',
+          date_ordered: '2026-08-26T10:00:00.000Z',
+        },
+      ],
     })
     renderPage(baseMocks(enc))
 
@@ -267,13 +515,38 @@ describe('EncounterWorkspace — investigation orders (REQ127)', () => {
   it('orders an investigation via the real orderInvestigation mutation and refetches', async () => {
     const enc = encounter()
     const withOrder = encounter({
-      investigation_orders: [{ __typename: 'InvestigationOrder', id: 'inv-2', test_name: 'Chest X-Ray', test_type: 'Imaging', urgency: 'urgent', status: 'pending', date_ordered: '2026-08-26T10:00:00.000Z' }],
+      investigation_orders: [
+        {
+          __typename: 'InvestigationOrder',
+          id: 'inv-2',
+          test_name: 'Chest X-Ray',
+          test_type: 'Imaging',
+          urgency: 'urgent',
+          status: 'pending',
+          date_ordered: '2026-08-26T10:00:00.000Z',
+        },
+      ],
     })
     renderPage([
       ...baseMocks(enc),
       {
-        request: { query: ORDER_INVESTIGATION, variables: { input: { encounter_id: ENCOUNTER_ID, test_name: 'Chest X-Ray', test_type: 'Imaging', urgency: 'urgent' } } },
-        result: { data: { orderInvestigation: { __typename: 'InvestigationOrder', id: 'inv-2', test_name: 'Chest X-Ray', test_type: 'Imaging', urgency: 'urgent', status: 'pending', date_ordered: '2026-08-26T10:00:00.000Z' } } },
+        request: {
+          query: ORDER_INVESTIGATION,
+          variables: { input: { encounter_id: ENCOUNTER_ID, test_name: 'Chest X-Ray', test_type: 'Imaging', urgency: 'urgent' } },
+        },
+        result: {
+          data: {
+            orderInvestigation: {
+              __typename: 'InvestigationOrder',
+              id: 'inv-2',
+              test_name: 'Chest X-Ray',
+              test_type: 'Imaging',
+              urgency: 'urgent',
+              status: 'pending',
+              date_ordered: '2026-08-26T10:00:00.000Z',
+            },
+          },
+        },
       },
       { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withOrder } } },
     ])
@@ -294,7 +567,18 @@ describe('EncounterWorkspace — investigation orders (REQ127)', () => {
 describe('EncounterWorkspace — referrals (REQ128)', () => {
   it('renders real referrals, not just an empty state', async () => {
     const enc = encounter({
-      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' }],
+      referrals: [
+        {
+          __typename: 'Referral',
+          id: 'ref-1',
+          referred_to_specialty: 'Cardiology',
+          referred_to_clinician_id: null,
+          reason: 'Murmur on exam',
+          urgency: 'routine',
+          status: 'pending',
+          created_at: '2026-08-26T10:00:00.000Z',
+        },
+      ],
     })
     renderPage(baseMocks(enc))
 
@@ -305,13 +589,42 @@ describe('EncounterWorkspace — referrals (REQ128)', () => {
   it('refers a patient via the real createReferral mutation and refetches', async () => {
     const enc = encounter()
     const withReferral = encounter({
-      referrals: [{ __typename: 'Referral', id: 'ref-2', referred_to_specialty: 'Orthopaedics', referred_to_clinician_id: null, reason: 'Chronic knee pain', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' }],
+      referrals: [
+        {
+          __typename: 'Referral',
+          id: 'ref-2',
+          referred_to_specialty: 'Orthopaedics',
+          referred_to_clinician_id: null,
+          reason: 'Chronic knee pain',
+          urgency: 'routine',
+          status: 'pending',
+          created_at: '2026-08-26T10:00:00.000Z',
+        },
+      ],
     })
     renderPage([
       ...baseMocks(enc),
       {
-        request: { query: CREATE_REFERRAL, variables: { input: { encounter_id: ENCOUNTER_ID, referred_to_specialty: 'Orthopaedics', reason: 'Chronic knee pain', urgency: 'routine' } } },
-        result: { data: { createReferral: { __typename: 'Referral', id: 'ref-2', referred_to_specialty: 'Orthopaedics', referred_to_clinician_id: null, reason: 'Chronic knee pain', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' } } },
+        request: {
+          query: CREATE_REFERRAL,
+          variables: {
+            input: { encounter_id: ENCOUNTER_ID, referred_to_specialty: 'Orthopaedics', reason: 'Chronic knee pain', urgency: 'routine' },
+          },
+        },
+        result: {
+          data: {
+            createReferral: {
+              __typename: 'Referral',
+              id: 'ref-2',
+              referred_to_specialty: 'Orthopaedics',
+              referred_to_clinician_id: null,
+              reason: 'Chronic knee pain',
+              urgency: 'routine',
+              status: 'pending',
+              created_at: '2026-08-26T10:00:00.000Z',
+            },
+          },
+        },
       },
       { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withReferral } } },
     ])
@@ -330,7 +643,18 @@ describe('EncounterWorkspace — referrals (REQ128)', () => {
   // REQ135
   it('shows the legal next-status buttons for a pending referral', async () => {
     const enc = encounter({
-      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' }],
+      referrals: [
+        {
+          __typename: 'Referral',
+          id: 'ref-1',
+          referred_to_specialty: 'Cardiology',
+          referred_to_clinician_id: null,
+          reason: 'Murmur on exam',
+          urgency: 'routine',
+          status: 'pending',
+          created_at: '2026-08-26T10:00:00.000Z',
+        },
+      ],
     })
     renderPage(baseMocks(enc))
 
@@ -342,7 +666,18 @@ describe('EncounterWorkspace — referrals (REQ128)', () => {
 
   it('shows no transition buttons for a terminal (completed) referral', async () => {
     const enc = encounter({
-      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'completed', created_at: '2026-08-26T10:00:00.000Z' }],
+      referrals: [
+        {
+          __typename: 'Referral',
+          id: 'ref-1',
+          referred_to_specialty: 'Cardiology',
+          referred_to_clinician_id: null,
+          reason: 'Murmur on exam',
+          urgency: 'routine',
+          status: 'completed',
+          created_at: '2026-08-26T10:00:00.000Z',
+        },
+      ],
     })
     renderPage(baseMocks(enc))
 
@@ -352,10 +687,32 @@ describe('EncounterWorkspace — referrals (REQ128)', () => {
 
   it('advances a referral to scheduled via the real updateReferralStatus mutation and refetches', async () => {
     const enc = encounter({
-      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' }],
+      referrals: [
+        {
+          __typename: 'Referral',
+          id: 'ref-1',
+          referred_to_specialty: 'Cardiology',
+          referred_to_clinician_id: null,
+          reason: 'Murmur on exam',
+          urgency: 'routine',
+          status: 'pending',
+          created_at: '2026-08-26T10:00:00.000Z',
+        },
+      ],
     })
     const scheduled = encounter({
-      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'scheduled', created_at: '2026-08-26T10:00:00.000Z' }],
+      referrals: [
+        {
+          __typename: 'Referral',
+          id: 'ref-1',
+          referred_to_specialty: 'Cardiology',
+          referred_to_clinician_id: null,
+          reason: 'Murmur on exam',
+          urgency: 'routine',
+          status: 'scheduled',
+          created_at: '2026-08-26T10:00:00.000Z',
+        },
+      ],
     })
     renderPage([
       ...baseMocks(enc),
@@ -392,8 +749,17 @@ describe('EncounterWorkspace — vitals + growth chart (REQ130)', () => {
     renderPage([
       ...baseMocks(enc),
       {
-        request: { query: RECORD_VITALS, variables: { input: { encounter_id: ENCOUNTER_ID, readings: [{ code: 'weight_kg', value: 30 }] } } },
-        result: { data: { recordVitals: [{ __typename: 'Vital', id: 'v-2', code: 'weight_kg', value: 30, unit: 'kg', recorded_at: '2026-08-26T10:00:00.000Z' }] } },
+        request: {
+          query: RECORD_VITALS,
+          variables: { input: { encounter_id: ENCOUNTER_ID, readings: [{ code: 'weight_kg', value: 30 }] } },
+        },
+        result: {
+          data: {
+            recordVitals: [
+              { __typename: 'Vital', id: 'v-2', code: 'weight_kg', value: 30, unit: 'kg', recorded_at: '2026-08-26T10:00:00.000Z' },
+            ],
+          },
+        },
       },
       { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withVitals } } },
     ])
@@ -413,7 +779,13 @@ describe('EncounterWorkspace — vitals + growth chart (REQ130)', () => {
       ...baseMocks(enc),
       {
         request: { query: PATIENT_VITALS, variables: { patient_id: PATIENT_ID, code: 'weight_kg' } },
-        result: { data: { patientVitals: [{ __typename: 'Vital', id: 'v-1', code: 'weight_kg', value: 20, unit: 'kg', recorded_at: '2026-01-01T00:00:00.000Z' }] } },
+        result: {
+          data: {
+            patientVitals: [
+              { __typename: 'Vital', id: 'v-1', code: 'weight_kg', value: 20, unit: 'kg', recorded_at: '2026-01-01T00:00:00.000Z' },
+            ],
+          },
+        },
       },
       {
         request: { query: PATIENT_VITALS, variables: { patient_id: PATIENT_ID, code: 'height_cm' } },

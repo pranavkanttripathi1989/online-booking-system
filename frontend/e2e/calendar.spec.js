@@ -30,10 +30,9 @@ test('a real filter with zero matches shows a real empty calendar, not fabricate
   const todayPanel = page.getByTestId('today-schedule-panel')
   await expect(todayPanel.getByText('Anita Sharma').first()).toBeVisible({ timeout: 15_000 })
 
-  const gqlPromise = page.waitForResponse(
-    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('appointments('),
-    { timeout: 15_000 },
-  )
+  const gqlPromise = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('appointments('), {
+    timeout: 15_000,
+  })
   await page.locator('.MuiSelect-select', { hasText: 'All Statuses' }).click()
   await page.getByRole('option', { name: 'No Show' }).click()
   await gqlPromise

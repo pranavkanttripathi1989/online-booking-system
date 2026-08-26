@@ -1,23 +1,23 @@
-import React, { useState, useCallback } from 'react';
-import { TextField, InputAdornment, IconButton } from '@mui/material';
-import SearchIcon from '@mui/icons-material/Search';
-import CloseIcon from '@mui/icons-material/Close';
+import React, { useState, useCallback } from 'react'
+import { TextField, InputAdornment, IconButton } from '@mui/material'
+import SearchIcon from '@mui/icons-material/Search'
+import CloseIcon from '@mui/icons-material/Close'
 
 export default function SearchField({ value, onChange, placeholder = 'Search...', sx = {}, ...props }) {
-  const [localValue, setLocalValue] = useState(value || '');
+  const [localValue, setLocalValue] = useState(value || '')
 
   const handleChange = useCallback(
     (e) => {
-      setLocalValue(e.target.value);
-      onChange && onChange(e.target.value);
+      setLocalValue(e.target.value)
+      onChange && onChange(e.target.value)
     },
-    [onChange]
-  );
+    [onChange],
+  )
 
   const handleClear = () => {
-    setLocalValue('');
-    onChange && onChange('');
-  };
+    setLocalValue('')
+    onChange && onChange('')
+  }
 
   return (
     <TextField
@@ -42,5 +42,5 @@ export default function SearchField({ value, onChange, placeholder = 'Search...'
       }}
       {...props}
     />
-  );
+  )
 }

@@ -5,8 +5,21 @@ import { useSnackbar } from 'notistack'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import dayjs from 'dayjs'
 import {
-  Alert, Avatar, Box, Button, Card, CardContent, Dialog, DialogActions,
-  DialogContent, DialogTitle, Grid, MenuItem, Stack, TextField, Typography,
+  Alert,
+  Avatar,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Grid,
+  MenuItem,
+  Stack,
+  TextField,
+  Typography,
 } from '@mui/material'
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded'
 import FamilyRestroomRoundedIcon from '@mui/icons-material/FamilyRestroomRounded'
@@ -18,11 +31,31 @@ import FamilyRestroomRoundedIcon from '@mui/icons-material/FamilyRestroomRounded
 // this page is where a dependant is first added and listed.
 
 const MY_DEPENDANTS_QUERY = gql`
-  query MyDependants { myDependants { id relation patient { id full_name date_of_birth gender } } }
+  query MyDependants {
+    myDependants {
+      id
+      relation
+      patient {
+        id
+        full_name
+        date_of_birth
+        gender
+      }
+    }
+  }
 `
 const ADD_DEPENDANT_MUTATION = gql`
   mutation AddDependant($input: AddDependantInput!) {
-    addDependant(input: $input) { id relation patient { id full_name date_of_birth gender } }
+    addDependant(input: $input) {
+      id
+      relation
+      patient {
+        id
+        full_name
+        date_of_birth
+        gender
+      }
+    }
   }
 `
 
@@ -69,10 +102,14 @@ function Family() {
 
   return (
     <Box p={{ xs: 1.5, md: 3 }}>
-      <Helmet><title>My Family — MediBook</title></Helmet>
+      <Helmet>
+        <title>My Family — MediBook</title>
+      </Helmet>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>My Family</Typography>
+          <Typography variant="h5" fontWeight={700}>
+            My Family
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             Book appointments and view records for a child or other dependant, all under your own login.
           </Typography>
@@ -97,7 +134,9 @@ function Family() {
                 <Stack direction="row" spacing={1.5} alignItems="center">
                   <Avatar>{d.patient.full_name.charAt(0)}</Avatar>
                   <Box>
-                    <Typography variant="subtitle1" fontWeight={700}>{d.patient.full_name}</Typography>
+                    <Typography variant="subtitle1" fontWeight={700}>
+                      {d.patient.full_name}
+                    </Typography>
                     <Typography variant="caption" color="text.secondary" sx={{ textTransform: 'capitalize' }}>
                       {d.relation} · {new Date(d.patient.date_of_birth).toLocaleDateString()}
                     </Typography>
@@ -121,7 +160,8 @@ function Family() {
             </Grid>
             <Grid item xs={6}>
               <DatePicker
-                label="Date of birth" value={form.date_of_birth}
+                label="Date of birth"
+                value={form.date_of_birth}
                 onChange={(v) => setForm((f) => ({ ...f, date_of_birth: v }))}
                 slotProps={{ textField: { fullWidth: true } }}
               />
@@ -129,19 +169,29 @@ function Family() {
             <Grid item xs={6}>
               <TextField select fullWidth label="Gender" value={form.gender} onChange={set('gender')}>
                 <MenuItem value="">Not specified</MenuItem>
-                {GENDER_OPTIONS.map((g) => <MenuItem key={g} value={g}>{g.replace('_', ' ')}</MenuItem>)}
+                {GENDER_OPTIONS.map((g) => (
+                  <MenuItem key={g} value={g}>
+                    {g.replace('_', ' ')}
+                  </MenuItem>
+                ))}
               </TextField>
             </Grid>
             <Grid item xs={12}>
               <TextField select fullWidth label="Relationship" value={form.relation} onChange={set('relation')}>
-                {RELATION_OPTIONS.map((r) => <MenuItem key={r} value={r} sx={{ textTransform: 'capitalize' }}>{r}</MenuItem>)}
+                {RELATION_OPTIONS.map((r) => (
+                  <MenuItem key={r} value={r} sx={{ textTransform: 'capitalize' }}>
+                    {r}
+                  </MenuItem>
+                ))}
               </TextField>
             </Grid>
           </Grid>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddOpen(false)}>Cancel</Button>
-          <Button variant="contained" onClick={handleAdd} disabled={adding}>Add</Button>
+          <Button variant="contained" onClick={handleAdd} disabled={adding}>
+            Add
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

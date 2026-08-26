@@ -19,9 +19,15 @@ export default function NotFoundPage() {
       {/* Icon circle — Google Blue */}
       <Box
         sx={{
-          width: 110, height: 110, borderRadius: '50%',
-          bgcolor: '#E8F0FE', border: '2px solid #AECBFA',
-          display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3,
+          width: 110,
+          height: 110,
+          borderRadius: '50%',
+          bgcolor: '#E8F0FE',
+          border: '2px solid #AECBFA',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          mb: 3,
         }}
       >
         <SentimentDissatisfied sx={{ fontSize: 58, color: '#1A73E8', opacity: 0.85 }} />
@@ -48,8 +54,7 @@ export default function NotFoundPage() {
         Page not found
       </Typography>
       <Typography variant="body1" color="text.secondary" mb={4} maxWidth={420}>
-        The page you're looking for doesn't exist or has been moved. Double-check
-        the URL or head back to your dashboard.
+        The page you're looking for doesn't exist or has been moved. Double-check the URL or head back to your dashboard.
       </Typography>
 
       <Button
@@ -61,7 +66,8 @@ export default function NotFoundPage() {
           borderRadius: 2,
           textTransform: 'none',
           fontWeight: 700,
-          px: 4, py: 1.5,
+          px: 4,
+          py: 1.5,
           background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
           boxShadow: '0 4px 20px rgba(26,115,232,0.30)',
           '&:hover': {

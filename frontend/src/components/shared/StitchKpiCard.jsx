@@ -1,10 +1,10 @@
-import React from 'react';
-import { Box, Paper, Stack, Typography } from '@mui/material';
-import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material';
+import React from 'react'
+import { Box, Paper, Stack, Typography } from '@mui/material'
+import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
 
 /**
  * StitchKpiCard — Reusable KPI stat card matching Stitch design system.
- * 
+ *
  * Props:
  *   title   {string}   — Card label (e.g. "Total Appointments")
  *   value   {string|number} — Main metric value (e.g. "1,284" or "$142.5k")
@@ -14,8 +14,8 @@ import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material';
  *   subtitle {string}  — Optional: secondary line below value
  */
 export default function StitchKpiCard({ title, value, icon, color = '#006D77', trend, subtitle }) {
-  const TrendIcon = trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : TrendingFlat;
-  const trendColor = trend > 0 ? '#10B981' : trend < 0 ? '#EF4444' : '#94A3B8';
+  const TrendIcon = trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : TrendingFlat
+  const trendColor = trend > 0 ? '#10B981' : trend < 0 ? '#EF4444' : '#94A3B8'
 
   return (
     <Paper
@@ -76,5 +76,5 @@ export default function StitchKpiCard({ title, value, icon, color = '#006D77', t
         )}
       </Box>
     </Paper>
-  );
+  )
 }

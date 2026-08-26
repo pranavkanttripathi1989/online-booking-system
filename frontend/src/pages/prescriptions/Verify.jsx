@@ -31,7 +31,11 @@ const VERIFY_PRESCRIPTION = gql`
 // for a printed code to be checkable against this page.
 function formatVerificationCode(hash) {
   if (!hash) return null
-  return hash.slice(0, 12).toUpperCase().match(/.{1,4}/g).join('-')
+  return hash
+    .slice(0, 12)
+    .toUpperCase()
+    .match(/.{1,4}/g)
+    .join('-')
 }
 
 export default function VerifyPrescription() {
@@ -49,15 +53,18 @@ export default function VerifyPrescription() {
 
   return (
     <Box sx={{ maxWidth: 560, mx: 'auto', py: 4 }}>
-      <Helmet><title>Verify Prescription — MediBook</title></Helmet>
+      <Helmet>
+        <title>Verify Prescription — MediBook</title>
+      </Helmet>
 
       <Stack direction="row" spacing={1.5} alignItems="center" mb={1}>
         <VerifiedRoundedIcon color="primary" fontSize="large" />
-        <Typography variant="h5" fontWeight={800}>Verify a Prescription</Typography>
+        <Typography variant="h5" fontWeight={800}>
+          Verify a Prescription
+        </Typography>
       </Stack>
       <Typography variant="body2" color="text.secondary" mb={3}>
-        Enter the prescription ID from a printed or shared copy to confirm its
-        contents match what was originally signed.
+        Enter the prescription ID from a printed or shared copy to confirm its contents match what was originally signed.
       </Typography>
 
       <Card variant="outlined" sx={{ mb: 3 }}>
@@ -65,7 +72,9 @@ export default function VerifyPrescription() {
           <Box component="form" onSubmit={handleVerify}>
             <Stack direction="row" spacing={1.5}>
               <TextField
-                fullWidth label="Prescription ID" value={prescriptionId}
+                fullWidth
+                label="Prescription ID"
+                value={prescriptionId}
                 onChange={(e) => setPrescriptionId(e.target.value)}
                 placeholder="e.g. the ID printed on the prescription"
               />
@@ -80,10 +89,7 @@ export default function VerifyPrescription() {
       {error && <Alert severity="error">{error.graphQLErrors?.[0]?.message || error.message}</Alert>}
 
       {result && (
-        <Alert
-          severity={result.valid ? 'success' : 'error'}
-          icon={result.valid ? <GppGoodRoundedIcon /> : <GppMaybeRoundedIcon />}
-        >
+        <Alert severity={result.valid ? 'success' : 'error'} icon={result.valid ? <GppGoodRoundedIcon /> : <GppMaybeRoundedIcon />}>
           <Typography fontWeight={700}>
             {result.valid ? 'This prescription is authentic.' : 'This prescription could not be verified.'}
           </Typography>

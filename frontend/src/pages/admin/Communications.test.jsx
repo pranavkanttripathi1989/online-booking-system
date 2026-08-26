@@ -3,6 +3,7 @@ import { MemoryRouter } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
 import { gql } from '@apollo/client'
 import AdminCommunications from './Communications'
+import { expectNoA11yViolations } from '../../test/a11y'
 
 // P1-01/REQ144 — WhatsApp conversation spend card on the Global Settings tab.
 // Re-declared to match Communications.jsx's own gql documents exactly (query
@@ -10,31 +11,75 @@ import AdminCommunications from './Communications'
 // convention as clinician/Dashboard.test.jsx).
 
 const GET_EMAIL_TEMPLATES = gql`
-  query GetNotificationEmailTemplates { emailTemplates { id name type subject body variables is_active } }
+  query GetNotificationEmailTemplates {
+    emailTemplates {
+      id
+      name
+      type
+      subject
+      body
+      variables
+      is_active
+    }
+  }
 `
 const GET_COMMUNICATION_SETTINGS = gql`
   query GetOrgCommunicationSettings {
-    myOrgCommunicationSettings { email_from_name email_from_address email_reply_to email_include_branding whatsapp_monthly_cap_rupees }
+    myOrgCommunicationSettings {
+      email_from_name
+      email_from_address
+      email_reply_to
+      email_include_branding
+      whatsapp_monthly_cap_rupees
+    }
   }
 `
 const UPDATE_COMMUNICATION_SETTINGS = gql`
   mutation UpdateOrgCommunicationSettings($input: UpdateOrgCommunicationSettingsInput!) {
-    updateMyOrgCommunicationSettings(input: $input) { success userErrors { message } }
+    updateMyOrgCommunicationSettings(input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
   }
 `
 const GET_NOTIFICATION_PROVIDERS = gql`
-  query GetNotificationProviders { notificationProviders { id label channel fields { key label type required } } }
+  query GetNotificationProviders {
+    notificationProviders {
+      id
+      label
+      channel
+      fields {
+        key
+        label
+        type
+        required
+      }
+    }
+  }
 `
 const GET_MY_NOTIFICATION_PROVIDER_CONFIG = gql`
   query GetMyNotificationProviderConfig($channel: String!) {
-    myNotificationProviderConfig(channel: $channel) { channel provider sender_id has_credentials }
+    myNotificationProviderConfig(channel: $channel) {
+      channel
+      provider
+      sender_id
+      has_credentials
+    }
   }
 `
 const GET_WHATSAPP_SPEND = gql`
   query GetWhatsappConversationSpend {
     whatsappConversationSpend {
-      periodStart periodEnd totalCostRupees
-      byCategory { category count costRupees }
+      periodStart
+      periodEnd
+      totalCostRupees
+      byCategory {
+        category
+        count
+        costRupees
+      }
     }
   }
 `
@@ -46,8 +91,11 @@ const baseMocks = (overrides = {}) => [
     result: {
       data: {
         myOrgCommunicationSettings: {
-          email_from_name: 'HealthSync', email_from_address: null, email_reply_to: null,
-          email_include_branding: true, whatsapp_monthly_cap_rupees: null,
+          email_from_name: 'HealthSync',
+          email_from_address: null,
+          email_reply_to: null,
+          email_include_branding: true,
+          whatsapp_monthly_cap_rupees: null,
           ...overrides.settings,
         },
       },
@@ -164,5 +212,15 @@ describe('AdminCommunications — WhatsApp conversation spend (P1-01/REQ144)', (
     fireEvent.click(screen.getByRole('button', { name: /Save Cap/ }))
 
     await waitFor(() => expect(screen.getByText(/non-negative amount/)).toBeInTheDocument())
+  })
+})
+
+// P1-03 (CI-7)
+describe('AdminCommunications — accessibility', () => {
+  it('has zero axe-core violations on the Global Settings tab (spend card + cap form)', async () => {
+    const { container } = renderPage(baseMocks())
+    await openGlobalSettingsTab()
+    await screen.findByLabelText('WhatsApp monthly spend cap in rupees')
+    await expectNoA11yViolations(container)
   })
 })

@@ -1,17 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useMutation } from '@apollo/client'
 import dayjs from 'dayjs'
-import {
-  Alert,
-  Avatar,
-  Box,
-  Button,
-  CircularProgress,
-  Divider,
-  Paper,
-  Stack,
-  Typography,
-} from '@mui/material'
+import { Alert, Avatar, Box, Button, CircularProgress, Divider, Paper, Stack, Typography } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
@@ -28,10 +18,16 @@ function SummaryRow({ icon, label, value }) {
   if (!value) return null
   return (
     <Stack direction="row" spacing={2} alignItems="center" py={1}>
-      <Box color="primary.main" display="flex" alignItems="center">{icon}</Box>
+      <Box color="primary.main" display="flex" alignItems="center">
+        {icon}
+      </Box>
       <Box flex={1}>
-        <Typography variant="caption" color="text.secondary">{label}</Typography>
-        <Typography variant="body2" fontWeight={600}>{value}</Typography>
+        <Typography variant="caption" color="text.secondary">
+          {label}
+        </Typography>
+        <Typography variant="body2" fontWeight={600}>
+          {value}
+        </Typography>
       </Box>
     </Stack>
   )
@@ -87,9 +83,7 @@ function SuccessScreen({ appointment, navigate, onBookAnother }) {
           {appointment?.patient?.full_name} • {appointment?.service?.name}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {appointment?.start_datetime
-            ? dayjs(appointment.start_datetime).format('dddd, DD MMM YYYY at h:mm A')
-            : ''}
+          {appointment?.start_datetime ? dayjs(appointment.start_datetime).format('dddd, DD MMM YYYY at h:mm A') : ''}
         </Typography>
       </Box>
       {/* REQ107 — checkin_token is populated ONLY in this exact mutation
@@ -105,10 +99,7 @@ function SuccessScreen({ appointment, navigate, onBookAnother }) {
         </Box>
       )}
       <Stack direction="row" spacing={2} justifyContent="center" mt={4}>
-        <Button
-          variant="contained"
-          onClick={() => navigate('/appointments')}
-        >
+        <Button variant="contained" onClick={() => navigate('/appointments')}>
           View Appointment
         </Button>
         <Button variant="outlined" onClick={onBookAnother}>
@@ -153,9 +144,7 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
               last_name: newPatient.last_name,
               email: newPatient.email || undefined,
               phone: newPatient.phone || undefined,
-              date_of_birth: newPatient.date_of_birth
-                ? dayjs(newPatient.date_of_birth).format('YYYY-MM-DD')
-                : undefined,
+              date_of_birth: newPatient.date_of_birth ? dayjs(newPatient.date_of_birth).format('YYYY-MM-DD') : undefined,
               gender: newPatient.gender || undefined,
             },
           },
@@ -193,20 +182,11 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
   }
 
   if (createdAppointment) {
-    return (
-      <SuccessScreen
-        appointment={createdAppointment}
-        navigate={navigate}
-        onBookAnother={handleBookAnother}
-      />
-    )
+    return <SuccessScreen appointment={createdAppointment} navigate={navigate} onBookAnother={handleBookAnother} />
   }
 
-  const patientDisplay = patientMode === 'existing'
-    ? patient?.full_name
-    : newPatient
-      ? `${newPatient.first_name} ${newPatient.last_name} (New)`
-      : '—'
+  const patientDisplay =
+    patientMode === 'existing' ? patient?.full_name : newPatient ? `${newPatient.first_name} ${newPatient.last_name} (New)` : '—'
 
   const estimatedFee = service?.price
     ? `₹${Number(service.price).toFixed(2)}`
@@ -216,13 +196,17 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
 
   return (
     <Box>
-      <Typography variant="h6" fontWeight={700} mb={0.5}>Confirm & Book</Typography>
+      <Typography variant="h6" fontWeight={700} mb={0.5}>
+        Confirm & Book
+      </Typography>
       <Typography variant="body2" color="text.secondary" mb={3}>
         Please review all details before confirming the appointment.
       </Typography>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>
+        <Alert severity="error" sx={{ mb: 2 }}>
+          {error}
+        </Alert>
       )}
 
       {/* Summary Card */}
@@ -245,51 +229,37 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
             borderColor: 'divider',
           }}
         >
-          <Typography variant="subtitle1" fontWeight={800}>Booking Summary</Typography>
+          <Typography variant="subtitle1" fontWeight={800}>
+            Booking Summary
+          </Typography>
         </Box>
 
         <Box px={2.5} py={1}>
-          <SummaryRow
-            icon={<LocalHospitalIcon fontSize="small" />}
-            label="Clinic"
-            value={clinic?.name}
-          />
+          <SummaryRow icon={<LocalHospitalIcon fontSize="small" />} label="Clinic" value={clinic?.name} />
           <Divider />
-          <SummaryRow
-            icon={<MedicalServicesIcon fontSize="small" />}
-            label="Clinician"
-            value={clinician?.full_name}
-          />
+          <SummaryRow icon={<MedicalServicesIcon fontSize="small" />} label="Clinician" value={clinician?.full_name} />
           <Divider />
           <SummaryRow
             icon={<CheckCircleIcon fontSize="small" />}
             label="Service"
-            value={service
-              ? `${service.name} — ${service.duration_minutes} min`
-              : '—'}
+            value={service ? `${service.name} — ${service.duration_minutes} min` : '—'}
           />
           <Divider />
           <SummaryRow
             icon={<EventIcon fontSize="small" />}
             label="Date"
-            value={slot?.start_datetime
-              ? dayjs(slot.start_datetime).format('dddd, DD MMM YYYY')
-              : '—'}
+            value={slot?.start_datetime ? dayjs(slot.start_datetime).format('dddd, DD MMM YYYY') : '—'}
           />
           <Divider />
           <SummaryRow
             icon={<AccessTimeIcon fontSize="small" />}
             label="Time"
-            value={slot?.start_datetime
-              ? `${dayjs(slot.start_datetime).format('h:mm A')} — ${dayjs(slot.end_datetime).format('h:mm A')}`
-              : '—'}
+            value={
+              slot?.start_datetime ? `${dayjs(slot.start_datetime).format('h:mm A')} — ${dayjs(slot.end_datetime).format('h:mm A')}` : '—'
+            }
           />
           <Divider />
-          <SummaryRow
-            icon={<PersonIcon fontSize="small" />}
-            label="Patient"
-            value={patientDisplay}
-          />
+          <SummaryRow icon={<PersonIcon fontSize="small" />} label="Patient" value={patientDisplay} />
         </Box>
 
         {/* Fee */}
@@ -297,14 +267,18 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
           sx={{
             px: 2.5,
             py: 1.5,
-            background: (t) => t.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+            background: (t) => (t.palette.mode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)'),
             borderTop: '1px solid',
             borderColor: 'divider',
           }}
         >
           <Stack direction="row" justifyContent="space-between" alignItems="center">
-            <Typography variant="body2" color="text.secondary">Estimated Fee</Typography>
-            <Typography variant="h6" fontWeight={800} color="primary">{estimatedFee}</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Estimated Fee
+            </Typography>
+            <Typography variant="h6" fontWeight={800} color="primary">
+              {estimatedFee}
+            </Typography>
           </Stack>
         </Box>
       </Paper>

@@ -1,17 +1,17 @@
 import { useState } from 'react'
 import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, IconButton, Stack } from '@mui/material'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
-import MenuRoundedIcon        from '@mui/icons-material/MenuRounded'
-import PeopleAltIcon        from '@mui/icons-material/PeopleAlt'
-import BusinessIcon          from '@mui/icons-material/Business'
+import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
+import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
+import BusinessIcon from '@mui/icons-material/Business'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
-import EmailIcon             from '@mui/icons-material/Email'
-import ChatIcon              from '@mui/icons-material/Chat'
-import PolicyIcon            from '@mui/icons-material/Policy'
-import MedicalServicesIcon   from '@mui/icons-material/MedicalServices'
-import LanguageIcon          from '@mui/icons-material/Language'
-import MeetingRoomIcon       from '@mui/icons-material/MeetingRoom'
-import HistoryIcon           from '@mui/icons-material/History'
+import EmailIcon from '@mui/icons-material/Email'
+import ChatIcon from '@mui/icons-material/Chat'
+import PolicyIcon from '@mui/icons-material/Policy'
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
+import LanguageIcon from '@mui/icons-material/Language'
+import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'
+import HistoryIcon from '@mui/icons-material/History'
 
 const BRAND = '#006D77'
 const SIDEBAR_WIDTH = 224
@@ -20,26 +20,26 @@ const NAV_SECTIONS = [
   {
     label: 'Users & Access',
     items: [
-      { label: 'Users & RBAC',      icon: <PeopleAltIcon />,          path: '/admin/users'            },
-      { label: 'Roles',             icon: <AdminPanelSettingsIcon />,  path: '/admin/roles'            },
-      { label: 'Audit Log',         icon: <HistoryIcon />,             path: '/admin/users?tab=2'      },
+      { label: 'Users & RBAC', icon: <PeopleAltIcon />, path: '/admin/users' },
+      { label: 'Roles', icon: <AdminPanelSettingsIcon />, path: '/admin/roles' },
+      { label: 'Audit Log', icon: <HistoryIcon />, path: '/admin/users?tab=2' },
     ],
   },
   {
     label: 'System',
     items: [
-      { label: 'Organizations',     icon: <BusinessIcon />,            path: '/admin/organizations'    },
-      { label: 'Policies',          icon: <PolicyIcon />,              path: '/admin/policies'         },
-      { label: 'Communications',    icon: <ChatIcon />,                path: '/admin/communications'   },
-      { label: 'Email Templates',   icon: <EmailIcon />,               path: '/admin/email-templates'  },
+      { label: 'Organizations', icon: <BusinessIcon />, path: '/admin/organizations' },
+      { label: 'Policies', icon: <PolicyIcon />, path: '/admin/policies' },
+      { label: 'Communications', icon: <ChatIcon />, path: '/admin/communications' },
+      { label: 'Email Templates', icon: <EmailIcon />, path: '/admin/email-templates' },
     ],
   },
   {
     label: 'Reference Data',
     items: [
-      { label: 'Clinician Types',   icon: <MedicalServicesIcon />,     path: '/admin/clinician-types'  },
-      { label: 'Room Types',        icon: <MeetingRoomIcon />,         path: '/admin/room-types'       },
-      { label: 'Languages',         icon: <LanguageIcon />,            path: '/admin/languages'        },
+      { label: 'Clinician Types', icon: <MedicalServicesIcon />, path: '/admin/clinician-types' },
+      { label: 'Room Types', icon: <MeetingRoomIcon />, path: '/admin/room-types' },
+      { label: 'Languages', icon: <LanguageIcon />, path: '/admin/languages' },
     ],
   },
 ]
@@ -70,7 +70,16 @@ export default function AdminLayout() {
           {si > 0 && <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />}
           <Typography
             variant="caption"
-            sx={{ px: 2, display: 'block', mb: 0.5, fontWeight: 700, fontSize: '0.62rem', letterSpacing: 0.8, textTransform: 'uppercase', color: 'text.disabled' }}
+            sx={{
+              px: 2,
+              display: 'block',
+              mb: 0.5,
+              fontWeight: 700,
+              fontSize: '0.62rem',
+              letterSpacing: 0.8,
+              textTransform: 'uppercase',
+              color: 'text.disabled',
+            }}
           >
             {section.label}
           </Typography>
@@ -80,7 +89,10 @@ export default function AdminLayout() {
               return (
                 <ListItemButton
                   key={item.path}
-                  onClick={() => { navigate(item.path); onNavigate?.() }}
+                  onClick={() => {
+                    navigate(item.path)
+                    onNavigate?.()
+                  }}
                   sx={{
                     mx: 1,
                     px: 1.5,
@@ -92,9 +104,7 @@ export default function AdminLayout() {
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32, color: active ? BRAND : '#94A3B8' }}>
-                    {item.icon.type ? (
-                      <item.icon.type sx={{ fontSize: 18, color: active ? BRAND : '#94A3B8' }} />
-                    ) : item.icon}
+                    {item.icon.type ? <item.icon.type sx={{ fontSize: 18, color: active ? BRAND : '#94A3B8' }} /> : item.icon}
                   </ListItemIcon>
                   <ListItemText
                     primary={item.label}
@@ -106,9 +116,7 @@ export default function AdminLayout() {
                       noWrap: true,
                     }}
                   />
-                  {active && (
-                    <Box sx={{ width: 3, height: 24, borderRadius: 4, bgcolor: BRAND, ml: 0.5, flexShrink: 0 }} />
-                  )}
+                  {active && <Box sx={{ width: 3, height: 24, borderRadius: 4, bgcolor: BRAND, ml: 0.5, flexShrink: 0 }} />}
                 </ListItemButton>
               )
             })}
@@ -122,13 +130,17 @@ export default function AdminLayout() {
     <Box sx={{ display: 'flex', minHeight: '100%', flexDirection: { xs: 'column', md: 'row' } }}>
       {/* ── Mobile admin-nav toggle (context/frontend-hard-rules.md §1.3 — drawer pattern, not a fixed permanent panel) ── */}
       <Stack
-        direction="row" alignItems="center" spacing={1}
+        direction="row"
+        alignItems="center"
+        spacing={1}
         sx={{ display: { xs: 'flex', md: 'none' }, px: 2, py: 1, borderBottom: '1px solid #E2E8F0', bgcolor: '#F8FAFC' }}
       >
         <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open admin console menu" size="small">
           <MenuRoundedIcon />
         </IconButton>
-        <Typography variant="body2" fontWeight={700} sx={{ color: BRAND }}>Admin Console</Typography>
+        <Typography variant="body2" fontWeight={700} sx={{ color: BRAND }}>
+          Admin Console
+        </Typography>
       </Stack>
 
       {/* ── Mobile admin sub-nav (temporary drawer) ── */}

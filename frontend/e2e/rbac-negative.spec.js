@@ -13,7 +13,9 @@ const DB_CONTAINER = process.env.E2E_DB_CONTAINER || 'medibook_postgres'
 const DB_NAME = process.env.E2E_DB_NAME || 'medibook_db'
 
 function psql(sql) {
-  return execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -t -A -c "${sql.replace(/"/g, '\\"')}"`).toString().trim()
+  return execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -t -A -c "${sql.replace(/"/g, '\\"')}"`)
+    .toString()
+    .trim()
 }
 
 async function gql(request, token, query, variables) {
@@ -25,7 +27,9 @@ async function gql(request, token, query, variables) {
 }
 
 async function login(request, email, password) {
-  const body = await gql(request, undefined,
+  const body = await gql(
+    request,
+    undefined,
     `mutation Login($input: LoginInput!) { login(input: $input) { ... on AuthPayload { access_token } } }`,
     { input: { email, password } },
   )
@@ -70,7 +74,9 @@ test.describe('Negative RBAC — a caller without a role is actually rejected', 
       `INSERT INTO "Patients" (id, client_org_id, first_name, last_name, date_of_birth, email, phone, address, updated_at)
        VALUES (gen_random_uuid(), '${otherOrgId}', 'E2E', 'CrossOrgPatient', '1990-01-01', 'e2e-crossorg-${Date.now()}@medibook.dev', '+919800000099', '1 Test Road', now())
        RETURNING id;`,
-    ).split('\n')[0].trim()
+    )
+      .split('\n')[0]
+      .trim()
 
     try {
       const token = await login(request, 'manager@medibook.dev', 'Mgr1234!')

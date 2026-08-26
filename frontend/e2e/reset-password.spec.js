@@ -31,7 +31,10 @@ async function gql(request, query, variables) {
 // the only place the real, real raw token is ever observable end to end.
 function extractResetTokenFromLogs(email) {
   const logs = execSync(`docker logs ${BACKEND_CONTAINER} --tail 200`, { encoding: 'utf8' })
-  const line = logs.split('\n').reverse().find((l) => l.includes('[EMAIL STUB] Password reset token for') && l.includes(email))
+  const line = logs
+    .split('\n')
+    .reverse()
+    .find((l) => l.includes('[EMAIL STUB] Password reset token for') && l.includes(email))
   if (!line) throw new Error(`No reset-token log line found for ${email}`)
   const match = line.match(/token for [^:]+:\s*([0-9a-f]+)/)
   if (!match) throw new Error(`Could not parse token from log line: ${line}`)
@@ -41,9 +44,13 @@ function extractResetTokenFromLogs(email) {
 test('a real forgotPassword + resetPassword round trip actually changes the account password', async ({ page, request }) => {
   const { email, password } = await registerDisposableAccount(request, { firstName: 'E2E', lastName: 'ResetFlow' })
 
-  await gql(request, `
+  await gql(
+    request,
+    `
     mutation($input: ForgotPasswordInput!) { forgotPassword(input: $input) { success } }
-  `, { input: { email } })
+  `,
+    { input: { email } },
+  )
 
   const token = extractResetTokenFromLogs(email)
   const newPassword = 'NewE2ePass123'

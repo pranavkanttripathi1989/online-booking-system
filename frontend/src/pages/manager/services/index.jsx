@@ -1,10 +1,33 @@
 import { useState, useEffect } from 'react'
 import { useApolloClient, gql } from '@apollo/client'
 import {
-  Alert, Box, Button, Card, CardContent, CardActions, Chip, CircularProgress,
-  Dialog, DialogTitle, DialogContent, DialogActions, Divider, FormControlLabel, Grid,
-  IconButton, InputAdornment, List, ListItemButton, ListItemText, MenuItem, Paper, Stack,
-  Switch, TextField, Tooltip, Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  CardActions,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Divider,
+  FormControlLabel,
+  Grid,
+  IconButton,
+  InputAdornment,
+  List,
+  ListItemButton,
+  ListItemText,
+  MenuItem,
+  Paper,
+  Stack,
+  Switch,
+  TextField,
+  Tooltip,
+  Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
@@ -28,43 +51,127 @@ const BRAND = '#006D77'
 const GET_SERVICES_DATA = gql`
   query GetServicesData {
     services {
-      id name description duration_minutes price is_active clinic_id gst_rate
-      category { id name }
-      clinicians { id full_name }
+      id
+      name
+      description
+      duration_minutes
+      price
+      is_active
+      clinic_id
+      gst_rate
+      category {
+        id
+        name
+      }
+      clinicians {
+        id
+        full_name
+      }
     }
-    productCategories { id name description is_active }
+    productCategories {
+      id
+      name
+      description
+      is_active
+    }
   }
 `
-const CREATE_SERVICE  = gql`mutation CreateService($input: ServiceInput!) { createService(input: $input) { id } }`
-const UPDATE_SERVICE  = gql`mutation UpdateService($id: ID!, $input: ServiceInput!) { updateService(id: $id, input: $input) { id } }`
+const CREATE_SERVICE = gql`
+  mutation CreateService($input: ServiceInput!) {
+    createService(input: $input) {
+      id
+    }
+  }
+`
+const UPDATE_SERVICE = gql`
+  mutation UpdateService($id: ID!, $input: ServiceInput!) {
+    updateService(id: $id, input: $input) {
+      id
+    }
+  }
+`
 
 // REQ111 — admin UI for REQ055's already-shipped branch-override backend.
 const GET_BRANCH_OVERRIDES = gql`
   query GetProductBranchOverrides {
-    productBranchOverrides { id product_id clinic_id mode override_price }
+    productBranchOverrides {
+      id
+      product_id
+      clinic_id
+      mode
+      override_price
+    }
   }
 `
 const SET_BRANCH_OVERRIDE = gql`
   mutation SetProductBranchOverride($input: SetProductBranchOverrideInput!) {
-    setProductBranchOverride(input: $input) { success userErrors { message } }
+    setProductBranchOverride(input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
   }
 `
 
-const CREATE_CATEGORY = gql`mutation CreateProductCategory($input: CreateProductCategoryInput!) { createProductCategory(input: $input) { success userErrors { message } } }`
-const UPDATE_CATEGORY = gql`mutation UpdateProductCategory($id: ID!, $input: UpdateProductCategoryInput!) { updateProductCategory(id: $id, input: $input) { success userErrors { message } } }`
-const DELETE_CATEGORY = gql`mutation DeleteProductCategory($id: ID!) { deleteProductCategory(id: $id) { success userErrors { message } } }`
+const CREATE_CATEGORY = gql`
+  mutation CreateProductCategory($input: CreateProductCategoryInput!) {
+    createProductCategory(input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
+  }
+`
+const UPDATE_CATEGORY = gql`
+  mutation UpdateProductCategory($id: ID!, $input: UpdateProductCategoryInput!) {
+    updateProductCategory(id: $id, input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
+  }
+`
+const DELETE_CATEGORY = gql`
+  mutation DeleteProductCategory($id: ID!) {
+    deleteProductCategory(id: $id) {
+      success
+      userErrors {
+        message
+      }
+    }
+  }
+`
 
-const dfService  = { name: '', description: '', duration_minutes: '', price: '', is_active: true, gst_rate: '' }
+const dfService = { name: '', description: '', duration_minutes: '', price: '', is_active: true, gst_rate: '' }
 const dfCategory = { name: '', description: '' }
 
 // ─── Mock data fallback (visible banner, not silent — Priority 3 point 3) ─────
 const MOCK_SERVICES = [
-  { id: 'svc-1', name: 'GP Consultation', description: 'Standard GP consultation - 20 minutes', duration_minutes: 20, price: 100, is_active: true, category: null, clinicians: [] },
-  { id: 'svc-2', name: 'Blood Test (Full)', description: 'Comprehensive metabolic panel', duration_minutes: 15, price: 75, is_active: true, category: null, clinicians: [] },
+  {
+    id: 'svc-1',
+    name: 'GP Consultation',
+    description: 'Standard GP consultation - 20 minutes',
+    duration_minutes: 20,
+    price: 100,
+    is_active: true,
+    category: null,
+    clinicians: [],
+  },
+  {
+    id: 'svc-2',
+    name: 'Blood Test (Full)',
+    description: 'Comprehensive metabolic panel',
+    duration_minutes: 15,
+    price: 75,
+    is_active: true,
+    category: null,
+    clinicians: [],
+  },
 ]
-const MOCK_CATEGORIES = [
-  { id: 'cat-1', name: 'Consultations', description: '', is_active: true },
-]
+const MOCK_CATEGORIES = [{ id: 'cat-1', name: 'Consultations', description: '', is_active: true }]
 
 function ServiceCatalog() {
   const client = useApolloClient()
@@ -123,9 +230,14 @@ function ServiceCatalog() {
     }
   }
 
-  useEffect(() => { loadData() }, []) // eslint-disable-line
+  useEffect(() => {
+    loadData()
+  }, []) // eslint-disable-line
 
-  const showSuccess = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000) }
+  const showSuccess = (msg) => {
+    setSuccessMsg(msg)
+    setTimeout(() => setSuccessMsg(null), 3000)
+  }
 
   // ── Service form ──────────────────────────────────────────────────────────
   const openNewService = () => {
@@ -149,7 +261,10 @@ function ServiceCatalog() {
   }
 
   const handleSaveService = async () => {
-    if (!form.name.trim()) { setFormError('Service name is required.'); return }
+    if (!form.name.trim()) {
+      setFormError('Service name is required.')
+      return
+    }
     setSubmitting(true)
     setFormError(null)
     try {
@@ -195,9 +310,7 @@ function ServiceCatalog() {
     const edits = {}
     clinics.forEach((c) => {
       const existing = branchOverrides.find((o) => o.product_id === svc.id && o.clinic_id === c.id)
-      edits[c.id] = existing
-        ? { mode: existing.mode, price: existing.override_price ?? '' }
-        : { mode: 'inherit', price: '' }
+      edits[c.id] = existing ? { mode: existing.mode, price: existing.override_price ?? '' } : { mode: 'inherit', price: '' }
     })
     setBranchEdits(edits)
     setBranchDialogOpen(true)
@@ -209,9 +322,7 @@ function ServiceCatalog() {
 
   const handleSaveBranchPricing = async () => {
     setBranchError(null)
-    const invalid = Object.entries(branchEdits).find(
-      ([, e]) => e.mode === 'override' && (e.price === '' || e.price == null)
-    )
+    const invalid = Object.entries(branchEdits).find(([, e]) => e.mode === 'override' && (e.price === '' || e.price == null))
     if (invalid) {
       setBranchError('An override requires at least a price value.')
       return
@@ -251,11 +362,24 @@ function ServiceCatalog() {
   }
 
   // ── Category form ─────────────────────────────────────────────────────────
-  const openNewCategory = () => { setEditCat(null); setCatForm(dfCategory); setFormError(null); setShowCatForm(true) }
-  const openEditCategory = (cat) => { setEditCat(cat); setCatForm({ name: cat.name, description: cat.description || '' }); setFormError(null); setShowCatForm(true) }
+  const openNewCategory = () => {
+    setEditCat(null)
+    setCatForm(dfCategory)
+    setFormError(null)
+    setShowCatForm(true)
+  }
+  const openEditCategory = (cat) => {
+    setEditCat(cat)
+    setCatForm({ name: cat.name, description: cat.description || '' })
+    setFormError(null)
+    setShowCatForm(true)
+  }
 
   const handleSaveCategory = async () => {
-    if (!catForm.name.trim()) { setFormError('Category name is required.'); return }
+    if (!catForm.name.trim()) {
+      setFormError('Category name is required.')
+      return
+    }
     setSubmitting(true)
     setFormError(null)
     try {
@@ -275,7 +399,10 @@ function ServiceCatalog() {
     }
   }
 
-  const handleDeleteCategory = (cat) => { setDeleteTarget({ type: 'category', id: cat.id, name: cat.name }); setConfirmOpen(true) }
+  const handleDeleteCategory = (cat) => {
+    setDeleteTarget({ type: 'category', id: cat.id, name: cat.name })
+    setConfirmOpen(true)
+  }
   const confirmDelete = async () => {
     setConfirmOpen(false)
     if (!deleteTarget) return
@@ -301,10 +428,23 @@ function ServiceCatalog() {
     displayServices = displayServices.filter((s) => s.name.toLowerCase().includes(q))
   }
 
-  if (loading) return <Box p={4} display="flex" justifyContent="center"><CircularProgress /></Box>
+  if (loading)
+    return (
+      <Box p={4} display="flex" justifyContent="center">
+        <CircularProgress />
+      </Box>
+    )
 
   return (
-    <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto" display="flex" gap={4} flexDirection={{ xs: 'column', md: 'row' }} alignItems="flex-start">
+    <Box
+      p={{ xs: 2, md: 4 }}
+      maxWidth="xl"
+      mx="auto"
+      display="flex"
+      gap={4}
+      flexDirection={{ xs: 'column', md: 'row' }}
+      alignItems="flex-start"
+    >
       {isMockData && (
         <Box sx={{ width: '100%' }}>
           <Alert severity="info" sx={{ borderRadius: 2 }}>
@@ -312,7 +452,13 @@ function ServiceCatalog() {
           </Alert>
         </Box>
       )}
-      {successMsg && <Box sx={{ width: '100%' }}><Alert severity="success" sx={{ borderRadius: 2 }}>{successMsg}</Alert></Box>}
+      {successMsg && (
+        <Box sx={{ width: '100%' }}>
+          <Alert severity="success" sx={{ borderRadius: 2 }}>
+            {successMsg}
+          </Alert>
+        </Box>
+      )}
 
       {/* LEFT SIDEBAR: CATEGORIES — real backend CRUD (productCategories);
           services aren't assignable to a category yet (ServiceInput has no
@@ -331,11 +477,17 @@ function ServiceCatalog() {
               onClick={() => setSelectedCategoryId(null)}
               sx={{ borderRadius: 1.5, mb: 0.5, '&.Mui-selected': { bgcolor: '#E0F2F1' } }}
             >
-              <ListItemText primary={
-                <Typography variant="body2" fontWeight={selectedCategoryId === null ? 700 : 500} color={selectedCategoryId === null ? BRAND : 'text.primary'}>
-                  All Services
-                </Typography>
-              } />
+              <ListItemText
+                primary={
+                  <Typography
+                    variant="body2"
+                    fontWeight={selectedCategoryId === null ? 700 : 500}
+                    color={selectedCategoryId === null ? BRAND : 'text.primary'}
+                  >
+                    All Services
+                  </Typography>
+                }
+              />
             </ListItemButton>
 
             {categories.map((cat) => (
@@ -345,22 +497,49 @@ function ServiceCatalog() {
                 onClick={() => setSelectedCategoryId(cat.id)}
                 sx={{ borderRadius: 1.5, mb: 0.5, '&.Mui-selected': { bgcolor: '#E0F2F1' } }}
               >
-                <ListItemText primary={
-                  <Typography variant="body2" fontWeight={selectedCategoryId === cat.id ? 700 : 500} color={selectedCategoryId === cat.id ? BRAND : 'text.primary'}>
-                    {cat.name}
-                  </Typography>
-                } />
-                <IconButton size="small" aria-label={`Edit category ${cat.name}`} onClick={(e) => { e.stopPropagation(); openEditCategory(cat) }}>
+                <ListItemText
+                  primary={
+                    <Typography
+                      variant="body2"
+                      fontWeight={selectedCategoryId === cat.id ? 700 : 500}
+                      color={selectedCategoryId === cat.id ? BRAND : 'text.primary'}
+                    >
+                      {cat.name}
+                    </Typography>
+                  }
+                />
+                <IconButton
+                  size="small"
+                  aria-label={`Edit category ${cat.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    openEditCategory(cat)
+                  }}
+                >
                   <EditIcon fontSize="inherit" />
                 </IconButton>
-                <IconButton size="small" aria-label={`Delete category ${cat.name}`} onClick={(e) => { e.stopPropagation(); handleDeleteCategory(cat) }}>
+                <IconButton
+                  size="small"
+                  aria-label={`Delete category ${cat.name}`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    handleDeleteCategory(cat)
+                  }}
+                >
                   <DeleteIcon fontSize="inherit" />
                 </IconButton>
               </ListItemButton>
             ))}
           </List>
 
-          <Button startIcon={<AddIcon />} fullWidth size="small" variant="outlined" sx={{ mt: 3, borderStyle: 'dashed' }} onClick={openNewCategory}>
+          <Button
+            startIcon={<AddIcon />}
+            fullWidth
+            size="small"
+            variant="outlined"
+            sx={{ mt: 3, borderStyle: 'dashed' }}
+            onClick={openNewCategory}
+          >
             Add Category
           </Button>
         </Paper>
@@ -368,12 +547,20 @@ function ServiceCatalog() {
 
       {/* RIGHT AREA: SERVICES GRID */}
       <Box flexGrow={1} width="100%">
-        <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'flex-start', sm: 'center' }} mb={3} gap={2}>
+        <Stack
+          direction={{ xs: 'column', sm: 'row' }}
+          justifyContent="space-between"
+          alignItems={{ xs: 'flex-start', sm: 'center' }}
+          mb={3}
+          gap={2}
+        >
           <Box>
             <Typography variant="h5" fontWeight={800}>
               {selectedCategoryId ? categories.find((c) => c.id === selectedCategoryId)?.name || 'Category' : 'All Services'}
             </Typography>
-            <Typography variant="body2" color="text.secondary">{displayServices.length} items found</Typography>
+            <Typography variant="body2" color="text.secondary">
+              {displayServices.length} items found
+            </Typography>
           </Box>
 
           <Stack direction="row" gap={2} width={{ xs: '100%', sm: 'auto' }}>
@@ -382,10 +569,21 @@ function ServiceCatalog() {
               placeholder="Search..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              InputProps={{ startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment> }}
+              InputProps={{
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              }}
               sx={{ bgcolor: 'white', borderRadius: 1 }}
             />
-            <Button variant="contained" startIcon={<AddIcon />} onClick={openNewService} sx={{ whiteSpace: 'nowrap', bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={openNewService}
+              sx={{ whiteSpace: 'nowrap', bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+            >
               Add Service
             </Button>
           </Stack>
@@ -401,11 +599,18 @@ function ServiceCatalog() {
           ) : (
             displayServices.map((svc) => (
               <Grid item xs={12} sm={6} lg={4} xl={3} key={svc.id}>
-                <Card elevation={0} sx={{
-                  border: '1px solid #E2E8F0', borderRadius: 3, height: '100%',
-                  display: 'flex', flexDirection: 'column', transition: 'all 0.2s ease',
-                  '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 28px rgba(0,109,119,0.12)', borderColor: BRAND },
-                }}>
+                <Card
+                  elevation={0}
+                  sx={{
+                    border: '1px solid #E2E8F0',
+                    borderRadius: 3,
+                    height: '100%',
+                    display: 'flex',
+                    flexDirection: 'column',
+                    transition: 'all 0.2s ease',
+                    '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 28px rgba(0,109,119,0.12)', borderColor: BRAND },
+                  }}
+                >
                   <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
                     <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
                       {svc.category ? <Chip label={svc.category.name} size="small" sx={{ fontWeight: 600, height: 24 }} /> : <Box />}
@@ -418,8 +623,14 @@ function ServiceCatalog() {
                       />
                     </Stack>
 
-                    <Typography variant="h6" fontWeight={700} lineHeight={1.3} mt={1} mb={0.5}>{svc.name}</Typography>
-                    <Typography variant="body2" color="text.secondary" sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40 }}>
+                    <Typography variant="h6" fontWeight={700} lineHeight={1.3} mt={1} mb={0.5}>
+                      {svc.name}
+                    </Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      sx={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden', minHeight: 40 }}
+                    >
                       {svc.description || 'No description provided.'}
                     </Typography>
 
@@ -434,7 +645,11 @@ function ServiceCatalog() {
                   </CardContent>
 
                   <CardActions sx={{ px: 2, pb: 2, pt: 0, justifyContent: 'flex-end' }}>
-                    <Tooltip title={svc.clinic_id ? 'This service is not an org-level master and cannot be overridden per branch' : 'Branch pricing'}>
+                    <Tooltip
+                      title={
+                        svc.clinic_id ? 'This service is not an org-level master and cannot be overridden per branch' : 'Branch pricing'
+                      }
+                    >
                       <span>
                         <IconButton
                           size="small"
@@ -447,7 +662,12 @@ function ServiceCatalog() {
                         </IconButton>
                       </span>
                     </Tooltip>
-                    <IconButton size="small" aria-label={`Edit service ${svc.name}`} onClick={() => openEditService(svc)} sx={{ bgcolor: 'action.hover' }}>
+                    <IconButton
+                      size="small"
+                      aria-label={`Edit service ${svc.name}`}
+                      onClick={() => openEditService(svc)}
+                      sx={{ bgcolor: 'action.hover' }}
+                    >
                       <EditIcon fontSize="small" />
                     </IconButton>
                   </CardActions>
@@ -462,23 +682,46 @@ function ServiceCatalog() {
       <Dialog open={showForm} onClose={() => setShowForm(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
         <DialogTitle>{editService ? 'Edit Service' : 'Add New Service'}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
+          {formError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {formError}
+            </Alert>
+          )}
           <Stack spacing={2.5} mt={0.5}>
-            <TextField fullWidth label="Service Name" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-            <TextField fullWidth multiline rows={3} label="Description" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
             <TextField
-              fullWidth label="Duration (minutes)" type="number"
+              fullWidth
+              label="Service Name"
+              value={form.name}
+              onChange={(e) => setForm({ ...form, name: e.target.value })}
+              required
+            />
+            <TextField
+              fullWidth
+              multiline
+              rows={3}
+              label="Description"
+              value={form.description}
+              onChange={(e) => setForm({ ...form, description: e.target.value })}
+            />
+            <TextField
+              fullWidth
+              label="Duration (minutes)"
+              type="number"
               value={form.duration_minutes}
               onChange={(e) => setForm({ ...form, duration_minutes: e.target.value })}
             />
             <TextField
-              fullWidth label="Price (₹)" type="number"
+              fullWidth
+              label="Price (₹)"
+              type="number"
               value={form.price}
               onChange={(e) => setForm({ ...form, price: e.target.value })}
               InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
             />
             <TextField
-              fullWidth label="GST Rate (%)" type="number"
+              fullWidth
+              label="GST Rate (%)"
+              type="number"
               value={form.gst_rate}
               onChange={(e) => setForm({ ...form, gst_rate: e.target.value })}
               helperText="Leave blank until this service's GST treatment is confirmed"
@@ -490,8 +733,15 @@ function ServiceCatalog() {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, borderTop: '1px solid #E2E8F0', gap: 1 }}>
-          <Button onClick={() => setShowForm(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveService} disabled={submitting || !form.name.trim()} sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>
+          <Button onClick={() => setShowForm(false)} sx={{ color: 'text.secondary' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveService}
+            disabled={submitting || !form.name.trim()}
+            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+          >
             {submitting ? 'Saving...' : 'Save Service'}
           </Button>
         </DialogActions>
@@ -501,40 +751,72 @@ function ServiceCatalog() {
       <Dialog open={showCatForm} onClose={() => setShowCatForm(false)} maxWidth="xs" fullWidth>
         <DialogTitle>{editCat ? 'Edit Category' : 'Add Category'}</DialogTitle>
         <DialogContent>
-          {formError && <Alert severity="error" sx={{ mb: 2 }}>{formError}</Alert>}
+          {formError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {formError}
+            </Alert>
+          )}
           <TextField
-            fullWidth margin="dense" label="Category Name"
+            fullWidth
+            margin="dense"
+            label="Category Name"
             value={catForm.name}
             onChange={(e) => setCatForm({ ...catForm, name: e.target.value })}
           />
           <TextField
-            fullWidth margin="dense" label="Description" multiline rows={2}
+            fullWidth
+            margin="dense"
+            label="Description"
+            multiline
+            rows={2}
             value={catForm.description}
             onChange={(e) => setCatForm({ ...catForm, description: e.target.value })}
           />
         </DialogContent>
         <DialogActions sx={{ p: 2, gap: 1 }}>
-          <Button onClick={() => setShowCatForm(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
-          <Button variant="contained" disabled={submitting || !catForm.name.trim()} onClick={handleSaveCategory} sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>
+          <Button onClick={() => setShowCatForm(false)} sx={{ color: 'text.secondary' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={submitting || !catForm.name.trim()}
+            onClick={handleSaveCategory}
+            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+          >
             {editCat ? 'Save Changes' : 'Add Category'}
           </Button>
         </DialogActions>
       </Dialog>
 
       {/* BRANCH PRICING DIALOG (REQ111) */}
-      <Dialog open={branchDialogOpen} onClose={() => setBranchDialogOpen(false)} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <Dialog
+        open={branchDialogOpen}
+        onClose={() => setBranchDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
         <DialogTitle>Branch pricing — {branchDialogService?.name}</DialogTitle>
         <DialogContent sx={{ pt: 2 }}>
-          {branchError && <Alert severity="error" sx={{ mb: 2 }}>{branchError}</Alert>}
+          {branchError && (
+            <Alert severity="error" sx={{ mb: 2 }}>
+              {branchError}
+            </Alert>
+          )}
           {clinics.length === 0 && <Typography color="text.secondary">No branches found for this organization.</Typography>}
           <Stack divider={<Divider />} spacing={2}>
             {clinics.map((c) => {
               const edit = branchEdits[c.id] || { mode: 'inherit', price: '' }
               return (
                 <Stack key={c.id} direction="row" spacing={2} alignItems="center" pt={1}>
-                  <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 600 }}>{c.name}</Typography>
+                  <Typography variant="body2" sx={{ flexGrow: 1, fontWeight: 600 }}>
+                    {c.name}
+                  </Typography>
                   <TextField
-                    select size="small" value={edit.mode} sx={{ width: 140 }}
+                    select
+                    size="small"
+                    value={edit.mode}
+                    sx={{ width: 140 }}
                     onChange={(e) => setBranchEdit(c.id, { mode: e.target.value })}
                   >
                     <MenuItem value="inherit">Inherit</MenuItem>
@@ -543,7 +825,10 @@ function ServiceCatalog() {
                   </TextField>
                   {edit.mode === 'override' && (
                     <TextField
-                      size="small" type="number" label="Price (₹)" sx={{ width: 140 }}
+                      size="small"
+                      type="number"
+                      label="Price (₹)"
+                      sx={{ width: 140 }}
                       value={edit.price}
                       onChange={(e) => setBranchEdit(c.id, { price: e.target.value })}
                       InputProps={{ startAdornment: <InputAdornment position="start">₹</InputAdornment> }}
@@ -555,8 +840,15 @@ function ServiceCatalog() {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ p: 3, borderTop: '1px solid #E2E8F0', gap: 1 }}>
-          <Button onClick={() => setBranchDialogOpen(false)} sx={{ color: 'text.secondary' }}>Cancel</Button>
-          <Button variant="contained" onClick={handleSaveBranchPricing} disabled={branchSaving} sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}>
+          <Button onClick={() => setBranchDialogOpen(false)} sx={{ color: 'text.secondary' }}>
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            onClick={handleSaveBranchPricing}
+            disabled={branchSaving}
+            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+          >
             {branchSaving ? 'Saving...' : 'Save'}
           </Button>
         </DialogActions>
@@ -567,7 +859,10 @@ function ServiceCatalog() {
         title="Delete Category"
         message={deleteTarget ? `Delete "${deleteTarget.name}"? This cannot be undone.` : ''}
         onConfirm={confirmDelete}
-        onCancel={() => { setConfirmOpen(false); setDeleteTarget(null) }}
+        onCancel={() => {
+          setConfirmOpen(false)
+          setDeleteTarget(null)
+        }}
       />
     </Box>
   )
@@ -575,5 +870,9 @@ function ServiceCatalog() {
 
 export { ServiceCatalog }
 export default function ServiceCatalogWithBoundary() {
-  return <ErrorBoundary><ServiceCatalog /></ErrorBoundary>
+  return (
+    <ErrorBoundary>
+      <ServiceCatalog />
+    </ErrorBoundary>
+  )
 }

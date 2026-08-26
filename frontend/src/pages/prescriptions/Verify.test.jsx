@@ -27,7 +27,7 @@ function renderPage({ path = '/prescriptions/verify', mocks = [] } = {}) {
           <VerifyPrescription />
         </MockedProvider>
       </MemoryRouter>
-    </HelmetProvider>
+    </HelmetProvider>,
   )
 }
 
@@ -39,19 +39,21 @@ describe('prescriptions/Verify (REQ136)', () => {
   })
 
   it('shows a success state with the formatted verification code for a valid prescription', async () => {
-    const mocks = [{
-      request: { query: VERIFY_PRESCRIPTION, variables: { id: 'rx-123' } },
-      result: {
-        data: {
-          verifyPrescriptionIntegrity: {
-            prescription_id: 'rx-123',
-            valid: true,
-            stored_hash: 'abcdef012345',
-            computed_hash: 'abcdef012345',
+    const mocks = [
+      {
+        request: { query: VERIFY_PRESCRIPTION, variables: { id: 'rx-123' } },
+        result: {
+          data: {
+            verifyPrescriptionIntegrity: {
+              prescription_id: 'rx-123',
+              valid: true,
+              stored_hash: 'abcdef012345',
+              computed_hash: 'abcdef012345',
+            },
           },
         },
       },
-    }]
+    ]
     renderPage({ path: '/prescriptions/verify?id=rx-123', mocks })
 
     fireEvent.click(screen.getByRole('button', { name: 'Verify' }))
@@ -61,19 +63,21 @@ describe('prescriptions/Verify (REQ136)', () => {
   })
 
   it('shows a tamper-warning state for an invalid prescription', async () => {
-    const mocks = [{
-      request: { query: VERIFY_PRESCRIPTION, variables: { id: 'rx-456' } },
-      result: {
-        data: {
-          verifyPrescriptionIntegrity: {
-            prescription_id: 'rx-456',
-            valid: false,
-            stored_hash: 'abcdef012345',
-            computed_hash: 'ffffff999999',
+    const mocks = [
+      {
+        request: { query: VERIFY_PRESCRIPTION, variables: { id: 'rx-456' } },
+        result: {
+          data: {
+            verifyPrescriptionIntegrity: {
+              prescription_id: 'rx-456',
+              valid: false,
+              stored_hash: 'abcdef012345',
+              computed_hash: 'ffffff999999',
+            },
           },
         },
       },
-    }]
+    ]
     renderPage({ mocks })
 
     fireEvent.change(screen.getByLabelText('Prescription ID'), { target: { value: 'rx-456' } })
@@ -84,19 +88,21 @@ describe('prescriptions/Verify (REQ136)', () => {
   })
 
   it('shows an honest "no verification code on file" state for a legacy prescription with no stored hash', async () => {
-    const mocks = [{
-      request: { query: VERIFY_PRESCRIPTION, variables: { id: 'rx-legacy' } },
-      result: {
-        data: {
-          verifyPrescriptionIntegrity: {
-            prescription_id: 'rx-legacy',
-            valid: true,
-            stored_hash: null,
-            computed_hash: null,
+    const mocks = [
+      {
+        request: { query: VERIFY_PRESCRIPTION, variables: { id: 'rx-legacy' } },
+        result: {
+          data: {
+            verifyPrescriptionIntegrity: {
+              prescription_id: 'rx-legacy',
+              valid: true,
+              stored_hash: null,
+              computed_hash: null,
+            },
           },
         },
       },
-    }]
+    ]
     renderPage({ mocks })
 
     fireEvent.change(screen.getByLabelText('Prescription ID'), { target: { value: 'rx-legacy' } })

@@ -39,14 +39,22 @@ let unbilledAppointmentId
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = authData.login.access_token
 
-  const clinicianData = await gql(request, managerToken, `
+  const clinicianData = await gql(
+    request,
+    managerToken,
+    `
     query { clinician(id: "${REAL_CLINICIAN_ID}") { clinics { id } } }
-  `)
+  `,
+  )
   const clinicId = clinicianData.clinician.clinics[0]?.id
   if (!clinicId) throw new Error('The real seeded clinician has no linked clinic — cannot create test appointments')
 
@@ -61,14 +69,23 @@ test.beforeAll(async ({ playwright }) => {
   // another spec's own fixture appointments.
   const slots = ['2027-03-01T09:00:00.000Z', '2027-03-01T09:30:00.000Z', '2027-03-01T10:00:00.000Z']
   for (let i = 0; i < 3; i++) {
-    const apptData = await gql(request, managerToken, `
+    const apptData = await gql(
+      request,
+      managerToken,
+      `
       mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-    `, {
-      input: {
-        patient_id: patientIds[i], clinician_id: REAL_CLINICIAN_ID, service_id: serviceId,
-        clinic_id: clinicId, start_datetime: slots[i], notes: 'REQ019-E2E-PROBE',
+    `,
+      {
+        input: {
+          patient_id: patientIds[i],
+          clinician_id: REAL_CLINICIAN_ID,
+          service_id: serviceId,
+          clinic_id: clinicId,
+          start_datetime: slots[i],
+          notes: 'REQ019-E2E-PROBE',
+        },
       },
-    })
+    )
     appointmentIds.push(apptData.createAppointment.id)
     // Checking in (not just creating) is what materializes the QueueEntries
     // row -- see queue.service.ts's syncFromAppointmentStatus(), hooked
@@ -80,14 +97,23 @@ test.beforeAll(async ({ playwright }) => {
   // visits report target. Not checked in via the queue; completing it
   // directly still exercises transitionStatus()'s no-op sync path (no
   // queue entry exists for it) alongside the report itself.
-  const unbilledAppt = await gql(request, managerToken, `
+  const unbilledAppt = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, {
-    input: {
-      patient_id: patientIds[0], clinician_id: REAL_CLINICIAN_ID, service_id: serviceId,
-      clinic_id: clinicId, start_datetime: '2027-03-01T11:00:00.000Z', notes: 'REQ019-E2E-PROBE-UNBILLED',
+  `,
+    {
+      input: {
+        patient_id: patientIds[0],
+        clinician_id: REAL_CLINICIAN_ID,
+        service_id: serviceId,
+        clinic_id: clinicId,
+        start_datetime: '2027-03-01T11:00:00.000Z',
+        notes: 'REQ019-E2E-PROBE-UNBILLED',
+      },
     },
-  })
+  )
   unbilledAppointmentId = unbilledAppt.createAppointment.id
   await gql(request, managerToken, `mutation($id: ID!) { completeAppointment(id: $id) { id } }`, { id: unbilledAppointmentId })
 
@@ -131,9 +157,7 @@ test('front desk manages the live queue: call next, skip, transfer, and the unbi
   // Skip the next waiting patient -- dialog confirms, entry leaves "waiting".
   const skipButton = page.getByRole('button', { name: 'Skip / park' }).first()
   await skipButton.click()
-  const skipResponse = page.waitForResponse(
-    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('skipQueueEntry'),
-  )
+  const skipResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('skipQueueEntry'))
   await page.getByRole('button', { name: 'Skip', exact: true }).click()
   await skipResponse
   await expect(page.getByText('Waiting (1)')).toBeVisible({ timeout: 15_000 })

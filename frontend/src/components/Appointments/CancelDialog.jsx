@@ -1,13 +1,5 @@
 import { useState } from 'react'
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-  TextField,
-} from '@mui/material'
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle, TextField } from '@mui/material'
 import CancelIcon from '@mui/icons-material/Cancel'
 
 /**
@@ -40,8 +32,7 @@ export default function CancelDialog({ open, appointmentId, onClose, onConfirm }
       </DialogTitle>
       <DialogContent>
         <DialogContentText mb={2}>
-          Are you sure you want to cancel this appointment? This action cannot be
-          undone. Optionally, provide a reason below.
+          Are you sure you want to cancel this appointment? This action cannot be undone. Optionally, provide a reason below.
         </DialogContentText>
         <TextField
           autoFocus
@@ -55,7 +46,9 @@ export default function CancelDialog({ open, appointmentId, onClose, onConfirm }
         />
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={handleClose} variant="outlined">Keep Appointment</Button>
+        <Button onClick={handleClose} variant="outlined">
+          Keep Appointment
+        </Button>
         <Button onClick={handleConfirm} variant="contained" color="error" startIcon={<CancelIcon />}>
           Cancel Appointment
         </Button>

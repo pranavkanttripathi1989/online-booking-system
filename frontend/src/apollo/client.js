@@ -1,10 +1,4 @@
-import {
-  ApolloClient,
-  InMemoryCache,
-  createHttpLink,
-  ApolloLink,
-  fromPromise,
-} from '@apollo/client'
+import { ApolloClient, InMemoryCache, createHttpLink, ApolloLink, fromPromise } from '@apollo/client'
 import { onError } from '@apollo/client/link/error'
 
 const GRAPHQL_URL = import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql'
@@ -26,10 +20,9 @@ const httpLink = createHttpLink({
   credentials: 'include',
   headers: { Accept: 'application/json' },
   fetch: (uri, options) => {
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 10000);
-    return fetch(uri, { ...options, signal: controller.signal })
-      .finally(() => clearTimeout(timeoutId));
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 10000)
+    return fetch(uri, { ...options, signal: controller.signal }).finally(() => clearTimeout(timeoutId))
   },
 })
 
@@ -68,7 +61,10 @@ function requestRefresh() {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query: 'mutation SilentRefresh($input: RefreshInput!) { refresh(input: $input) { access_token } }', variables: { input: {} } }),
+    body: JSON.stringify({
+      query: 'mutation SilentRefresh($input: RefreshInput!) { refresh(input: $input) { access_token } }',
+      variables: { input: {} },
+    }),
   }).then((res) => res.json())
 }
 
@@ -136,19 +132,18 @@ const apolloClient = new ApolloClient({
   cache: new InMemoryCache({
     typePolicies: {
       Appointment: { keyFields: ['id'] },
-      Clinician:   { keyFields: ['id'] },
-      Patient:     { keyFields: ['id'] },
-      TimeSlot:    { keyFields: ['id'] },
+      Clinician: { keyFields: ['id'] },
+      Patient: { keyFields: ['id'] },
+      TimeSlot: { keyFields: ['id'] },
     },
   }),
   defaultOptions: {
     // cache-first: show cache instantly, then refresh in background.
     // This means pages render immediately on revisit without waiting for network.
     watchQuery: { errorPolicy: 'all', fetchPolicy: 'cache-first' },
-    query:      { errorPolicy: 'all', fetchPolicy: 'cache-first' },
+    query: { errorPolicy: 'all', fetchPolicy: 'cache-first' },
   },
   connectToDevTools: false, // avoids Apollo DevTools overhead in dev
 })
 
 export default apolloClient
-

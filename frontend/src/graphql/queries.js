@@ -7,7 +7,9 @@ export const USER_FIELDS = gql`
     id
     name
     email
-    roles { name }
+    roles {
+      name
+    }
   }
 `
 
@@ -43,7 +45,10 @@ export const APPOINTMENT_FIELDS = gql`
       last_name
       full_name
       avatar_url
-      clinician_type { id name }
+      clinician_type {
+        id
+        name
+      }
     }
     clinic {
       id
@@ -52,9 +57,20 @@ export const APPOINTMENT_FIELDS = gql`
       city
       timezone
     }
-    room { id name }
-    service { id name duration_minutes price }
-    booked_by_user { id name }
+    room {
+      id
+      name
+    }
+    service {
+      id
+      name
+      duration_minutes
+      price
+    }
+    booked_by_user {
+      id
+      name
+    }
   }
 `
 
@@ -70,9 +86,22 @@ export const CLINICIAN_FIELDS = gql`
     is_active
     gender
     languages
-    clinician_type { id name description }
-    clinics { id name city }
-    services { id name duration_minutes price }
+    clinician_type {
+      id
+      name
+      description
+    }
+    clinics {
+      id
+      name
+      city
+    }
+    services {
+      id
+      name
+      duration_minutes
+      price
+    }
     registration_number
     medical_council
     verification_status
@@ -106,7 +135,10 @@ export const ME_QUERY = gql`
         id
         full_name
         avatar_url
-        clinician_type { id name }
+        clinician_type {
+          id
+          name
+        }
       }
       patient {
         id
@@ -138,12 +170,28 @@ export const DASHBOARD_QUERY = gql`
         start_datetime
         end_datetime
         status
-        patient { id full_name }
-        clinician { id full_name }
-        service { id name }
+        patient {
+          id
+          full_name
+        }
+        clinician {
+          id
+          full_name
+        }
+        service {
+          id
+          name
+        }
       }
       utilisation_by_clinician {
-        clinician { id full_name avatar_url clinician_type { name } }
+        clinician {
+          id
+          full_name
+          avatar_url
+          clinician_type {
+            name
+          }
+        }
         slots_available
         slots_booked
         utilisation_percent
@@ -164,11 +212,7 @@ export const DASHBOARD_QUERY = gql`
 // ─── Appointments ─────────────────────────────────────────────────────────────
 
 export const APPOINTMENTS_QUERY = gql`
-  query Appointments(
-    $filters: AppointmentFilters
-    $first: Int = 20
-    $page: Int
-  ) {
+  query Appointments($filters: AppointmentFilters, $first: Int = 20, $page: Int) {
     appointments(filters: $filters, first: $first, page: $page) {
       data {
         ...AppointmentFields
@@ -197,7 +241,10 @@ export const APPOINTMENT_DETAIL_QUERY = gql`
         status
         reason
         created_at
-        changed_by_user { id name }
+        changed_by_user {
+          id
+          name
+        }
       }
     }
   }
@@ -207,22 +254,17 @@ export const APPOINTMENT_DETAIL_QUERY = gql`
 // ─── Availability ─────────────────────────────────────────────────────────────
 
 export const AVAILABLE_SLOTS_QUERY = gql`
-  query AvailableSlots(
-    $clinician_id: ID!
-    $date: Date!
-    $service_id: ID
-  ) {
-    availableSlots(
-      clinician_id: $clinician_id
-      date: $date
-      service_id: $service_id
-    ) {
+  query AvailableSlots($clinician_id: ID!, $date: Date!, $service_id: ID) {
+    availableSlots(clinician_id: $clinician_id, date: $date, service_id: $service_id) {
       id
       start_datetime
       end_datetime
       duration_minutes
       is_available
-      clinician { id full_name }
+      clinician {
+        id
+        full_name
+      }
     }
   }
 `
@@ -239,8 +281,14 @@ export const AVAILABILITY_TEMPLATES_QUERY = gql`
       is_active
       effective_from
       effective_to
-      clinic { id name }
-      room { id name }
+      clinic {
+        id
+        name
+      }
+      room {
+        id
+        name
+      }
     }
   }
 `
@@ -248,18 +296,8 @@ export const AVAILABILITY_TEMPLATES_QUERY = gql`
 // ─── Clinicians ───────────────────────────────────────────────────────────────
 
 export const CLINICIANS_QUERY = gql`
-  query Clinicians(
-    $clinic_id: ID
-    $is_active: Boolean
-    $first: Int = 20
-    $page: Int
-  ) {
-    clinicians(
-      clinic_id: $clinic_id
-      is_active: $is_active
-      first: $first
-      page: $page
-    ) {
+  query Clinicians($clinic_id: ID, $is_active: Boolean, $first: Int = 20, $page: Int) {
+    clinicians(clinic_id: $clinic_id, is_active: $is_active, first: $first, page: $page) {
       data {
         ...ClinicianFields
       }
@@ -288,8 +326,14 @@ export const CLINICIAN_DETAIL_QUERY = gql`
         is_active
         effective_from
         effective_to
-        clinic { id name }
-        room { id name }
+        clinic {
+          id
+          name
+        }
+        room {
+          id
+          name
+        }
       }
     }
   }
@@ -299,11 +343,7 @@ export const CLINICIAN_DETAIL_QUERY = gql`
 // ─── Patients ─────────────────────────────────────────────────────────────────
 
 export const PATIENTS_QUERY = gql`
-  query Patients(
-    $search: String
-    $first: Int = 20
-    $page: Int
-  ) {
+  query Patients($search: String, $first: Int = 20, $page: Int) {
     patients(search: $search, first: $first, page: $page) {
       data {
         ...PatientFields
@@ -331,9 +371,18 @@ export const PATIENT_DETAIL_QUERY = gql`
           start_datetime
           end_datetime
           status
-          clinician { id full_name }
-          service { id name }
-          clinic { id name }
+          clinician {
+            id
+            full_name
+          }
+          service {
+            id
+            name
+          }
+          clinic {
+            id
+            name
+          }
         }
         paginatorInfo {
           total
@@ -375,8 +424,14 @@ export const SERVICES_QUERY = gql`
       duration_minutes
       price
       is_active
-      category { id name }
-      clinicians { id full_name }
+      category {
+        id
+        name
+      }
+      clinicians {
+        id
+        full_name
+      }
     }
   }
 `
@@ -390,7 +445,10 @@ export const ROOMS_QUERY = gql`
       name
       capacity
       is_active
-      clinic { id name }
+      clinic {
+        id
+        name
+      }
     }
   }
 `
@@ -398,19 +456,8 @@ export const ROOMS_QUERY = gql`
 // ─── Availabilities (for Calendar Room View overlay) ─────────────────────────
 
 export const AVAILABILITIES_QUERY = gql`
-  query Availabilities(
-    $clinic_id: ID
-    $room_ids: [ID]
-    $start_date: Date
-    $end_date: Date
-  ) {
-    availabilities(
-      clinic_id: $clinic_id
-      room_ids: $room_ids
-      start_date: $start_date
-      end_date: $end_date
-      first: 200
-    ) {
+  query Availabilities($clinic_id: ID, $room_ids: [ID], $start_date: Date, $end_date: Date) {
+    availabilities(clinic_id: $clinic_id, room_ids: $room_ids, start_date: $start_date, end_date: $end_date, first: 200) {
       data {
         id
         day_of_week
@@ -422,9 +469,20 @@ export const AVAILABILITIES_QUERY = gql`
         valid_from
         valid_until
         is_active
-        room { id name }
-        clinician { id full_name first_name last_name }
-        clinic { id name }
+        room {
+          id
+          name
+        }
+        clinician {
+          id
+          full_name
+          first_name
+          last_name
+        }
+        clinic {
+          id
+          name
+        }
       }
     }
   }
@@ -474,10 +532,24 @@ export const SERVICE_DETAIL_QUERY = gql`
       duration_minutes
       price
       is_active
-      category { id name }
-      clinicians { id full_name }
-      category_pricing { general corporate staff camp }
-      channel_pricing { online walkin }
+      category {
+        id
+        name
+      }
+      clinicians {
+        id
+        full_name
+      }
+      category_pricing {
+        general
+        corporate
+        staff
+        camp
+      }
+      channel_pricing {
+        online
+        walkin
+      }
       prepayment_policy
     }
   }
@@ -492,7 +564,10 @@ export const ROOM_DETAIL_QUERY = gql`
       name
       capacity
       is_active
-      clinic { id name }
+      clinic {
+        id
+        name
+      }
     }
   }
 `

@@ -116,8 +116,7 @@ test('avatar upload persists a real photo via POST /account/avatar', async ({ pa
   await page.goto('/settings')
 
   // Minimal valid 1x1 red PNG, built inline so the spec has no binary fixture dependency.
-  const pngBase64 =
-    'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+  const pngBase64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
   await page.locator('input[type="file"]').setInputFiles({
     name: 'avatar.png',
     mimeType: 'image/png',

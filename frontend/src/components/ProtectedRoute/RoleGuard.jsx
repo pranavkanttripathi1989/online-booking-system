@@ -9,8 +9,8 @@ import { useAuth } from '../../context/AuthContext'
 // SUG-AUTH-012: Richer 403 page — shows user role + attempted path + contact admin
 export function Forbidden403() {
   const { user } = useAuth()
-  const location  = useLocation()
-  const roleNames = user?.roles?.map(r => r.name).join(', ') ?? 'unknown'
+  const location = useLocation()
+  const roleNames = user?.roles?.map((r) => r.name).join(', ') ?? 'unknown'
   const attempted = location?.pathname ?? 'this page'
 
   return (
@@ -25,11 +25,19 @@ export function Forbidden403() {
       bgcolor="#F8F9FA"
     >
       {/* Red lock circle */}
-      <Box sx={{
-        width: 100, height: 100, borderRadius: '50%',
-        bgcolor: '#FCE8E6', border: '2px solid #F5C6C2',
-        display: 'flex', alignItems: 'center', justifyContent: 'center', mb: 3,
-      }}>
+      <Box
+        sx={{
+          width: 100,
+          height: 100,
+          borderRadius: '50%',
+          bgcolor: '#FCE8E6',
+          border: '2px solid #F5C6C2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          mb: 3,
+        }}
+      >
         <LockOutlined sx={{ fontSize: 50, color: '#D93025' }} />
       </Box>
 
@@ -39,7 +47,9 @@ export function Forbidden403() {
         fontWeight={900}
         sx={{
           fontSize: { xs: '5rem', sm: '8rem' },
-          lineHeight: 1, mb: 2, letterSpacing: '-4px',
+          lineHeight: 1,
+          mb: 2,
+          letterSpacing: '-4px',
           background: 'linear-gradient(135deg, #D93025 30%, #EA4335 100%)',
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
@@ -55,7 +65,9 @@ export function Forbidden403() {
       {/* SUG-AUTH-012: Role + path context */}
       {user && (
         <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
-          <Typography variant="body2" color="text.secondary">Signed in as:</Typography>
+          <Typography variant="body2" color="text.secondary">
+            Signed in as:
+          </Typography>
           <Chip
             label={roleNames}
             size="small"
@@ -65,7 +77,8 @@ export function Forbidden403() {
       )}
 
       <Typography variant="body1" sx={{ color: '#5F6368', maxWidth: 420 }} mb={0.75}>
-        Your role <strong>({roleNames})</strong> does not have access to <code style={{ background: '#F1F3F4', padding: '1px 6px', borderRadius: 4 }}>{attempted}</code>.
+        Your role <strong>({roleNames})</strong> does not have access to{' '}
+        <code style={{ background: '#F1F3F4', padding: '1px 6px', borderRadius: 4 }}>{attempted}</code>.
       </Typography>
       <Typography variant="body2" sx={{ color: '#80868B', maxWidth: 380 }} mb={4}>
         Contact your administrator if you believe this is a mistake.
@@ -77,8 +90,11 @@ export function Forbidden403() {
           startIcon={<ArrowBack />}
           onClick={() => window.history.back()}
           sx={{
-            borderRadius: 2, textTransform: 'none', fontWeight: 700,
-            borderColor: '#D93025', color: '#D93025',
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 700,
+            borderColor: '#D93025',
+            color: '#D93025',
             '&:hover': { bgcolor: '#FCE8E6', borderColor: '#D93025' },
           }}
         >
@@ -90,8 +106,11 @@ export function Forbidden403() {
           component="a"
           href={`mailto:admin@medibook.dev?subject=Access Request: ${attempted}&body=Hi Admin, I (${user?.email ?? 'unknown'}) need access to ${attempted}. My role is ${roleNames}.`}
           sx={{
-            borderRadius: 2, textTransform: 'none', fontWeight: 700,
-            borderColor: '#1A73E8', color: '#1A73E8',
+            borderRadius: 2,
+            textTransform: 'none',
+            fontWeight: 700,
+            borderColor: '#1A73E8',
+            color: '#1A73E8',
             '&:hover': { bgcolor: 'rgba(26,115,232,0.06)' },
           }}
         >

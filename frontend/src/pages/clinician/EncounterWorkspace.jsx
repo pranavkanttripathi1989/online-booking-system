@@ -3,9 +3,27 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import {
-  Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
-  DialogContent, DialogContentText, DialogTitle, Divider, Grid, List,
-  ListItemButton, ListItemText, Paper, Stack, TextField, Typography, useTheme,
+  Alert,
+  Autocomplete,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  Grid,
+  List,
+  ListItemButton,
+  ListItemText,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+  useTheme,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import LockRoundedIcon from '@mui/icons-material/LockRounded'
@@ -31,62 +49,161 @@ import { downloadAuthenticatedPdf } from '../../utils/documents'
 
 const GET_OR_CREATE_ENCOUNTER = gql`
   mutation GetOrCreateEncounter($appointment_id: ID!) {
-    getOrCreateEncounter(appointment_id: $appointment_id) { id patient_id clinician_id }
+    getOrCreateEncounter(appointment_id: $appointment_id) {
+      id
+      patient_id
+      clinician_id
+    }
   }
 `
 
 const ENCOUNTER_QUERY = gql`
   query Encounter($id: ID!) {
     encounter(id: $id) {
-      id patient_id status locked signed_at
-      notes { id section content version }
-      addenda { id author_id content reason created_at }
-      diagnoses { id type icd10_code text status created_at }
-      attachments { id file_ref mime_type original_filename created_at }
-      investigation_orders { id test_name test_type urgency status date_ordered }
-      referrals { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
-      vitals { id code value unit recorded_at }
+      id
+      patient_id
+      status
+      locked
+      signed_at
+      notes {
+        id
+        section
+        content
+        version
+      }
+      addenda {
+        id
+        author_id
+        content
+        reason
+        created_at
+      }
+      diagnoses {
+        id
+        type
+        icd10_code
+        text
+        status
+        created_at
+      }
+      attachments {
+        id
+        file_ref
+        mime_type
+        original_filename
+        created_at
+      }
+      investigation_orders {
+        id
+        test_name
+        test_type
+        urgency
+        status
+        date_ordered
+      }
+      referrals {
+        id
+        referred_to_specialty
+        referred_to_clinician_id
+        reason
+        urgency
+        status
+        created_at
+      }
+      vitals {
+        id
+        code
+        value
+        unit
+        recorded_at
+      }
     }
   }
 `
 
 const PATIENT_ALLERGY_BANNER = gql`
   query PatientAllergyBanner($patient_id: ID!) {
-    patientAllergyBanner(patient_id: $patient_id) { id text icd10_code }
+    patientAllergyBanner(patient_id: $patient_id) {
+      id
+      text
+      icd10_code
+    }
   }
 `
 
 const PATIENT_TIMELINE = gql`
   query PatientTimeline($patient_id: ID!) {
-    patientTimeline(patient_id: $patient_id) { id type date title summary encounter_id }
+    patientTimeline(patient_id: $patient_id) {
+      id
+      type
+      date
+      title
+      summary
+      encounter_id
+    }
   }
 `
 
 const ENCOUNTER_TEMPLATES = gql`
-  query EncounterTemplates { encounterTemplates { id name specialty sections_json } }
+  query EncounterTemplates {
+    encounterTemplates {
+      id
+      name
+      specialty
+      sections_json
+    }
+  }
 `
 
 const SAVE_NOTE = gql`
   mutation SaveEncounterNote($input: SaveEncounterNoteInput!) {
-    saveEncounterNote(input: $input) { id section content version }
+    saveEncounterNote(input: $input) {
+      id
+      section
+      content
+      version
+    }
   }
 `
 const ADD_ADDENDUM = gql`
   mutation AddEncounterAddendum($input: AddAddendumInput!) {
-    addEncounterAddendum(input: $input) { id content reason created_at }
+    addEncounterAddendum(input: $input) {
+      id
+      content
+      reason
+      created_at
+    }
   }
 `
 const SIGN_ENCOUNTER = gql`
-  mutation SignEncounter($encounter_id: ID!) { signEncounter(encounter_id: $encounter_id) { id locked signed_at } }
+  mutation SignEncounter($encounter_id: ID!) {
+    signEncounter(encounter_id: $encounter_id) {
+      id
+      locked
+      signed_at
+    }
+  }
 `
 const APPLY_TEMPLATE = gql`
   mutation ApplyEncounterTemplate($input: ApplyTemplateInput!) {
-    applyEncounterTemplate(input: $input) { id notes { id section content version } }
+    applyEncounterTemplate(input: $input) {
+      id
+      notes {
+        id
+        section
+        content
+        version
+      }
+    }
   }
 `
 const CREATE_ATTACHMENT = gql`
   mutation CreateEncounterAttachment($input: CreateAttachmentInput!) {
-    createEncounterAttachment(input: $input) { id file_ref original_filename }
+    createEncounterAttachment(input: $input) {
+      id
+      file_ref
+      original_filename
+    }
   }
 `
 
@@ -97,48 +214,95 @@ const CREATE_ATTACHMENT = gql`
 // app since nothing ever called createEncounterTemplate.
 const CREATE_DIAGNOSIS = gql`
   mutation CreateDiagnosis($input: CreateDiagnosisInput!) {
-    createDiagnosis(input: $input) { id type icd10_code text status created_at }
+    createDiagnosis(input: $input) {
+      id
+      type
+      icd10_code
+      text
+      status
+      created_at
+    }
   }
 `
 // REQ127 (FR-EMR-08) — structured investigation orders, distinct from the
 // pre-existing free-text "Investigations" note SECTION above.
 const ORDER_INVESTIGATION = gql`
   mutation OrderInvestigation($input: OrderInvestigationInput!) {
-    orderInvestigation(input: $input) { id test_name test_type urgency status date_ordered }
+    orderInvestigation(input: $input) {
+      id
+      test_name
+      test_type
+      urgency
+      status
+      date_ordered
+    }
   }
 `
 // REQ128 (FR-EMR-10)
 const CREATE_REFERRAL = gql`
   mutation CreateReferral($input: CreateReferralInput!) {
-    createReferral(input: $input) { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
+    createReferral(input: $input) {
+      id
+      referred_to_specialty
+      referred_to_clinician_id
+      reason
+      urgency
+      status
+      created_at
+    }
   }
 `
 // REQ135
 const UPDATE_REFERRAL_STATUS = gql`
   mutation UpdateReferralStatus($id: ID!, $input: UpdateReferralStatusInput!) {
-    updateReferralStatus(id: $id, input: $input) { id status }
+    updateReferralStatus(id: $id, input: $input) {
+      id
+      status
+    }
   }
 `
 // REQ130 (FR-EMR-05)
 const RECORD_VITALS = gql`
   mutation RecordVitals($input: RecordVitalsInput!) {
-    recordVitals(input: $input) { id code value unit recorded_at }
+    recordVitals(input: $input) {
+      id
+      code
+      value
+      unit
+      recorded_at
+    }
   }
 `
 const PATIENT_VITALS = gql`
   query PatientVitals($patient_id: ID!, $code: String!) {
-    patientVitals(patient_id: $patient_id, code: $code) { id code value unit recorded_at }
+    patientVitals(patient_id: $patient_id, code: $code) {
+      id
+      code
+      value
+      unit
+      recorded_at
+    }
   }
 `
 const CREATE_ENCOUNTER_TEMPLATE = gql`
   mutation CreateEncounterTemplate($input: CreateEncounterTemplateInput!) {
-    createEncounterTemplate(input: $input) { id name specialty sections_json }
+    createEncounterTemplate(input: $input) {
+      id
+      name
+      specialty
+      sections_json
+    }
   }
 `
 // REQ108 — platform reference data (ungated, like clinicianTypes/roomTypes).
 const ICD10_SEARCH_QUERY = gql`
   query Icd10Codes($search: String) {
-    icd10Codes(search: $search) { id code description category }
+    icd10Codes(search: $search) {
+      id
+      code
+      description
+      category
+    }
   }
 `
 
@@ -187,10 +351,12 @@ const VITAL_FIELDS = [
 function GrowthChartDialog({ open, onClose, patientId }) {
   const theme = useTheme()
   const { data: weightData, loading: weightLoading } = useQuery(PATIENT_VITALS, {
-    variables: { patient_id: patientId, code: 'weight_kg' }, skip: !open || !patientId,
+    variables: { patient_id: patientId, code: 'weight_kg' },
+    skip: !open || !patientId,
   })
   const { data: heightData, loading: heightLoading } = useQuery(PATIENT_VITALS, {
-    variables: { patient_id: patientId, code: 'height_cm' }, skip: !open || !patientId,
+    variables: { patient_id: patientId, code: 'height_cm' },
+    skip: !open || !patientId,
   })
   const weightSeries = (weightData?.patientVitals ?? []).map((v) => ({ date: v.recorded_at, value: v.value }))
   const heightSeries = (heightData?.patientVitals ?? []).map((v) => ({ date: v.recorded_at, value: v.value }))
@@ -201,17 +367,25 @@ function GrowthChartDialog({ open, onClose, patientId }) {
       <DialogContent>
         <Stack spacing={3} sx={{ mt: 1 }}>
           <Box>
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>Weight (kg)</Typography>
+            <Typography variant="subtitle2" fontWeight={700} mb={1}>
+              Weight (kg)
+            </Typography>
             {weightLoading && <CircularProgress size={20} />}
             {!weightLoading && weightSeries.length === 0 && (
-              <Typography variant="body2" color="text.secondary">No weight readings recorded yet.</Typography>
+              <Typography variant="body2" color="text.secondary">
+                No weight readings recorded yet.
+              </Typography>
             )}
             {!weightLoading && weightSeries.length > 0 && (
               <Box sx={{ height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={weightSeries}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                    />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip labelFormatter={(d) => new Date(d).toLocaleDateString('en-IN')} formatter={(v) => [`${v} kg`, 'Weight']} />
                     <Line type="monotone" dataKey="value" stroke={theme.palette.primary.main} strokeWidth={2} dot />
@@ -221,17 +395,25 @@ function GrowthChartDialog({ open, onClose, patientId }) {
             )}
           </Box>
           <Box>
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>Height (cm)</Typography>
+            <Typography variant="subtitle2" fontWeight={700} mb={1}>
+              Height (cm)
+            </Typography>
             {heightLoading && <CircularProgress size={20} />}
             {!heightLoading && heightSeries.length === 0 && (
-              <Typography variant="body2" color="text.secondary">No height readings recorded yet.</Typography>
+              <Typography variant="body2" color="text.secondary">
+                No height readings recorded yet.
+              </Typography>
             )}
             {!heightLoading && heightSeries.length > 0 && (
               <Box sx={{ height: 220 }}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={heightSeries}>
                     <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                    <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })} />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fontSize: 11 }}
+                      tickFormatter={(d) => new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short' })}
+                    />
                     <YAxis tick={{ fontSize: 11 }} />
                     <Tooltip labelFormatter={(d) => new Date(d).toLocaleDateString('en-IN')} formatter={(v) => [`${v} cm`, 'Height']} />
                     <Line type="monotone" dataKey="value" stroke={theme.palette.success.main} strokeWidth={2} dot />
@@ -255,10 +437,14 @@ function TimelinePane({ patientId }) {
   const events = data?.patientTimeline ?? []
   return (
     <Paper variant="outlined" sx={{ p: 2, height: '100%', overflowY: 'auto' }}>
-      <Typography variant="subtitle2" fontWeight={700} mb={1.5}>Patient Timeline</Typography>
+      <Typography variant="subtitle2" fontWeight={700} mb={1.5}>
+        Patient Timeline
+      </Typography>
       {loading && <CircularProgress size={20} />}
       {!loading && events.length === 0 && (
-        <Typography variant="body2" color="text.secondary">No history yet.</Typography>
+        <Typography variant="body2" color="text.secondary">
+          No history yet.
+        </Typography>
       )}
       <Stack spacing={1.5}>
         {events.map((e) => (
@@ -269,8 +455,14 @@ function TimelinePane({ patientId }) {
                 {new Date(e.date).toLocaleDateString()}
               </Typography>
             </Stack>
-            <Typography variant="body2" fontWeight={600}>{e.title}</Typography>
-            {e.summary && <Typography variant="caption" color="text.secondary">{e.summary}</Typography>}
+            <Typography variant="body2" fontWeight={600}>
+              {e.title}
+            </Typography>
+            {e.summary && (
+              <Typography variant="caption" color="text.secondary">
+                {e.summary}
+              </Typography>
+            )}
           </Box>
         ))}
       </Stack>
@@ -279,7 +471,16 @@ function TimelinePane({ patientId }) {
 }
 
 // ─── Center pane: structured note sections ─────────────────────────────────
-function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAddInvestigation, onAddReferral, onUpdateReferralStatus, onRecordVitals }) {
+function NotesPane({
+  encounter,
+  onSaveNote,
+  onAddAddendum,
+  onAddDiagnosis,
+  onAddInvestigation,
+  onAddReferral,
+  onUpdateReferralStatus,
+  onRecordVitals,
+}) {
   const [drafts, setDrafts] = useState({})
   const [addendumOpen, setAddendumOpen] = useState(false)
   const [addendumText, setAddendumText] = useState('')
@@ -310,7 +511,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
 
   useEffect(() => {
     const next = {}
-    SECTIONS.forEach((s) => { next[s.key] = sectionContent(encounter?.notes, s.key) })
+    SECTIONS.forEach((s) => {
+      next[s.key] = sectionContent(encounter?.notes, s.key)
+    })
     setDrafts(next)
   }, [encounter?.notes])
 
@@ -321,15 +524,21 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
       {locked && (
         <Alert severity="info" icon={<LockRoundedIcon />} sx={{ mb: 2 }}>
           This encounter has been signed and is read-only.
-          <Button size="small" sx={{ ml: 2 }} onClick={() => setAddendumOpen(true)}>Add Addendum</Button>
+          <Button size="small" sx={{ ml: 2 }} onClick={() => setAddendumOpen(true)}>
+            Add Addendum
+          </Button>
         </Alert>
       )}
       <Stack spacing={2.5}>
         {SECTIONS.map((s) => (
           <Box key={s.key}>
-            <Typography variant="subtitle2" fontWeight={700} mb={0.5} id={`section-label-${s.key}`}>{s.label}</Typography>
+            <Typography variant="subtitle2" fontWeight={700} mb={0.5} id={`section-label-${s.key}`}>
+              {s.label}
+            </Typography>
             <TextField
-              fullWidth multiline minRows={2}
+              fullWidth
+              multiline
+              minRows={2}
               inputProps={{ 'aria-labelledby': `section-label-${s.key}` }}
               value={drafts[s.key] ?? ''}
               disabled={locked}
@@ -346,7 +555,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         <Box>
           <Divider sx={{ my: 1 }} />
           <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-            <Typography variant="subtitle2" fontWeight={700}>Diagnoses</Typography>
+            <Typography variant="subtitle2" fontWeight={700}>
+              Diagnoses
+            </Typography>
             {!locked && (
               <Button size="small" startIcon={<MedicationRoundedIcon fontSize="small" />} onClick={() => setDiagnosisOpen(true)}>
                 Add Diagnosis
@@ -354,7 +565,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
             )}
           </Stack>
           {(encounter?.diagnoses?.length ?? 0) === 0 ? (
-            <Typography variant="body2" color="text.secondary">No diagnoses recorded yet.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              No diagnoses recorded yet.
+            </Typography>
           ) : (
             <Stack spacing={1}>
               {encounter.diagnoses.map((d) => (
@@ -362,7 +575,11 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
                   <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                     <Chip size="small" label={d.type} sx={{ textTransform: 'capitalize' }} />
                     {d.status && <Chip size="small" label={d.status} variant="outlined" sx={{ textTransform: 'capitalize' }} />}
-                    {d.icd10_code && <Typography variant="caption" color="text.secondary">{d.icd10_code}</Typography>}
+                    {d.icd10_code && (
+                      <Typography variant="caption" color="text.secondary">
+                        {d.icd10_code}
+                      </Typography>
+                    )}
                   </Stack>
                   <Typography variant="body2">{d.text}</Typography>
                 </Paper>
@@ -374,7 +591,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         <Box>
           <Divider sx={{ my: 1 }} />
           <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-            <Typography variant="subtitle2" fontWeight={700}>Investigations</Typography>
+            <Typography variant="subtitle2" fontWeight={700}>
+              Investigations
+            </Typography>
             {!locked && (
               <Button size="small" startIcon={<BiotechRoundedIcon fontSize="small" />} onClick={() => setInvestigationOpen(true)}>
                 Order Investigation
@@ -382,14 +601,22 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
             )}
           </Stack>
           {(encounter?.investigation_orders?.length ?? 0) === 0 ? (
-            <Typography variant="body2" color="text.secondary">No investigations ordered yet.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              No investigations ordered yet.
+            </Typography>
           ) : (
             <Stack spacing={1}>
               {encounter.investigation_orders.map((o) => (
                 <Paper key={o.id} variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
                   <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                     <Chip size="small" label={o.test_type} sx={{ textTransform: 'capitalize' }} />
-                    <Chip size="small" label={o.urgency} color={o.urgency === 'stat' ? 'error' : o.urgency === 'urgent' ? 'warning' : 'default'} variant="outlined" sx={{ textTransform: 'capitalize' }} />
+                    <Chip
+                      size="small"
+                      label={o.urgency}
+                      color={o.urgency === 'stat' ? 'error' : o.urgency === 'urgent' ? 'warning' : 'default'}
+                      variant="outlined"
+                      sx={{ textTransform: 'capitalize' }}
+                    />
                     <Chip size="small" label={o.status} variant="outlined" sx={{ textTransform: 'capitalize' }} />
                   </Stack>
                   <Typography variant="body2">{o.test_name}</Typography>
@@ -405,7 +632,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         <Box>
           <Divider sx={{ my: 1 }} />
           <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-            <Typography variant="subtitle2" fontWeight={700}>Referrals</Typography>
+            <Typography variant="subtitle2" fontWeight={700}>
+              Referrals
+            </Typography>
             {!locked && (
               <Button size="small" startIcon={<ForwardToInboxRoundedIcon fontSize="small" />} onClick={() => setReferralOpen(true)}>
                 Refer Patient
@@ -413,14 +642,22 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
             )}
           </Stack>
           {(encounter?.referrals?.length ?? 0) === 0 ? (
-            <Typography variant="body2" color="text.secondary">No referrals made yet.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              No referrals made yet.
+            </Typography>
           ) : (
             <Stack spacing={1}>
               {encounter.referrals.map((r) => (
                 <Paper key={r.id} variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
                   <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                     <Chip size="small" label={r.referred_to_specialty} />
-                    <Chip size="small" label={r.urgency} color={r.urgency === 'urgent' ? 'warning' : 'default'} variant="outlined" sx={{ textTransform: 'capitalize' }} />
+                    <Chip
+                      size="small"
+                      label={r.urgency}
+                      color={r.urgency === 'urgent' ? 'warning' : 'default'}
+                      variant="outlined"
+                      sx={{ textTransform: 'capitalize' }}
+                    />
                     <Chip size="small" label={r.status} variant="outlined" sx={{ textTransform: 'capitalize' }} />
                   </Stack>
                   <Typography variant="body2">{r.reason}</Typography>
@@ -445,7 +682,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         <Box>
           <Divider sx={{ my: 1 }} />
           <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1} flexWrap="wrap" gap={1}>
-            <Typography variant="subtitle2" fontWeight={700}>Vitals</Typography>
+            <Typography variant="subtitle2" fontWeight={700}>
+              Vitals
+            </Typography>
             <Stack direction="row" spacing={1}>
               <Button size="small" startIcon={<ShowChartRoundedIcon fontSize="small" />} onClick={() => setChartOpen(true)}>
                 Growth Chart
@@ -458,11 +697,17 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
             </Stack>
           </Stack>
           {(encounter?.vitals?.length ?? 0) === 0 ? (
-            <Typography variant="body2" color="text.secondary">No vitals recorded yet.</Typography>
+            <Typography variant="body2" color="text.secondary">
+              No vitals recorded yet.
+            </Typography>
           ) : (
             <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
               {encounter.vitals.map((v) => (
-                <Chip key={v.id} size="small" label={`${VITAL_FIELDS.find((f) => f.code === v.code)?.label ?? v.code}: ${v.value} ${v.unit}`} />
+                <Chip
+                  key={v.id}
+                  size="small"
+                  label={`${VITAL_FIELDS.find((f) => f.code === v.code)?.label ?? v.code}: ${v.value} ${v.unit}`}
+                />
               ))}
             </Stack>
           )}
@@ -471,13 +716,16 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         {encounter?.addenda?.length > 0 && (
           <Box>
             <Divider sx={{ my: 1 }} />
-            <Typography variant="subtitle2" fontWeight={700} mb={1}>Addenda</Typography>
+            <Typography variant="subtitle2" fontWeight={700} mb={1}>
+              Addenda
+            </Typography>
             <Stack spacing={1}>
               {encounter.addenda.map((a) => (
                 <Paper key={a.id} variant="outlined" sx={{ p: 1.5, bgcolor: '#FAFAFA' }}>
                   <Typography variant="body2">{a.content}</Typography>
                   <Typography variant="caption" color="text.secondary">
-                    {new Date(a.created_at).toLocaleString()}{a.reason ? ` — ${a.reason}` : ''}
+                    {new Date(a.created_at).toLocaleString()}
+                    {a.reason ? ` — ${a.reason}` : ''}
                   </Typography>
                 </Paper>
               ))}
@@ -490,8 +738,13 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         <DialogTitle>Add Addendum</DialogTitle>
         <DialogContent>
           <TextField
-            fullWidth multiline minRows={3} sx={{ mt: 1 }}
-            label="Addendum" value={addendumText} onChange={(e) => setAddendumText(e.target.value)}
+            fullWidth
+            multiline
+            minRows={3}
+            sx={{ mt: 1 }}
+            label="Addendum"
+            value={addendumText}
+            onChange={(e) => setAddendumText(e.target.value)}
           />
         </DialogContent>
         <DialogActions>
@@ -515,7 +768,10 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              select fullWidth label="Type" value={diagnosisForm.type}
+              select
+              fullWidth
+              label="Type"
+              value={diagnosisForm.type}
               onChange={(e) => setDiagnosisForm((f) => ({ ...f, type: e.target.value }))}
               SelectProps={{ native: true }}
             >
@@ -523,7 +779,11 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
               <option value="allergy">Allergy</option>
             </TextField>
             <TextField
-              fullWidth multiline minRows={2} label="Description" value={diagnosisForm.text}
+              fullWidth
+              multiline
+              minRows={2}
+              label="Description"
+              value={diagnosisForm.text}
               onChange={(e) => setDiagnosisForm((f) => ({ ...f, text: e.target.value }))}
             />
             <Autocomplete
@@ -552,7 +812,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
               }}
               getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} — ${option.description}`)}
               isOptionEqualToValue={(option, value) => option.code === (typeof value === 'string' ? value : value?.code)}
-              noOptionsText={icd10Search.length < 1 ? 'Start typing a code or description…' : 'No match — you can still save this as free text'}
+              noOptionsText={
+                icd10Search.length < 1 ? 'Start typing a code or description…' : 'No match — you can still save this as free text'
+              }
               renderInput={(params) => (
                 <TextField
                   {...params}
@@ -577,7 +839,11 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
             variant="contained"
             disabled={!diagnosisForm.text.trim()}
             onClick={async () => {
-              await onAddDiagnosis({ type: diagnosisForm.type, text: diagnosisForm.text.trim(), icd10_code: diagnosisForm.icd10_code.trim() || undefined })
+              await onAddDiagnosis({
+                type: diagnosisForm.type,
+                text: diagnosisForm.text.trim(),
+                icd10_code: diagnosisForm.icd10_code.trim() || undefined,
+              })
               setDiagnosisForm({ type: 'diagnosis', text: '', icd10_code: '' })
               setDiagnosisOpen(false)
             }}
@@ -592,16 +858,23 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              fullWidth label="Test name" value={investigationForm.test_name}
+              fullWidth
+              label="Test name"
+              value={investigationForm.test_name}
               onChange={(e) => setInvestigationForm((f) => ({ ...f, test_name: e.target.value }))}
             />
             <TextField
-              fullWidth label="Test type" placeholder="e.g. Blood, Imaging, Urine"
+              fullWidth
+              label="Test type"
+              placeholder="e.g. Blood, Imaging, Urine"
               value={investigationForm.test_type}
               onChange={(e) => setInvestigationForm((f) => ({ ...f, test_type: e.target.value }))}
             />
             <TextField
-              select fullWidth label="Urgency" value={investigationForm.urgency}
+              select
+              fullWidth
+              label="Urgency"
+              value={investigationForm.urgency}
               onChange={(e) => setInvestigationForm((f) => ({ ...f, urgency: e.target.value }))}
               SelectProps={{ native: true }}
             >
@@ -636,16 +909,25 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
         <DialogContent>
           <Stack spacing={2} sx={{ mt: 1 }}>
             <TextField
-              fullWidth label="Refer to specialty" placeholder="e.g. Cardiology, Orthopaedics"
+              fullWidth
+              label="Refer to specialty"
+              placeholder="e.g. Cardiology, Orthopaedics"
               value={referralForm.referred_to_specialty}
               onChange={(e) => setReferralForm((f) => ({ ...f, referred_to_specialty: e.target.value }))}
             />
             <TextField
-              fullWidth multiline minRows={2} label="Reason for referral" value={referralForm.reason}
+              fullWidth
+              multiline
+              minRows={2}
+              label="Reason for referral"
+              value={referralForm.reason}
               onChange={(e) => setReferralForm((f) => ({ ...f, reason: e.target.value }))}
             />
             <TextField
-              select fullWidth label="Urgency" value={referralForm.urgency}
+              select
+              fullWidth
+              label="Urgency"
+              value={referralForm.urgency}
               onChange={(e) => setReferralForm((f) => ({ ...f, urgency: e.target.value }))}
               SelectProps={{ native: true }}
             >
@@ -682,7 +964,9 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
             {VITAL_FIELDS.map((f) => (
               <Grid item xs={6} key={f.code}>
                 <TextField
-                  fullWidth type="number" label={`${f.label} (${f.unit})`}
+                  fullWidth
+                  type="number"
+                  label={`${f.label} (${f.unit})`}
                   value={vitalsForm[f.code] ?? ''}
                   onChange={(e) => setVitalsForm((form) => ({ ...form, [f.code]: e.target.value }))}
                 />
@@ -696,9 +980,10 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
             variant="contained"
             disabled={VITAL_FIELDS.every((f) => vitalsForm[f.code] === undefined || vitalsForm[f.code] === '')}
             onClick={async () => {
-              const readings = VITAL_FIELDS
-                .filter((f) => vitalsForm[f.code] !== undefined && vitalsForm[f.code] !== '')
-                .map((f) => ({ code: f.code, value: Number(vitalsForm[f.code]) }))
+              const readings = VITAL_FIELDS.filter((f) => vitalsForm[f.code] !== undefined && vitalsForm[f.code] !== '').map((f) => ({
+                code: f.code,
+                value: Number(vitalsForm[f.code]),
+              }))
               await onRecordVitals(readings)
               setVitalsForm({})
               setVitalsOpen(false)
@@ -741,19 +1026,21 @@ function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onU
   return (
     <Paper variant="outlined" sx={{ p: 2, height: '100%', overflowY: 'auto' }}>
       <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
-        <Typography variant="subtitle2" fontWeight={700}>Templates</Typography>
-        <Button size="small" disabled={locked} onClick={() => setSaveTemplateOpen(true)}>Save as template</Button>
+        <Typography variant="subtitle2" fontWeight={700}>
+          Templates
+        </Typography>
+        <Button size="small" disabled={locked} onClick={() => setSaveTemplateOpen(true)}>
+          Save as template
+        </Button>
       </Stack>
       <List dense disablePadding>
         {templates.length === 0 && (
-          <Typography variant="body2" color="text.secondary">No templates yet.</Typography>
+          <Typography variant="body2" color="text.secondary">
+            No templates yet.
+          </Typography>
         )}
         {templates.map((t) => (
-          <ListItemButton
-            key={t.id} disabled={locked}
-            onClick={() => onApplyTemplate(t.id)}
-            sx={{ borderRadius: 1, mb: 0.5 }}
-          >
+          <ListItemButton key={t.id} disabled={locked} onClick={() => onApplyTemplate(t.id)} sx={{ borderRadius: 1, mb: 0.5 }}>
             <NoteAddRoundedIcon fontSize="small" sx={{ mr: 1 }} />
             <ListItemText primary={t.name} secondary={t.specialty || undefined} />
           </ListItemButton>
@@ -767,8 +1054,18 @@ function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onU
             Saves this encounter's current section content as a reusable, org-shared template.
           </DialogContentText>
           <Stack spacing={2}>
-            <TextField fullWidth label="Template Name" value={templateForm.name} onChange={(e) => setTemplateForm((f) => ({ ...f, name: e.target.value }))} />
-            <TextField fullWidth label="Specialty (optional)" value={templateForm.specialty} onChange={(e) => setTemplateForm((f) => ({ ...f, specialty: e.target.value }))} />
+            <TextField
+              fullWidth
+              label="Template Name"
+              value={templateForm.name}
+              onChange={(e) => setTemplateForm((f) => ({ ...f, name: e.target.value }))}
+            />
+            <TextField
+              fullWidth
+              label="Specialty (optional)"
+              value={templateForm.specialty}
+              onChange={(e) => setTemplateForm((f) => ({ ...f, specialty: e.target.value }))}
+            />
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -790,11 +1087,10 @@ function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onU
 
       <Divider sx={{ my: 2 }} />
 
-      <Typography variant="subtitle2" fontWeight={700} mb={1}>Attachments</Typography>
-      <Button
-        component="label" fullWidth variant="outlined" startIcon={<AttachFileRoundedIcon />}
-        disabled={locked} sx={{ mb: 1 }}
-      >
+      <Typography variant="subtitle2" fontWeight={700} mb={1}>
+        Attachments
+      </Typography>
+      <Button component="label" fullWidth variant="outlined" startIcon={<AttachFileRoundedIcon />} disabled={locked} sx={{ mb: 1 }}>
         Upload File
         <input type="file" hidden accept="image/png,image/jpeg,application/pdf" onChange={onUpload} />
       </Button>
@@ -811,16 +1107,14 @@ function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onU
       {/* REQ021: prescription builder entry point. Independent of the
           encounter's own lock state -- issuing a script and signing the
           encounter are separate actions (see PLAN057). */}
-      <Button
-        fullWidth variant="outlined" startIcon={<MedicationRoundedIcon />}
-        onClick={onNewPrescription}
-        sx={{ mb: 1 }}
-      >
+      <Button fullWidth variant="outlined" startIcon={<MedicationRoundedIcon />} onClick={onNewPrescription} sx={{ mb: 1 }}>
         New Prescription
       </Button>
 
       <Button
-        fullWidth variant="outlined" startIcon={downloadingSummary ? <CircularProgress size={16} /> : <DownloadRoundedIcon />}
+        fullWidth
+        variant="outlined"
+        startIcon={downloadingSummary ? <CircularProgress size={16} /> : <DownloadRoundedIcon />}
         onClick={handleDownloadSummary}
         disabled={downloadingSummary}
         sx={{ mb: 2 }}
@@ -829,7 +1123,10 @@ function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onU
       </Button>
 
       <Button
-        fullWidth variant="contained" color="success" startIcon={<DoneAllRoundedIcon />}
+        fullWidth
+        variant="contained"
+        color="success"
+        startIcon={<DoneAllRoundedIcon />}
         disabled={locked}
         onClick={() => setSignOpen(true)}
       >
@@ -840,13 +1137,20 @@ function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onU
         <DialogTitle>Sign this encounter?</DialogTitle>
         <DialogContent>
           <DialogContentText>
-            Once signed, the notes and diagnoses on this encounter become read-only.
-            This cannot be undone — corrections after this point go through an addendum.
+            Once signed, the notes and diagnoses on this encounter become read-only. This cannot be undone — corrections after this point go
+            through an addendum.
           </DialogContentText>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setSignOpen(false)}>Cancel</Button>
-          <Button variant="contained" color="success" onClick={async () => { await onSign(); setSignOpen(false) }}>
+          <Button
+            variant="contained"
+            color="success"
+            onClick={async () => {
+              await onSign()
+              setSignOpen(false)
+            }}
+          >
             Sign
           </Button>
         </DialogActions>
@@ -867,16 +1171,24 @@ function EncounterWorkspace() {
 
   const [getOrCreateEncounter] = useMutation(GET_OR_CREATE_ENCOUNTER)
   const { data, loading, error, refetch } = useQuery(ENCOUNTER_QUERY, {
-    variables: { id: encounterId }, skip: !encounterId, fetchPolicy: 'network-only',
+    variables: { id: encounterId },
+    skip: !encounterId,
+    fetchPolicy: 'network-only',
   })
   const encounter = data?.encounter
 
   useEffect(() => {
     let cancelled = false
     getOrCreateEncounter({ variables: { appointment_id: appointmentId } })
-      .then(({ data: d }) => { if (!cancelled) setEncounterId(d?.getOrCreateEncounter?.id ?? null) })
-      .catch((err) => { if (!cancelled) setInitError(err?.graphQLErrors?.[0]?.message || err.message) })
-    return () => { cancelled = true }
+      .then(({ data: d }) => {
+        if (!cancelled) setEncounterId(d?.getOrCreateEncounter?.id ?? null)
+      })
+      .catch((err) => {
+        if (!cancelled) setInitError(err?.graphQLErrors?.[0]?.message || err.message)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [appointmentId, getOrCreateEncounter])
 
   const [saveNote] = useMutation(SAVE_NOTE)
@@ -892,7 +1204,8 @@ function EncounterWorkspace() {
   const [createEncounterTemplate] = useMutation(CREATE_ENCOUNTER_TEMPLATE)
 
   const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, {
-    variables: { patient_id: encounter?.patient_id }, skip: !encounter?.patient_id,
+    variables: { patient_id: encounter?.patient_id },
+    skip: !encounter?.patient_id,
   })
 
   // A save that fails silently is a data-loss bug in a clinical note --
@@ -900,108 +1213,176 @@ function EncounterWorkspace() {
   // and the pipe rejected it, but nothing surfaced that to the clinician, so
   // a typed note looked saved and was gone on reload. Every mutation here
   // now reports its own failure rather than letting the caller forget to.
-  const reportError = useCallback((err, fallback) => {
-    enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err?.message || fallback, { variant: 'error' })
-  }, [enqueueSnackbar])
+  const reportError = useCallback(
+    (err, fallback) => {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err?.message || fallback, { variant: 'error' })
+    },
+    [enqueueSnackbar],
+  )
 
-  const handleSaveNote = useCallback(async (section, content) => {
-    try {
-      await saveNote({ variables: { input: { encounter_id: encounterId, section, content } } })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to save note') }
-  }, [saveNote, encounterId, refetch, reportError])
+  const handleSaveNote = useCallback(
+    async (section, content) => {
+      try {
+        await saveNote({ variables: { input: { encounter_id: encounterId, section, content } } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to save note')
+      }
+    },
+    [saveNote, encounterId, refetch, reportError],
+  )
 
-  const handleAddAddendum = useCallback(async (content) => {
-    try {
-      await addAddendum({ variables: { input: { encounter_id: encounterId, content } } })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to add addendum') }
-  }, [addAddendum, encounterId, refetch, reportError])
+  const handleAddAddendum = useCallback(
+    async (content) => {
+      try {
+        await addAddendum({ variables: { input: { encounter_id: encounterId, content } } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to add addendum')
+      }
+    },
+    [addAddendum, encounterId, refetch, reportError],
+  )
 
   const handleSign = useCallback(async () => {
     try {
       await signEncounter({ variables: { encounter_id: encounterId } })
       refetch()
-    } catch (err) { reportError(err, 'Failed to sign encounter') }
+    } catch (err) {
+      reportError(err, 'Failed to sign encounter')
+    }
   }, [signEncounter, encounterId, refetch, reportError])
 
-  const handleApplyTemplate = useCallback(async (templateId) => {
-    try {
-      await applyTemplate({ variables: { input: { encounter_id: encounterId, template_id: templateId } } })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to apply template') }
-  }, [applyTemplate, encounterId, refetch, reportError])
+  const handleApplyTemplate = useCallback(
+    async (templateId) => {
+      try {
+        await applyTemplate({ variables: { input: { encounter_id: encounterId, template_id: templateId } } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to apply template')
+      }
+    },
+    [applyTemplate, encounterId, refetch, reportError],
+  )
 
-  const handleAddDiagnosis = useCallback(async (input) => {
-    try {
-      await createDiagnosis({ variables: { input: { encounter_id: encounterId, ...input } } })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to add diagnosis') }
-  }, [createDiagnosis, encounterId, refetch, reportError])
+  const handleAddDiagnosis = useCallback(
+    async (input) => {
+      try {
+        await createDiagnosis({ variables: { input: { encounter_id: encounterId, ...input } } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to add diagnosis')
+      }
+    },
+    [createDiagnosis, encounterId, refetch, reportError],
+  )
 
-  const handleAddInvestigation = useCallback(async (input) => {
-    try {
-      await orderInvestigationMutation({ variables: { input: { encounter_id: encounterId, ...input } } })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to order investigation') }
-  }, [orderInvestigationMutation, encounterId, refetch, reportError])
+  const handleAddInvestigation = useCallback(
+    async (input) => {
+      try {
+        await orderInvestigationMutation({ variables: { input: { encounter_id: encounterId, ...input } } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to order investigation')
+      }
+    },
+    [orderInvestigationMutation, encounterId, refetch, reportError],
+  )
 
-  const handleAddReferral = useCallback(async (input) => {
-    try {
-      await createReferralMutation({ variables: { input: { encounter_id: encounterId, ...input } } })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to refer patient') }
-  }, [createReferralMutation, encounterId, refetch, reportError])
+  const handleAddReferral = useCallback(
+    async (input) => {
+      try {
+        await createReferralMutation({ variables: { input: { encounter_id: encounterId, ...input } } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to refer patient')
+      }
+    },
+    [createReferralMutation, encounterId, refetch, reportError],
+  )
 
-  const handleUpdateReferralStatus = useCallback(async (id, status) => {
-    try {
-      await updateReferralStatusMutation({ variables: { id, input: { status } } })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to update referral status') }
-  }, [updateReferralStatusMutation, refetch, reportError])
+  const handleUpdateReferralStatus = useCallback(
+    async (id, status) => {
+      try {
+        await updateReferralStatusMutation({ variables: { id, input: { status } } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to update referral status')
+      }
+    },
+    [updateReferralStatusMutation, refetch, reportError],
+  )
 
-  const handleRecordVitals = useCallback(async (readings) => {
-    try {
-      await recordVitalsMutation({ variables: { input: { encounter_id: encounterId, readings } } })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to record vitals') }
-  }, [recordVitalsMutation, encounterId, refetch, reportError])
+  const handleRecordVitals = useCallback(
+    async (readings) => {
+      try {
+        await recordVitalsMutation({ variables: { input: { encounter_id: encounterId, readings } } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to record vitals')
+      }
+    },
+    [recordVitalsMutation, encounterId, refetch, reportError],
+  )
 
-  const handleSaveAsTemplate = useCallback(async ({ name, specialty }) => {
-    try {
-      const sections = {}
-      SECTIONS.forEach((s) => { sections[s.key] = sectionContent(encounter?.notes, s.key) })
-      await createEncounterTemplate({ variables: { input: { name, specialty, sections_json: JSON.stringify(sections), org_shared: true } } })
-      enqueueSnackbar('Template saved.', { variant: 'success' })
-    } catch (err) { reportError(err, 'Failed to save template') }
-  }, [createEncounterTemplate, encounter?.notes, enqueueSnackbar, reportError])
+  const handleSaveAsTemplate = useCallback(
+    async ({ name, specialty }) => {
+      try {
+        const sections = {}
+        SECTIONS.forEach((s) => {
+          sections[s.key] = sectionContent(encounter?.notes, s.key)
+        })
+        await createEncounterTemplate({
+          variables: { input: { name, specialty, sections_json: JSON.stringify(sections), org_shared: true } },
+        })
+        enqueueSnackbar('Template saved.', { variant: 'success' })
+      } catch (err) {
+        reportError(err, 'Failed to save template')
+      }
+    },
+    [createEncounterTemplate, encounter?.notes, enqueueSnackbar, reportError],
+  )
 
-  const handleUpload = useCallback(async (e) => {
-    const file = e.target.files?.[0]
-    if (!file || !encounterId) return
-    const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
-    const formData = new FormData()
-    formData.append('file', file)
-    const res = await fetch(`${apiBase}/encounter-attachments/upload`, {
-      method: 'POST',
-      credentials: 'include',
-      body: formData,
-    })
-    const body = await res.json().catch(() => ({}))
-    if (!res.ok) { enqueueSnackbar(body?.message || 'Failed to upload file', { variant: 'error' }); return }
-    try {
-      await createAttachment({
-        variables: { input: { encounter_id: encounterId, file_ref: body.file_ref, mime_type: body.mime_type, original_filename: file.name } },
+  const handleUpload = useCallback(
+    async (e) => {
+      const file = e.target.files?.[0]
+      if (!file || !encounterId) return
+      const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${apiBase}/encounter-attachments/upload`, {
+        method: 'POST',
+        credentials: 'include',
+        body: formData,
       })
-      refetch()
-    } catch (err) { reportError(err, 'Failed to save attachment') }
-  }, [encounterId, createAttachment, refetch, enqueueSnackbar, reportError])
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        enqueueSnackbar(body?.message || 'Failed to upload file', { variant: 'error' })
+        return
+      }
+      try {
+        await createAttachment({
+          variables: {
+            input: { encounter_id: encounterId, file_ref: body.file_ref, mime_type: body.mime_type, original_filename: file.name },
+          },
+        })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to save attachment')
+      }
+    },
+    [encounterId, createAttachment, refetch, enqueueSnackbar, reportError],
+  )
 
   if (initError) {
     return (
       <Box p={3}>
-        <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(-1)}>Back</Button>
-        <Alert severity="error" sx={{ mt: 2 }}>{initError}</Alert>
+        <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(-1)}>
+          Back
+        </Button>
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {initError}
+        </Alert>
       </Box>
     )
   }
@@ -1018,8 +1399,12 @@ function EncounterWorkspace() {
     <ErrorBoundary>
       <Box p={{ xs: 1.5, md: 3 }}>
         <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
-          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(`/appointments/${appointmentId}`)}>Back</Button>
-          <Typography variant="h6" fontWeight={700}>Consultation</Typography>
+          <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(`/appointments/${appointmentId}`)}>
+            Back
+          </Button>
+          <Typography variant="h6" fontWeight={700}>
+            Consultation
+          </Typography>
           {encounter?.locked && <Chip size="small" color="success" icon={<LockRoundedIcon />} label="Signed" />}
         </Stack>
 
@@ -1038,7 +1423,16 @@ function EncounterWorkspace() {
               <TimelinePane patientId={encounter.patient_id} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} onAddInvestigation={handleAddInvestigation} onAddReferral={handleAddReferral} onUpdateReferralStatus={handleUpdateReferralStatus} onRecordVitals={handleRecordVitals} />
+              <NotesPane
+                encounter={encounter}
+                onSaveNote={handleSaveNote}
+                onAddAddendum={handleAddAddendum}
+                onAddDiagnosis={handleAddDiagnosis}
+                onAddInvestigation={handleAddInvestigation}
+                onAddReferral={handleAddReferral}
+                onUpdateReferralStatus={handleUpdateReferralStatus}
+                onRecordVitals={handleRecordVitals}
+              />
             </Grid>
             <Grid item xs={12} md={3}>
               <ActionsPane
@@ -1047,7 +1441,9 @@ function EncounterWorkspace() {
                 onSaveAsTemplate={handleSaveAsTemplate}
                 onSign={handleSign}
                 onUpload={handleUpload}
-                onNewPrescription={() => navigate(`/clinician/prescriptions/new?encounterId=${encounter.id}&patientId=${encounter.patient_id}`)}
+                onNewPrescription={() =>
+                  navigate(`/clinician/prescriptions/new?encounterId=${encounter.id}&patientId=${encounter.patient_id}`)
+                }
               />
             </Grid>
           </Grid>

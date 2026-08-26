@@ -19,7 +19,6 @@ import { medicalTheme } from './theme/index.js'
 import { GlobalSnackbarProvider } from './components/shared/GlobalSnackbar'
 import App from './App'
 
-
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <HelmetProvider>
@@ -29,10 +28,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
             <CssBaseline />
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <AuthProvider>
-                <SnackbarProvider
-                  maxSnack={3}
-                  anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                >
+                <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
                   <GlobalSnackbarProvider>
                     <App />
                   </GlobalSnackbarProvider>
@@ -43,5 +39,5 @@ ReactDOM.createRoot(document.getElementById('root')).render(
         </BrowserRouter>
       </ApolloProvider>
     </HelmetProvider>
-  </React.StrictMode>
+  </React.StrictMode>,
 )

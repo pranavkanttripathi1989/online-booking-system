@@ -60,9 +60,13 @@ let lunchId
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = authData.login.access_token
 
   execSync(
@@ -70,21 +74,29 @@ test.beforeAll(async ({ playwright }) => {
   )
 
   // A weekly Thursday slot, distinct time from any real seeded data.
-  const slotData = await gql(request, managerToken, `
+  const slotData = await gql(
+    request,
+    managerToken,
+    `
     mutation { saveClinicianAvailability(input: {
       clinicianId: "${REAL_CLINICIAN_ID}", recurrenceType: "weekly", dayOfWeek: "3",
       startTime: "07:00", endTime: "07:45"
     }) { id } }
-  `)
+  `,
+  )
   slotId = slotData.saveClinicianAvailability.id
 
   // A Friday-only lunch break (dayOfWeek: "4"), to prove a specific-day
   // break does NOT bleed onto every day the way the 'daily' bug did.
-  const lunchData = await gql(request, managerToken, `
+  const lunchData = await gql(
+    request,
+    managerToken,
+    `
     mutation { saveLunchBreak(input: {
       clinicianId: "${REAL_CLINICIAN_ID}", dayOfWeek: "4", startTime: "15:15", endTime: "15:30"
     }) { id } }
-  `)
+  `,
+  )
   lunchId = lunchData.saveLunchBreak.id
 
   await request.dispose()
@@ -94,17 +106,23 @@ test.afterAll(async ({ playwright }) => {
   // Fresh login + fresh request context (not reused from beforeAll) so
   // cleanup can never silently no-op on a stale/disposed context.
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   const token = authData.login.access_token
   if (slotId) {
-    await gql(request, token, `mutation { deleteClinicianAvailability(id: "${slotId}") }`)
-      .catch((err) => console.error('afterAll: failed to delete test availability slot', err))
+    await gql(request, token, `mutation { deleteClinicianAvailability(id: "${slotId}") }`).catch((err) =>
+      console.error('afterAll: failed to delete test availability slot', err),
+    )
   }
   if (lunchId) {
-    await gql(request, token, `mutation { deleteLunchBreak(id: "${lunchId}") }`)
-      .catch((err) => console.error('afterAll: failed to delete test lunch break', err))
+    await gql(request, token, `mutation { deleteLunchBreak(id: "${lunchId}") }`).catch((err) =>
+      console.error('afterAll: failed to delete test lunch break', err),
+    )
   }
   await request.dispose()
   execSync(
@@ -112,7 +130,9 @@ test.afterAll(async ({ playwright }) => {
   )
 })
 
-test('availability page places a weekly slot in its own real day column, and a specific-day lunch break on only that day', async ({ page }) => {
+test('availability page places a weekly slot in its own real day column, and a specific-day lunch break on only that day', async ({
+  page,
+}) => {
   await loginAs(page, 'Clinician')
   await page.goto('/clinician/availability')
 

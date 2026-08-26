@@ -1,9 +1,6 @@
-import React from 'react';
-import {
-  Dialog, DialogTitle, DialogContent, DialogContentText,
-  DialogActions, Button, CircularProgress
-} from '@mui/material';
-import WarningAmberIcon from '@mui/icons-material/WarningAmber';
+import React from 'react'
+import { Dialog, DialogTitle, DialogContent, DialogContentText, DialogActions, Button, CircularProgress } from '@mui/material'
+import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 
 export default function ConfirmDialog({
   open,
@@ -40,5 +37,5 @@ export default function ConfirmDialog({
         </Button>
       </DialogActions>
     </Dialog>
-  );
+  )
 }

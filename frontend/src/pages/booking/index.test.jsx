@@ -4,6 +4,7 @@ import { MockedProvider } from '@apollo/client/testing'
 import dayjs from 'dayjs'
 import BookingWizard from './index'
 import { useAuth } from '../../hooks/useAuth'
+import { expectNoA11yViolations } from '../../test/a11y'
 
 jest.mock('../../hooks/useAuth', () => ({
   useAuth: jest.fn(),
@@ -12,17 +13,35 @@ jest.mock('../../hooks/useAuth', () => ({
 const DOCTOR_ID = 'doc-1'
 
 const GET_CLINICIAN_AND_PRODUCTS_SHAPE = {
-  getClinician: { id: DOCTOR_ID, name: 'Sarah Mitchell', clinicianType: 'General Physician', clinic: { id: 'clinic-1', name: 'MG Road Clinic' } },
-  getClinicianAvailability: [{ id: 'av-1', dayOfWeek: dayjs().day(), startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly', mode: 'slot' }],
+  getClinician: {
+    id: DOCTOR_ID,
+    name: 'Sarah Mitchell',
+    clinicianType: 'General Physician',
+    clinic: { id: 'clinic-1', name: 'MG Road Clinic' },
+  },
+  getClinicianAvailability: [
+    { id: 'av-1', dayOfWeek: dayjs().day(), startTime: '09:00', endTime: '17:00', recurrenceType: 'weekly', mode: 'slot' },
+  ],
   getProducts: [
-    { id: 'prod-simple', name: 'General Consultation', description: '30-minute visit', price: 500, product_type: 'simple', variations: [], cancellation_rules: null },
+    {
+      id: 'prod-simple',
+      name: 'General Consultation',
+      description: '30-minute visit',
+      price: 500,
+      product_type: 'simple',
+      variations: [],
+      cancellation_rules: null,
+    },
     {
       id: 'prod-variable',
       name: 'Specialist Consultation',
       description: 'Choose a duration',
       price: 800,
       product_type: 'variable',
-      variations: [{ id: 'var-30', name: '30 minutes', price: 800 }, { id: 'var-60', name: '60 minutes', price: 1400 }],
+      variations: [
+        { id: 'var-30', name: '30 minutes', price: 800 },
+        { id: 'var-60', name: '60 minutes', price: 1400 },
+      ],
       cancellation_rules: null,
     },
   ],
@@ -37,14 +56,48 @@ function buildMocks({ availability = GET_CLINICIAN_AND_PRODUCTS_SHAPE.getClinici
   const { gql } = require('@apollo/client')
   const GET_CLINICIAN_AND_PRODUCTS = gql`
     query GetClinicianAndProducts($id: ID!) {
-      getClinician(id: $id) { id name clinicianType clinic { id name } }
-      getClinicianAvailability(clinicianId: $id) { id dayOfWeek startTime endTime recurrenceType mode }
-      getProducts(clinicianId: $id) { id name description price product_type variations { id name price } cancellation_rules { id hoursNoticeRequired } }
+      getClinician(id: $id) {
+        id
+        name
+        clinicianType
+        clinic {
+          id
+          name
+        }
+      }
+      getClinicianAvailability(clinicianId: $id) {
+        id
+        dayOfWeek
+        startTime
+        endTime
+        recurrenceType
+        mode
+      }
+      getProducts(clinicianId: $id) {
+        id
+        name
+        description
+        price
+        product_type
+        variations {
+          id
+          name
+          price
+        }
+        cancellation_rules {
+          id
+          hoursNoticeRequired
+        }
+      }
     }
   `
   const GET_APPOINTMENTS = gql`
     query GetAppointments($clinicianId: ID!, $date: String!) {
-      getAppointments(clinicianId: $clinicianId, date: $date) { id startTime endTime }
+      getAppointments(clinicianId: $clinicianId, date: $date) {
+        id
+        startTime
+        endTime
+      }
     }
   `
   return [
@@ -209,5 +262,30 @@ describe('BookingWizard — Step 2 (Choose Service) validation gate', () => {
     fireEvent.click(screen.getByText('General Consultation'))
     expect(nextButton()).toBeEnabled() // simple product, no variation needed
     expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+  }, 15000)
+})
+
+// P1-03 (CI-7, A11Y-9) — this is the single highest-stakes screen in
+// FRONTEND_RULES.md's own words: "the entire booking flow MUST be
+// completable with a screen reader and keyboard only." A real axe-core
+// scan of Step 0's initial render, not just a manual keyboard walk-through.
+describe('BookingWizard — accessibility', () => {
+  beforeEach(() => {
+    useAuth.mockReturnValue({ user: null })
+  })
+  afterEach(() => jest.resetAllMocks())
+
+  // 'heading-order' is a real, pre-existing, page-wide gap — this wizard
+  // uses MUI's h6/subtitle1 Typography variants throughout (subtitle1
+  // also defaults to an <h6> tag), producing a heading sequence deeper
+  // than this one slice's scope to re-level end to end. Logged in
+  // FRONTEND_RULES.md §22, not silently excluded: the image-alt and
+  // missing-h1 violations this same axe run originally found ARE fixed
+  // (see the Avatar `alt` and Typography `component="h1"` above) and stay
+  // fully enforced here.
+  it('has zero axe-core violations on the initial (Select Time) step', async () => {
+    const { container } = renderWizard()
+    await waitFor(() => expect(screen.getByText('Sarah Mitchell')).toBeInTheDocument())
+    await expectNoA11yViolations(container, ['heading-order'])
   }, 15000)
 })

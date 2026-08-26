@@ -1,10 +1,10 @@
 /**
  * AuthLayout — centred card wrapper for login / forgot-password / reset pages.
  */
-import React from 'react';
-import { Outlet, Link as RouterLink } from 'react-router-dom';
-import { Box, Stack, Typography } from '@mui/material';
-import MedicalServicesIcon from '@mui/icons-material/MedicalServices';
+import React from 'react'
+import { Outlet, Link as RouterLink } from 'react-router-dom'
+import { Box, Stack, Typography } from '@mui/material'
+import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
 
 export default function AuthLayout() {
   return (
@@ -17,10 +17,7 @@ export default function AuthLayout() {
       }}
     >
       {/* Minimal nav strip */}
-      <Box
-        component="header"
-        sx={{ bgcolor: '#fff', borderBottom: '1px solid #D0E8EA', py: 1.5, px: 3 }}
-      >
+      <Box component="header" sx={{ bgcolor: '#fff', borderBottom: '1px solid #D0E8EA', py: 1.5, px: 3 }}>
         <Stack
           direction="row"
           alignItems="center"
@@ -31,8 +28,13 @@ export default function AuthLayout() {
         >
           <Box
             sx={{
-              width: 30, height: 30, borderRadius: '50%', bgcolor: '#006D77',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              width: 30,
+              height: 30,
+              borderRadius: '50%',
+              bgcolor: '#006D77',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
             }}
           >
             <MedicalServicesIcon sx={{ color: '#fff', fontSize: 15 }} />
@@ -49,10 +51,7 @@ export default function AuthLayout() {
       </Box>
 
       {/* Minimal footer */}
-      <Box
-        component="footer"
-        sx={{ py: 2, textAlign: 'center', borderTop: '1px solid #D0E8EA' }}
-      >
+      <Box component="footer" sx={{ py: 2, textAlign: 'center', borderTop: '1px solid #D0E8EA' }}>
         <Typography variant="caption" color="text.secondary">
           © 2026 HealthSync Ltd · &nbsp;
           <Box component="span" sx={{ cursor: 'pointer', '&:hover': { color: '#006D77' } }}>
@@ -65,5 +64,5 @@ export default function AuthLayout() {
         </Typography>
       </Box>
     </Box>
-  );
+  )
 }

@@ -13,16 +13,30 @@ import PatientDetailPage from './detail'
 // spec covers only the new, real Insurance tab, scoped independently.
 const GET_PATIENT_INSURANCE = gql`
   query GetPatientInsurance($patient_id: ID!) {
-    payers(is_active: true) { id name payer_type }
+    payers(is_active: true) {
+      id
+      name
+      payer_type
+    }
     patientInsurancePolicies(patient_id: $patient_id) {
-      id policy_number policy_holder_name valid_from valid_until is_active
-      payer { id name }
+      id
+      policy_number
+      policy_holder_name
+      valid_from
+      valid_until
+      is_active
+      payer {
+        id
+        name
+      }
     }
   }
 `
 const CREATE_PATIENT_INSURANCE_POLICY = gql`
   mutation CreatePatientInsurancePolicy($input: PatientInsurancePolicyInput!) {
-    createPatientInsurancePolicy(input: $input) { id }
+    createPatientInsurancePolicy(input: $input) {
+      id
+    }
   }
 `
 
@@ -32,9 +46,18 @@ const CREATE_PATIENT_INSURANCE_POLICY = gql`
 const GET_PATIENT_PACKAGES = gql`
   query GetPatientPackages($patient_id: ID!) {
     patientPackages(patient_id: $patient_id) {
-      id sittings_total sittings_remaining purchase_amount purchase_tender_type
-      purchased_at expires_at is_expired
-      package { id name }
+      id
+      sittings_total
+      sittings_remaining
+      purchase_amount
+      purchase_tender_type
+      purchased_at
+      expires_at
+      is_expired
+      package {
+        id
+        name
+      }
     }
   }
 `
@@ -42,7 +65,9 @@ const TRANSFER_PACKAGE = gql`
   mutation TransferPackage($input: TransferPackageInput!) {
     transferPackage(input: $input) {
       success
-      userErrors { message }
+      userErrors {
+        message
+      }
     }
   }
 `
@@ -51,14 +76,23 @@ const TRANSFER_PACKAGE = gql`
 // detail.jsx's own inline gql — MockedProvider matches by query-AST equality.
 const GET_SELLABLE_PACKAGES = gql`
   query GetSellablePackages {
-    packages { id name total_sittings price validity_days is_active }
+    packages {
+      id
+      name
+      total_sittings
+      price
+      validity_days
+      is_active
+    }
   }
 `
 const PURCHASE_PACKAGE = gql`
   mutation PurchasePackage($input: PurchasePackageInput!) {
     purchasePackage(input: $input) {
       success
-      userErrors { message }
+      userErrors {
+        message
+      }
     }
   }
 `
@@ -68,11 +102,17 @@ const PURCHASE_PACKAGE = gql`
 const PATIENT_ID = '8e9ed6bf-daf0-49cb-84f3-82c8c4ba80e7'
 
 function insuranceMock({ payers = [], policies = [] } = {}) {
-  return { request: { query: GET_PATIENT_INSURANCE, variables: { patient_id: PATIENT_ID } }, result: { data: { payers, patientInsurancePolicies: policies } } }
+  return {
+    request: { query: GET_PATIENT_INSURANCE, variables: { patient_id: PATIENT_ID } },
+    result: { data: { payers, patientInsurancePolicies: policies } },
+  }
 }
 
 function packagesMock({ packages = [] } = {}) {
-  return { request: { query: GET_PATIENT_PACKAGES, variables: { patient_id: PATIENT_ID } }, result: { data: { patientPackages: packages } } }
+  return {
+    request: { query: GET_PATIENT_PACKAGES, variables: { patient_id: PATIENT_ID } },
+    result: { data: { patientPackages: packages } },
+  }
 }
 
 function renderPage(mocks) {
@@ -87,7 +127,7 @@ function renderPage(mocks) {
           </MockedProvider>
         </SnackbarProvider>
       </MemoryRouter>
-    </HelmetProvider>
+    </HelmetProvider>,
   )
 }
 
@@ -107,11 +147,18 @@ describe('patients/detail.jsx — Insurance tab (A-7)', () => {
   })
 
   it('renders real recorded policies', async () => {
-    const policies = [{
-      __typename: 'PatientInsurancePolicy', id: 'pol-1', policy_number: 'POL-9001', policy_holder_name: 'Rohan Verma',
-      valid_from: '2026-01-01T00:00:00.000Z', valid_until: '2026-12-31T00:00:00.000Z', is_active: true,
-      payer: { __typename: 'Payer', id: 'payer-1', name: 'Star Health' },
-    }]
+    const policies = [
+      {
+        __typename: 'PatientInsurancePolicy',
+        id: 'pol-1',
+        policy_number: 'POL-9001',
+        policy_holder_name: 'Rohan Verma',
+        valid_from: '2026-01-01T00:00:00.000Z',
+        valid_until: '2026-12-31T00:00:00.000Z',
+        is_active: true,
+        payer: { __typename: 'Payer', id: 'payer-1', name: 'Star Health' },
+      },
+    ]
     renderPage([insuranceMock({ policies }), packagesMock()])
     await openInsuranceTab()
     await waitFor(() => expect(screen.getByText('Star Health')).toBeInTheDocument())
@@ -125,10 +172,35 @@ describe('patients/detail.jsx — Insurance tab (A-7)', () => {
       insuranceMock({ payers }),
       packagesMock(),
       {
-        request: { query: CREATE_PATIENT_INSURANCE_POLICY, variables: { input: { patient_id: PATIENT_ID, payer_id: 'payer-1', policy_number: 'POL-9002', policy_holder_name: 'Rohan Verma', valid_from: '2026-01-15' } } },
+        request: {
+          query: CREATE_PATIENT_INSURANCE_POLICY,
+          variables: {
+            input: {
+              patient_id: PATIENT_ID,
+              payer_id: 'payer-1',
+              policy_number: 'POL-9002',
+              policy_holder_name: 'Rohan Verma',
+              valid_from: '2026-01-15',
+            },
+          },
+        },
         result: { data: { createPatientInsurancePolicy: { __typename: 'PatientInsurancePolicy', id: 'pol-2' } } },
       },
-      insuranceMock({ payers, policies: [{ __typename: 'PatientInsurancePolicy', id: 'pol-2', policy_number: 'POL-9002', policy_holder_name: 'Rohan Verma', valid_from: '2026-01-15T00:00:00.000Z', valid_until: null, is_active: true, payer: { __typename: 'Payer', id: 'payer-1', name: 'Star Health' } }] }),
+      insuranceMock({
+        payers,
+        policies: [
+          {
+            __typename: 'PatientInsurancePolicy',
+            id: 'pol-2',
+            policy_number: 'POL-9002',
+            policy_holder_name: 'Rohan Verma',
+            valid_from: '2026-01-15T00:00:00.000Z',
+            valid_until: null,
+            is_active: true,
+            payer: { __typename: 'Payer', id: 'payer-1', name: 'Star Health' },
+          },
+        ],
+      }),
     ])
     await openInsuranceTab()
     await waitFor(() => expect(screen.getByText('No insurance policies recorded for this patient yet.')).toBeInTheDocument())
@@ -150,9 +222,15 @@ describe('patients/detail.jsx — Insurance tab (A-7)', () => {
 
 describe('patients/detail.jsx — Packages tab (REQ110)', () => {
   const activePackage = {
-    __typename: 'PatientPackage', id: 'pp-1', sittings_total: 10, sittings_remaining: 6,
-    purchase_amount: 5000, purchase_tender_type: 'upi',
-    purchased_at: '2026-06-01T00:00:00.000Z', expires_at: '2026-12-01T00:00:00.000Z', is_expired: false,
+    __typename: 'PatientPackage',
+    id: 'pp-1',
+    sittings_total: 10,
+    sittings_remaining: 6,
+    purchase_amount: 5000,
+    purchase_tender_type: 'upi',
+    purchased_at: '2026-06-01T00:00:00.000Z',
+    expires_at: '2026-12-01T00:00:00.000Z',
+    is_expired: false,
     package: { __typename: 'Package', id: 'pkg-1', name: 'Physio 10-Sitting Pack' },
   }
 
@@ -179,15 +257,41 @@ describe('patients/detail.jsx — Packages tab (REQ110)', () => {
 
   it('transfers a package to another patient via the real transferPackage mutation', async () => {
     const targetPatient = {
-      __typename: 'Patient', id: 'patient-target', first_name: 'Anita', last_name: 'Sharma', full_name: 'Anita Sharma',
-      email: 'anita@example.com', phone: null, date_of_birth: null, gender: null, address: null, notes: null, created_at: '2026-01-01T00:00:00.000Z',
+      __typename: 'Patient',
+      id: 'patient-target',
+      first_name: 'Anita',
+      last_name: 'Sharma',
+      full_name: 'Anita Sharma',
+      email: 'anita@example.com',
+      phone: null,
+      date_of_birth: null,
+      gender: null,
+      address: null,
+      notes: null,
+      created_at: '2026-01-01T00:00:00.000Z',
     }
     renderPage([
       insuranceMock(),
       packagesMock({ packages: [activePackage] }),
       {
         request: { query: PATIENTS_QUERY, variables: { search: 'Anita', first: 20 } },
-        result: { data: { patients: { __typename: 'PatientPaginator', data: [targetPatient], paginatorInfo: { __typename: 'PaginatorInfo', count: 1, currentPage: 1, hasMorePages: false, lastPage: 1, perPage: 20, total: 1 } } } },
+        result: {
+          data: {
+            patients: {
+              __typename: 'PatientPaginator',
+              data: [targetPatient],
+              paginatorInfo: {
+                __typename: 'PaginatorInfo',
+                count: 1,
+                currentPage: 1,
+                hasMorePages: false,
+                lastPage: 1,
+                perPage: 20,
+                total: 1,
+              },
+            },
+          },
+        },
       },
       {
         request: { query: TRANSFER_PACKAGE, variables: { input: { patient_package_id: 'pp-1', to_patient_id: 'patient-target' } } },
@@ -212,13 +316,24 @@ describe('patients/detail.jsx — Packages tab (REQ110)', () => {
   }, 20000)
 
   it('sells a package to this patient via the real purchasePackage mutation (REQ115)', async () => {
-    const sellablePackage = { __typename: 'Package', id: 'pkg-2', name: 'Dental Whitening', total_sittings: 5, price: 3000, validity_days: 90, is_active: true }
+    const sellablePackage = {
+      __typename: 'Package',
+      id: 'pkg-2',
+      name: 'Dental Whitening',
+      total_sittings: 5,
+      price: 3000,
+      validity_days: 90,
+      is_active: true,
+    }
     renderPage([
       insuranceMock(),
       packagesMock(),
       { request: { query: GET_SELLABLE_PACKAGES }, result: { data: { packages: [sellablePackage] } } },
       {
-        request: { query: PURCHASE_PACKAGE, variables: { input: { package_id: 'pkg-2', patient_id: PATIENT_ID, purchase_tender_type: 'cash', purchase_reference: 'REF1' } } },
+        request: {
+          query: PURCHASE_PACKAGE,
+          variables: { input: { package_id: 'pkg-2', patient_id: PATIENT_ID, purchase_tender_type: 'cash', purchase_reference: 'REF1' } },
+        },
         result: { data: { purchasePackage: { success: true, userErrors: [] } } },
       },
       packagesMock({ packages: [activePackage] }),

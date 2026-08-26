@@ -12,37 +12,99 @@ import { ServiceCatalog } from './index'
 const GET_SERVICES_DATA = gql`
   query GetServicesData {
     services {
-      id name description duration_minutes price is_active clinic_id gst_rate
-      category { id name }
-      clinicians { id full_name }
+      id
+      name
+      description
+      duration_minutes
+      price
+      is_active
+      clinic_id
+      gst_rate
+      category {
+        id
+        name
+      }
+      clinicians {
+        id
+        full_name
+      }
     }
-    productCategories { id name description is_active }
+    productCategories {
+      id
+      name
+      description
+      is_active
+    }
   }
 `
 const GET_BRANCH_OVERRIDES = gql`
   query GetProductBranchOverrides {
-    productBranchOverrides { id product_id clinic_id mode override_price }
+    productBranchOverrides {
+      id
+      product_id
+      clinic_id
+      mode
+      override_price
+    }
   }
 `
 
 function withProviders(mocks, children) {
-  return <MockedProvider mocks={mocks} addTypename={false}>{children}</MockedProvider>
+  return (
+    <MockedProvider mocks={mocks} addTypename={false}>
+      {children}
+    </MockedProvider>
+  )
 }
 
 const masterService = {
-  id: 'svc-master', name: 'GP Consultation', description: 'desc', duration_minutes: 20,
-  price: 500, is_active: true, clinic_id: null, category: null, clinicians: [],
+  id: 'svc-master',
+  name: 'GP Consultation',
+  description: 'desc',
+  duration_minutes: 20,
+  price: 500,
+  is_active: true,
+  clinic_id: null,
+  category: null,
+  clinicians: [],
 }
 const clinicScopedService = {
-  id: 'svc-scoped', name: 'Branch-only Service', description: 'desc', duration_minutes: 10,
-  price: 200, is_active: true, clinic_id: 'clinic-a', category: null, clinicians: [],
+  id: 'svc-scoped',
+  name: 'Branch-only Service',
+  description: 'desc',
+  duration_minutes: 10,
+  price: 200,
+  is_active: true,
+  clinic_id: 'clinic-a',
+  category: null,
+  clinicians: [],
 }
 
 function baseMocks(services, overrides = []) {
   return [
     { request: { query: GET_SERVICES_DATA }, result: { data: { services, productCategories: [] } } },
     { request: { query: GET_BRANCH_OVERRIDES }, result: { data: { productBranchOverrides: overrides } } },
-    { request: { query: CLINICS_QUERY }, result: { data: { clinics: [{ id: 'clinic-a', name: 'MG Road Clinic', address: null, city: null, postcode: null, phone: null, email: null, timezone: null, is_active: true, is_primary: true }] } } },
+    {
+      request: { query: CLINICS_QUERY },
+      result: {
+        data: {
+          clinics: [
+            {
+              id: 'clinic-a',
+              name: 'MG Road Clinic',
+              address: null,
+              city: null,
+              postcode: null,
+              phone: null,
+              email: null,
+              timezone: null,
+              is_active: true,
+              is_primary: true,
+            },
+          ],
+        },
+      },
+    },
   ]
 }
 

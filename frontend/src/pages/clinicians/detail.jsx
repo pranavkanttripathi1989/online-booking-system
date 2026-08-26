@@ -3,10 +3,7 @@ import { useQuery, useMutation, gql } from '@apollo/client'
 import { useParams, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
-import {
-  Box, Button, Avatar, Typography, Chip, Grid, Card, CardContent,
-  Stack, Divider, Paper, Tabs, Tab, Skeleton,
-} from '@mui/material'
+import { Box, Button, Avatar, Typography, Chip, Grid, Card, CardContent, Stack, Divider, Paper, Tabs, Tab, Skeleton } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import MessageRoundedIcon from '@mui/icons-material/MessageRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
@@ -25,7 +22,11 @@ import { useAuth } from '../../hooks/useAuth'
 // with no UI anywhere to display or action it.
 const UPDATE_CLINICIAN_VERIFICATION = gql`
   mutation UpdateClinicianVerification($id: ID!, $status: String!) {
-    updateClinicianVerification(id: $id, status: $status) { id verification_status verified_at }
+    updateClinicianVerification(id: $id, status: $status) {
+      id
+      verification_status
+      verified_at
+    }
   }
 `
 const VERIFICATION_COLOR = { verified: 'success', pending: 'warning', rejected: 'error', unverified: 'default' }
@@ -58,8 +59,15 @@ function InfoPill({ icon: Icon, label, value }) {
     <Stack direction="row" spacing={1.25} alignItems="flex-start">
       <Icon sx={{ fontSize: '1rem', color: 'primary.main', mt: 0.3, flexShrink: 0 }} />
       <Box>
-        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.67rem', letterSpacing: '0.07em' }}>{label}</Typography>
-        <Typography variant="body2" fontWeight={600}>{value}</Typography>
+        <Typography
+          variant="caption"
+          sx={{ color: 'text.secondary', fontWeight: 700, textTransform: 'uppercase', fontSize: '0.67rem', letterSpacing: '0.07em' }}
+        >
+          {label}
+        </Typography>
+        <Typography variant="body2" fontWeight={600}>
+          {value}
+        </Typography>
       </Box>
     </Stack>
   )
@@ -102,22 +110,38 @@ export default function ClinicianDetailPage() {
   if (!c) {
     return (
       <Box sx={{ pb: 4, textAlign: 'center', py: 8 }}>
-        <Typography variant="h6" color="text.secondary">Clinician not found</Typography>
-        <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/clinicians')} sx={{ mt: 2, textTransform: 'none', fontWeight: 600 }}>
+        <Typography variant="h6" color="text.secondary">
+          Clinician not found
+        </Typography>
+        <Button
+          startIcon={<ArrowBackRoundedIcon />}
+          onClick={() => navigate('/clinicians')}
+          sx={{ mt: 2, textTransform: 'none', fontWeight: 600 }}
+        >
           Back to Clinicians
         </Button>
       </Box>
     )
   }
 
-  const initials = c.full_name.split(' ').filter(Boolean).slice(0, 2).map(n => n[0]).join('')
+  const initials = c.full_name
+    .split(' ')
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join('')
 
   return (
     <Box className="page-enter" sx={{ pb: 4 }}>
-      <Helmet><title>{c.full_name} — MediBook</title></Helmet>
+      <Helmet>
+        <title>{c.full_name} — MediBook</title>
+      </Helmet>
 
-      <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate('/clinicians')}
-        sx={{ mb: 2, textTransform: 'none', fontWeight: 600, color: 'text.secondary' }}>
+      <Button
+        startIcon={<ArrowBackRoundedIcon />}
+        onClick={() => navigate('/clinicians')}
+        sx={{ mb: 2, textTransform: 'none', fontWeight: 600, color: 'text.secondary' }}
+      >
         Back to Clinicians
       </Button>
 
@@ -130,45 +154,104 @@ export default function ClinicianDetailPage() {
                 <Avatar src={c.avatar_url} sx={{ width: 96, height: 96, bgcolor: '#0B7B5C', fontSize: '2rem', fontWeight: 800 }}>
                   {!c.avatar_url && initials}
                 </Avatar>
-                <Chip label={c.is_active ? 'active' : 'inactive'} color={c.is_active ? 'success' : 'default'} size="small" sx={{ mt: 1, fontWeight: 700, display: 'block', fontSize: '0.68rem' }} />
+                <Chip
+                  label={c.is_active ? 'active' : 'inactive'}
+                  color={c.is_active ? 'success' : 'default'}
+                  size="small"
+                  sx={{ mt: 1, fontWeight: 700, display: 'block', fontSize: '0.68rem' }}
+                />
               </Box>
             </Grid>
             <Grid item xs={12} sm>
               <Stack direction="row" alignItems="center" spacing={1.5} mb={0.5} flexWrap="wrap">
-                <Typography variant="h5" fontWeight={800} sx={{ color: 'text.primary' }}>{c.full_name}</Typography>
+                <Typography variant="h5" fontWeight={800} sx={{ color: 'text.primary' }}>
+                  {c.full_name}
+                </Typography>
                 {c.clinician_type && <Chip label={c.clinician_type.name} variant="outlined" size="small" sx={{ fontWeight: 700 }} />}
                 <Chip
                   icon={<VerifiedRoundedIcon sx={{ fontSize: '1rem' }} />}
                   label={c.verification_status || 'unverified'}
                   color={VERIFICATION_COLOR[c.verification_status] ?? 'default'}
-                  size="small" sx={{ fontWeight: 700, textTransform: 'capitalize' }}
+                  size="small"
+                  sx={{ fontWeight: 700, textTransform: 'capitalize' }}
                 />
               </Stack>
               {c.consultation_fee != null && (
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>₹{Number(c.consultation_fee).toFixed(2)} per consultation</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+                  ₹{Number(c.consultation_fee).toFixed(2)} per consultation
+                </Typography>
               )}
               {(c.registration_number || c.medical_council) && (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-                  {c.registration_number}{c.registration_number && c.medical_council ? ' · ' : ''}{c.medical_council}
+                  {c.registration_number}
+                  {c.registration_number && c.medical_council ? ' · ' : ''}
+                  {c.medical_council}
                 </Typography>
               )}
               {isVerifier && c.verification_status !== 'verified' && c.verification_status !== 'rejected' && (
                 <Stack direction="row" spacing={1} sx={{ mt: 1 }}>
-                  <Button size="small" variant="contained" color="success" disabled={verifying} onClick={() => setVerification('verified')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Verify</Button>
-                  <Button size="small" variant="outlined" color="error" disabled={verifying} onClick={() => setVerification('rejected')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Reject</Button>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    color="success"
+                    disabled={verifying}
+                    onClick={() => setVerification('verified')}
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Verify
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    disabled={verifying}
+                    onClick={() => setVerification('rejected')}
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Reject
+                  </Button>
                 </Stack>
               )}
               {isVerifier && (c.verification_status === 'verified' || c.verification_status === 'rejected') && (
-                <Button size="small" sx={{ mt: 1, textTransform: 'none', fontWeight: 700, color: 'text.secondary' }} disabled={verifying} onClick={() => setVerification('pending')}>
+                <Button
+                  size="small"
+                  sx={{ mt: 1, textTransform: 'none', fontWeight: 700, color: 'text.secondary' }}
+                  disabled={verifying}
+                  onClick={() => setVerification('pending')}
+                >
                   Re-open for review
                 </Button>
               )}
             </Grid>
             <Grid item xs={12} sm="auto">
               <Stack direction={{ xs: 'row', sm: 'column' }} spacing={1}>
-                <Button variant="contained" startIcon={<CalendarMonthRoundedIcon />} size="small" onClick={() => navigate('/appointments/new')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}>New Appointment</Button>
-                <Button variant="outlined" startIcon={<MessageRoundedIcon />} size="small" onClick={() => navigate('/messages')} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Message</Button>
-                <Button variant="outlined" startIcon={<EditRoundedIcon />} size="small" onClick={() => navigate(`/clinicians/${id}/edit`)} sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}>Edit Clinician</Button>
+                <Button
+                  variant="contained"
+                  startIcon={<CalendarMonthRoundedIcon />}
+                  size="small"
+                  onClick={() => navigate('/appointments/new')}
+                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
+                >
+                  New Appointment
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<MessageRoundedIcon />}
+                  size="small"
+                  onClick={() => navigate('/messages')}
+                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Message
+                </Button>
+                <Button
+                  variant="outlined"
+                  startIcon={<EditRoundedIcon />}
+                  size="small"
+                  onClick={() => navigate(`/clinicians/${id}/edit`)}
+                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+                >
+                  Edit Clinician
+                </Button>
               </Stack>
             </Grid>
           </Grid>
@@ -177,49 +260,90 @@ export default function ClinicianDetailPage() {
 
       {/* ── Tabs ────────────────────────────────────────────────────────── */}
       <Paper sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none', overflow: 'hidden' }}>
-        <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto"
-          sx={{ px: 2, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.default',
+        <Tabs
+          value={tab}
+          onChange={(_, v) => setTab(v)}
+          variant="scrollable"
+          scrollButtons="auto"
+          sx={{
+            px: 2,
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'background.default',
             '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 52, fontSize: '0.875rem' },
             '& .MuiTabs-indicator': { bgcolor: 'primary.main', height: 3, borderRadius: 1.5 },
-          }}>
+          }}
+        >
           <Tab label="Overview" />
           <Tab label="Schedule" />
           <Tab label="Services" />
         </Tabs>
 
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
-
           {/* ── Overview ────────────────────────────────────────────────── */}
           <TabPanel value={tab} index={0}>
             <Grid container spacing={3}>
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.08em', mb: 2 }}>Assigned Clinics</Typography>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={800}
+                  sx={{ color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.08em', mb: 2 }}
+                >
+                  Assigned Clinics
+                </Typography>
                 {c.clinics.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">No clinics assigned.</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    No clinics assigned.
+                  </Typography>
                 ) : (
                   <Stack spacing={1.5}>
-                    {c.clinics.map(clinic => (
-                      <InfoPill key={clinic.id} icon={LocationOnRoundedIcon} label="Clinic" value={`${clinic.name}${clinic.city ? ` — ${clinic.city}` : ''}`} />
+                    {c.clinics.map((clinic) => (
+                      <InfoPill
+                        key={clinic.id}
+                        icon={LocationOnRoundedIcon}
+                        label="Clinic"
+                        value={`${clinic.name}${clinic.city ? ` — ${clinic.city}` : ''}`}
+                      />
                     ))}
                   </Stack>
                 )}
                 <Divider sx={{ my: 2.5 }} />
-                <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.08em', mb: 2 }}>Languages</Typography>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={800}
+                  sx={{ color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.08em', mb: 2 }}
+                >
+                  Languages
+                </Typography>
                 {c.languages.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">Not specified.</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Not specified.
+                  </Typography>
                 ) : (
                   <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
-                    {c.languages.map(l => <Chip key={l} icon={<TranslateRoundedIcon />} label={l} size="small" variant="outlined" sx={{ fontWeight: 700 }} />)}
+                    {c.languages.map((l) => (
+                      <Chip key={l} icon={<TranslateRoundedIcon />} label={l} size="small" variant="outlined" sx={{ fontWeight: 700 }} />
+                    ))}
                   </Stack>
                 )}
               </Grid>
               <Grid item xs={12} md={6}>
-                <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.08em', mb: 2 }}>Bio</Typography>
+                <Typography
+                  variant="subtitle2"
+                  fontWeight={800}
+                  sx={{ color: 'text.secondary', textTransform: 'uppercase', fontSize: '0.72rem', letterSpacing: '0.08em', mb: 2 }}
+                >
+                  Bio
+                </Typography>
                 <Box sx={{ bgcolor: 'action.hover', borderRadius: 2, p: 2 }}>
-                  <Typography variant="body2" sx={{ lineHeight: 1.8, color: 'text.primary' }}>{c.bio || 'No bio provided.'}</Typography>
+                  <Typography variant="body2" sx={{ lineHeight: 1.8, color: 'text.primary' }}>
+                    {c.bio || 'No bio provided.'}
+                  </Typography>
                 </Box>
                 {c.gender && (
-                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textTransform: 'capitalize' }}>{c.gender}</Typography>
+                  <Typography variant="body2" color="text.secondary" sx={{ mt: 2, textTransform: 'capitalize' }}>
+                    {c.gender}
+                  </Typography>
                 )}
               </Grid>
             </Grid>
@@ -228,20 +352,37 @@ export default function ClinicianDetailPage() {
           {/* ── Schedule ────────────────────────────────────────────────── */}
           <TabPanel value={tab} index={1}>
             {templates.length === 0 ? (
-              <Typography color="text.secondary" textAlign="center" py={4}>No availability templates configured.</Typography>
+              <Typography color="text.secondary" textAlign="center" py={4}>
+                No availability templates configured.
+              </Typography>
             ) : (
               <Stack spacing={1.5}>
-                {templates.map(t => (
-                  <Box key={t.id} sx={{ borderLeft: '3px solid', borderColor: t.is_active ? 'primary.main' : 'divider', pl: 2.5, py: 0.75 }}>
+                {templates.map((t) => (
+                  <Box
+                    key={t.id}
+                    sx={{ borderLeft: '3px solid', borderColor: t.is_active ? 'primary.main' : 'divider', pl: 2.5, py: 0.75 }}
+                  >
                     <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
                       <Box>
-                        <Typography variant="body2" fontWeight={800}>{DAY_NAMES[t.day_of_week] ?? `Day ${t.day_of_week}`}</Typography>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>{t.start_time} – {t.end_time}</Typography>
+                        <Typography variant="body2" fontWeight={800}>
+                          {DAY_NAMES[t.day_of_week] ?? `Day ${t.day_of_week}`}
+                        </Typography>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          {t.start_time} – {t.end_time}
+                        </Typography>
                         {t.clinic?.name && (
-                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>{t.clinic.name}{t.room?.name ? ` · ${t.room.name}` : ''}</Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block' }}>
+                            {t.clinic.name}
+                            {t.room?.name ? ` · ${t.room.name}` : ''}
+                          </Typography>
                         )}
                       </Box>
-                      <Chip label={t.is_active ? 'Active' : 'Inactive'} color={t.is_active ? 'success' : 'default'} size="small" sx={{ fontWeight: 700 }} />
+                      <Chip
+                        label={t.is_active ? 'Active' : 'Inactive'}
+                        color={t.is_active ? 'success' : 'default'}
+                        size="small"
+                        sx={{ fontWeight: 700 }}
+                      />
                     </Stack>
                   </Box>
                 ))}
@@ -252,17 +393,28 @@ export default function ClinicianDetailPage() {
           {/* ── Services ────────────────────────────────────────────────── */}
           <TabPanel value={tab} index={2}>
             {services.length === 0 ? (
-              <Typography color="text.secondary" textAlign="center" py={4}>No services assigned.</Typography>
+              <Typography color="text.secondary" textAlign="center" py={4}>
+                No services assigned.
+              </Typography>
             ) : (
               <Stack direction="row" flexWrap="wrap" gap={1.5}>
-                {services.map(s => (
-                  <Chip key={s.id} label={`${s.name}${s.duration_minutes ? ` (${s.duration_minutes} min)` : ''}`} icon={<CheckCircleRoundedIcon />}
-                    sx={{ fontWeight: 700, borderRadius: 2, bgcolor: 'primary.50', color: 'primary.main', '& .MuiChip-icon': { color: 'primary.main' } }} />
+                {services.map((s) => (
+                  <Chip
+                    key={s.id}
+                    label={`${s.name}${s.duration_minutes ? ` (${s.duration_minutes} min)` : ''}`}
+                    icon={<CheckCircleRoundedIcon />}
+                    sx={{
+                      fontWeight: 700,
+                      borderRadius: 2,
+                      bgcolor: 'primary.50',
+                      color: 'primary.main',
+                      '& .MuiChip-icon': { color: 'primary.main' },
+                    }}
+                  />
                 ))}
               </Stack>
             )}
           </TabPanel>
-
         </Box>
       </Paper>
     </Box>

@@ -19,12 +19,20 @@ import * as MockStore from './store'
  */
 export function useMockData(selector) {
   const [data, setData] = useState(() => {
-    try { return selector(MockStore) } catch { return null }
+    try {
+      return selector(MockStore)
+    } catch {
+      return null
+    }
   })
   const [loading, setLoading] = useState(false)
 
   const read = useCallback(() => {
-    try { setData(selector(MockStore)) } catch { /* ignore */ }
+    try {
+      setData(selector(MockStore))
+    } catch {
+      /* ignore */
+    }
   }, [selector])
 
   useEffect(() => {
@@ -49,23 +57,26 @@ export function useMockData(selector) {
  */
 export function useMockMutation(mutationFn) {
   const [loading, setLoading] = useState(false)
-  const [error,   setError]   = useState(null)
+  const [error, setError] = useState(null)
 
-  const execute = useCallback(async (...args) => {
-    setLoading(true)
-    setError(null)
-    try {
-      // Simulate async network delay (50ms)
-      await new Promise(res => setTimeout(res, 50))
-      const result = mutationFn(...args)
-      setLoading(false)
-      return { data: result, error: null }
-    } catch (e) {
-      setError(e)
-      setLoading(false)
-      return { data: null, error: e }
-    }
-  }, [mutationFn])
+  const execute = useCallback(
+    async (...args) => {
+      setLoading(true)
+      setError(null)
+      try {
+        // Simulate async network delay (50ms)
+        await new Promise((res) => setTimeout(res, 50))
+        const result = mutationFn(...args)
+        setLoading(false)
+        return { data: result, error: null }
+      } catch (e) {
+        setError(e)
+        setLoading(false)
+        return { data: null, error: e }
+      }
+    },
+    [mutationFn],
+  )
 
   return [execute, { loading, error }]
 }

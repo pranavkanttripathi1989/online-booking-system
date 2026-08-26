@@ -11,11 +11,29 @@ import AdminRoles from './Roles'
 
 const GET_ROLES_DATA = gql`
   query GetRolesData {
-    roles { id name description is_active is_system permission_ids }
-    getPermissions { id action resource description }
+    roles {
+      id
+      name
+      description
+      is_active
+      is_system
+      permission_ids
+    }
+    getPermissions {
+      id
+      action
+      resource
+      description
+    }
   }
 `
-const CREATE_ROLE = gql`mutation CreateRole($input: AppRoleInput!) { createRole(input: $input) { id } }`
+const CREATE_ROLE = gql`
+  mutation CreateRole($input: AppRoleInput!) {
+    createRole(input: $input) {
+      id
+    }
+  }
+`
 
 const permissions = [
   { __typename: 'Permission', id: 'perm-1', action: 'view', resource: 'patients', description: null },
@@ -27,7 +45,16 @@ function rolesMock(roles) {
 }
 
 function makeRole(overrides = {}) {
-  return { __typename: 'AppRole', id: 'role-1', name: 'Front Desk', description: 'Reception staff', is_active: true, is_system: false, permission_ids: ['perm-1'], ...overrides }
+  return {
+    __typename: 'AppRole',
+    id: 'role-1',
+    name: 'Front Desk',
+    description: 'Reception staff',
+    is_active: true,
+    is_system: false,
+    permission_ids: ['perm-1'],
+    ...overrides,
+  }
 }
 
 function renderPage(mocks) {
@@ -75,7 +102,10 @@ describe('admin/Roles (REQ141)', () => {
     const mocks = [
       rolesMock([]),
       {
-        request: { query: CREATE_ROLE, variables: { input: { name: 'Billing Clerk', description: '', is_active: true, permission_ids: ['perm-2'] } } },
+        request: {
+          query: CREATE_ROLE,
+          variables: { input: { name: 'Billing Clerk', description: '', is_active: true, permission_ids: ['perm-2'] } },
+        },
         result: { data: { createRole: { id: 'role-new' } } },
       },
       rolesMock([makeRole({ id: 'role-new', name: 'Billing Clerk', description: '', permission_ids: ['perm-2'] })]),

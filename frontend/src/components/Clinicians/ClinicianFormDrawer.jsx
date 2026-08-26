@@ -23,10 +23,7 @@ import CloseIcon from '@mui/icons-material/Close'
 import SaveIcon from '@mui/icons-material/Save'
 
 import { CLINICIANS_QUERY, CLINICS_QUERY, SERVICES_QUERY } from '../../graphql/queries'
-import {
-  CREATE_CLINICIAN_MUTATION,
-  UPDATE_CLINICIAN_MUTATION,
-} from '../../graphql/mutations'
+import { CREATE_CLINICIAN_MUTATION, UPDATE_CLINICIAN_MUTATION } from '../../graphql/mutations'
 
 // ─── Zod schema ───────────────────────────────────────────────────────────────
 const schema = z.object({
@@ -54,12 +51,23 @@ export default function ClinicianFormDrawer({ open, clinician, onClose, onSucces
   const clinics = (clinicsData?.clinics ?? []).filter((c) => c.is_active)
   const services = servicesData?.services ?? []
 
-  const { control, handleSubmit, reset, formState: { errors, isSubmitting } } = useForm({
+  const {
+    control,
+    handleSubmit,
+    reset,
+    formState: { errors, isSubmitting },
+  } = useForm({
     resolver: zodResolver(schema),
     defaultValues: {
-      first_name: '', last_name: '', clinician_type_id: '',
-      bio: '', consultation_fee: '', gender: '',
-      languages: [], clinic_ids: [], service_ids: [],
+      first_name: '',
+      last_name: '',
+      clinician_type_id: '',
+      bio: '',
+      consultation_fee: '',
+      gender: '',
+      languages: [],
+      clinic_ids: [],
+      service_ids: [],
     },
   })
 
@@ -78,16 +86,32 @@ export default function ClinicianFormDrawer({ open, clinician, onClose, onSucces
         service_ids: clinician.services?.map((s) => s.id) ?? [],
       })
     } else {
-      reset({ first_name:'',last_name:'',clinician_type_id:'',bio:'',consultation_fee:'',gender:'',languages:[],clinic_ids:[],service_ids:[] })
+      reset({
+        first_name: '',
+        last_name: '',
+        clinician_type_id: '',
+        bio: '',
+        consultation_fee: '',
+        gender: '',
+        languages: [],
+        clinic_ids: [],
+        service_ids: [],
+      })
     }
   }, [clinician, reset])
 
   const [createClinician] = useMutation(CREATE_CLINICIAN_MUTATION, {
     refetchQueries: [{ query: CLINICIANS_QUERY, variables: { first: 50 } }],
-    onCompleted: () => { onSuccess?.(); onClose() },
+    onCompleted: () => {
+      onSuccess?.()
+      onClose()
+    },
   })
   const [updateClinician] = useMutation(UPDATE_CLINICIAN_MUTATION, {
-    onCompleted: () => { onSuccess?.(); onClose() },
+    onCompleted: () => {
+      onSuccess?.()
+      onClose()
+    },
   })
 
   const onSubmit = async (values) => {
@@ -131,68 +155,144 @@ export default function ClinicianFormDrawer({ open, clinician, onClose, onSucces
         <Typography variant="h6" fontWeight={800}>
           {isEdit ? 'Edit Clinician' : 'Add Clinician'}
         </Typography>
-        <IconButton size="small" onClick={onClose}><CloseIcon /></IconButton>
+        <IconButton size="small" onClick={onClose}>
+          <CloseIcon />
+        </IconButton>
       </Box>
 
       {/* Form body */}
       <Box component="form" onSubmit={handleSubmit(onSubmit)} sx={{ flex: 1, overflowY: 'auto', p: 2.5 }}>
         <Stack spacing={2.5}>
-
           {/* Name */}
           <Stack direction="row" spacing={2}>
-            <Controller name="first_name" control={control} render={({ field }) => (
-              <TextField {...field} label="First Name *" fullWidth error={!!errors.first_name} helperText={errors.first_name?.message} />
-            )} />
-            <Controller name="last_name" control={control} render={({ field }) => (
-              <TextField {...field} label="Last Name *" fullWidth error={!!errors.last_name} helperText={errors.last_name?.message} />
-            )} />
+            <Controller
+              name="first_name"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} label="First Name *" fullWidth error={!!errors.first_name} helperText={errors.first_name?.message} />
+              )}
+            />
+            <Controller
+              name="last_name"
+              control={control}
+              render={({ field }) => (
+                <TextField {...field} label="Last Name *" fullWidth error={!!errors.last_name} helperText={errors.last_name?.message} />
+              )}
+            />
           </Stack>
 
           {/* Gender */}
-          <Controller name="gender" control={control} render={({ field }) => (
-            <TextField {...field} select label="Gender" fullWidth>
-              <MenuItem value="">Prefer not to say</MenuItem>
-              {GENDER_OPTIONS.map((g) => (
-                <MenuItem key={g} value={g} sx={{ textTransform: 'capitalize' }}>{g.replace(/_/g,' ')}</MenuItem>
-              ))}
-            </TextField>
-          )} />
+          <Controller
+            name="gender"
+            control={control}
+            render={({ field }) => (
+              <TextField {...field} select label="Gender" fullWidth>
+                <MenuItem value="">Prefer not to say</MenuItem>
+                {GENDER_OPTIONS.map((g) => (
+                  <MenuItem key={g} value={g} sx={{ textTransform: 'capitalize' }}>
+                    {g.replace(/_/g, ' ')}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+          />
 
           {/* Fee */}
-          <Controller name="consultation_fee" control={control} render={({ field }) => (
-            <TextField {...field} label="Consultation Fee (₹)" type="number" fullWidth
-              InputProps={{ inputProps: { min: 0, step: 0.01 } }}
-            />
-          )} />
+          <Controller
+            name="consultation_fee"
+            control={control}
+            render={({ field }) => (
+              <TextField
+                {...field}
+                label="Consultation Fee (₹)"
+                type="number"
+                fullWidth
+                InputProps={{ inputProps: { min: 0, step: 0.01 } }}
+              />
+            )}
+          />
 
           <Divider />
 
           {/* Languages */}
           <Box>
-            <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.75}>Languages</Typography>
-            <Controller name="languages" control={control} render={({ field }) => (
-              <Select
-                multiple
-                fullWidth
-                value={field.value ?? []}
-                onChange={field.onChange}
-                input={<OutlinedInput size="small" />}
-                renderValue={(selected) => (
-                  <Stack direction="row" flexWrap="wrap" gap={0.5}>
-                    {selected.map((v) => <Chip key={v} label={v} size="small" />)}
-                  </Stack>
-                )}
-              >
-                {LANG_OPTIONS.map((l) => <MenuItem key={l} value={l}>{l}</MenuItem>)}
-              </Select>
-            )} />
+            <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.75}>
+              Languages
+            </Typography>
+            <Controller
+              name="languages"
+              control={control}
+              render={({ field }) => (
+                <Select
+                  multiple
+                  fullWidth
+                  value={field.value ?? []}
+                  onChange={field.onChange}
+                  input={<OutlinedInput size="small" />}
+                  renderValue={(selected) => (
+                    <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                      {selected.map((v) => (
+                        <Chip key={v} label={v} size="small" />
+                      ))}
+                    </Stack>
+                  )}
+                >
+                  {LANG_OPTIONS.map((l) => (
+                    <MenuItem key={l} value={l}>
+                      {l}
+                    </MenuItem>
+                  ))}
+                </Select>
+              )}
+            />
           </Box>
 
           {/* Clinics */}
           <Box>
-            <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.75}>Clinics *</Typography>
-            <Controller name="clinic_ids" control={control} render={({ field }) => (
-              <>
+            <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.75}>
+              Clinics *
+            </Typography>
+            <Controller
+              name="clinic_ids"
+              control={control}
+              render={({ field }) => (
+                <>
+                  <Select
+                    multiple
+                    fullWidth
+                    value={field.value ?? []}
+                    onChange={field.onChange}
+                    input={<OutlinedInput size="small" />}
+                    renderValue={(selected) => (
+                      <Stack direction="row" flexWrap="wrap" gap={0.5}>
+                        {selected.map((id) => {
+                          const c = clinics.find((x) => x.id === id)
+                          return <Chip key={id} label={c?.name ?? id} size="small" />
+                        })}
+                      </Stack>
+                    )}
+                  >
+                    {clinics.map((c) => (
+                      <MenuItem key={c.id} value={c.id}>
+                        {c.name}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                  {errors.clinic_ids && <FormHelperText error>{errors.clinic_ids.message}</FormHelperText>}
+                </>
+              )}
+            />
+          </Box>
+
+          {/* Services */}
+          <Box>
+            <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.75}>
+              Services
+            </Typography>
+            <Controller
+              name="service_ids"
+              control={control}
+              render={({ field }) => (
                 <Select
                   multiple
                   fullWidth
@@ -202,54 +302,39 @@ export default function ClinicianFormDrawer({ open, clinician, onClose, onSucces
                   renderValue={(selected) => (
                     <Stack direction="row" flexWrap="wrap" gap={0.5}>
                       {selected.map((id) => {
-                        const c = clinics.find((x) => x.id === id)
-                        return <Chip key={id} label={c?.name ?? id} size="small" />
+                        const s = services.find((x) => x.id === id)
+                        return <Chip key={id} label={s?.name ?? id} size="small" />
                       })}
                     </Stack>
                   )}
                 >
-                  {clinics.map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                  {services.map((s) => (
+                    <MenuItem key={s.id} value={s.id}>
+                      {s.name}
+                    </MenuItem>
+                  ))}
                 </Select>
-                {errors.clinic_ids && <FormHelperText error>{errors.clinic_ids.message}</FormHelperText>}
-              </>
-            )} />
-          </Box>
-
-          {/* Services */}
-          <Box>
-            <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.75}>Services</Typography>
-            <Controller name="service_ids" control={control} render={({ field }) => (
-              <Select
-                multiple
-                fullWidth
-                value={field.value ?? []}
-                onChange={field.onChange}
-                input={<OutlinedInput size="small" />}
-                renderValue={(selected) => (
-                  <Stack direction="row" flexWrap="wrap" gap={0.5}>
-                    {selected.map((id) => {
-                      const s = services.find((x) => x.id === id)
-                      return <Chip key={id} label={s?.name ?? id} size="small" />
-                    })}
-                  </Stack>
-                )}
-              >
-                {services.map((s) => <MenuItem key={s.id} value={s.id}>{s.name}</MenuItem>)}
-              </Select>
-            )} />
+              )}
+            />
           </Box>
 
           {/* Bio */}
-          <Controller name="bio" control={control} render={({ field }) => (
-            <TextField {...field} label="Bio" multiline rows={3} fullWidth placeholder="Short professional biography…" />
-          )} />
+          <Controller
+            name="bio"
+            control={control}
+            render={({ field }) => (
+              <TextField {...field} label="Bio" multiline rows={3} fullWidth placeholder="Short professional biography…" />
+            )}
+          />
         </Stack>
       </Box>
 
       {/* Footer */}
       <Box sx={{ p: 2.5, borderTop: '1px solid', borderColor: 'divider', flexShrink: 0 }}>
         <Stack direction="row" spacing={1.5} justifyContent="flex-end">
-          <Button variant="outlined" onClick={onClose}>Cancel</Button>
+          <Button variant="outlined" onClick={onClose}>
+            Cancel
+          </Button>
           <Button
             variant="contained"
             startIcon={isSubmitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}

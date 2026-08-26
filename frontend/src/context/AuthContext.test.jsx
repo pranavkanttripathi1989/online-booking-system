@@ -16,10 +16,8 @@ const LOGOUT_MOCK = { request: { query: LOGOUT_MUTATION }, result: { data: { log
 // context exposes no `token` field at all anymore, matching that there is
 // nothing left for this or any frontend code to read.
 function Probe() {
-  const {
-    user, isAuthenticated, isLoading, login, logout, hasRole, hasPermission,
-    isImpersonating, startImpersonating, endImpersonating,
-  } = useAuth()
+  const { user, isAuthenticated, isLoading, login, logout, hasRole, hasPermission, isImpersonating, startImpersonating, endImpersonating } =
+    useAuth()
   return (
     <div>
       <div data-testid="isAuthenticated">{String(isAuthenticated)}</div>
@@ -28,12 +26,12 @@ function Probe() {
       <div data-testid="hasRoleManager">{String(hasRole('manager'))}</div>
       <div data-testid="hasPermissionEdit">{String(hasPermission('appointments.edit'))}</div>
       <div data-testid="isImpersonating">{String(isImpersonating)}</div>
-      <button onClick={() => login({ email: 'manager@medibook.dev', roles: [{ name: 'manager' }], permissions: [{ name: 'appointments.edit' }] })}>
+      <button
+        onClick={() => login({ email: 'manager@medibook.dev', roles: [{ name: 'manager' }], permissions: [{ name: 'appointments.edit' }] })}
+      >
         login-remember
       </button>
-      <button onClick={() => login({ email: 'manager@medibook.dev', roles: [{ name: 'manager' }] }, false)}>
-        login-session-only
-      </button>
+      <button onClick={() => login({ email: 'manager@medibook.dev', roles: [{ name: 'manager' }] }, false)}>login-session-only</button>
       {/* sessionTimeoutMinutes is always the login call's own 3rd argument in
           real use (REQ012/PLAN021 — it comes from the org's Auto-logout
           setting in the login response), never pre-seeded independently:
@@ -145,7 +143,7 @@ describe('AuthProvider — login/logout', () => {
     expect(localStorage.getItem('medibook_user')).toBeNull()
   })
 
-  it('login immediately renders the mutation response\'s own (partial) user optimistically, before ME_QUERY resolves', () => {
+  it("login immediately renders the mutation response's own (partial) user optimistically, before ME_QUERY resolves", () => {
     renderProbe([{ request: { query: ME_QUERY }, result: { data: ME_RESULT }, delay: 50 }])
     fireEvent.click(screen.getByText('login-remember'))
     expect(screen.getByTestId('isAuthenticated')).toHaveTextContent('true')
@@ -163,7 +161,7 @@ describe('AuthProvider — login/logout', () => {
     expect(sessionStorage.getItem('medibook_has_session')).toBeNull()
   })
 
-  it('logout still clears local state even if the server call fails (best-effort, matches endImpersonating\'s own precedent)', async () => {
+  it("logout still clears local state even if the server call fails (best-effort, matches endImpersonating's own precedent)", async () => {
     const mocks = [
       { request: { query: ME_QUERY }, result: { data: ME_RESULT } },
       { request: { query: LOGOUT_MUTATION }, error: new Error('network down') },
@@ -284,7 +282,7 @@ describe('AuthProvider — impersonation', () => {
     expect(screen.getByTestId('isImpersonating')).toHaveTextContent('false')
   })
 
-  it('startImpersonating sets isImpersonating and re-fetches me (the cookie has already been swapped server-side by the caller\'s own mutation)', async () => {
+  it("startImpersonating sets isImpersonating and re-fetches me (the cookie has already been swapped server-side by the caller's own mutation)", async () => {
     const impersonatedMe = { me: { id: 'u-2', name: 'Target User', email: 'target@medibook.dev', roles: [{ name: 'staff' }] } }
     const mocks = [
       { request: { query: ME_QUERY }, result: { data: ME_RESULT } },

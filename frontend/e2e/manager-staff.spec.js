@@ -82,7 +82,10 @@ test('create sets a backdated start date + non-default status, and edit resets t
 
   // Confirm the reset password actually works for a real login, not just
   // that the save request succeeded.
-  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
   await page.goto('/login')
   await page.getByLabel('Email Address').fill(email)
   await page.getByLabel('Password', { exact: true }).fill('E2eResetPassword456!')

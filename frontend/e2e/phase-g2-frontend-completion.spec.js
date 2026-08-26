@@ -54,22 +54,36 @@ test.describe('Admin — Rights Requests page', () => {
 
   test.beforeAll(async ({ playwright }) => {
     const request = await playwright.request.newContext()
-    const auth = await gql(request, null, `mutation { login(input: {email:"manager@medibook.dev", password:"Mgr1234!"}) { ... on AuthPayload { access_token } } }`)
+    const auth = await gql(
+      request,
+      null,
+      `mutation { login(input: {email:"manager@medibook.dev", password:"Mgr1234!"}) { ... on AuthPayload { access_token } } }`,
+    )
     managerToken = auth.login.access_token
     const patients = await gql(request, managerToken, `{ patients { data { id } } }`)
     patientId = patients.patients.data[0].id
-    const created = await gql(request, managerToken, `
+    const created = await gql(
+      request,
+      managerToken,
+      `
       mutation($input: RequestDataRightsInput!) { requestDataRights(input: $input) { id } }
-    `, { input: { patient_id: patientId, type: 'access', notes: 'e2e fixture' } })
+    `,
+      { input: { patient_id: patientId, type: 'access', notes: 'e2e fixture' } },
+    )
     requestId = created.requestDataRights.id
   })
 
   test.afterAll(async ({ playwright }) => {
     const request = await playwright.request.newContext()
     if (requestId) {
-      await gql(request, managerToken, `
+      await gql(
+        request,
+        managerToken,
+        `
         mutation($id: ID!, $input: ResolveRightsRequestInput!) { resolveRightsRequest(id: $id, input: $input) { id } }
-      `, { id: requestId, input: { status: 'completed', notes: 'e2e cleanup' } }).catch(() => {})
+      `,
+        { id: requestId, input: { status: 'completed', notes: 'e2e cleanup' } },
+      ).catch(() => {})
     }
   })
 
@@ -173,21 +187,46 @@ test.describe('Settings — Privacy tab', () => {
 
   test.beforeAll(async ({ playwright }) => {
     const request = await playwright.request.newContext()
-    const auth = await gql(request, null, `mutation { login(input: {email:"manager@medibook.dev", password:"Mgr1234!"}) { ... on AuthPayload { access_token } } }`)
+    const auth = await gql(
+      request,
+      null,
+      `mutation { login(input: {email:"manager@medibook.dev", password:"Mgr1234!"}) { ... on AuthPayload { access_token } } }`,
+    )
     managerToken = auth.login.access_token
-    const created = await gql(request, managerToken, `
+    const created = await gql(
+      request,
+      managerToken,
+      `
       mutation($input: PatientInput!) { createPatient(input: $input) { id } }
-    `, { input: { first_name: 'Privacy', last_name: 'TabProbe', email: `privacy.probe.${Date.now()}@example.com`, phone: '9999000444', date_of_birth: '1990-01-01' } })
+    `,
+      {
+        input: {
+          first_name: 'Privacy',
+          last_name: 'TabProbe',
+          email: `privacy.probe.${Date.now()}@example.com`,
+          phone: '9999000444',
+          date_of_birth: '1990-01-01',
+        },
+      },
+    )
     privacyPatientId = created.createPatient.id
-    execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET patient_id = '${privacyPatientId}' WHERE email = 'patient@medibook.dev';"`)
+    execSync(
+      `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET patient_id = '${privacyPatientId}' WHERE email = 'patient@medibook.dev';"`,
+    )
     await request.dispose()
   })
 
   test.afterAll(async () => {
-    execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET patient_id = NULL WHERE email = 'patient@medibook.dev';"`)
+    execSync(
+      `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET patient_id = NULL WHERE email = 'patient@medibook.dev';"`,
+    )
     if (privacyPatientId) {
-      execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Consents\\" WHERE patient_id='${privacyPatientId}';"`)
-      execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"RightsRequests\\" WHERE patient_id='${privacyPatientId}';"`)
+      execSync(
+        `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Consents\\" WHERE patient_id='${privacyPatientId}';"`,
+      )
+      execSync(
+        `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"RightsRequests\\" WHERE patient_id='${privacyPatientId}';"`,
+      )
       execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Patients\\" WHERE id='${privacyPatientId}';"`)
     }
   })

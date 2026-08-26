@@ -51,18 +51,26 @@ let templateId
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = authData.login.access_token
 
   execSync(
     `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET clinician_id = '${REAL_CLINICIAN_ID}' WHERE email = 'clinician@medibook.dev';"`,
   )
 
-  const clinicianData = await gql(request, managerToken, `
+  const clinicianData = await gql(
+    request,
+    managerToken,
+    `
     query { clinician(id: "${REAL_CLINICIAN_ID}") { clinics { id } } }
-  `)
+  `,
+  )
   // Clinicians.clinic_id is singular; the GraphQL type wraps it in a
   // 0-or-1-element array (see clinician.entity.ts's own comment).
   const clinicId = clinicianData.clinician.clinics[0]?.id
@@ -71,36 +79,58 @@ test.beforeAll(async ({ playwright }) => {
   // Not filtered by clinic_id: appointments.service.ts's create() only
   // checks the service exists, not that it belongs to the same clinic as
   // the appointment — any org service works for this fixture's purposes.
-  const servicesData = await gql(request, managerToken, `
+  const servicesData = await gql(
+    request,
+    managerToken,
+    `
     query { services { id } }
-  `)
+  `,
+  )
   const serviceId = servicesData.services[0]?.id
   if (!serviceId) throw new Error('No service found in the dev DB — cannot create a test appointment')
 
-  const patientsData = await gql(request, managerToken, `
+  const patientsData = await gql(
+    request,
+    managerToken,
+    `
     query { patients(first: 1, page: 1) { data { id } } }
-  `)
+  `,
+  )
   const patientId = patientsData.patients.data[0]?.id
   if (!patientId) throw new Error('No patient found in the dev DB — cannot create a test appointment')
 
   // Far enough in the future to be a real, unambiguous non-terminal slot.
   const startDatetime = '2027-01-15T09:00:00.000Z'
-  const apptData = await gql(request, managerToken, `
+  const apptData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, {
-    input: {
-      patient_id: patientId, clinician_id: REAL_CLINICIAN_ID, service_id: serviceId,
-      clinic_id: clinicId, start_datetime: startDatetime, notes: 'REQ020-E2E-PROBE',
+  `,
+    {
+      input: {
+        patient_id: patientId,
+        clinician_id: REAL_CLINICIAN_ID,
+        service_id: serviceId,
+        clinic_id: clinicId,
+        start_datetime: startDatetime,
+        notes: 'REQ020-E2E-PROBE',
+      },
     },
-  })
+  )
   appointmentId = apptData.createAppointment.id
 
   // Org-shared template (manager token has no clinician_id, so the service
   // stamps clinician_id: null the same as org_shared: true would) -- visible
   // to any clinician in the org, including the one this test logs in as.
-  const templateData = await gql(request, managerToken, `
+  const templateData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: CreateEncounterTemplateInput!) { createEncounterTemplate(input: $input) { id name } }
-  `, { input: { name: 'REQ020-E2E-PROBE Template', sections_json: JSON.stringify({ advice: 'Rest, fluids, review in 3 days' }) } })
+  `,
+    { input: { name: 'REQ020-E2E-PROBE Template', sections_json: JSON.stringify({ advice: 'Rest, fluids, review in 3 days' }) } },
+  )
   templateId = templateData.createEncounterTemplate.id
 
   await request.dispose()
@@ -120,9 +150,7 @@ test.afterAll(async () => {
     execSync(
       `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Encounters\\" WHERE appointment_id='${appointmentId}';"`,
     )
-    execSync(
-      `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Appointments\\" WHERE id='${appointmentId}';"`,
-    )
+    execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Appointments\\" WHERE id='${appointmentId}';"`)
   }
   execSync(
     `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET clinician_id = NULL WHERE email = 'clinician@medibook.dev';"`,

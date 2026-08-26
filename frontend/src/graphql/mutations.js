@@ -20,12 +20,17 @@ export const LOGIN_MUTATION = gql`
           id
           name
           email
-          roles { name }
+          roles {
+            name
+          }
           clinician {
             id
             full_name
             avatar_url
-            clinician_type { id name }
+            clinician_type {
+              id
+              name
+            }
           }
         }
       }
@@ -49,12 +54,17 @@ export const VERIFY_TOTP_LOGIN_MUTATION = gql`
         id
         name
         email
-        roles { name }
+        roles {
+          name
+        }
         clinician {
           id
           full_name
           avatar_url
-          clinician_type { id name }
+          clinician_type {
+            id
+            name
+          }
         }
       }
     }
@@ -91,12 +101,17 @@ export const VERIFY_OTP_MUTATION = gql`
         id
         name
         email
-        roles { name }
+        roles {
+          name
+        }
         clinician {
           id
           full_name
           avatar_url
-          clinician_type { id name }
+          clinician_type {
+            id
+            name
+          }
         }
       }
     }
@@ -112,11 +127,29 @@ export const CREATE_APPOINTMENT_MUTATION = gql`
       start_datetime
       end_datetime
       status
-      patient { id full_name email }
-      clinician { id full_name }
-      service { id name duration_minutes price }
-      clinic { id name }
-      room { id name }
+      patient {
+        id
+        full_name
+        email
+      }
+      clinician {
+        id
+        full_name
+      }
+      service {
+        id
+        name
+        duration_minutes
+        price
+      }
+      clinic {
+        id
+        name
+      }
+      room {
+        id
+        name
+      }
       checkin_token
     }
   }
@@ -225,9 +258,18 @@ export const CREATE_CLINICIAN_MUTATION = gql`
       full_name
       consultation_fee
       is_active
-      clinician_type { id name }
-      clinics { id name }
-      services { id name }
+      clinician_type {
+        id
+        name
+      }
+      clinics {
+        id
+        name
+      }
+      services {
+        id
+        name
+      }
     }
   }
 `
@@ -244,9 +286,18 @@ export const UPDATE_CLINICIAN_MUTATION = gql`
       is_active
       gender
       languages
-      clinician_type { id name }
-      clinics { id name }
-      services { id name }
+      clinician_type {
+        id
+        name
+      }
+      clinics {
+        id
+        name
+      }
+      services {
+        id
+        name
+      }
     }
   }
 `
@@ -300,7 +351,10 @@ export const UPDATE_PATIENT_MUTATION = gql`
 // and soft-deletes the merged record.
 export const MERGE_PATIENTS_MUTATION = gql`
   mutation MergePatients($input: MergePatientsInput!) {
-    mergePatients(input: $input) { id full_name }
+    mergePatients(input: $input) {
+      id
+      full_name
+    }
   }
 `
 
@@ -318,8 +372,14 @@ export const CREATE_AVAILABILITY_TEMPLATE_MUTATION = gql`
       is_active
       effective_from
       effective_to
-      clinic { id name }
-      room { id name }
+      clinic {
+        id
+        name
+      }
+      room {
+        id
+        name
+      }
     }
   }
 `
@@ -351,7 +411,15 @@ export const DELETE_AVAILABILITY_TEMPLATE_MUTATION = gql`
 export const CREATE_CLINIC_MUTATION = gql`
   mutation CreateClinic($input: ClinicInput!) {
     createClinic(input: $input) {
-      id name address city postcode phone email timezone is_active
+      id
+      name
+      address
+      city
+      postcode
+      phone
+      email
+      timezone
+      is_active
     }
   }
 `
@@ -359,7 +427,15 @@ export const CREATE_CLINIC_MUTATION = gql`
 export const UPDATE_CLINIC_MUTATION = gql`
   mutation UpdateClinic($id: ID!, $input: ClinicInput!) {
     updateClinic(id: $id, input: $input) {
-      id name address city postcode phone email timezone is_active
+      id
+      name
+      address
+      city
+      postcode
+      phone
+      email
+      timezone
+      is_active
     }
   }
 `
@@ -379,7 +455,14 @@ export const SET_HEAD_OFFICE_CLINIC_MUTATION = gql`
 export const CREATE_ROOM_MUTATION = gql`
   mutation CreateRoom($input: RoomInput!) {
     createRoom(input: $input) {
-      id name capacity is_active clinic { id name }
+      id
+      name
+      capacity
+      is_active
+      clinic {
+        id
+        name
+      }
     }
   }
 `
@@ -387,7 +470,14 @@ export const CREATE_ROOM_MUTATION = gql`
 export const UPDATE_ROOM_MUTATION = gql`
   mutation UpdateRoom($id: ID!, $input: RoomInput!) {
     updateRoom(id: $id, input: $input) {
-      id name capacity is_active clinic { id name }
+      id
+      name
+      capacity
+      is_active
+      clinic {
+        id
+        name
+      }
     }
   }
 `
@@ -397,9 +487,22 @@ export const UPDATE_ROOM_MUTATION = gql`
 export const CREATE_SERVICE_MUTATION = gql`
   mutation CreateService($input: ServiceInput!) {
     createService(input: $input) {
-      id name description duration_minutes price is_active
-      category_pricing { general corporate staff camp }
-      channel_pricing { online walkin }
+      id
+      name
+      description
+      duration_minutes
+      price
+      is_active
+      category_pricing {
+        general
+        corporate
+        staff
+        camp
+      }
+      channel_pricing {
+        online
+        walkin
+      }
       prepayment_policy
     }
   }
@@ -408,9 +511,22 @@ export const CREATE_SERVICE_MUTATION = gql`
 export const UPDATE_SERVICE_MUTATION = gql`
   mutation UpdateService($id: ID!, $input: ServiceInput!) {
     updateService(id: $id, input: $input) {
-      id name description duration_minutes price is_active
-      category_pricing { general corporate staff camp }
-      channel_pricing { online walkin }
+      id
+      name
+      description
+      duration_minutes
+      price
+      is_active
+      category_pricing {
+        general
+        corporate
+        staff
+        camp
+      }
+      channel_pricing {
+        online
+        walkin
+      }
       prepayment_policy
     }
   }
@@ -426,8 +542,12 @@ export const CREATE_PRODUCT_MUTATION = gql`
   mutation CreateProduct($input: CreateProductInput!) {
     createProduct(input: $input) {
       success
-      userErrors { message }
-      product { id }
+      userErrors {
+        message
+      }
+      product {
+        id
+      }
     }
   }
 `
@@ -436,8 +556,12 @@ export const UPDATE_PRODUCT_MUTATION = gql`
   mutation UpdateProduct($id: ID!, $input: UpdateProductInput!) {
     updateProduct(id: $id, input: $input) {
       success
-      userErrors { message }
-      product { id }
+      userErrors {
+        message
+      }
+      product {
+        id
+      }
     }
   }
 `
@@ -447,7 +571,12 @@ export const UPDATE_PRODUCT_MUTATION = gql`
 export const CREATE_USER_MUTATION = gql`
   mutation CreateUser($input: UserInput!) {
     createUser(input: $input) {
-      id name email roles { name }
+      id
+      name
+      email
+      roles {
+        name
+      }
     }
   }
 `
@@ -455,7 +584,12 @@ export const CREATE_USER_MUTATION = gql`
 export const UPDATE_USER_MUTATION = gql`
   mutation UpdateUser($id: ID!, $input: UserUpdateInput!) {
     updateUser(id: $id, input: $input) {
-      id name email roles { name }
+      id
+      name
+      email
+      roles {
+        name
+      }
     }
   }
 `
@@ -465,11 +599,27 @@ export const UPDATE_USER_MUTATION = gql`
 export const UPDATE_APPOINTMENT_MUTATION = gql`
   mutation UpdateAppointment($id: ID!, $input: AppointmentUpdateInput!) {
     updateAppointment(id: $id, input: $input) {
-      id status start_datetime end_datetime notes
-      patient { id full_name }
-      clinician { id full_name }
-      service { id name }
-      room { id name }
+      id
+      status
+      start_datetime
+      end_datetime
+      notes
+      patient {
+        id
+        full_name
+      }
+      clinician {
+        id
+        full_name
+      }
+      service {
+        id
+        name
+      }
+      room {
+        id
+        name
+      }
     }
   }
 `
@@ -487,7 +637,12 @@ export const ORDER_TEST_MUTATION = gql`
       date_completed
       status
       type
-      values { name value ref flag }
+      values {
+        name
+        value
+        ref
+        flag
+      }
     }
   }
 `

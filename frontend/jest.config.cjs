@@ -16,13 +16,7 @@ module.exports = {
   // (see TR060) — raise it as more of the tree gains coverage, never lower
   // it. The two per-path overrides are the slice's own >90% commitments:
   // the route guards and the date/currency formatters.
-  collectCoverageFrom: [
-    'src/**/*.{js,jsx}',
-    '!src/main.jsx',
-    '!src/**/*.test.{js,jsx}',
-    '!src/test/**',
-    '!src/mocks/**',
-  ],
+  collectCoverageFrom: ['src/**/*.{js,jsx}', '!src/main.jsx', '!src/**/*.test.{js,jsx}', '!src/test/**', '!src/mocks/**'],
   coverageThreshold: {
     // Measured 2026-08-23 (TR060): 2.46% stmts / 1.64% branches / 1.71%
     // funcs / 2.75% lines. Set just below that real number, not invented
@@ -31,4 +25,4 @@ module.exports = {
     './src/components/ProtectedRoute/**/*.jsx': { statements: 90, branches: 90, functions: 90, lines: 90 },
     './src/utils/dateTime.js': { statements: 90, branches: 90, functions: 90, lines: 90 },
   },
-};
+}

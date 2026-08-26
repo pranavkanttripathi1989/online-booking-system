@@ -4,23 +4,24 @@ A premium SaaS scheduling and booking system built with React + Apollo Client + 
 
 ## Tech Stack
 
-| Technology | Version | Purpose |
-|---|---|---|
-| React | 18 | UI framework |
-| Apollo Client | 3 | GraphQL data fetching + cache |
-| Material UI (MUI) | 5 | Component library |
-| FullCalendar | 6 | Interactive calendar |
-| React Hook Form + Zod | latest | Form validation |
-| Day.js | latest | Date manipulation |
-| notistack | latest | Toast notifications |
-| React Router v6 | 6 | Client-side routing |
-| Vite | 5 | Build tool |
+| Technology            | Version | Purpose                       |
+| --------------------- | ------- | ----------------------------- |
+| React                 | 18      | UI framework                  |
+| Apollo Client         | 3       | GraphQL data fetching + cache |
+| Material UI (MUI)     | 5       | Component library             |
+| FullCalendar          | 6       | Interactive calendar          |
+| React Hook Form + Zod | latest  | Form validation               |
+| Day.js                | latest  | Date manipulation             |
+| notistack             | latest  | Toast notifications           |
+| React Router v6       | 6       | Client-side routing           |
+| Vite                  | 5       | Build tool                    |
 
 ---
 
 ## Setup
 
 ### Prerequisites
+
 - Node.js ≥ 18
 - Docker (for backend + database)
 
@@ -33,6 +34,7 @@ npm install --cache /tmp/npm-cache   # Use temp cache if ~/.npm has permissions 
 ```
 
 > **Tip:** If you get npm `EPERM` errors, fix with:
+>
 > ```bash
 > sudo chown -R $(id -u):$(id -g) ~/.npm
 > ```
@@ -110,6 +112,7 @@ npm run build
 ```
 
 Output goes to `dist/`. Expected gzip sizes:
+
 - Initial chunk: ~50KB
 - MUI chunk: ~113KB
 - Apollo chunk: ~63KB
@@ -120,6 +123,7 @@ Output goes to `dist/`. Expected gzip sizes:
 ## Key Conventions
 
 ### GraphQL Queries
+
 All queries and mutations are in `src/graphql/queries.js` and `src/graphql/mutations.js`. Import named exports:
 
 ```js
@@ -128,6 +132,7 @@ import { CREATE_APPOINTMENT_MUTATION } from '../graphql/mutations'
 ```
 
 ### Authentication
+
 Auth state lives in `AuthContext`. Token is stored in `localStorage` and attached to every request via Apollo's auth link in `client.js`. Use the `useAuth()` hook:
 
 ```js
@@ -135,11 +140,13 @@ const { user, isAuthenticated, logout } = useAuth()
 ```
 
 ### Role Checks
+
 ```js
-const isAdmin = user?.roles?.some(r => ['admin', 'super_admin'].includes(r.name))
+const isAdmin = user?.roles?.some((r) => ['admin', 'super_admin'].includes(r.name))
 ```
 
 ### Toast Notifications
+
 Use `notistack` via `useSnackbar()`:
 
 ```js
@@ -148,15 +155,16 @@ enqueueSnackbar('Appointment booked!', { variant: 'success' })
 ```
 
 ### Forms
+
 All forms use **React Hook Form** + **Zod** resolver. See `BookingStep4Patient.jsx` or `ClinicianFormDrawer.jsx` for reference patterns.
 
 ---
 
 ## Troubleshooting
 
-| Issue | Fix |
-|---|---|
-| `EPERM` on npm install | `sudo chown -R $(id -u):$(id -g) ~/.npm` |
-| GraphQL WS disconnects | CalendarPage falls back to 30s polling automatically |
-| FullCalendar blank | Ensure `@fullcalendar/core` is installed: `npm install @fullcalendar/core --cache /tmp/npm-cache` |
-| Build fails on `@mui/lab` | Already fixed — timeline rebuilt with pure MUI |
+| Issue                     | Fix                                                                                               |
+| ------------------------- | ------------------------------------------------------------------------------------------------- |
+| `EPERM` on npm install    | `sudo chown -R $(id -u):$(id -g) ~/.npm`                                                          |
+| GraphQL WS disconnects    | CalendarPage falls back to 30s polling automatically                                              |
+| FullCalendar blank        | Ensure `@fullcalendar/core` is installed: `npm install @fullcalendar/core --cache /tmp/npm-cache` |
+| Build fails on `@mui/lab` | Already fixed — timeline rebuilt with pure MUI                                                    |

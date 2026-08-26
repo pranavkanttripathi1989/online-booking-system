@@ -40,7 +40,7 @@ rule). Update `Status` in the same change that ships the slice.
 |---|---|---|:--:|---|---|
 | **P1-01** | WhatsApp template-category routing + conversation metering | BE+FE | **done** (`REQ144`) | — | **Dated deadline: 1 Oct 2026.** Utility ₹0.115 vs marketing ₹0.863 — 7.5×. Margin work, not plumbing |
 | **P1-02** | Auth tokens out of `localStorage` (SEC-2) | BE+FE | **done** (`REQ145`) | — | Open security gap. Cheapest security win available |
-| **P1-03** | Frontend CI gates: prettier, size-limit, axe-core, secret scanning | FE | not started | — | Until these run, most of `FRONTEND_RULES.md` is advisory |
+| **P1-03** | Frontend CI gates: prettier, size-limit, axe-core, secret scanning | FE | **done** (`REQ146`) | — | Until these run, most of `FRONTEND_RULES.md` is advisory |
 | **P1-04** | Entitlement guard (plan limits enforced) | BE+FE | not started | — | Tiers are unmonetisable without it. Build the guard integration as its own reviewed step (`CLAUDE.md`'s standing caution on `REQ032`) |
 | **P1-05** | Server-side slot hold + booking idempotency key (BOOK-2, BOOK-3) | BE+FE | not started | — | Double bookings. The rules doc calls this the fastest way to destroy clinic trust |
 | **P1-06** | Review submission + request loop | BE+FE | not started | P1-01 | Reputation flywheel has no first step. Flagged 2026-08-22, still open |

@@ -16,7 +16,11 @@ describe('usePagination', () => {
 
     expect(result.current.data).toEqual([{ id: '1' }, { id: '2' }])
     expect(result.current.pagination).toEqual({
-      total: 2, limit: 10, offset: 0, hasNextPage: false, hasPreviousPage: false,
+      total: 2,
+      limit: 10,
+      offset: 0,
+      hasNextPage: false,
+      hasPreviousPage: false,
     })
     expect(result.current.loading).toBe(false)
   })
@@ -30,7 +34,11 @@ describe('usePagination', () => {
     })
 
     expect(result.current.pagination).toEqual({
-      total: 0, limit: 25, offset: 0, hasNextPage: false, hasPreviousPage: false,
+      total: 0,
+      limit: 25,
+      offset: 0,
+      hasNextPage: false,
+      hasPreviousPage: false,
     })
   })
 
@@ -68,7 +76,8 @@ describe('usePagination', () => {
   })
 
   it('nextPage calls fetchFn with the next offset when hasNextPage is true', async () => {
-    const fetchFn = jest.fn()
+    const fetchFn = jest
+      .fn()
       .mockResolvedValueOnce({ data: [], pageInfo: { total: 30, limit: 10, offset: 0, hasNextPage: true, hasPreviousPage: false } })
       .mockResolvedValueOnce({ data: [], pageInfo: { total: 30, limit: 10, offset: 10, hasNextPage: true, hasPreviousPage: true } })
     const { result } = renderHook(() => usePagination(fetchFn))
@@ -86,7 +95,8 @@ describe('usePagination', () => {
 
   it('nextPage is a no-op when hasNextPage is false', async () => {
     const fetchFn = jest.fn().mockResolvedValue({
-      data: [], pageInfo: { total: 5, limit: 10, offset: 0, hasNextPage: false, hasPreviousPage: false },
+      data: [],
+      pageInfo: { total: 5, limit: 10, offset: 0, hasNextPage: false, hasPreviousPage: false },
     })
     const { result } = renderHook(() => usePagination(fetchFn))
 
@@ -101,7 +111,8 @@ describe('usePagination', () => {
   })
 
   it('previousPage clamps to offset 0 rather than going negative', async () => {
-    const fetchFn = jest.fn()
+    const fetchFn = jest
+      .fn()
       .mockResolvedValueOnce({ data: [], pageInfo: { total: 15, limit: 10, offset: 5, hasNextPage: false, hasPreviousPage: true } })
       .mockResolvedValueOnce({ data: [], pageInfo: { total: 15, limit: 10, offset: 0, hasNextPage: true, hasPreviousPage: false } })
     const { result } = renderHook(() => usePagination(fetchFn))
@@ -129,7 +140,8 @@ describe('usePagination', () => {
 
   it('computes currentPage/totalPages from pagination.total/limit/offset', async () => {
     const fetchFn = jest.fn().mockResolvedValue({
-      data: [], pageInfo: { total: 45, limit: 10, offset: 20, hasNextPage: true, hasPreviousPage: true },
+      data: [],
+      pageInfo: { total: 45, limit: 10, offset: 20, hasNextPage: true, hasPreviousPage: true },
     })
     const { result } = renderHook(() => usePagination(fetchFn))
 

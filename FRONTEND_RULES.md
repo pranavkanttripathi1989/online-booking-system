@@ -415,20 +415,20 @@ The four surfaces have different users, devices and priorities. Do not apply one
 
 A rule CI doesn't check is a suggestion. These gates make this document real.
 
-**Currently enforced in `.github/workflows/ci.yml`** — frontend job runs `npm run lint` (ratcheted), `npm test`, `npm run build`; a structural job runs `check-page-data-wiring.mjs`. Backend runs unit, integration, schema and lint. Everything below marked ⛔ is **not yet wired** and is the gap to close.
+**Currently enforced in `.github/workflows/ci.yml`** — frontend job runs `npm run lint` (ratcheted), `npx prettier --check .`, `npm test`, `npm run build`, `npm run size`; a `secrets` job runs `gitleaks`; a structural job runs `check-page-data-wiring.mjs`. Backend runs unit, integration, schema and lint. Everything below marked ⛔ is **not yet wired** and is the gap to close.
 
 - **CI-1** — *(replaces the TS compile gate)* `npm run build` MUST succeed with zero errors. Vite build failure blocks merge. ✅
 - **CI-2** — ESLint passes with **zero errors**, and the warning ratchet (`--max-warnings <N>`) does not increase. **The ratchet may only ever decrease.** Includes `jsx-a11y` and all custom rules referenced here. ✅
-- **CI-3** — Prettier formatting check passes. Formatting is never discussed in review. ⛔
+- **CI-3** — Prettier formatting check passes. Formatting is never discussed in review. ✅ *(P1-03 — the whole tree was reformatted once, `.prettierrc.json`/`.prettierignore` added, wired as `npx prettier --check .`)*
 - **CI-4** — Unit tests pass. Coverage on booking and all payment logic **≥ 80%**; elsewhere ≥ 60%. *(Tests pass today; coverage is not gated.)* ⛔ *partial*
-- **CI-5** — Bundle size within budget (PERF-1…4) via `size-limit`. ⛔
+- **CI-5** — Bundle size within budget via `size-limit`. ✅ *(P1-03 — `.size-limit.json`, three budgets: initial bundle 335 KB / largest lazy chunk 115 KB / initial CSS 18 KB gzipped. Calibrated to today's measured reality — same as the lint ratchet's own philosophy — not the PERF-1…4 aspiration (180–200 KB initial, 100 KB/chunk); ratchet down from here, don't treat these as the target)*
 - **CI-6** — Lighthouse CI meets PERF-5 thresholds on home, search, slot picker and confirmation routes. ⛔
-- **CI-7** — `axe-core` reports zero critical or serious accessibility violations. ⛔
+- **CI-7** — `axe-core` reports zero critical or serious accessibility violations. 🟡 *(P1-03 — wired globally via `jest-axe`/`src/test/a11y.js`; live on 3 real page suites so far (booking wizard, admin/Communications, reset-password), not the full tree. Found and fixed 3 real defects the same pass: a booking-wizard doctor avatar with no `alt`, a Communications SMS-provider `Select` with no accessible name when unset, and a Communications heading sequence skipping h2→h5. One real, logged, NOT-fixed gap remains: the booking wizard's own heading order beyond its now-real `h1` — MUI's `subtitle1` variant also defaults to an `<h6>` tag, and re-leveling the whole page is out of this slice's scope; excluded via `expectNoA11yViolations`'s own `knownGapRuleIds` param, never silently)*
 - **CI-8** — Visual regression snapshots pass at 320/360/768/1366px. ⛔
 - **CI-9** — E2E happy path passes: **search → doctor → slot → OTP login → payment (mocked) → confirmation → cancel.** If this suite is broken, the pipeline is red and nothing else merges. *(45 Playwright specs exist but e2e is deliberately not in CI — it runs against a shared dev DB and leaves rows behind. Closing that is a prerequisite.)* ⛔
 - **CI-10** — Translation key coverage: no missing keys for shipped languages. ⛔ *(blocked on §14)*
-- **CI-11** — Secret scanning finds nothing. ⛔
-- **CI-12** — No new dependency added without the size check (BASE-5). ⛔
+- **CI-11** — Secret scanning finds nothing. ✅ *(P1-03 — `gitleaks/gitleaks-action@v2`, default ruleset, no local install needed. Not yet locally smoke-tested — this repo's own CI has never executed on GitHub at all; this step shares that unproven status, not a new one)*
+- **CI-12** — No new dependency added without the size check (BASE-5). ✅ *(P1-03 — `npm run size` in CI is exactly this check: a dependency that meaningfully grows the initial bundle or largest lazy chunk fails the build)*
 - **CI-19** — **The page-data-wiring gate MUST pass**, and its `ALLOWED` exemption list MUST be re-verified whenever it is touched. A gate's exemption list is only as current as the last time someone re-read the file it exempts — a stale entry once hid a page that had been correctly wired for days. ✅
 
 **Required manual checks before every release:**
@@ -518,14 +518,16 @@ Honest register of where the codebase does not comply, measured 27 Aug 2026. A r
 | **BASE-3** (TypeScript) | 170 `.jsx`, 0 `.ts` | **Waived permanently — deliberate stack decision.** Compensating controls BASE-3(a–e), BASE-10, ARCH-7 are mandatory in exchange |
 | **UI-2** (no hardcoded colour) | **1,906** lint warnings | Ratcheted debt. Rule enforced for new code; existing swept incrementally. Ratchet may only decrease |
 | **UI-14** (≤250 line component) | **68 files** over 250 lines; largest 1,641 (`settings/index.jsx`) | Accepted debt. New components comply; touched files should shrink |
-| **SEC-2** (no token in localStorage) | Token in `localStorage`/`sessionStorage` | **Open security gap — needs a funded slice.** Highest-priority item in this table |
+| **SEC-2** (no token in localStorage) | **Closed 2026-08-27, P1-02/REQ145.** Tokens live in httpOnly cookies; only a non-sensitive session marker + cached user object remain in web storage | — |
 | **I18N-1…10** | No i18n layer at all | Not started. Cost grows with every commit — see §20.1 |
 | **WV-1…18** (except 5,6,13,16,17) | No Capacitor shell | 🔜 Conditional. Not applicable until the shell exists |
 | **ARCH-1 / ARCH-4** (feature folders, per-surface bundles) | Organised by type; one shared route tree | Deviation documented. New features use `src/features/`; no wholesale reorganisation planned |
-| **PERF-1…4** (bundle budgets) | No `size-limit` in CI; largest chunk 441 KB (`mui`) | Unmeasured against budget. Wire `size-limit` before claiming any PERF compliance |
-| **CI-3,5,6,7,8,10,11,12** | Not wired | Gap. See §18 |
+| **PERF-1…4** (bundle budgets) | **`size-limit` wired 2026-08-27 (P1-03)** — calibrated to today's reality (335/115/18 KB gzipped), not the aspiration | Ratchet down from the measured baseline, same discipline as UI-2's own lint count |
+| **CI-3,5,11,12** | **Wired 2026-08-27 (P1-03).** prettier, size-limit, gitleaks, dependency-size-via-size-limit | ✅ |
+| **CI-6,8,10** | Not wired | Gap. See §18 |
+| **CI-7** (`axe-core`) | **Partially wired 2026-08-27 (P1-03)** — 3 real page suites (booking wizard, admin/Communications, reset-password), not the full tree | Extend to more pages incrementally; each pass so far has found real bugs (2/3 suites did, this slice) |
 | **CI-9** (e2e in CI) | 45 specs exist, deliberately not gated — shared dev DB, leaves residue | Blocked on test-data isolation |
-| **A11Y-1** (`axe-core` zero violations) | Not run | Gap |
+| **A11Y-1** (`axe-core` zero violations, full tree) | 3 of ~90 page suites covered | Same gap as CI-7 above, from the rule side |
 
 ---
 

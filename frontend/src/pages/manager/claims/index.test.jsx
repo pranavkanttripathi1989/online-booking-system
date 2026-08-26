@@ -28,36 +28,79 @@ jest.mock('../../../utils/documents', () => ({
 const GET_CLAIMS = gql`
   query GetClaims($status: String) {
     claims(status: $status) {
-      id patient_id patient_name appointment_id appointment_date
-      payer { id name }
-      claim_amount approved_amount status rejection_reason
-      submitted_at decided_at settled_at notes
+      id
+      patient_id
+      patient_name
+      appointment_id
+      appointment_date
+      payer {
+        id
+        name
+      }
+      claim_amount
+      approved_amount
+      status
+      rejection_reason
+      submitted_at
+      decided_at
+      settled_at
+      notes
     }
   }
 `
 const SEARCH_APPOINTMENTS = gql`
   query SearchAppointmentsForClaim($patient_name: String!) {
     appointments(filters: { patient_name: $patient_name }, first: 10, page: 1) {
-      data { id start_datetime patient { id full_name } clinic { id name } }
+      data {
+        id
+        start_datetime
+        patient {
+          id
+          full_name
+        }
+        clinic {
+          id
+          name
+        }
+      }
     }
   }
 `
 const GET_PAYERS_FOR_CLAIM = gql`
-  query GetPayersForClaim { payers(is_active: true) { id name payer_type } }
+  query GetPayersForClaim {
+    payers(is_active: true) {
+      id
+      name
+      payer_type
+    }
+  }
 `
 const GET_PATIENT_POLICIES_FOR_CLAIM = gql`
   query GetPatientPoliciesForClaim($patient_id: ID!) {
-    patientInsurancePolicies(patient_id: $patient_id) { id policy_number payer { id name } }
+    patientInsurancePolicies(patient_id: $patient_id) {
+      id
+      policy_number
+      payer {
+        id
+        name
+      }
+    }
   }
 `
 const SUBMIT_CLAIM = gql`
   mutation SubmitClaim($input: SubmitClaimInput!) {
-    submitClaim(input: $input) { id status }
+    submitClaim(input: $input) {
+      id
+      status
+    }
   }
 `
 const UPDATE_CLAIM_STATUS = gql`
   mutation UpdateClaimStatus($id: ID!, $input: UpdateClaimStatusInput!) {
-    updateClaimStatus(id: $id, input: $input) { id status }
+    updateClaimStatus(id: $id, input: $input) {
+      id
+      status
+    }
   }
 `
 
@@ -67,11 +110,21 @@ function claimsMock(claims) {
 
 function makeClaim(overrides = {}) {
   return {
-    __typename: 'Claim', id: 'claim-1', patient_id: 'pat-1', patient_name: 'Anita Sharma',
-    appointment_id: 'appt-1', appointment_date: '2026-08-20T09:00:00.000Z',
+    __typename: 'Claim',
+    id: 'claim-1',
+    patient_id: 'pat-1',
+    patient_name: 'Anita Sharma',
+    appointment_id: 'appt-1',
+    appointment_date: '2026-08-20T09:00:00.000Z',
     payer: { __typename: 'Payer', id: 'payer-1', name: 'Star Health' },
-    claim_amount: 5000, approved_amount: null, status: 'submitted', rejection_reason: null,
-    submitted_at: '2026-08-26T10:00:00.000Z', decided_at: null, settled_at: null, notes: null,
+    claim_amount: 5000,
+    approved_amount: null,
+    status: 'submitted',
+    rejection_reason: null,
+    submitted_at: '2026-08-26T10:00:00.000Z',
+    decided_at: null,
+    settled_at: null,
+    notes: null,
     ...overrides,
   }
 }
@@ -108,7 +161,15 @@ describe('manager/claims (REQ131)', () => {
         result: {
           data: {
             appointments: {
-              data: [{ __typename: 'Appointment', id: 'appt-1', start_datetime: '2026-08-20T09:00:00.000Z', patient: { __typename: 'AppointmentPatient', id: 'pat-1', full_name: 'Anita Sharma' }, clinic: { __typename: 'AppointmentClinic', id: 'clinic-1', name: 'MG Road Clinic' } }],
+              data: [
+                {
+                  __typename: 'Appointment',
+                  id: 'appt-1',
+                  start_datetime: '2026-08-20T09:00:00.000Z',
+                  patient: { __typename: 'AppointmentPatient', id: 'pat-1', full_name: 'Anita Sharma' },
+                  clinic: { __typename: 'AppointmentClinic', id: 'clinic-1', name: 'MG Road Clinic' },
+                },
+              ],
             },
           },
         },
@@ -122,7 +183,12 @@ describe('manager/claims (REQ131)', () => {
         result: { data: { patientInsurancePolicies: [] } },
       },
       {
-        request: { query: SUBMIT_CLAIM, variables: { input: { appointment_id: 'appt-1', payer_id: 'payer-1', policy_id: undefined, claim_amount: 5000, notes: undefined } } },
+        request: {
+          query: SUBMIT_CLAIM,
+          variables: {
+            input: { appointment_id: 'appt-1', payer_id: 'payer-1', policy_id: undefined, claim_amount: 5000, notes: undefined },
+          },
+        },
         result: { data: { submitClaim: { __typename: 'Claim', id: 'claim-1', status: 'submitted' } } },
       },
       claimsMock([makeClaim()]),
@@ -150,7 +216,10 @@ describe('manager/claims (REQ131)', () => {
     renderPage([
       claimsMock([underReview]),
       {
-        request: { query: UPDATE_CLAIM_STATUS, variables: { id: 'claim-1', input: { status: 'approved', approved_amount: 4500, rejection_reason: undefined } } },
+        request: {
+          query: UPDATE_CLAIM_STATUS,
+          variables: { id: 'claim-1', input: { status: 'approved', approved_amount: 4500, rejection_reason: undefined } },
+        },
         result: { data: { updateClaimStatus: { __typename: 'Claim', id: 'claim-1', status: 'approved' } } },
       },
       claimsMock([approved]),
@@ -177,9 +246,11 @@ describe('manager/claims (REQ131)', () => {
 
     await userEvent.click(screen.getByRole('button', { name: /Pack/ }))
 
-    await waitFor(() => expect(downloadAuthenticatedPdf).toHaveBeenCalledWith(
-      '/documents/claims/claim-1/reimbursement-pack/pdf',
-      'reimbursement-pack-claim-1.pdf',
-    ))
+    await waitFor(() =>
+      expect(downloadAuthenticatedPdf).toHaveBeenCalledWith(
+        '/documents/claims/claim-1/reimbursement-pack/pdf',
+        'reimbursement-pack-claim-1.pdf',
+      ),
+    )
   })
 })

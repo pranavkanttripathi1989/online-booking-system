@@ -1,8 +1,21 @@
 import { useState, useEffect } from 'react'
 import { useApolloClient, gql } from '@apollo/client'
 import {
-  Alert, Box, Button, Card, Chip, CircularProgress, FormControlLabel,
-  Grid, IconButton, MenuItem, Stack, Switch, TextField, Typography, Tooltip,
+  Alert,
+  Box,
+  Button,
+  Card,
+  Chip,
+  CircularProgress,
+  FormControlLabel,
+  Grid,
+  IconButton,
+  MenuItem,
+  Stack,
+  Switch,
+  TextField,
+  Typography,
+  Tooltip,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import HistoryIcon from '@mui/icons-material/History'
@@ -33,23 +46,57 @@ const GET_PLANS = gql`
       name
       tier
       is_active
-      current_version { id version price billing_period feature_flags { key enabled } quotas { key value } }
-      versions { id version effective_from effective_until }
+      current_version {
+        id
+        version
+        price
+        billing_period
+        feature_flags {
+          key
+          enabled
+        }
+        quotas {
+          key
+          value
+        }
+      }
+      versions {
+        id
+        version
+        effective_from
+        effective_until
+      }
     }
   }
 `
 const CREATE_PLAN = gql`
-  mutation CreatePlan($input: PlanInput!) { createPlan(input: $input) { id } }
+  mutation CreatePlan($input: PlanInput!) {
+    createPlan(input: $input) {
+      id
+    }
+  }
 `
 const CREATE_PLAN_VERSION = gql`
-  mutation CreatePlanVersion($input: CreatePlanVersionInput!) { createPlanVersion(input: $input) { id } }
+  mutation CreatePlanVersion($input: CreatePlanVersionInput!) {
+    createPlanVersion(input: $input) {
+      id
+    }
+  }
 `
 const SET_PLAN_ACTIVE = gql`
-  mutation SetPlanActive($id: ID!, $is_active: Boolean!) { setPlanActive(id: $id, is_active: $is_active) { id is_active } }
+  mutation SetPlanActive($id: ID!, $is_active: Boolean!) {
+    setPlanActive(id: $id, is_active: $is_active) {
+      id
+      is_active
+    }
+  }
 `
 
 const defaultForm = () => ({
-  name: '', tier: 'starter', billing_period: 'monthly', price: '',
+  name: '',
+  tier: 'starter',
+  billing_period: 'monthly',
+  price: '',
   feature_flags: Object.fromEntries(FEATURE_FLAG_KEYS.map((f) => [f.key, false])),
   quotas: Object.fromEntries(QUOTA_KEYS.map((q) => [q.key, ''])),
 })
@@ -80,10 +127,20 @@ export default function AdminPlans() {
       setLoading(false)
     }
   }
-  useEffect(() => { load() }, []) // eslint-disable-line
+  useEffect(() => {
+    load()
+  }, []) // eslint-disable-line
 
-  const showSuccess = (msg) => { setSuccessMsg(msg); setTimeout(() => setSuccessMsg(null), 3000) }
-  const reset = () => { setForm(defaultForm()); setEditingPlanId(null); setShowForm(false); setFormError(null) }
+  const showSuccess = (msg) => {
+    setSuccessMsg(msg)
+    setTimeout(() => setSuccessMsg(null), 3000)
+  }
+  const reset = () => {
+    setForm(defaultForm())
+    setEditingPlanId(null)
+    setShowForm(false)
+    setFormError(null)
+  }
 
   const buildInput = () => ({
     billing_period: form.billing_period,
@@ -117,10 +174,13 @@ export default function AdminPlans() {
   const openNewVersionForm = (plan) => {
     const cv = plan.current_version
     setForm({
-      name: plan.name, tier: plan.tier,
+      name: plan.name,
+      tier: plan.tier,
       billing_period: cv?.billing_period ?? 'monthly',
       price: cv?.price != null ? String(cv.price) : '',
-      feature_flags: Object.fromEntries(FEATURE_FLAG_KEYS.map((f) => [f.key, !!cv?.feature_flags?.find((ff) => ff.key === f.key)?.enabled])),
+      feature_flags: Object.fromEntries(
+        FEATURE_FLAG_KEYS.map((f) => [f.key, !!cv?.feature_flags?.find((ff) => ff.key === f.key)?.enabled]),
+      ),
       quotas: Object.fromEntries(QUOTA_KEYS.map((q) => [q.key, String(cv?.quotas?.find((qq) => qq.key === q.key)?.value ?? '')])),
     })
     setEditingPlanId(plan.id)
@@ -140,7 +200,12 @@ export default function AdminPlans() {
     setTogglingId(null)
   }
 
-  if (loading) return <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>
+  if (loading)
+    return (
+      <Box display="flex" justifyContent="center" py={6}>
+        <CircularProgress />
+      </Box>
+    )
 
   const insufficientPermission = loadError && /permission/i.test(loadError)
 
@@ -148,20 +213,54 @@ export default function AdminPlans() {
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3} flexWrap="wrap" gap={1}>
         <Box>
-          <Typography variant="h5" fontWeight={700}>Subscription Plans</Typography>
-          <Typography variant="body2" color="text.secondary">Platform-wide plan catalog — super_admin only</Typography>
+          <Typography variant="h5" fontWeight={700}>
+            Subscription Plans
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Platform-wide plan catalog — super_admin only
+          </Typography>
         </Box>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={() => { reset(); setShowForm((p) => !p) }}>New Plan</Button>
+        <Button
+          variant="contained"
+          startIcon={<AddIcon />}
+          onClick={() => {
+            reset()
+            setShowForm((p) => !p)
+          }}
+        >
+          New Plan
+        </Button>
       </Stack>
 
       {insufficientPermission && (
         <Alert severity="info" sx={{ mb: 2 }}>
-          Your account doesn't have <code>super_admin</code> access — plan management is restricted to the platform's own super-admin role, not org-level admins.
+          Your account doesn't have <code>super_admin</code> access — plan management is restricted to the platform's own super-admin role,
+          not org-level admins.
         </Alert>
       )}
-      {loadError && !insufficientPermission && <Alert severity="warning" sx={{ mb: 2 }} action={<Button size="small" onClick={load}>Retry</Button>}>Failed to load: {loadError}</Alert>}
-      {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
-      {formError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setFormError(null)}>{formError}</Alert>}
+      {loadError && !insufficientPermission && (
+        <Alert
+          severity="warning"
+          sx={{ mb: 2 }}
+          action={
+            <Button size="small" onClick={load}>
+              Retry
+            </Button>
+          }
+        >
+          Failed to load: {loadError}
+        </Alert>
+      )}
+      {successMsg && (
+        <Alert severity="success" sx={{ mb: 2 }}>
+          {successMsg}
+        </Alert>
+      )}
+      {formError && (
+        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setFormError(null)}>
+          {formError}
+        </Alert>
+      )}
 
       {showForm && (
         <Card sx={{ mb: 3, p: 2 }}>
@@ -178,10 +277,25 @@ export default function AdminPlans() {
               {!editingPlanId && (
                 <>
                   <Grid item xs={12} sm={6}>
-                    <TextField fullWidth required size="small" label="Plan Name" value={form.name} onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))} />
+                    <TextField
+                      fullWidth
+                      required
+                      size="small"
+                      label="Plan Name"
+                      value={form.name}
+                      onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
+                    />
                   </Grid>
                   <Grid item xs={12} sm={6}>
-                    <TextField select fullWidth required size="small" label="Tier" value={form.tier} onChange={(e) => setForm((p) => ({ ...p, tier: e.target.value }))}>
+                    <TextField
+                      select
+                      fullWidth
+                      required
+                      size="small"
+                      label="Tier"
+                      value={form.tier}
+                      onChange={(e) => setForm((p) => ({ ...p, tier: e.target.value }))}
+                    >
                       <MenuItem value="starter">Starter</MenuItem>
                       <MenuItem value="pro">Pro</MenuItem>
                       <MenuItem value="enterprise">Enterprise</MenuItem>
@@ -190,38 +304,78 @@ export default function AdminPlans() {
                 </>
               )}
               <Grid item xs={12} sm={6}>
-                <TextField select fullWidth required size="small" label="Billing Period" value={form.billing_period} onChange={(e) => setForm((p) => ({ ...p, billing_period: e.target.value }))}>
+                <TextField
+                  select
+                  fullWidth
+                  required
+                  size="small"
+                  label="Billing Period"
+                  value={form.billing_period}
+                  onChange={(e) => setForm((p) => ({ ...p, billing_period: e.target.value }))}
+                >
                   <MenuItem value="monthly">Monthly</MenuItem>
                   <MenuItem value="annual">Annual</MenuItem>
                 </TextField>
               </Grid>
               <Grid item xs={12} sm={6}>
-                <TextField fullWidth required size="small" type="number" label="Price (₹)" value={form.price} onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))} inputProps={{ min: 0, step: 0.01 }} />
+                <TextField
+                  fullWidth
+                  required
+                  size="small"
+                  type="number"
+                  label="Price (₹)"
+                  value={form.price}
+                  onChange={(e) => setForm((p) => ({ ...p, price: e.target.value }))}
+                  inputProps={{ min: 0, step: 0.01 }}
+                />
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="subtitle2" fontWeight={700} mb={1}>Feature flags</Typography>
+                <Typography variant="subtitle2" fontWeight={700} mb={1}>
+                  Feature flags
+                </Typography>
                 <Stack direction="row" flexWrap="wrap" gap={1}>
                   {FEATURE_FLAG_KEYS.map((f) => (
-                    <FormControlLabel key={f.key} control={
-                      <Switch checked={!!form.feature_flags[f.key]} onChange={(e) => setForm((p) => ({ ...p, feature_flags: { ...p.feature_flags, [f.key]: e.target.checked } }))} />
-                    } label={f.label} />
+                    <FormControlLabel
+                      key={f.key}
+                      control={
+                        <Switch
+                          checked={!!form.feature_flags[f.key]}
+                          onChange={(e) => setForm((p) => ({ ...p, feature_flags: { ...p.feature_flags, [f.key]: e.target.checked } }))}
+                        />
+                      }
+                      label={f.label}
+                    />
                   ))}
                 </Stack>
               </Grid>
               <Grid item xs={12}>
-                <Typography variant="subtitle2" fontWeight={700} mb={1}>Quotas</Typography>
+                <Typography variant="subtitle2" fontWeight={700} mb={1}>
+                  Quotas
+                </Typography>
                 <Grid container spacing={2}>
                   {QUOTA_KEYS.map((q) => (
                     <Grid item xs={12} sm={6} key={q.key}>
-                      <TextField fullWidth size="small" type="number" label={q.label} value={form.quotas[q.key]} onChange={(e) => setForm((p) => ({ ...p, quotas: { ...p.quotas, [q.key]: e.target.value } }))} inputProps={{ min: 0 }} />
+                      <TextField
+                        fullWidth
+                        size="small"
+                        type="number"
+                        label={q.label}
+                        value={form.quotas[q.key]}
+                        onChange={(e) => setForm((p) => ({ ...p, quotas: { ...p.quotas, [q.key]: e.target.value } }))}
+                        inputProps={{ min: 0 }}
+                      />
                     </Grid>
                   ))}
                 </Grid>
               </Grid>
               <Grid item xs={12}>
                 <Stack direction="row" spacing={1}>
-                  <Button type="submit" variant="contained" disabled={submitting}>{editingPlanId ? 'Create Version' : 'Create Plan'}</Button>
-                  <Button variant="outlined" onClick={reset}>Cancel</Button>
+                  <Button type="submit" variant="contained" disabled={submitting}>
+                    {editingPlanId ? 'Create Version' : 'Create Plan'}
+                  </Button>
+                  <Button variant="outlined" onClick={reset}>
+                    Cancel
+                  </Button>
                 </Stack>
               </Grid>
             </Grid>
@@ -235,7 +389,24 @@ export default function AdminPlans() {
             <Box component="thead">
               <Box component="tr" sx={{ bgcolor: 'grey.50' }}>
                 {['Name', 'Tier', 'Current Version', 'Price', 'Status', 'Actions'].map((h) => (
-                  <Box key={h} component="th" sx={{ px: 2, py: 1.5, textAlign: 'left', typography: 'caption', fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.05em', borderBottom: '1px solid', borderColor: 'divider' }}>{h}</Box>
+                  <Box
+                    key={h}
+                    component="th"
+                    sx={{
+                      px: 2,
+                      py: 1.5,
+                      textAlign: 'left',
+                      typography: 'caption',
+                      fontWeight: 700,
+                      color: 'text.secondary',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.05em',
+                      borderBottom: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  >
+                    {h}
+                  </Box>
                 ))}
               </Box>
             </Box>
@@ -249,14 +420,24 @@ export default function AdminPlans() {
                 </Box>
               )}
               {plans.map((plan) => (
-                <Box component="tr" key={plan.id} sx={{ '&:hover': { bgcolor: 'grey.50' }, borderBottom: '1px solid', borderColor: 'divider' }}>
-                  <Box component="td" sx={{ px: 2, py: 1.5 }}><Typography fontWeight={600}>{plan.name}</Typography></Box>
-                  <Box component="td" sx={{ px: 2, py: 1.5 }}><Chip size="small" label={plan.tier} /></Box>
+                <Box
+                  component="tr"
+                  key={plan.id}
+                  sx={{ '&:hover': { bgcolor: 'grey.50' }, borderBottom: '1px solid', borderColor: 'divider' }}
+                >
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Typography fontWeight={600}>{plan.name}</Typography>
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    <Chip size="small" label={plan.tier} />
+                  </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
                     <Chip size="small" icon={<HistoryIcon />} label={`v${plan.current_version?.version ?? '—'}`} variant="outlined" />
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
-                    <Typography variant="body2">₹{plan.current_version?.price?.toFixed(2) ?? '—'} / {plan.current_version?.billing_period ?? '—'}</Typography>
+                    <Typography variant="body2">
+                      ₹{plan.current_version?.price?.toFixed(2) ?? '—'} / {plan.current_version?.billing_period ?? '—'}
+                    </Typography>
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
                     <Chip size="small" label={plan.is_active ? 'Active' : 'Inactive'} color={plan.is_active ? 'success' : 'default'} />
@@ -264,10 +445,19 @@ export default function AdminPlans() {
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
                     <Stack direction="row" spacing={0.5}>
                       <Tooltip title="New version">
-                        <IconButton size="small" onClick={() => openNewVersionForm(plan)}><AddIcon fontSize="small" /></IconButton>
+                        <IconButton size="small" onClick={() => openNewVersionForm(plan)}>
+                          <AddIcon fontSize="small" />
+                        </IconButton>
                       </Tooltip>
                       <Tooltip title={plan.is_active ? 'Deactivate' : 'Activate'}>
-                        <Switch size="small" checked={plan.is_active} onChange={() => { setTogglingId(plan.id); setConfirmOpen(true) }} />
+                        <Switch
+                          size="small"
+                          checked={plan.is_active}
+                          onChange={() => {
+                            setTogglingId(plan.id)
+                            setConfirmOpen(true)
+                          }}
+                        />
                       </Tooltip>
                     </Stack>
                   </Box>
@@ -278,7 +468,16 @@ export default function AdminPlans() {
         </Box>
       </Card>
 
-      <ConfirmDialog isOpen={confirmOpen} title="Change plan status" message="This changes whether the plan can be newly assigned to a tenant. Existing subscribers are unaffected." onConfirm={confirmToggle} onCancel={() => { setConfirmOpen(false); setTogglingId(null) }} />
+      <ConfirmDialog
+        isOpen={confirmOpen}
+        title="Change plan status"
+        message="This changes whether the plan can be newly assigned to a tenant. Existing subscribers are unaffected."
+        onConfirm={confirmToggle}
+        onCancel={() => {
+          setConfirmOpen(false)
+          setTogglingId(null)
+        }}
+      />
     </Box>
   )
 }

@@ -95,7 +95,7 @@ test('manager can configure a session/token availability window, and the public 
   // from a prior interrupted run (this test creates exactly one per pass,
   // but a run that fails between creation and cleanup leaves one behind).
   const sessionChip = page.getByText(`Session · ${SESSION_CAPACITY} tokens`)
-  while (await sessionChip.count() > 0) {
+  while ((await sessionChip.count()) > 0) {
     const row = page.locator('tr', { hasText: `Session · ${SESSION_CAPACITY} tokens` }).first()
     await row.getByRole('button', { name: /Delete availability/i }).click()
     await page.getByRole('button', { name: 'Delete' }).click()

@@ -40,14 +40,32 @@ let dependantPatientId
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = authData.login.access_token
 
-  const createPatient = (first, last, phone) => gql(request, managerToken, `
+  const createPatient = (first, last, phone) =>
+    gql(
+      request,
+      managerToken,
+      `
     mutation($input: PatientInput!) { createPatient(input: $input) { id } }
-  `, { input: { first_name: first, last_name: last, email: `${first.toLowerCase()}.${Date.now()}@example.com`, phone, date_of_birth: '1990-01-01' } })
+  `,
+      {
+        input: {
+          first_name: first,
+          last_name: last,
+          email: `${first.toLowerCase()}.${Date.now()}@example.com`,
+          phone,
+          date_of_birth: '1990-01-01',
+        },
+      },
+    )
 
   const existing = await createPatient('Rohan', 'DedupProbe', DEDUP_PHONE)
   existingPatientId = existing.createPatient.id
@@ -69,15 +87,21 @@ test.afterAll(async () => {
     `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET patient_id = NULL WHERE email = 'patient@medibook.dev';"`,
   )
   if (dependantPatientId) {
-    execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"PatientRelations\\" WHERE related_patient_id='${dependantPatientId}';"`)
+    execSync(
+      `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"PatientRelations\\" WHERE related_patient_id='${dependantPatientId}';"`,
+    )
     execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Patients\\" WHERE id='${dependantPatientId}';"`)
   }
   // mergePatientBId was soft-deleted (is_deleted=true), not removed by the
   // merge itself — real hard cleanup either way.
-  execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"PatientMerges\\" WHERE surviving_patient_id='${mergePatientAId}' OR merged_patient_id='${mergePatientBId}';"`)
+  execSync(
+    `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"PatientMerges\\" WHERE surviving_patient_id='${mergePatientAId}' OR merged_patient_id='${mergePatientBId}';"`,
+  )
   const ids = [existingPatientId, mergePatientAId, mergePatientBId].filter(Boolean)
   if (ids.length) {
-    execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Patients\\" WHERE id IN (${ids.map((id) => `'${id}'`).join(',')});"`)
+    execSync(
+      `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Patients\\" WHERE id IN (${ids.map((id) => `'${id}'`).join(',')});"`,
+    )
   }
 })
 
@@ -121,9 +145,7 @@ test('a manager merges two duplicate patients into one, and the merge is real (n
   await page.getByRole('button', { name: 'Review & Merge' }).click()
 
   await expect(page.getByText('Merge Duplicate Patients')).toBeVisible({ timeout: 15_000 })
-  const mergeResponse = page.waitForResponse(
-    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('mergePatients'),
-  )
+  const mergeResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('mergePatients'))
   await page.getByRole('button', { name: 'Merge Patients' }).click()
   await mergeResponse
   await expect(page.getByText(/merged into/)).toBeVisible({ timeout: 15_000 })
@@ -141,9 +163,7 @@ test('a patient adds a dependant and sees them listed under My Family', async ({
   await page.getByLabel('Relationship').click()
   await page.getByRole('option', { name: 'child', exact: true }).click()
 
-  const addResponse = page.waitForResponse(
-    (res) => res.url().includes('/graphql') && res.request().postData()?.includes('addDependant'),
-  )
+  const addResponse = page.waitForResponse((res) => res.url().includes('/graphql') && res.request().postData()?.includes('addDependant'))
   await page.getByRole('button', { name: 'Add', exact: true }).click()
   const addResBody = await (await addResponse).json()
   dependantPatientId = addResBody.data?.addDependant?.patient?.id

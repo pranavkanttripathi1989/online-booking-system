@@ -15,7 +15,9 @@ export default function PermissionMatrix({ resources, actions, selectedIds, onTo
       <Table size="small" aria-label="Permission matrix by resource and action">
         <TableHead>
           <TableRow sx={{ bgcolor: 'grey.50' }}>
-            <TableCell component="th" scope="col" sx={{ fontWeight: 700, textTransform: 'capitalize' }}>Resource</TableCell>
+            <TableCell component="th" scope="col" sx={{ fontWeight: 700, textTransform: 'capitalize' }}>
+              Resource
+            </TableCell>
             {actions.map((action) => (
               <TableCell key={action} component="th" scope="col" align="center" sx={{ fontWeight: 700, textTransform: 'capitalize' }}>
                 {action}
@@ -50,7 +52,9 @@ export default function PermissionMatrix({ resources, actions, selectedIds, onTo
       </Table>
       {resources.length === 0 && (
         <Box sx={{ p: 2 }}>
-          <Typography variant="body2" color="text.secondary">No permissions defined.</Typography>
+          <Typography variant="body2" color="text.secondary">
+            No permissions defined.
+          </Typography>
         </Box>
       )}
     </TableContainer>

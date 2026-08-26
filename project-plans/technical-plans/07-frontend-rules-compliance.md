@@ -46,11 +46,11 @@ away from false, and nobody will notice.
 | BASE-2 platform wrapper | 🔜 | No `src/platform/` | — |
 | **BASE-3 language** | ⚪ | **170 `.jsx`, 0 `.ts`** | **Waived — deliberate.** Compensating controls (a)–(e), BASE-10, ARCH-7 become mandatory |
 | BASE-4 one of each | ⚠️ | MUI + Apollo + dayjs + zod + react-hook-form + notistack, no duplicates found | No lint rule blocks a second library |
-| BASE-5 dep size gate | 🔴 | No size check in CI | Needs CI-12 |
+| BASE-5 dep size gate | ✅ | `size-limit` wired 2026-08-27 (P1-03/CI-12) — `.size-limit.json` | — |
 | BASE-6 locked toolchain | ✅ | `package-lock.json` committed, CI uses `npm ci` | CI |
 | BASE-7 browserslist floor | 🔴 | Not pinned — Vite defaults decide the support matrix | Pin in `package.json` |
 | BASE-8 validated env | 🔴 | `import.meta.env` read directly, no boot validation | zod schema at boot |
-| BASE-9 no secrets in bundle | ⚠️ | None found | Needs CI-11 secret scanning |
+| BASE-9 no secrets in bundle | ✅ | `gitleaks` wired 2026-08-27 (P1-03/CI-11), unproven on real GitHub CI yet like the rest of this workflow | — |
 | **BASE-10 prop contracts** | 🔴 | No `propTypes`, no JSDoc convention in `src/components/` | **The BASE-3 trade requires this.** New rule in v2.0 |
 
 **The BASE-3 bargain is currently unpaid.** Choosing JS over TS is legitimate,
@@ -61,7 +61,7 @@ This is the highest-priority item in this document.
 
 | Rule | Status | Evidence |
 |---|:--:|---|
-| PERF-1…4 budgets | 🔴 | No `size-limit`. Largest chunk **441 KB** (`mui`), then `charts` 410 KB, `DataGrid` 328 KB. **Unmeasured against budget** |
+| PERF-1…4 budgets | 🟠 | **`size-limit` wired 2026-08-27 (P1-03).** Budgets calibrated to today's measured reality (initial bundle 335 KB / largest lazy chunk 115 KB / CSS 18 KB gzipped), not the PERF-1…4 aspiration (180–200 KB / 100 KB) — ratchet down from here |
 | PERF-5…8 field metrics | 🔴 | No Lighthouse CI |
 | PERF-9 lazy routes | ✅ | `App.jsx` lazy-loads its route tree |
 | PERF-10/11 MUI + icon imports | ⚠️ | Direct-path imports observed | No `no-restricted-imports` rule |
@@ -162,7 +162,7 @@ needs a product decision, logged rather than silently ignored.
 |---|:--:|---|
 | STATE-1 five states | 🟠 | Recent slices comply; older pages don't |
 | STATE-8 error boundaries | ✅ | `ErrorBoundary` wraps routes. **Known trap:** a missing import white-screens with no visible text — catch with `page.on('pageerror')` |
-| **A11Y-1 axe zero violations** | 🔴 | `axe-core` not run at all | CI-7 |
+| **A11Y-1 axe zero violations** | 🟠 | **Wired 2026-08-27 (P1-03)** via `jest-axe` — 3 of ~90 page suites covered (booking wizard, admin/Communications, reset-password). Found and fixed 3 real defects: a doctor-avatar with no `alt`, a Select with no accessible name when unset, a heading sequence skipping h2→h5 | Extend incrementally |
 | **A11Y-5 icon-button labels** | 🟠 | Three real gaps found and fixed; each had a `Tooltip` and no label. **A Tooltip is not an accessible name** |
 | A11Y-12 MUI Select targeting | ⚠️ | Documented: accessible name concatenates label + value once set, so `getByLabel(exact)` stops matching — use `data-testid` |
 | A11Y-2/3/4/7/8/9/10 | 🔴 | Unmeasured |
@@ -195,7 +195,9 @@ Closed by `phase-plans` P1-07 (framework + gate) and P2-08/P2-09 (languages).
 | **ARCH-15 match existing contract** | 🟠 | **Two dialects + three response conventions, all deliberate.** Skipping the check has caused shipped bugs incl. a mutation with the wrong argument shape that was never once functional | Checklist; no automation |
 | CI-1 build | ✅ | `npm run build` gates |
 | CI-2 eslint + ratchet | ✅ | **The model mechanism** |
-| CI-3,5,6,7,8,10,11,12 | 🔴 | Not wired | P1-03 |
+| CI-3,5,11,12 | ✅ | Wired 2026-08-27 (P1-03) | — |
+| CI-7 | 🟠 | Wired 2026-08-27 (P1-03), 3 of ~90 page suites | P1-03 residue |
+| CI-6,8,10 | 🔴 | Not wired | — |
 | CI-4 coverage thresholds | 🟠 | Tests run; coverage ungated |
 | CI-9 e2e in CI | 🔴 | 45 specs, deliberately ungated — shared dev DB, leaves residue |
 | CI-19 page-data-wiring | ✅ | Gate real and passing |
@@ -224,8 +226,8 @@ Ranked by (risk × leverage) ÷ effort. Slice IDs refer to `phase-plans/`.
 | # | Item | Rules | Slice |
 |---|---|---|---|
 | 1 | **Pay the BASE-3 bargain** — zod at the API boundary + prop contracts | ARCH-7, BASE-10 | *needs a slice — not yet in Phase 1* |
-| 2 | Auth token out of web storage | SEC-2 | P1-02 |
-| 3 | Wire the missing CI gates | CI-3,5,7,11,12 | P1-03 |
+| 2 | ~~Auth token out of web storage~~ **Done 2026-08-27** | SEC-2 | P1-02 |
+| 3 | ~~Wire the missing CI gates~~ **Done 2026-08-27** (CI-7 partially — 3 of ~90 page suites) | CI-3,5,7,11,12 | P1-03 |
 | 4 | Slot hold + idempotency | BOOK-2, BOOK-3 | P1-05 |
 | 5 | i18n framework + lint gate | I18N-1…10 | P1-07 |
 | 6 | Paid-but-unconfirmed recovery state | BOOK-20 | *fold into P1-05* |

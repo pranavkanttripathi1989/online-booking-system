@@ -16,8 +16,7 @@ test.setTimeout(60_000)
 
 // Minimal valid 1x1 red PNG, built inline so the spec has no binary fixture
 // dependency (same approach as settings-account.spec.js's avatar-upload test).
-const PNG_BASE64 =
-  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
+const PNG_BASE64 = 'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg=='
 
 test('manager can upload a real logo, save colors, and see it persist', async ({ page }) => {
   await loginAs(page, 'Manager')

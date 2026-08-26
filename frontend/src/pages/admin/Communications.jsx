@@ -1,21 +1,49 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useApolloClient, gql } from '@apollo/client';
+import React, { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useApolloClient, gql } from '@apollo/client'
 import {
-  Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Tab, Tabs,
-  TextField, Paper, Switch, FormControlLabel, Select, MenuItem,
-  FormControl, InputLabel, Divider, IconButton, Alert, Dialog, DialogTitle,
-  DialogContent, CircularProgress, Table, TableHead, TableBody, TableRow,
-  TableCell, TableContainer, LinearProgress, useTheme,
-} from '@mui/material';
-import EmailIcon from '@mui/icons-material/Email';
-import SmsIcon from '@mui/icons-material/Sms';
-import NotificationsIcon from '@mui/icons-material/Notifications';
-import EditIcon from '@mui/icons-material/Edit';
-import PreviewIcon from '@mui/icons-material/Preview';
-import SendIcon from '@mui/icons-material/Send';
-import CloseIcon from '@mui/icons-material/Close';
-import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
+  Box,
+  Grid,
+  Typography,
+  Card,
+  CardContent,
+  Stack,
+  Button,
+  Chip,
+  Tab,
+  Tabs,
+  TextField,
+  Paper,
+  Switch,
+  FormControlLabel,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
+  Divider,
+  IconButton,
+  Alert,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  CircularProgress,
+  Table,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  TableContainer,
+  LinearProgress,
+  useTheme,
+} from '@mui/material'
+import EmailIcon from '@mui/icons-material/Email'
+import SmsIcon from '@mui/icons-material/Sms'
+import NotificationsIcon from '@mui/icons-material/Notifications'
+import EditIcon from '@mui/icons-material/Edit'
+import PreviewIcon from '@mui/icons-material/Preview'
+import SendIcon from '@mui/icons-material/Send'
+import CloseIcon from '@mui/icons-material/Close'
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn'
 
 // REQ011 — real backend/src/email-templates data (the same module and rows
 // admin/EmailTemplates.jsx's full editor uses), replacing a 100% hardcoded
@@ -26,13 +54,32 @@ import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 // two copies of that editor); this tab does real active/inactive toggling
 // and a real read-only preview.
 const GET_EMAIL_TEMPLATES = gql`
-  query GetNotificationEmailTemplates { emailTemplates { id name type subject body variables is_active } }
-`;
+  query GetNotificationEmailTemplates {
+    emailTemplates {
+      id
+      name
+      type
+      subject
+      body
+      variables
+      is_active
+    }
+  }
+`
 const UPDATE_EMAIL_TEMPLATE_ACTIVE = gql`
   mutation UpdateEmailTemplateActive($id: ID!, $input: UpdateEmailTemplateInput!) {
-    updateEmailTemplate(id: $id, input: $input) { success userErrors { message } template { id is_active } }
+    updateEmailTemplate(id: $id, input: $input) {
+      success
+      userErrors {
+        message
+      }
+      template {
+        id
+        is_active
+      }
+    }
   }
-`;
+`
 const TEMPLATE_TYPE_LABELS = {
   appointment_confirmation: 'Appointment Confirmation',
   appointment_reminder: 'Appointment Reminder',
@@ -42,20 +89,31 @@ const TEMPLATE_TYPE_LABELS = {
   welcome: 'Welcome',
   invoice: 'Invoice / Receipt',
   cancellation_fee: 'Cancellation Fee',
-};
+}
 
 // REQ006 — Global Settings tab, Email half. P1-01/REQ144 added
 // whatsapp_monthly_cap_rupees to the same settings row.
 const GET_COMMUNICATION_SETTINGS = gql`
   query GetOrgCommunicationSettings {
-    myOrgCommunicationSettings { email_from_name email_from_address email_reply_to email_include_branding whatsapp_monthly_cap_rupees }
+    myOrgCommunicationSettings {
+      email_from_name
+      email_from_address
+      email_reply_to
+      email_include_branding
+      whatsapp_monthly_cap_rupees
+    }
   }
-`;
+`
 const UPDATE_COMMUNICATION_SETTINGS = gql`
   mutation UpdateOrgCommunicationSettings($input: UpdateOrgCommunicationSettingsInput!) {
-    updateMyOrgCommunicationSettings(input: $input) { success userErrors { message } }
+    updateMyOrgCommunicationSettings(input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
   }
-`;
+`
 
 // P1-01/REQ144 — current-IST-month WhatsApp conversation spend by Meta
 // template category (utility/marketing/authentication). Never caller-
@@ -63,11 +121,17 @@ const UPDATE_COMMUNICATION_SETTINGS = gql`
 const GET_WHATSAPP_SPEND = gql`
   query GetWhatsappConversationSpend {
     whatsappConversationSpend {
-      periodStart periodEnd totalCostRupees
-      byCategory { category count costRupees }
+      periodStart
+      periodEnd
+      totalCostRupees
+      byCategory {
+        category
+        count
+        costRupees
+      }
     }
   }
-`;
+`
 
 // REQ008/PLAN017 — SMS half: rebuilt as a generic, provider-agnostic OTP/SMS
 // configuration (per this session's redirect away from a single fixed
@@ -76,43 +140,67 @@ const GET_WHATSAPP_SPEND = gql`
 // field shapes; myNotificationProviderConfig/updateMyNotificationProviderConfig
 // are org-scoped and never return raw credentials (has_credentials only).
 const GET_NOTIFICATION_PROVIDERS = gql`
-  query GetNotificationProviders { notificationProviders { id label channel fields { key label type required } } }
-`;
+  query GetNotificationProviders {
+    notificationProviders {
+      id
+      label
+      channel
+      fields {
+        key
+        label
+        type
+        required
+      }
+    }
+  }
+`
 const GET_MY_NOTIFICATION_PROVIDER_CONFIG = gql`
   query GetMyNotificationProviderConfig($channel: String!) {
-    myNotificationProviderConfig(channel: $channel) { channel provider sender_id has_credentials }
+    myNotificationProviderConfig(channel: $channel) {
+      channel
+      provider
+      sender_id
+      has_credentials
+    }
   }
-`;
+`
 const UPDATE_NOTIFICATION_PROVIDER_CONFIG = gql`
   mutation UpdateMyNotificationProviderConfig($input: UpdateNotificationProviderConfigInput!) {
-    updateMyNotificationProviderConfig(input: $input) { success message }
+    updateMyNotificationProviderConfig(input: $input) {
+      success
+      message
+    }
   }
-`;
+`
 
 export default function AdminCommunications() {
-  const client = useApolloClient();
-  const navigate = useNavigate();
-  const theme = useTheme();
-  const [templates, setTemplates] = useState([]);
-  const [loadingTemplates, setLoadingTemplates] = useState(true);
-  const [templatesError, setTemplatesError] = useState(null);
-  const [togglingId, setTogglingId] = useState(null);
-  const [previewTemplate, setPreviewTemplate] = useState(null);
-  const [tab, setTab] = useState(0);
-  const [testEmail, setTestEmail] = useState('');
-  const [sent, setSent] = useState(false);
+  const client = useApolloClient()
+  const navigate = useNavigate()
+  const theme = useTheme()
+  const [templates, setTemplates] = useState([])
+  const [loadingTemplates, setLoadingTemplates] = useState(true)
+  const [templatesError, setTemplatesError] = useState(null)
+  const [togglingId, setTogglingId] = useState(null)
+  const [previewTemplate, setPreviewTemplate] = useState(null)
+  const [tab, setTab] = useState(0)
+  const [testEmail, setTestEmail] = useState('')
+  const [sent, setSent] = useState(false)
 
   const loadTemplates = () => {
     setLoadingTemplates(true)
-    client.query({ query: GET_EMAIL_TEMPLATES, fetchPolicy: 'network-only' })
+    client
+      .query({ query: GET_EMAIL_TEMPLATES, fetchPolicy: 'network-only' })
       .then(({ data }) => setTemplates(data?.emailTemplates ?? []))
       .catch((err) => setTemplatesError(err.message))
       .finally(() => setLoadingTemplates(false))
   }
-  useEffect(() => { loadTemplates() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadTemplates()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleTemplateActive = async (t) => {
-    setTemplatesError(null); setTogglingId(t.id)
+    setTemplatesError(null)
+    setTogglingId(t.id)
     try {
       const { data } = await client.mutate({
         mutation: UPDATE_EMAIL_TEMPLATE_ACTIVE,
@@ -121,52 +209,60 @@ export default function AdminCommunications() {
       if (!data?.updateEmailTemplate?.success) {
         throw new Error(data?.updateEmailTemplate?.userErrors?.[0]?.message ?? 'Failed to update template')
       }
-      setTemplates((prev) => prev.map((row) => row.id === t.id ? { ...row, is_active: !row.is_active } : row))
-    } catch (err) { setTemplatesError(err.message) }
-    finally { setTogglingId(null) }
+      setTemplates((prev) => prev.map((row) => (row.id === t.id ? { ...row, is_active: !row.is_active } : row)))
+    } catch (err) {
+      setTemplatesError(err.message)
+    } finally {
+      setTogglingId(null)
+    }
   }
 
-  const [emailFromName, setEmailFromName] = useState('');
-  const [emailFromAddress, setEmailFromAddress] = useState('');
-  const [emailReplyTo, setEmailReplyTo] = useState('');
-  const [emailIncludeBranding, setEmailIncludeBranding] = useState(true);
-  const [emailSettingsError, setEmailSettingsError] = useState(null);
-  const [emailSettingsSaved, setEmailSettingsSaved] = useState(false);
-  const [savingEmailSettings, setSavingEmailSettings] = useState(false);
+  const [emailFromName, setEmailFromName] = useState('')
+  const [emailFromAddress, setEmailFromAddress] = useState('')
+  const [emailReplyTo, setEmailReplyTo] = useState('')
+  const [emailIncludeBranding, setEmailIncludeBranding] = useState(true)
+  const [emailSettingsError, setEmailSettingsError] = useState(null)
+  const [emailSettingsSaved, setEmailSettingsSaved] = useState(false)
+  const [savingEmailSettings, setSavingEmailSettings] = useState(false)
 
   // P1-01/REQ144 — WhatsApp conversation spend card
-  const [whatsappSpend, setWhatsappSpend] = useState(null);
-  const [loadingSpend, setLoadingSpend] = useState(true);
-  const [spendError, setSpendError] = useState(null);
-  const [capRupees, setCapRupees] = useState(''); // '' = no cap configured
-  const [savingCap, setSavingCap] = useState(false);
-  const [capSaved, setCapSaved] = useState(false);
-  const [capError, setCapError] = useState(null);
+  const [whatsappSpend, setWhatsappSpend] = useState(null)
+  const [loadingSpend, setLoadingSpend] = useState(true)
+  const [spendError, setSpendError] = useState(null)
+  const [capRupees, setCapRupees] = useState('') // '' = no cap configured
+  const [savingCap, setSavingCap] = useState(false)
+  const [capSaved, setCapSaved] = useState(false)
+  const [capError, setCapError] = useState(null)
 
   const loadSpend = () => {
-    setLoadingSpend(true); setSpendError(null)
-    client.query({ query: GET_WHATSAPP_SPEND, fetchPolicy: 'network-only' })
+    setLoadingSpend(true)
+    setSpendError(null)
+    client
+      .query({ query: GET_WHATSAPP_SPEND, fetchPolicy: 'network-only' })
       .then(({ data }) => setWhatsappSpend(data?.whatsappConversationSpend ?? null))
       .catch((err) => setSpendError(err.message))
       .finally(() => setLoadingSpend(false))
   }
-  useEffect(() => { loadSpend() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(() => {
+    loadSpend()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // REQ008/PLAN017 — SMS/OTP provider configuration
-  const [smsProviders, setSmsProviders] = useState([]);
-  const [smsSelectedProvider, setSmsSelectedProvider] = useState('');
-  const [smsSenderId, setSmsSenderId] = useState('');
-  const [smsCredentials, setSmsCredentials] = useState({}); // { [fieldKey]: value }
-  const [smsHasCredentials, setSmsHasCredentials] = useState(false);
-  const [smsError, setSmsError] = useState(null);
-  const [smsSaved, setSmsSaved] = useState(false);
-  const [savingSms, setSavingSms] = useState(false);
-  const [loadingSms, setLoadingSms] = useState(true);
+  const [smsProviders, setSmsProviders] = useState([])
+  const [smsSelectedProvider, setSmsSelectedProvider] = useState('')
+  const [smsSenderId, setSmsSenderId] = useState('')
+  const [smsCredentials, setSmsCredentials] = useState({}) // { [fieldKey]: value }
+  const [smsHasCredentials, setSmsHasCredentials] = useState(false)
+  const [smsError, setSmsError] = useState(null)
+  const [smsSaved, setSmsSaved] = useState(false)
+  const [savingSms, setSavingSms] = useState(false)
+  const [loadingSms, setLoadingSms] = useState(true)
 
   useEffect(() => {
-    client.query({ query: GET_COMMUNICATION_SETTINGS, fetchPolicy: 'network-only' })
+    client
+      .query({ query: GET_COMMUNICATION_SETTINGS, fetchPolicy: 'network-only' })
       .then(({ data }) => {
-        const s = data?.myOrgCommunicationSettings;
+        const s = data?.myOrgCommunicationSettings
         if (!s) return
         setEmailFromName(s.email_from_name ?? '')
         setEmailFromAddress(s.email_from_address ?? '')
@@ -198,7 +294,8 @@ export default function AdminCommunications() {
   const selectedSmsProvider = smsProviders.find((p) => p.id === smsSelectedProvider)
 
   const handleSaveSmsSettings = async () => {
-    setSmsError(null); setSavingSms(true)
+    setSmsError(null)
+    setSavingSms(true)
     try {
       const credentials = Object.entries(smsCredentials)
         .filter(([, v]) => v)
@@ -212,29 +309,40 @@ export default function AdminCommunications() {
       }
       setSmsHasCredentials(true)
       setSmsCredentials({}) // clear entered secrets from memory once saved
-      setSmsSaved(true); setTimeout(() => setSmsSaved(false), 2500)
-    } catch (err) { setSmsError(err.message) }
-    finally { setSavingSms(false) }
+      setSmsSaved(true)
+      setTimeout(() => setSmsSaved(false), 2500)
+    } catch (err) {
+      setSmsError(err.message)
+    } finally {
+      setSavingSms(false)
+    }
   }
 
   const handleSaveEmailSettings = async () => {
-    setEmailSettingsError(null); setSavingEmailSettings(true)
+    setEmailSettingsError(null)
+    setSavingEmailSettings(true)
     try {
       const { data } = await client.mutate({
         mutation: UPDATE_COMMUNICATION_SETTINGS,
-        variables: { input: {
-          email_from_name: emailFromName,
-          email_from_address: emailFromAddress || null,
-          email_reply_to: emailReplyTo || null,
-          email_include_branding: emailIncludeBranding,
-        } },
+        variables: {
+          input: {
+            email_from_name: emailFromName,
+            email_from_address: emailFromAddress || null,
+            email_reply_to: emailReplyTo || null,
+            email_include_branding: emailIncludeBranding,
+          },
+        },
       })
       if (!data?.updateMyOrgCommunicationSettings?.success) {
         throw new Error(data?.updateMyOrgCommunicationSettings?.userErrors?.[0]?.message ?? 'Failed to save email settings')
       }
-      setEmailSettingsSaved(true); setTimeout(() => setEmailSettingsSaved(false), 2500)
-    } catch (err) { setEmailSettingsError(err.message) }
-    finally { setSavingEmailSettings(false) }
+      setEmailSettingsSaved(true)
+      setTimeout(() => setEmailSettingsSaved(false), 2500)
+    } catch (err) {
+      setEmailSettingsError(err.message)
+    } finally {
+      setSavingEmailSettings(false)
+    }
   }
 
   // P1-01/REQ144 — a partial update: only whatsapp_monthly_cap_rupees is
@@ -243,7 +351,8 @@ export default function AdminCommunications() {
   // fields, so a stale local email draft here can never clobber a saved
   // value on a cap-only save).
   const handleSaveCap = async () => {
-    setCapError(null); setSavingCap(true)
+    setCapError(null)
+    setSavingCap(true)
     try {
       const trimmed = capRupees.trim()
       const value = trimmed === '' ? null : Number(trimmed)
@@ -257,9 +366,13 @@ export default function AdminCommunications() {
       if (!data?.updateMyOrgCommunicationSettings?.success) {
         throw new Error(data?.updateMyOrgCommunicationSettings?.userErrors?.[0]?.message ?? 'Failed to save the WhatsApp spend cap')
       }
-      setCapSaved(true); setTimeout(() => setCapSaved(false), 2500)
-    } catch (err) { setCapError(err.message) }
-    finally { setSavingCap(false) }
+      setCapSaved(true)
+      setTimeout(() => setCapSaved(false), 2500)
+    } catch (err) {
+      setCapError(err.message)
+    } finally {
+      setSavingCap(false)
+    }
   }
 
   const capRupeesNumber = whatsappSpend && capRupees.trim() !== '' && !Number.isNaN(Number(capRupees)) ? Number(capRupees) : null
@@ -270,8 +383,12 @@ export default function AdminCommunications() {
     <Box>
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h2" fontWeight={700}>Communications</Typography>
-          <Typography variant="body2" color="text.secondary">Email templates, SMS notifications &amp; delivery logs</Typography>
+          <Typography variant="h2" fontWeight={700}>
+            Communications
+          </Typography>
+          <Typography variant="body2" color="text.secondary">
+            Email templates, SMS notifications &amp; delivery logs
+          </Typography>
         </Box>
       </Stack>
 
@@ -287,43 +404,66 @@ export default function AdminCommunications() {
           <Alert severity="info">
             Toggle a template on/off here. To edit the subject or body, use the full editor on the Email Templates page.
           </Alert>
-          {templatesError && <Alert severity="error" onClose={() => setTemplatesError(null)}>{templatesError}</Alert>}
+          {templatesError && (
+            <Alert severity="error" onClose={() => setTemplatesError(null)}>
+              {templatesError}
+            </Alert>
+          )}
           {loadingTemplates ? (
-            <Box display="flex" justifyContent="center" py={6}><CircularProgress /></Box>
+            <Box display="flex" justifyContent="center" py={6}>
+              <CircularProgress />
+            </Box>
           ) : templates.length === 0 ? (
-            <Card><CardContent sx={{ textAlign: 'center', py: 4 }}><Typography color="text.secondary">No email templates found.</Typography></CardContent></Card>
-          ) : templates.map((t) => (
-            <Card key={t.id} sx={{ border: '1px solid #D0E8EA', opacity: t.is_active ? 1 : 0.6 }}>
-              <CardContent sx={{ p: 2.5 }}>
-                <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-                  <Box flex={1} minWidth={200}>
-                    <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
-                      <Typography fontWeight={700}>{t.name || TEMPLATE_TYPE_LABELS[t.type] || t.type}</Typography>
-                      <Chip
-                        icon={<EmailIcon sx={{ fontSize: 14 }} />}
-                        label="EMAIL"
-                        size="small"
-                        sx={{ bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700 }}
-                      />
-                    </Stack>
-                    <Typography variant="body2" color="text.secondary">
-                      Type: <strong>{TEMPLATE_TYPE_LABELS[t.type] || t.type}</strong>
-                    </Typography>
-                  </Box>
-                  <Stack direction="row" spacing={1} alignItems="center">
-                    <IconButton size="small" onClick={() => setPreviewTemplate(t)}><PreviewIcon fontSize="small" /></IconButton>
-                    <IconButton size="small" onClick={() => navigate('/admin/email-templates')}><EditIcon fontSize="small" /></IconButton>
-                    <FormControlLabel
-                      control={<Switch checked={t.is_active} disabled={togglingId === t.id} onChange={() => toggleTemplateActive(t)} size="small" />}
-                      label={<Typography variant="caption">{t.is_active ? 'Active' : 'Off'}</Typography>}
-                      labelPlacement="start"
-                      sx={{ mr: 0, ml: 1 }}
-                    />
-                  </Stack>
-                </Stack>
+            <Card>
+              <CardContent sx={{ textAlign: 'center', py: 4 }}>
+                <Typography color="text.secondary">No email templates found.</Typography>
               </CardContent>
             </Card>
-          ))}
+          ) : (
+            templates.map((t) => (
+              <Card key={t.id} sx={{ border: '1px solid #D0E8EA', opacity: t.is_active ? 1 : 0.6 }}>
+                <CardContent sx={{ p: 2.5 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                    <Box flex={1} minWidth={200}>
+                      <Stack direction="row" spacing={1.5} alignItems="center" sx={{ mb: 0.5 }}>
+                        <Typography fontWeight={700}>{t.name || TEMPLATE_TYPE_LABELS[t.type] || t.type}</Typography>
+                        <Chip
+                          icon={<EmailIcon sx={{ fontSize: 14 }} />}
+                          label="EMAIL"
+                          size="small"
+                          sx={{ bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700 }}
+                        />
+                      </Stack>
+                      <Typography variant="body2" color="text.secondary">
+                        Type: <strong>{TEMPLATE_TYPE_LABELS[t.type] || t.type}</strong>
+                      </Typography>
+                    </Box>
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <IconButton size="small" onClick={() => setPreviewTemplate(t)}>
+                        <PreviewIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton size="small" onClick={() => navigate('/admin/email-templates')}>
+                        <EditIcon fontSize="small" />
+                      </IconButton>
+                      <FormControlLabel
+                        control={
+                          <Switch
+                            checked={t.is_active}
+                            disabled={togglingId === t.id}
+                            onChange={() => toggleTemplateActive(t)}
+                            size="small"
+                          />
+                        }
+                        label={<Typography variant="caption">{t.is_active ? 'Active' : 'Off'}</Typography>}
+                        labelPlacement="start"
+                        sx={{ mr: 0, ml: 1 }}
+                      />
+                    </Stack>
+                  </Stack>
+                </CardContent>
+              </Card>
+            ))
+          )}
         </Stack>
       )}
 
@@ -331,14 +471,33 @@ export default function AdminCommunications() {
       <Dialog open={!!previewTemplate} onClose={() => setPreviewTemplate(null)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Preview: {previewTemplate?.name || TEMPLATE_TYPE_LABELS[previewTemplate?.type] || previewTemplate?.type}
-          <IconButton size="small" onClick={() => setPreviewTemplate(null)}><CloseIcon /></IconButton>
+          <IconButton size="small" onClick={() => setPreviewTemplate(null)}>
+            <CloseIcon />
+          </IconButton>
         </DialogTitle>
         <DialogContent dividers>
-          <Typography variant="subtitle2" gutterBottom>Subject:</Typography>
+          <Typography variant="subtitle2" gutterBottom>
+            Subject:
+          </Typography>
           <Box sx={{ p: 1.5, bgcolor: 'grey.100', borderRadius: 1, mb: 2, fontFamily: 'monospace' }}>{previewTemplate?.subject}</Box>
           <Divider sx={{ mb: 2 }} />
-          <Typography variant="subtitle2" gutterBottom>Body:</Typography>
-          <Box sx={{ p: 2, bgcolor: 'grey.50', borderRadius: 1, fontFamily: 'monospace', fontSize: '0.8rem', whiteSpace: 'pre-wrap', overflowX: 'auto', border: '1px solid', borderColor: 'divider', minHeight: 160 }}>
+          <Typography variant="subtitle2" gutterBottom>
+            Body:
+          </Typography>
+          <Box
+            sx={{
+              p: 2,
+              bgcolor: 'grey.50',
+              borderRadius: 1,
+              fontFamily: 'monospace',
+              fontSize: '0.8rem',
+              whiteSpace: 'pre-wrap',
+              overflowX: 'auto',
+              border: '1px solid',
+              borderColor: 'divider',
+              minHeight: 160,
+            }}
+          >
             {previewTemplate?.body}
           </Box>
         </DialogContent>
@@ -352,16 +511,51 @@ export default function AdminCommunications() {
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                   <EmailIcon sx={{ color: '#006D77' }} />
-                  <Typography variant="h5" fontWeight={700}>Email Settings</Typography>
+                  <Typography variant="h5" component="h3" fontWeight={700}>
+                    Email Settings
+                  </Typography>
                 </Stack>
-                {emailSettingsSaved && <Alert severity="success" sx={{ mb: 2 }}>Email settings saved.</Alert>}
-                {emailSettingsError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setEmailSettingsError(null)}>{emailSettingsError}</Alert>}
+                {emailSettingsSaved && (
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    Email settings saved.
+                  </Alert>
+                )}
+                {emailSettingsError && (
+                  <Alert severity="error" sx={{ mb: 2 }} onClose={() => setEmailSettingsError(null)}>
+                    {emailSettingsError}
+                  </Alert>
+                )}
                 <Stack spacing={2}>
-                  <TextField fullWidth label="From Name" value={emailFromName} onChange={(e) => setEmailFromName(e.target.value)} size="small" />
-                  <TextField fullWidth label="From Email" placeholder="noreply@healthsync.dev" value={emailFromAddress} onChange={(e) => setEmailFromAddress(e.target.value)} size="small" />
-                  <TextField fullWidth label="Reply-To" placeholder="support@healthsync.dev" value={emailReplyTo} onChange={(e) => setEmailReplyTo(e.target.value)} size="small" />
-                  <FormControlLabel control={<Switch checked={emailIncludeBranding} onChange={(e) => setEmailIncludeBranding(e.target.checked)} />} label="Include clinic branding in emails" />
-                  <Button variant="contained" size="small" disabled={savingEmailSettings} onClick={handleSaveEmailSettings}>{savingEmailSettings ? 'Saving…' : 'Save Email Settings'}</Button>
+                  <TextField
+                    fullWidth
+                    label="From Name"
+                    value={emailFromName}
+                    onChange={(e) => setEmailFromName(e.target.value)}
+                    size="small"
+                  />
+                  <TextField
+                    fullWidth
+                    label="From Email"
+                    placeholder="noreply@healthsync.dev"
+                    value={emailFromAddress}
+                    onChange={(e) => setEmailFromAddress(e.target.value)}
+                    size="small"
+                  />
+                  <TextField
+                    fullWidth
+                    label="Reply-To"
+                    placeholder="support@healthsync.dev"
+                    value={emailReplyTo}
+                    onChange={(e) => setEmailReplyTo(e.target.value)}
+                    size="small"
+                  />
+                  <FormControlLabel
+                    control={<Switch checked={emailIncludeBranding} onChange={(e) => setEmailIncludeBranding(e.target.checked)} />}
+                    label="Include clinic branding in emails"
+                  />
+                  <Button variant="contained" size="small" disabled={savingEmailSettings} onClick={handleSaveEmailSettings}>
+                    {savingEmailSettings ? 'Saving…' : 'Save Email Settings'}
+                  </Button>
                 </Stack>
               </CardContent>
             </Card>
@@ -371,22 +565,45 @@ export default function AdminCommunications() {
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                   <SmsIcon sx={{ color: '#006D77' }} />
-                  <Typography variant="h5" fontWeight={700}>OTP / SMS Provider</Typography>
+                  <Typography variant="h5" component="h3" fontWeight={700}>
+                    OTP / SMS Provider
+                  </Typography>
                 </Stack>
                 <Alert severity="info" sx={{ mb: 2 }}>
-                  Choose your organization's own SMS provider and enter its credentials — used for OTP login and SMS notifications. Credentials are encrypted at rest and never shown again once saved.
+                  Choose your organization's own SMS provider and enter its credentials — used for OTP login and SMS notifications.
+                  Credentials are encrypted at rest and never shown again once saved.
                 </Alert>
-                {smsSaved && <Alert severity="success" sx={{ mb: 2 }}>SMS provider settings saved.</Alert>}
-                {smsError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSmsError(null)}>{smsError}</Alert>}
+                {smsSaved && (
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    SMS provider settings saved.
+                  </Alert>
+                )}
+                {smsError && (
+                  <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSmsError(null)}>
+                    {smsError}
+                  </Alert>
+                )}
                 <Stack spacing={2}>
                   <FormControl fullWidth size="small" disabled={loadingSms}>
-                    <InputLabel>SMS Provider</InputLabel>
+                    {/* P1-03 (CI-7, A11Y-12) — an axe-core scan found this
+                        Select had no accessible name at all with no value
+                        selected yet: `label` alone doesn't reliably wire
+                        aria-labelledby without an explicit id/labelId pair. */}
+                    <InputLabel id="sms-provider-label">SMS Provider</InputLabel>
                     <Select
+                      labelId="sms-provider-label"
                       label="SMS Provider"
                       value={smsSelectedProvider}
-                      onChange={(e) => { setSmsSelectedProvider(e.target.value); setSmsCredentials({}) }}
+                      onChange={(e) => {
+                        setSmsSelectedProvider(e.target.value)
+                        setSmsCredentials({})
+                      }}
                     >
-                      {smsProviders.map((p) => <MenuItem key={p.id} value={p.id}>{p.label}</MenuItem>)}
+                      {smsProviders.map((p) => (
+                        <MenuItem key={p.id} value={p.id}>
+                          {p.label}
+                        </MenuItem>
+                      ))}
                     </Select>
                   </FormControl>
 
@@ -404,12 +621,22 @@ export default function AdminCommunications() {
                           placeholder={smsHasCredentials ? '••••••••  (leave blank to keep current)' : ''}
                         />
                       ))}
-                      <TextField fullWidth size="small" label="SMS Sender Name" value={smsSenderId} onChange={(e) => setSmsSenderId(e.target.value)} />
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="SMS Sender Name"
+                        value={smsSenderId}
+                        onChange={(e) => setSmsSenderId(e.target.value)}
+                      />
                     </>
                   )}
 
                   {smsHasCredentials && (
-                    <Chip size="small" label="Credentials configured" sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontWeight: 700, alignSelf: 'flex-start' }} />
+                    <Chip
+                      size="small"
+                      label="Credentials configured"
+                      sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontWeight: 700, alignSelf: 'flex-start' }}
+                    />
                   )}
 
                   <Button variant="contained" size="small" disabled={savingSms || !smsSelectedProvider} onClick={handleSaveSmsSettings}>
@@ -426,28 +653,42 @@ export default function AdminCommunications() {
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
                   <MonetizationOnIcon sx={{ color: theme.palette.primary.main }} />
-                  <Typography variant="h5" fontWeight={700}>WhatsApp Conversation Spend</Typography>
+                  <Typography variant="h5" component="h3" fontWeight={700}>
+                    WhatsApp Conversation Spend
+                  </Typography>
                 </Stack>
                 <Alert severity="info" sx={{ mb: 2 }}>
                   Meta bills WhatsApp by conversation category — utility/authentication (₹0.115) is 7.5× cheaper than marketing (₹0.863).
-                  Category is always assigned by the notification type, never editable here, so a reminder can never be sent at the marketing rate.
+                  Category is always assigned by the notification type, never editable here, so a reminder can never be sent at the
+                  marketing rate.
                 </Alert>
-                {spendError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSpendError(null)}>{spendError}</Alert>}
+                {spendError && (
+                  <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSpendError(null)}>
+                    {spendError}
+                  </Alert>
+                )}
 
                 {loadingSpend ? (
-                  <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>
+                  <Box display="flex" justifyContent="center" py={4}>
+                    <CircularProgress size={28} />
+                  </Box>
                 ) : !whatsappSpend ? (
                   spendError ? null : (
-                    <Typography variant="body2" color="text.secondary">Spend data isn't available right now.</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Spend data isn't available right now.
+                    </Typography>
                   )
                 ) : (
                   <Stack spacing={2}>
                     <Typography variant="caption" color="text.secondary">
-                      Billing period: {new Date(whatsappSpend.periodStart).toLocaleDateString('en-IN')} – {new Date(whatsappSpend.periodEnd).toLocaleDateString('en-IN')} (IST)
+                      Billing period: {new Date(whatsappSpend.periodStart).toLocaleDateString('en-IN')} –{' '}
+                      {new Date(whatsappSpend.periodEnd).toLocaleDateString('en-IN')} (IST)
                     </Typography>
 
                     {whatsappSpend.byCategory.length === 0 ? (
-                      <Typography variant="body2" color="text.secondary">No billable WhatsApp conversations yet this period.</Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        No billable WhatsApp conversations yet this period.
+                      </Typography>
                     ) : (
                       <TableContainer sx={{ maxWidth: 480 }}>
                         <Table size="small">
@@ -469,7 +710,9 @@ export default function AdminCommunications() {
                             <TableRow>
                               <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
                               <TableCell />
-                              <TableCell align="right" sx={{ fontWeight: 700 }}>₹{whatsappSpend.totalCostRupees.toFixed(2)}</TableCell>
+                              <TableCell align="right" sx={{ fontWeight: 700 }}>
+                                ₹{whatsappSpend.totalCostRupees.toFixed(2)}
+                              </TableCell>
                             </TableRow>
                           </TableBody>
                         </Table>
@@ -479,7 +722,11 @@ export default function AdminCommunications() {
                     <Divider />
 
                     {capSaved && <Alert severity="success">WhatsApp spend cap saved.</Alert>}
-                    {capError && <Alert severity="error" onClose={() => setCapError(null)}>{capError}</Alert>}
+                    {capError && (
+                      <Alert severity="error" onClose={() => setCapError(null)}>
+                        {capError}
+                      </Alert>
+                    )}
 
                     <Stack direction="row" spacing={2} alignItems="flex-end" flexWrap="wrap" useFlexGap>
                       <TextField
@@ -502,7 +749,11 @@ export default function AdminCommunications() {
                           <Typography variant="caption" color="text.secondary">
                             ₹{whatsappSpend.totalCostRupees.toFixed(2)} of ₹{capRupeesNumber.toFixed(2)} used this period
                           </Typography>
-                          <Typography variant="caption" fontWeight={700} color={capRemaining != null && capRemaining < 0 ? 'error.main' : 'text.secondary'}>
+                          <Typography
+                            variant="caption"
+                            fontWeight={700}
+                            color={capRemaining != null && capRemaining < 0 ? 'error.main' : 'text.secondary'}
+                          >
                             {capRemaining != null && capRemaining < 0
                               ? `₹${Math.abs(capRemaining).toFixed(2)} over cap`
                               : `₹${(capRemaining ?? 0).toFixed(2)} remaining`}
@@ -529,22 +780,48 @@ export default function AdminCommunications() {
         <Box sx={{ maxWidth: 500 }}>
           <Card>
             <CardContent sx={{ p: 2.5 }}>
-              <Typography variant="h5" fontWeight={700} sx={{ mb: 2 }}>Send Test Notification</Typography>
-              {sent && <Alert severity="success" sx={{ mb: 2 }}>Test message sent successfully!</Alert>}
+              <Typography variant="h5" component="h3" fontWeight={700} sx={{ mb: 2 }}>
+                Send Test Notification
+              </Typography>
+              {sent && (
+                <Alert severity="success" sx={{ mb: 2 }}>
+                  Test message sent successfully!
+                </Alert>
+              )}
               <Stack spacing={2}>
-                <FormControl fullWidth size="small"><InputLabel>Template</InputLabel>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Template</InputLabel>
                   <Select label="Template" defaultValue={1}>
-                    {templates.map((t) => <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>)}
+                    {templates.map((t) => (
+                      <MenuItem key={t.id} value={t.id}>
+                        {t.name}
+                      </MenuItem>
+                    ))}
                   </Select>
                 </FormControl>
-                <FormControl fullWidth size="small"><InputLabel>Channel</InputLabel>
+                <FormControl fullWidth size="small">
+                  <InputLabel>Channel</InputLabel>
                   <Select label="Channel" defaultValue="email">
                     <MenuItem value="email">Email</MenuItem>
                     <MenuItem value="sms">SMS</MenuItem>
                   </Select>
                 </FormControl>
-                <TextField fullWidth label="Send to (email or phone)" value={testEmail} onChange={(e) => setTestEmail(e.target.value)} size="small" />
-                <Button variant="contained" startIcon={<SendIcon />} onClick={() => { setSent(true); setTimeout(() => setSent(false), 4000); }} disabled={!testEmail}>
+                <TextField
+                  fullWidth
+                  label="Send to (email or phone)"
+                  value={testEmail}
+                  onChange={(e) => setTestEmail(e.target.value)}
+                  size="small"
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<SendIcon />}
+                  onClick={() => {
+                    setSent(true)
+                    setTimeout(() => setSent(false), 4000)
+                  }}
+                  disabled={!testEmail}
+                >
                   Send Test
                 </Button>
               </Stack>
@@ -553,5 +830,5 @@ export default function AdminCommunications() {
         </Box>
       )}
     </Box>
-  );
+  )
 }

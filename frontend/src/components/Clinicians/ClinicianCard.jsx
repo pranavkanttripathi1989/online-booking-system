@@ -23,10 +23,7 @@ import { TOGGLE_CLINICIAN_ACTIVE_MUTATION } from '../../graphql/mutations'
 
 // ─── Avatar colour derived from name ─────────────────────────────────────────
 // Teal-family palette matching app brand (#006D77)
-const NAME_COLOURS = [
-  '#006D77', '#0E9F9F', '#14B8A6', '#0D9488',
-  '#0F766E', '#1CBFBF', '#2D8A8A', '#047857',
-]
+const NAME_COLOURS = ['#006D77', '#0E9F9F', '#14B8A6', '#0D9488', '#0F766E', '#1CBFBF', '#2D8A8A', '#047857']
 function nameColour(name = '') {
   let h = 0
   for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
@@ -34,21 +31,28 @@ function nameColour(name = '') {
 }
 
 function initials(name = '') {
-  return name.split(' ').slice(0, 2).map((p) => p[0]).join('').toUpperCase()
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
 }
 
 // ─── 7-day Availability Heatmap ───────────────────────────────────────────────
-const DAYS       = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
-const FULL_DAYS  = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] // SUG-016
+const DAYS = ['Mo', 'Tu', 'We', 'Th', 'Fr', 'Sa', 'Su']
+const FULL_DAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'] // SUG-016
 // day_of_week: 0=Sun in some APIs; FullCalendar uses 1=Mon. We'll treat 0=Mon here.
 function AvailabilityHeatmap({ templates = [] }) {
   // Build a set of which days (0=Mon…6=Sun) have active templates
   const activeDays = new Set(
-    templates.filter((t) => t.is_active).map((t) => {
-      // day_of_week 1=Mon…7=Sun → 0-index Mon=0
-      const d = Number(t.day_of_week)
-      return d === 0 ? 6 : d - 1
-    })
+    templates
+      .filter((t) => t.is_active)
+      .map((t) => {
+        // day_of_week 1=Mon…7=Sun → 0-index Mon=0
+        const d = Number(t.day_of_week)
+        return d === 0 ? 6 : d - 1
+      }),
   )
   return (
     <Box>
@@ -132,12 +136,23 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
             {!clinician.avatar_url && initials(clinician.full_name)}
           </Avatar>
           <Box flex={1} minWidth={0}>
-            <Typography fontWeight={700} noWrap sx={{ color: 'text.primary' }}>{clinician.full_name}</Typography>
+            <Typography fontWeight={700} noWrap sx={{ color: 'text.primary' }}>
+              {clinician.full_name}
+            </Typography>
             {clinician.clinician_type && (
               <Chip
                 label={clinician.clinician_type.name}
                 size="small"
-                sx={{ bgcolor: 'primary.50', color: 'primary.dark', border: `1px solid ${theme.palette.info.light}`, borderRadius: '8px', height: 22, fontSize: '0.70rem', fontWeight: 700, mt: 0.25 }}
+                sx={{
+                  bgcolor: 'primary.50',
+                  color: 'primary.dark',
+                  border: `1px solid ${theme.palette.info.light}`,
+                  borderRadius: '8px',
+                  height: 22,
+                  fontSize: '0.70rem',
+                  fontWeight: 700,
+                  mt: 0.25,
+                }}
               />
             )}
           </Box>
@@ -164,7 +179,19 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={0.5}>
               {clinician.services.slice(0, 4).map((s) => (
-                <Chip key={s.id} label={s.name} size="small" sx={{ bgcolor: 'background.default', color: 'text.secondary', border: `1px solid ${theme.palette.divider}`, borderRadius: '6px', height: 20, fontSize: '0.68rem' }} />
+                <Chip
+                  key={s.id}
+                  label={s.name}
+                  size="small"
+                  sx={{
+                    bgcolor: 'background.default',
+                    color: 'text.secondary',
+                    border: `1px solid ${theme.palette.divider}`,
+                    borderRadius: '6px',
+                    height: 20,
+                    fontSize: '0.68rem',
+                  }}
+                />
               ))}
               {clinician.services.length > 4 && (
                 <Chip label={`+${clinician.services.length - 4}`} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
@@ -205,8 +232,10 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
           startIcon={<OpenInDrawerIcon fontSize="small" />}
           onClick={() => onViewProfile(clinician)}
           sx={{
-            borderColor: 'info.light', color: 'primary.main',
-            fontWeight: 700, borderRadius: 2,
+            borderColor: 'info.light',
+            color: 'primary.main',
+            fontWeight: 700,
+            borderRadius: 2,
             '&:hover': { bgcolor: 'primary.50', borderColor: 'primary.main' },
           }}
         >

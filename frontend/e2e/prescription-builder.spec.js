@@ -50,18 +50,26 @@ let prescriptionSetId
 
 test.beforeAll(async ({ playwright }) => {
   const request = await playwright.request.newContext()
-  const authData = await gql(request, null, `
+  const authData = await gql(
+    request,
+    null,
+    `
     mutation { login(input: {email: "manager@medibook.dev", password: "Mgr1234!"}) { ... on AuthPayload { access_token } } }
-  `)
+  `,
+  )
   managerToken = authData.login.access_token
 
   execSync(
     `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET clinician_id = '${REAL_CLINICIAN_ID}' WHERE email = 'clinician@medibook.dev';"`,
   )
 
-  const clinicianData = await gql(request, managerToken, `
+  const clinicianData = await gql(
+    request,
+    managerToken,
+    `
     query { clinician(id: "${REAL_CLINICIAN_ID}") { clinics { id } } }
-  `)
+  `,
+  )
   const clinicId = clinicianData.clinician.clinics[0]?.id
   if (!clinicId) throw new Error('The real seeded clinician has no linked clinic — cannot create a test appointment')
 
@@ -74,14 +82,23 @@ test.beforeAll(async ({ playwright }) => {
   if (!patientId) throw new Error('No patient found in the dev DB — cannot create a test appointment')
 
   const startDatetime = '2027-02-01T09:00:00.000Z'
-  const apptData = await gql(request, managerToken, `
+  const apptData = await gql(
+    request,
+    managerToken,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, {
-    input: {
-      patient_id: patientId, clinician_id: REAL_CLINICIAN_ID, service_id: serviceId,
-      clinic_id: clinicId, start_datetime: startDatetime, notes: 'REQ021-E2E-PROBE',
+  `,
+    {
+      input: {
+        patient_id: patientId,
+        clinician_id: REAL_CLINICIAN_ID,
+        service_id: serviceId,
+        clinic_id: clinicId,
+        start_datetime: startDatetime,
+        notes: 'REQ021-E2E-PROBE',
+      },
     },
-  })
+  )
   appointmentId = apptData.createAppointment.id
 
   await request.dispose()
@@ -99,9 +116,7 @@ test.afterAll(async () => {
     execSync(
       `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Encounters\\" WHERE appointment_id='${appointmentId}';"`,
     )
-    execSync(
-      `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Appointments\\" WHERE id='${appointmentId}';"`,
-    )
+    execSync(`docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "DELETE FROM \\"Appointments\\" WHERE id='${appointmentId}';"`)
   }
   execSync(
     `docker exec ${DB_CONTAINER} psql -U medibook -d ${DB_NAME} -c "UPDATE \\"UserProfiles\\" SET clinician_id = NULL WHERE email = 'clinician@medibook.dev';"`,
@@ -169,7 +184,7 @@ test('clinician builds a prescription with auto-calculated qty, saves a favourit
   const rxBody = await rxResponse.json()
   issuedPrescriptionId = rxBody.data?.createPrescription?.id
   expect(issuedPrescriptionId).toBeTruthy()
-  await page.waitForURL(`**/prescriptions/${issuedPrescriptionId}/print`, { timeout: 15_000 });
+  await page.waitForURL(`**/prescriptions/${issuedPrescriptionId}/print`, { timeout: 15_000 })
 
   // First view: no DUPLICATE watermark.
   await expect(page.getByText('Amoxicillin')).toBeVisible({ timeout: 15_000 })

@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| frontend-platform-2026-08-27-req146 | frontend-platform | 2026-08-27 | REQ146, PLAN186, TP206, TR206 | done | [manifest.md](./frontend-platform-2026-08-27-req146/manifest.md) |
 | security-2026-08-27-req145 | security | 2026-08-27 | REQ145, PLAN185, TP205, TR205 | done | [manifest.md](./security-2026-08-27-req145/manifest.md) |
 | notifications-2026-08-27-req144 | notifications | 2026-08-27 | REQ144, PLAN184, TP204, TR204 | done | [manifest.md](./notifications-2026-08-27-req144/manifest.md) |
 | compliance-dpdp-2026-08-26-req143 | compliance-dpdp | 2026-08-26 | REQ143, PLAN183, TP203, TR203 | done | [manifest.md](./compliance-dpdp-2026-08-26-req143/manifest.md) |

@@ -37,8 +37,15 @@ export default defineConfig({
           apollo: ['@apollo/client', 'graphql'],
           charts: ['recharts'],
         },
+        // P1-03 — a stable, glob-able name for the true entry chunk only.
+        // Vite's default entryFileNames would otherwise name this
+        // "index-<hash>.js", identical in shape to every one of the ~90
+        // lazy route chunks that also happen to come from an index.jsx
+        // file — .size-limit.json's own glob for "the initial bundle"
+        // needs to match this one chunk, not every lazy route that shares
+        // its prefix.
+        entryFileNames: 'assets/entry-[name]-[hash].js',
       },
     },
   },
 })
-

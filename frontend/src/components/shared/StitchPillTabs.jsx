@@ -1,16 +1,16 @@
-import React from 'react';
-import { Box, Button, Stack } from '@mui/material';
+import React from 'react'
+import { Box, Button, Stack } from '@mui/material'
 
 /**
  * StitchPillTabs — Pill-button tab switcher matching Stitch design system.
- * 
+ *
  * Props:
  *   tabs     {Array<{ label, icon? }>} — Tab definitions
  *   value    {number}  — Active tab index
  *   onChange {fn}      — (newIndex) => void
  */
 
-const BRAND = '#006D77';
+const BRAND = '#006D77'
 
 export default function StitchPillTabs({ tabs = [], value = 0, onChange }) {
   return (
@@ -25,7 +25,7 @@ export default function StitchPillTabs({ tabs = [], value = 0, onChange }) {
       }}
     >
       {tabs.map((tab, i) => {
-        const isActive = value === i;
+        const isActive = value === i
         return (
           <Button
             key={i}
@@ -50,8 +50,8 @@ export default function StitchPillTabs({ tabs = [], value = 0, onChange }) {
           >
             {tab.label}
           </Button>
-        );
+        )
       })}
     </Box>
-  );
+  )
 }

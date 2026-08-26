@@ -37,10 +37,7 @@ export default [
       'react/jsx-uses-vars': 'error',
       ...reactHooks.configs.recommended.rules,
       ...jsxA11y.configs.recommended.rules,
-      'react-refresh/only-export-components': [
-        'warn',
-        { allowConstantExport: true },
-      ],
+      'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
       // F-22. Both of these were the only ERRORS in the codebase (11 + 1), and
       // both are downgraded to warnings rather than silenced or mass-disabled.
       //
@@ -82,8 +79,9 @@ export default [
       'no-restricted-syntax': [
         'warn',
         {
-          selector: "Literal[value=/^#([0-9a-fA-F]{3}){1,2}$/]",
-          message: 'Use a theme token instead of a literal hex color — see project-plans/technical-plans/06-frontend-architecture-and-mobile.md',
+          selector: 'Literal[value=/^#([0-9a-fA-F]{3}){1,2}$/]',
+          message:
+            'Use a theme token instead of a literal hex color — see project-plans/technical-plans/06-frontend-architecture-and-mobile.md',
         },
       ],
     },

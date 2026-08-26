@@ -5,12 +5,12 @@ import { LOGOUT_MUTATION } from '../graphql/mutations'
 
 // Post-login redirect by primary role (matches plan Section 4 Feature 1)
 export function getPostLoginRedirect(user) {
-  const roles = user?.roles?.map(r => r.name) ?? []
+  const roles = user?.roles?.map((r) => r.name) ?? []
   if (roles.includes('super_admin') || roles.includes('admin')) return '/dashboard'
-  if (roles.includes('manager'))   return '/manager/dashboard'
+  if (roles.includes('manager')) return '/manager/dashboard'
   if (roles.includes('clinician')) return '/clinician/dashboard'
-  if (roles.includes('staff'))     return '/staff/dashboard'
-  if (roles.includes('patient'))   return '/patient/dashboard'
+  if (roles.includes('staff')) return '/staff/dashboard'
+  if (roles.includes('patient')) return '/patient/dashboard'
   return '/dashboard'
 }
 
@@ -59,7 +59,9 @@ function getInitialState() {
       // confirm/refresh the full record, while this optimistic value
       // already renders instead of a loading spinner.
       return { user, isAuthenticated: true, isLoading: false }
-    } catch { /* fall through */ }
+    } catch {
+      /* fall through */
+    }
   }
   return { user: null, isAuthenticated: false, isLoading: true }
 }
@@ -152,25 +154,28 @@ export function AuthProvider({ children }) {
   // partial shape, used only for an immediate optimistic render — never
   // cached to storage directly; fetchMe() below fetches and persists the
   // real, full shape moments later (see the ME_QUERY-success effect above).
-  const login = useCallback((user, rememberMe = true, sessionTimeoutMinutes) => {
-    const storage = rememberMe ? localStorage : sessionStorage
-    const otherStorage = rememberMe ? sessionStorage : localStorage
-    otherStorage.removeItem(SESSION_MARKER_KEY)
-    otherStorage.removeItem('medibook_user')
-    otherStorage.removeItem('medibook_session_timeout_minutes')
+  const login = useCallback(
+    (user, rememberMe = true, sessionTimeoutMinutes) => {
+      const storage = rememberMe ? localStorage : sessionStorage
+      const otherStorage = rememberMe ? sessionStorage : localStorage
+      otherStorage.removeItem(SESSION_MARKER_KEY)
+      otherStorage.removeItem('medibook_user')
+      otherStorage.removeItem('medibook_session_timeout_minutes')
 
-    storage.setItem(SESSION_MARKER_KEY, '1')
-    if (sessionTimeoutMinutes) {
-      storage.setItem('medibook_session_timeout_minutes', String(sessionTimeoutMinutes))
-    } else {
-      storage.removeItem('medibook_session_timeout_minutes')
-    }
-    // SUG-AUTH-008: store last login timestamp
-    localStorage.setItem('medibook_last_login', new Date().toISOString())
+      storage.setItem(SESSION_MARKER_KEY, '1')
+      if (sessionTimeoutMinutes) {
+        storage.setItem('medibook_session_timeout_minutes', String(sessionTimeoutMinutes))
+      } else {
+        storage.removeItem('medibook_session_timeout_minutes')
+      }
+      // SUG-AUTH-008: store last login timestamp
+      localStorage.setItem('medibook_last_login', new Date().toISOString())
 
-    dispatch({ type: 'LOGIN', payload: { user } })
-    fetchMe()
-  }, [fetchMe])
+      dispatch({ type: 'LOGIN', payload: { user } })
+      fetchMe()
+    },
+    [fetchMe],
+  )
 
   // P1-02/SEC-2 — logout is now a real server round trip, not just a local
   // storage clear: the httpOnly session cookie can only be removed by the
@@ -184,20 +189,25 @@ export function AuthProvider({ children }) {
   // file's own established endImpersonating() precedent: local state is
   // always cleared regardless of whether the network call itself succeeds,
   // so a flaky connection never traps a user in a logged-in-looking UI.
-  const logout = useCallback(async (client) => {
-    try {
-      await logoutMutation()
-    } catch { /* best-effort — clear local state regardless, see comment above */ }
-    localStorage.removeItem(SESSION_MARKER_KEY)
-    localStorage.removeItem('medibook_user')
-    localStorage.removeItem('medibook_session_timeout_minutes')
-    sessionStorage.removeItem(SESSION_MARKER_KEY)
-    sessionStorage.removeItem('medibook_user')
-    sessionStorage.removeItem('medibook_session_timeout_minutes')
-    const clientToUse = client || apolloClient
-    if (clientToUse) await clientToUse.clearStore()
-    dispatch({ type: 'LOGOUT' })
-  }, [apolloClient, logoutMutation])
+  const logout = useCallback(
+    async (client) => {
+      try {
+        await logoutMutation()
+      } catch {
+        /* best-effort — clear local state regardless, see comment above */
+      }
+      localStorage.removeItem(SESSION_MARKER_KEY)
+      localStorage.removeItem('medibook_user')
+      localStorage.removeItem('medibook_session_timeout_minutes')
+      sessionStorage.removeItem(SESSION_MARKER_KEY)
+      sessionStorage.removeItem('medibook_user')
+      sessionStorage.removeItem('medibook_session_timeout_minutes')
+      const clientToUse = client || apolloClient
+      if (clientToUse) await clientToUse.clearStore()
+      dispatch({ type: 'LOGOUT' })
+    },
+    [apolloClient, logoutMutation],
+  )
 
   // REQ012/PLAN021 Slice 2 — real client-side idle-activity auto-logout,
   // distinct from the JWT's own fixed access/refresh TTLs. Only runs when
@@ -225,24 +235,21 @@ export function AuthProvider({ children }) {
     }
   }, [state.isAuthenticated, logout])
 
-  const hasRole = useCallback(
-    (role) => state.user?.roles?.some((r) => r.name === role) ?? false,
-    [state.user],
-  )
+  const hasRole = useCallback((role) => state.user?.roles?.some((r) => r.name === role) ?? false, [state.user])
 
-  const hasPermission = useCallback(
-    (permission) => state.user?.permissions?.some((p) => p.name === permission) ?? false,
-    [state.user],
-  )
+  const hasPermission = useCallback((permission) => state.user?.permissions?.some((p) => p.name === permission) ?? false, [state.user])
 
   // Settings' Profile tab (REQ005): patches the cached user (e.g. after a
   // name change) so header/sidebar reflect it without a re-login. Merges
   // rather than replaces, so callers only need to pass the fields that changed.
-  const updateUser = useCallback((patch) => {
-    const next = { ...state.user, ...patch }
-    getActiveStorage().setItem('medibook_user', JSON.stringify(next))
-    dispatch({ type: 'SET_USER', payload: { user: next } })
-  }, [state.user])
+  const updateUser = useCallback(
+    (patch) => {
+      const next = { ...state.user, ...patch }
+      getActiveStorage().setItem('medibook_user', JSON.stringify(next))
+      dispatch({ type: 'SET_USER', payload: { user: next } })
+    },
+    [state.user],
+  )
 
   // REQ053/Phase G+3 — admin impersonation.
   //
@@ -288,7 +295,9 @@ export function AuthProvider({ children }) {
   }, [fetchMe])
 
   return (
-    <AuthContext.Provider value={{ ...state, login, logout, updateUser, hasRole, hasPermission, isImpersonating, startImpersonating, endImpersonating }}>
+    <AuthContext.Provider
+      value={{ ...state, login, logout, updateUser, hasRole, hasPermission, isImpersonating, startImpersonating, endImpersonating }}
+    >
       {children}
     </AuthContext.Provider>
   )

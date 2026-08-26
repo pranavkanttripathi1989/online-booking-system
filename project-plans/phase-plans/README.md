@@ -20,8 +20,8 @@ order, front-end and back-end together.*
 ```yaml
 current_phase:  1
 current_doc:    01-phase1-close-the-gates.md
-current_slice:  P1-03            # first unstarted slice in that doc's tracker
-last_completed: REQ145           # P1-02 (auth tokens out of localStorage, SEC-2) closed 2026-08-27
+current_slice:  P1-04            # first unstarted slice in that doc's tracker
+last_completed: REQ146           # P1-03 (frontend CI gates) closed 2026-08-27
 blocked_on:     none
 ```
 

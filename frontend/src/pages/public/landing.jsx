@@ -3,20 +3,42 @@
  * Public homepage with hero, doctor search filters, DoctorCard grid
  * Uses medicalTheme — no auth required
  */
-import React, { useState, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { useQuery, gql } from '@apollo/client';
+import React, { useState, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
+import { useQuery, gql } from '@apollo/client'
 import {
-  Box, Container, Grid, Typography, Paper, Button, TextField, Chip, Stack, Autocomplete, Avatar, Card, CardContent, CardActions, FormGroup, FormControlLabel, Checkbox, Slider, Skeleton, Divider, Rating, InputAdornment, Alert,
-} from '@mui/material';
-import { DatePicker } from '@mui/x-date-pickers/DatePicker';
-import SearchIcon          from '@mui/icons-material/Search';
-import LocalHospitalIcon   from '@mui/icons-material/LocalHospital';
-import LocationOnIcon      from '@mui/icons-material/LocationOn';
-import StarIcon            from '@mui/icons-material/Star';
-import VideocamIcon        from '@mui/icons-material/Videocam';
-import VerifiedIcon        from '@mui/icons-material/Verified';
-import TuneIcon            from '@mui/icons-material/Tune';
+  Box,
+  Container,
+  Grid,
+  Typography,
+  Paper,
+  Button,
+  TextField,
+  Chip,
+  Stack,
+  Autocomplete,
+  Avatar,
+  Card,
+  CardContent,
+  CardActions,
+  FormGroup,
+  FormControlLabel,
+  Checkbox,
+  Slider,
+  Skeleton,
+  Divider,
+  Rating,
+  InputAdornment,
+  Alert,
+} from '@mui/material'
+import { DatePicker } from '@mui/x-date-pickers/DatePicker'
+import SearchIcon from '@mui/icons-material/Search'
+import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
+import LocationOnIcon from '@mui/icons-material/LocationOn'
+import StarIcon from '@mui/icons-material/Star'
+import VideocamIcon from '@mui/icons-material/Videocam'
+import VerifiedIcon from '@mui/icons-material/Verified'
+import TuneIcon from '@mui/icons-material/Tune'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const CLINICIAN_TYPES = [
@@ -28,16 +50,21 @@ const CLINICIAN_TYPES = [
   { id: 6, name: 'Orthopaedic Surgeon' },
   { id: 7, name: 'Psychiatrist' },
   { id: 8, name: 'Physiotherapist' },
-];
+]
 
-const LANGUAGES = [
-  'English', 'French', 'Spanish', 'Arabic', 'Hindi', 'Mandarin', 'German', 'Portuguese',
-];
+const LANGUAGES = ['English', 'French', 'Spanish', 'Arabic', 'Hindi', 'Mandarin', 'German', 'Portuguese']
 
 const SPECIALTY_CHIPS = [
-  'General Practice', 'Cardiology', 'Neurology', 'Dermatology', 'Paediatrics',
-  'Orthopaedics', 'Mental Health', 'Physiotherapy', 'Gynaecology',
-];
+  'General Practice',
+  'Cardiology',
+  'Neurology',
+  'Dermatology',
+  'Paediatrics',
+  'Orthopaedics',
+  'Mental Health',
+  'Physiotherapy',
+  'Gynaecology',
+]
 
 // F-18 / BUG009. This block was six invented doctors, and the effect below was
 // literally commented "Simulate GraphQL getClinicians" — complete with an 800ms
@@ -70,8 +97,7 @@ const GET_CLINICIANS = gql`
       verified
     }
   }
-`;
-
+`
 
 // ─── Card Skeleton ────────────────────────────────────────────────────────────
 function CardSkeleton() {
@@ -91,7 +117,7 @@ function CardSkeleton() {
         <Skeleton variant="rounded" width="50%" height={36} />
       </Stack>
     </Card>
-  );
+  )
 }
 
 // ─── Doctor Card ──────────────────────────────────────────────────────────────
@@ -114,24 +140,24 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
         <Stack direction="row" spacing={2}>
           <Avatar
             sx={{
-              width: 64, height: 64, bgcolor: '#006D77',
-              fontSize: '1.1rem', fontWeight: 800,
+              width: 64,
+              height: 64,
+              bgcolor: '#006D77',
+              fontSize: '1.1rem',
+              fontWeight: 800,
             }}
           >
             {doctor.initials}
           </Avatar>
           <Box sx={{ minWidth: 0, flex: 1 }}>
             <Stack direction="row" alignItems="center" spacing={0.5}>
-              <Typography variant="h6" fontWeight={700} noWrap>{doctor.name}</Typography>
+              <Typography variant="h6" fontWeight={700} noWrap>
+                {doctor.name}
+              </Typography>
               {doctor.verified && <VerifiedIcon sx={{ fontSize: 16, color: '#3A86FF' }} />}
             </Stack>
             <Stack direction="row" spacing={0.75} flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
-              <Chip
-                label={doctor.specialty}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
+              <Chip label={doctor.specialty} size="small" color="primary" variant="outlined" />
               {doctor.videoEnabled && (
                 <Chip
                   icon={<VideocamIcon sx={{ fontSize: 14 }} />}
@@ -150,7 +176,11 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
         {/* Rating + price */}
         <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 2 }}>
           <Stack direction="row" alignItems="center" spacing={0.5}>
-            <Rating value={doctor.rating} precision={0.1} size="small" readOnly
+            <Rating
+              value={doctor.rating}
+              precision={0.1}
+              size="small"
+              readOnly
               icon={<StarIcon fontSize="inherit" sx={{ color: '#FFB703' }} />}
               emptyIcon={<StarIcon fontSize="inherit" />}
             />
@@ -166,49 +196,34 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
         {/* Languages */}
         <Stack direction="row" flexWrap="wrap" gap={0.5} sx={{ mt: 1.5 }}>
           {doctor.languages.map((lang) => (
-            <Chip
-              key={lang}
-              label={lang}
-              size="small"
-              variant="outlined"
-              sx={{ fontSize: '0.68rem', height: 22 }}
-            />
+            <Chip key={lang} label={lang} size="small" variant="outlined" sx={{ fontSize: '0.68rem', height: 22 }} />
           ))}
         </Stack>
-
       </CardContent>
 
       <CardActions sx={{ px: 2.5, pb: 2, pt: 0 }}>
-        <Button
-          variant="outlined"
-          fullWidth
-          onClick={() => onViewProfile(doctor.id)}
-        >
+        <Button variant="outlined" fullWidth onClick={() => onViewProfile(doctor.id)}>
           View Profile
         </Button>
-        <Button
-          variant="contained"
-          fullWidth
-          onClick={() => onBook(doctor.id)}
-        >
+        <Button variant="contained" fullWidth onClick={() => onBook(doctor.id)}>
           Book Now
         </Button>
       </CardActions>
     </Card>
-  );
+  )
 }
 
 // ─── Main Landing ─────────────────────────────────────────────────────────────
 export default function Landing() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
   // ── State ───────────────────────────────────────────────────────────────────
-  const [specialty, setSpecialty]   = useState(null);
-  const [city, setCity]            = useState('');
-  const [date, setDate]            = useState(null);
-  const [priceRange, setPriceRange] = useState([0, 200]);
-  const [selectedTypes, setSelectedTypes] = useState([]);
-  const [selectedLangs, setSelectedLangs] = useState([]);
+  const [specialty, setSpecialty] = useState(null)
+  const [city, setCity] = useState('')
+  const [date, setDate] = useState(null)
+  const [priceRange, setPriceRange] = useState([0, 200])
+  const [selectedTypes, setSelectedTypes] = useState([])
+  const [selectedLangs, setSelectedLangs] = useState([])
 
   // Specialty, city and language are filtered SERVER-side by the resolver.
   // Price range and the multi-select chips stay client-side: the backend input
@@ -223,30 +238,28 @@ export default function Landing() {
       },
     },
     fetchPolicy: 'cache-and-network',
-  });
+  })
 
   const results = useMemo(() => {
     // No mock fallback: an org with no published clinicians must show an empty
     // state, not six fictional doctors a patient could try to book.
-    let list = data?.getClinicians ?? [];
-    if (selectedTypes.length > 0) list = list.filter((d) => selectedTypes.includes(d.specialty));
-    if (selectedLangs.length > 1) list = list.filter((d) => (d.languages ?? []).some((l) => selectedLangs.includes(l)));
+    let list = data?.getClinicians ?? []
+    if (selectedTypes.length > 0) list = list.filter((d) => selectedTypes.includes(d.specialty))
+    if (selectedLangs.length > 1) list = list.filter((d) => (d.languages ?? []).some((l) => selectedLangs.includes(l)))
     // A clinician with no linked service has no price; excluding them on a
     // price filter they cannot satisfy would hide real people, so null passes.
-    return list.filter((d) => d.price == null || (d.price >= priceRange[0] && d.price <= priceRange[1]));
-  }, [data, selectedTypes, selectedLangs, priceRange]);
+    return list.filter((d) => d.price == null || (d.price >= priceRange[0] && d.price <= priceRange[1]))
+  }, [data, selectedTypes, selectedLangs, priceRange])
 
   const handleSearch = () => {
     // Variables are reactive, so a change already refetches; this is the
     // explicit "Search" affordance re-running the same query.
-    refetch();
-  };
+    refetch()
+  }
 
   const toggleType = (typeName) => {
-    setSelectedTypes((prev) =>
-      prev.includes(typeName) ? prev.filter((t) => t !== typeName) : [...prev, typeName]
-    );
-  };
+    setSelectedTypes((prev) => (prev.includes(typeName) ? prev.filter((t) => t !== typeName) : [...prev, typeName]))
+  }
 
   return (
     <Box>
@@ -259,24 +272,15 @@ export default function Landing() {
           textAlign: 'center',
         }}
       >
-        <Typography
-          variant="h2"
-          sx={{ color: '#fff', fontWeight: 800, mb: 1, fontSize: { xs: '1.6rem', md: '2rem' } }}
-        >
+        <Typography variant="h2" sx={{ color: '#fff', fontWeight: 800, mb: 1, fontSize: { xs: '1.6rem', md: '2rem' } }}>
           Find the right doctor. Book instantly.
         </Typography>
-        <Typography
-          variant="body1"
-          sx={{ color: 'rgba(255,255,255,0.85)', maxWidth: 540, mx: 'auto', mt: 1 }}
-        >
+        <Typography variant="body1" sx={{ color: 'rgba(255,255,255,0.85)', maxWidth: 540, mx: 'auto', mt: 1 }}>
           Browse top-rated specialists, check availability in real-time, and book your appointment in seconds.
         </Typography>
 
         {/* ── Search card ──────────────────────────────────────────────────── */}
-        <Paper
-          elevation={6}
-          sx={{ borderRadius: 4, p: 3, mt: 5, mx: 'auto', maxWidth: 800 }}
-        >
+        <Paper elevation={6} sx={{ borderRadius: 4, p: 3, mt: 5, mx: 'auto', maxWidth: 800 }}>
           <Grid container spacing={2} alignItems="center">
             <Grid item xs={12} sm={4}>
               <Autocomplete
@@ -319,12 +323,7 @@ export default function Landing() {
               />
             </Grid>
             <Grid item xs={12} sm={4}>
-              <DatePicker
-                label="Select date"
-                value={date}
-                onChange={(v) => setDate(v)}
-                slotProps={{ textField: { fullWidth: true } }}
-              />
+              <DatePicker label="Select date" value={date} onChange={(v) => setDate(v)} slotProps={{ textField: { fullWidth: true } }} />
             </Grid>
             <Grid item xs={12}>
               <Button
@@ -349,8 +348,8 @@ export default function Landing() {
               label={s}
               variant="outlined"
               onClick={() => {
-                const match = CLINICIAN_TYPES.find((t) => t.name.includes(s.split(' ')[0]));
-                setSpecialty(match || null);
+                const match = CLINICIAN_TYPES.find((t) => t.name.includes(s.split(' ')[0]))
+                setSpecialty(match || null)
               }}
               sx={{
                 color: '#fff',
@@ -379,7 +378,9 @@ export default function Landing() {
             >
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
                 <TuneIcon sx={{ color: '#006D77', fontSize: 20 }} />
-                <Typography variant="subtitle2" fontWeight={700}>Filters</Typography>
+                <Typography variant="subtitle2" fontWeight={700}>
+                  Filters
+                </Typography>
               </Stack>
 
               {/* Specialty checkboxes */}
@@ -447,11 +448,11 @@ export default function Landing() {
                 variant="outlined"
                 size="small"
                 onClick={() => {
-                  setSelectedTypes([]);
-                  setSelectedLangs([]);
-                  setPriceRange([0, 200]);
-                  setSpecialty(null);
-                  setCity('');
+                  setSelectedTypes([])
+                  setSelectedLangs([])
+                  setPriceRange([0, 200])
+                  setSpecialty(null)
+                  setCity('')
                 }}
               >
                 Clear All Filters
@@ -489,13 +490,20 @@ export default function Landing() {
                         onBook={(id) => navigate(`/appointments/book?doctor=${id}`)}
                       />
                     </Grid>
-                  ))
-              }
+                  ))}
             </Grid>
 
             {/* Empty state */}
             {error && (
-              <Alert severity="error" sx={{ mb: 2 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+              <Alert
+                severity="error"
+                sx={{ mb: 2 }}
+                action={
+                  <Button size="small" onClick={() => refetch()}>
+                    Retry
+                  </Button>
+                }
+              >
                 Could not load doctors right now. {error.message}
               </Alert>
             )}
@@ -503,7 +511,9 @@ export default function Landing() {
             {!loading && !error && results.length === 0 && (
               <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3, mt: 2 }}>
                 <SearchIcon sx={{ fontSize: 48, color: '#D0E8EA', mb: 2 }} />
-                <Typography variant="h5" fontWeight={700}>No doctors match your criteria</Typography>
+                <Typography variant="h5" fontWeight={700}>
+                  No doctors match your criteria
+                </Typography>
                 <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
                   Try adjusting your filters or search for a different specialty.
                 </Typography>
@@ -513,5 +523,5 @@ export default function Landing() {
         </Grid>
       </Container>
     </Box>
-  );
+  )
 }

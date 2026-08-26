@@ -10,7 +10,10 @@ import { loginAs } from './helpers.js'
 // suite's own domains need real cross-role handoffs mid-test — e.g. staff
 // records a payment, a manager approves it) avoids that redirect.
 async function switchLoginAs(page, roleLabel) {
-  await page.evaluate(() => { localStorage.clear(); sessionStorage.clear() })
+  await page.evaluate(() => {
+    localStorage.clear()
+    sessionStorage.clear()
+  })
   await loginAs(page, roleLabel)
 }
 
@@ -55,7 +58,11 @@ async function gql(request, token, query, variables) {
 }
 
 async function loginToken(request, email, password) {
-  const data = await gql(request, null, `mutation { login(input: {email:"${email}", password:"${password}"}) { ... on AuthPayload { access_token } } }`)
+  const data = await gql(
+    request,
+    null,
+    `mutation { login(input: {email:"${email}", password:"${password}"}) { ... on AuthPayload { access_token } } }`,
+  )
   return data.login.access_token
 }
 
@@ -101,9 +108,22 @@ async function findServiceId(request, token, name = 'GP Consultation') {
 }
 
 async function createFixturePatient(request, token, label) {
-  const data = await gql(request, token, `
+  const data = await gql(
+    request,
+    token,
+    `
     mutation($input: PatientInput!) { createPatient(input: $input) { id } }
-  `, { input: { first_name: 'E2E', last_name: label, email: `e2e.${label.toLowerCase()}.${Date.now()}@example.com`, phone: `9${Date.now().toString().slice(-9)}`, date_of_birth: '1990-01-01' } })
+  `,
+    {
+      input: {
+        first_name: 'E2E',
+        last_name: label,
+        email: `e2e.${label.toLowerCase()}.${Date.now()}@example.com`,
+        phone: `9${Date.now().toString().slice(-9)}`,
+        date_of_birth: '1990-01-01',
+      },
+    },
+  )
   return data.createPatient.id
 }
 
@@ -117,9 +137,22 @@ async function createFixtureAppointment(request, token, { patientId, clinicianId
   // untruncated current-time offset means every invocation lands on a
   // distinct minute:second, which never collides in practice.
   const start = new Date(Date.now() + (offsetDays + RUN_SEED_DAYS) * 24 * 3600 * 1000)
-  const data = await gql(request, token, `
+  const data = await gql(
+    request,
+    token,
+    `
     mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-  `, { input: { patient_id: patientId, clinician_id: clinicianId, service_id: serviceId, clinic_id: clinicId, start_datetime: start.toISOString() } })
+  `,
+    {
+      input: {
+        patient_id: patientId,
+        clinician_id: clinicianId,
+        service_id: serviceId,
+        clinic_id: clinicId,
+        start_datetime: start.toISOString(),
+      },
+    },
+  )
   return data.createAppointment.id
 }
 
@@ -157,7 +190,9 @@ test.describe('Checklist (REQ051 US-QUE-06) — blocks and clears real queue Cal
     // appointment nobody had completed the (also-old) checklist item for,
     // even once the current run's own item was genuinely completed.
     if (appointmentId) {
-      await gql(request, managerToken, `mutation($id: ID!) { cancelAppointment(id: $id, reason: "e2e cleanup") { id } }`, { id: appointmentId }).catch(() => {})
+      await gql(request, managerToken, `mutation($id: ID!) { cancelAppointment(id: $id, reason: "e2e cleanup") { id } }`, {
+        id: appointmentId,
+      }).catch(() => {})
     }
     await request.dispose()
   })
@@ -173,9 +208,14 @@ test.describe('Checklist (REQ051 US-QUE-06) — blocks and clears real queue Cal
     await page.getByRole('button', { name: 'Create' }).click()
     await expect(page.getByText(label)).toBeVisible({ timeout: 40_000 })
 
-    const items = await gql(request, managerToken, `
+    const items = await gql(
+      request,
+      managerToken,
+      `
       query($clinicId: ID!) { checklistItems(clinic_id: $clinicId) { id label is_required } }
-    `, { clinicId })
+    `,
+      { clinicId },
+    )
     const item = items.checklistItems.find((i) => i.label === label)
     expect(item).toBeTruthy()
     itemId = item.id
@@ -197,7 +237,9 @@ test.describe('Checklist (REQ051 US-QUE-06) — blocks and clears real queue Cal
     await page.getByRole('checkbox', { name: `Complete ${label}` }).click()
     await expect(page.getByRole('checkbox', { name: `Complete ${label}` })).toBeChecked({ timeout: 40_000 })
 
-    const called = await gql(request, managerToken, `mutation($cid: ID!) { callNextInQueue(clinician_id: $cid) { id status } }`, { cid: clinicianId })
+    const called = await gql(request, managerToken, `mutation($cid: ID!) { callNextInQueue(clinician_id: $cid) { id status } }`, {
+      cid: clinicianId,
+    })
     expect(called.callNextInQueue.status).toBe('called')
   })
 })
@@ -226,12 +268,17 @@ test.describe('Intake Fields (REQ052 US-BOOK-06) — configured field is enforce
   test.afterAll(async ({ playwright }) => {
     const request = await playwright.request.newContext()
     if (fieldId) {
-      await gql(request, managerToken, `mutation($id: ID!) { deleteIntakeFieldConfig(id: $id) { success } }`, { id: fieldId }).catch(() => {})
+      await gql(request, managerToken, `mutation($id: ID!) { deleteIntakeFieldConfig(id: $id) { success } }`, { id: fieldId }).catch(
+        () => {},
+      )
     }
     await request.dispose()
   })
 
-  test('manager configures a required field via UI; a booking missing it is rejected, and a booking with it round-trips', async ({ page, request }) => {
+  test('manager configures a required field via UI; a booking missing it is rejected, and a booking with it round-trips', async ({
+    page,
+    request,
+  }) => {
     await loginAs(page, 'Manager')
     await page.goto('/manager/clinic-forms')
     await selectClinicIfNeeded(page, 'MG Road Clinic')
@@ -243,26 +290,55 @@ test.describe('Intake Fields (REQ052 US-BOOK-06) — configured field is enforce
     await page.getByRole('button', { name: 'Create' }).click()
     await expect(page.getByText(fieldLabel)).toBeVisible({ timeout: 40_000 })
 
-    const fields = await gql(request, managerToken, `
+    const fields = await gql(
+      request,
+      managerToken,
+      `
       query($clinicId: ID!) { intakeFieldConfigs(clinic_id: $clinicId) { id key label is_required } }
-    `, { clinicId })
+    `,
+      { clinicId },
+    )
     const field = fields.intakeFieldConfigs.find((f) => f.key === key)
     expect(field).toBeTruthy()
     fieldId = field.id
 
     const start = new Date(Date.now() + (421 + RUN_SEED_DAYS) * 24 * 3600 * 1000)
-    await expect(gql(request, managerToken, `
+    await expect(
+      gql(
+        request,
+        managerToken,
+        `
       mutation($input: AppointmentInput!) { createAppointment(input: $input) { id } }
-    `, { input: { patient_id: patientId, clinician_id: clinicianId, service_id: serviceId, clinic_id: clinicId, start_datetime: start.toISOString() } }))
-      .rejects.toThrow(/Missing required field/)
+    `,
+        {
+          input: {
+            patient_id: patientId,
+            clinician_id: clinicianId,
+            service_id: serviceId,
+            clinic_id: clinicId,
+            start_datetime: start.toISOString(),
+          },
+        },
+      ),
+    ).rejects.toThrow(/Missing required field/)
 
-    const withField = await gql(request, managerToken, `
+    const withField = await gql(
+      request,
+      managerToken,
+      `
       mutation($input: AppointmentInput!) { createAppointment(input: $input) { id intake_responses { key value } } }
-    `, { input: {
-      patient_id: patientId, clinician_id: clinicianId, service_id: serviceId, clinic_id: clinicId,
-      start_datetime: start.toISOString(),
-      intake_responses: [{ key, value: 'No known issues' }],
-    } })
+    `,
+      {
+        input: {
+          patient_id: patientId,
+          clinician_id: clinicianId,
+          service_id: serviceId,
+          clinic_id: clinicId,
+          start_datetime: start.toISOString(),
+          intake_responses: [{ key, value: 'No known issues' }],
+        },
+      },
+    )
     const response = withField.createAppointment.intake_responses.find((r) => r.key === key)
     expect(response?.value).toBe('No known issues')
   })
@@ -294,9 +370,14 @@ test.describe('Break-glass access (REQ053 US-SEC-05) — self-service request, m
     expect(grant).toBeTruthy()
     expect(grant.is_active).toBe(true)
 
-    const revoked = await gql(request, managerToken, `
+    const revoked = await gql(
+      request,
+      managerToken,
+      `
       mutation($id: ID!) { revokeBreakGlassAccess(id: $id) { success userErrors { message } } }
-    `, { id: grant.id })
+    `,
+      { id: grant.id },
+    )
     expect(revoked.revokeBreakGlassAccess.success).toBe(true)
 
     const after = await gql(request, clinicianToken, `{ myBreakGlassGrants { id reason is_active revoked_at } }`)
@@ -396,11 +477,16 @@ test.describe('Packages (REQ054 US-CAT-01) — create, sell, and redeem a sittin
     expect(pkg).toBeTruthy()
     packageId = pkg.id
 
-    const purchase = await gql(request, staffToken, `
+    const purchase = await gql(
+      request,
+      staffToken,
+      `
       mutation($input: PurchasePackageInput!) {
         purchasePackage(input: $input) { success userErrors { message } patientPackage { id sittings_remaining } }
       }
-    `, { input: { package_id: packageId, patient_id: patientId, purchase_tender_type: 'cash' } })
+    `,
+      { input: { package_id: packageId, patient_id: patientId, purchase_tender_type: 'cash' } },
+    )
     expect(purchase.purchasePackage.success).toBe(true)
     patientPackageId = purchase.purchasePackage.patientPackage.id
     expect(purchase.purchasePackage.patientPackage.sittings_remaining).toBe(5)
@@ -420,9 +506,14 @@ test.describe('Packages (REQ054 US-CAT-01) — create, sell, and redeem a sittin
     await page.getByRole('button', { name: 'Redeem Sitting' }).click()
     await expect(page.getByText(/sitting redeemed/i)).toBeVisible({ timeout: 40_000 })
 
-    const after = await gql(request, managerToken, `
+    const after = await gql(
+      request,
+      managerToken,
+      `
       query($patientId: ID!) { patientPackages(patient_id: $patientId) { id sittings_remaining } }
-    `, { patientId })
+    `,
+      { patientId },
+    )
     const remaining = after.patientPackages.find((pp) => pp.id === patientPackageId)?.sittings_remaining
     expect(remaining).toBe(4)
   })
@@ -449,9 +540,14 @@ test.describe('Branch Overrides (REQ055 US-ORG-05) — manager sets and persists
     // override on the shared GP Consultation service for other sessions.
     const clinics = await gql(request, managerToken, `{ clinics { id name } }`)
     const clinicId = (clinics.clinics.find((c) => c.name === clinicName) ?? clinics.clinics[0]).id
-    await gql(request, managerToken, `
+    await gql(
+      request,
+      managerToken,
+      `
       mutation($input: SetProductBranchOverrideInput!) { setProductBranchOverride(input: $input) { success } }
-    `, { input: { product_id: serviceId, clinic_id: clinicId, mode: 'inherit' } }).catch(() => {})
+    `,
+      { input: { product_id: serviceId, clinic_id: clinicId, mode: 'inherit' } },
+    ).catch(() => {})
     await request.dispose()
   })
 
@@ -466,7 +562,9 @@ test.describe('Branch Overrides (REQ055 US-ORG-05) — manager sets and persists
     await page.getByRole('option', { name: /Override/i }).click()
     await row.locator('input[type="number"]').fill('599')
     await row.getByRole('button', { name: 'Save' }).click()
-    await expect(page.getByText(/saved|updated/i).first()).toBeVisible({ timeout: 40_000 }).catch(() => {})
+    await expect(page.getByText(/saved|updated/i).first())
+      .toBeVisible({ timeout: 40_000 })
+      .catch(() => {})
 
     await page.reload()
     await expect(page.getByText('Branch Pricing Overrides')).toBeVisible({ timeout: 45_000 })
@@ -493,9 +591,14 @@ test.describe('Discount Approval (REQ056 US-BIL-03)', () => {
     // and the org's real discount_approval_threshold_paise is ₹1000 — GP
     // Consultation (₹499) can never trigger the approval path at all. A
     // dedicated, higher-priced disposable service is required.
-    const created = await gql(request, managerToken, `
+    const created = await gql(
+      request,
+      managerToken,
+      `
       mutation($input: ServiceInput!) { createService(input: $input) { id } }
-    `, { input: { name: `E2E High-Value Service ${Date.now()}`, price: 5000, duration_minutes: 30 } })
+    `,
+      { input: { name: `E2E High-Value Service ${Date.now()}`, price: 5000, duration_minutes: 30 } },
+    )
     serviceId = created.createService.id
     patientId = await createFixturePatient(request, managerToken, 'DiscountPatient')
     appointmentId = await createFixtureAppointment(request, managerToken, { patientId, clinicianId, serviceId, clinicId, offsetDays: 423 })
@@ -620,25 +723,46 @@ test.describe('Messages (REQ058 US-MSG-01/03) — department-scoped thread, atta
     const request = await playwright.request.newContext()
     managerToken = await loginToken(request, 'manager@medibook.dev', 'Mgr1234!')
     clinicId = await findClinicId(request, managerToken)
-    const createdDept = await gql(request, managerToken, `
+    const createdDept = await gql(
+      request,
+      managerToken,
+      `
       mutation($input: DepartmentInput!) { createDepartment(input: $input) { id name } }
-    `, { input: { name: departmentName, clinic_id: clinicId } })
+    `,
+      { input: { name: departmentName, clinic_id: clinicId } },
+    )
     departmentId = createdDept.createDepartment.id
     expect(departmentId).toBeTruthy()
 
-    await gql(request, managerToken, `
+    await gql(
+      request,
+      managerToken,
+      `
       mutation($input: ClinicianInput!) { createClinician(input: $input) { id } }
-    `, { input: { first_name: 'E2E', last_name: 'DeptClinician', email: `e2e.deptclinician.${Date.now()}@example.com`, clinic_ids: [clinicId], department_id: departmentId } })
+    `,
+      {
+        input: {
+          first_name: 'E2E',
+          last_name: 'DeptClinician',
+          email: `e2e.deptclinician.${Date.now()}@example.com`,
+          clinic_ids: [clinicId],
+          department_id: departmentId,
+        },
+      },
+    )
     await request.dispose()
   })
 
   test.afterAll(async ({ playwright }) => {
     const request = await playwright.request.newContext()
-    if (departmentId) await gql(request, managerToken, `mutation($id: ID!) { deleteDepartment(id: $id) { success } }`, { id: departmentId }).catch(() => {})
+    if (departmentId)
+      await gql(request, managerToken, `mutation($id: ID!) { deleteDepartment(id: $id) { success } }`, { id: departmentId }).catch(() => {})
     await request.dispose()
   })
 
-  test('manager composes a department thread with an attachment, inserts a canned reply, and reviews it via the oversight filter', async ({ page }) => {
+  test('manager composes a department thread with an attachment, inserts a canned reply, and reviews it via the oversight filter', async ({
+    page,
+  }) => {
     await loginAs(page, 'Manager')
     await page.goto('/messages')
 
@@ -672,7 +796,12 @@ test.describe('Messages (REQ058 US-MSG-01/03) — department-scoped thread, atta
     await page.getByLabel('Reply text').fill('Thanks for reaching out — the team will follow up shortly.')
     await page.getByRole('button', { name: 'Add reply' }).click()
     await expect(page.getByText(cannedTitle)).toBeVisible({ timeout: 40_000 })
-    await page.getByRole('button', { name: 'Close' }).click().catch(async () => { await page.keyboard.press('Escape') })
+    await page
+      .getByRole('button', { name: 'Close' })
+      .click()
+      .catch(async () => {
+        await page.keyboard.press('Escape')
+      })
     await page.getByRole('button', { name: 'Insert canned reply' }).click()
     await page.getByText(cannedTitle).click()
     await expect(page.locator('#message-input')).toHaveValue(/follow up shortly/, { timeout: 5_000 })

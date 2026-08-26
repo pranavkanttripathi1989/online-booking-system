@@ -16,32 +16,54 @@ import BookingWizard from './BookingWizard'
 // wizard's own step-advancement gate, not any one step's internal UI.
 // Mocking each to a minimal stub that calls the real updateWizard/onNext
 // props isolates that gate without re-deriving five separate GraphQL mocks.
-jest.mock('./BookingStep1Clinic', () => function Step1({ updateWizard }) {
-  return <button onClick={() => updateWizard({ clinic: { id: 'clinic-1', name: 'MG Road Clinic' } })}>pick-clinic</button>
-})
-jest.mock('./BookingStep2Clinician', () => function Step2({ updateWizard }) {
-  return (
-    <>
-      <button onClick={() => updateWizard({ clinician: { id: 'clin-1', full_name: 'Dr. Sarah Mitchell' } })}>pick-clinician</button>
-      <button onClick={() => updateWizard({ service: { id: 'svc-1', name: 'GP Consultation' } })}>pick-service</button>
-    </>
-  )
-})
-jest.mock('./BookingStep3Slot', () => function Step3({ updateWizard }) {
-  return <button onClick={() => updateWizard({ slot: { id: 'slot-1', start_datetime: '2026-09-01T09:00:00Z' } })}>pick-slot</button>
-})
-jest.mock('./BookingStep4Patient', () => function Step4({ updateWizard }) {
-  return (
-    <>
-      <button onClick={() => updateWizard({ patientMode: 'existing', patient: { id: 'pat-1', full_name: 'Anita Sharma' } })}>pick-patient</button>
-      <button onClick={() => updateWizard({ intakeFieldsValid: false })}>fail-intake</button>
-      <button onClick={() => updateWizard({ intakeFieldsValid: true })}>pass-intake</button>
-    </>
-  )
-})
-jest.mock('./BookingStep5Confirm', () => function Step5() {
-  return <div>Confirm step reached</div>
-})
+jest.mock(
+  './BookingStep1Clinic',
+  () =>
+    function Step1({ updateWizard }) {
+      return <button onClick={() => updateWizard({ clinic: { id: 'clinic-1', name: 'MG Road Clinic' } })}>pick-clinic</button>
+    },
+)
+jest.mock(
+  './BookingStep2Clinician',
+  () =>
+    function Step2({ updateWizard }) {
+      return (
+        <>
+          <button onClick={() => updateWizard({ clinician: { id: 'clin-1', full_name: 'Dr. Sarah Mitchell' } })}>pick-clinician</button>
+          <button onClick={() => updateWizard({ service: { id: 'svc-1', name: 'GP Consultation' } })}>pick-service</button>
+        </>
+      )
+    },
+)
+jest.mock(
+  './BookingStep3Slot',
+  () =>
+    function Step3({ updateWizard }) {
+      return <button onClick={() => updateWizard({ slot: { id: 'slot-1', start_datetime: '2026-09-01T09:00:00Z' } })}>pick-slot</button>
+    },
+)
+jest.mock(
+  './BookingStep4Patient',
+  () =>
+    function Step4({ updateWizard }) {
+      return (
+        <>
+          <button onClick={() => updateWizard({ patientMode: 'existing', patient: { id: 'pat-1', full_name: 'Anita Sharma' } })}>
+            pick-patient
+          </button>
+          <button onClick={() => updateWizard({ intakeFieldsValid: false })}>fail-intake</button>
+          <button onClick={() => updateWizard({ intakeFieldsValid: true })}>pass-intake</button>
+        </>
+      )
+    },
+)
+jest.mock(
+  './BookingStep5Confirm',
+  () =>
+    function Step5() {
+      return <div>Confirm step reached</div>
+    },
+)
 
 function renderWizard() {
   return render(

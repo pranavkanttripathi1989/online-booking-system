@@ -15,12 +15,22 @@ import NotificationBell from './NotificationBell'
 const GET_NOTIFICATIONS = gql`
   query GetNotificationsForBell($first: Int) {
     notifications(first: $first) {
-      data { id title message type priority is_read created_at }
+      data {
+        id
+        title
+        message
+        type
+        priority
+        is_read
+        created_at
+      }
     }
   }
 `
 const GET_UNREAD_COUNT = gql`
-  query GetUnreadNotificationCountForBell { unreadNotificationCount }
+  query GetUnreadNotificationCountForBell {
+    unreadNotificationCount
+  }
 `
 
 function notificationsMock(data) {
@@ -48,8 +58,26 @@ describe('NotificationBell (REQ134)', () => {
     // badge doesn't silently undercount against a bounded list.
     renderBell([
       notificationsMock([
-        { __typename: 'Notification', id: 'n-1', title: 'Recent 1', message: 'msg', type: 'system', priority: 'normal', is_read: false, created_at: '2026-08-26T10:00:00.000Z' },
-        { __typename: 'Notification', id: 'n-2', title: 'Recent 2', message: 'msg', type: 'system', priority: 'normal', is_read: false, created_at: '2026-08-26T09:00:00.000Z' },
+        {
+          __typename: 'Notification',
+          id: 'n-1',
+          title: 'Recent 1',
+          message: 'msg',
+          type: 'system',
+          priority: 'normal',
+          is_read: false,
+          created_at: '2026-08-26T10:00:00.000Z',
+        },
+        {
+          __typename: 'Notification',
+          id: 'n-2',
+          title: 'Recent 2',
+          message: 'msg',
+          type: 'system',
+          priority: 'normal',
+          is_read: false,
+          created_at: '2026-08-26T09:00:00.000Z',
+        },
       ]),
       unreadCountMock(47),
     ])
@@ -59,7 +87,16 @@ describe('NotificationBell (REQ134)', () => {
   it('renders real notifications in the dropdown', async () => {
     renderBell([
       notificationsMock([
-        { __typename: 'Notification', id: 'n-1', title: 'Appointment reminder', message: 'Tomorrow at 9am', type: 'appointment', priority: 'normal', is_read: false, created_at: '2026-08-26T10:00:00.000Z' },
+        {
+          __typename: 'Notification',
+          id: 'n-1',
+          title: 'Appointment reminder',
+          message: 'Tomorrow at 9am',
+          type: 'appointment',
+          priority: 'normal',
+          is_read: false,
+          created_at: '2026-08-26T10:00:00.000Z',
+        },
       ]),
       unreadCountMock(1),
     ])

@@ -39,10 +39,7 @@ describe('downloadAuthenticatedPdf', () => {
 
     await downloadAuthenticatedPdf('/documents/prescriptions/rx-1/pdf', 'prescription-rx-1.pdf')
 
-    expect(global.fetch).toHaveBeenCalledWith(
-      'http://localhost:4000/documents/prescriptions/rx-1/pdf',
-      { credentials: 'include' },
-    )
+    expect(global.fetch).toHaveBeenCalledWith('http://localhost:4000/documents/prescriptions/rx-1/pdf', { credentials: 'include' })
   })
 
   it('triggers a real Blob download via a synthetic anchor click', async () => {
@@ -57,7 +54,7 @@ describe('downloadAuthenticatedPdf', () => {
     expect(revokeObjectURLSpy).toHaveBeenCalledWith('blob:mock-url')
   })
 
-  it('throws the backend\'s own error message on a non-200 response', async () => {
+  it("throws the backend's own error message on a non-200 response", async () => {
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 404,

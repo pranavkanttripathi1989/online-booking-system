@@ -1,6 +1,6 @@
-import React from 'react';
-import { Box, Typography, Button } from '@mui/material';
-import InboxIcon from '@mui/icons-material/Inbox';
+import React from 'react'
+import { Box, Typography, Button } from '@mui/material'
+import InboxIcon from '@mui/icons-material/Inbox'
 
 export default function EmptyState({
   icon: Icon = InboxIcon,
@@ -49,5 +49,5 @@ export default function EmptyState({
         </Button>
       )}
     </Box>
-  );
+  )
 }

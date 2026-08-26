@@ -38,12 +38,16 @@ export default function CheckinPage() {
         {loading || !attempted ? (
           <Stack spacing={2} alignItems="center">
             <CircularProgress />
-            <Typography variant="body1" color="text.secondary">Checking you in…</Typography>
+            <Typography variant="body1" color="text.secondary">
+              Checking you in…
+            </Typography>
           </Stack>
         ) : error ? (
           <Stack spacing={2} alignItems="center">
             <ErrorOutlineRoundedIcon sx={{ fontSize: 56, color: 'error.main' }} />
-            <Typography variant="h6" fontWeight={800}>Couldn't check you in</Typography>
+            <Typography variant="h6" fontWeight={800}>
+              Couldn't check you in
+            </Typography>
             <Typography variant="body2" color="text.secondary">
               {error.graphQLErrors?.[0]?.message || 'Something went wrong. Please see reception for help.'}
             </Typography>
@@ -51,8 +55,12 @@ export default function CheckinPage() {
         ) : data?.checkInWithQrToken ? (
           <Stack spacing={2} alignItems="center">
             <CheckCircleRoundedIcon sx={{ fontSize: 56, color: 'success.main' }} />
-            <Typography variant="h6" fontWeight={800}>You're checked in</Typography>
-            <Typography variant="body2" color="text.secondary">Please take a seat — you'll be called shortly.</Typography>
+            <Typography variant="h6" fontWeight={800}>
+              You're checked in
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              Please take a seat — you'll be called shortly.
+            </Typography>
           </Stack>
         ) : null}
         <Button sx={{ mt: 3, textTransform: 'none', fontWeight: 700 }} onClick={() => navigate('/')}>

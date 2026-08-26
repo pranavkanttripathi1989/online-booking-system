@@ -4,15 +4,15 @@ import { useLocation } from 'react-router-dom'
 // ─── Route → Title Map ────────────────────────────────────────────────────────
 
 const ROUTE_TITLES = {
-  '/dashboard':        'Dashboard',
+  '/dashboard': 'Dashboard',
   '/appointments/new': 'New Booking',
-  '/appointments':     'Appointments',
-  '/calendar':         'Calendar',
-  '/clinicians':       'Clinicians',
-  '/patients':         'Patients',
-  '/settings':         'Settings',
-  '/profile':          'My Profile',
-  '/403':              'Access Forbidden',
+  '/appointments': 'Appointments',
+  '/calendar': 'Calendar',
+  '/clinicians': 'Clinicians',
+  '/patients': 'Patients',
+  '/settings': 'Settings',
+  '/profile': 'My Profile',
+  '/403': 'Access Forbidden',
 }
 
 const APP_NAME = 'MediBook'
@@ -28,8 +28,7 @@ export function usePageTitle() {
   const title =
     Object.entries(ROUTE_TITLES)
       .sort(([a], [b]) => b.length - a.length) // longest first
-      .find(([route]) => pathname === route || pathname.startsWith(route + '/'))?.[1] ??
-    'Page'
+      .find(([route]) => pathname === route || pathname.startsWith(route + '/'))?.[1] ?? 'Page'
 
   useEffect(() => {
     document.title = `${title} — ${APP_NAME}`

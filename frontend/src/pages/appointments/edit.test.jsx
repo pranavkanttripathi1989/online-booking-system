@@ -37,8 +37,26 @@ const apptResult = (overrides = {}) => ({
   reminder_sent_at: null,
   created_at: '2026-08-01T00:00:00.000Z',
   updated_at: '2026-08-01T00:00:00.000Z',
-  patient: { __typename: 'Patient', id: 'p1', first_name: 'Real', last_name: 'Patient', full_name: 'Real Patient', email: 'real@example.com', phone: '9000000000', date_of_birth: '1990-01-01', gender: null },
-  clinician: { __typename: 'AppointmentClinician', id: 'c1', first_name: 'Real', last_name: 'Clinician', full_name: 'Real Clinician', avatar_url: null, clinician_type: null },
+  patient: {
+    __typename: 'Patient',
+    id: 'p1',
+    first_name: 'Real',
+    last_name: 'Patient',
+    full_name: 'Real Patient',
+    email: 'real@example.com',
+    phone: '9000000000',
+    date_of_birth: '1990-01-01',
+    gender: null,
+  },
+  clinician: {
+    __typename: 'AppointmentClinician',
+    id: 'c1',
+    first_name: 'Real',
+    last_name: 'Clinician',
+    full_name: 'Real Clinician',
+    avatar_url: null,
+    clinician_type: null,
+  },
   clinic: { __typename: 'AppointmentClinic', id: 'clinic-1', name: 'Real Clinic', address: null, city: null, timezone: null },
   room: null,
   service: { __typename: 'AppointmentService', id: 'svc-1', name: 'Real Service', duration_minutes: 30, price: 500 },
@@ -47,7 +65,14 @@ const apptResult = (overrides = {}) => ({
   ...overrides,
 })
 
-const cliniciansMock = (result = { clinicians: { __typename: 'ClinicianPaginated', data: [{ __typename: 'Clinician', id: 'c1', first_name: 'Real', last_name: 'Clinician', full_name: 'Real Clinician' }] } }) => ({
+const cliniciansMock = (
+  result = {
+    clinicians: {
+      __typename: 'ClinicianPaginated',
+      data: [{ __typename: 'Clinician', id: 'c1', first_name: 'Real', last_name: 'Clinician', full_name: 'Real Clinician' }],
+    },
+  },
+) => ({
   request: { query: CLINICIANS_QUERY, variables: { first: 100, is_active: true } },
   result: { data: result },
 })
@@ -70,7 +95,7 @@ function renderPage(mocks) {
           </MemoryRouter>
         </SnackbarProvider>
       </LocalizationProvider>
-    </HelmetProvider>
+    </HelmetProvider>,
   )
 }
 
@@ -115,7 +140,10 @@ describe('appointments/edit (B-2)', () => {
 
   it('a real backend "Appointment not found" GraphQL error shows the not-found state, not an infinite skeleton or a MockStore fallback', async () => {
     const mocks = [
-      { request: { query: APPOINTMENT_DETAIL_QUERY, variables: { id: APPT_ID } }, result: { errors: [new GraphQLError('Appointment not found')] } },
+      {
+        request: { query: APPOINTMENT_DETAIL_QUERY, variables: { id: APPT_ID } },
+        result: { errors: [new GraphQLError('Appointment not found')] },
+      },
       cliniciansMock(),
       roomsMock(),
     ]
@@ -136,7 +164,10 @@ describe('appointments/edit (B-2)', () => {
     const updateMock = {
       request: {
         query: UPDATE_APPOINTMENT_MUTATION,
-        variables: { id: APPT_ID, input: { status: 'scheduled', start_datetime: '2026-09-01T09:00:00.000Z', clinician_id: 'c1', notes: 'Updated note' } },
+        variables: {
+          id: APPT_ID,
+          input: { status: 'scheduled', start_datetime: '2026-09-01T09:00:00.000Z', clinician_id: 'c1', notes: 'Updated note' },
+        },
       },
       result: { data: { updateAppointment: { ...apptResult(), notes: 'Updated note' } } },
     }

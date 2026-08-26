@@ -28,8 +28,7 @@ test('manager can load, save, and revert org Security Settings', async ({ page }
   // Each toggle row is a plain MUI Stack (no <label>/<FormControlLabel>
   // wrapper) -- .last() of the class+text match picks the innermost row
   // Stack over its two divider/container ancestors that also contain the text.
-  const auditSwitch = page.locator('div.MuiStack-root', { hasText: 'Enable audit logging' }).last()
-    .locator('input[type="checkbox"]')
+  const auditSwitch = page.locator('div.MuiStack-root', { hasText: 'Enable audit logging' }).last().locator('input[type="checkbox"]')
   // Switches are disabled while the real myOrgSecuritySettings query is
   // in flight -- waiting for enabled avoids reading the pre-load default.
   await expect(auditSwitch).toBeEnabled()
@@ -42,8 +41,7 @@ test('manager can load, save, and revert org Security Settings', async ({ page }
 
   await page.reload()
   await page.getByRole('tab', { name: 'Security & Privacy' }).click()
-  const afterReload = page.locator('div.MuiStack-root', { hasText: 'Enable audit logging' }).last()
-    .locator('input[type="checkbox"]')
+  const afterReload = page.locator('div.MuiStack-root', { hasText: 'Enable audit logging' }).last().locator('input[type="checkbox"]')
   await expect(afterReload).toBeChecked()
 
   // Revert so the shared org's settings aren't left mutated for other specs/manual QA.
@@ -64,8 +62,7 @@ test('IP whitelist textarea appears only when the toggle is on, and persists its
   const ipCard = page.locator('.MuiCard-root', { hasText: 'Allowed IP Addresses' })
   await expect(ipCard).not.toBeVisible()
 
-  const ipSwitch = page.locator('div.MuiStack-root', { hasText: 'IP whitelist for managers' }).last()
-    .locator('input[type="checkbox"]')
+  const ipSwitch = page.locator('div.MuiStack-root', { hasText: 'IP whitelist for managers' }).last().locator('input[type="checkbox"]')
   await expect(ipSwitch).toBeEnabled()
   await ipSwitch.click()
   const ipTextarea = ipCard.locator('textarea').first()
@@ -77,13 +74,11 @@ test('IP whitelist textarea appears only when the toggle is on, and persists its
 
   await page.reload()
   await page.getByRole('tab', { name: 'Security & Privacy' }).click()
-  await expect(page.locator('.MuiCard-root', { hasText: 'Allowed IP Addresses' }).locator('textarea').first())
-    .toHaveValue('192.168.1.0/24')
+  await expect(page.locator('.MuiCard-root', { hasText: 'Allowed IP Addresses' }).locator('textarea').first()).toHaveValue('192.168.1.0/24')
 
   // Revert to the clean baseline.
   await page.locator('.MuiCard-root', { hasText: 'Allowed IP Addresses' }).locator('textarea').first().fill('')
-  const ipSwitchAfter = page.locator('div.MuiStack-root', { hasText: 'IP whitelist for managers' }).last()
-    .locator('input[type="checkbox"]')
+  const ipSwitchAfter = page.locator('div.MuiStack-root', { hasText: 'IP whitelist for managers' }).last().locator('input[type="checkbox"]')
   await ipSwitchAfter.click()
   await page.getByRole('button', { name: 'Save Security Settings' }).click()
   await expect(page.getByText(/saved/i)).toBeVisible()

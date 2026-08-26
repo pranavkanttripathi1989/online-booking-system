@@ -25,12 +25,23 @@ import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
 import { CLINICIAN_DETAIL_QUERY } from '../../graphql/queries'
 
 // ─── Avatar helpers ───────────────────────────────────────────────────────────
-const NAME_COLOURS = ['#6366f1','#8b5cf6','#ec4899','#f59e0b','#10b981','#3b82f6','#ef4444','#14b8a6']
-function nameColour(name=''){let h=0;for(let i=0;i<name.length;i++)h=(h*31+name.charCodeAt(i))>>>0;return NAME_COLOURS[h%NAME_COLOURS.length]}
-function initials(name=''){return name.split(' ').slice(0,2).map(p=>p[0]).join('').toUpperCase()}
+const NAME_COLOURS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6']
+function nameColour(name = '') {
+  let h = 0
+  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) >>> 0
+  return NAME_COLOURS[h % NAME_COLOURS.length]
+}
+function initials(name = '') {
+  return name
+    .split(' ')
+    .slice(0, 2)
+    .map((p) => p[0])
+    .join('')
+    .toUpperCase()
+}
 
 // ─── Day labels ───────────────────────────────────────────────────────────────
-const DAY_NAMES = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat']
+const DAY_NAMES = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
 
 // ─── Tab Panel helper ─────────────────────────────────────────────────────────
 function TabPanel({ value, index, children }) {
@@ -42,7 +53,9 @@ function InfoRow({ icon, text }) {
   if (!text) return null
   return (
     <Stack direction="row" spacing={1.5} alignItems="center">
-      <Box color="text.secondary" display="flex">{icon}</Box>
+      <Box color="text.secondary" display="flex">
+        {icon}
+      </Box>
       <Typography variant="body2">{text}</Typography>
     </Stack>
   )
@@ -65,18 +78,34 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
   // Appointment columns for the mini DataGrid
   const apptColumns = [
     {
-      field: 'start_datetime', headerName: 'Date & Time', flex: 1, sortable: false,
+      field: 'start_datetime',
+      headerName: 'Date & Time',
+      flex: 1,
+      sortable: false,
       renderCell: ({ row }) => dayjs(row.start_datetime).format('DD MMM, h:mm A'),
     },
     {
-      field: 'patient', headerName: 'Patient', flex: 1, sortable: false,
+      field: 'patient',
+      headerName: 'Patient',
+      flex: 1,
+      sortable: false,
       renderCell: ({ row }) => row.patient?.full_name ?? '—',
     },
     {
-      field: 'status', headerName: 'Status', width: 110, sortable: false,
+      field: 'status',
+      headerName: 'Status',
+      width: 110,
+      sortable: false,
       renderCell: ({ row }) => {
-        const COLOR_MAP = { confirmed:'success',pending:'warning',cancelled:'error',completed:'info',no_show:'default' }
-        return <Chip label={row.status?.replace('_',' ')} color={COLOR_MAP[row.status]??'default'} size="small" sx={{fontWeight:600,textTransform:'capitalize'}} />
+        const COLOR_MAP = { confirmed: 'success', pending: 'warning', cancelled: 'error', completed: 'info', no_show: 'default' }
+        return (
+          <Chip
+            label={row.status?.replace('_', ' ')}
+            color={COLOR_MAP[row.status] ?? 'default'}
+            size="small"
+            sx={{ fontWeight: 600, textTransform: 'capitalize' }}
+          />
+        )
       },
     },
   ]
@@ -107,7 +136,9 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
               {!detail?.avatar_url && initials(detail?.full_name ?? '')}
             </Avatar>
             <Box>
-              <Typography variant="h6" fontWeight={800}>{detail?.full_name ?? '—'}</Typography>
+              <Typography variant="h6" fontWeight={800}>
+                {detail?.full_name ?? '—'}
+              </Typography>
               <Stack direction="row" spacing={0.75} flexWrap="wrap" mt={0.5}>
                 {detail?.clinician_type && (
                   <Chip label={detail.clinician_type.name} color="primary" size="small" sx={{ fontWeight: 600 }} />
@@ -121,7 +152,9 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
               </Stack>
             </Box>
           </Stack>
-          <IconButton size="small" onClick={onClose}><CloseIcon /></IconButton>
+          <IconButton size="small" onClick={onClose}>
+            <CloseIcon />
+          </IconButton>
         </Stack>
       </Box>
 
@@ -138,7 +171,11 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
       {/* Scrollable body */}
       <Box sx={{ flex: 1, overflowY: 'auto', p: 2.5 }}>
         {loading && !detail && (
-          <Stack spacing={2}>{[...Array(4)].map((_,i) => <Skeleton key={i} variant="rounded" height={64} sx={{borderRadius:2}} />)}</Stack>
+          <Stack spacing={2}>
+            {[...Array(4)].map((_, i) => (
+              <Skeleton key={i} variant="rounded" height={64} sx={{ borderRadius: 2 }} />
+            ))}
+          </Stack>
         )}
 
         {/* ── Overview ── */}
@@ -146,8 +183,12 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
           <Stack spacing={2}>
             {detail?.bio && (
               <Box>
-                <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.5}>Bio</Typography>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{detail.bio}</Typography>
+                <Typography variant="caption" color="text.secondary" fontWeight={700} display="block" mb={0.5}>
+                  Bio
+                </Typography>
+                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
+                  {detail.bio}
+                </Typography>
               </Box>
             )}
             <Divider />
@@ -175,7 +216,9 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
                     {detail.clinics.map((c) => (
                       <Stack key={c.id} direction="row" spacing={1} alignItems="center">
                         <LocalHospitalIcon fontSize="small" sx={{ color: 'primary.main' }} />
-                        <Typography variant="body2">{c.name} — {c.city}</Typography>
+                        <Typography variant="body2">
+                          {c.name} — {c.city}
+                        </Typography>
                       </Stack>
                     ))}
                   </Stack>
@@ -188,7 +231,9 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
         {/* ── Availability ── */}
         <TabPanel value={tab} index={1}>
           {templates.length === 0 ? (
-            <Typography color="text.secondary" textAlign="center" py={4}>No availability templates configured.</Typography>
+            <Typography color="text.secondary" textAlign="center" py={4}>
+              No availability templates configured.
+            </Typography>
           ) : (
             <Stack spacing={1.5}>
               {templates.map((t) => (
@@ -199,12 +244,17 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
                 >
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Box>
-                      <Typography variant="body2" fontWeight={700}>{DAY_NAMES[t.day_of_week] ?? t.day_of_week}</Typography>
+                      <Typography variant="body2" fontWeight={700}>
+                        {DAY_NAMES[t.day_of_week] ?? t.day_of_week}
+                      </Typography>
                       <Typography variant="caption" color="text.secondary">
                         {t.start_time} – {t.end_time}
                       </Typography>
                       {t.clinic?.name && (
-                        <Typography variant="caption" color="text.secondary" display="block">{t.clinic.name}{t.room?.name ? ` · ${t.room.name}` : ''}</Typography>
+                        <Typography variant="caption" color="text.secondary" display="block">
+                          {t.clinic.name}
+                          {t.room?.name ? ` · ${t.room.name}` : ''}
+                        </Typography>
                       )}
                     </Box>
                     <Chip
@@ -226,7 +276,7 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
             Upcoming appointments for this clinician
           </Typography>
           <DataGrid
-            rows={[]}   // Will be populated when CLINICIAN_DETAIL_QUERY includes appointments (future)
+            rows={[]} // Will be populated when CLINICIAN_DETAIL_QUERY includes appointments (future)
             columns={apptColumns}
             autoHeight
             hideFooter
@@ -234,7 +284,9 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
             slots={{
               noRowsOverlay: () => (
                 <Box display="flex" alignItems="center" justifyContent="center" height="100%" py={4}>
-                  <Typography color="text.secondary" variant="body2">No upcoming appointments</Typography>
+                  <Typography color="text.secondary" variant="body2">
+                    No upcoming appointments
+                  </Typography>
                 </Box>
               ),
             }}
@@ -245,18 +297,26 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
         {/* ── Services ── */}
         <TabPanel value={tab} index={3}>
           {services.length === 0 ? (
-            <Typography color="text.secondary" textAlign="center" py={4}>No services assigned.</Typography>
+            <Typography color="text.secondary" textAlign="center" py={4}>
+              No services assigned.
+            </Typography>
           ) : (
             <Stack spacing={1}>
               {services.map((s) => (
                 <Paper key={s.id} elevation={0} sx={{ p: 1.5, border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
                   <Stack direction="row" alignItems="center" justifyContent="space-between">
                     <Box>
-                      <Typography variant="body2" fontWeight={700}>{s.name}</Typography>
-                      <Typography variant="caption" color="text.secondary">⏱ {s.duration_minutes} min</Typography>
+                      <Typography variant="body2" fontWeight={700}>
+                        {s.name}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        ⏱ {s.duration_minutes} min
+                      </Typography>
                     </Box>
                     {s.price && (
-                      <Typography variant="body2" fontWeight={700} color="primary">₹{Number(s.price).toFixed(2)}</Typography>
+                      <Typography variant="body2" fontWeight={700} color="primary">
+                        ₹{Number(s.price).toFixed(2)}
+                      </Typography>
                     )}
                   </Stack>
                 </Paper>

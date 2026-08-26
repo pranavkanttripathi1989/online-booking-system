@@ -1,11 +1,4 @@
-import {
-  Box,
-  TextField,
-  Typography,
-  IconButton,
-  InputAdornment,
-  Stack,
-} from '@mui/material'
+import { Box, TextField, Typography, IconButton, InputAdornment, Stack } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
@@ -76,17 +69,10 @@ export default function PaginationBar({
       {/* Pagination controls */}
       <Stack direction="row" alignItems="center" spacing={1}>
         <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-          {total === 0
-            ? 'No results'
-            : `Showing ${from}–${to} of ${total}`}
+          {total === 0 ? 'No results' : `Showing ${from}–${to} of ${total}`}
         </Typography>
 
-        <IconButton
-          size="small"
-          onClick={onPreviousPage}
-          disabled={loading || currentPage <= 1}
-          aria-label="Previous page"
-        >
+        <IconButton size="small" onClick={onPreviousPage} disabled={loading || currentPage <= 1} aria-label="Previous page">
           <ChevronLeftIcon />
         </IconButton>
 
@@ -94,12 +80,7 @@ export default function PaginationBar({
           {totalPages > 0 ? `${currentPage} / ${totalPages}` : '—'}
         </Typography>
 
-        <IconButton
-          size="small"
-          onClick={onNextPage}
-          disabled={loading || currentPage >= totalPages}
-          aria-label="Next page"
-        >
+        <IconButton size="small" onClick={onNextPage} disabled={loading || currentPage >= totalPages} aria-label="Next page">
           <ChevronRightIcon />
         </IconButton>
       </Stack>

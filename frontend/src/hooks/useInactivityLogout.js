@@ -10,8 +10,8 @@
  */
 import { useEffect, useRef, useCallback } from 'react'
 
-const TIMEOUT_MS   = 15 * 60 * 1000  // 15 min inactivity before warning
-const WARNING_MS   = 60 * 1000       // 60 s countdown after warning
+const TIMEOUT_MS = 15 * 60 * 1000 // 15 min inactivity before warning
+const WARNING_MS = 60 * 1000 // 60 s countdown after warning
 
 const EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'click']
 
@@ -21,10 +21,10 @@ const EVENTS = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'cl
  * @param {boolean}  enabled  set false to disable (e.g. on the login page)
  */
 export function useInactivityLogout({ onWarn, onLogout, enabled = true }) {
-  const idleTimer    = useRef(null)
-  const warnTimer    = useRef(null)
+  const idleTimer = useRef(null)
+  const warnTimer = useRef(null)
   const countdownRef = useRef(null)
-  const secondsLeft  = useRef(Math.round(WARNING_MS / 1000))
+  const secondsLeft = useRef(Math.round(WARNING_MS / 1000))
 
   const clearAllTimers = useCallback(() => {
     clearTimeout(idleTimer.current)
@@ -59,10 +59,10 @@ export function useInactivityLogout({ onWarn, onLogout, enabled = true }) {
   useEffect(() => {
     if (!enabled) return
     resetTimer()
-    EVENTS.forEach(e => window.addEventListener(e, resetTimer, { passive: true }))
+    EVENTS.forEach((e) => window.addEventListener(e, resetTimer, { passive: true }))
     return () => {
       clearAllTimers()
-      EVENTS.forEach(e => window.removeEventListener(e, resetTimer))
+      EVENTS.forEach((e) => window.removeEventListener(e, resetTimer))
     }
   }, [enabled, resetTimer, clearAllTimers])
 }

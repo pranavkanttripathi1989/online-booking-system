@@ -38,24 +38,24 @@ import { createTheme, alpha } from '@mui/material/styles'
 // ─── Google Material 3 Color Tokens ──────────────────────────────────────────
 export const COLORS = {
   // Primary — Google Blue
-  blue50:  '#E8F0FE',
+  blue50: '#E8F0FE',
   blue100: '#D2E3FC',
   blue200: '#AECBFA',
   blue400: '#4285F4',
-  blue600: '#1A73E8',   // ★ Primary Brand
+  blue600: '#1A73E8', // ★ Primary Brand
   blue800: '#1557B0',
   blue900: '#0D47A1',
 
   // Accent — Google Green
-  emerald50:  '#E6F4EA',
+  emerald50: '#E6F4EA',
   emerald100: '#CEEAD6',
   emerald300: '#2DC49A',
   emerald500: '#1BB371',
-  emerald700: '#0F9D58',  // ★ Accent Brand
+  emerald700: '#0F9D58', // ★ Accent Brand
   emerald900: '#0B8043',
 
   // Neutral — Google Grays
-  ink50:  '#F8F9FA',
+  ink50: '#F8F9FA',
   ink100: '#E8EAED',
   ink300: '#BDC1C6',
   ink500: '#80868B',
@@ -64,11 +64,11 @@ export const COLORS = {
   ink950: '#202124',
 
   // Status
-  amber:    '#F9AB00',
-  red:      '#D93025',
-  violet:   '#9334E6',
-  orange:   '#FA7B17',
-  pink:     '#EA4335',
+  amber: '#F9AB00',
+  red: '#D93025',
+  violet: '#9334E6',
+  orange: '#FA7B17',
+  pink: '#EA4335',
 
   // Sidebar
   sidebarBg: '#202124',
@@ -81,8 +81,8 @@ const theme = createTheme({
       main: COLORS.blue600,
       light: COLORS.blue400,
       dark: COLORS.blue800,
-      '50': COLORS.blue50,
-      '100': COLORS.blue100,
+      50: COLORS.blue50,
+      100: COLORS.blue100,
       contrastText: '#FFFFFF',
     },
     secondary: {
@@ -126,7 +126,7 @@ const theme = createTheme({
     },
     divider: COLORS.ink100,
     grey: {
-      50:  COLORS.ink50,
+      50: COLORS.ink50,
       100: COLORS.ink100,
       300: COLORS.ink300,
       500: COLORS.ink500,
@@ -135,25 +135,25 @@ const theme = createTheme({
     },
     // Custom appointment status tokens
     appointment: {
-      pending:     COLORS.amber,
-      confirmed:   COLORS.emerald700,
-      cancelled:   COLORS.red,
-      completed:   COLORS.blue600,
-      no_show:     COLORS.ink500,
+      pending: COLORS.amber,
+      confirmed: COLORS.emerald700,
+      cancelled: COLORS.red,
+      completed: COLORS.blue600,
+      no_show: COLORS.ink500,
       rescheduled: COLORS.violet,
     },
   },
 
   typography: {
     fontFamily: "'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    h1: { fontSize: '2rem',    fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.5px' },
+    h1: { fontSize: '2rem', fontWeight: 800, lineHeight: 1.2, letterSpacing: '-0.5px' },
     h2: { fontSize: '1.75rem', fontWeight: 700, lineHeight: 1.25, letterSpacing: '-0.4px' },
-    h3: { fontSize: '1.375rem',fontWeight: 700, lineHeight: 1.35, letterSpacing: '-0.3px' },
-    h4: { fontSize: '1.125rem',fontWeight: 700, lineHeight: 1.4, letterSpacing: '-0.2px' },
-    h5: { fontSize: '1rem',    fontWeight: 600, lineHeight: 1.5 },
+    h3: { fontSize: '1.375rem', fontWeight: 700, lineHeight: 1.35, letterSpacing: '-0.3px' },
+    h4: { fontSize: '1.125rem', fontWeight: 700, lineHeight: 1.4, letterSpacing: '-0.2px' },
+    h5: { fontSize: '1rem', fontWeight: 600, lineHeight: 1.5 },
     h6: { fontSize: '0.9375rem', fontWeight: 600, lineHeight: 1.5 },
     body1: { fontSize: '0.9375rem', lineHeight: 1.7, color: COLORS.ink700 },
-    body2: { fontSize: '0.875rem',  lineHeight: 1.65, color: COLORS.ink700 },
+    body2: { fontSize: '0.875rem', lineHeight: 1.65, color: COLORS.ink700 },
     subtitle1: { fontSize: '0.9375rem', fontWeight: 500 },
     subtitle2: { fontSize: '0.875rem', fontWeight: 600 },
     button: { fontWeight: 700, textTransform: 'none', letterSpacing: '0.01em' },
@@ -357,7 +357,7 @@ const theme = createTheme({
     MuiDrawer: {
       styleOverrides: {
         paper: {
-          backgroundColor: COLORS.sidebarBg,   // #202124 Google Dark
+          backgroundColor: COLORS.sidebarBg, // #202124 Google Dark
           color: COLORS.ink300,
           borderRight: 'none',
           backgroundImage: 'none',

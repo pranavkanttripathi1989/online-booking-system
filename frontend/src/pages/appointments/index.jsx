@@ -67,7 +67,12 @@ const CLOSE_CASH_DRAWER_MUTATION = gql`
     closeCashDrawer(input: $input) {
       success
       message
-      closeout { id total_expected total_counted variance }
+      closeout {
+        id
+        total_expected
+        total_counted
+        variance
+      }
     }
   }
 `
@@ -75,7 +80,11 @@ const CLOSE_CASH_DRAWER_MUTATION = gql`
 // REQ120
 const BULK_RESCHEDULE_MUTATION = gql`
   mutation BulkRescheduleAppointments($input: BulkRescheduleAppointmentsInput!) {
-    bulkRescheduleAppointments(input: $input) { attempted_count rescheduled_count failed_count }
+    bulkRescheduleAppointments(input: $input) {
+      attempted_count
+      rescheduled_count
+      failed_count
+    }
   }
 `
 
@@ -86,11 +95,11 @@ const BULK_RESCHEDULE_MUTATION = gql`
 const STATUS_OPTIONS = ['all', 'pending', 'confirmed', 'cancelled', 'completed', 'no_show']
 
 const STATUS_CFG = {
-  pending:     { label: 'Pending',     bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
-  confirmed:   { label: 'Confirmed',   bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
-  cancelled:   { label: 'Cancelled',   bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
-  completed:   { label: 'Completed',   bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
-  no_show:     { label: 'No Show',     bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED', dot: '#80868B' },
+  pending: { label: 'Pending', bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
+  confirmed: { label: 'Confirmed', bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
+  cancelled: { label: 'Cancelled', bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
+  completed: { label: 'Completed', bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
+  no_show: { label: 'No Show', bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED', dot: '#80868B' },
   rescheduled: { label: 'Rescheduled', bg: '#F3E8FD', color: '#6E2DB8', border: '#D7AEFA', dot: '#9334E6' },
 }
 
@@ -102,11 +111,14 @@ function StatusChip({ status }) {
       label={cfg.label}
       size="small"
       sx={{
-        bgcolor: cfg.bg, color: cfg.color,
+        bgcolor: cfg.bg,
+        color: cfg.color,
         border: `1px solid ${cfg.border}`,
         borderLeft: `3px solid ${cfg.dot}`,
-        fontWeight: 700, borderRadius: '8px',
-        fontSize: '0.68rem', height: 24,
+        fontWeight: 700,
+        borderRadius: '8px',
+        fontSize: '0.68rem',
+        height: 24,
       }}
     />
   )
@@ -125,8 +137,19 @@ function EmptyState({ hasFilters, onClearFilters }) {
           <Typography variant="body2" color="text.disabled" textAlign="center" sx={{ maxWidth: 320 }}>
             Try widening your date range, clearing the status filter, or searching a different name.
           </Typography>
-          <Button size="small" variant="outlined" startIcon={<FilterAltOffIcon />} onClick={onClearFilters}
-            sx={{ borderRadius: 2, fontWeight: 700, borderColor: '#D93025', color: '#D93025', '&:hover': { bgcolor: 'rgba(217,48,37,0.06)' } }}>
+          <Button
+            size="small"
+            variant="outlined"
+            startIcon={<FilterAltOffIcon />}
+            onClick={onClearFilters}
+            sx={{
+              borderRadius: 2,
+              fontWeight: 700,
+              borderColor: '#D93025',
+              color: '#D93025',
+              '&:hover': { bgcolor: 'rgba(217,48,37,0.06)' },
+            }}
+          >
             Clear all filters
           </Button>
         </>
@@ -161,7 +184,10 @@ export default function AppointmentsPage() {
   const { data: cashDrawerClinicsData } = useQuery(CLINICS_QUERY, { skip: !cashDrawerOpen })
   const [closeCashDrawer, { loading: closingDrawer }] = useMutation(CLOSE_CASH_DRAWER_MUTATION, {
     onCompleted: (d) => {
-      if (!d?.closeCashDrawer?.success) { setCashDrawerError(d?.closeCashDrawer?.message ?? 'Failed to close cash drawer'); return }
+      if (!d?.closeCashDrawer?.success) {
+        setCashDrawerError(d?.closeCashDrawer?.message ?? 'Failed to close cash drawer')
+        return
+      }
       setCashDrawerResult(d.closeCashDrawer.closeout)
       setCashDrawerError(null)
       enqueueSnackbar('Cash drawer closed', { variant: 'success' })
@@ -203,9 +229,18 @@ export default function AppointmentsPage() {
   const [rowSelectionModel, setRowSelectionModel] = useState([])
   // Normalize MUI DataGrid v5 (array) and v6 ({type,ids:Set}) selection model forms
   const handleRowSelectionChange = (model) => {
-    if (!model) { setRowSelectionModel([]); return }
-    if (Array.isArray(model)) { setRowSelectionModel(model.map(String)); return }
-    if (model.ids instanceof Set) { setRowSelectionModel([...model.ids].map(String)); return }
+    if (!model) {
+      setRowSelectionModel([])
+      return
+    }
+    if (Array.isArray(model)) {
+      setRowSelectionModel(model.map(String))
+      return
+    }
+    if (model.ids instanceof Set) {
+      setRowSelectionModel([...model.ids].map(String))
+      return
+    }
     setRowSelectionModel([])
   }
 
@@ -219,7 +254,7 @@ export default function AppointmentsPage() {
     const f = {}
     const today = dayjs().format('YYYY-MM-DD')
     let effectiveFrom = dateFrom ? dayjs(dateFrom).format('YYYY-MM-DD') : undefined
-    let effectiveTo   = dateTo   ? dayjs(dateTo).format('YYYY-MM-DD')   : undefined
+    let effectiveTo = dateTo ? dayjs(dateTo).format('YYYY-MM-DD') : undefined
     if (!dateFrom && !dateTo) {
       if (viewTab === 'upcoming') effectiveFrom = today
       else if (viewTab === 'past') effectiveTo = today
@@ -262,10 +297,14 @@ export default function AppointmentsPage() {
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const [cancelAppointment] = useMutation(CANCEL_APPOINTMENT_MUTATION, {
-    onCompleted: () => { refetch(); setCancelOpen(false); setCancelId(null) },
+    onCompleted: () => {
+      refetch()
+      setCancelOpen(false)
+      setCancelId(null)
+    },
   })
   const [updateAppointment] = useMutation(UPDATE_APPOINTMENT_MUTATION, {
-    onError: () => {} // silent — optimistic override already applied
+    onError: () => {}, // silent — optimistic override already applied
   })
   // REQ120 — shift a clinician's whole day at once.
   const [bulkReschedule, { loading: bulkRescheduling }] = useMutation(BULK_RESCHEDULE_MUTATION)
@@ -285,7 +324,10 @@ export default function AppointmentsPage() {
   // REQ120
   const handleBulkReschedule = async () => {
     const shift = parseInt(bulkRescheduleShift, 10)
-    if (!shift) { enqueueSnackbar('Enter a non-zero number of minutes', { variant: 'warning' }); return }
+    if (!shift) {
+      enqueueSnackbar('Enter a non-zero number of minutes', { variant: 'warning' })
+      return
+    }
     try {
       const { data: res } = await bulkReschedule({
         variables: { input: { clinician_id: clinicianId, date: dayjs(bulkRescheduleDate).format('YYYY-MM-DD'), shift_minutes: shift } },
@@ -319,12 +361,15 @@ export default function AppointmentsPage() {
   }
 
   const handleViewRow = (id) => navigate(`/appointments/${id}`)
-  const handleCancelRow = (id) => { setCancelId(id); setCancelOpen(true) }
+  const handleCancelRow = (id) => {
+    setCancelId(id)
+    setCancelOpen(true)
+  }
 
   // SUG-APPT-002: Optimistic cancel handler
   const handleOptimisticCancel = (id, reason) => {
     // 1. Immediately mark row as cancelled in local state
-    setOptimisticCancelled(prev => new Set([...prev, id]))
+    setOptimisticCancelled((prev) => new Set([...prev, id]))
     // 2. Fire mutation
     cancelAppointment({ variables: { id, reason } })
     // 3. Show undo-style snackbar
@@ -338,7 +383,7 @@ export default function AppointmentsPage() {
 
   // SUG-APPT-005: Inline status change handler
   const handleInlineStatusChange = (rowId, newStatus) => {
-    setStatusOverrides(prev => ({ ...prev, [rowId]: newStatus }))
+    setStatusOverrides((prev) => ({ ...prev, [rowId]: newStatus }))
     setStatusMenuAnchor(null)
     updateAppointment({ variables: { id: rowId, input: { status: newStatus } } })
     enqueueSnackbar(`Status updated to "${STATUS_CFG[newStatus]?.label ?? newStatus}"`, { variant: 'success', autoHideDuration: 3000 })
@@ -346,16 +391,16 @@ export default function AppointmentsPage() {
 
   // SUG-APPT-006: Bulk cancel — cancel all selected non-terminal rows
   const handleBulkCancel = () => {
-    const cancelable = rowSelectionModel.filter(id => {
-      const row = displayRows.find(r => r.id === id)
+    const cancelable = rowSelectionModel.filter((id) => {
+      const row = displayRows.find((r) => r.id === id)
       return row && !['cancelled', 'completed', 'no_show'].includes(row.status)
     })
     if (cancelable.length === 0) {
       enqueueSnackbar('No cancellable appointments in selection.', { variant: 'warning' })
       return
     }
-    cancelable.forEach(id => {
-      setOptimisticCancelled(prev => new Set([...prev, id]))
+    cancelable.forEach((id) => {
+      setOptimisticCancelled((prev) => new Set([...prev, id]))
       cancelAppointment({ variables: { id, reason: 'Bulk cancellation' } })
     })
     enqueueSnackbar(`${cancelable.length} appointment${cancelable.length > 1 ? 's' : ''} cancelled.`, { variant: 'warning' })
@@ -364,12 +409,12 @@ export default function AppointmentsPage() {
 
   // SUG-APPT-006: Export selected rows as CSV
   const handleExportSelected = () => {
-    const selected = displayRows.filter(r => rowSelectionModel.includes(r.id))
+    const selected = displayRows.filter((r) => rowSelectionModel.includes(r.id))
     if (selected.length === 0) return
     try {
       const exportRows = [
         ['ID', 'Patient', 'Email', 'Clinician', 'Service', 'Date & Time', 'Duration (min)', 'Status', 'Room', 'Clinic'],
-        ...selected.map(r => [
+        ...selected.map((r) => [
           r.id,
           r.patient?.full_name ?? '',
           r.patient?.email ?? '',
@@ -382,16 +427,16 @@ export default function AppointmentsPage() {
           r.clinic?.name ?? '',
         ]),
       ]
-      const csv = exportRows.map(row =>
-        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-      ).join('\n')
+      const csv = exportRows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n')
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-      const url  = URL.createObjectURL(blob)
-      const a    = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
       a.href = url
       a.download = `appointments_selected_${dayjs().format('YYYY-MM-DD')}.csv`
-      document.body.appendChild(a); a.click()
-      document.body.removeChild(a); URL.revokeObjectURL(url)
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
       enqueueSnackbar(`Exported ${selected.length} selected appointments as CSV`, { variant: 'success' })
       setRowSelectionModel([])
     } catch {
@@ -404,7 +449,7 @@ export default function AppointmentsPage() {
     try {
       const exportRows = [
         ['ID', 'Patient', 'Email', 'Clinician', 'Service', 'Date & Time', 'Duration (min)', 'Status', 'Room', 'Clinic'],
-        ...displayRows.map(r => [
+        ...displayRows.map((r) => [
           r.id,
           r.patient?.full_name ?? '',
           r.patient?.email ?? '',
@@ -417,29 +462,29 @@ export default function AppointmentsPage() {
           r.clinic?.name ?? '',
         ]),
       ]
-      const csv = exportRows.map(row =>
-        row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')
-      ).join('\n')
+      const csv = exportRows.map((row) => row.map((cell) => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n')
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
-      const url  = URL.createObjectURL(blob)
-      const a    = document.createElement('a')
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
       a.href = url
       a.download = `appointments_${viewTab}_${dayjs().format('YYYY-MM-DD')}.csv`
-      document.body.appendChild(a); a.click()
-      document.body.removeChild(a); URL.revokeObjectURL(url)
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
       enqueueSnackbar(`Exported ${displayRows.length} appointments as CSV (10 columns)`, { variant: 'success' })
     } catch {
       enqueueSnackbar('Export failed — please try again.', { variant: 'error' })
     }
   }
 
-  const apiRows  = data?.appointments?.data ?? []
+  const apiRows = data?.appointments?.data ?? []
 
   // NEW-APPT-001 + NEW-APPT-003: Use current datetime (not start/end of day)
   // so today's elapsed appointments appear in "Past" and not in no-man's land
   const now = dayjs()
   const tabDateFrom = viewTab === 'upcoming' ? now.format('YYYY-MM-DDTHH:mm') : undefined
-  const tabDateTo   = viewTab === 'past'     ? now.format('YYYY-MM-DDTHH:mm')  : undefined
+  const tabDateTo = viewTab === 'past' ? now.format('YYYY-MM-DDTHH:mm') : undefined
 
   // Fall back to 35 plan-compliant mock rows only when the real query
   // genuinely fails (network/GraphQL error) -- the previous `apiRows.length
@@ -455,21 +500,22 @@ export default function AppointmentsPage() {
       clinicianId: clinicianId || undefined,
       search: search || undefined,
       dateFrom: dateFrom ? dayjs(dateFrom).format('YYYY-MM-DD') : tabDateFrom,
-      dateTo:   dateTo   ? dayjs(dateTo).format('YYYY-MM-DD')   : tabDateTo,
+      dateTo: dateTo ? dayjs(dateTo).format('YYYY-MM-DD') : tabDateTo,
     })
   }, [error, status, clinicianId, search, dateFrom, dateTo, tabDateFrom, tabDateTo])
 
-  const rows  = error ? mockRows : apiRows
+  const rows = error ? mockRows : apiRows
   const total = error ? mockRows.length : (data?.appointments?.paginatorInfo?.total ?? 0)
 
   // SUG-APPT-002 + SUG-APPT-005: Apply optimistic cancellations and inline status overrides
-  const displayRows = useMemo(() =>
-    rows.map(r => {
-      if (optimisticCancelled.has(r.id)) return { ...r, status: 'cancelled' }
-      if (statusOverrides[r.id])         return { ...r, status: statusOverrides[r.id] }
-      return r
-    }),
-    [rows, optimisticCancelled, statusOverrides]
+  const displayRows = useMemo(
+    () =>
+      rows.map((r) => {
+        if (optimisticCancelled.has(r.id)) return { ...r, status: 'cancelled' }
+        if (statusOverrides[r.id]) return { ...r, status: statusOverrides[r.id] }
+        return r
+      }),
+    [rows, optimisticCancelled, statusOverrides],
   )
 
   // Detect if any filter is active (for contextual empty state)
@@ -477,9 +523,7 @@ export default function AppointmentsPage() {
   // Same error-only fallback reasoning as rows/mockRows above -- an org with
   // genuinely zero active clinicians is a valid real state, not a reason to
   // populate the filter dropdown with fake clinicians.
-  const clinicians = cliniciansError
-    ? MockStore.getClinicians({ isActive: true })
-    : (cliniciansData?.clinicians?.data ?? [])
+  const clinicians = cliniciansError ? MockStore.getClinicians({ isActive: true }) : (cliniciansData?.clinicians?.data ?? [])
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
@@ -506,19 +550,10 @@ export default function AppointmentsPage() {
       sortable: false,
       renderCell: ({ row }) => (
         <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 0.5, width: '100%', overflow: 'hidden' }}>
-          <Typography
-            variant="body2"
-            fontWeight={600}
-            noWrap
-            sx={{ color: '#202124', lineHeight: 1.4, maxWidth: '100%' }}
-          >
+          <Typography variant="body2" fontWeight={600} noWrap sx={{ color: '#202124', lineHeight: 1.4, maxWidth: '100%' }}>
             {row.patient?.full_name ?? '—'}
           </Typography>
-          <Typography
-            variant="caption"
-            noWrap
-            sx={{ color: '#9AA0A6', lineHeight: 1.3, maxWidth: '100%' }}
-          >
+          <Typography variant="caption" noWrap sx={{ color: '#9AA0A6', lineHeight: 1.3, maxWidth: '100%' }}>
             {row.patient?.email ?? ''}
           </Typography>
         </Box>
@@ -552,18 +587,14 @@ export default function AppointmentsPage() {
       flex: 1.1,
       minWidth: 160,
       sortable: false,
-      renderCell: ({ row }) =>
-        row.start_datetime
-          ? dayjs(row.start_datetime).format('DD MMM YYYY, h:mm A')
-          : '—',
+      renderCell: ({ row }) => (row.start_datetime ? dayjs(row.start_datetime).format('DD MMM YYYY, h:mm A') : '—'),
     },
     {
       field: 'duration_minutes',
       headerName: 'Duration',
       width: 100,
       sortable: false,
-      renderCell: ({ row }) =>
-        row.duration_minutes ? `${row.duration_minutes} min` : '—',
+      renderCell: ({ row }) => (row.duration_minutes ? `${row.duration_minutes} min` : '—'),
     },
     {
       field: 'status',
@@ -573,14 +604,13 @@ export default function AppointmentsPage() {
       // SUG-APPT-005: Inline status change — clicking chip opens a small context menu
       renderCell: ({ row }) => (
         <>
-          <Tooltip title="Click to change status"  placement="top">
+          <Tooltip title="Click to change status" placement="top">
             <Box
               component="span"
               onClick={(e) => {
-                if (!['cancelled','completed','no_show'].includes(row.status))
-                  setStatusMenuAnchor({ el: e.currentTarget, rowId: row.id })
+                if (!['cancelled', 'completed', 'no_show'].includes(row.status)) setStatusMenuAnchor({ el: e.currentTarget, rowId: row.id })
               }}
-              sx={{ cursor: ['cancelled','completed','no_show'].includes(row.status) ? 'default' : 'pointer' }}
+              sx={{ cursor: ['cancelled', 'completed', 'no_show'].includes(row.status) ? 'default' : 'pointer' }}
             >
               <StatusChip status={row.status} />
             </Box>
@@ -593,14 +623,9 @@ export default function AppointmentsPage() {
             PaperProps={{ sx: { borderRadius: 2, boxShadow: 3, minWidth: 160 } }}
           >
             {['confirmed', 'pending', 'cancelled', 'completed', 'no_show']
-              .filter(s => s !== row.status)
-              .map(s => (
-                <MenuItem
-                  key={s}
-                  dense
-                  onClick={() => handleInlineStatusChange(row.id, s)}
-                  sx={{ gap: 1.5 }}
-                >
+              .filter((s) => s !== row.status)
+              .map((s) => (
+                <MenuItem key={s} dense onClick={() => handleInlineStatusChange(row.id, s)} sx={{ gap: 1.5 }}>
                   <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: STATUS_CFG[s]?.dot, flexShrink: 0 }} />
                   {STATUS_CFG[s]?.label ?? s}
                 </MenuItem>
@@ -691,8 +716,10 @@ export default function AppointmentsPage() {
                   setCashDrawerOpen(true)
                 }}
                 sx={{
-                  borderRadius: 2, fontWeight: 700,
-                  borderColor: '#DADCE0', color: '#5F6368',
+                  borderRadius: 2,
+                  fontWeight: 700,
+                  borderColor: '#DADCE0',
+                  color: '#5F6368',
                   '&:hover': { bgcolor: '#F1F3F4', borderColor: '#9AA0A6' },
                 }}
               >
@@ -705,8 +732,10 @@ export default function AppointmentsPage() {
                 startIcon={<FileDownloadRoundedIcon />}
                 onClick={handleExport}
                 sx={{
-                  borderRadius: 2, fontWeight: 700,
-                  borderColor: '#DADCE0', color: '#5F6368',
+                  borderRadius: 2,
+                  fontWeight: 700,
+                  borderColor: '#DADCE0',
+                  color: '#5F6368',
                   '&:hover': { bgcolor: '#F1F3F4', borderColor: '#9AA0A6' },
                 }}
               >
@@ -718,7 +747,8 @@ export default function AppointmentsPage() {
               startIcon={<AddIcon />}
               onClick={() => navigate('/appointments/new')}
               sx={{
-                borderRadius: 2, px: 2.5,
+                borderRadius: 2,
+                px: 2.5,
                 background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
                 boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
                 '&:hover': {
@@ -745,8 +775,8 @@ export default function AppointmentsPage() {
             }}
           >
             <Tab value="upcoming" icon={<UpcomingRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Upcoming" />
-            <Tab value="past"     icon={<HistoryRoundedIcon  sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Past" />
-            <Tab value="all"      icon={<CalendarMonthIcon   sx={{ fontSize: '1rem' }} />} iconPosition="start" label="All" />
+            <Tab value="past" icon={<HistoryRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Past" />
+            <Tab value="all" icon={<CalendarMonthIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="All" />
           </Tabs>
         </Paper>
 
@@ -791,7 +821,10 @@ export default function AppointmentsPage() {
                 fullWidth
                 label="Status"
                 value={status}
-                onChange={(e) => { setStatus(e.target.value); setPaginationModel((p) => ({ ...p, page: 0 })) }}
+                onChange={(e) => {
+                  setStatus(e.target.value)
+                  setPaginationModel((p) => ({ ...p, page: 0 }))
+                }}
                 sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#006D77' } }}
               >
                 {STATUS_OPTIONS.map((s) => (
@@ -810,12 +843,17 @@ export default function AppointmentsPage() {
                 fullWidth
                 label="Clinician"
                 value={clinicianId}
-                onChange={(e) => { setClinicianId(e.target.value); setPaginationModel((p) => ({ ...p, page: 0 })) }}
+                onChange={(e) => {
+                  setClinicianId(e.target.value)
+                  setPaginationModel((p) => ({ ...p, page: 0 }))
+                }}
                 sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#006D77' } }}
               >
                 <MenuItem value="">All Clinicians</MenuItem>
                 {clinicians.map((c) => (
-                  <MenuItem key={c.id} value={c.id}>{c.full_name}</MenuItem>
+                  <MenuItem key={c.id} value={c.id}>
+                    {c.full_name}
+                  </MenuItem>
                 ))}
               </TextField>
             </Grid>
@@ -825,7 +863,10 @@ export default function AppointmentsPage() {
               <DatePicker
                 label="From"
                 value={dateFrom}
-                onChange={(v) => { setDateFrom(v); setPaginationModel((p) => ({ ...p, page: 0 })) }}
+                onChange={(v) => {
+                  setDateFrom(v)
+                  setPaginationModel((p) => ({ ...p, page: 0 }))
+                }}
                 slotProps={{ textField: { size: 'small', fullWidth: true } }}
               />
             </Grid>
@@ -835,14 +876,17 @@ export default function AppointmentsPage() {
               <DatePicker
                 label="To"
                 value={dateTo}
-                onChange={(v) => { setDateTo(v); setPaginationModel((p) => ({ ...p, page: 0 })) }}
+                onChange={(v) => {
+                  setDateTo(v)
+                  setPaginationModel((p) => ({ ...p, page: 0 }))
+                }}
                 slotProps={{ textField: { size: 'small', fullWidth: true } }}
               />
             </Grid>
 
             {/* Bulk Reschedule — needs a specific clinician selected */}
             <Grid item xs="auto">
-              <Tooltip title={clinicianId ? 'Bulk reschedule this clinician\'s day' : 'Select a clinician first'}>
+              <Tooltip title={clinicianId ? "Bulk reschedule this clinician's day" : 'Select a clinician first'}>
                 <span>
                   <IconButton disabled={!clinicianId} onClick={() => setBulkRescheduleOpen(true)}>
                     <EventRepeatIcon />
@@ -868,9 +912,8 @@ export default function AppointmentsPage() {
             <Stack spacing={2} sx={{ pt: 1 }}>
               <Typography variant="body2" color="text.secondary">
                 Shifts every scheduled/confirmed appointment for{' '}
-                <strong>{clinicians.find((c) => c.id === clinicianId)?.full_name ?? 'this clinician'}</strong> on the
-                chosen day by the same amount. Already-checked-in, completed, cancelled, and no-show visits are
-                never touched.
+                <strong>{clinicians.find((c) => c.id === clinicianId)?.full_name ?? 'this clinician'}</strong> on the chosen day by the same
+                amount. Already-checked-in, completed, cancelled, and no-show visits are never touched.
               </Typography>
               <LocalizationProvider dateAdapter={AdapterDayjs}>
                 <DatePicker
@@ -881,9 +924,13 @@ export default function AppointmentsPage() {
                 />
               </LocalizationProvider>
               <TextField
-                fullWidth size="small" type="number" label="Shift (minutes)"
+                fullWidth
+                size="small"
+                type="number"
+                label="Shift (minutes)"
                 helperText="Positive moves later, negative moves earlier — e.g. 120 for two hours behind"
-                value={bulkRescheduleShift} onChange={(e) => setBulkRescheduleShift(e.target.value)}
+                value={bulkRescheduleShift}
+                onChange={(e) => setBulkRescheduleShift(e.target.value)}
               />
             </Stack>
           </DialogContent>
@@ -896,29 +943,57 @@ export default function AppointmentsPage() {
         </Dialog>
 
         {/* SUG-APPT-006: Bulk selection action bar — CSS animated */}
-        <Box sx={{
-          overflow: 'hidden',
-          maxHeight: rowSelectionModel.length > 0 ? '80px' : '0px',
-          opacity: rowSelectionModel.length > 0 ? 1 : 0,
-          transition: 'max-height 0.25s ease, opacity 0.2s ease',
-          mb: rowSelectionModel.length > 0 ? 2 : 0,
-        }}>
-          <Paper elevation={2} sx={{
-            px: 3, py: 1.5, borderRadius: 3,
-            border: '1.5px solid #006D77', bgcolor: 'rgba(0,109,119,0.04)',
-            display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap',
-          }}>
+        <Box
+          sx={{
+            overflow: 'hidden',
+            maxHeight: rowSelectionModel.length > 0 ? '80px' : '0px',
+            opacity: rowSelectionModel.length > 0 ? 1 : 0,
+            transition: 'max-height 0.25s ease, opacity 0.2s ease',
+            mb: rowSelectionModel.length > 0 ? 2 : 0,
+          }}
+        >
+          <Paper
+            elevation={2}
+            sx={{
+              px: 3,
+              py: 1.5,
+              borderRadius: 3,
+              border: '1.5px solid #006D77',
+              bgcolor: 'rgba(0,109,119,0.04)',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 2,
+              flexWrap: 'wrap',
+            }}
+          >
             <Typography variant="body2" fontWeight={700} sx={{ color: '#006D77', flex: 1 }}>
               {rowSelectionModel.length} appointment{rowSelectionModel.length !== 1 ? 's' : ''} selected
             </Typography>
-            <Button size="small" variant="outlined" startIcon={<FileDownloadRoundedIcon />}
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<FileDownloadRoundedIcon />}
               onClick={handleExportSelected}
-              sx={{ borderRadius: 2, fontWeight: 700, borderColor: '#006D77', color: '#006D77', '&:hover': { bgcolor: 'rgba(0,109,119,0.08)' } }}
-            >Export Selected</Button>
-            <Button size="small" variant="outlined" color="error"
-              startIcon={<CancelScheduleSendRoundedIcon />} onClick={handleBulkCancel}
+              sx={{
+                borderRadius: 2,
+                fontWeight: 700,
+                borderColor: '#006D77',
+                color: '#006D77',
+                '&:hover': { bgcolor: 'rgba(0,109,119,0.08)' },
+              }}
+            >
+              Export Selected
+            </Button>
+            <Button
+              size="small"
+              variant="outlined"
+              color="error"
+              startIcon={<CancelScheduleSendRoundedIcon />}
+              onClick={handleBulkCancel}
               sx={{ borderRadius: 2, fontWeight: 700 }}
-            >Bulk Cancel</Button>
+            >
+              Bulk Cancel
+            </Button>
             <Tooltip title="Clear selection">
               <IconButton size="small" onClick={() => setRowSelectionModel([])} sx={{ color: '#5F6368' }}>
                 <DeselctRoundedIcon fontSize="small" />
@@ -1018,7 +1093,10 @@ export default function AppointmentsPage() {
         <CancelDialog
           open={cancelOpen}
           appointmentId={cancelId}
-          onClose={() => { setCancelOpen(false); setCancelId(null) }}
+          onClose={() => {
+            setCancelOpen(false)
+            setCancelId(null)
+          }}
           onConfirm={handleOptimisticCancel}
         />
 
@@ -1027,17 +1105,30 @@ export default function AppointmentsPage() {
           <DialogTitle>Close Cash Drawer</DialogTitle>
           <DialogContent>
             <Stack spacing={2} sx={{ mt: 1 }}>
-              {cashDrawerError && <Alert severity="error" onClose={() => setCashDrawerError(null)}>{cashDrawerError}</Alert>}
+              {cashDrawerError && (
+                <Alert severity="error" onClose={() => setCashDrawerError(null)}>
+                  {cashDrawerError}
+                </Alert>
+              )}
               {cashDrawerResult ? (
                 <Alert severity={Math.abs(cashDrawerResult.variance) < 0.005 ? 'success' : 'warning'}>
-                  Closed. Expected ₹{cashDrawerResult.total_expected.toFixed(2)}, counted ₹{cashDrawerResult.total_counted.toFixed(2)}
-                  {' '}— variance ₹{cashDrawerResult.variance.toFixed(2)}.
+                  Closed. Expected ₹{cashDrawerResult.total_expected.toFixed(2)}, counted ₹{cashDrawerResult.total_counted.toFixed(2)} —
+                  variance ₹{cashDrawerResult.variance.toFixed(2)}.
                 </Alert>
               ) : (
                 <>
-                  <TextField select label="Clinic" size="small" value={cashDrawerClinicId}
-                    onChange={(e) => setCashDrawerClinicId(e.target.value)}>
-                    {(cashDrawerClinicsData?.clinics ?? []).map((c) => <MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>)}
+                  <TextField
+                    select
+                    label="Clinic"
+                    size="small"
+                    value={cashDrawerClinicId}
+                    onChange={(e) => setCashDrawerClinicId(e.target.value)}
+                  >
+                    {(cashDrawerClinicsData?.clinics ?? []).map((c) => (
+                      <MenuItem key={c.id} value={c.id}>
+                        {c.name}
+                      </MenuItem>
+                    ))}
                   </TextField>
                   <DatePicker
                     label="Business date"
@@ -1047,26 +1138,61 @@ export default function AppointmentsPage() {
                   />
                   {cashDrawerCounted.map((t, i) => (
                     <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
-                      <TextField select label="Tender" size="small" value={t.tender_type}
-                        onChange={(e) => setCashDrawerCounted((prev) => prev.map((row, idx) => idx === i ? { ...row, tender_type: e.target.value } : row))}
-                        sx={{ width: 130 }}>
-                        {['cash', 'upi', 'card', 'cheque'].map((tt) => <MenuItem key={tt} value={tt}>{tt.toUpperCase()}</MenuItem>)}
+                      <TextField
+                        select
+                        label="Tender"
+                        size="small"
+                        value={t.tender_type}
+                        onChange={(e) =>
+                          setCashDrawerCounted((prev) =>
+                            prev.map((row, idx) => (idx === i ? { ...row, tender_type: e.target.value } : row)),
+                          )
+                        }
+                        sx={{ width: 130 }}
+                      >
+                        {['cash', 'upi', 'card', 'cheque'].map((tt) => (
+                          <MenuItem key={tt} value={tt}>
+                            {tt.toUpperCase()}
+                          </MenuItem>
+                        ))}
                       </TextField>
-                      <TextField label="Counted amount" type="number" size="small" value={t.amount}
-                        onChange={(e) => setCashDrawerCounted((prev) => prev.map((row, idx) => idx === i ? { ...row, amount: e.target.value } : row))}
-                        inputProps={{ min: 0, step: 0.01 }} sx={{ flex: 1 }} />
-                      <IconButton size="small" disabled={cashDrawerCounted.length === 1}
-                        onClick={() => setCashDrawerCounted((prev) => prev.filter((_, idx) => idx !== i))}>
+                      <TextField
+                        label="Counted amount"
+                        type="number"
+                        size="small"
+                        value={t.amount}
+                        onChange={(e) =>
+                          setCashDrawerCounted((prev) => prev.map((row, idx) => (idx === i ? { ...row, amount: e.target.value } : row)))
+                        }
+                        inputProps={{ min: 0, step: 0.01 }}
+                        sx={{ flex: 1 }}
+                      />
+                      <IconButton
+                        size="small"
+                        disabled={cashDrawerCounted.length === 1}
+                        onClick={() => setCashDrawerCounted((prev) => prev.filter((_, idx) => idx !== i))}
+                      >
                         <DeleteOutlineRoundedIcon fontSize="small" />
                       </IconButton>
                     </Stack>
                   ))}
-                  <Button size="small" startIcon={<AddRoundedIcon />} sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
-                    onClick={() => setCashDrawerCounted((prev) => [...prev, { tender_type: 'cash', amount: '' }])}>
+                  <Button
+                    size="small"
+                    startIcon={<AddRoundedIcon />}
+                    sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+                    onClick={() => setCashDrawerCounted((prev) => [...prev, { tender_type: 'cash', amount: '' }])}
+                  >
                     Add another tender
                   </Button>
-                  <TextField label="Notes" size="small" multiline rows={2} value={cashDrawerNotes}
-                    onChange={(e) => setCashDrawerNotes(e.target.value)} placeholder="Optional" />
+                  <TextField
+                    label="Notes"
+                    size="small"
+                    multiline
+                    rows={2}
+                    value={cashDrawerNotes}
+                    onChange={(e) => setCashDrawerNotes(e.target.value)}
+                    placeholder="Optional"
+                  />
                 </>
               )}
             </Stack>
@@ -1079,12 +1205,16 @@ export default function AppointmentsPage() {
                 disabled={closingDrawer || !cashDrawerClinicId || cashDrawerCounted.some((t) => t.amount === '')}
                 onClick={() => {
                   setCashDrawerError(null)
-                  closeCashDrawer({ variables: { input: {
-                    clinic_id: cashDrawerClinicId,
-                    business_date: cashDrawerDate.format('YYYY-MM-DD'),
-                    counted: cashDrawerCounted.map((t) => ({ tender_type: t.tender_type, amount: parseFloat(t.amount) || 0 })),
-                    notes: cashDrawerNotes || undefined,
-                  } } })
+                  closeCashDrawer({
+                    variables: {
+                      input: {
+                        clinic_id: cashDrawerClinicId,
+                        business_date: cashDrawerDate.format('YYYY-MM-DD'),
+                        counted: cashDrawerCounted.map((t) => ({ tender_type: t.tender_type, amount: parseFloat(t.amount) || 0 })),
+                        notes: cashDrawerNotes || undefined,
+                      },
+                    },
+                  })
                 }}
               >
                 {closingDrawer ? 'Closing…' : 'Close Drawer'}

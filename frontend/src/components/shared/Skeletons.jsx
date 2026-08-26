@@ -3,11 +3,22 @@
  * Reusable skeleton loaders that match HealthSync's card/table patterns.
  * All use MUI Skeleton with the default pulse animation.
  */
-import React from 'react';
+import React from 'react'
 import {
-  Skeleton, Card, CardContent, Stack, Box, Grid,
-  TableContainer, Table, TableHead, TableRow, TableCell, TableBody, Paper,
-} from '@mui/material';
+  Skeleton,
+  Card,
+  CardContent,
+  Stack,
+  Box,
+  Grid,
+  TableContainer,
+  Table,
+  TableHead,
+  TableRow,
+  TableCell,
+  TableBody,
+  Paper,
+} from '@mui/material'
 
 // ─── DataCard skeleton ────────────────────────────────────────────────────────
 export function DataCardSkeleton() {
@@ -24,7 +35,7 @@ export function DataCardSkeleton() {
         <Skeleton variant="rounded" width={60} height={20} sx={{ mt: 1 }} />
       </CardContent>
     </Card>
-  );
+  )
 }
 
 // ─── Table skeleton ───────────────────────────────────────────────────────────
@@ -46,18 +57,17 @@ export function TableSkeleton({ rows = 5, cols = 5 }) {
             <TableRow key={rowIdx}>
               {Array.from({ length: cols }).map((_, colIdx) => (
                 <TableCell key={colIdx}>
-                  {colIdx === 0
-                    ? (
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Skeleton variant="circular" width={32} height={32} />
-                        <Box>
-                          <Skeleton variant="text" width={80} />
-                          <Skeleton variant="text" width={120} sx={{ fontSize: '0.7rem' }} />
-                        </Box>
-                      </Stack>
-                    )
-                    : <Skeleton variant="text" width={colIdx === cols - 1 ? 50 : '80%'} />
-                  }
+                  {colIdx === 0 ? (
+                    <Stack direction="row" spacing={1} alignItems="center">
+                      <Skeleton variant="circular" width={32} height={32} />
+                      <Box>
+                        <Skeleton variant="text" width={80} />
+                        <Skeleton variant="text" width={120} sx={{ fontSize: '0.7rem' }} />
+                      </Box>
+                    </Stack>
+                  ) : (
+                    <Skeleton variant="text" width={colIdx === cols - 1 ? 50 : '80%'} />
+                  )}
                 </TableCell>
               ))}
             </TableRow>
@@ -65,7 +75,7 @@ export function TableSkeleton({ rows = 5, cols = 5 }) {
         </TableBody>
       </Table>
     </TableContainer>
-  );
+  )
 }
 
 // ─── Appointment card skeleton ────────────────────────────────────────────────
@@ -80,7 +90,7 @@ export function AppointmentCardSkeleton() {
             <Skeleton variant="rounded" width={80} height={22} sx={{ mt: 0.5 }} />
             <Stack direction="row" spacing={1} sx={{ mt: 0.75 }}>
               <Skeleton variant="rounded" width={100} height={20} />
-              <Skeleton variant="rounded" width={60}  height={20} />
+              <Skeleton variant="rounded" width={60} height={20} />
             </Stack>
           </Box>
         </Stack>
@@ -93,7 +103,7 @@ export function AppointmentCardSkeleton() {
         </Stack>
       </Stack>
     </Paper>
-  );
+  )
 }
 
 // ─── Doctor card skeleton ─────────────────────────────────────────────────────
@@ -116,8 +126,12 @@ export function DoctorCardSkeleton() {
         </Stack>
         <Box sx={{ mt: 1.5, pt: 1.5, borderTop: '1px solid #F0F7F8' }}>
           <Stack direction="row" justifyContent="space-between">
-            <Box><Skeleton variant="text" width={60} sx={{ fontSize: '1.5rem' }} /></Box>
-            <Box><Skeleton variant="text" width={80} /></Box>
+            <Box>
+              <Skeleton variant="text" width={60} sx={{ fontSize: '1.5rem' }} />
+            </Box>
+            <Box>
+              <Skeleton variant="text" width={80} />
+            </Box>
           </Stack>
         </Box>
       </CardContent>
@@ -125,7 +139,7 @@ export function DoctorCardSkeleton() {
         <Skeleton variant="rounded" width="100%" height={36} />
       </Box>
     </Card>
-  );
+  )
 }
 
 // ─── Grid of doctor card skeletons ────────────────────────────────────────────
@@ -138,7 +152,7 @@ export function DoctorGridSkeleton({ count = 6 }) {
         </Grid>
       ))}
     </Grid>
-  );
+  )
 }
 
 // ─── Dashboard KPI row skeleton ───────────────────────────────────────────────
@@ -151,7 +165,7 @@ export function KpiRowSkeleton({ count = 4 }) {
         </Grid>
       ))}
     </Grid>
-  );
+  )
 }
 
 // ─── Page header skeleton ─────────────────────────────────────────────────────
@@ -164,7 +178,7 @@ export function PageHeaderSkeleton() {
       </Box>
       <Skeleton variant="rounded" width={140} height={36} />
     </Stack>
-  );
+  )
 }
 
 // ─── Appointments List skeleton (3 cards) ─────────────────────────────────────
@@ -175,5 +189,5 @@ export function AppointmentsListSkeleton({ count = 3 }) {
         <AppointmentCardSkeleton key={i} />
       ))}
     </Stack>
-  );
+  )
 }

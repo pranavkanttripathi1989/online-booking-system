@@ -1,6 +1,17 @@
 import {
-  Table, TableContainer, TableHead, TableBody, TableRow, TableCell,
-  Chip, IconButton, Typography, Box, Tooltip, Avatar, Button,
+  Table,
+  TableContainer,
+  TableHead,
+  TableBody,
+  TableRow,
+  TableCell,
+  Chip,
+  IconButton,
+  Typography,
+  Box,
+  Tooltip,
+  Avatar,
+  Button,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { useMediaQuery } from '@mui/material'
@@ -9,20 +20,23 @@ import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
-const AVATAR_PALETTE = ['#1A73E8', '#0F9D58', '#9334E6', '#FA7B17',
-                        '#D93025', '#009688', '#F9AB00', '#EA4335']
-const avatarColor = (name) =>
-  AVATAR_PALETTE[(name?.charCodeAt(0) ?? 0) % AVATAR_PALETTE.length]
+const AVATAR_PALETTE = ['#1A73E8', '#0F9D58', '#9334E6', '#FA7B17', '#D93025', '#009688', '#F9AB00', '#EA4335']
+const avatarColor = (name) => AVATAR_PALETTE[(name?.charCodeAt(0) ?? 0) % AVATAR_PALETTE.length]
 const initials = (name) =>
-  (name ?? '').split(' ').slice(0, 2).map(n => n[0]).join('').toUpperCase()
+  (name ?? '')
+    .split(' ')
+    .slice(0, 2)
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
 
 // ─── Google status chip config ─────────────────────────────────────────────────
 const STATUS_CONFIG = {
-  confirmed:   { label: 'Confirmed',   bg: '#E6F4EA', text: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
-  pending:     { label: 'Pending',     bg: '#FEF7E0', text: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
-  cancelled:   { label: 'Cancelled',   bg: '#FCE8E6', text: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
-  no_show:     { label: 'No Show',     bg: '#F8F9FA', text: '#3C4043', border: '#E8EAED', dot: '#80868B' },
-  completed:   { label: 'Completed',   bg: '#E8F0FE', text: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
+  confirmed: { label: 'Confirmed', bg: '#E6F4EA', text: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
+  pending: { label: 'Pending', bg: '#FEF7E0', text: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
+  cancelled: { label: 'Cancelled', bg: '#FCE8E6', text: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
+  no_show: { label: 'No Show', bg: '#F8F9FA', text: '#3C4043', border: '#E8EAED', dot: '#80868B' },
+  completed: { label: 'Completed', bg: '#E8F0FE', text: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
   rescheduled: { label: 'Rescheduled', bg: '#F3E8FD', text: '#6E2DB8', border: '#D7AEFA', dot: '#9334E6' },
 }
 
@@ -33,11 +47,14 @@ function StatusBadge({ status }) {
       label={cfg.label}
       size="small"
       sx={{
-        bgcolor: cfg.bg, color: cfg.text,
+        bgcolor: cfg.bg,
+        color: cfg.text,
         border: `1px solid ${cfg.border}`,
         borderLeft: `3px solid ${cfg.dot}`,
-        fontWeight: 700, borderRadius: '8px',
-        fontSize: '0.68rem', height: 24,
+        fontWeight: 700,
+        borderRadius: '8px',
+        fontSize: '0.68rem',
+        height: 24,
       }}
     />
   )
@@ -65,8 +82,12 @@ export default function RecentAppointmentsTable({ appointments }) {
         <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#202124' }}>
           Upcoming Appointments
         </Typography>
-        <Button variant="text" size="small" onClick={() => navigate('/appointments')}
-          sx={{ color: '#1A73E8', fontWeight: 700, fontSize: '0.8rem', '&:hover': { bgcolor: '#E8F0FE' } }}>
+        <Button
+          variant="text"
+          size="small"
+          onClick={() => navigate('/appointments')}
+          sx={{ color: '#1A73E8', fontWeight: 700, fontSize: '0.8rem', '&:hover': { bgcolor: '#E8F0FE' } }}
+        >
           View all →
         </Button>
       </Box>
@@ -76,76 +97,139 @@ export default function RecentAppointmentsTable({ appointments }) {
           <Typography variant="body2">No upcoming appointments.</Typography>
         </Box>
       ) : (
-      <TableContainer>
-      <Table size="small">
-        <TableHead>
-          <TableRow>
-            <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#9AA0A6', py: 1.25, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Patient</TableCell>
-            <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#9AA0A6', py: 1.25, textTransform: 'uppercase', letterSpacing: '0.08em', display: { xs: 'none', md: 'table-cell' } }}>Clinician</TableCell>
-            <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#9AA0A6', py: 1.25, textTransform: 'uppercase', letterSpacing: '0.08em', display: { xs: 'none', sm: 'table-cell' } }}>Service</TableCell>
-            <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#9AA0A6', py: 1.25, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Date / Time</TableCell>
-            <TableCell sx={{ fontWeight: 700, fontSize: '0.7rem', color: '#9AA0A6', py: 1.25, textTransform: 'uppercase', letterSpacing: '0.08em' }}>Status</TableCell>
-            <TableCell />
-          </TableRow>
-        </TableHead>
-        <TableBody>
-          {rows.map((appt) => (
-            <TableRow
-              key={appt.id}
-              hover
-              onClick={() => navigate(`/appointments/${appt.id}`)}
-              sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, transition: 'background 0.15s' }}
-            >
-              {/* Patient + Avatar */}
-              <TableCell sx={{ fontWeight: 500 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
-                  <Avatar sx={{
-                    width: 28, height: 28, fontSize: '0.68rem', fontWeight: 700,
-                    bgcolor: alpha(avatarColor(appt.patient?.full_name), 0.15),
-                    color: avatarColor(appt.patient?.full_name),
-                    display: { xs: 'none', sm: 'flex' },
-                  }}>
-                    {initials(appt.patient?.full_name)}
-                  </Avatar>
-                  <Typography variant="body2" fontWeight={600} sx={{ color: '#202124' }}>
-                    {appt.patient?.full_name ?? '—'}
-                  </Typography>
-                </Box>
-              </TableCell>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.7rem',
+                    color: '#9AA0A6',
+                    py: 1.25,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  Patient
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.7rem',
+                    color: '#9AA0A6',
+                    py: 1.25,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    display: { xs: 'none', md: 'table-cell' },
+                  }}
+                >
+                  Clinician
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.7rem',
+                    color: '#9AA0A6',
+                    py: 1.25,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                    display: { xs: 'none', sm: 'table-cell' },
+                  }}
+                >
+                  Service
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.7rem',
+                    color: '#9AA0A6',
+                    py: 1.25,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  Date / Time
+                </TableCell>
+                <TableCell
+                  sx={{
+                    fontWeight: 700,
+                    fontSize: '0.7rem',
+                    color: '#9AA0A6',
+                    py: 1.25,
+                    textTransform: 'uppercase',
+                    letterSpacing: '0.08em',
+                  }}
+                >
+                  Status
+                </TableCell>
+                <TableCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {rows.map((appt) => (
+                <TableRow
+                  key={appt.id}
+                  hover
+                  onClick={() => navigate(`/appointments/${appt.id}`)}
+                  sx={{ cursor: 'pointer', '&:last-child td': { border: 0 }, transition: 'background 0.15s' }}
+                >
+                  {/* Patient + Avatar */}
+                  <TableCell sx={{ fontWeight: 500 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                      <Avatar
+                        sx={{
+                          width: 28,
+                          height: 28,
+                          fontSize: '0.68rem',
+                          fontWeight: 700,
+                          bgcolor: alpha(avatarColor(appt.patient?.full_name), 0.15),
+                          color: avatarColor(appt.patient?.full_name),
+                          display: { xs: 'none', sm: 'flex' },
+                        }}
+                      >
+                        {initials(appt.patient?.full_name)}
+                      </Avatar>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: '#202124' }}>
+                        {appt.patient?.full_name ?? '—'}
+                      </Typography>
+                    </Box>
+                  </TableCell>
 
-              {/* Clinician — hidden on mobile */}
-              <TableCell sx={{ color: '#5F6368', display: { xs: 'none', md: 'table-cell' } }}>
-                {appt.clinician?.full_name ?? '—'}
-              </TableCell>
+                  {/* Clinician — hidden on mobile */}
+                  <TableCell sx={{ color: '#5F6368', display: { xs: 'none', md: 'table-cell' } }}>
+                    {appt.clinician?.full_name ?? '—'}
+                  </TableCell>
 
-              {/* Service — hidden on xs */}
-              <TableCell sx={{ color: '#5F6368', display: { xs: 'none', sm: 'table-cell' } }}>
-                {appt.service?.name ?? '—'}
-              </TableCell>
+                  {/* Service — hidden on xs */}
+                  <TableCell sx={{ color: '#5F6368', display: { xs: 'none', sm: 'table-cell' } }}>{appt.service?.name ?? '—'}</TableCell>
 
-              {/* Date — short on mobile */}
-              <TableCell sx={{ color: '#5F6368', whiteSpace: 'nowrap' }}>
-                {dayjs(appt.start_datetime).format(isMobile ? 'D MMM' : 'D MMM, h:mm A')}
-              </TableCell>
+                  {/* Date — short on mobile */}
+                  <TableCell sx={{ color: '#5F6368', whiteSpace: 'nowrap' }}>
+                    {dayjs(appt.start_datetime).format(isMobile ? 'D MMM' : 'D MMM, h:mm A')}
+                  </TableCell>
 
-              <TableCell>
-                <StatusBadge status={appt.status} />
-              </TableCell>
+                  <TableCell>
+                    <StatusBadge status={appt.status} />
+                  </TableCell>
 
-              {/* Action icon */}
-              <TableCell align="right" onClick={(e) => e.stopPropagation()}>
-                <Tooltip title="View appointment">
-                  <IconButton size="small" onClick={() => navigate(`/appointments/${appt.id}`)}
-                    sx={{ color: '#1A73E8', '&:hover': { bgcolor: '#E8F0FE' } }}>
-                    <OpenInNewIcon fontSize="small" />
-                  </IconButton>
-                </Tooltip>
-              </TableCell>
-            </TableRow>
-          ))}
-        </TableBody>
-      </Table>
-      </TableContainer>
+                  {/* Action icon */}
+                  <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                    <Tooltip title="View appointment">
+                      <IconButton
+                        size="small"
+                        onClick={() => navigate(`/appointments/${appt.id}`)}
+                        sx={{ color: '#1A73E8', '&:hover': { bgcolor: '#E8F0FE' } }}
+                      >
+                        <OpenInNewIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
     </Box>
   )

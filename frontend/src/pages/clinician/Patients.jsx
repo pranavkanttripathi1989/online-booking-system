@@ -1,18 +1,38 @@
-import React, { useState, useMemo, useRef, useCallback } from 'react';
-import dayjs from 'dayjs';
+import React, { useState, useMemo, useRef, useCallback } from 'react'
+import dayjs from 'dayjs'
 import {
-  Box, Typography, Card, CardContent, Stack, Button, Chip, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper, IconButton, TableSortLabel, Tooltip, TablePagination, InputAdornment, TextField, Alert,
-} from '@mui/material';
-import DownloadIcon from '@mui/icons-material/Download';
-import { PatientAvatar } from '../../components/shared';
-import SearchIcon         from '@mui/icons-material/Search';
-import ClearIcon          from '@mui/icons-material/Clear';
-import VisibilityIcon     from '@mui/icons-material/Visibility';
-import CalendarMonthIcon  from '@mui/icons-material/CalendarMonth';
-import PersonSearchIcon   from '@mui/icons-material/PersonSearch';
-import { useNavigate }    from 'react-router-dom';
-import { useQuery, gql } from '@apollo/client';
-import { PATIENT_FIELDS } from '../../graphql/queries';
+  Box,
+  Typography,
+  Card,
+  CardContent,
+  Stack,
+  Button,
+  Chip,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
+  IconButton,
+  TableSortLabel,
+  Tooltip,
+  TablePagination,
+  InputAdornment,
+  TextField,
+  Alert,
+} from '@mui/material'
+import DownloadIcon from '@mui/icons-material/Download'
+import { PatientAvatar } from '../../components/shared'
+import SearchIcon from '@mui/icons-material/Search'
+import ClearIcon from '@mui/icons-material/Clear'
+import VisibilityIcon from '@mui/icons-material/Visibility'
+import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
+import PersonSearchIcon from '@mui/icons-material/PersonSearch'
+import { useNavigate } from 'react-router-dom'
+import { useQuery, gql } from '@apollo/client'
+import { PATIENT_FIELDS } from '../../graphql/queries'
 
 // F-18 / BUG009. This page exported `MOCK_PATIENTS` — five hardcoded people —
 // while backend/src/patients has been real and self-scoping for months. The
@@ -34,27 +54,38 @@ const CLINICIAN_PATIENTS_QUERY = gql`
       data {
         ...PatientFields
         appointments(first: 100, page: 1) {
-          data { id start_datetime status }
-          paginatorInfo { total }
+          data {
+            id
+            start_datetime
+            status
+          }
+          paginatorInfo {
+            total
+          }
         }
       }
-      paginatorInfo { total currentPage lastPage perPage }
+      paginatorInfo {
+        total
+        currentPage
+        lastPage
+        perPage
+      }
     }
   }
   ${PATIENT_FIELDS}
-`;
+`
 
 // Flattens a real Patient into the display shape the table already expects.
 // `condition` and `status` are deliberately absent — see the note on COLS.
 function toRow(p) {
-  const appts = p.appointments?.data ?? [];
-  const now = Date.now();
+  const appts = p.appointments?.data ?? []
+  const now = Date.now()
   const past = appts
     .filter((a) => new Date(a.start_datetime).getTime() <= now && a.status !== 'cancelled')
-    .sort((a, b) => new Date(b.start_datetime) - new Date(a.start_datetime));
+    .sort((a, b) => new Date(b.start_datetime) - new Date(a.start_datetime))
   const future = appts
     .filter((a) => new Date(a.start_datetime).getTime() > now && a.status !== 'cancelled')
-    .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime));
+    .sort((a, b) => new Date(a.start_datetime) - new Date(b.start_datetime))
   return {
     id: p.id,
     name: p.full_name,
@@ -64,11 +95,11 @@ function toRow(p) {
     nextAppt: future[0] ? dayjs(future[0].start_datetime).format('YYYY-MM-DD') : null,
     // Real count from the server, not the length of the fetched page.
     totalVisits: p.appointments?.paginatorInfo?.total ?? appts.length,
-  };
+  }
 }
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const STITCH_BRAND = '#006D77';
+const STITCH_BRAND = '#006D77'
 
 // `condition` and `status` (active/new/inactive) are GONE rather than faked.
 // Neither exists anywhere in the schema. `status` could be *derived* — "new" if
@@ -77,61 +108,61 @@ const STITCH_BRAND = '#006D77';
 // Rule 7 forbids. Logged as an open question instead; the columns come back the
 // moment there is a real definition to render.
 const COLS = [
-  { key: 'name',        label: 'Patient',          sortable: true  },
-  { key: 'dob',         label: 'Date of Birth',    sortable: true  },
-  { key: 'lastVisit',   label: 'Last Visit',       sortable: true  },
-  { key: 'nextAppt',    label: 'Next Appointment', sortable: true  },
-  { key: 'totalVisits', label: 'Total Visits',     sortable: true  },
-  { key: 'actions',     label: 'Actions',          sortable: false },
-];
+  { key: 'name', label: 'Patient', sortable: true },
+  { key: 'dob', label: 'Date of Birth', sortable: true },
+  { key: 'lastVisit', label: 'Last Visit', sortable: true },
+  { key: 'nextAppt', label: 'Next Appointment', sortable: true },
+  { key: 'totalVisits', label: 'Total Visits', sortable: true },
+  { key: 'actions', label: 'Actions', sortable: false },
+]
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 // SUG-CLPAT-008: safe single-word name split
 const splitName = (fullName = '') => {
-  const [first = '', ...rest] = fullName.split(' ');
-  return { firstName: first, lastName: rest.join(' ') };
-};
+  const [first = '', ...rest] = fullName.split(' ')
+  return { firstName: first, lastName: rest.join(' ') }
+}
 
 // Diacritic-normalising search moved SERVER-side with the query; the local
 // helper it used is gone. Postgres `contains` with mode:'insensitive' handles
 // case, and matching across the whole dataset beats matching one page.
 // Sort comparator (null/undefined → '' so nulls sort to start of asc)
 const compareBy = (key, dir) => (a, b) => {
-  const av = a[key] ?? '';
-  const bv = b[key] ?? '';
-  if (av < bv) return dir === 'asc' ? -1 : 1;
-  if (av > bv) return dir === 'asc' ?  1 : -1;
-  return 0;
-};
+  const av = a[key] ?? ''
+  const bv = b[key] ?? ''
+  if (av < bv) return dir === 'asc' ? -1 : 1
+  if (av > bv) return dir === 'asc' ? 1 : -1
+  return 0
+}
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ClinicianPatients() {
-  const navigate = useNavigate();
+  const navigate = useNavigate()
 
   // ── State ──────────────────────────────────────────────────────────────────
-  const [search,   setSearch]   = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
-  const [sortKey,  setSortKey]  = useState('name');
-  const [sortDir,  setSortDir]  = useState('asc');
+  const [search, setSearch] = useState('')
+  const [debouncedSearch, setDebouncedSearch] = useState('')
+  const [sortKey, setSortKey] = useState('name')
+  const [sortDir, setSortDir] = useState('asc')
   // SUG-CLPAT-012: pagination
-  const [page,     setPage]     = useState(0);
-  const [rowsPerPage, setRowsPerPage] = useState(5);
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(5)
 
   // NEW-CLPAT-022: debounced search — avoids re-filtering on every keystroke
-  const debounceTimer = useRef(null);
+  const debounceTimer = useRef(null)
   const handleSearch = useCallback((val) => {
-    setSearch(val); // update input field immediately
-    setPage(0);
-    if (debounceTimer.current) clearTimeout(debounceTimer.current);
-    debounceTimer.current = setTimeout(() => setDebouncedSearch(val), 150);
-  }, []);
+    setSearch(val) // update input field immediately
+    setPage(0)
+    if (debounceTimer.current) clearTimeout(debounceTimer.current)
+    debounceTimer.current = setTimeout(() => setDebouncedSearch(val), 150)
+  }, [])
 
   // ── Sort handler ───────────────────────────────────────────────────────────
   const handleSort = (key) => {
-    setSortDir(prev => (sortKey === key && prev === 'asc') ? 'desc' : 'asc');
-    setSortKey(key);
-    setPage(0); // reset to first page on sort change
-  };
+    setSortDir((prev) => (sortKey === key && prev === 'asc' ? 'desc' : 'asc'))
+    setSortKey(key)
+    setPage(0) // reset to first page on sort change
+  }
 
   // Search and pagination are SERVER-side. patients.service.ts narrows a
   // clinician caller to patients they have actually treated (an
@@ -145,42 +176,43 @@ export default function ClinicianPatients() {
       page: page + 1,
     },
     fetchPolicy: 'cache-and-network',
-  });
+  })
 
-  const totalPatients = data?.patients?.paginatorInfo?.total ?? 0;
-  const rows = useMemo(() => (data?.patients?.data ?? []).map(toRow), [data]);
+  const totalPatients = data?.patients?.paginatorInfo?.total ?? 0
+  const rows = useMemo(() => (data?.patients?.data ?? []).map(toRow), [data])
 
   // Sorting stays client-side and therefore sorts THIS PAGE only. The backend
   // exposes no sort argument, and pretending otherwise would silently mis-order
   // across pages. Made visible in the column header tooltip rather than hidden.
-  const filtered = useMemo(() => [...rows].sort(compareBy(sortKey, sortDir)), [rows, sortKey, sortDir]);
-  const paginated = filtered;
+  const filtered = useMemo(() => [...rows].sort(compareBy(sortKey, sortDir)), [rows, sortKey, sortDir])
+  const paginated = filtered
 
-  const handleSearchChange = (val) => { handleSearch(val); };
+  const handleSearchChange = (val) => {
+    handleSearch(val)
+  }
 
   // NEW-CLPAT-023: Export CSV of filtered patient list
   const exportCSV = () => {
-    const header = ['Name', 'DOB', 'Email', 'Last Visit', 'Next Appt', 'Total Visits'];
-    const rows = filtered.map(p => [
-      p.name, p.dob, p.email ?? '', p.lastVisit ?? '', p.nextAppt ?? '', p.totalVisits,
-    ]);
-    const csv = [header, ...rows].map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url; a.download = `my-patients-${new Date().toISOString().slice(0,10)}.csv`;
-    a.click();
-    URL.revokeObjectURL(url);
-  };
+    const header = ['Name', 'DOB', 'Email', 'Last Visit', 'Next Appt', 'Total Visits']
+    const rows = filtered.map((p) => [p.name, p.dob, p.email ?? '', p.lastVisit ?? '', p.nextAppt ?? '', p.totalVisits])
+    const csv = [header, ...rows].map((r) => r.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n')
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `my-patients-${new Date().toISOString().slice(0, 10)}.csv`
+    a.click()
+    URL.revokeObjectURL(url)
+  }
 
   // ── KPI calculations ───────────────────────────────────────────────────────
   // "Active" and "New This Month" are gone with the status field they counted.
   // "Upcoming Appts" is scoped to this page, and says so, rather than implying a
   // figure across all patients that this query cannot see.
   const kpis = [
-    { label: 'Total Patients',          value: totalPatients,                            color: STITCH_BRAND },
-    { label: 'With Upcoming (page)',    value: rows.filter(p => p.nextAppt).length,      color: '#E29578'    },
-  ];
+    { label: 'Total Patients', value: totalPatients, color: STITCH_BRAND },
+    { label: 'With Upcoming (page)', value: rows.filter((p) => p.nextAppt).length, color: '#E29578' },
+  ]
 
   // ── Render ─────────────────────────────────────────────────────────────────
   return (
@@ -188,7 +220,9 @@ export default function ClinicianPatients() {
       {/* HEADER */}
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Box>
-          <Typography variant="h2" fontWeight={700}>My Patients</Typography>
+          <Typography variant="h2" fontWeight={700}>
+            My Patients
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             {loading && !rows.length ? 'Loading…' : `${totalPatients} patient${totalPatients === 1 ? '' : 's'} you have treated`}
           </Typography>
@@ -200,8 +234,7 @@ export default function ClinicianPatients() {
             variant="outlined"
             startIcon={<DownloadIcon />}
             onClick={exportCSV}
-            sx={{ color: STITCH_BRAND, borderColor: STITCH_BRAND, borderRadius: 2, fontWeight: 600,
-              '&:hover': { bgcolor: '#E8F8F9' } }}
+            sx={{ color: STITCH_BRAND, borderColor: STITCH_BRAND, borderRadius: 2, fontWeight: 600, '&:hover': { bgcolor: '#E8F8F9' } }}
           >
             Export CSV
           </Button>
@@ -209,13 +242,26 @@ export default function ClinicianPatients() {
       </Stack>
 
       {/* KPI CARDS — SUG-CLPAT-017: horizontal scroll on mobile */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, overflowX: { xs: 'auto', sm: 'visible' }, pb: { xs: 1, sm: 0 }, flexWrap: { xs: 'nowrap', sm: 'wrap' } }}>
+      <Box
+        sx={{
+          display: 'flex',
+          gap: 2,
+          mb: 3,
+          overflowX: { xs: 'auto', sm: 'visible' },
+          pb: { xs: 1, sm: 0 },
+          flexWrap: { xs: 'nowrap', sm: 'wrap' },
+        }}
+      >
         {kpis.map(({ label, value, color }) => (
           <Box key={label} sx={{ minWidth: { xs: 130, sm: 0 }, flex: { xs: '0 0 auto', sm: '1 1 0' } }}>
             <Card sx={{ borderTop: `4px solid ${color}`, height: '100%' }}>
               <CardContent sx={{ p: 2 }}>
-                <Typography variant="h3" fontWeight={800} sx={{ color }}>{value}</Typography>
-                <Typography variant="body2" color="text.secondary">{label}</Typography>
+                <Typography variant="h3" fontWeight={800} sx={{ color }}>
+                  {value}
+                </Typography>
+                <Typography variant="body2" color="text.secondary">
+                  {label}
+                </Typography>
               </CardContent>
             </Card>
           </Box>
@@ -228,7 +274,7 @@ export default function ClinicianPatients() {
         <TextField
           size="small"
           value={search}
-          onChange={e => handleSearchChange(e.target.value)}
+          onChange={(e) => handleSearchChange(e.target.value)}
           placeholder="Search by name or email…"
           sx={{ width: 280 }}
           InputProps={{
@@ -254,7 +300,15 @@ export default function ClinicianPatients() {
       </Stack>
 
       {error && (
-        <Alert severity="error" sx={{ mb: 2 }} action={<Button size="small" onClick={() => refetch()}>Retry</Button>}>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          action={
+            <Button size="small" onClick={() => refetch()}>
+              Retry
+            </Button>
+          }
+        >
           Could not load your patients: {error.message}
         </Alert>
       )}
@@ -267,14 +321,12 @@ export default function ClinicianPatients() {
               {COLS.map(({ key, label, sortable }) => (
                 <TableCell key={key} sx={{ fontWeight: 700, borderBottom: '2px solid #D0E8EA', py: 1.5 }}>
                   {sortable ? (
-                    <TableSortLabel
-                      active={sortKey === key}
-                      direction={sortKey === key ? sortDir : 'asc'}
-                      onClick={() => handleSort(key)}
-                    >
+                    <TableSortLabel active={sortKey === key} direction={sortKey === key ? sortDir : 'asc'} onClick={() => handleSort(key)}>
                       {label}
                     </TableSortLabel>
-                  ) : label}
+                  ) : (
+                    label
+                  )}
                 </TableCell>
               ))}
             </TableRow>
@@ -309,20 +361,22 @@ export default function ClinicianPatients() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginated.map(patient => {
-                const { firstName, lastName } = splitName(patient.name); // SUG-008
+              paginated.map((patient) => {
+                const { firstName, lastName } = splitName(patient.name) // SUG-008
                 // NEW-CLPAT-019: overdue warning — last visit > 90 days
-                const daysSinceVisit = patient.lastVisit ? dayjs().diff(dayjs(patient.lastVisit), 'day') : null;
+                const daysSinceVisit = patient.lastVisit ? dayjs().diff(dayjs(patient.lastVisit), 'day') : null
                 // The `status !== 'inactive'` guard went with the status field. Overdue is
                 // now purely "last real visit was over 90 days ago", which is what it
                 // always actually measured.
-                const isOverdue = daysSinceVisit !== null && daysSinceVisit > 90;
+                const isOverdue = daysSinceVisit !== null && daysSinceVisit > 90
                 return (
                   <TableRow
                     key={patient.id}
                     hover
                     tabIndex={0}
-                    onKeyDown={(e) => { if (e.key === 'Enter') navigate(`/patients/${patient.id}`); }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') navigate(`/patients/${patient.id}`)
+                    }}
                     sx={{ '&:last-child td': { borderBottom: 0 }, cursor: 'pointer' }}
                   >
                     {/* Patient */}
@@ -330,7 +384,9 @@ export default function ClinicianPatients() {
                       <Stack direction="row" spacing={1.5} alignItems="center">
                         <PatientAvatar firstName={firstName} lastName={lastName} email={patient.email} size="sm" />
                         <Box>
-                          <Typography variant="body2" fontWeight={600}>{patient.name}</Typography>
+                          <Typography variant="body2" fontWeight={600}>
+                            {patient.name}
+                          </Typography>
                           <Typography variant="caption" color="text.secondary">
                             {patient.email ?? '—'}
                           </Typography>
@@ -341,14 +397,12 @@ export default function ClinicianPatients() {
                     {/* DOB — NEW-CLPAT-021: show computed age badge */}
                     <TableCell>
                       <Stack direction="row" alignItems="center" spacing={0.75}>
-                        <Typography variant="body2">
-                          {patient.dob ? dayjs(patient.dob).format('DD/MM/YYYY') : '—'}
-                        </Typography>
+                        <Typography variant="body2">{patient.dob ? dayjs(patient.dob).format('DD/MM/YYYY') : '—'}</Typography>
                         {patient.dob && (
                           <Chip
                             label={`${dayjs().diff(dayjs(patient.dob), 'year')}y`}
                             size="small"
-                            sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 600, fontSize: '0.6rem', height: 16, px: 0}}
+                            sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 600, fontSize: '0.6rem', height: 16, px: 0 }}
                           />
                         )}
                       </Stack>
@@ -356,9 +410,13 @@ export default function ClinicianPatients() {
 
                     {/* Condition */}
                     <TableCell>
-                      {patient.condition && patient.condition !== '—'
-                        ? <Chip label={patient.condition} size="small" color="warning" variant="outlined" />
-                        : <Typography variant="body2" color="text.secondary">—</Typography>}
+                      {patient.condition && patient.condition !== '—' ? (
+                        <Chip label={patient.condition} size="small" color="warning" variant="outlined" />
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          —
+                        </Typography>
+                      )}
                     </TableCell>
 
                     {/* Last Visit — NEW-CLPAT-018: relative "N days ago" tooltip */}
@@ -372,34 +430,35 @@ export default function ClinicianPatients() {
 
                     {/* Next Appointment */}
                     <TableCell>
-                      {patient.nextAppt
-                        ? (
-                          <Stack direction="row" alignItems="center" spacing={0.5}>
-                            <CalendarMonthIcon sx={{ fontSize: 14, color: '#2DC653' }} />
-                            <Typography variant="body2" sx={{ color: '#2DC653', fontWeight: 600 }}>
-                              {dayjs(patient.nextAppt).format('DD/MM/YYYY')}
-                            </Typography>
-                          </Stack>
-                        )
-                        : <Typography variant="body2" color="text.secondary">None</Typography>}
+                      {patient.nextAppt ? (
+                        <Stack direction="row" alignItems="center" spacing={0.5}>
+                          <CalendarMonthIcon sx={{ fontSize: 14, color: '#2DC653' }} />
+                          <Typography variant="body2" sx={{ color: '#2DC653', fontWeight: 600 }}>
+                            {dayjs(patient.nextAppt).format('DD/MM/YYYY')}
+                          </Typography>
+                        </Stack>
+                      ) : (
+                        <Typography variant="body2" color="text.secondary">
+                          None
+                        </Typography>
+                      )}
                     </TableCell>
 
                     {/* Total Visits */}
                     <TableCell>
-                      <Chip
-                        label={patient.totalVisits}
-                        size="small"
-                        sx={{ bgcolor: '#E8F8F9', fontWeight: 700, color: STITCH_BRAND }}
-                      />
+                      <Chip label={patient.totalVisits} size="small" sx={{ bgcolor: '#E8F8F9', fontWeight: 700, color: STITCH_BRAND }} />
                     </TableCell>
 
                     {/* Status — NEW-CLPAT-019: overdue warning badge */}
                     <TableCell>
                       <Stack direction="row" spacing={0.5} alignItems="center">
-
                         {isOverdue && (
                           <Tooltip title={`Last visit ${daysSinceVisit} days ago — consider follow-up`}>
-                            <Chip label="Overdue" size="small" sx={{ bgcolor: '#FFF3CD', color: '#856404', fontWeight: 700, fontSize: '0.65rem', height: 18 }} />
+                            <Chip
+                              label="Overdue"
+                              size="small"
+                              sx={{ bgcolor: '#FFF3CD', color: '#856404', fontWeight: 700, fontSize: '0.65rem', height: 18 }}
+                            />
                           </Tooltip>
                         )}
                       </Stack>
@@ -423,9 +482,11 @@ export default function ClinicianPatients() {
                         <Tooltip title={`Book appointment for ${patient.name}`} placement="top">
                           <IconButton
                             size="small"
-                            onClick={() => navigate('/appointments/book', {
-                              state: { patientId: patient.id, patientName: patient.name },
-                            })}
+                            onClick={() =>
+                              navigate('/appointments/book', {
+                                state: { patientId: patient.id, patientName: patient.name },
+                              })
+                            }
                             aria-label={`Book appointment for ${patient.name}`}
                             sx={{ color: '#3A86FF', '&:hover': { bgcolor: '#EFF6FF' } }}
                           >
@@ -435,7 +496,7 @@ export default function ClinicianPatients() {
                       </Stack>
                     </TableCell>
                   </TableRow>
-                );
+                )
               })
             )}
           </TableBody>
@@ -450,11 +511,14 @@ export default function ClinicianPatients() {
             rowsPerPage={rowsPerPage}
             page={page}
             onPageChange={(_, newPage) => setPage(newPage)}
-            onRowsPerPageChange={e => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0); }}
+            onRowsPerPageChange={(e) => {
+              setRowsPerPage(parseInt(e.target.value, 10))
+              setPage(0)
+            }}
             sx={{ borderTop: '1px solid #E8EAED' }}
           />
         )}
       </TableContainer>
     </Box>
-  );
+  )
 }

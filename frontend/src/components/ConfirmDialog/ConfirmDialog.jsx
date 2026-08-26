@@ -1,11 +1,4 @@
-import {
-  Button,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
-} from '@mui/material'
+import { Button, Dialog, DialogActions, DialogContent, DialogContentText, DialogTitle } from '@mui/material'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 
 /**
@@ -30,13 +23,7 @@ export default function ConfirmDialog({
   confirmColor = 'error',
 }) {
   return (
-    <Dialog
-      open={isOpen}
-      onClose={onCancel}
-      maxWidth="xs"
-      fullWidth
-      PaperProps={{ sx: { borderRadius: 2 } }}
-    >
+    <Dialog open={isOpen} onClose={onCancel} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 2 } }}>
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
         <WarningAmberIcon color="warning" />
         {title}
@@ -49,20 +36,10 @@ export default function ConfirmDialog({
       )}
 
       <DialogActions sx={{ px: 3, pb: 2, gap: 1 }}>
-        <Button
-          variant="outlined"
-          onClick={onCancel}
-          autoFocus
-          sx={{ minWidth: 80 }}
-        >
+        <Button variant="outlined" onClick={onCancel} autoFocus sx={{ minWidth: 80 }}>
           Cancel
         </Button>
-        <Button
-          variant="contained"
-          color={confirmColor}
-          onClick={onConfirm}
-          sx={{ minWidth: 80 }}
-        >
+        <Button variant="contained" color={confirmColor} onClick={onConfirm} sx={{ minWidth: 80 }}>
           {confirmLabel}
         </Button>
       </DialogActions>
