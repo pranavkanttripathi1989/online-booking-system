@@ -13,6 +13,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ145 | improvement | Auth tokens out of `localStorage` (SEC-2) | done | 2026-08-27 | 2026-08-27 | — | [REQ145-security-2026-08-27-auth-tokens-out-of-localstorage.md](./improvement/REQ145-security-2026-08-27-auth-tokens-out-of-localstorage.md) |
 | REQ114 | improvement | Wire OTP-login SMS to the real per-org provider registry | done | 2026-08-26 | 2026-08-26 | — | [REQ114-security-2026-08-26-otp-login-real-sms-send.md](./improvement/REQ114-security-2026-08-26-otp-login-real-sms-send.md) |
 | REQ060 | improvement | Clinician verification UI | done | 2026-08-25 | 2026-08-25 | REQ015 | [REQ060-security-2026-08-25-clinician-verification-ui.md](./improvement/REQ060-security-2026-08-25-clinician-verification-ui.md) |
 | REQ053 | improvement | Break-glass emergency access + support impersonation audit trail | done | 2026-08-25 | 2026-08-25 | REQ015 | [REQ053-security-2026-08-25-break-glass-and-impersonation.md](./improvement/REQ053-security-2026-08-25-break-glass-and-impersonation.md) |

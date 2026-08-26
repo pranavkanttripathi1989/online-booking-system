@@ -200,8 +200,8 @@ function OtpLoginMode({ onBack, rememberMe }) {
     setError(''); setLoading(true);
     try {
       const { data } = await verifyOtpMutation({ variables: { input: { phone, code: otp } } });
-      const { access_token, user, mfa_setup_required, session_timeout_minutes } = data.verifyOtp;
-      login(access_token, user, rememberMe, session_timeout_minutes);
+      const { user, mfa_setup_required, session_timeout_minutes } = data.verifyOtp;
+      login(user, rememberMe, session_timeout_minutes);
       navigate(getPostLoginRedirect(user), { state: mfa_setup_required ? { tab: 1, mfaSetupRequired: true } : undefined });
     } catch (err) {
       setOtp('');
@@ -568,8 +568,8 @@ function TotpChallengeStep({ challengeToken, rememberMe, onBack }) {
       const { data } = await verifyTotpLogin({
         variables: { input: { challenge_token: challengeToken, code } },
       });
-      const { access_token, user, mfa_setup_required, session_timeout_minutes } = data.verifyTotpLogin;
-      login(access_token, user, rememberMe, session_timeout_minutes);
+      const { user, mfa_setup_required, session_timeout_minutes } = data.verifyTotpLogin;
+      login(user, rememberMe, session_timeout_minutes);
       redirectAfterLogin(navigate, user, mfa_setup_required);
     } catch (err) {
       setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Incorrect code');
@@ -685,9 +685,9 @@ function SignInTab({ onForgot }) {
         setTotpChallengeToken(data.login.challenge_token);
         return;
       }
-      const { access_token, user, mfa_setup_required, session_timeout_minutes } = data.login;
+      const { user, mfa_setup_required, session_timeout_minutes } = data.login;
       setFailedAttempts(0);
-      login(access_token, user, rememberMe, session_timeout_minutes);
+      login(user, rememberMe, session_timeout_minutes);
       redirectAfterLogin(navigate, user, mfa_setup_required);
     } catch (err) {
       const next = failedAttempts + 1;

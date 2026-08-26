@@ -537,13 +537,12 @@ export default function SettingsPage() {
     if (!file) return
     setBrandingError(null); setUploadingLogo(true)
     try {
-      const token = localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')
       const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
       const formData = new FormData()
       formData.append('file', file)
       const res = await fetch(`${apiBase}/org-branding/logo`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: 'include',
         body: formData,
       })
       const body = await res.json().catch(() => ({}))
@@ -611,13 +610,12 @@ export default function SettingsPage() {
   const handleAvatarUpload = async (file) => {
     setProfileError(null); setUploadingAvatar(true)
     try {
-      const token = localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')
       const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
       const formData = new FormData()
       formData.append('file', file)
       const res = await fetch(`${apiBase}/account/avatar`, {
         method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+        credentials: 'include',
         body: formData,
       })
       const body = await res.json().catch(() => ({}))

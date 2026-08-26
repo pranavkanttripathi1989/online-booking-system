@@ -12,6 +12,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR205 | improvement | Auth tokens out of `localStorage` (SEC-2) results | pass | 2026-08-27 | 2026-08-27 | TP205 | [TR205-security-2026-08-27-auth-tokens-out-of-localstorage.md](./improvement/TR205-security-2026-08-27-auth-tokens-out-of-localstorage.md) |
 | TR174 | improvement | OTP-login real SMS send results | pass | 2026-08-26 | 2026-08-26 | TP174 | [TR174-security-2026-08-26-otp-login-real-sms-send.md](./improvement/TR174-security-2026-08-26-otp-login-real-sms-send.md) |
 | TR113 | improvement | Clinician verification UI results | pass | 2026-08-25 | 2026-08-25 | TP114 | [TR113-security-2026-08-25-clinician-verification-ui.md](./improvement/TR113-security-2026-08-25-clinician-verification-ui.md) |
 | TR102 | improvement | Break-glass + impersonation results | pass | 2026-08-25 | 2026-08-25 | TP103 | [TR102-security-2026-08-25-break-glass-and-impersonation.md](./improvement/TR102-security-2026-08-25-break-glass-and-impersonation.md) |

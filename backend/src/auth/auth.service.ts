@@ -289,7 +289,30 @@ export class AuthService {
     if (session) {
       await this.prisma.impersonationSessions.update({ where: { id: session.id }, data: { ended_at: new Date() } });
     }
-    return { success: true, userErrors: [] };
+
+    // P1-02/SEC-2 — the impersonation access-token cookie replaced the real
+    // actor's own cookie for the session's duration (auth.resolver.ts's
+    // startImpersonation handler); ending it must hand back a real session,
+    // not merely close the impersonation record, or the real actor is
+    // logged out outright. Reissues a full, freshly-rotated token pair by
+    // profile id — the same issueTokens() every other login path uses —
+    // rather than asking the frontend to have remembered the real actor's
+    // pre-impersonation token in JS, which is exactly the pattern this
+    // slice's cookie migration exists to remove.
+    // _tokens is deliberately not a GraphQL @Field — Nest's code-first
+    // schema only reflects decorated fields, so this never reaches the
+    // response body; auth.resolver.ts reads it server-side only, to set
+    // cookies, the same "never hand the raw token to JS" discipline login/
+    // refresh/etc. now follow too.
+    const realActorProfile = await this.prisma.userProfiles.findUnique({
+      where: { id: actor.real_actor_id },
+      include: { role: true },
+    });
+    if (!realActorProfile || realActorProfile.is_deleted) {
+      return { success: false, userErrors: [{ message: 'Your account is no longer available' }] };
+    }
+    const tokens = await this.issueTokens(realActorProfile);
+    return { success: true, userErrors: [], _tokens: tokens };
   }
 
   // ── Login ──────────────────────────────────────────────────────────────────
@@ -432,6 +455,14 @@ export class AuthService {
   // ── Refresh (rotation) ──────────────────────────────────────────────────────
 
   async refresh(input: RefreshInput, userAgent?: string): Promise<AuthPayloadType> {
+    // P1-02/SEC-2 — the resolver resolves input.refresh_token OR the
+    // mb_refresh_token cookie before calling this; still guarded here too
+    // since this service method has its own direct unit-test coverage and
+    // must not silently look up `auth:refresh:undefined` if ever called
+    // with neither.
+    if (!input.refresh_token) {
+      throw new UnauthorizedException('Invalid or expired refresh token');
+    }
     const key = `auth:refresh:${input.refresh_token}`;
     const userId = await this.redis.get(key);
     if (!userId) {

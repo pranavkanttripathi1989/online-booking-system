@@ -482,6 +482,13 @@ describe('AuthService', () => {
   });
 
   describe('refresh', () => {
+    // P1-02/SEC-2 — the resolver resolves input.refresh_token OR the cookie
+    // before calling here, but this guards the service directly too.
+    it('rejects cleanly when called with no refresh_token at all, rather than looking up auth:refresh:undefined', async () => {
+      await expect(service.refresh({})).rejects.toThrow('Invalid or expired refresh token');
+      expect(redis.get).not.toHaveBeenCalled();
+    });
+
     it('rejects an invalid or already-rotated token (replay-detection guarantee, TC-AUTH-UNIT-005)', async () => {
       redis.get.mockResolvedValue(null);
       await expect(service.refresh({ refresh_token: 'stale-or-fake' })).rejects.toThrow(
@@ -685,10 +692,40 @@ describe('AuthService', () => {
 
     it('endImpersonation marks the active session ended', async () => {
       prisma.impersonationSessions.findFirst.mockResolvedValue({ id: 'sess-1' });
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ id: 'admin-1' }));
       const impersonatedCaller = { sub: 'target-1', real_actor_id: 'admin-1' } as any;
       const result = await service.endImpersonation(impersonatedCaller);
       expect(result.success).toBe(true);
       expect(prisma.impersonationSessions.update).toHaveBeenCalledWith({ where: { id: 'sess-1' }, data: { ended_at: expect.any(Date) } });
+    });
+
+    // P1-02/SEC-2 — endImpersonation now reissues a real session for the
+    // actor (auth.resolver.ts sets it as a cookie) instead of relying on
+    // the frontend to have remembered a pre-impersonation token in JS.
+    it('endImpersonation reissues a fresh token pair for the real actor, keyed by real_actor_id — not the impersonated target', async () => {
+      prisma.impersonationSessions.findFirst.mockResolvedValue({ id: 'sess-1' });
+      prisma.userProfiles.findUnique.mockResolvedValue(activeProfile({ id: 'admin-1', role: { name: 'admin' } }));
+      const impersonatedCaller = { sub: 'target-1', real_actor_id: 'admin-1' } as any;
+
+      const result: any = await service.endImpersonation(impersonatedCaller);
+
+      expect(prisma.userProfiles.findUnique).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'admin-1' } }),
+      );
+      expect(result._tokens.access_token).toBe('signed.jwt.token');
+      expect(result._tokens.refresh_token).toBeDefined();
+      expect(jwt.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ sub: 'admin-1', roles: ['admin'] }),
+        expect.not.objectContaining({ expiresIn: 30 * 60 }), // the real actor's normal-length session, not the impersonation TTL
+      );
+    });
+
+    it('endImpersonation fails cleanly when the real actor account is gone (deleted mid-impersonation)', async () => {
+      prisma.impersonationSessions.findFirst.mockResolvedValue({ id: 'sess-1' });
+      prisma.userProfiles.findUnique.mockResolvedValue(null);
+      const impersonatedCaller = { sub: 'target-1', real_actor_id: 'admin-1' } as any;
+      const result = await service.endImpersonation(impersonatedCaller);
+      expect(result.success).toBe(false);
     });
   });
 });

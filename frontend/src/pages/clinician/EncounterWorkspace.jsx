@@ -979,13 +979,12 @@ function EncounterWorkspace() {
   const handleUpload = useCallback(async (e) => {
     const file = e.target.files?.[0]
     if (!file || !encounterId) return
-    const token = localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')
     const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
     const formData = new FormData()
     formData.append('file', file)
     const res = await fetch(`${apiBase}/encounter-attachments/upload`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      credentials: 'include',
       body: formData,
     })
     const body = await res.json().catch(() => ({}))

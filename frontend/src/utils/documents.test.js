@@ -30,8 +30,10 @@ describe('downloadAuthenticatedPdf', () => {
     jest.useRealTimers()
   })
 
-  it('sends the stored token as a Bearer header, against the default local API base', async () => {
-    localStorage.setItem('medibook_token', 'real-jwt')
+  // P1-02/SEC-2 — the httpOnly session cookie is sent automatically by the
+  // browser (credentials:'include'); there is no token anywhere in JS for
+  // this helper to read or attach as a header anymore.
+  it('sends credentials:include, against the default local API base', async () => {
     const mockBlob = new Blob(['%PDF-fake'], { type: 'application/pdf' })
     global.fetch = jest.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(mockBlob) })
 
@@ -39,34 +41,11 @@ describe('downloadAuthenticatedPdf', () => {
 
     expect(global.fetch).toHaveBeenCalledWith(
       'http://localhost:4000/documents/prescriptions/rx-1/pdf',
-      { headers: { Authorization: 'Bearer real-jwt' } },
+      { credentials: 'include' },
     )
-  })
-
-  it('falls back to the sessionStorage token when localStorage has none', async () => {
-    sessionStorage.setItem('medibook_token', 'session-jwt')
-    const mockBlob = new Blob(['%PDF-fake'], { type: 'application/pdf' })
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(mockBlob) })
-
-    await downloadAuthenticatedPdf('/documents/invoices/pay-1/pdf', 'invoice-pay-1.pdf')
-
-    expect(global.fetch).toHaveBeenCalledWith(
-      expect.any(String),
-      expect.objectContaining({ headers: { Authorization: 'Bearer session-jwt' } }),
-    )
-  })
-
-  it('sends no Authorization header when no token is stored anywhere', async () => {
-    const mockBlob = new Blob(['%PDF-fake'], { type: 'application/pdf' })
-    global.fetch = jest.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(mockBlob) })
-
-    await downloadAuthenticatedPdf('/documents/prescriptions/rx-1/pdf', 'x.pdf')
-
-    expect(global.fetch).toHaveBeenCalledWith(expect.any(String), { headers: undefined })
   })
 
   it('triggers a real Blob download via a synthetic anchor click', async () => {
-    localStorage.setItem('medibook_token', 'real-jwt')
     const mockBlob = new Blob(['%PDF-fake'], { type: 'application/pdf' })
     global.fetch = jest.fn().mockResolvedValue({ ok: true, blob: () => Promise.resolve(mockBlob) })
 
@@ -79,7 +58,6 @@ describe('downloadAuthenticatedPdf', () => {
   })
 
   it('throws the backend\'s own error message on a non-200 response', async () => {
-    localStorage.setItem('medibook_token', 'real-jwt')
     global.fetch = jest.fn().mockResolvedValue({
       ok: false,
       status: 404,

@@ -429,13 +429,12 @@ function MessagesPage() {
   }
 
   const uploadStagedAttachment = async (file, messageId) => {
-    const token = localStorage.getItem('medibook_token') || sessionStorage.getItem('medibook_token')
     const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
     const formData = new FormData()
     formData.append('file', file)
     const res = await fetch(`${apiBase}/message-attachments/upload`, {
       method: 'POST',
-      headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+      credentials: 'include',
       body: formData,
     })
     const upload = await res.json()

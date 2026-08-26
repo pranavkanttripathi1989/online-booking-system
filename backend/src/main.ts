@@ -4,6 +4,14 @@ import { NestExpressApplication } from '@nestjs/platform-express';
 import { ValidationPipe } from '@nestjs/common';
 import { join } from 'path';
 import helmet from 'helmet';
+// P1-02/SEC-2 — this tsconfig sets allowSyntheticDefaultImports (type-check
+// only) but not esModuleInterop (the flag that actually generates the
+// runtime .default wrapper), so `import cookieParser from 'cookie-parser'`
+// type-checks clean and then throws "cookie_parser_1.default is not a
+// function" at runtime — confirmed live. Same root cause and same fix
+// CLAUDE.md documents for pdfkit (REQ057): `= require(...)` binds directly
+// to module.exports regardless of either interop flag.
+import cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { assertKnownNodeEnv } from './common/utils/assert-known-node-env';
 
@@ -46,6 +54,11 @@ async function bootstrap() {
     origin: process.env.FRONTEND_URL ?? 'http://localhost:3000',
     credentials: true,
   });
+
+  // P1-02/SEC-2 — the auth cookies auth-cookies.util.ts sets (httpOnly,
+  // parsed here so jwt.strategy.ts's cookie extractor can read req.cookies
+  // without every consumer needing its own cookie parsing).
+  app.use(cookieParser());
 
   app.useGlobalPipes(
     new ValidationPipe({

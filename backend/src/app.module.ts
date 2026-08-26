@@ -87,7 +87,11 @@ import { PubSubModule } from './common/pubsub.module';
       // subscriptions, with no separate WS-specific auth path to maintain.
       context: (ctxOrReq: any) => {
         if (ctxOrReq?.req) {
-          return { req: ctxOrReq.req };
+          // P1-02/SEC-2 — res is exposed alongside req so auth.resolver.ts
+          // can set/clear the httpOnly session cookies (auth-cookies.util.ts)
+          // directly from a mutation. Only present on the HTTP path; the WS
+          // branch below has no res at all (a subscription can't set a cookie).
+          return { req: ctxOrReq.req, res: ctxOrReq.res };
         }
         const token = ctxOrReq?.connectionParams?.authorization ?? ctxOrReq?.connectionParams?.Authorization;
         return { req: { headers: { authorization: token } } };

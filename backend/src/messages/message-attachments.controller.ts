@@ -10,6 +10,7 @@ import {
 import { FileInterceptor } from '@nestjs/platform-express';
 import { JwtService } from '@nestjs/jwt';
 import { Request } from 'express';
+import { ACCESS_COOKIE_NAME } from '../auth/auth-cookies.util';
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
@@ -40,8 +41,12 @@ export class MessageAttachmentsController {
   @Post('upload')
   @UseInterceptors(FileInterceptor('file'))
   async upload(@UploadedFile() file: Express.Multer.File, @Req() req: Request) {
+    // P1-02/SEC-2 -- httpOnly session cookie checked first (matches documents.controller.ts's
+    // own precedent); Bearer header stays as a fallback for any non-browser caller.
+    const cookieToken = (req as Request & { cookies?: Record<string, string> }).cookies?.[ACCESS_COOKIE_NAME];
     const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const token = cookieToken ?? headerToken;
     if (!token) throw new UnauthorizedException();
     let payload: { sub: string };
     try {

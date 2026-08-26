@@ -22,7 +22,7 @@
 | subscription-plan-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |
 | platform-nfr | 1 | 6 | 11 | 1 | 17 | 2026-08-26 | [platform-nfr](./platform-nfr/README.md) |
-| security | 4 | 3 | 6 | 2 | 11 | 2026-08-26 | [security](./security/README.md) |
+| security | 4 | 4 | 6 | 2 | 12 | 2026-08-27 | [security](./security/README.md) |
 | notifications | 3 | 2 | 0 | 1 | 4 | 2026-08-27 | [notifications](./notifications/README.md) |
 | patient-payments | 3 | 3 | 0 | 1 | 5 | 2026-08-26 | [patient-payments](./patient-payments/README.md) |
 | communications-policies | 1 | 2 | 0 | 0 | 3 | 2026-08-22 | [communications-policies](./communications-policies/README.md) |

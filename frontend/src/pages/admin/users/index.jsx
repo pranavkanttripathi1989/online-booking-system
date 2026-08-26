@@ -67,8 +67,6 @@ const START_IMPERSONATION = gql`
     startImpersonation(target_user_id: $target_user_id, reason: $reason) {
       success
       userErrors { message }
-      access_token
-      expires_in
     }
   }
 `;
@@ -224,7 +222,7 @@ export default function AdminUsers() {
         enqueueSnackbar(result?.userErrors?.[0]?.message ?? 'Failed to start impersonation', { variant: 'error' });
         return;
       }
-      startImpersonating(result.access_token);
+      startImpersonating();
       enqueueSnackbar(`Now viewing as ${impersonateTarget.firstName} ${impersonateTarget.lastName}`, { variant: 'info' });
       setImpersonateTarget(null);
       setImpersonateReason('');

@@ -1,6 +1,7 @@
 import { createContext, useContext, useReducer, useEffect, useCallback, useRef, useState } from 'react'
-import { useLazyQuery, useApolloClient } from '@apollo/client'
+import { useLazyQuery, useApolloClient, useMutation } from '@apollo/client'
 import { ME_QUERY } from '../graphql/queries'
+import { LOGOUT_MUTATION } from '../graphql/mutations'
 
 // Post-login redirect by primary role (matches plan Section 4 Feature 1)
 export function getPostLoginRedirect(user) {
@@ -13,44 +14,63 @@ export function getPostLoginRedirect(user) {
   return '/dashboard'
 }
 
+// ─── Session marker ───────────────────────────────────────────────────────────
+// P1-02/SEC-2 — the session credential itself is an httpOnly cookie now
+// (backend/src/auth/auth-cookies.util.ts): it is never readable by this or
+// any other frontend script, on purpose — that's the whole point of the
+// migration off localStorage.medibook_token. `medibook_has_session` is a
+// deliberately non-sensitive boolean marker only, written alongside login
+// so the app can decide "is there probably a session worth verifying"
+// without a network round trip on every single page load. Forging this
+// flag to '1' grants nothing: it only causes an extra ME_QUERY that the
+// real (cookie-less) request then correctly fails auth on — there is no
+// privilege attached to the marker itself, unlike the token it replaces.
+const SESSION_MARKER_KEY = 'medibook_has_session'
+
+function hasSessionMarker() {
+  return localStorage.getItem(SESSION_MARKER_KEY) === '1' || sessionStorage.getItem(SESSION_MARKER_KEY) === '1'
+}
+
+// SUG-AUTH-006: rememberMe=true keeps the marker/cached user in
+// localStorage (survives a browser restart); false keeps it sessionStorage-
+// only (tab-scoped). Whichever storage currently holds the marker is "the"
+// active one — used everywhere a value needs to be read back or updated.
+function getActiveStorage() {
+  return localStorage.getItem(SESSION_MARKER_KEY) === '1' ? localStorage : sessionStorage
+}
+
 // ─── Synchronous initial hydration ───────────────────────────────────────────
-// Read localStorage synchronously so the very first render already knows
-// whether the user is authenticated. A token is never trusted on its own —
-// it's a real JWT or it isn't a session at all; ME_QUERY (below) is the only
-// thing that actually confirms it. This function only decides whether to
-// render optimistically from cache while that verification is in flight.
-//
-// F-02 fix: this used to special-case any token starting with "mock_" as
-// pre-authenticated purely from its prefix, trusting whatever role array sat
-// in localStorage.medibook_user — a two-line client-side escalation to any
-// role. There is no legitimate token shape that needs that branch anymore:
-// every real login path issues a real JWT, and a stale/forged token is
-// rejected identically to any other invalid one, below.
+// Read the marker + any cached user object synchronously so the very first
+// render already has a reasonable guess. That guess is never trusted on its
+// own — ME_QUERY (below, always fetched on mount whenever the marker is
+// present) is the only thing that actually confirms a real session exists;
+// this function only decides whether to render optimistically from cache
+// while that verification is in flight, exactly as before this slice, just
+// without a JS-readable token driving the decision.
 function getInitialState() {
-  const token = localStorage.getItem('medibook_token')
-  if (!token) {
-    return { user: null, token: null, isAuthenticated: false, isLoading: false }
+  if (!hasSessionMarker()) {
+    return { user: null, isAuthenticated: false, isLoading: false }
   }
-  const cached = localStorage.getItem('medibook_user')
+  const cached = getActiveStorage().getItem('medibook_user')
   if (cached) {
     try {
       const user = JSON.parse(cached)
-      // isLoading: true so ProtectedRoute waits for ME_QUERY to confirm
-      // but user sees content immediately from cache via optimistic render
-      return { user, token, isAuthenticated: true, isLoading: false }
+      // isLoading: true so ProtectedRoute keeps waiting for ME_QUERY to
+      // confirm/refresh the full record, while this optimistic value
+      // already renders instead of a loading spinner.
+      return { user, isAuthenticated: true, isLoading: false }
     } catch { /* fall through */ }
   }
-  // No cached user — must wait for ME_QUERY
-  return { user: null, token, isAuthenticated: false, isLoading: true }
+  return { user: null, isAuthenticated: false, isLoading: true }
 }
 
 // ─── Reducer ──────────────────────────────────────────────────────────────────
 function authReducer(state, action) {
   switch (action.type) {
     case 'LOGIN':
-      return { ...state, user: action.payload.user, token: action.payload.token, isAuthenticated: true, isLoading: false }
+      return { ...state, user: action.payload.user, isAuthenticated: true, isLoading: false }
     case 'LOGOUT':
-      return { user: null, token: null, isAuthenticated: false, isLoading: false }
+      return { user: null, isAuthenticated: false, isLoading: false }
     case 'SET_USER':
       return { ...state, user: action.payload.user, isAuthenticated: true, isLoading: false }
     case 'SET_LOADING':
@@ -67,15 +87,25 @@ export const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [state, dispatch] = useReducer(authReducer, undefined, getInitialState)
   const apolloClient = useApolloClient()
+  const [logoutMutation] = useMutation(LOGOUT_MUTATION)
 
   const [fetchMe, { data: meData, error: meError }] = useLazyQuery(ME_QUERY, {
     fetchPolicy: 'network-only',
   })
 
-  // React to ME_QUERY success
+  // React to ME_QUERY success — this is the single source of truth for the
+  // cached user object; login()/startImpersonating()/endImpersonating() all
+  // dispatch an immediate (uncached) optimistic value and then rely on this
+  // effect to fetch and persist the real, FULL shape (patient/clinician
+  // sub-objects included — ME_QUERY selects them, the login/verifyTotpLogin/
+  // verifyOtp mutation responses do not). This is the actual fix for the
+  // long-standing defect this file used to carry: caching the mutation's own
+  // partial `user` object directly meant `user.patient.id`/`user.clinician`
+  // stayed permanently undefined after a fresh login, because the fuller
+  // ME_QUERY never ran once a (partial) cached user already existed.
   useEffect(() => {
     if (meData?.me) {
-      localStorage.setItem('medibook_user', JSON.stringify(meData.me))
+      getActiveStorage().setItem('medibook_user', JSON.stringify(meData.me))
       dispatch({ type: 'SET_USER', payload: { user: meData.me } })
     }
   }, [meData])
@@ -90,61 +120,84 @@ export function AuthProvider({ children }) {
   // that is authoritative.
   useEffect(() => {
     if (meError) {
-      localStorage.removeItem('medibook_token')
+      localStorage.removeItem(SESSION_MARKER_KEY)
       localStorage.removeItem('medibook_user')
-      sessionStorage.removeItem('medibook_token')
+      sessionStorage.removeItem(SESSION_MARKER_KEY)
       sessionStorage.removeItem('medibook_user')
       dispatch({ type: 'LOGOUT' })
     }
   }, [meError])
 
-  // On mount — verify any stored token against the server whenever we don't
-  // already have a cached user to render optimistically from.
+  // On mount — always verify against the server whenever the marker says a
+  // session might exist. P1-02: this used to only fetch when there was no
+  // cached user at all, which meant a returning visitor with a cached user
+  // object was never re-checked on a fresh page load — a revoked/expired
+  // session kept showing a "logged in" UI until some other query happened to
+  // 401. The httpOnly cookie itself is the actual security boundary either
+  // way, but the UI should not lag behind it.
   useEffect(() => {
-    const token = localStorage.getItem('medibook_token')
-    if (token && !localStorage.getItem('medibook_user')) {
-      fetchMe()
-    }
+    if (hasSessionMarker()) fetchMe()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Exposed actions ───────────────────────────────────────────────────────
   // REQ012/PLAN021 Slice 2 — sessionTimeoutMinutes comes from the org's real
   // "Auto-logout after idle" setting (login/verifyTotpLogin response),
-  // never a client-chosen value. Stored alongside the token so the idle
+  // never a client-chosen value. Stored alongside the marker so the idle
   // timer below survives a page refresh.
-  const login = useCallback((token, user, rememberMe = true, sessionTimeoutMinutes) => {
-    // SUG-AUTH-006: rememberMe=true → localStorage, false → sessionStorage only
+  //
+  // P1-02/SEC-2 — no token parameter: the httpOnly session cookie is already
+  // set by the time this runs (auth.resolver.ts sets it from inside the
+  // login/verifyTotpLogin/verifyOtp mutation itself, before the response
+  // reaches the frontend at all). `user` is the mutation response's own
+  // partial shape, used only for an immediate optimistic render — never
+  // cached to storage directly; fetchMe() below fetches and persists the
+  // real, full shape moments later (see the ME_QUERY-success effect above).
+  const login = useCallback((user, rememberMe = true, sessionTimeoutMinutes) => {
     const storage = rememberMe ? localStorage : sessionStorage
-    storage.setItem('medibook_token', token)
-    storage.setItem('medibook_user', JSON.stringify(user))
-    if (!rememberMe) {
-      // Ensure any stale localStorage entry is cleared
-      localStorage.removeItem('medibook_token')
-      localStorage.removeItem('medibook_user')
-    }
+    const otherStorage = rememberMe ? sessionStorage : localStorage
+    otherStorage.removeItem(SESSION_MARKER_KEY)
+    otherStorage.removeItem('medibook_user')
+    otherStorage.removeItem('medibook_session_timeout_minutes')
+
+    storage.setItem(SESSION_MARKER_KEY, '1')
     if (sessionTimeoutMinutes) {
       storage.setItem('medibook_session_timeout_minutes', String(sessionTimeoutMinutes))
     } else {
-      localStorage.removeItem('medibook_session_timeout_minutes')
-      sessionStorage.removeItem('medibook_session_timeout_minutes')
+      storage.removeItem('medibook_session_timeout_minutes')
     }
     // SUG-AUTH-008: store last login timestamp
-    const ts = new Date().toISOString()
-    localStorage.setItem('medibook_last_login', ts)
-    dispatch({ type: 'LOGIN', payload: { token, user } })
-  }, [])
+    localStorage.setItem('medibook_last_login', new Date().toISOString())
 
-  const logout = useCallback((client) => {
-    localStorage.removeItem('medibook_token')
+    dispatch({ type: 'LOGIN', payload: { user } })
+    fetchMe()
+  }, [fetchMe])
+
+  // P1-02/SEC-2 — logout is now a real server round trip, not just a local
+  // storage clear: the httpOnly session cookie can only be removed by the
+  // server (Set-Cookie with an expired date, auth-cookies.util.ts's
+  // clearAuthCookies, wired into the logout resolver), and the refresh
+  // token it's paired with must be revoked in Redis or a "logged out"
+  // session's refresh token would silently remain valid for its full
+  // 7-day TTL — a real, previously-unexercised gap: LOGOUT_MUTATION existed
+  // in graphql/mutations.js before this slice but no page ever called it, so
+  // logout() never once reached the server. Best-effort, matching this
+  // file's own established endImpersonating() precedent: local state is
+  // always cleared regardless of whether the network call itself succeeds,
+  // so a flaky connection never traps a user in a logged-in-looking UI.
+  const logout = useCallback(async (client) => {
+    try {
+      await logoutMutation()
+    } catch { /* best-effort — clear local state regardless, see comment above */ }
+    localStorage.removeItem(SESSION_MARKER_KEY)
     localStorage.removeItem('medibook_user')
     localStorage.removeItem('medibook_session_timeout_minutes')
-    sessionStorage.removeItem('medibook_token')
+    sessionStorage.removeItem(SESSION_MARKER_KEY)
     sessionStorage.removeItem('medibook_user')
     sessionStorage.removeItem('medibook_session_timeout_minutes')
     const clientToUse = client || apolloClient
-    if (clientToUse) clientToUse.clearStore()
+    if (clientToUse) await clientToUse.clearStore()
     dispatch({ type: 'LOGOUT' })
-  }, [apolloClient])
+  }, [apolloClient, logoutMutation])
 
   // REQ012/PLAN021 Slice 2 — real client-side idle-activity auto-logout,
   // distinct from the JWT's own fixed access/refresh TTLs. Only runs when
@@ -187,96 +240,52 @@ export function AuthProvider({ children }) {
   // rather than replaces, so callers only need to pass the fields that changed.
   const updateUser = useCallback((patch) => {
     const next = { ...state.user, ...patch }
-    const storage = localStorage.getItem('medibook_user') !== null ? localStorage : sessionStorage
-    storage.setItem('medibook_user', JSON.stringify(next))
+    getActiveStorage().setItem('medibook_user', JSON.stringify(next))
     dispatch({ type: 'SET_USER', payload: { user: next } })
   }, [state.user])
 
-  // REQ053/Phase G+3 — admin impersonation. `startImpersonating` takes the
-  // already-minted `access_token` from the StartImpersonation mutation (the
-  // caller, e.g. admin/users/index.jsx, runs that mutation itself — this
-  // context has no GraphQL mutation dependency of its own beyond the
-  // existing ME_QUERY lazy query).
+  // REQ053/Phase G+3 — admin impersonation.
   //
-  // apollo/client.js's auth link reads the bearer token from
-  // `localStorage.medibook_token` ONLY (never sessionStorage) — so
-  // regardless of which storage the real admin's own session lives in
-  // (rememberMe true/false), the impersonation token must land in
-  // localStorage or it would silently never be sent on outgoing requests.
-  // The real session is stashed in sessionStorage (short-lived, tab-scoped,
-  // and distinct from the live `medibook_token`/`medibook_user` keys so a
-  // stray read of those during impersonation can't resurrect the real
-  // session by accident) and restored verbatim on endImpersonating().
+  // P1-02/SEC-2 — dramatically simpler than before this slice: the backend's
+  // startImpersonation/endImpersonation resolvers now swap the httpOnly
+  // session cookie themselves (auth.resolver.ts), server-side, as part of
+  // the mutation the caller already runs. This context used to have to
+  // stash the real session's raw token in sessionStorage and manually
+  // restore it — that entire mechanism is gone. Both functions below just
+  // mark the UI-only `isImpersonating` flag and re-fetch `me` to pick up
+  // whichever identity the cookie now represents.
+  const IMPERSONATING_FLAG_KEY = 'medibook_is_impersonating'
   const [isImpersonating, setIsImpersonating] = useState(
-    () => typeof window !== 'undefined' && !!sessionStorage.getItem('medibook_pre_impersonation_token'),
+    () => typeof window !== 'undefined' && sessionStorage.getItem(IMPERSONATING_FLAG_KEY) === '1',
   )
 
-  const startImpersonating = useCallback((accessToken) => {
-    const realToken = localStorage.getItem('medibook_token') ?? sessionStorage.getItem('medibook_token')
-    const realUser = localStorage.getItem('medibook_user') ?? sessionStorage.getItem('medibook_user')
-    const realWasSessionOnly = !localStorage.getItem('medibook_token') && !!sessionStorage.getItem('medibook_token')
-
-    if (realToken) sessionStorage.setItem('medibook_pre_impersonation_token', realToken)
-    if (realUser) sessionStorage.setItem('medibook_pre_impersonation_user', realUser)
-    sessionStorage.setItem('medibook_pre_impersonation_was_session', realWasSessionOnly ? '1' : '0')
-
-    if (realWasSessionOnly) {
-      sessionStorage.removeItem('medibook_token')
-      sessionStorage.removeItem('medibook_user')
-    }
-    localStorage.setItem('medibook_token', accessToken)
-    localStorage.removeItem('medibook_user') // force a fresh ME_QUERY load of the target's own identity
-
+  const startImpersonating = useCallback(() => {
+    sessionStorage.setItem(IMPERSONATING_FLAG_KEY, '1')
     setIsImpersonating(true)
-    dispatch({ type: 'LOGIN', payload: { token: accessToken, user: null } })
-    // LOGIN always sets isLoading:false (correct for a real login, which
-    // already has the user object in hand) — but here `user` is
-    // deliberately null until ME_QUERY resolves. Without this, the
-    // caller's own immediate `navigate('/')` hits RootRoute while
-    // `isAuthenticated:true` but `user:null`, and getPostLoginRedirect's
+    // `user` deliberately null until ME_QUERY resolves. Without this, a
+    // caller's own immediate navigate('/') hits RootRoute while
+    // isAuthenticated:true but user:null, and getPostLoginRedirect's
     // null-user fallback ('/dashboard') fires before the impersonated
     // user's real role is known — sending every impersonation start
     // through a flash-redirect to /dashboard that RoleGuard then rejects
     // the instant the real (non-admin) role loads a moment later.
+    dispatch({ type: 'LOGIN', payload: { user: null } })
     dispatch({ type: 'SET_LOADING', payload: true })
     fetchMe()
   }, [fetchMe])
 
-  // Client-side restoration only — the caller is responsible for invoking
-  // the EndImpersonation mutation itself (best-effort; even if that call
-  // fails, restoring the stashed real session here is still correct, since
-  // an impersonation token that's simply left un-ended will expire in its
-  // own ≤30-minute TTL regardless).
+  // The caller (AppShell.jsx) awaits the real EndImpersonation mutation
+  // BEFORE calling this — by the time it runs, the backend has already
+  // swapped the cookie back to the real actor's own session (best-effort:
+  // even if that network call failed, an un-ended impersonation token
+  // simply expires on its own ≤30-minute TTL regardless, so falling
+  // through to a fresh fetchMe() here is still safe either way).
   const endImpersonating = useCallback(() => {
-    const preToken = sessionStorage.getItem('medibook_pre_impersonation_token')
-    const preUser = sessionStorage.getItem('medibook_pre_impersonation_user')
-    const wasSession = sessionStorage.getItem('medibook_pre_impersonation_was_session') === '1'
-    sessionStorage.removeItem('medibook_pre_impersonation_token')
-    sessionStorage.removeItem('medibook_pre_impersonation_user')
-    sessionStorage.removeItem('medibook_pre_impersonation_was_session')
+    sessionStorage.removeItem(IMPERSONATING_FLAG_KEY)
     setIsImpersonating(false)
-
-    if (!preToken) {
-      // Nothing real to restore (e.g. storage was cleared mid-session) —
-      // fall back to a clean logout rather than leaving a dangling session.
-      logout()
-      return
-    }
-
-    localStorage.removeItem('medibook_token')
-    localStorage.removeItem('medibook_user')
-    sessionStorage.removeItem('medibook_token')
-    sessionStorage.removeItem('medibook_user')
-    const restoreStorage = wasSession ? sessionStorage : localStorage
-    restoreStorage.setItem('medibook_token', preToken)
-    if (preUser) restoreStorage.setItem('medibook_user', preUser)
-
-    dispatch({ type: 'LOGIN', payload: { token: preToken, user: preUser ? JSON.parse(preUser) : null } })
-    // Same defensive fallback as startImpersonating, above, for the rare
-    // case there's no cached preUser to restore synchronously.
-    if (!preUser) dispatch({ type: 'SET_LOADING', payload: true })
+    dispatch({ type: 'SET_LOADING', payload: true })
     fetchMe()
-  }, [fetchMe, logout])
+  }, [fetchMe])
 
   return (
     <AuthContext.Provider value={{ ...state, login, logout, updateUser, hasRole, hasPermission, isImpersonating, startImpersonating, endImpersonating }}>

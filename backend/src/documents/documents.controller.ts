@@ -3,6 +3,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { DocumentsService } from './documents.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { ACCESS_COOKIE_NAME } from '../auth/auth-cookies.util';
 
 // REQ057 (US-PAT-02) — plain REST endpoints, same reasoning as
 // org-branding.controller.ts/account.controller.ts's own upload routes:
@@ -27,9 +28,17 @@ export class DocumentsController {
     private readonly jwtService: JwtService,
   ) {}
 
+  // P1-02/SEC-2 — the httpOnly session cookie is checked first (mirrors
+  // jwt.strategy.ts's own cookieExtractor-then-Bearer order exactly), so a
+  // real browser download (an authenticated fetch with credentials:
+  // 'include', frontend/src/utils/documents.js) no longer needs the
+  // frontend to hold a bearer token in JS at all. The Bearer header stays
+  // as a fallback for any non-browser caller of this REST endpoint.
   private async authenticate(req: Request): Promise<JwtPayload> {
+    const cookieToken = (req as Request & { cookies?: Record<string, string> }).cookies?.[ACCESS_COOKIE_NAME];
     const authHeader = req.headers.authorization;
-    const token = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const headerToken = authHeader?.startsWith('Bearer ') ? authHeader.slice(7) : undefined;
+    const token = cookieToken ?? headerToken;
     if (!token) throw new UnauthorizedException();
     try {
       return await this.jwtService.verifyAsync(token);

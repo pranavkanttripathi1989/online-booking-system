@@ -14,6 +14,21 @@ import { Public } from '../common/decorators/public.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Auth } from '../common/decorators/auth.decorator';
 import { JwtPayload } from './strategies/jwt.strategy';
+import { setAccessCookie, setRefreshCookie, clearAuthCookies, REFRESH_COOKIE_NAME } from './auth-cookies.util';
+
+// P1-02/SEC-2 — the web session now lives in an httpOnly cookie, set here
+// from context.res (app.module.ts's GraphQL context factory exposes it
+// alongside req, HTTP-path only). context.res is undefined for anything
+// reached over the WS subscription transport, so every call site below
+// guards on its presence rather than assuming it — no mutation here is
+// ever invoked over WS, but failing soft instead of throwing keeps this
+// resolver correct even if that ever changed.
+function applySessionCookies(context: any, tokens: { access_token?: string; refresh_token?: string; expires_in?: number }): void {
+  const res = context?.res;
+  if (!res || !tokens) return;
+  if (tokens.access_token) setAccessCookie(res, tokens.access_token, tokens.expires_in);
+  if (tokens.refresh_token) setRefreshCookie(res, tokens.refresh_token);
+}
 
 // GqlAuthGuard is global (app.module.ts) — every resolver requires a valid JWT
 // by default now. Every mutation below that must work for a not-yet-logged-in
@@ -44,15 +59,21 @@ export class AuthResolver {
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Mutation(() => LoginResultType)
-  login(@Args('input') input: LoginInput, @Context() context: any) {
-    return this.authService.login(input, context?.req?.headers?.['user-agent']);
+  async login(@Args('input') input: LoginInput, @Context() context: any) {
+    const result = await this.authService.login(input, context?.req?.headers?.['user-agent']);
+    // TotpChallengeType has no access_token — 2FA isn't complete yet, so no
+    // session cookie is set until verifyTotpLogin succeeds.
+    if ('access_token' in result) applySessionCookies(context, result);
+    return result;
   }
 
   @Public()
   @Throttle({ default: { limit: 20, ttl: 60_000 } })
   @Mutation(() => AuthPayloadType)
-  verifyTotpLogin(@Args('input') input: VerifyTotpLoginInput, @Context() context: any) {
-    return this.authService.verifyTotpLogin(input.challenge_token, input.code, context?.req?.headers?.['user-agent']);
+  async verifyTotpLogin(@Args('input') input: VerifyTotpLoginInput, @Context() context: any) {
+    const result = await this.authService.verifyTotpLogin(input.challenge_token, input.code, context?.req?.headers?.['user-agent']);
+    applySessionCookies(context, result);
+    return result;
   }
 
   // P3.7: register never had a throttle at all before this -- the
@@ -63,21 +84,33 @@ export class AuthResolver {
   @Public()
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   @Mutation(() => AuthPayloadType)
-  register(@Args('input') input: RegisterInput, @Context() context: any) {
-    return this.authService.register(input, context?.req?.headers?.['user-agent']);
+  async register(@Args('input') input: RegisterInput, @Context() context: any) {
+    const result = await this.authService.register(input, context?.req?.headers?.['user-agent']);
+    applySessionCookies(context, result);
+    return result;
   }
 
+  // P1-02/SEC-2 — the frontend calls this with an empty input ({}) and
+  // relies entirely on the mb_refresh_token cookie (apollo/client.js's
+  // silent-refresh-on-401): the refresh token itself was never a
+  // JS-readable value to begin with, so there's nothing for the frontend
+  // to have passed explicitly. A caller that does supply input.refresh_token
+  // is still honoured (e.g. a non-browser API caller with no cookie jar).
   @Public()
   @Mutation(() => AuthPayloadType)
-  refresh(@Args('input') input: RefreshInput, @Context() context: any) {
-    return this.authService.refresh(input, context?.req?.headers?.['user-agent']);
+  async refresh(@Args('input') input: RefreshInput, @Context() context: any) {
+    const token = input.refresh_token || context?.req?.cookies?.[REFRESH_COOKIE_NAME];
+    const result = await this.authService.refresh({ refresh_token: token }, context?.req?.headers?.['user-agent']);
+    applySessionCookies(context, result);
+    return result;
   }
 
   // LOGOUT_MUTATION (frontend/src/graphql/mutations.js) has no sub-selection
   // ("{ logout }"), so this field must resolve to a scalar, not an object type.
   @Mutation(() => Boolean)
-  async logout(@CurrentUser() user: JwtPayload) {
+  async logout(@CurrentUser() user: JwtPayload, @Context() context: any) {
     const result = await this.authService.logout(user.sub);
+    if (context?.res) clearAuthCookies(context.res);
     return result.success;
   }
 
@@ -98,8 +131,10 @@ export class AuthResolver {
 
   @Public()
   @Mutation(() => AuthPayloadType)
-  verifyOtp(@Args('input') input: VerifyOtpInput, @Context() context: any) {
-    return this.authService.verifyOtp(input.phone, input.code, context?.req?.headers?.['user-agent']);
+  async verifyOtp(@Args('input') input: VerifyOtpInput, @Context() context: any) {
+    const result = await this.authService.verifyOtp(input.phone, input.code, context?.req?.headers?.['user-agent']);
+    applySessionCookies(context, result);
+    return result;
   }
 
   // Same rationale as requestOtp -- a real send (AWS SES) once wired, cost/
@@ -122,16 +157,31 @@ export class AuthResolver {
   // in the audit log (AuditLogInterceptor reads real_actor_id).
   @Auth('admin', 'super_admin')
   @Mutation(() => ImpersonationResultType)
-  startImpersonation(
+  async startImpersonation(
     @Args('target_user_id') targetUserId: string,
     @Args('reason') reason: string,
     @CurrentUser() user: JwtPayload,
+    @Context() context: any,
   ) {
-    return this.authService.startImpersonation(user, targetUserId, reason);
+    const result = await this.authService.startImpersonation(user, targetUserId, reason);
+    // Overwrites the real actor's own access-token cookie with the
+    // impersonation one. The refresh-token cookie is deliberately left
+    // untouched — endImpersonation below reuses it (via issueTokens on the
+    // real actor's profile) to hand back a real session, so it must still
+    // be the real actor's the whole time impersonation is active.
+    if (result.success && result.access_token) {
+      applySessionCookies(context, { access_token: result.access_token, expires_in: result.expires_in });
+    }
+    return result;
   }
 
   @Mutation(() => EndImpersonationResultType)
-  endImpersonation(@CurrentUser() user: JwtPayload) {
-    return this.authService.endImpersonation(user);
+  async endImpersonation(@CurrentUser() user: JwtPayload, @Context() context: any) {
+    const result: any = await this.authService.endImpersonation(user);
+    if (result.success && result._tokens) {
+      applySessionCookies(context, result._tokens);
+    }
+    const { _tokens, ...publicResult } = result;
+    return publicResult;
   }
 }

@@ -1,6 +1,20 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
+import { ACCESS_COOKIE_NAME } from '../auth-cookies.util';
+
+// P1-02/SEC-2 — the real web session now arrives as an httpOnly cookie
+// (never readable by frontend JS), checked first. The Bearer header stays
+// as a fallback, unchanged, for the two callers that were never in scope
+// for this slice's cookie migration: documents.controller.ts's REST
+// endpoints (a plain <a> download can't be made to carry a cookie the way
+// a fetch() with credentials:'include' can, and its own bearer auth
+// predates this slice) and the WS subscription path (app.module.ts's
+// context factory synthesizes req.headers.authorization from
+// connectionParams — graphql-ws has no cookie transport at all).
+const cookieExtractor = (req: { cookies?: Record<string, string> } | undefined): string | null => {
+  return req?.cookies?.[ACCESS_COOKIE_NAME] ?? null;
+};
 
 export interface JwtPayload {
   sub: string;
@@ -37,7 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new Error('JWT_ACCESS_SECRET must be set');
     }
     super({
-      jwtFromRequest: ExtractJwt.fromAuthHeaderAsBearerToken(),
+      jwtFromRequest: ExtractJwt.fromExtractors([cookieExtractor, ExtractJwt.fromAuthHeaderAsBearerToken()]),
       ignoreExpiration: false,
       secretOrKey: secret,
     });
