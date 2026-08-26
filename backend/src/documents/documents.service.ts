@@ -9,6 +9,13 @@ import { renderPdfToBuffer, drawLetterhead } from '../common/pdf/render-pdf';
 const formatDate = (d: Date | string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
 const formatMoney = (rupees: number) => `₹${rupees.toFixed(2)}`;
+// REQ129 (US-RX-08) -- first 12 hex chars of the content hash, grouped for
+// human readability. Mirrored verbatim in
+// frontend/src/pages/prescriptions/PrescriptionPrint.jsx's own
+// formatVerificationCode() -- both must derive the identical display string
+// from the same pdf_hash for a printed copy to be checkable against the app.
+const formatVerificationCode = (hash: string) =>
+  hash.slice(0, 12).toUpperCase().match(/.{1,4}/g)!.join('-');
 
 // REQ057 (US-PAT-02) — downloadable PDFs for prescriptions, invoices, and
 // visit summaries. Deliberately composes existing services' own already
@@ -82,6 +89,16 @@ export class DocumentsService {
     doc.moveDown(2);
     doc.fontSize(9).text('_______________________');
     doc.text('Signature');
+    // REQ129 (US-RX-08) — a short, human-checkable code derived from the
+    // prescription's own tamper-evident content hash. A pharmacist/patient
+    // can compare this against verifyPrescriptionIntegrity()'s own
+    // stored_hash for the same prescription id to confirm the printed
+    // drug list matches what was actually signed.
+    if (data.prescription.pdf_hash) {
+      doc.moveDown(0.5);
+      doc.fontSize(8).fillColor('#555555').text(`Verification code: ${formatVerificationCode(data.prescription.pdf_hash)}`);
+      doc.fillColor('black');
+    }
   }
 
   async prescriptionPdf(id: string, user: JwtPayload): Promise<Buffer> {

@@ -53,6 +53,32 @@ export class PrescriptionsService {
     return orgScopeVia(user, 'encounter');
   }
 
+  // REQ129 (US-RX-08) -- SHA-256 over the prescription's own canonical
+  // clinical content, not rendered PDF bytes (pdfkit stamps a wall-clock
+  // CreationDate into every PDF it produces, which would make two renders
+  // of identical content hash differently). Item order is stable (create
+  // order, Prisma's default when no orderBy is given, matching every other
+  // read of prescription.items in this file) so this is deterministic
+  // across repeated calls against the same row.
+  private computeContentHash(prescription: { patient_id: string; clinician_id: string; encounter_id: string; issued_at: Date }, items: any[]): string {
+    const canonical = JSON.stringify({
+      patient_id: prescription.patient_id,
+      clinician_id: prescription.clinician_id,
+      encounter_id: prescription.encounter_id,
+      issued_at: prescription.issued_at.toISOString(),
+      items: items.map((i) => ({
+        drug_id: i.drug_id,
+        dose: i.dose,
+        frequency: i.frequency,
+        route: i.route ?? null,
+        duration_days: i.duration_days ?? null,
+        qty: i.qty ?? null,
+        instructions: i.instructions ?? null,
+      })),
+    });
+    return crypto.createHash('sha256').update(canonical).digest('hex');
+  }
+
   private async itemsToGraphQL(items: any[]) {
     const drugIds = [...new Set(items.map((i) => i.drug_id))];
     const drugs = await this.prisma.drugs.findMany({ where: { id: { in: drugIds } } });
@@ -185,8 +211,28 @@ export class PrescriptionsService {
       },
       include: { items: true },
     });
+    // REQ129 -- computed after create, not passed into the create() data,
+    // since issued_at is DB-stamped (default(now())) and not known until
+    // the row exists.
+    const pdfHash = this.computeContentHash(prescription, prescription.items as any[]);
+    await this.prisma.prescriptions.update({ where: { id: prescription.id }, data: { pdf_hash: pdfHash } });
     const items = await this.itemsToGraphQL(prescription.items as any[]);
-    return { ...prescription, items };
+    return { ...prescription, pdf_hash: pdfHash, items };
+  }
+
+  // REQ129 (US-RX-08) -- re-derives the hash from the prescription's
+  // current DB content (same access control as prescription()/
+  // printPrescription(), via loadPrescriptionForUser) and compares it to
+  // the one stamped at issue time.
+  async verifyPrescriptionIntegrity(id: string, user: JwtPayload) {
+    const prescription = await this.loadPrescriptionForUser(id, user);
+    const computedHash = this.computeContentHash(prescription, prescription.items as any[]);
+    return {
+      prescription_id: id,
+      stored_hash: prescription.pdf_hash ?? undefined,
+      computed_hash: computedHash,
+      valid: prescription.pdf_hash === computedHash,
+    };
   }
 
   // US-RX-05: returns an unsaved draft (not a persisted row) so the

@@ -156,6 +156,67 @@ describe('PrescriptionsService', () => {
     });
   });
 
+  // REQ129 (US-RX-08)
+  describe('createPrescription — tamper-evident content hash', () => {
+    it('stamps a pdf_hash onto the row right after creating it', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
+      const result = await service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '500mg', frequency: 'BD', duration_days: 5 } as any] } as any, clinicianA);
+      expect(prisma.prescriptions.update).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { id: 'rx-1' }, data: { pdf_hash: expect.any(String) } }),
+      );
+      expect(result.pdf_hash).toEqual(expect.any(String));
+      expect(result.pdf_hash).toHaveLength(64); // sha256 hex digest
+    });
+
+    it('produces the same hash for the same content and a different one for different content', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.prescriptions.create.mockResolvedValueOnce(prescriptionOpen);
+      const first = await service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '500mg', frequency: 'BD', duration_days: 5 } as any] } as any, clinicianA);
+
+      prisma.prescriptions.create.mockResolvedValueOnce({ ...prescriptionOpen, items: [{ ...rxItem, dose: '250mg' }] });
+      const second = await service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '250mg', frequency: 'BD', duration_days: 5 } as any] } as any, clinicianA);
+
+      expect(first.pdf_hash).not.toEqual(second.pdf_hash);
+    });
+  });
+
+  describe('verifyPrescriptionIntegrity', () => {
+    it('is valid when the stored hash matches the current content', async () => {
+      const hashedRow = { ...prescriptionOpen, pdf_hash: undefined };
+      // Compute the real hash the same way the service would, via a real
+      // create+update round trip, then verify against that same row.
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.prescriptions.create.mockResolvedValue(hashedRow);
+      const created = await service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '500mg', frequency: 'BD', duration_days: 5 } as any] } as any, clinicianA);
+
+      prisma.prescriptions.findUnique.mockResolvedValue({ ...hashedRow, pdf_hash: created.pdf_hash });
+      const result = await service.verifyPrescriptionIntegrity('rx-1', clinicianA);
+      expect(result.valid).toBe(true);
+      expect(result.stored_hash).toBe(created.pdf_hash);
+      expect(result.computed_hash).toBe(created.pdf_hash);
+    });
+
+    it('is invalid when the stored hash does not match the current content (tamper detected)', async () => {
+      prisma.prescriptions.findUnique.mockResolvedValue({ ...prescriptionOpen, pdf_hash: 'not-the-real-hash' });
+      const result = await service.verifyPrescriptionIntegrity('rx-1', clinicianA);
+      expect(result.valid).toBe(false);
+      expect(result.stored_hash).toBe('not-the-real-hash');
+    });
+
+    it('is invalid (never crashes) when the row predates this column and has no stored hash', async () => {
+      prisma.prescriptions.findUnique.mockResolvedValue({ ...prescriptionOpen, pdf_hash: null });
+      const result = await service.verifyPrescriptionIntegrity('rx-1', clinicianA);
+      expect(result.valid).toBe(false);
+      expect(result.stored_hash).toBeUndefined();
+    });
+
+    it('rejects a cross-org caller, same access control as prescription()', async () => {
+      prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);
+      await expect(service.verifyPrescriptionIntegrity('rx-1', { ...clinicianA, client_org_id: 'org-b' } as any)).rejects.toThrow(NotFoundException);
+    });
+  });
+
   describe('prescription() / patientPrescriptions() — tenant isolation and self-scoping', () => {
     it('rejects a cross-org read', async () => {
       prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);

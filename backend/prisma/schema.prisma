@@ -486,6 +486,14 @@ model Prescriptions {
   language         String    @default("en")
   repeated_from_id String?
   reprint_count    Int       @default(0)
+  // REQ129 (US-RX-08) -- SHA-256 over the prescription's own canonical
+  // clinical content (patient/clinician/encounter/issued_at + every item),
+  // computed once at issue time. Not a hash of rendered PDF bytes: pdfkit
+  // embeds a wall-clock CreationDate in every PDF it produces, which would
+  // make two renders of identical content hash differently -- content
+  // hashing is the deterministic, verifiable choice. Nullable: rows created
+  // before this column existed have none.
+  pdf_hash         String?
 
   encounter      Encounters      @relation(fields: [encounter_id], references: [id])
   patient        Patients        @relation(fields: [patient_id], references: [id])

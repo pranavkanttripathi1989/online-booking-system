@@ -74,6 +74,22 @@ describe('DocumentsService', () => {
       const buffer = await service.prescriptionPdf('rx-1', user);
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     });
+
+    // REQ129 (US-RX-08)
+    it('still renders a real PDF when the prescription carries a pdf_hash (verification code line)', async () => {
+      prescriptionsService.printPrescription.mockResolvedValue({
+        ...printData,
+        prescription: { ...printData.prescription, pdf_hash: 'a1b2c3d4e5f6a7b8c9d0e1f2' },
+      });
+      const buffer = await service.prescriptionPdf('rx-1', user);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+
+    it('still renders a real PDF when pdf_hash is absent (a legacy pre-REQ129 row)', async () => {
+      prescriptionsService.printPrescription.mockResolvedValue(printData);
+      const buffer = await service.prescriptionPdf('rx-1', user);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
   });
 
   // REQ109

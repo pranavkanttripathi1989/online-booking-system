@@ -10,7 +10,7 @@ const PRINT_QUERY = gql`
   query PrintPrescription($id: ID!) {
     printPrescription(id: $id) {
       is_reprint
-      prescription { id mode issued_at language items { drug_name dose frequency route duration_days qty instructions substitutable } }
+      prescription { id mode issued_at language pdf_hash items { drug_name dose frequency route duration_days qty instructions substitutable } }
       clinic { name logo_url contact_phone address }
       clinician { full_name registration_number qualifications }
       patient { full_name date_of_birth gender }
@@ -32,6 +32,7 @@ const PAYLOAD = {
   is_reprint: false,
   prescription: {
     id: 'rx-1', mode: 'in_person', issued_at: '2026-08-24T09:00:00.000Z', language: 'en',
+    pdf_hash: 'a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6',
     items: [{ drug_name: 'Amoxicillin', dose: '500mg', frequency: 'BD', route: 'Oral', duration_days: 5, qty: 10, instructions: 'After food', substitutable: true }],
   },
   clinic: { name: 'City Heart Clinic', logo_url: null, contact_phone: '+91 9876543210', address: null },
@@ -58,6 +59,28 @@ describe('PrescriptionPrint', () => {
     expect(screen.getByText('Sarah Mitchell')).toBeInTheDocument()
     expect(screen.getByText('Amoxicillin')).toBeInTheDocument()
     expect(screen.queryByText('DUPLICATE')).not.toBeInTheDocument()
+  })
+
+  // REQ129 (US-RX-08)
+  it('renders a human-checkable verification code derived from pdf_hash', async () => {
+    renderPage()
+    await waitFor(() => expect(screen.getByText('City Heart Clinic')).toBeInTheDocument())
+    expect(screen.getByText('Verification code: A1B2-C3D4-E5F6')).toBeInTheDocument()
+  })
+
+  it('renders no verification code line for a legacy prescription with no pdf_hash', async () => {
+    render(
+      <MockedProvider
+        mocks={[{ request: { query: PRINT_QUERY, variables: { id: 'rx-1' } }, result: { data: { printPrescription: { ...PAYLOAD, prescription: { ...PAYLOAD.prescription, pdf_hash: null } } } } }]}
+        addTypename={false}
+      >
+        <MemoryRouter initialEntries={['/prescriptions/rx-1/print']}>
+          <Routes><Route path="/prescriptions/:id/print" element={<PrescriptionPrint />} /></Routes>
+        </MemoryRouter>
+      </MockedProvider>,
+    )
+    await waitFor(() => expect(screen.getByText('City Heart Clinic')).toBeInTheDocument())
+    expect(screen.queryByText(/Verification code/)).not.toBeInTheDocument()
   })
 
   it('shows the DUPLICATE watermark when the payload reports a reprint', async () => {

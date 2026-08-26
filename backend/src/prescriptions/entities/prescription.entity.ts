@@ -25,6 +25,24 @@ export class PrescriptionType {
   @Field() language: string;
   @Field(() => ID, { nullable: true }) repeated_from_id?: string;
   @Field(() => [PrescriptionItemType]) items: PrescriptionItemType[];
+  // REQ129 (US-RX-08) -- SHA-256 over the prescription's own canonical
+  // clinical content, computed once at issue time. Nullable for rows
+  // issued before this column existed.
+  @Field({ nullable: true }) pdf_hash?: string;
+}
+
+// REQ129 (US-RX-08) -- re-derives the hash from the prescription's current
+// DB content and compares it to the one stamped at issue time. Always
+// `valid: true` today since no update mutation exists on a Prescriptions
+// row (issuing IS the sign-off act, no edit path after) -- the mechanism
+// this exists to catch is a future edit path, or a direct DB write that
+// bypasses the API, not a printed-and-physically-altered paper copy.
+@ObjectType('PrescriptionIntegrity')
+export class PrescriptionIntegrityType {
+  @Field(() => ID) prescription_id: string;
+  @Field() valid: boolean;
+  @Field({ nullable: true }) stored_hash?: string;
+  @Field() computed_hash: string;
 }
 
 // Draft shape returned by repeatPrescription() -- pre-filled items for

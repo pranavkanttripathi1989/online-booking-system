@@ -26,11 +26,19 @@ const SHARE_VIA_WHATSAPP = gql`
 // directly rather than a separate PDF pipeline). See PLAN057 for why this
 // satisfies FR-RX-06's engineering intent without a new PDF dependency.
 
+// REQ129 (US-RX-08) -- mirrors backend/src/documents/documents.service.ts's
+// own formatVerificationCode() verbatim; both must derive the identical
+// display string from the same pdf_hash for a printed copy to be checkable
+// against the app.
+function formatVerificationCode(hash) {
+  return hash.slice(0, 12).toUpperCase().match(/.{1,4}/g).join('-')
+}
+
 const PRINT_QUERY = gql`
   query PrintPrescription($id: ID!) {
     printPrescription(id: $id) {
       is_reprint
-      prescription { id mode issued_at language items { drug_name dose frequency route duration_days qty instructions substitutable } }
+      prescription { id mode issued_at language pdf_hash items { drug_name dose frequency route duration_days qty instructions substitutable } }
       clinic { name logo_url contact_phone address }
       clinician { full_name registration_number qualifications }
       patient { full_name date_of_birth gender }
@@ -189,6 +197,11 @@ function PrescriptionPrint() {
         <Box textAlign="center">
           <Divider sx={{ width: 200, mb: 0.5 }} />
           <Typography variant="caption">Signature</Typography>
+          {prescription.pdf_hash && (
+            <Typography variant="caption" color="text.secondary" display="block">
+              Verification code: {formatVerificationCode(prescription.pdf_hash)}
+            </Typography>
+          )}
         </Box>
       </Box>
     </Box>
