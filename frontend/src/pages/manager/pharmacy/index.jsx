@@ -14,6 +14,7 @@ import HistoryIcon from '@mui/icons-material/History'
 import MedicationIcon from '@mui/icons-material/Medication'
 import InventoryIcon from '@mui/icons-material/Inventory2'
 import LocalPharmacyIcon from '@mui/icons-material/LocalPharmacy'
+import HourglassBottomRoundedIcon from '@mui/icons-material/HourglassBottomRounded'
 import { CLINICS_QUERY, PATIENTS_QUERY } from '../../../graphql/queries'
 
 // REQ022 (pharmacy P0) — real backend from day one, same convention as
@@ -63,6 +64,17 @@ const DISPENSE_PRESCRIPTION_ITEM = gql`
     dispensePrescriptionItem(input: $input) { id quantity_remaining }
   }
 `
+// REQ126 (US-RX-09) — org-wide, not scoped to one patient the way the
+// Dispense tab's own patient-search flow requires searching first.
+const GET_PENDING_DISPENSE = gql`
+  query GetPendingDispenseItems {
+    pendingDispenseItems {
+      prescription_item_id prescription_id issued_at
+      patient_id patient_name drug_id drug_name dose frequency
+      qty dispensed_qty remaining_qty
+    }
+  }
+`
 
 const EXPIRY_SOON_DAYS = 90
 const EMPTY_DRUG_FORM = { name: '', composition: '', strength: '', form: '', schedule_class: '', hsn: '', gst_rate: '', manufacturer: '' }
@@ -108,6 +120,10 @@ export default function PharmacyPage() {
   const [dispenseBatchId, setDispenseBatchId] = useState('')
   const [dispenseQty, setDispenseQty] = useState('')
 
+  // ── Pending Dispense (REQ126, US-RX-09) ─────────────────────────────────
+  const [pendingItems, setPendingItems] = useState([])
+  const [pendingLoading, setPendingLoading] = useState(false)
+
   const loadRefData = async () => {
     const [{ data: clinicData }, { data: drugData }] = await Promise.all([
       client.query({ query: CLINICS_QUERY, fetchPolicy: 'network-only' }),
@@ -132,6 +148,21 @@ export default function PharmacyPage() {
 
   useEffect(() => { loadRefData().catch((e) => setLoadError(e.message)); loadBatches() }, []) // eslint-disable-line
   useEffect(() => { loadBatches(clinicId) }, [clinicId]) // eslint-disable-line
+
+  const loadPendingDispenseItems = async () => {
+    setPendingLoading(true)
+    try {
+      const { data } = await client.query({ query: GET_PENDING_DISPENSE, fetchPolicy: 'network-only' })
+      setPendingItems(data?.pendingDispenseItems ?? [])
+    } catch (err) {
+      setFormError(err.message)
+    } finally {
+      setPendingLoading(false)
+    }
+  }
+  // Loads lazily when the tab is first opened, matching this page's own
+  // on-demand convention (e.g. Movement History, patient prescriptions).
+  useEffect(() => { if (tabIndex === 3) loadPendingDispenseItems() }, [tabIndex]) // eslint-disable-line
 
   // Debounced patient search, matching pages/patients/index.jsx's own convention.
   useEffect(() => {
@@ -307,6 +338,14 @@ export default function PharmacyPage() {
     setDispenseQty(item.qty ? String(item.qty) : '')
   }
 
+  // REQ126 — same dispense dialog the patient-search flow already uses,
+  // just pre-filled from a Pending Dispense row directly (no need to
+  // search for the patient first). remaining_qty, not the item's original
+  // qty, since some of it may already have been dispensed in an earlier visit.
+  const openDispenseFromQueue = (row) => {
+    openDispenseForm({ id: row.prescription_item_id, drug_id: row.drug_id, drug_name: row.drug_name, qty: row.remaining_qty })
+  }
+
   const submitDispense = async (e) => {
     e.preventDefault()
     const qty = parseInt(dispenseQty, 10)
@@ -323,6 +362,9 @@ export default function PharmacyPage() {
       setDispenseBatchId('')
       setDispenseQty('')
       loadBatches(clinicId)
+      // REQ126 — keep the queue honest regardless of which flow triggered
+      // this dispense; a cheap no-op refetch if the tab was never opened.
+      if (tabIndex === 3) loadPendingDispenseItems()
     } catch (err) {
       setFormError(err?.graphQLErrors?.[0]?.message || err.message)
     } finally {
@@ -351,6 +393,7 @@ export default function PharmacyPage() {
         <Tab label="Stock" icon={<InventoryIcon />} iconPosition="start" />
         <Tab label="Drug Catalog" icon={<MedicationIcon />} iconPosition="start" />
         <Tab label="Dispense" icon={<LocalPharmacyIcon />} iconPosition="start" />
+        <Tab label="Pending Dispense" icon={<HourglassBottomRoundedIcon />} iconPosition="start" />
       </Tabs>
 
       {successMsg && <Alert severity="success" sx={{ mb: 2 }}>{successMsg}</Alert>}
@@ -635,6 +678,45 @@ export default function PharmacyPage() {
                 ))
               )}
             </>
+          )}
+        </Box>
+      )}
+
+      {/* ══ PENDING DISPENSE TAB (REQ126, US-RX-09) ═══════════════════════ */}
+      {tabIndex === 3 && (
+        <Box>
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            Every prescription item that isn't yet fully dispensed, across the whole pharmacy — oldest first.
+          </Typography>
+          {pendingLoading ? (
+            <Box display="flex" justifyContent="center" py={4}><CircularProgress /></Box>
+          ) : pendingItems.length === 0 ? (
+            <Alert severity="success">Nothing pending — every issued prescription item has been fully dispensed.</Alert>
+          ) : (
+            <TableContainer component={Card} variant="outlined">
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    {['Issued', 'Patient', 'Drug', 'Dose', 'Frequency', 'Remaining', ''].map((h) => <TableCell key={h}>{h}</TableCell>)}
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pendingItems.map((row) => (
+                    <TableRow key={row.prescription_item_id}>
+                      <TableCell>{new Date(row.issued_at).toLocaleDateString('en-IN')}</TableCell>
+                      <TableCell>{row.patient_name}</TableCell>
+                      <TableCell>{row.drug_name}</TableCell>
+                      <TableCell>{row.dose}</TableCell>
+                      <TableCell>{row.frequency}</TableCell>
+                      <TableCell>{row.remaining_qty} / {row.qty}</TableCell>
+                      <TableCell>
+                        <Button size="small" variant="outlined" onClick={() => openDispenseFromQueue(row)}>Dispense</Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )}
         </Box>
       )}

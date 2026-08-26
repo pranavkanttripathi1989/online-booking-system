@@ -2,7 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { ReceiveStockInput, AdjustStockInput, DispensePrescriptionItemInput } from './dto/pharmacy.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScope, isSameOrg } from '../common/scoping/tenant-scope';
+import { orgScope, orgScopeVia, isSameOrg } from '../common/scoping/tenant-scope';
 
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
@@ -145,6 +145,60 @@ export class PharmacyService {
       return result;
     });
     return this.batchToGraphQL(updated);
+  }
+
+  // REQ126 (US-RX-09) — was "blocked on REQ022 not existing" per REQ021's
+  // own doc; REQ022 has since shipped, so this is that unblocked slice.
+  // Every not-yet-fully-dispensed item across the whole pharmacy, not
+  // scoped to one patient the way the existing per-patient search flow
+  // requires searching first -- a genuine queue, not a lookup.
+  //
+  // PrescriptionItems has no dispensed_qty column of its own -- dispensing
+  // is tracked entirely via StockMovements (movement_type: 'dispense',
+  // reference_type: 'prescription_item'), the same append-only ledger
+  // dispensePrescriptionItem() already writes to. A groupBy aggregate
+  // avoids an N+1 per item.
+  async pendingDispenseItems(user: JwtPayload) {
+    const items = await this.prisma.prescriptionItems.findMany({
+      where: {
+        qty: { not: null },
+        prescription: orgScopeVia(user, 'encounter'),
+      },
+      include: { prescription: { include: { patient: true } }, drug: true },
+      orderBy: { prescription: { issued_at: 'asc' } },
+    });
+    if (items.length === 0) return [];
+
+    const dispensedSums = await this.prisma.stockMovements.groupBy({
+      by: ['reference_id'],
+      where: {
+        reference_type: 'prescription_item',
+        movement_type: 'dispense',
+        reference_id: { in: items.map((i) => i.id) },
+      },
+      _sum: { quantity_delta: true },
+    });
+    const dispensedMap = new Map(dispensedSums.map((s) => [s.reference_id as string, Math.abs(s._sum.quantity_delta ?? 0)]));
+
+    return items
+      .map((item: any) => {
+        const dispensedQty = dispensedMap.get(item.id) ?? 0;
+        return {
+          prescription_item_id: item.id,
+          prescription_id: item.prescription_id,
+          issued_at: item.prescription.issued_at,
+          patient_id: item.prescription.patient_id,
+          patient_name: `${item.prescription.patient.first_name} ${item.prescription.patient.last_name}`,
+          drug_id: item.drug_id,
+          drug_name: item.drug.name,
+          dose: item.dose,
+          frequency: item.frequency,
+          qty: item.qty,
+          dispensed_qty: dispensedQty,
+          remaining_qty: item.qty - dispensedQty,
+        };
+      })
+      .filter((item) => item.remaining_qty > 0);
   }
 
   // REQ022 (US-PHR-09, scoped) — batches with stock remaining, crossing a

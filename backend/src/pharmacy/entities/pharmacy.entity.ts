@@ -38,3 +38,22 @@ export class StockMovementType {
   @Field({ nullable: true }) notes?: string;
   @Field() created_at: Date;
 }
+
+// REQ126 (US-RX-09) — one row per not-yet-fully-dispensed prescription
+// item, across the whole pharmacy, not scoped to one patient the way the
+// existing per-patient search flow requires searching first.
+@ObjectType('PendingDispenseItem')
+export class PendingDispenseItemType {
+  @Field(() => ID) prescription_item_id: string;
+  @Field(() => ID) prescription_id: string;
+  @Field() issued_at: Date;
+  @Field(() => ID) patient_id: string;
+  @Field() patient_name: string;
+  @Field(() => ID) drug_id: string;
+  @Field() drug_name: string;
+  @Field() dose: string;
+  @Field() frequency: string;
+  @Field(() => Int) qty: number;
+  @Field(() => Int) dispensed_qty: number;
+  @Field(() => Int) remaining_qty: number;
+}

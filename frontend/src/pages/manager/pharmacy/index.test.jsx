@@ -48,6 +48,15 @@ const DISPENSE_PRESCRIPTION_ITEM = gql`
     dispensePrescriptionItem(input: $input) { id quantity_remaining }
   }
 `
+const GET_PENDING_DISPENSE = gql`
+  query GetPendingDispenseItems {
+    pendingDispenseItems {
+      prescription_item_id prescription_id issued_at
+      patient_id patient_name drug_id drug_name dose frequency
+      qty dispensed_qty remaining_qty
+    }
+  }
+`
 
 const clinicsMock = {
   request: { query: CLINICS_QUERY },
@@ -187,6 +196,38 @@ describe('manager/pharmacy (REQ059)', () => {
     fireEvent.click(screen.getByRole('dialog').querySelector('button[type="submit"]'))
 
     await waitFor(() => expect(screen.getByText('Dispensed.')).toBeInTheDocument())
+  })
+
+  // REQ126 (US-RX-09) — org-wide pending queue, no patient search needed.
+  it('Pending Dispense: lists items org-wide and dispenses directly from the queue', async () => {
+    const pendingRow = {
+      __typename: 'PendingDispenseItem',
+      prescription_item_id: 'item-9', prescription_id: 'rx-9', issued_at: '2026-08-20T00:00:00.000Z',
+      patient_id: 'pat-9', patient_name: 'Anita Sharma', drug_id: 'drug-tenant', drug_name: 'CustomDrug',
+      dose: '1 tab', frequency: 'OD', qty: 10, dispensed_qty: 4, remaining_qty: 6,
+    }
+    const batches = [{ id: 'batch-match', drug_id: 'drug-tenant', batch_number: 'MATCH-1', quantity_received: 50, quantity_remaining: 50, expiry_date: '2028-01-01', mrp: null }]
+    const mocks = [
+      clinicsMock, drugsMock(), batchesMock(batches),
+      { request: { query: GET_PENDING_DISPENSE }, result: { data: { pendingDispenseItems: [pendingRow] } } },
+      { request: { query: DISPENSE_PRESCRIPTION_ITEM, variables: { input: { prescription_item_id: 'item-9', batch_id: 'batch-match', quantity: 6 } } }, result: { data: { dispensePrescriptionItem: { __typename: 'DrugBatch', id: 'batch-match', quantity_remaining: 44 } } } },
+      batchesMock(batches),
+      { request: { query: GET_PENDING_DISPENSE }, result: { data: { pendingDispenseItems: [] } } },
+    ]
+    renderPage(mocks)
+    fireEvent.click(await screen.findByRole('tab', { name: 'Pending Dispense' }))
+
+    await waitFor(() => expect(screen.getByText('Anita Sharma')).toBeInTheDocument())
+    expect(screen.getByText('6 / 10')).toBeInTheDocument()
+
+    // No dropdown interaction -- FEFO default (REQ125) selects MATCH-1,
+    // and the quantity field is pre-filled from remaining_qty.
+    fireEvent.click(screen.getByRole('button', { name: 'Dispense' }))
+    expect(screen.getByLabelText(/^Quantity/)).toHaveValue(6)
+    fireEvent.click(screen.getByRole('dialog').querySelector('button[type="submit"]'))
+
+    await waitFor(() => expect(screen.getByText('Dispensed.')).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText('Nothing pending — every issued prescription item has been fully dispensed.')).toBeInTheDocument())
   })
 
   it('Movement History dialog shows real movements for a batch', async () => {

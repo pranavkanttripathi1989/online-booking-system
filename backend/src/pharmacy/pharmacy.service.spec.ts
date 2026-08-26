@@ -11,10 +11,10 @@ describe('PharmacyService', () => {
   let service: PharmacyService;
   let prisma: {
     drugBatches: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock; groupBy: jest.Mock };
-    stockMovements: { findMany: jest.Mock };
+    stockMovements: { findMany: jest.Mock; groupBy: jest.Mock };
     clinics: { findUnique: jest.Mock };
     drugs: { findUnique: jest.Mock; findMany: jest.Mock };
-    prescriptionItems: { findUnique: jest.Mock };
+    prescriptionItems: { findUnique: jest.Mock; findMany: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -27,10 +27,10 @@ describe('PharmacyService', () => {
   beforeEach(async () => {
     prisma = {
       drugBatches: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
-      stockMovements: { findMany: jest.fn() },
+      stockMovements: { findMany: jest.fn(), groupBy: jest.fn().mockResolvedValue([]) },
       clinics: { findUnique: jest.fn() },
       drugs: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
-      prescriptionItems: { findUnique: jest.fn() },
+      prescriptionItems: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((cb) => cb(prisma)),
     };
     (prisma as any).drugBatches.create = jest.fn();
@@ -170,6 +170,64 @@ describe('PharmacyService', () => {
       prisma.drugBatches.groupBy.mockResolvedValue([]); // no batches at all
       const result = await service.lowStockDrugs(undefined, orgAUser);
       expect(result).toEqual([{ drug_id: 'drug-a', drug_name: 'Amoxicillin', reorder_level: 10, quantity_on_hand: 0 }]);
+    });
+  });
+
+  // REQ126 (US-RX-09) — every not-yet-fully-dispensed item, org-wide.
+  describe('pendingDispenseItems', () => {
+    function item(overrides: any = {}) {
+      return {
+        id: 'item-1', prescription_id: 'rx-1', drug_id: 'drug-a', dose: '1 tab', frequency: 'OD', qty: 10,
+        prescription: { issued_at: new Date('2026-08-20T00:00:00.000Z'), patient_id: 'pat-1', patient: { first_name: 'A', last_name: 'B' } },
+        drug: { name: 'Amoxicillin' },
+        ...overrides,
+      };
+    }
+
+    it('scopes to the caller org via prescription.encounter', async () => {
+      await service.pendingDispenseItems(orgAUser);
+      const where = prisma.prescriptionItems.findMany.mock.calls[0][0].where;
+      expect(where).toEqual(expect.objectContaining({
+        qty: { not: null },
+        prescription: { encounter: { client_org_id: 'org-a' } },
+      }));
+    });
+
+    it('returns an item with nothing dispensed yet at full remaining quantity', async () => {
+      prisma.prescriptionItems.findMany.mockResolvedValue([item()]);
+      prisma.stockMovements.groupBy.mockResolvedValue([]);
+      const result = await service.pendingDispenseItems(orgAUser);
+      expect(result).toEqual([expect.objectContaining({
+        prescription_item_id: 'item-1', patient_name: 'A B', drug_name: 'Amoxicillin',
+        qty: 10, dispensed_qty: 0, remaining_qty: 10,
+      })]);
+    });
+
+    it('subtracts partial dispensing from the remaining quantity', async () => {
+      prisma.prescriptionItems.findMany.mockResolvedValue([item()]);
+      prisma.stockMovements.groupBy.mockResolvedValue([{ reference_id: 'item-1', _sum: { quantity_delta: -4 } }]);
+      const result = await service.pendingDispenseItems(orgAUser);
+      expect(result[0]).toEqual(expect.objectContaining({ dispensed_qty: 4, remaining_qty: 6 }));
+    });
+
+    it('excludes an item that has already been fully dispensed', async () => {
+      prisma.prescriptionItems.findMany.mockResolvedValue([item()]);
+      prisma.stockMovements.groupBy.mockResolvedValue([{ reference_id: 'item-1', _sum: { quantity_delta: -10 } }]);
+      const result = await service.pendingDispenseItems(orgAUser);
+      expect(result).toEqual([]);
+    });
+
+    it('orders the underlying query by prescription issued_at ascending (oldest first)', async () => {
+      await service.pendingDispenseItems(orgAUser);
+      const args = prisma.prescriptionItems.findMany.mock.calls[0][0];
+      expect(args.orderBy).toEqual({ prescription: { issued_at: 'asc' } });
+    });
+
+    it('short-circuits without querying stockMovements when there are no eligible items', async () => {
+      prisma.prescriptionItems.findMany.mockResolvedValue([]);
+      const result = await service.pendingDispenseItems(orgAUser);
+      expect(result).toEqual([]);
+      expect(prisma.stockMovements.groupBy).not.toHaveBeenCalled();
     });
   });
 });
