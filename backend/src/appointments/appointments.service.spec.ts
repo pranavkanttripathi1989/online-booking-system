@@ -9,6 +9,7 @@ import { QueueService } from '../queue/queue.service';
 import { PatientsService } from '../patients/patients.service';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
+import { WaitlistService } from '../waitlist/waitlist.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -34,6 +35,7 @@ describe('AppointmentsService — access scoping', () => {
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
   let webhookDispatch: { fireEvent: jest.Mock };
   let intakeFieldsService: { forBooking: jest.Mock };
+  let waitlistService: { promoteNext: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -99,6 +101,10 @@ describe('AppointmentsService — access scoping', () => {
         // predates intake fields), exercised for real in
         // intake-fields.service.spec.ts and the dedicated describe block below.
         { provide: IntakeFieldsService, useValue: (intakeFieldsService = { forBooking: jest.fn().mockResolvedValue([]) }) },
+        // REQ106: transitionStatus() now promotes the next waitlist entry on
+        // cancel/no_show -- mocked no-op here, exercised for real in
+        // waitlist.service.spec.ts and the dedicated describe block below.
+        { provide: WaitlistService, useValue: (waitlistService = { promoteNext: jest.fn() }) },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -553,6 +559,27 @@ describe('AppointmentsService — access scoping', () => {
       prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
       await service.complete('appt-1', staffUser);
       expect(prisma.appointmentResources.deleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  // REQ106
+  describe('transitionStatus — promotes the next waitlist entry on cancel/no_show', () => {
+    it('calls waitlistService.promoteNext with the right clinician and UTC-midnight date on cancel', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      await service.cancel('appt-1', 'patient request', staffUser);
+      expect(waitlistService.promoteNext).toHaveBeenCalledWith('cln-1', new Date(baseAppointmentRow.appointment_time.toISOString().slice(0, 10) + 'T00:00:00.000Z'));
+    });
+
+    it('calls waitlistService.promoteNext on no_show too', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      await service.markNoShow('appt-1', staffUser);
+      expect(waitlistService.promoteNext).toHaveBeenCalledWith('cln-1', expect.any(Date));
+    });
+
+    it('does NOT call promoteNext for an unrelated transition (e.g. completing)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      await service.complete('appt-1', staffUser);
+      expect(waitlistService.promoteNext).not.toHaveBeenCalled();
     });
   });
 

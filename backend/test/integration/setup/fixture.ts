@@ -153,6 +153,9 @@ export const IDS = {
   apiKeyB: u('e15'),
   scheduledReportA: u('e16'),
   scheduledReportB: u('e17'),
+  // REQ106 -- waitlist domain.
+  waitlistEntryA: u('f03'),
+  waitlistEntryB: u('f04'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -592,6 +595,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.scheduledReportA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, report_type: 'daily_collections', recipients_json: ['a@example.test'], cadence: 'daily', channel: 'email', created_by_user_id: IDS.userManagerA },
       { id: IDS.scheduledReportB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, report_type: 'daily_collections', recipients_json: ['b@example.test'], cadence: 'daily', channel: 'email', created_by_user_id: IDS.userManagerB },
+    ],
+  });
+
+  // REQ106 -- one waiting waitlist entry per org.
+  await prisma.waitlistEntries.createMany({
+    data: [
+      { id: IDS.waitlistEntryA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, clinician_id: IDS.clinicianA, patient_id: IDS.patientA, waitlist_date: new Date('2026-09-01T00:00:00.000Z'), position: 1 },
+      { id: IDS.waitlistEntryB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, clinician_id: IDS.clinicianB, patient_id: IDS.patientB, waitlist_date: new Date('2026-09-01T00:00:00.000Z'), position: 1 },
     ],
   });
 }

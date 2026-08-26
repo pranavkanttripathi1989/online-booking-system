@@ -7,11 +7,12 @@ import { QueueModule } from '../queue/queue.module';
 import { PatientsModule } from '../patients/patients.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
 import { IntakeFieldsModule } from '../intake-fields/intake-fields.module';
+import { WaitlistModule } from '../waitlist/waitlist.module';
 
 @Module({
   // ScheduleModule.forRoot() is idempotent -- appointment-payments.module.ts
   // already calls it too (see its own comment confirming this is safe).
-  imports: [ScheduleModule.forRoot(), QueueModule, PatientsModule, WebhooksModule, IntakeFieldsModule],
+  imports: [ScheduleModule.forRoot(), QueueModule, PatientsModule, WebhooksModule, IntakeFieldsModule, WaitlistModule],
   providers: [AppointmentsService, AppointmentsResolver, NoShowSweepService],
   exports: [AppointmentsService],
 })

@@ -13,6 +13,7 @@ import { QueueService } from '../queue/queue.service';
 import { PatientsService } from '../patients/patients.service';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
+import { WaitlistService } from '../waitlist/waitlist.service';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -56,6 +57,7 @@ export class AppointmentsService {
     private readonly patientsService: PatientsService,
     private readonly webhookDispatch: WebhookDispatchService,
     private readonly intakeFieldsService: IntakeFieldsService,
+    private readonly waitlistService: WaitlistService,
   ) {}
 
   // REQ008/PLAN017 — notify the clinician's own login account, if linked.
@@ -543,6 +545,17 @@ export class AppointmentsService {
     await this.queueService.publish(updated.clinic_id);
     if (status === 'cancelled' && appointment.status !== 'cancelled') {
       await this.notifyCancellation(result);
+    }
+    // REQ106 — a cancelled/no_show appointment frees a slot on this
+    // clinician's date; notify the earliest waiting waitlist entry (if
+    // any) for it. Not inside the $transaction above — this is the same
+    // "notify after the write, not atomic with it" position as
+    // notifyCancellation just above, since a missed notification is
+    // recoverable (the sweep re-checks) but the appointment status write
+    // itself must not roll back over a notification failure.
+    if (status === 'cancelled' || status === 'no_show') {
+      const waitlistDate = new Date(updated.appointment_time.toISOString().slice(0, 10) + 'T00:00:00.000Z');
+      await this.waitlistService.promoteNext(updated.clinician_id, waitlistDate);
     }
     // REQ030 (US-INT-02, scoped down) — cancellation is the one transitionStatus
     // outcome in this event's subscribable vocabulary; 'appointment.confirmed'

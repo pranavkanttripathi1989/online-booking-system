@@ -92,6 +92,11 @@ enum NotificationEventType {
   // REQ022 (US-PHR-09, scoped) — a drug's total remaining stock has crossed
   // at or below its own configured reorder_level.
   low_stock_alert
+  // REQ106 — a cancellation/no-show freed a slot for the earliest waiting
+  // entry on that clinician/date. Added in its own separate migration,
+  // applied before any code references it — the exact break_glass_requested
+  // precedent above (a missing enum value crashes the whole dispatch call).
+  waitlist_slot_available
 }
 
 enum NotificationPriority {
@@ -842,6 +847,7 @@ model Clinicians {
   prescriptions       Prescriptions[]
   prescriptionSets    PrescriptionSets[]
   queueEntries        QueueEntries[]
+  waitlistEntries     WaitlistEntries[]
 
   @@index([clinic_id, is_deleted, is_active])
   @@index([department_id])
@@ -928,6 +934,7 @@ model Clinics {
   patientPackages    PatientPackages[]
   productBranchOverrides ProductBranchOverrides[]
   messageThreads     MessageThreads[]
+  waitlistEntries    WaitlistEntries[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -1088,6 +1095,8 @@ model Patients {
   // across different transfers, hence two named relations.
   packageTransfersFrom PackageTransferLog[] @relation("PackageTransferFrom")
   packageTransfersTo   PackageTransferLog[] @relation("PackageTransferTo")
+  // REQ106
+  waitlistEntries      WaitlistEntries[]
 
   appointments Appointments[]
   userProfiles UserProfiles[]
@@ -1927,6 +1936,40 @@ model AppointmentResources {
 
   @@unique([appointment_id, resource_id])
   @@index([resource_id])
+}
+
+// REQ106 — one of REQ017's four deferred P1 items (waitlist for a fully-
+// booked clinician/date). One row per (clinician, date, patient); notified
+// with a time-boxed claim window on cancellation/no-show, never auto-booked.
+enum WaitlistStatus {
+  waiting
+  notified
+  claimed
+  expired
+  cancelled
+}
+
+model WaitlistEntries {
+  id               String         @id @default(uuid())
+  client_org_id    String
+  clinic_id        String
+  clinician_id     String
+  patient_id       String
+  waitlist_date    DateTime
+  status           WaitlistStatus @default(waiting)
+  position         Int
+  notified_at      DateTime?
+  claim_expires_at DateTime?
+  created_at       DateTime       @default(now())
+  updated_at       DateTime       @default(now())
+
+  clinic    Clinics    @relation(fields: [clinic_id], references: [id])
+  clinician Clinicians @relation(fields: [clinician_id], references: [id])
+  patient   Patients   @relation(fields: [patient_id], references: [id])
+
+  @@index([clinician_id, waitlist_date, status])
+  @@index([client_org_id])
+  @@index([patient_id])
 }
 
 model SpacerBlocks {

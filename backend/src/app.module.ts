@@ -42,6 +42,7 @@ import { OrganizationOnboardingModule } from './organization-onboarding/organiza
 import { EncountersModule } from './encounters/encounters.module';
 import { PrescriptionsModule } from './prescriptions/prescriptions.module';
 import { QueueModule } from './queue/queue.module';
+import { WaitlistModule } from './waitlist/waitlist.module';
 import { BookingWidgetModule } from './booking-widget/booking-widget.module';
 import { PlansModule } from './plans/plans.module';
 import { ConsentModule } from './consent/consent.module';
@@ -129,6 +130,7 @@ import { PubSubModule } from './common/pubsub.module';
     EncountersModule,
     PrescriptionsModule,
     QueueModule,
+    WaitlistModule,
     CancellationRulesModule,
     AccountModule,
     NotificationPreferencesModule,

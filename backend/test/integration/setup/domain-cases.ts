@@ -441,6 +441,17 @@ export const CASES: DomainCase[] = [
     bId: IDS.scheduledReportB,
     allowedRoles: ['super_admin', 'admin', 'manager'],
   },
+  {
+    // REQ106. clinic_id omitted -> org-wide (same shared query/variables
+    // shape as checklist/scheduled-reports above); own client_org_id.
+    domain: 'waitlist',
+    what: 'waitlistEntries',
+    query: `{ clinicWaitlist { id } }`,
+    ids: (d) => (d.clinicWaitlist ?? []).map((x: any) => x.id),
+    aId: IDS.waitlistEntryA,
+    bId: IDS.waitlistEntryB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
 ];
 
 /** Domains covered by this matrix — read by matrix-coverage.int-spec.ts. */
