@@ -391,7 +391,20 @@ placeholder waiting on this decision.
 
 ## 14. `createAppointment`'s room assignment has no availability check at all — a data-integrity backstop was added, the underlying selection logic was not
 
-**Status:** Open, raised 2026-08-23 while closing `BUG017` (booking-concurrency exclusion constraint).
+**Status:** ~~Open~~ — **resolved 2026-08-26** (`REQ124`/`PLAN164`).
+Re-reading this entry while scoping the next batch found it wasn't
+actually a product-judgment call after all: trying the next active room
+before rejecting the booking has no tradeoff to weigh against (unlike,
+say, a pricing or UX decision) — it's strictly better with no downside.
+Built `findFreeRoom()`/`isRoomFree()` (mirroring `assertSlotFree()`'s
+own overlap-detection shape) and wired them into `create()`'s slot-mode
+room-assignment branch only; session/hybrid-mode room selection is
+unaffected by design (see `REQ124`'s own note). This entry's "needs its
+own requirement... touches the slot-search/availability-calculation
+logic" framing turned out overstated — the fix stayed entirely inside
+`create()`'s existing room-pick, no slot-search changes needed.
+
+**Original status (superseded):** Open, raised 2026-08-23 while closing `BUG017` (booking-concurrency exclusion constraint).
 
 `appointments.service.ts`'s `create()` picks a room via
 `rooms.findFirst({clinic_id, is_active, is_deleted})` — no ordering, no

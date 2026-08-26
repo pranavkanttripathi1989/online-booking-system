@@ -38,6 +38,7 @@ under.
 | [09-next-15-slice-roadmap.md](./09-next-15-slice-roadmap.md) | A 15-slice next-batch survey — superseded by `10` once a parallel session's own independent survey was discovered and reconciled. |
 | [10-next-14-slice-batch-reconciled.md](./10-next-14-slice-batch-reconciled.md) | Reconciles `09` against a parallel session's own concurrent survey (`REQ080` Tasks work already in progress there); sequences the resulting 14 slices (`REQ100`–`REQ113`), all shipped. |
 | [11-next-10-slice-batch.md](./11-next-10-slice-batch.md) | The next 10-slice selection after `10` shipped, verified against live code, no cross-session collision this round. |
+| [12-next-10-slice-batch.md](./12-next-10-slice-batch.md) | The next 10-slice selection after `11` shipped (`REQ124`–`REQ133`), each candidate re-verified against live code via a research fork — several near-misses turned out already closed elsewhere. |
 | [technical-plans/](./technical-plans/README.md) | **Phase-wise engineering detail** for building the PRD scope: schema DDL, migration order, module layout, constraint decisions, and per-phase DoD. Six documents — `00-foundation-hardening` (the hard prerequisite), `01-phase1-mvp`, `02-phase2-v1-ga`, `03-phase3-v2`, `04-data-model-evolution`, `05-cross-cutting-conventions`. |
 
 ## How this was produced
