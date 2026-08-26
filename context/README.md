@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| platform-integrations-2026-08-26-req116 | platform-integrations | 2026-08-26 | REQ116, PLAN156, TP176, TR176 | done | [manifest.md](./platform-integrations-2026-08-26-req116/manifest.md) |
 | catalog-master-data-2026-08-26-req115 | catalog-master-data | 2026-08-26 | REQ115, PLAN155, TP175, TR175 | done | [manifest.md](./catalog-master-data-2026-08-26-req115/manifest.md) |
 | security-2026-08-26-req114 | security | 2026-08-26 | REQ114, PLAN154, TP174, TR174 | done | [manifest.md](./security-2026-08-26-req114/manifest.md) |
 | prescriptions-2026-08-26-req109 | prescriptions | 2026-08-26 | REQ109, PLAN149, TP173, TR173 | done | [manifest.md](./prescriptions-2026-08-26-req109/manifest.md) |

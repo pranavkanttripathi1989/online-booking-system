@@ -12,6 +12,7 @@
 |---|---|---|---|---|---|---|---|
 | REQ064 | improvement | Booking widget edit UI | done | 2026-08-25 | 2026-08-25 | REQ030 | [REQ064-platform-integrations-2026-08-25-booking-widget-edit-ui.md](./improvement/REQ064-platform-integrations-2026-08-25-booking-widget-edit-ui.md) |
 | REQ063 | improvement | Webhook delivery log UI | done | 2026-08-25 | 2026-08-25 | REQ030 | [REQ063-platform-integrations-2026-08-25-webhook-delivery-log-ui.md](./improvement/REQ063-platform-integrations-2026-08-25-webhook-delivery-log-ui.md) |
+| REQ116 | improvement | Enforce issued API keys with a real guard | done | 2026-08-26 | 2026-08-26 | REQ015 | [REQ116-platform-integrations-2026-08-26-api-key-enforcement.md](./improvement/REQ116-platform-integrations-2026-08-26-api-key-enforcement.md) |
 | REQ112 | improvement | Webhook retry with exponential backoff | done | 2026-08-26 | 2026-08-26 | REQ030 | [REQ112-platform-integrations-2026-08-26-webhook-retry-backoff.md](./improvement/REQ112-platform-integrations-2026-08-26-webhook-retry-backoff.md) |
 
 ## bug
