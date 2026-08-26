@@ -14,6 +14,7 @@ describe('ApiKeysService', () => {
   let service: ApiKeysService;
   let prisma: {
     apiKeys: { findMany: jest.Mock; create: jest.Mock; update: jest.Mock; findUnique: jest.Mock };
+    appointments: { findMany: jest.Mock };
   };
 
   // 'manager', not 'admin' — see webhooks.service.spec.ts's own comment:
@@ -23,7 +24,10 @@ describe('ApiKeysService', () => {
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
 
   beforeEach(async () => {
-    prisma = { apiKeys: { findMany: jest.fn(), create: jest.fn(), update: jest.fn(), findUnique: jest.fn() } };
+    prisma = {
+      apiKeys: { findMany: jest.fn(), create: jest.fn(), update: jest.fn(), findUnique: jest.fn() },
+      appointments: { findMany: jest.fn() },
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [ApiKeysService, { provide: PrismaService, useValue: prisma }],
     }).compile();
@@ -70,6 +74,36 @@ describe('ApiKeysService', () => {
       const result = await service.verify(`mbk_abc.${rawKey}`);
       expect(result).toEqual({ client_org_id: 'org-a' });
       expect(prisma.apiKeys.update).toHaveBeenCalledWith({ where: { id: 'k1' }, data: { last_used_at: expect.any(Date) } });
+    });
+  });
+
+  // REQ116 — the first real consumer of the resolved org id from verify().
+  describe('listAppointmentsForOrg', () => {
+    it('scopes strictly by the given org id, never a caller-supplied one', async () => {
+      prisma.appointments.findMany.mockResolvedValue([]);
+      await service.listAppointmentsForOrg('org-a');
+      expect(prisma.appointments.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ clinic: { client_org_id: 'org-a' }, is_deleted: false }) }),
+      );
+    });
+
+    it('filters by the given date when provided', async () => {
+      prisma.appointments.findMany.mockResolvedValue([]);
+      await service.listAppointmentsForOrg('org-a', '2026-08-26');
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.appointment_time.gte.toISOString()).toBe('2026-08-26T00:00:00.000Z');
+      expect(where.appointment_time.lte.toISOString()).toBe('2026-08-26T23:59:59.999Z');
+    });
+
+    it('returns a minimal shape with no patient PHI', async () => {
+      prisma.appointments.findMany.mockResolvedValue([
+        { id: 'a1', appointment_time: new Date('2026-08-26T09:00:00.000Z'), duration_minutes: 30, status: 'scheduled', product: { name: 'Consultation' }, clinician: { first_name: 'Sarah', last_name: 'Mitchell' } },
+      ]);
+      const result = await service.listAppointmentsForOrg('org-a');
+      expect(result).toEqual([{
+        id: 'a1', start_datetime: new Date('2026-08-26T09:00:00.000Z'), duration_minutes: 30, status: 'scheduled',
+        service_name: 'Consultation', clinician_name: 'Sarah Mitchell',
+      }]);
     });
   });
 });

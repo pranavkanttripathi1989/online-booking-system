@@ -46,12 +46,10 @@ export class ApiKeysService {
 
   // Verifies a presented raw key against every active key sharing its
   // prefix (bcrypt hashes aren't directly comparable, so the prefix
-  // narrows the candidate set to effectively one row) — not wired to any
-  // guard yet in this slice (no public API exists to authenticate into),
-  // kept for a future slice that adds one, so this issuance/storage isn't
-  // wasted schema. "stops working within one request cycle" (US-SEC-08's
-  // own acceptance criterion) holds by construction: is_active is read
-  // fresh on every call, never cached.
+  // narrows the candidate set to effectively one row). Wired to ApiKeyGuard
+  // (REQ116). "stops working within one request cycle" (US-SEC-08's own
+  // acceptance criterion) holds by construction: is_active is read fresh
+  // on every call, never cached.
   async verify(rawKeyWithPrefix: string): Promise<{ client_org_id: string } | null> {
     const [prefix, rawKey] = rawKeyWithPrefix.split('.', 2);
     if (!prefix || !rawKey) return null;
@@ -63,5 +61,37 @@ export class ApiKeysService {
       }
     }
     return null;
+  }
+
+  // REQ116 — the first real endpoint an issued key can call.
+  // client_org_id comes from ApiKeyGuard (resolved from the verified key),
+  // never a request parameter — the same "scope from the authenticated
+  // identity, not caller input" rule Hard Rule 6 applies to the JWT path.
+  // Deliberately minimal fields (no patient PHI) since ApiKeys has no
+  // per-scope permission column yet (REQ015's own data-model note listed
+  // `scopes[]` as intended but it was never migrated) — a fine-grained
+  // scopes model is future work, not silently assumed here.
+  async listAppointmentsForOrg(orgId: string, date?: string) {
+    const where: any = { clinic: { client_org_id: orgId }, is_deleted: false };
+    if (date) {
+      where.appointment_time = {
+        gte: new Date(`${date}T00:00:00.000Z`),
+        lte: new Date(`${date}T23:59:59.999Z`),
+      };
+    }
+    const rows = await this.prisma.appointments.findMany({
+      where,
+      include: { product: true, clinician: true },
+      orderBy: { appointment_time: 'asc' },
+      take: 200,
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      start_datetime: r.appointment_time,
+      duration_minutes: r.duration_minutes,
+      status: r.status,
+      service_name: r.product?.name ?? null,
+      clinician_name: r.clinician ? `${r.clinician.first_name} ${r.clinician.last_name}` : null,
+    }));
   }
 }
