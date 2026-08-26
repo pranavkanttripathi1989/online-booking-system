@@ -8,7 +8,9 @@ import {
 } from '@mui/material'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import PolicyRoundedIcon from '@mui/icons-material/PolicyRounded'
+import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import ErrorBoundary from '../../../components/ErrorBoundary'
+import { downloadAuthenticatedPdf } from '../../../utils/documents'
 
 // REQ131 (REQ031's own explicit P2 follow-on) -- a basic OPD cashless
 // claim-tracking desk. Manual/portal-assist per the PRD's own R11 risk
@@ -63,6 +65,7 @@ function ClaimsDesk() {
   const [patientSearch, setPatientSearch] = useState('')
   const [selectedAppointment, setSelectedAppointment] = useState(null)
   const [claimForm, setClaimForm] = useState({ payer_id: '', policy_id: '', claim_amount: '', notes: '' })
+  const [downloadingId, setDownloadingId] = useState(null)
 
   const [searchAppointments, { data: apptData, loading: apptLoading }] = useLazyQuery(SEARCH_APPOINTMENTS)
   const { data: payersData } = useQuery(GET_PAYERS_FOR_CLAIM, { skip: !submitOpen })
@@ -143,6 +146,25 @@ function ClaimsDesk() {
     }
   }
 
+  // REQ138 (US-INS-06's own follow-on) — the claim's own supporting
+  // prescriptions (REQ137) plus its tracking details, as one PDF a
+  // payer/TPA can be handed. Available at any status, not just
+  // approved/settled — evidence is real as soon as the appointment's
+  // encounter exists, regardless of where the claim itself has reached.
+  const handleDownloadPack = async (claim) => {
+    setDownloadingId(claim.id)
+    try {
+      await downloadAuthenticatedPdf(
+        `/documents/claims/${claim.id}/reimbursement-pack/pdf`,
+        `reimbursement-pack-${claim.id}.pdf`,
+      )
+    } catch (err) {
+      enqueueSnackbar(err?.message || 'Failed to download reimbursement pack', { variant: 'error' })
+    } finally {
+      setDownloadingId(null)
+    }
+  }
+
   return (
     <ErrorBoundary>
       <Box p={{ xs: 1.5, md: 3 }}>
@@ -192,18 +214,28 @@ function ClaimsDesk() {
                       )}
                     </TableCell>
                     <TableCell>
-                      {c.status === 'submitted' && (
-                        <Button size="small" onClick={() => handleAdvance(c)}>Move to Under Review</Button>
-                      )}
-                      {c.status === 'under_review' && (
-                        <Stack direction="row" spacing={1}>
-                          <Button size="small" color="success" onClick={() => setDecisionDialog({ claim: c, targetStatus: 'approved' })}>Approve</Button>
-                          <Button size="small" color="error" onClick={() => setDecisionDialog({ claim: c, targetStatus: 'rejected' })}>Reject</Button>
-                        </Stack>
-                      )}
-                      {c.status === 'approved' && (
-                        <Button size="small" onClick={() => handleAdvance(c)}>Mark Settled</Button>
-                      )}
+                      <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+                        {c.status === 'submitted' && (
+                          <Button size="small" onClick={() => handleAdvance(c)}>Move to Under Review</Button>
+                        )}
+                        {c.status === 'under_review' && (
+                          <>
+                            <Button size="small" color="success" onClick={() => setDecisionDialog({ claim: c, targetStatus: 'approved' })}>Approve</Button>
+                            <Button size="small" color="error" onClick={() => setDecisionDialog({ claim: c, targetStatus: 'rejected' })}>Reject</Button>
+                          </>
+                        )}
+                        {c.status === 'approved' && (
+                          <Button size="small" onClick={() => handleAdvance(c)}>Mark Settled</Button>
+                        )}
+                        <Button
+                          size="small" variant="outlined"
+                          startIcon={downloadingId === c.id ? <CircularProgress size={14} /> : <DownloadRoundedIcon />}
+                          disabled={downloadingId === c.id}
+                          onClick={() => handleDownloadPack(c)}
+                        >
+                          Pack
+                        </Button>
+                      </Stack>
                     </TableCell>
                   </TableRow>
                 ))}

@@ -4,6 +4,15 @@ import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
 import { gql } from '@apollo/client'
 import ClaimsDesk from './index'
+import { downloadAuthenticatedPdf } from '../../../utils/documents'
+
+// REQ138 — downloadAuthenticatedPdf does a real fetch(), not a GraphQL
+// operation MockedProvider can intercept; mocked at the module boundary,
+// the first precedent for testing this download helper's call site in
+// this codebase (no page currently asserts on it further than this).
+jest.mock('../../../utils/documents', () => ({
+  downloadAuthenticatedPdf: jest.fn().mockResolvedValue(undefined),
+}))
 
 // REQ131 (REQ031's own explicit P2 follow-on) — smoke coverage for the
 // claim list, real submitClaim end-to-end, and the updateClaimStatus state
@@ -160,4 +169,17 @@ describe('manager/claims (REQ131)', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Mark Settled' })).toBeInTheDocument())
     expect(screen.getByText('₹4500.00')).toBeInTheDocument()
   }, 20000)
+
+  // REQ138 (US-INS-06's own follow-on)
+  it('downloads the reimbursement pack via the real authenticated PDF endpoint', async () => {
+    renderPage([claimsMock([makeClaim()])])
+    await waitFor(() => expect(screen.getByText('Anita Sharma')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: /Pack/ }))
+
+    await waitFor(() => expect(downloadAuthenticatedPdf).toHaveBeenCalledWith(
+      '/documents/claims/claim-1/reimbursement-pack/pdf',
+      'reimbursement-pack-claim-1.pdf',
+    ))
+  })
 })
