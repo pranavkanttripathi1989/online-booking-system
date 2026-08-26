@@ -12,6 +12,7 @@
 |---|---|---|---|---|---|---|---|
 | TR117 | improvement | Booking widget edit UI results | pass | 2026-08-25 | 2026-08-25 | TP118 | [TR117-platform-integrations-2026-08-25-booking-widget-edit-ui.md](./improvement/TR117-platform-integrations-2026-08-25-booking-widget-edit-ui.md) |
 | TR116 | improvement | Webhook delivery log UI results | pass | 2026-08-25 | 2026-08-25 | TP117 | [TR116-platform-integrations-2026-08-25-webhook-delivery-log-ui.md](./improvement/TR116-platform-integrations-2026-08-25-webhook-delivery-log-ui.md) |
+| TR168 | improvement | Webhook retry with exponential backoff results | pass | 2026-08-26 | 2026-08-26 | TP168 | [TR168-platform-integrations-2026-08-26-webhook-retry-backoff.md](./improvement/TR168-platform-integrations-2026-08-26-webhook-retry-backoff.md) |
 
 ## bug
 
