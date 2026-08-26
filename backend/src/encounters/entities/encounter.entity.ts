@@ -49,6 +49,23 @@ export class InvestigationOrderType {
   @Field() date_ordered: Date;
 }
 
+// REQ128 (FR-EMR-10) — a clinician referring a patient onward to another
+// specialty/clinician, authored from within a consultation. Its own real
+// dedicated table (unlike InvestigationOrderType above, which reuses
+// TestResults) since a referral has no pre-existing sibling concept to
+// share a lifecycle with.
+@ObjectType('Referral')
+export class ReferralType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) encounter_id: string;
+  @Field() referred_to_specialty: string;
+  @Field(() => ID, { nullable: true }) referred_to_clinician_id?: string;
+  @Field() reason: string;
+  @Field() urgency: string;
+  @Field() status: string;
+  @Field() created_at: Date;
+}
+
 @ObjectType('EncounterAttachment')
 export class AttachmentType {
   @Field(() => ID) id: string;
@@ -76,6 +93,7 @@ export class EncounterType {
   @Field(() => [DiagnosisType]) diagnoses: DiagnosisType[];
   @Field(() => [AttachmentType]) attachments: AttachmentType[];
   @Field(() => [InvestigationOrderType]) investigation_orders: InvestigationOrderType[];
+  @Field(() => [ReferralType]) referrals: ReferralType[];
 }
 
 @ObjectType('EncounterTemplate')

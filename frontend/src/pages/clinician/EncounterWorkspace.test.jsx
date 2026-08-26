@@ -28,6 +28,7 @@ const ENCOUNTER_QUERY = gql`
       diagnoses { id type icd10_code text status created_at }
       attachments { id file_ref mime_type original_filename created_at }
       investigation_orders { id test_name test_type urgency status date_ordered }
+      referrals { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
     }
   }
 `
@@ -60,6 +61,12 @@ const ORDER_INVESTIGATION = gql`
     orderInvestigation(input: $input) { id test_name test_type urgency status date_ordered }
   }
 `
+// REQ128
+const CREATE_REFERRAL = gql`
+  mutation CreateReferral($input: CreateReferralInput!) {
+    createReferral(input: $input) { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
+  }
+`
 // REQ108
 const ICD10_SEARCH_QUERY = gql`
   query Icd10Codes($search: String) {
@@ -84,6 +91,7 @@ function encounter(overrides = {}) {
     diagnoses: [],
     attachments: [],
     investigation_orders: [],
+    referrals: [],
     ...overrides,
   }
 }
@@ -250,5 +258,42 @@ describe('EncounterWorkspace — investigation orders (REQ127)', () => {
 
     await waitFor(() => expect(screen.getByText('Chest X-Ray')).toBeInTheDocument())
     expect(screen.getByText('urgent')).toBeInTheDocument()
+  }, 20000)
+})
+
+describe('EncounterWorkspace — referrals (REQ128)', () => {
+  it('renders real referrals, not just an empty state', async () => {
+    const enc = encounter({
+      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByText('Cardiology')).toBeInTheDocument())
+    expect(screen.getByText('Murmur on exam')).toBeInTheDocument()
+  })
+
+  it('refers a patient via the real createReferral mutation and refetches', async () => {
+    const enc = encounter()
+    const withReferral = encounter({
+      referrals: [{ __typename: 'Referral', id: 'ref-2', referred_to_specialty: 'Orthopaedics', referred_to_clinician_id: null, reason: 'Chronic knee pain', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage([
+      ...baseMocks(enc),
+      {
+        request: { query: CREATE_REFERRAL, variables: { input: { encounter_id: ENCOUNTER_ID, referred_to_specialty: 'Orthopaedics', reason: 'Chronic knee pain', urgency: 'routine' } } },
+        result: { data: { createReferral: { __typename: 'Referral', id: 'ref-2', referred_to_specialty: 'Orthopaedics', referred_to_clinician_id: null, reason: 'Chronic knee pain', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' } } },
+      },
+      { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withReferral } } },
+    ])
+
+    await waitFor(() => expect(screen.getByText('No referrals made yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Refer Patient' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Refer to specialty'), 'Orthopaedics')
+    await userEvent.type(within(dialog).getByLabelText('Reason for referral'), 'Chronic knee pain')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Refer' }))
+
+    await waitFor(() => expect(screen.getByText('Chronic knee pain')).toBeInTheDocument())
+    expect(screen.getByText('Orthopaedics')).toBeInTheDocument()
   }, 20000)
 })

@@ -1,12 +1,13 @@
 import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScope, orgIdForWrite, assertSameOrg } from '../common/scoping/tenant-scope';
+import { orgScope, orgIdForWrite, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
 import {
   SaveEncounterNoteInput,
   AddAddendumInput,
   CreateDiagnosisInput,
   OrderInvestigationInput,
+  CreateReferralInput,
   CreateEncounterTemplateInput,
   ApplyTemplateInput,
   CreateAttachmentInput,
@@ -26,7 +27,7 @@ export class EncountersService {
 
   private toGraphQL(encounter: any) {
     if (!encounter) return null;
-    const { client_org_id, notes, addenda, diagnoses, attachments, investigation_orders, ...rest } = encounter;
+    const { client_org_id, notes, addenda, diagnoses, attachments, investigation_orders, referrals, ...rest } = encounter;
     return rest;
   }
 
@@ -45,12 +46,13 @@ export class EncountersService {
   }
 
   private async withRelations(encounter: any) {
-    const [notes, addenda, diagnoses, attachments, investigationOrders] = await Promise.all([
+    const [notes, addenda, diagnoses, attachments, investigationOrders, referrals] = await Promise.all([
       this.prisma.encounterNotes.findMany({ where: { encounter_id: encounter.id }, orderBy: { section: 'asc' } }),
       this.prisma.encounterAddenda.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
       this.prisma.diagnoses.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
       this.prisma.attachments.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
       this.prisma.testResults.findMany({ where: { encounter_id: encounter.id }, orderBy: { date_ordered: 'asc' } }),
+      this.prisma.referrals.findMany({ where: { encounter_id: encounter.id }, orderBy: { created_at: 'asc' } }),
     ]);
     return {
       ...this.toGraphQL(encounter),
@@ -59,6 +61,7 @@ export class EncountersService {
       diagnoses,
       attachments,
       investigation_orders: investigationOrders.map((r: any) => this.toInvestigationOrderGraphQL(r)),
+      referrals,
     };
   }
 
@@ -284,6 +287,39 @@ export class EncountersService {
       },
     });
     return this.toInvestigationOrderGraphQL(row);
+  }
+
+  // REQ128 (FR-EMR-10) — referring the patient onward to another
+  // specialty/clinician. Same locked-encounter guard as createDiagnosis()/
+  // orderInvestigation(). Hard Rule 6: referred_to_clinician_id is a
+  // caller-supplied FK, validated against the caller's own org before
+  // write, not trusted as-is -- a cross-org id fails closed as
+  // NotFoundException, matching bulkReschedule()'s own established pattern
+  // for validating a supplied clinician_id.
+  async createReferral(input: CreateReferralInput, user: JwtPayload) {
+    const encounter = await this.loadEncounterForUser(input.encounter_id, user);
+    if (encounter.locked) {
+      throw new BadRequestException('This encounter has been signed and can no longer be edited. Add an addendum instead.');
+    }
+    if (input.referred_to_clinician_id) {
+      const target = await this.prisma.clinicians.findUnique({
+        where: { id: input.referred_to_clinician_id },
+        include: { clinic: true },
+      });
+      if (!target || !isSameOrg(user, target.clinic.client_org_id)) {
+        throw new NotFoundException('Clinician not found');
+      }
+    }
+    return this.prisma.referrals.create({
+      data: {
+        encounter_id: input.encounter_id,
+        patient_id: encounter.patient_id,
+        referred_to_specialty: input.referred_to_specialty,
+        referred_to_clinician_id: input.referred_to_clinician_id,
+        reason: input.reason,
+        urgency: input.urgency ?? 'routine',
+      },
+    });
   }
 
   // Persistent allergy banner (US-EMR-04): Diagnoses rows with type='allergy',

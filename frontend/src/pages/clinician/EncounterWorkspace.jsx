@@ -16,6 +16,7 @@ import DoneAllRoundedIcon from '@mui/icons-material/DoneAllRounded'
 import MedicationRoundedIcon from '@mui/icons-material/MedicationRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import BiotechRoundedIcon from '@mui/icons-material/BiotechRounded'
+import ForwardToInboxRoundedIcon from '@mui/icons-material/ForwardToInboxRounded'
 import { useAuth } from '../../hooks/useAuth'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { downloadAuthenticatedPdf } from '../../utils/documents'
@@ -40,6 +41,7 @@ const ENCOUNTER_QUERY = gql`
       diagnoses { id type icd10_code text status created_at }
       attachments { id file_ref mime_type original_filename created_at }
       investigation_orders { id test_name test_type urgency status date_ordered }
+      referrals { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
     }
   }
 `
@@ -101,6 +103,12 @@ const ORDER_INVESTIGATION = gql`
     orderInvestigation(input: $input) { id test_name test_type urgency status date_ordered }
   }
 `
+// REQ128 (FR-EMR-10)
+const CREATE_REFERRAL = gql`
+  mutation CreateReferral($input: CreateReferralInput!) {
+    createReferral(input: $input) { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
+  }
+`
 const CREATE_ENCOUNTER_TEMPLATE = gql`
   mutation CreateEncounterTemplate($input: CreateEncounterTemplateInput!) {
     createEncounterTemplate(input: $input) { id name specialty sections_json }
@@ -158,7 +166,7 @@ function TimelinePane({ patientId }) {
 }
 
 // ─── Center pane: structured note sections ─────────────────────────────────
-function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAddInvestigation }) {
+function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAddInvestigation, onAddReferral }) {
   const [drafts, setDrafts] = useState({})
   const [addendumOpen, setAddendumOpen] = useState(false)
   const [addendumText, setAddendumText] = useState('')
@@ -166,6 +174,8 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
   const [diagnosisForm, setDiagnosisForm] = useState({ type: 'diagnosis', text: '', icd10_code: '' })
   const [investigationOpen, setInvestigationOpen] = useState(false)
   const [investigationForm, setInvestigationForm] = useState({ test_name: '', test_type: '', urgency: 'routine' })
+  const [referralOpen, setReferralOpen] = useState(false)
+  const [referralForm, setReferralForm] = useState({ referred_to_specialty: '', reason: '', urgency: 'routine' })
 
   // REQ108 — ICD-10 type-ahead search, freeSolo (a clinician can still type
   // free text or leave it blank — soft validation only, per REQ108's own
@@ -269,6 +279,37 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
                   <Typography variant="body2">{o.test_name}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     Ordered {new Date(o.date_ordered).toLocaleDateString()}
+                  </Typography>
+                </Paper>
+              ))}
+            </Stack>
+          )}
+        </Box>
+
+        <Box>
+          <Divider sx={{ my: 1 }} />
+          <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
+            <Typography variant="subtitle2" fontWeight={700}>Referrals</Typography>
+            {!locked && (
+              <Button size="small" startIcon={<ForwardToInboxRoundedIcon fontSize="small" />} onClick={() => setReferralOpen(true)}>
+                Refer Patient
+              </Button>
+            )}
+          </Stack>
+          {(encounter?.referrals?.length ?? 0) === 0 ? (
+            <Typography variant="body2" color="text.secondary">No referrals made yet.</Typography>
+          ) : (
+            <Stack spacing={1}>
+              {encounter.referrals.map((r) => (
+                <Paper key={r.id} variant="outlined" sx={{ p: 1.5, bgcolor: 'grey.50' }}>
+                  <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+                    <Chip size="small" label={r.referred_to_specialty} />
+                    <Chip size="small" label={r.urgency} color={r.urgency === 'urgent' ? 'warning' : 'default'} variant="outlined" sx={{ textTransform: 'capitalize' }} />
+                    <Chip size="small" label={r.status} variant="outlined" sx={{ textTransform: 'capitalize' }} />
+                  </Stack>
+                  <Typography variant="body2">{r.reason}</Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    Referred {new Date(r.created_at).toLocaleDateString()}
                   </Typography>
                 </Paper>
               ))}
@@ -435,6 +476,49 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
             }}
           >
             Order
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={referralOpen} onClose={() => setReferralOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>Refer Patient</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              fullWidth label="Refer to specialty" placeholder="e.g. Cardiology, Orthopaedics"
+              value={referralForm.referred_to_specialty}
+              onChange={(e) => setReferralForm((f) => ({ ...f, referred_to_specialty: e.target.value }))}
+            />
+            <TextField
+              fullWidth multiline minRows={2} label="Reason for referral" value={referralForm.reason}
+              onChange={(e) => setReferralForm((f) => ({ ...f, reason: e.target.value }))}
+            />
+            <TextField
+              select fullWidth label="Urgency" value={referralForm.urgency}
+              onChange={(e) => setReferralForm((f) => ({ ...f, urgency: e.target.value }))}
+              SelectProps={{ native: true }}
+            >
+              <option value="routine">Routine</option>
+              <option value="urgent">Urgent</option>
+            </TextField>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReferralOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={!referralForm.referred_to_specialty.trim() || !referralForm.reason.trim()}
+            onClick={async () => {
+              await onAddReferral({
+                referred_to_specialty: referralForm.referred_to_specialty.trim(),
+                reason: referralForm.reason.trim(),
+                urgency: referralForm.urgency,
+              })
+              setReferralForm({ referred_to_specialty: '', reason: '', urgency: 'routine' })
+              setReferralOpen(false)
+            }}
+          >
+            Refer
           </Button>
         </DialogActions>
       </Dialog>
@@ -614,6 +698,7 @@ function EncounterWorkspace() {
   const [createAttachment] = useMutation(CREATE_ATTACHMENT)
   const [createDiagnosis] = useMutation(CREATE_DIAGNOSIS)
   const [orderInvestigationMutation] = useMutation(ORDER_INVESTIGATION)
+  const [createReferralMutation] = useMutation(CREATE_REFERRAL)
   const [createEncounterTemplate] = useMutation(CREATE_ENCOUNTER_TEMPLATE)
 
   const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, {
@@ -670,6 +755,13 @@ function EncounterWorkspace() {
       refetch()
     } catch (err) { reportError(err, 'Failed to order investigation') }
   }, [orderInvestigationMutation, encounterId, refetch, reportError])
+
+  const handleAddReferral = useCallback(async (input) => {
+    try {
+      await createReferralMutation({ variables: { input: { encounter_id: encounterId, ...input } } })
+      refetch()
+    } catch (err) { reportError(err, 'Failed to refer patient') }
+  }, [createReferralMutation, encounterId, refetch, reportError])
 
   const handleSaveAsTemplate = useCallback(async ({ name, specialty }) => {
     try {
@@ -743,7 +835,7 @@ function EncounterWorkspace() {
               <TimelinePane patientId={encounter.patient_id} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} onAddInvestigation={handleAddInvestigation} />
+              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} onAddInvestigation={handleAddInvestigation} onAddReferral={handleAddReferral} />
             </Grid>
             <Grid item xs={12} md={3}>
               <ActionsPane

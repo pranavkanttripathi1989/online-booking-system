@@ -88,6 +88,33 @@ export class OrderInvestigationInput {
   urgency?: string;
 }
 
+// REQ128 (FR-EMR-10)
+@InputType()
+export class CreateReferralInput {
+  @Field(() => ID)
+  @IsNotEmpty()
+  encounter_id: string;
+
+  @Field()
+  @IsNotEmpty()
+  referred_to_specialty: string;
+
+  // Validated against the caller's own org before write (Hard Rule 6) --
+  // see EncountersService#createReferral.
+  @Field(() => ID, { nullable: true })
+  @IsOptional()
+  referred_to_clinician_id?: string;
+
+  @Field()
+  @IsNotEmpty()
+  reason: string;
+
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsIn(['routine', 'urgent'])
+  urgency?: string;
+}
+
 @InputType()
 export class CreateEncounterTemplateInput {
   @Field({ nullable: true })

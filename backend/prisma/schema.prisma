@@ -329,6 +329,7 @@ model Encounters {
   attachments         Attachments[]
   prescriptions       Prescriptions[]
   investigationOrders TestResults[]
+  referrals           Referrals[]
 
   @@index([client_org_id, patient_id])
   @@index([clinician_id])
@@ -391,6 +392,33 @@ model Diagnoses {
   encounter Encounters @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
 
   @@index([encounter_id])
+}
+
+// REQ128 (FR-EMR-10) -- a clinician referring a patient onward to another
+// specialty/clinician from within a consultation. referred_to_clinician_id
+// is nullable: a referral to "Cardiology" in general is valid even when no
+// specific in-org clinician is named yet (e.g. referring out of network).
+// No client_org_id column, same reasoning as Diagnoses -- scoped entirely
+// via the parent encounter, which already carries it.
+model Referrals {
+  id                      String   @id @default(uuid())
+  encounter_id            String
+  patient_id              String
+  referred_to_specialty   String
+  referred_to_clinician_id String?
+  reason                  String
+  urgency                 String   @default("routine") // routine | urgent
+  status                  String   @default("pending")  // pending | scheduled | completed | declined
+  created_at              DateTime @default(now())
+  updated_at              DateTime @updatedAt
+
+  encounter           Encounters @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
+  patient             Patients   @relation(fields: [patient_id], references: [id])
+  referred_to_clinician Clinicians? @relation(fields: [referred_to_clinician_id], references: [id])
+
+  @@index([encounter_id])
+  @@index([patient_id])
+  @@index([referred_to_clinician_id])
 }
 
 // file_ref is a local-filesystem URL under /uploads/attachments/, written by
@@ -879,6 +907,8 @@ model Clinicians {
   prescriptionSets    PrescriptionSets[]
   queueEntries        QueueEntries[]
   waitlistEntries     WaitlistEntries[]
+  // REQ128 -- referrals naming this clinician as the target, not one they authored.
+  referralsReceived   Referrals[]
 
   @@index([clinic_id, is_deleted, is_active])
   @@index([department_id])
@@ -1136,6 +1166,7 @@ model Patients {
   payments     AppointmentPayments[]
   encounters   Encounters[]
   prescriptions Prescriptions[]
+  referrals    Referrals[]
   dependantsOwned    PatientRelations[] @relation("PatientRelationOwner")
   dependantOf        PatientRelations[] @relation("PatientRelationDependant")
   mergesSurvived     PatientMerges[]    @relation("PatientMergeSurvivor")

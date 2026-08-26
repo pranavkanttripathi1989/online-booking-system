@@ -41,6 +41,10 @@ describe('EncountersService', () => {
       // REQ127: create() drives orderInvestigation(); findMany() already
       // backed patientTimeline()/withRelations().
       testResults: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+      // REQ128: create() drives createReferral(); findMany() backs withRelations().
+      referrals: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+      // REQ128: findUnique() validates a caller-supplied referred_to_clinician_id.
+      clinicians: { findUnique: jest.fn() },
       patients: { findUnique: jest.fn().mockResolvedValue({ id: 'pat-a', first_name: 'Anita', last_name: 'Sharma' }) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null) },
       messageThreads: { findMany: jest.fn().mockResolvedValue([]) },
@@ -283,6 +287,75 @@ describe('EncountersService', () => {
       ]);
       const result = await service.encounter('enc-1', clinicianA);
       expect(result.investigation_orders).toEqual([expect.objectContaining({ id: 'tr-1', test_name: 'CBC', status: 'pending' })]);
+    });
+  });
+
+  describe('createReferral', () => {
+    it('rejects a referral on a locked encounter', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterSigned);
+      await expect(
+        service.createReferral({ encounter_id: 'enc-2', referred_to_specialty: 'Cardiology', reason: 'Murmur' } as any, clinicianA),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.referrals.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a pending referral with no named clinician, defaulting urgency to routine', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.referrals.create.mockResolvedValue({
+        id: 'ref-1', encounter_id: 'enc-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur', urgency: 'routine', status: 'pending', created_at: new Date('2026-08-26T00:00:00Z'),
+      });
+      const result = await service.createReferral({ encounter_id: 'enc-1', referred_to_specialty: 'Cardiology', reason: 'Murmur' } as any, clinicianA);
+      expect(prisma.clinicians.findUnique).not.toHaveBeenCalled();
+      expect(prisma.referrals.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({
+          encounter_id: 'enc-1', patient_id: 'pat-a', referred_to_specialty: 'Cardiology',
+          referred_to_clinician_id: undefined, reason: 'Murmur', urgency: 'routine',
+        }),
+      }));
+      expect(result).toEqual(expect.objectContaining({ id: 'ref-1', status: 'pending' }));
+    });
+
+    it('honours an explicit urgency', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.referrals.create.mockResolvedValue({ id: 'ref-1', urgency: 'urgent' });
+      await service.createReferral({ encounter_id: 'enc-1', referred_to_specialty: 'Cardiology', reason: 'Murmur', urgency: 'urgent' } as any, clinicianA);
+      expect(prisma.referrals.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ urgency: 'urgent' }) }));
+    });
+
+    it('accepts a named clinician who belongs to the same org', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.clinicians.findUnique.mockResolvedValue({ id: 'clin-cardio', clinic: { client_org_id: 'org-a' } });
+      prisma.referrals.create.mockResolvedValue({ id: 'ref-1' });
+      await service.createReferral({ encounter_id: 'enc-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: 'clin-cardio', reason: 'Murmur' } as any, clinicianA);
+      expect(prisma.referrals.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ referred_to_clinician_id: 'clin-cardio' }),
+      }));
+    });
+
+    it('rejects a named clinician from a different org (Hard Rule 6)', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.clinicians.findUnique.mockResolvedValue({ id: 'clin-cardio', clinic: { client_org_id: 'org-b' } });
+      await expect(
+        service.createReferral({ encounter_id: 'enc-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: 'clin-cardio', reason: 'Murmur' } as any, clinicianA),
+      ).rejects.toThrow(NotFoundException);
+      expect(prisma.referrals.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a named clinician that does not exist', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.clinicians.findUnique.mockResolvedValue(null);
+      await expect(
+        service.createReferral({ encounter_id: 'enc-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: 'clin-ghost', reason: 'Murmur' } as any, clinicianA),
+      ).rejects.toThrow(NotFoundException);
+    });
+
+    it('appears in withRelations()\'s referrals once created', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.referrals.findMany.mockResolvedValue([
+        { id: 'ref-1', encounter_id: 'enc-1', referred_to_specialty: 'Cardiology', reason: 'Murmur', urgency: 'routine', status: 'pending', created_at: new Date('2026-08-26T00:00:00Z') },
+      ]);
+      const result = await service.encounter('enc-1', clinicianA);
+      expect(result.referrals).toEqual([expect.objectContaining({ id: 'ref-1', referred_to_specialty: 'Cardiology', status: 'pending' })]);
     });
   });
 
