@@ -163,8 +163,18 @@ export default function BookingStep4Patient({ wizardData, updateWizard }) {
     updateWizard({ intake_responses: responses, intakeFieldsValid: allRequiredFilled })
   }
 
+  // F-24 (project-plans/02-findings-register.md) -- mode defaulted to RHF's
+  // own 'onSubmit', but nothing in this component ever calls handleSubmit
+  // (there's no submit button here; the wizard's own "Review Booking"
+  // button is what advances past this step). Without an explicit
+  // onChange/onBlur mode, formState.errors could never populate through
+  // any real user interaction, so the error/helperText props already wired
+  // into every Controller below were dead code -- a first/last name left
+  // blank showed no validation message at all. onChange re-validates as
+  // the user types, matching what the existing JSX already assumed worked.
   const { control, handleSubmit, getValues, formState: { errors }, reset } = useForm({
     resolver: zodResolver(newPatientSchema),
+    mode: 'onChange',
     defaultValues: wizardData.newPatient ?? {
       first_name: '',
       last_name: '',

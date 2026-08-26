@@ -86,10 +86,10 @@ export const formatRelativeTime = (value) => {
 };
 
 /**
- * NEW-DT-011: GBP currency formatter — mirrors formatCurrency in dateUtils.js.
- * Centralised here so consumers can import from one place.
+ * NEW-DT-011: INR currency formatter, centralised here so consumers can
+ * import from one place.
  * @param {number} amount
- * @param {string} currency - ISO 4217 code, default 'GBP'
+ * @param {string} currency - ISO 4217 code, default 'INR'
  */
 // India market (CLAUDE.md Hard Rule 9): money is INR. This defaulted to GBP with
 // an en-GB locale, which would have rendered every price as pounds. Its only
@@ -100,5 +100,15 @@ export const formatRelativeTime = (value) => {
 // Note the real money-rendering convention on live pages (finances/index.jsx) is
 // `₹{value.toLocaleString()}`; prefer that for consistency. This helper stays for
 // callers that want full Intl formatting.
+//
+// F-24 (project-plans/02-findings-register.md, REQ132) — a second copy of
+// this exact formatter, utils/dateUtils.js, carried the original GBP bug
+// this comment describes, was never actually imported anywhere in the
+// project (confirmed by a full-repo grep, matching its own docstring's
+// claim), and was also missing its own `import dayjs from 'dayjs'` --
+// every exported function in it would have thrown ReferenceError: dayjs
+// is not defined if ever actually called. Deleted rather than tested,
+// matching this codebase's own Priority-3-sweep precedent for confirmed
+// zero-importer dead files.
 export const formatCurrency = (amount, currency = 'INR') =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount ?? 0);
