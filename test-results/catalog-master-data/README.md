@@ -11,6 +11,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR175 | improvement | Sell a Package UI results | pass | 2026-08-26 | 2026-08-26 | TP175 | [TR175-catalog-master-data-2026-08-26-sell-package-ui.md](./improvement/TR175-catalog-master-data-2026-08-26-sell-package-ui.md) |
 | TR169 | improvement | Package transfer between patients results | pass | 2026-08-26 | 2026-08-26 | TP169 | [TR169-catalog-master-data-2026-08-26-package-transfer.md](./improvement/TR169-catalog-master-data-2026-08-26-package-transfer.md) |
 | TR119 | improvement | Price-change audit log results | pass | 2026-08-25 | 2026-08-25 | TP120 | [TR119-catalog-master-data-2026-08-25-price-change-audit-log.md](./improvement/TR119-catalog-master-data-2026-08-25-price-change-audit-log.md) |
 | TR103 | improvement | Multi-sitting service packages results | pass | 2026-08-25 | 2026-08-25 | TP104 | [TR103-catalog-master-data-2026-08-25-service-packages.md](./improvement/TR103-catalog-master-data-2026-08-25-service-packages.md) |

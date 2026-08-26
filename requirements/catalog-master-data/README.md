@@ -11,6 +11,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ115 | improvement | Sell a Package UI | done | 2026-08-26 | 2026-08-26 | REQ054 | [REQ115-catalog-master-data-2026-08-26-sell-package-ui.md](./improvement/REQ115-catalog-master-data-2026-08-26-sell-package-ui.md) |
 | REQ110 | improvement | Package transfer between patients | done | 2026-08-26 | 2026-08-26 | REQ054 | [REQ110-catalog-master-data-2026-08-26-package-transfer.md](./improvement/REQ110-catalog-master-data-2026-08-26-package-transfer.md) |
 | REQ066 | improvement | Price-change audit log with optional deferred effective date | done | 2026-08-25 | 2026-08-25 | REQ016 | [REQ066-catalog-master-data-2026-08-25-price-change-audit-log.md](./improvement/REQ066-catalog-master-data-2026-08-25-price-change-audit-log.md) |
 | REQ054 | improvement | Multi-sitting service packages | done | 2026-08-25 | 2026-08-25 | REQ016 | [REQ054-catalog-master-data-2026-08-25-service-packages.md](./improvement/REQ054-catalog-master-data-2026-08-25-service-packages.md) |

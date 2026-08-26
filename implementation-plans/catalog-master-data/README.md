@@ -11,6 +11,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN155 | improvement | Sell a Package UI | done | 2026-08-26 | 2026-08-26 | REQ115 | [PLAN155-catalog-master-data-2026-08-26-sell-package-ui.md](./improvement/PLAN155-catalog-master-data-2026-08-26-sell-package-ui.md) |
 | PLAN150 | improvement | Package transfer between patients | done | 2026-08-26 | 2026-08-26 | REQ110 | [PLAN150-catalog-master-data-2026-08-26-package-transfer.md](./improvement/PLAN150-catalog-master-data-2026-08-26-package-transfer.md) |
 | PLAN093 | improvement | Price-change audit log with optional deferred effective date | done | 2026-08-25 | 2026-08-25 | REQ066 | [PLAN093-catalog-master-data-2026-08-25-price-change-audit-log.md](./improvement/PLAN093-catalog-master-data-2026-08-25-price-change-audit-log.md) |
 | PLAN077 | improvement | Multi-sitting service packages | done | 2026-08-25 | 2026-08-25 | REQ054 | [PLAN077-catalog-master-data-2026-08-25-service-packages.md](./improvement/PLAN077-catalog-master-data-2026-08-25-service-packages.md) |
