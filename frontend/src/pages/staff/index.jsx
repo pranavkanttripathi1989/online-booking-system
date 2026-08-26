@@ -68,7 +68,10 @@ export default function StaffPage() {
   const [tab, setTab] = useState(0)
   const [deactivateTarget, setDeactivateTarget] = useState(null) // SUG-STAFF-005
 
-  const { data, loading, error, refetch } = useQuery(GET_STAFF)
+  // REQ121 (F-21) — was cache-first (the global default), leaving this list
+  // stale after e.g. a deactivation on a different tab/device until a hard
+  // refresh.
+  const { data, loading, error, refetch } = useQuery(GET_STAFF, { fetchPolicy: 'cache-and-network' })
   const [deactivateStaffMutation] = useMutation(DEACTIVATE_STAFF)
   const staffList = data?.staff || []
 

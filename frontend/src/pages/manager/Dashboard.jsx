@@ -161,13 +161,16 @@ function ManagerDashboardInner() {
     : null;
 
   // Query Data
+  // REQ121 (F-21) — a manager's own KPI dashboard is exactly the kind of
+  // page that shouldn't show yesterday's numbers on a stale cache hit.
   const { data, loading, error } = useQuery(GET_MANAGER_DASHBOARD_DATA, {
     variables: {
       clinicId: clinicFilter === 'all' ? null : clinicFilter,
       startDate: startStr,
       endDate: endStr
     },
-    skip: !user || !!dateRangeError // BUG-DASH-001: skip query when dates are inverted
+    skip: !user || !!dateRangeError, // BUG-DASH-001: skip query when dates are inverted
+    fetchPolicy: 'cache-and-network',
   });
 
   // Separate query (see GET_MANAGER_TRANSACTIONS comment above) — real
@@ -177,6 +180,7 @@ function ManagerDashboardInner() {
     variables: { startDate: startStr, endDate: endStr },
     skip: !user || !!dateRangeError,
     errorPolicy: 'all',
+    fetchPolicy: 'cache-and-network',
   });
 
   const handleDateToggle = (e, newFilter) => {

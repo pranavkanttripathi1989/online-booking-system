@@ -181,8 +181,11 @@ export default function AdminUsers() {
   const [expandedLogId, setExpandedLogId] = useState(null);
 
   // Queries
+  // REQ121 (F-21) — was cache-first; a user created/deleted elsewhere left
+  // this directory stale until a hard refresh.
   const { data: adminData, loading: adminLoading, refetch: refetchAdmin } = useQuery(GET_ADMIN_DATA, {
-    variables: { limit: rowsPerPage, offset: userPage * rowsPerPage, role: roleFilter === 'all' ? null : roleFilter, search: userSearch || null }
+    variables: { limit: rowsPerPage, offset: userPage * rowsPerPage, role: roleFilter === 'all' ? null : roleFilter, search: userSearch || null },
+    fetchPolicy: 'cache-and-network',
   });
 
   const rolesList = adminData?.getUserRoles || [];
@@ -198,8 +201,11 @@ export default function AdminUsers() {
     skip: !selectedRole || adminTab !== 1
   });
 
+  // REQ121 (F-21) — an audit log is exactly the kind of data that should
+  // never show a stale cached page while newer entries exist server-side.
   const { data: auditData, loading: auditLoading } = useQuery(GET_AUDIT_LOGS, {
     variables: { limit: rowsPerPage, offset: auditPage * rowsPerPage, action: actionFilter === 'all' ? null : actionFilter },
+    fetchPolicy: 'cache-and-network',
     skip: adminTab !== 2
   });
 

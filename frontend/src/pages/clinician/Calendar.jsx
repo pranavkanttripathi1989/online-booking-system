@@ -287,16 +287,21 @@ export default function ClinicianCalendar() {
   // (offline/unreachable backend), not on a real-but-empty week -- matching
   // the error-only fallback convention established this session (see
   // appointments/index.jsx, calendar/index.jsx).
+  // REQ121 (F-21) — was cache-first; a booking made through the patient
+  // portal or front desk while this calendar tab sits open went unseen
+  // until a hard refresh.
   const { data, error } = useQuery(GET_WEEK_APPOINTMENTS, {
     variables: {
       dateFrom: monday.format('YYYY-MM-DD'),
       dateTo: monday.add(6, 'day').format('YYYY-MM-DD'),
     },
     skip: !user?.id,
+    fetchPolicy: 'cache-and-network',
   });
   const { data: lunchData } = useQuery(GET_LUNCH_BREAKS, {
     variables: { clinicianId: user?.clinician?.id },
     skip: !user?.clinician?.id,
+    fetchPolicy: 'cache-and-network',
   });
 
   const weekEvents = useMemo(() => {

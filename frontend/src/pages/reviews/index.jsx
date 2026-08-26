@@ -71,7 +71,9 @@ export default function ReviewsPage() {
   const [confirmDeleteId, setConfirmDeleteId] = useState(null) // SUG-REV-004: delete confirm dialog
   const [page,           setPage]           = useState(1) // SUG-REV-007: pagination / load-more
 
-  const { data, loading, error, refetch } = useQuery(GET_REVIEWS)
+  // REQ121 (F-21) — was cache-first; a new review left elsewhere or another
+  // staff member's response/delete could go unseen on this page indefinitely.
+  const { data, loading, error, refetch } = useQuery(GET_REVIEWS, { fetchPolicy: 'cache-and-network' })
   const [respondToReviewMutation] = useMutation(RESPOND_TO_REVIEW)
   const [deleteReviewMutation]    = useMutation(DELETE_REVIEW)
   const reviews = data?.reviews || []
