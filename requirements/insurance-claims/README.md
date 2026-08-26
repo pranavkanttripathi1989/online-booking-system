@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ137 | improvement | Auto-attach a claim's issued prescriptions as evidence (US-INS-06) | done | 2026-08-26 | 2026-08-26 | REQ131 | [REQ137-insurance-claims-2026-08-26-auto-attach-prescription-evidence.md](./improvement/REQ137-insurance-claims-2026-08-26-auto-attach-prescription-evidence.md) |
 | REQ131 | improvement | OPD cashless claim submission and tracking | done | 2026-08-26 | 2026-08-26 | REQ031 | [REQ131-insurance-claims-2026-08-26-opd-cashless-claim-submission.md](./improvement/REQ131-insurance-claims-2026-08-26-opd-cashless-claim-submission.md) |
 | REQ068 | improvement | Payer-specific tariff master data | done | 2026-08-25 | 2026-08-25 | REQ031 | [REQ068-insurance-claims-2026-08-25-payer-tariffs.md](./improvement/REQ068-insurance-claims-2026-08-25-payer-tariffs.md) |
 | REQ062 | improvement | Patient insurance policy capture UI | done | 2026-08-25 | 2026-08-25 | REQ031 | [REQ062-insurance-claims-2026-08-25-patient-policy-capture-ui.md](./improvement/REQ062-insurance-claims-2026-08-25-patient-policy-capture-ui.md) |

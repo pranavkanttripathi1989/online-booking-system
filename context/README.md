@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| insurance-claims-2026-08-26-req137 | insurance-claims | 2026-08-26 | REQ137, PLAN177, TP197, TR197 | done | [manifest.md](./insurance-claims-2026-08-26-req137/manifest.md) |
 | prescriptions-2026-08-26-req136 | prescriptions | 2026-08-26 | REQ136, PLAN176, TP196, TR196 | done | [manifest.md](./prescriptions-2026-08-26-req136/manifest.md) |
 | clinical-records-2026-08-26-req135 | clinical-records | 2026-08-26 | REQ135, PLAN175, TP195, TR195 | done | [manifest.md](./clinical-records-2026-08-26-req135/manifest.md) |
 | platform-nfr-2026-08-26-req134 | platform-nfr | 2026-08-26 | REQ134, PLAN174, TP194, TR194 | done | [manifest.md](./platform-nfr-2026-08-26-req134/manifest.md) |
