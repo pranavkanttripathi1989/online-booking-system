@@ -19,6 +19,7 @@ import PersonIcon from '@mui/icons-material/Person'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import EventIcon from '@mui/icons-material/Event'
 import ConfettiExplosion from '../ConfettiExplosion'
+import { QRCodeSVG } from 'qrcode.react'
 
 import { CREATE_APPOINTMENT_MUTATION, CREATE_PATIENT_MUTATION } from '../../graphql/mutations'
 
@@ -91,6 +92,18 @@ function SuccessScreen({ appointment, navigate, onBookAnother }) {
             : ''}
         </Typography>
       </Box>
+      {/* REQ107 — checkin_token is populated ONLY in this exact mutation
+          response (never re-derivable on a later read — only its hash is
+          persisted). Rendered here, once, while it's the only copy the
+          frontend will ever have. */}
+      {appointment?.checkin_token && (
+        <Box sx={{ mt: 3, display: 'inline-block', p: 2, bgcolor: 'white', borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+          <QRCodeSVG value={`${window.location.origin}/checkin/${appointment.checkin_token}`} size={160} />
+          <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1 }}>
+            Scan at reception to check in
+          </Typography>
+        </Box>
+      )}
       <Stack direction="row" spacing={2} justifyContent="center" mt={4}>
         <Button
           variant="contained"

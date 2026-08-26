@@ -117,6 +117,7 @@ export const CREATE_APPOINTMENT_MUTATION = gql`
       service { id name duration_minutes price }
       clinic { id name }
       room { id name }
+      checkin_token
     }
   }
 `

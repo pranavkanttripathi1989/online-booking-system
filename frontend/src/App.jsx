@@ -49,6 +49,7 @@ const OnboardingWizard   = lazy(() => import('./pages/onboarding/index'))
 // ─── Public ───────────────────────────────────────────────────────────────────
 const Landing       = lazy(() => import('./pages/public/landing'))
 const DoctorProfile = lazy(() => import('./pages/public/doctor-profile'))
+const Checkin       = lazy(() => import('./pages/public/checkin'))
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 const NotFoundPage = lazy(() => import('./pages/errors/not-found'))
@@ -207,6 +208,11 @@ function App() {
         <Route path="/" element={<RootRoute />} />
         <Route path="/doctor/:id" element={
           <Suspense fallback={<FullPageLoader />}><DoctorProfile /></Suspense>
+        } />
+        {/* REQ107 — QR self-check-in landing page. No auth required at
+            all: the token in the URL is the sole authority. */}
+        <Route path="/checkin/:token" element={
+          <Suspense fallback={<FullPageLoader />}><Checkin /></Suspense>
         } />
       </Route>
 
