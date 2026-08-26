@@ -26,7 +26,7 @@
 | notifications | 3 | 1 | 0 | 1 | 3 | 2026-08-25 | [notifications](./notifications/README.md) |
 | patient-payments | 3 | 3 | 0 | 1 | 5 | 2026-08-26 | [patient-payments](./patient-payments/README.md) |
 | communications-policies | 1 | 2 | 0 | 0 | 3 | 2026-08-22 | [communications-policies](./communications-policies/README.md) |
-| test-coverage-audit | 1 | 1 | 0 | 0 | 2 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
+| test-coverage-audit | 1 | 2 | 0 | 0 | 3 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
 | organization-branding | 1 | 2 | 0 | 0 | 3 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
