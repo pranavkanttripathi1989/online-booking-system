@@ -22,7 +22,7 @@
 | communications-policies | 2 | 2 | 0 | 0 | 4 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
 | notifications | 2 | 1 | 0 | 0 | 3 | 2026-08-25 | [notifications](./notifications/README.md) |
-| organization-branding | 1 | 1 | 0 | 0 | 2 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
+| organization-branding | 1 | 2 | 0 | 0 | 3 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
 | security | 3 | 3 | 2 | 0 | 8 | 2026-08-26 | [security](./security/README.md) |
 | settings | 2 | 0 | 0 | 0 | 2 | 2026-08-21 | [settings](./settings/README.md) |
