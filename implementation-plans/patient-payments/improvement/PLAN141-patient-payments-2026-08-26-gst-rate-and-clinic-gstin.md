@@ -4,9 +4,9 @@ type: improvement
 feature: patient-payments
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ101
-related: []
+related: [TP165, TR165]
 ---
 
 # PLAN141 — Populate GST rate/GSTIN/place-of-supply on real appointment payments

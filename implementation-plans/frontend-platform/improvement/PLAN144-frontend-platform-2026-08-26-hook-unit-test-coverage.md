@@ -4,9 +4,9 @@ type: improvement
 feature: frontend-platform
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ104
-related: []
+related: [TP161, TR161]
 ---
 
 # PLAN144 — Unit tests for `useInactivityLogout` / `usePagination`

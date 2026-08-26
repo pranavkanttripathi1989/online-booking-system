@@ -4,9 +4,9 @@ type: improvement
 feature: repo-hygiene
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: —
-related: []
+related: [PLAN143, TP160, TR160]
 ---
 
 # REQ103 — Backend unit test suite is slow inside the `medibook_backend` container

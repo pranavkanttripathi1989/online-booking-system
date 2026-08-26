@@ -4,9 +4,9 @@ type: improvement
 feature: messaging
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ102
-related: []
+related: [TP166, TR166]
 ---
 
 # PLAN142 — Non-clinician staff department membership (REQ102)

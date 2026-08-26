@@ -4,9 +4,9 @@ type: improvement
 feature: compliance-dpdp
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ113
-related: []
+related: [TP167, TR167]
 ---
 
 # PLAN153 — Extend automated retention enforcement to `consents`

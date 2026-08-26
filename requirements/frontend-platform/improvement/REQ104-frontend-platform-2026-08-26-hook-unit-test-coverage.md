@@ -4,9 +4,9 @@ type: improvement
 feature: frontend-platform
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: —
-related: []
+related: [PLAN144, TP161, TR161]
 ---
 
 # REQ104 — Close a real slice of the frontend Jest coverage gap (hooks)

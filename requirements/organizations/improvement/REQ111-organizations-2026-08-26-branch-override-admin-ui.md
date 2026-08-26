@@ -4,9 +4,9 @@ type: improvement
 feature: organizations
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ055
-related: []
+related: [PLAN151, TP162, TR162]
 ---
 
 # REQ111 — Admin UI for per-branch product price overrides

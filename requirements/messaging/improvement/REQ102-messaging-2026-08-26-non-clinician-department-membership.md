@@ -4,9 +4,9 @@ type: improvement
 feature: messaging
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ058
-related: [REQ014]
+related: [REQ014, PLAN142, TP166, TR166]
 ---
 
 # REQ102 — Non-clinician staff department membership for message-thread auto-participant-add

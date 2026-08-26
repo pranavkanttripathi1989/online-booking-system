@@ -4,9 +4,9 @@ type: improvement
 feature: platform-integrations
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ112
-related: []
+related: [TP168, TR168]
 ---
 
 # PLAN152 — Webhook delivery retry with exponential backoff

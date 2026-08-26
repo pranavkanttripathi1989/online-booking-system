@@ -4,9 +4,9 @@ type: improvement
 feature: repo-hygiene
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ103
-related: []
+related: [TP160, TR160]
 ---
 
 # PLAN143 — Backend unit test suite speed (REQ103)

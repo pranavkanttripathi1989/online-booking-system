@@ -4,9 +4,9 @@ type: improvement
 feature: appointments
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ018
-related: []
+related: [PLAN145, TP163, TR163]
 ---
 
 # REQ105 — Booking-widget "Embed Code" admin UI + real origin enforcement

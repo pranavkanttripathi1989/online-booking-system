@@ -4,9 +4,9 @@ type: improvement
 feature: insurance-claims
 created: 2026-08-26
 updated: 2026-08-26
-status: in-progress
+status: done
 parent: REQ100
-related: []
+related: [TP164, TR164]
 ---
 
 # PLAN140 — Wire PayerTariffs into a payer-charge estimate
