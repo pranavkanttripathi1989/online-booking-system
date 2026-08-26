@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 
 @ObjectType('TestResultValue')
 export class TestResultValueType {
@@ -25,4 +25,28 @@ export class TestResultType {
   // TC-PAT-API-010: withheld (empty array) until status === 'completed' —
   // enforced in the service, not just this field being nullable.
   @Field(() => [TestResultValueType]) values: TestResultValueType[];
+}
+
+// REQ133 (F-14 residue) — findAll() previously returned a plain, unbounded
+// array (no `take` at all beyond the global 200-row clampTakeMiddleware
+// safety net). Migrated to this codebase's own established {data,
+// paginatorInfo} convention (AppointmentPaginatedType et al.) rather than
+// inventing a shared generic type, matching every other paginated domain's
+// own dedicated per-domain type.
+@ObjectType('TestResultPaginatorInfo')
+export class TestResultPaginatorInfoType {
+  @Field(() => Int) count: number;
+  @Field(() => Int) currentPage: number;
+  @Field(() => Int) firstItem: number;
+  @Field() hasMorePages: boolean;
+  @Field(() => Int) lastItem: number;
+  @Field(() => Int) lastPage: number;
+  @Field(() => Int) perPage: number;
+  @Field(() => Int) total: number;
+}
+
+@ObjectType('TestResultPaginated')
+export class TestResultPaginatedType {
+  @Field(() => [TestResultType]) data: TestResultType[];
+  @Field(() => TestResultPaginatorInfoType) paginatorInfo: TestResultPaginatorInfoType;
 }

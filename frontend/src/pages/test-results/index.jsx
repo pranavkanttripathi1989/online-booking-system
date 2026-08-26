@@ -164,11 +164,16 @@ export default function TestResultsPage() {
   const [sortField, setSortField] = useState('date_ordered')
   const [sortDir, setSortDir] = useState('desc')
 
-  // Real backend as of this increment (context/test-results-backend-implementation-plan.md)
-  // — same useMock fallback pattern already applied to manager/clinics/index.jsx.
+  // REQ133 (F-14 residue) — testResults is now {data, paginatorInfo}, not a
+  // bare array. Also fixes a real bug found while touching these lines: the
+  // old useMock fallback ("apiResults.length === 0 && !loading") fell back
+  // to fabricated MOCK_RESULTS on any real *empty* result, not just a real
+  // network error — live-confirmed the same class of bug Priority-3's own
+  // sweep already found and fixed on appointments/index.jsx/calendar/index.jsx
+  // (`error ? mockRows : apiRows`). Matches that exact fix here.
   const { data, loading, error, refetch } = useQuery(TEST_RESULTS_QUERY, { fetchPolicy: 'cache-and-network', errorPolicy: 'all' })
-  const apiResults = data?.testResults ?? []
-  const useMock = apiResults.length === 0 && !loading
+  const apiResults = data?.testResults?.data ?? []
+  const useMock = !!error
   const [localResults, setLocalResults] = useState([])
   const results = useMock ? [...localResults, ...MOCK_RESULTS] : apiResults
 
@@ -237,7 +242,14 @@ export default function TestResultsPage() {
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
           <Typography variant="h4" fontWeight={800} sx={{ color: '#0D1B2E' }}>Medical Test Results</Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary' }}>{results.length} total results · {counts.pending} pending</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+            {results.length} total results · {counts.pending} pending
+            {/* REQ133 — the query is now bounded (first: 200 by default);
+                say so honestly rather than silently truncating with no signal. */}
+            {!useMock && data?.testResults?.paginatorInfo?.hasMorePages && (
+              <> · showing the {results.length} most recent of {data.testResults.paginatorInfo.total}</>
+            )}
+          </Typography>
         </Box>
         {/* SUG-TRES-002: Order Test wired to dialog */}
         <Button variant="contained" startIcon={<ScienceRoundedIcon />}

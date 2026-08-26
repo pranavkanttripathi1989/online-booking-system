@@ -28,42 +28,65 @@ export class TestResultsService {
     };
   }
 
-  async findAll(search: string | undefined, type: string | undefined, status: string | undefined, user: JwtPayload) {
+  // REQ133 (F-14 residue) — {data, paginatorInfo}, matching
+  // appointments.service.ts#findAll's own $transaction([count, findMany])
+  // pagination math exactly (page-based, skip = (page-1)*first).
+  async findAll(search: string | undefined, type: string | undefined, status: string | undefined, first: number, page: number, user: JwtPayload) {
     // REQ065 (REQ018 US-BOOK-02 residue) — a patient caller may read a
     // dependant's results too, not just their own.
     const allowedPatientIds = user.roles.includes('patient')
       ? await this.patientsService.ownAndDependantPatientIds(user)
       : undefined;
-    const rows = await this.prisma.testResults.findMany({
-      where: {
-        is_deleted: false,
-        ...(type && type !== 'All' ? { test_type: type } : {}),
-        ...(status && status !== 'All' ? { status: status as any } : {}),
-        ...(search
-          ? {
-              OR: [
-                { patient_name: { contains: search, mode: 'insensitive' as const } },
-                { test_name: { contains: search, mode: 'insensitive' as const } },
-                { id: { contains: search, mode: 'insensitive' as const } },
-              ],
-            }
-          : {}),
-        // BUG006. Indirect tenant scoping via the ordering user's org. This
-        // read `user.client_org_id ? {...} : undefined`, and `undefined` is
-        // "no filter" to Prisma — so an org-less caller was unscoped. Only the
-        // patient self-scope below happened to contain it.
-        ...orgScopeVia(user, 'ordered_by'),
-        // SECURITY: this query had no @Auth() role gate and no per-patient
-        // scoping -- any authenticated 'patient' role account could read
-        // every patient's lab values within the org. Restrict to the
-        // caller's own linked patient_id, or their dependants' (see
-        // patients.service.ts's selfScope for the identical JWT-embedded
-        // pattern).
-        ...(allowedPatientIds ? { patient_id: { in: allowedPatientIds } } : {}),
+    const where = {
+      is_deleted: false,
+      ...(type && type !== 'All' ? { test_type: type } : {}),
+      ...(status && status !== 'All' ? { status: status as any } : {}),
+      ...(search
+        ? {
+            OR: [
+              { patient_name: { contains: search, mode: 'insensitive' as const } },
+              { test_name: { contains: search, mode: 'insensitive' as const } },
+              { id: { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+      // BUG006. Indirect tenant scoping via the ordering user's org. This
+      // read `user.client_org_id ? {...} : undefined`, and `undefined` is
+      // "no filter" to Prisma — so an org-less caller was unscoped. Only the
+      // patient self-scope below happened to contain it.
+      ...orgScopeVia(user, 'ordered_by'),
+      // SECURITY: this query had no @Auth() role gate and no per-patient
+      // scoping -- any authenticated 'patient' role account could read
+      // every patient's lab values within the org. Restrict to the
+      // caller's own linked patient_id, or their dependants' (see
+      // patients.service.ts's selfScope for the identical JWT-embedded
+      // pattern).
+      ...(allowedPatientIds ? { patient_id: { in: allowedPatientIds } } : {}),
+    };
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.testResults.count({ where }),
+      this.prisma.testResults.findMany({
+        where,
+        orderBy: { date_ordered: 'desc' },
+        skip: (page - 1) * first,
+        take: first,
+      }),
+    ]);
+    const lastPage = Math.max(1, Math.ceil(total / first));
+    const firstItem = total === 0 ? 0 : (page - 1) * first + 1;
+    return {
+      data: rows.map((r) => this.toGraphQL(r)),
+      paginatorInfo: {
+        count: rows.length,
+        currentPage: page,
+        firstItem,
+        hasMorePages: page < lastPage,
+        lastItem: firstItem + rows.length - 1,
+        lastPage,
+        perPage: first,
+        total,
       },
-      orderBy: { date_ordered: 'desc' },
-    });
-    return rows.map((r) => this.toGraphQL(r));
+    };
   }
 
   async findOne(id: string, user: JwtPayload) {

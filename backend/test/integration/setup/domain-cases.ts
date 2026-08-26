@@ -94,8 +94,10 @@ export const CASES: DomainCase[] = [
   {
     domain: 'test-results',
     what: 'testResults',
-    query: `{ testResults { id } }`,
-    ids: (d) => (d.testResults ?? []).map((x: any) => x.id),
+    // REQ133 (F-14 residue) — testResults migrated to {data, paginatorInfo};
+    // query/extractor updated to match, matrix case itself unchanged otherwise.
+    query: `{ testResults { data { id } } }`,
+    ids: (d) => (d.testResults?.data ?? []).map((x: any) => x.id),
     aId: IDS.testResultLinkedA,
     bId: IDS.testResultLinkedB,
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff', 'patient'],

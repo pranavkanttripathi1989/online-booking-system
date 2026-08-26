@@ -11,9 +11,10 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('TestResultsService — access scoping', () => {
   let service: TestResultsService;
   let prisma: {
-    testResults: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock };
+    testResults: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; count: jest.Mock };
     patients: { findUnique: jest.Mock };
     userProfiles: { findUnique: jest.Mock };
+    $transaction: jest.Mock;
   };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
@@ -25,9 +26,13 @@ describe('TestResultsService — access scoping', () => {
 
   beforeEach(async () => {
     prisma = {
-      testResults: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), create: jest.fn() },
+      testResults: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       patients: { findUnique: jest.fn() },
       userProfiles: { findUnique: jest.fn().mockResolvedValue({ first_name: 'Ada', last_name: 'Ordering' }) },
+      // REQ133 — findAll() now runs count()/findMany() inside a
+      // $transaction([...]); Promise.all mirrors how the real client awaits
+      // an array of already-issued query promises.
+      $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -49,13 +54,13 @@ describe('TestResultsService — access scoping', () => {
   });
 
   it('does not restrict by patient_id for a staff caller', async () => {
-    await service.findAll(undefined, undefined, undefined, staffUser);
+    await service.findAll(undefined, undefined, undefined, 200, 1, staffUser);
     const where = prisma.testResults.findMany.mock.calls[0][0].where;
     expect(where.patient_id).toBeUndefined();
   });
 
   it('restricts a patient caller to only their own linked patient_id (plus any dependants)', async () => {
-    await service.findAll(undefined, undefined, undefined, patientUser);
+    await service.findAll(undefined, undefined, undefined, 200, 1, patientUser);
     const where = prisma.testResults.findMany.mock.calls[0][0].where;
     expect(where.patient_id).toEqual({ in: ['pat-1'] });
   });
@@ -64,7 +69,7 @@ describe('TestResultsService — access scoping', () => {
   // dependant's test results too, not just their own.
   it('includes a dependant\'s patient_id in the findAll filter', async () => {
     patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-1', 'dep-1']);
-    await service.findAll(undefined, undefined, undefined, patientUser);
+    await service.findAll(undefined, undefined, undefined, 200, 1, patientUser);
     const where = prisma.testResults.findMany.mock.calls[0][0].where;
     expect(where.patient_id).toEqual({ in: ['pat-1', 'dep-1'] });
   });
@@ -123,12 +128,51 @@ describe('TestResultsService — access scoping', () => {
   });
 
   it('a self-registered (org-less) caller gets a fail-closed sentinel, not an unfiltered list', async () => {
-    await service.findAll(undefined, undefined, undefined, selfRegistered);
+    await service.findAll(undefined, undefined, undefined, 200, 1, selfRegistered);
     const where = prisma.testResults.findMany.mock.calls[0][0].where;
     // The key must be PRESENT and impossible to match. Absent — or present and
     // `undefined` — means Prisma applies no filter at all.
     expect(where.ordered_by).toEqual({ client_org_id: '__no_org__' });
     expect(where.patient_id).toEqual({ in: ['__no_patient_link__'] });
+  });
+
+  // REQ133 (F-14 residue) — {data, paginatorInfo}, matching
+  // appointments.service.ts#findAll's own pagination shape/math exactly.
+  describe('findAll — pagination (REQ133)', () => {
+    it('passes skip/take derived from page/first into findMany', async () => {
+      await service.findAll(undefined, undefined, undefined, 20, 3, staffUser);
+      expect(prisma.testResults.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 40, take: 20 }),
+      );
+    });
+
+    it('returns data + a correctly-computed paginatorInfo', async () => {
+      prisma.testResults.count.mockResolvedValue(45);
+      prisma.testResults.findMany.mockResolvedValue([
+        { id: 'tr-1', patient_name: 'Anita', test_name: 'CBC', ordered_by_name: 'Dr. A', date_ordered: new Date('2026-08-01'), status: 'pending', test_type: 'blood', values: [] },
+      ]);
+      const result = await service.findAll(undefined, undefined, undefined, 20, 1, staffUser);
+      expect(result.data).toHaveLength(1);
+      expect(result.paginatorInfo).toEqual({
+        count: 1, currentPage: 1, firstItem: 1, hasMorePages: true, lastItem: 1, lastPage: 3, perPage: 20, total: 45,
+      });
+    });
+
+    it('hasMorePages is false on the last page', async () => {
+      prisma.testResults.count.mockResolvedValue(5);
+      prisma.testResults.findMany.mockResolvedValue([]);
+      const result = await service.findAll(undefined, undefined, undefined, 20, 1, staffUser);
+      expect(result.paginatorInfo.hasMorePages).toBe(false);
+      expect(result.paginatorInfo.lastPage).toBe(1);
+    });
+
+    it('an empty result set never reports a firstItem below zero', async () => {
+      prisma.testResults.count.mockResolvedValue(0);
+      prisma.testResults.findMany.mockResolvedValue([]);
+      const result = await service.findAll(undefined, undefined, undefined, 20, 1, staffUser);
+      expect(result.paginatorInfo.firstItem).toBe(0);
+      expect(result.paginatorInfo.total).toBe(0);
+    });
   });
 
   // F-08 (project-plans/02-findings-register.md) — orderTest() never wrote

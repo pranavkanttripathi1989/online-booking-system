@@ -530,22 +530,35 @@ export const PRODUCT_DETAIL_QUERY = gql`
 // field names match its MOCK_RESULTS shape exactly so the rewrite is a
 // drop-in swap. See context/test-results-backend-implementation-plan.md.
 
+// REQ133 (F-14 residue) — migrated to {data, paginatorInfo}; first/page
+// are optional (the resolver defaults first: 200, page: 1), so every
+// existing caller keeps working unchanged if it never passes them.
 export const TEST_RESULTS_QUERY = gql`
-  query TestResults($search: String, $type: String, $status: String) {
-    testResults(search: $search, type: $type, status: $status) {
-      id
-      patient
-      test
-      ordered_by
-      date_ordered
-      date_completed
-      status
-      type
-      values {
-        name
-        value
-        ref
-        flag
+  query TestResults($search: String, $type: String, $status: String, $first: Int, $page: Int) {
+    testResults(search: $search, type: $type, status: $status, first: $first, page: $page) {
+      data {
+        id
+        patient
+        test
+        ordered_by
+        date_ordered
+        date_completed
+        status
+        type
+        values {
+          name
+          value
+          ref
+          flag
+        }
+      }
+      paginatorInfo {
+        count
+        currentPage
+        hasMorePages
+        lastPage
+        perPage
+        total
       }
     }
   }
