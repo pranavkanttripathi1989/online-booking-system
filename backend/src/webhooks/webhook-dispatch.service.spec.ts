@@ -71,4 +71,44 @@ describe('WebhookDispatchService', () => {
       expect.objectContaining({ data: expect.objectContaining({ status: 'failed' }) }),
     );
   });
+
+  // REQ112 — retry scheduling.
+  describe('retry scheduling', () => {
+    const endpoint = { id: 'ep1', url: 'https://a.test', secret: 'encrypted(s)' };
+
+    it('a failed delivery (non-2xx) writes attempt_number 1 and schedules next_retry_at ~1 minute out', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500, text: () => Promise.resolve('err') }) as any;
+      await service.retryOne(endpoint, 'appointment.created', { id: '1' }, 1);
+      const call = prisma.webhookDeliveryLog.create.mock.calls[0][0].data;
+      expect(call.status).toBe('failed');
+      expect(call.attempt_number).toBe(1);
+      const deltaMs = call.next_retry_at.getTime() - Date.now();
+      expect(deltaMs).toBeGreaterThan(50_000);
+      expect(deltaMs).toBeLessThan(70_000);
+    });
+
+    it('a retry at attempt 6 that still fails writes status exhausted with no further retry', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: false, status: 500, text: () => Promise.resolve('err') }) as any;
+      await service.retryOne(endpoint, 'appointment.created', { id: '1' }, 6);
+      const call = prisma.webhookDeliveryLog.create.mock.calls[0][0].data;
+      expect(call.status).toBe('exhausted');
+      expect(call.next_retry_at).toBeNull();
+    });
+
+    it('a retry that succeeds writes status succeeded with no next_retry_at', async () => {
+      global.fetch = jest.fn().mockResolvedValue({ ok: true, status: 200, text: () => Promise.resolve('ok') }) as any;
+      await service.retryOne(endpoint, 'appointment.created', { id: '1' }, 2);
+      const call = prisma.webhookDeliveryLog.create.mock.calls[0][0].data;
+      expect(call.status).toBe('succeeded');
+      expect(call.attempt_number).toBe(2);
+      expect(call.next_retry_at).toBeUndefined();
+    });
+
+    it('a decrypt failure returns early without writing any delivery log row', async () => {
+      const { decrypt } = jest.requireMock('../common/crypto/secrets');
+      decrypt.mockImplementationOnce(() => { throw new Error('bad ciphertext'); });
+      await service.retryOne(endpoint, 'appointment.created', { id: '1' }, 1);
+      expect(prisma.webhookDeliveryLog.create).not.toHaveBeenCalled();
+    });
+  });
 });

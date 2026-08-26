@@ -2447,15 +2447,22 @@ model WebhookDeliveryLog {
   endpoint_id   String
   event_type    String
   payload_json  Json
-  // succeeded | failed
+  // succeeded | failed | exhausted
   status        String
   http_status   Int?
   attempted_at  DateTime @default(now())
   response_snippet String?
+  // REQ112 — retry tracking. attempt_number is 1 for the original
+  // synchronous attempt, 2-6 for sweep-driven retries. next_retry_at is
+  // set only on a 'failed' row that still has retries remaining; null
+  // once a row is 'succeeded' or 'exhausted'.
+  attempt_number Int      @default(1)
+  next_retry_at  DateTime?
 
   endpoint WebhookEndpoints @relation(fields: [endpoint_id], references: [id])
 
   @@index([endpoint_id, attempted_at])
+  @@index([status, next_retry_at])
 }
 
 // ============================================================
