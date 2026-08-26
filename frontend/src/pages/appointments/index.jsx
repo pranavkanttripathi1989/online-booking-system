@@ -72,6 +72,13 @@ const CLOSE_CASH_DRAWER_MUTATION = gql`
   }
 `
 
+// REQ120
+const BULK_RESCHEDULE_MUTATION = gql`
+  mutation BulkRescheduleAppointments($input: BulkRescheduleAppointmentsInput!) {
+    bulkRescheduleAppointments(input: $input) { attempted_count rescheduled_count failed_count }
+  }
+`
+
 // ─── Mock Appointments — now from centralized store (35 records, plan-compliant)
 // BACKEND SWAP: remove these lines and use only apiRows from useQuery
 
@@ -180,6 +187,11 @@ export default function AppointmentsPage() {
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelId, setCancelId] = useState(null)
 
+  // REQ120 — Bulk Reschedule dialog state
+  const [bulkRescheduleOpen, setBulkRescheduleOpen] = useState(false)
+  const [bulkRescheduleDate, setBulkRescheduleDate] = useState(dayjs())
+  const [bulkRescheduleShift, setBulkRescheduleShift] = useState('30')
+
   // SUG-APPT-002: Optimistic cancel — track locally-cancelled IDs
   const [optimisticCancelled, setOptimisticCancelled] = useState(new Set())
 
@@ -255,6 +267,8 @@ export default function AppointmentsPage() {
   const [updateAppointment] = useMutation(UPDATE_APPOINTMENT_MUTATION, {
     onError: () => {} // silent — optimistic override already applied
   })
+  // REQ120 — shift a clinician's whole day at once.
+  const [bulkReschedule, { loading: bulkRescheduling }] = useMutation(BULK_RESCHEDULE_MUTATION)
 
   // ── Handlers ──────────────────────────────────────────────────────────────
   const handleClearFilters = () => {
@@ -266,6 +280,30 @@ export default function AppointmentsPage() {
     setSearchDraft('')
     setPaginationModel({ page: 0, pageSize: 20 })
     if (viewTab !== 'all') setViewTab('upcoming')
+  }
+
+  // REQ120
+  const handleBulkReschedule = async () => {
+    const shift = parseInt(bulkRescheduleShift, 10)
+    if (!shift) { enqueueSnackbar('Enter a non-zero number of minutes', { variant: 'warning' }); return }
+    try {
+      const { data: res } = await bulkReschedule({
+        variables: { input: { clinician_id: clinicianId, date: dayjs(bulkRescheduleDate).format('YYYY-MM-DD'), shift_minutes: shift } },
+      })
+      const { attempted_count, rescheduled_count, failed_count } = res.bulkRescheduleAppointments
+      if (attempted_count === 0) {
+        enqueueSnackbar('No scheduled/confirmed appointments found on that day for this clinician.', { variant: 'info' })
+      } else {
+        enqueueSnackbar(
+          `Rescheduled ${rescheduled_count} of ${attempted_count} appointment${attempted_count === 1 ? '' : 's'}${failed_count ? ` (${failed_count} could not be moved — a conflict at the new time)` : ''}.`,
+          { variant: failed_count ? 'warning' : 'success' },
+        )
+      }
+      setBulkRescheduleOpen(false)
+      refetch()
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || 'Failed to bulk reschedule', { variant: 'error' })
+    }
   }
 
   const handleTabChange = (_, newTab) => {
@@ -802,6 +840,17 @@ export default function AppointmentsPage() {
               />
             </Grid>
 
+            {/* Bulk Reschedule — needs a specific clinician selected */}
+            <Grid item xs="auto">
+              <Tooltip title={clinicianId ? 'Bulk reschedule this clinician\'s day' : 'Select a clinician first'}>
+                <span>
+                  <IconButton disabled={!clinicianId} onClick={() => setBulkRescheduleOpen(true)}>
+                    <EventRepeatIcon />
+                  </IconButton>
+                </span>
+              </Tooltip>
+            </Grid>
+
             {/* Clear */}
             <Grid item xs="auto">
               <Tooltip title="Clear filters">
@@ -812,6 +861,39 @@ export default function AppointmentsPage() {
             </Grid>
           </Grid>
         </Paper>
+
+        <Dialog open={bulkRescheduleOpen} onClose={() => setBulkRescheduleOpen(false)} maxWidth="xs" fullWidth>
+          <DialogTitle>Bulk Reschedule</DialogTitle>
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Shifts every scheduled/confirmed appointment for{' '}
+                <strong>{clinicians.find((c) => c.id === clinicianId)?.full_name ?? 'this clinician'}</strong> on the
+                chosen day by the same amount. Already-checked-in, completed, cancelled, and no-show visits are
+                never touched.
+              </Typography>
+              <LocalizationProvider dateAdapter={AdapterDayjs}>
+                <DatePicker
+                  label="Day to reschedule"
+                  value={bulkRescheduleDate}
+                  onChange={(v) => setBulkRescheduleDate(v)}
+                  slotProps={{ textField: { size: 'small', fullWidth: true } }}
+                />
+              </LocalizationProvider>
+              <TextField
+                fullWidth size="small" type="number" label="Shift (minutes)"
+                helperText="Positive moves later, negative moves earlier — e.g. 120 for two hours behind"
+                value={bulkRescheduleShift} onChange={(e) => setBulkRescheduleShift(e.target.value)}
+              />
+            </Stack>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setBulkRescheduleOpen(false)}>Cancel</Button>
+            <Button variant="contained" disabled={bulkRescheduling} onClick={handleBulkReschedule}>
+              {bulkRescheduling ? 'Rescheduling…' : 'Reschedule Day'}
+            </Button>
+          </DialogActions>
+        </Dialog>
 
         {/* SUG-APPT-006: Bulk selection action bar — CSS animated */}
         <Box sx={{

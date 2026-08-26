@@ -5,9 +5,9 @@ import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { resolveServicePrice } from '../common/pricing/resolve-price';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
-import { AppointmentInput, AppointmentUpdateInput } from './dto/appointment.input';
+import { AppointmentInput, AppointmentUpdateInput, BulkRescheduleAppointmentsInput } from './dto/appointment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { orgScopeVia } from '../common/scoping/tenant-scope';
+import { orgScopeVia, isSameOrg } from '../common/scoping/tenant-scope';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { QueueService } from '../queue/queue.service';
@@ -764,5 +764,73 @@ export class AppointmentsService {
       await this.notifyCancellation(result);
     }
     return result;
+  }
+
+  // REQ120 — "shift a clinician's whole day at once" rather than editing
+  // N appointments one at a time. Every targeted row shifts by the same
+  // delta, so relative spacing among them is preserved (no new mutual
+  // collisions); the only new collision risk is against something NOT in
+  // this batch, so each row is still checked individually against
+  // assertSlotFree() and a per-row failure doesn't abort the batch --
+  // matches this session's own established "honest partial-success count,
+  // not silent all-or-nothing" convention (REQ118's own
+  // notified_count-vs-waiting_count precedent).
+  //
+  // Only 'scheduled'/'confirmed' appointments are eligible -- a patient
+  // already checked in/being seen, or a completed/cancelled/no-show visit,
+  // is never touched. No patient notification is sent, matching update()'s
+  // own existing behaviour for a plain reschedule (it only notifies on
+  // cancellation) -- not a new gap introduced here.
+  async bulkReschedule(input: BulkRescheduleAppointmentsInput, user: JwtPayload) {
+    if (!Number.isInteger(input.shift_minutes) || input.shift_minutes === 0) {
+      throw new BadRequestException('shift_minutes must be a non-zero integer');
+    }
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: input.clinician_id }, include: { clinic: true } });
+    if (!clinician) throw new NotFoundException('Clinician not found');
+    if (!isSameOrg(user, clinician.clinic.client_org_id)) throw new NotFoundException('Clinician not found');
+
+    const dayStart = new Date(`${input.date}T00:00:00.000Z`);
+    const dayEnd = new Date(`${input.date}T23:59:59.999Z`);
+    const targets = await this.prisma.appointments.findMany({
+      where: {
+        clinician_id: input.clinician_id,
+        is_deleted: false,
+        status: { in: ['scheduled', 'confirmed'] },
+        appointment_time: { gte: dayStart, lte: dayEnd },
+      },
+    });
+
+    let rescheduledCount = 0;
+    let failedCount = 0;
+    for (const appt of targets) {
+      const newTime = new Date(appt.appointment_time.getTime() + input.shift_minutes * 60000);
+      const newEnd = new Date(newTime.getTime() + appt.duration_minutes * 60000);
+      try {
+        // REQ017: session/hybrid-mode rows aren't slots -- many legitimately
+        // share a clinician/time, so the slot-conflict check doesn't apply
+        // to them, matching create()/update()'s own branching.
+        if (appt.booking_mode === 'slot') {
+          await this.assertSlotFree(input.clinician_id, newTime, newEnd, appt.id);
+        }
+        const updated = await this.prisma.$transaction(async (tx) => {
+          const row = await tx.appointments.update({
+            where: { id: appt.id },
+            data: { appointment_date: new Date(newTime.toDateString()), appointment_time: newTime, updated_at: new Date() },
+            include: INCLUDE,
+          });
+          await tx.appointmentResources.updateMany({
+            where: { appointment_id: appt.id },
+            data: { start_at: newTime, end_at: newEnd },
+          });
+          return row;
+        });
+        rescheduledCount += 1;
+        await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: this.toGraphQL(updated) });
+      } catch {
+        failedCount += 1;
+      }
+    }
+
+    return { attempted_count: targets.length, rescheduled_count: rescheduledCount, failed_count: failedCount };
   }
 }

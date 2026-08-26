@@ -1,5 +1,5 @@
-import { InputType, Field } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsIn, IsISO8601, ValidateNested } from 'class-validator';
+import { InputType, Field, Int } from '@nestjs/graphql';
+import { IsNotEmpty, IsOptional, IsIn, IsISO8601, IsInt, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IntakeFieldResponseInput } from '../../intake-fields/dto/intake-field.input';
 
@@ -49,4 +49,20 @@ export class AppointmentUpdateInput {
   @Field({ nullable: true }) @IsOptional() room_id?: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
   @Field({ nullable: true }) @IsOptional() cancellation_reason?: string;
+}
+
+// REQ120 — "shift a clinician's whole day" (e.g. running 2 hours behind,
+// or out sick and every appointment moves to the same slot next week):
+// every target row shifts by the same delta, not a per-row new time each
+// — the common front-desk request this slice scopes to (REQ017's own
+// deferred "bulk-reschedule" note names no more specific shape than this).
+@InputType('BulkRescheduleAppointmentsInput')
+export class BulkRescheduleAppointmentsInput {
+  @Field() @IsNotEmpty() clinician_id: string;
+  // YYYY-MM-DD — the source day whose appointments are being shifted.
+  @Field() @IsISO8601() date: string;
+  // Minutes to shift by; negative moves earlier. Validated non-zero in
+  // the service layer (a zero shift is a no-op worth rejecting explicitly
+  // rather than silently succeeding at nothing).
+  @Field(() => Int) @IsInt() shift_minutes: number;
 }

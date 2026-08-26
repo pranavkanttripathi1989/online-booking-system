@@ -2,9 +2,9 @@ import { Resolver, Query, Mutation, Subscription, Args, ID, Int } from '@nestjs/
 import { Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { AppointmentsService, APPOINTMENT_UPDATED_EVENT } from './appointments.service';
-import { AppointmentType, AppointmentPaginatedType } from './entities/appointment.entity';
+import { AppointmentType, AppointmentPaginatedType, BulkRescheduleResultType } from './entities/appointment.entity';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
-import { AppointmentInput, AppointmentUpdateInput } from './dto/appointment.input';
+import { AppointmentInput, AppointmentUpdateInput, BulkRescheduleAppointmentsInput } from './dto/appointment.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -56,6 +56,13 @@ export class AppointmentsResolver {
   @Mutation(() => AppointmentType)
   updateAppointment(@Args('id', { type: () => ID }) id: string, @Args('input') input: AppointmentUpdateInput, @CurrentUser() user: JwtPayload) {
     return this.appointmentsService.update(id, input, user);
+  }
+
+  // REQ120
+  @Auth('manager', 'admin', 'super_admin', 'staff', 'receptionist')
+  @Mutation(() => BulkRescheduleResultType)
+  bulkRescheduleAppointments(@Args('input') input: BulkRescheduleAppointmentsInput, @CurrentUser() user: JwtPayload) {
+    return this.appointmentsService.bulkReschedule(input, user);
   }
 
   @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist', 'patient')

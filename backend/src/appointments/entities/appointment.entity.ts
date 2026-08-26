@@ -135,3 +135,13 @@ export class AppointmentPaginatedType {
   @Field(() => [AppointmentType]) data: AppointmentType[];
   @Field(() => AppointmentPaginatorInfoType) paginatorInfo: AppointmentPaginatorInfoType;
 }
+
+// REQ120 — an honest partial-success count, not a single boolean: a real
+// front-desk bulk shift can hit a per-row conflict (the DB's own EXCLUDE
+// constraint) without the whole batch failing.
+@ObjectType('BulkRescheduleResult')
+export class BulkRescheduleResultType {
+  @Field(() => Int) attempted_count: number;
+  @Field(() => Int) rescheduled_count: number;
+  @Field(() => Int) failed_count: number;
+}

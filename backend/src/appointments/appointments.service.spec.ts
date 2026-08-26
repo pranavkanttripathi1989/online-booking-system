@@ -22,6 +22,7 @@ describe('AppointmentsService — access scoping', () => {
     appointments: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock; findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
     appointmentStatusLogs: { findMany: jest.Mock; create: jest.Mock };
     clinics: { findUnique: jest.Mock };
+    clinicians: { findUnique: jest.Mock };
     products: { findUnique: jest.Mock };
     patients: { findUnique: jest.Mock };
     rooms: { findFirst: jest.Mock; findUnique: jest.Mock };
@@ -66,6 +67,7 @@ describe('AppointmentsService — access scoping', () => {
       },
       appointmentStatusLogs: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
       clinics: { findUnique: jest.fn().mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1', client_organization: { no_show_prepayment_threshold: 3 } }) },
+      clinicians: { findUnique: jest.fn() },
       products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 30, prepayment_policy: 'none' }) },
       // REQ052: create() now also checks the caller's own no-show history.
       patients: { findUnique: jest.fn().mockResolvedValue({ id: 'pat-1', no_show_count: 0 }) },
@@ -733,6 +735,72 @@ describe('AppointmentsService — access scoping', () => {
       await service.findAll(undefined, 20, 1, staffUser);
       const args = prisma.appointments.findMany.mock.calls[0][0];
       expect(args.orderBy).toEqual({ appointment_time: 'desc' });
+    });
+  });
+
+  // REQ120 — shift a clinician's whole day at once.
+  describe('bulkReschedule', () => {
+    const clinicianRow = { id: 'cln-1', clinic_id: 'clinic-1', clinic: { client_org_id: 'org-1' } };
+
+    it('rejects a zero shift', async () => {
+      await expect(service.bulkReschedule({ clinician_id: 'cln-1', date: '2026-08-26', shift_minutes: 0 } as any, staffUser))
+        .rejects.toThrow('shift_minutes must be a non-zero integer');
+    });
+
+    it('rejects a cross-org clinician', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue({ ...clinicianRow, clinic: { client_org_id: 'org-2' } });
+      await expect(service.bulkReschedule({ clinician_id: 'cln-1', date: '2026-08-26', shift_minutes: 30 } as any, staffUser))
+        .rejects.toThrow(NotFoundException);
+    });
+
+    it('shifts every scheduled/confirmed appointment on the given day by the same delta and reports an honest count', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      const apptA = { id: 'a1', appointment_time: new Date('2026-08-26T09:00:00.000Z'), duration_minutes: 30, booking_mode: 'slot' };
+      const apptB = { id: 'a2', appointment_time: new Date('2026-08-26T09:30:00.000Z'), duration_minutes: 30, booking_mode: 'slot' };
+      prisma.appointments.findMany.mockResolvedValue([apptA, apptB]);
+
+      const result = await service.bulkReschedule({ clinician_id: 'cln-1', date: '2026-08-26', shift_minutes: 60 } as any, staffUser);
+
+      expect(result).toEqual({ attempted_count: 2, rescheduled_count: 2, failed_count: 0 });
+      expect(prisma.appointments.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'a1' },
+        data: expect.objectContaining({ appointment_time: new Date('2026-08-26T10:00:00.000Z') }),
+      }));
+      expect(prisma.appointments.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'a2' },
+        data: expect.objectContaining({ appointment_time: new Date('2026-08-26T10:30:00.000Z') }),
+      }));
+    });
+
+    it('only targets scheduled/confirmed appointments on the given day', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      await service.bulkReschedule({ clinician_id: 'cln-1', date: '2026-08-26', shift_minutes: 30 } as any, staffUser);
+      const where = prisma.appointments.findMany.mock.calls[0][0].where;
+      expect(where.status).toEqual({ in: ['scheduled', 'confirmed'] });
+      expect(where.appointment_time).toEqual({ gte: new Date('2026-08-26T00:00:00.000Z'), lte: new Date('2026-08-26T23:59:59.999Z') });
+    });
+
+    it('counts a per-row slot conflict as a failure without aborting the rest of the batch', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      const apptA = { id: 'a1', appointment_time: new Date('2026-08-26T09:00:00.000Z'), duration_minutes: 30, booking_mode: 'slot' };
+      const apptB = { id: 'a2', appointment_time: new Date('2026-08-26T09:30:00.000Z'), duration_minutes: 30, booking_mode: 'slot' };
+      prisma.appointments.findMany.mockResolvedValue([apptA, apptB]);
+      // First row's own conflict check finds a collision; second row's does not.
+      prisma.appointments.findFirst
+        .mockResolvedValueOnce({ appointment_time: new Date('2026-08-26T10:00:00.000Z'), duration_minutes: 30 })
+        .mockResolvedValueOnce(null);
+
+      const result = await service.bulkReschedule({ clinician_id: 'cln-1', date: '2026-08-26', shift_minutes: 60 } as any, staffUser);
+
+      expect(result).toEqual({ attempted_count: 2, rescheduled_count: 1, failed_count: 1 });
+    });
+
+    it('skips the slot-conflict check for session/hybrid-mode rows', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      const apptA = { id: 'a1', appointment_time: new Date('2026-08-26T09:00:00.000Z'), duration_minutes: 30, booking_mode: 'session' };
+      prisma.appointments.findMany.mockResolvedValue([apptA]);
+      await service.bulkReschedule({ clinician_id: 'cln-1', date: '2026-08-26', shift_minutes: 60 } as any, staffUser);
+      expect(prisma.appointments.findFirst).not.toHaveBeenCalled();
     });
   });
 });
