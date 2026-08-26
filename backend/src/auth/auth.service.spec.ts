@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { REDIS_CLIENT } from '../redis/redis.module';
 import { encrypt } from '../common/crypto/secrets';
+import { NotificationProviderConfigService } from '../notifications/notification-provider-config.service';
 
 // Mirrors this project's own bcrypt cost (BCRYPT_COST = 12 in auth.service.ts)
 // closely enough to produce real, verifiable hashes without a 12-round cost
@@ -27,6 +28,7 @@ describe('AuthService', () => {
     $transaction: jest.Mock;
   };
   let jwt: { sign: jest.Mock; verifyAsync: jest.Mock };
+  let providerConfigService: { getActiveConfigForOrg: jest.Mock };
   let redis: {
     get: jest.Mock;
     set: jest.Mock;
@@ -92,6 +94,7 @@ describe('AuthService', () => {
         { provide: PrismaService, useValue: prisma },
         { provide: JwtService, useValue: jwt },
         { provide: REDIS_CLIENT, useValue: redis },
+        { provide: NotificationProviderConfigService, useValue: (providerConfigService = { getActiveConfigForOrg: jest.fn() }) },
       ],
     }).compile();
 
@@ -521,6 +524,40 @@ describe('AuthService', () => {
       expect(unregistered).toEqual({ success: true });
       // Only the registered phone actually got an OTP written to Redis.
       expect(redis.set).toHaveBeenCalledTimes(1);
+    });
+
+    // REQ114
+    it('sends the real OTP via the org\'s configured SMS provider when one exists', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(activeProfile({ client_org_id: 'org-a' }));
+      const send = jest.fn().mockResolvedValue({ sent: true });
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue({ provider: { send }, credentials: { key: 'x' } });
+
+      await service.requestOtp('+919810000000');
+
+      expect(providerConfigService.getActiveConfigForOrg).toHaveBeenCalledWith('org-a', 'sms');
+      expect(send).toHaveBeenCalledWith({ key: 'x' }, '+919810000000', expect.stringContaining('verification code'));
+    });
+
+    it('skips the provider lookup entirely for a profile with no client_org_id, still returning success', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(activeProfile({ client_org_id: null }));
+      const result = await service.requestOtp('+919810000000');
+      expect(providerConfigService.getActiveConfigForOrg).not.toHaveBeenCalled();
+      expect(result).toEqual({ success: true });
+    });
+
+    it('does not send when the org has no SMS provider configured, still returning success', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(activeProfile({ client_org_id: 'org-a' }));
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue(null);
+      const result = await service.requestOtp('+919810000000');
+      expect(result).toEqual({ success: true });
+    });
+
+    it('never surfaces a provider send failure to the caller', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(activeProfile({ client_org_id: 'org-a' }));
+      const send = jest.fn().mockResolvedValue({ sent: false, error: 'provider down' });
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue({ provider: { send }, credentials: {} });
+
+      await expect(service.requestOtp('+919810000000')).resolves.toEqual({ success: true });
     });
   });
 

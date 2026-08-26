@@ -1,4 +1,4 @@
-import { Inject, Injectable, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
+import { Inject, Injectable, Logger, UnauthorizedException, ConflictException, BadRequestException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
@@ -14,6 +14,7 @@ import { decrypt } from '../common/crypto/secrets';
 import { BCRYPT_COST } from '../common/crypto/bcrypt-cost';
 import { JwtPayload } from './strategies/jwt.strategy';
 import { isSameOrg } from '../common/scoping/tenant-scope';
+import { NotificationProviderConfigService } from '../notifications/notification-provider-config.service';
 
 const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_SECONDS = 7 * 24 * 60 * 60;
@@ -34,10 +35,13 @@ const DUMMY_HASH = '$2b$12$CwTycUXWue0Thq9StjUM0uJ8O.HKz7YvXTLYnDDlYX/XR9C1Kh4Sy
 
 @Injectable()
 export class AuthService {
+  private readonly logger = new Logger(AuthService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
     @Inject(REDIS_CLIENT) private readonly redis: Redis,
+    private readonly providerConfigService: NotificationProviderConfigService,
   ) {}
 
   // ── Password / lockout helpers ────────────────────────────────────────────
@@ -477,10 +481,28 @@ export class AuthService {
         'EX',
         OTP_TTL_SECONDS,
       );
-      // OTP provider (MSG91/Gupshup) integration is stubbed until a real
-      // account exists — logged server-side only, never returned to the client.
-      // eslint-disable-next-line no-console
-      console.log(`[OTP STUB] Would send ${code} to ${phone} via MSG91/Gupshup`);
+      // REQ114 — the org's own configured SMS provider (REQ008's registry),
+      // the same getActiveConfigForOrg/provider.send() shape sendSms()/
+      // sharePrescriptionViaWhatsapp() already use. A genuinely org-less
+      // profile (client_org_id: null — e.g. a platform operator) has no
+      // provider to resolve and is skipped silently, same as those two
+      // callers' own "no phone or org, skip" convention. A send failure is
+      // logged but never surfaced to the caller — TC-AUTH-API-011's
+      // identical-response guarantee must hold regardless of delivery
+      // outcome, not just registration status.
+      if (profile.client_org_id) {
+        const config = await this.providerConfigService.getActiveConfigForOrg(profile.client_org_id, 'sms');
+        if (config) {
+          const result = await config.provider.send(
+            config.credentials,
+            phone,
+            `Your MediBook verification code is ${code}. It expires in ${Math.round(OTP_TTL_SECONDS / 60)} minutes.`,
+          );
+          if (!result.sent) {
+            this.logger.warn(`OTP SMS send failed for ${phone}: ${result.error}`);
+          }
+        }
+      }
     }
     return { success: true };
   }
