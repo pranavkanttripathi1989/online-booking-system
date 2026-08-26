@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| frontend-platform-2026-08-26-req121 | frontend-platform | 2026-08-26 | REQ121, PLAN161, TP181, TR181 | done | [manifest.md](./frontend-platform-2026-08-26-req121/manifest.md) |
 | appointments-2026-08-26-req120 | appointments | 2026-08-26 | REQ120, PLAN160, TP180, TR180 | done | [manifest.md](./appointments-2026-08-26-req120/manifest.md) |
 | scheduling-engine-2026-08-26-req119 | scheduling-engine | 2026-08-26 | REQ119, PLAN159, TP179, TR179 | done | [manifest.md](./scheduling-engine-2026-08-26-req119/manifest.md) |
 | queue-management-2026-08-26-req118 | queue-management | 2026-08-26 | REQ118, PLAN158, TP178, TR178 | done | [manifest.md](./queue-management-2026-08-26-req118/manifest.md) |

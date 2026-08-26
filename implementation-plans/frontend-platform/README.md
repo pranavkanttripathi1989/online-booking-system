@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN161 | improvement | Cache-and-network audit round 2 | done | 2026-08-26 | 2026-08-26 | REQ121 | [PLAN161-frontend-platform-2026-08-26-cache-and-network-audit-round-2.md](./improvement/PLAN161-frontend-platform-2026-08-26-cache-and-network-audit-round-2.md) |
 | PLAN109 | improvement | Confirm cache-and-network fetch policy on stale-prone pages | done | 2026-08-26 | 2026-08-26 | REQ078 | [PLAN109-frontend-platform-2026-08-26-cache-and-network-verification.md](./improvement/PLAN109-frontend-platform-2026-08-26-cache-and-network-verification.md) |
 | PLAN144 | improvement | Unit test coverage for useInactivityLogout/usePagination hooks | done | 2026-08-26 | 2026-08-26 | REQ104 | [PLAN144-frontend-platform-2026-08-26-hook-unit-test-coverage.md](./improvement/PLAN144-frontend-platform-2026-08-26-hook-unit-test-coverage.md) |
 
