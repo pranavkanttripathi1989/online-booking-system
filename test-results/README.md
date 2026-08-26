@@ -17,7 +17,7 @@
 | platform-nfr | 0 | 8 | 11 | 0 | 19 | 2026-08-26 | [platform-nfr](./platform-nfr/README.md) |
 | appointments | 3 | 5 | 4 | 1 | 11 | 2026-08-26 | [appointments](./appointments/README.md) |
 | clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
-| organizations | 3 | 4 | 0 | 1 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
+| organizations | 3 | 5 | 0 | 1 | 7 | 2026-08-26 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 5 | 0 | 0 | 7 | 2026-08-26 | [catalog-master-data](./catalog-master-data/README.md) |
 | public | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [public](./public/README.md) |
 | communications-policies | 2 | 2 | 0 | 4 | 0 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
