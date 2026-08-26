@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP179 | improvement | Hybrid-mode walk-in interleaving verification | approved | 2026-08-26 | 2026-08-26 | PLAN159 | [TP179-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md](./improvement/TP179-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md) |
 | TP170 | improvement | Booking waitlist for fully-booked slots verification | approved | 2026-08-26 | 2026-08-26 | PLAN146 | [TP170-scheduling-engine-2026-08-26-booking-waitlist.md](./improvement/TP170-scheduling-engine-2026-08-26-booking-waitlist.md) |
 
 ## bug

@@ -2,6 +2,37 @@
 
 Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the question, why it's genuinely ambiguous (not just unimplemented), and current status.
 
+## 17. What actually distinguishes a "walk-in" from a "booked" appointment, given no such flag exists in the schema?
+
+**Status:** Open, raised 2026-08-26 while building `REQ119`'s hybrid-mode
+booked:walk-in interleaving (`REQ017` US-CAL-04 / `REQ019` FR-QUE-02).
+
+Confirmed by grep before building: no `is_walk_in`/`booking_source`
+column or equivalent exists anywhere on `Appointments` or `QueueEntries`.
+`Patients.acquisition_source` (`REQ029`) is a one-time patient-level
+marketing-attribution field, not a per-visit signal, and doesn't apply
+to a returning patient's same-day walk-in.
+
+`queue.service.ts#applyWalkInInterleaving()` uses a heuristic instead:
+an appointment created on the same calendar day it's scheduled for is
+treated as a walk-in, everything else as booked-in-advance. This is
+defensible for the common case (front desk registers a walk-in patient
+on the spot, same day) but has a real false-positive: a patient who
+books online the same morning for a same-day slot is counted as a
+walk-in even though they went through the normal booking flow, not the
+front desk.
+
+**Decision needed from the user:** is this heuristic good enough to
+ship as-is (it's directionally correct and the interleaving is a
+soft-ordering nicety, not a hard guarantee), or does the product need a
+real `booking_source`/`is_walk_in` flag — set explicitly at
+`createAppointment` time (patient-initiated booking) vs. a distinct
+future "register walk-in" front-desk flow (which doesn't exist yet
+either, per `REQ017`'s own "no hybrid mode" note) — for this to be
+trustworthy? If the latter, it's a schema change plus a new front-desk
+creation path, not a fix to the interleaving algorithm itself (which is
+already correct given whatever classification it's handed).
+
 ## 16. Should a patient caller be able to see a dependant's messages, given a dependant has no login of their own?
 
 **Status:** Open, raised 2026-08-25 while closing `REQ018`'s own residue

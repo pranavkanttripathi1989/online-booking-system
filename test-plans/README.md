@@ -11,7 +11,7 @@
 | pharmacy | 1 | 2 | 0 | 2 | 1 | 2026-08-25 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 1 | 0 | 0 | 2 | 2026-08-26 | [prescriptions](./prescriptions/README.md) |
 | clinical-records | 1 | 2 | 0 | 1 | 2 | 2026-08-26 | [clinical-records](./clinical-records/README.md) |
-| scheduling-engine | 1 | 1 | 0 | 0 | 2 | 2026-08-26 | [scheduling-engine](./scheduling-engine/README.md) |
+| scheduling-engine | 1 | 2 | 0 | 0 | 3 | 2026-08-26 | [scheduling-engine](./scheduling-engine/README.md) |
 | messaging | 1 | 5 | 0 | 6 | 0 | 2026-08-26 | [messaging](./messaging/README.md) |
 | queue-management | 1 | 5 | 0 | 0 | 6 | 2026-08-26 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 6 | 11 | 17 | 0 | 2026-08-25 | [platform-nfr](./platform-nfr/README.md) |

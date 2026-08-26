@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ119 | improvement | Hybrid-mode booked:walk-in interleaving (US-CAL-04) | done | 2026-08-26 | 2026-08-26 | REQ017 | [REQ119-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md](./improvement/REQ119-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md) |
 | REQ106 | improvement | Booking waitlist for fully-booked slots | done | 2026-08-26 | 2026-08-26 | REQ017 | [REQ106-scheduling-engine-2026-08-26-booking-waitlist.md](./improvement/REQ106-scheduling-engine-2026-08-26-booking-waitlist.md) |
 
 ## bug
