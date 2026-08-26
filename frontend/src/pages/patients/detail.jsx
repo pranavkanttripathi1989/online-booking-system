@@ -10,6 +10,7 @@ import {
   TableContainer, TableHead, TableRow, LinearProgress, Badge, Dialog, DialogTitle, DialogContent,
   DialogActions, List, ListItem, ListItemIcon, ListItemText, Switch,
   FormControlLabel, TextField, MenuItem, RadioGroup, Radio, FormControl, FormLabel,
+  Autocomplete, CircularProgress,
 } from '@mui/material'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
@@ -40,6 +41,8 @@ import MarkEmailReadRoundedIcon from '@mui/icons-material/MarkEmailReadRounded'
 import SmsRoundedIcon from '@mui/icons-material/SmsRounded'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded'
+import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded'
+import { PATIENTS_QUERY } from '../../graphql/queries'
 
 // A-7 (project-plans/08-integration-gap-analysis.md) — real, tested backend
 // (patientInsurancePolicies/createPatientInsurancePolicy) with no capture UI
@@ -61,6 +64,28 @@ const GET_PATIENT_INSURANCE = gql`
 const CREATE_PATIENT_INSURANCE_POLICY = gql`
   mutation CreatePatientInsurancePolicy($input: PatientInsurancePolicyInput!) {
     createPatientInsurancePolicy(input: $input) { id }
+  }
+`
+
+// REQ110 — real backend (patientPackages/transferPackage), no view of a
+// patient's purchased packages existed anywhere outside the appointment-
+// checkout redeem flow. Same real-`id`-route-param pattern as the Insurance
+// tab above.
+const GET_PATIENT_PACKAGES = gql`
+  query GetPatientPackages($patient_id: ID!) {
+    patientPackages(patient_id: $patient_id) {
+      id sittings_total sittings_remaining purchase_amount purchase_tender_type
+      purchased_at expires_at is_expired
+      package { id name }
+    }
+  }
+`
+const TRANSFER_PACKAGE = gql`
+  mutation TransferPackage($input: TransferPackageInput!) {
+    transferPackage(input: $input) {
+      success
+      userErrors { message }
+    }
   }
 `
 
@@ -229,6 +254,40 @@ export default function PatientDetailPage() {
       setPolicyForm({ payer_id: '', policy_number: '', policy_holder_name: '', valid_from: '', valid_until: '' })
       setPolicyFormOpen(false)
       refetchInsurance()
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message, { variant: 'error' })
+    }
+  }
+
+  // REQ110 — Packages tab (real data, see the import-block comment above).
+  const { data: packagesData, loading: packagesLoading, refetch: refetchPackages } = useQuery(GET_PATIENT_PACKAGES, { variables: { patient_id: id }, skip: !id })
+  const patientPackages = packagesData?.patientPackages ?? []
+  const [transferPackageMutation, { loading: transferring }] = useMutation(TRANSFER_PACKAGE)
+  const [transferTarget, setTransferTarget] = useState(null) // the patientPackage row being transferred
+  const [transferPatientSearch, setTransferPatientSearch] = useState('')
+  const [transferSelectedPatient, setTransferSelectedPatient] = useState(null)
+  const { data: transferPatientsData, loading: loadingTransferPatients } = useQuery(PATIENTS_QUERY, {
+    variables: { search: transferPatientSearch, first: 20 },
+    skip: transferPatientSearch.length < 2,
+    fetchPolicy: 'network-only',
+  })
+  const transferPatientOptions = (transferPatientsData?.patients?.data ?? []).filter((opt) => opt.id !== id)
+  const closeTransferDialog = () => {
+    setTransferTarget(null)
+    setTransferPatientSearch('')
+    setTransferSelectedPatient(null)
+  }
+  const submitTransfer = async () => {
+    if (!transferTarget || !transferSelectedPatient) return
+    try {
+      const { data } = await transferPackageMutation({ variables: { input: { patient_package_id: transferTarget.id, to_patient_id: transferSelectedPatient.id } } })
+      if (data?.transferPackage?.success) {
+        enqueueSnackbar('Package transferred.', { variant: 'success' })
+        closeTransferDialog()
+        refetchPackages()
+      } else {
+        enqueueSnackbar(data?.transferPackage?.userErrors?.[0]?.message || 'Failed to transfer package', { variant: 'error' })
+      }
     } catch (err) {
       enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message, { variant: 'error' })
     }
@@ -464,6 +523,7 @@ export default function PatientDetailPage() {
           <Tab icon={<DescriptionRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Letters (${letters.length})`} />
           <Tab icon={<ForumRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Communication Log (${commLog.length})`} />
           <Tab icon={<LocalHospitalRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Insurance (${policies.length})`} />
+          <Tab icon={<CardMembershipRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label={`Packages (${patientPackages.length})`} />
         </Tabs>
 
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
@@ -917,6 +977,107 @@ export default function PatientDetailPage() {
               <DialogActions>
                 <Button onClick={() => setPolicyFormOpen(false)}>Cancel</Button>
                 <Button type="submit" form="policy-form" variant="contained" disabled={creatingPolicy}>Save</Button>
+              </DialogActions>
+            </Dialog>
+          </TabPanel>
+
+          {/* ── Packages (REQ110) ────────────────────────────────────────── */}
+          <TabPanel value={tab} index={9}>
+            <Typography variant="subtitle1" fontWeight={800} mb={2}>Purchased Packages</Typography>
+            {packagesLoading ? (
+              <LinearProgress />
+            ) : patientPackages.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">No packages purchased for this patient yet.</Typography>
+            ) : (
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Package</TableCell>
+                      <TableCell>Sittings</TableCell>
+                      <TableCell>Purchased</TableCell>
+                      <TableCell>Expires</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {patientPackages.map((pp) => (
+                      <TableRow key={pp.id}>
+                        <TableCell>{pp.package?.name ?? '—'}</TableCell>
+                        <TableCell>{pp.sittings_remaining} / {pp.sittings_total}</TableCell>
+                        <TableCell>{dayjs(pp.purchased_at).format('DD MMM YYYY')}</TableCell>
+                        <TableCell>{dayjs(pp.expires_at).format('DD MMM YYYY')}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={pp.is_expired ? 'Expired' : pp.sittings_remaining < 1 ? 'Fully Redeemed' : 'Active'}
+                            color={pp.is_expired ? 'default' : pp.sittings_remaining < 1 ? 'warning' : 'success'}
+                          />
+                        </TableCell>
+                        <TableCell align="right">
+                          <Tooltip title={pp.is_expired ? 'Cannot transfer an expired package' : pp.sittings_remaining < 1 ? 'No sittings remaining to transfer' : 'Transfer to another patient'}>
+                            <span>
+                              <IconButton
+                                size="small"
+                                aria-label={`Transfer ${pp.package?.name ?? 'package'}`}
+                                disabled={pp.is_expired || pp.sittings_remaining < 1}
+                                onClick={() => setTransferTarget(pp)}
+                              >
+                                <SwapHorizRoundedIcon fontSize="small" />
+                              </IconButton>
+                            </span>
+                          </Tooltip>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            <Dialog open={Boolean(transferTarget)} onClose={closeTransferDialog} fullWidth maxWidth="sm">
+              <DialogTitle>Transfer Package</DialogTitle>
+              <DialogContent>
+                <Stack spacing={2} sx={{ pt: 1 }}>
+                  <Typography variant="body2" color="text.secondary">
+                    Transferring <strong>{transferTarget?.package?.name}</strong> ({transferTarget?.sittings_remaining} sittings remaining) from {p.full_name} to:
+                  </Typography>
+                  <Autocomplete
+                    value={transferSelectedPatient}
+                    inputValue={transferPatientSearch}
+                    onInputChange={(_, val) => setTransferPatientSearch(val)}
+                    onChange={(_, val) => setTransferSelectedPatient(val)}
+                    options={transferPatientOptions}
+                    getOptionLabel={(opt) => `${opt.full_name} (${opt.email ?? opt.phone ?? ''})`}
+                    isOptionEqualToValue={(opt, val) => opt.id === val.id}
+                    loading={loadingTransferPatients}
+                    noOptionsText={transferPatientSearch.length < 2 ? 'Type at least 2 characters…' : 'No patients found'}
+                    renderInput={(params) => (
+                      <TextField
+                        {...params}
+                        label="Target Patient"
+                        placeholder="Search patient by name…"
+                        size="small"
+                        InputProps={{
+                          ...params.InputProps,
+                          endAdornment: (
+                            <>
+                              {loadingTransferPatients ? <CircularProgress size={18} /> : null}
+                              {params.InputProps.endAdornment}
+                            </>
+                          ),
+                        }}
+                      />
+                    )}
+                  />
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={closeTransferDialog}>Cancel</Button>
+                <Button variant="contained" disabled={!transferSelectedPatient || transferring} onClick={submitTransfer}>
+                  Transfer
+                </Button>
               </DialogActions>
             </Dialog>
           </TabPanel>
