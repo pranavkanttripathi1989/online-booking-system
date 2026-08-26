@@ -22,12 +22,23 @@ import DoneAllIcon from '@mui/icons-material/DoneAll';
 // this widget used to run on its own separate MockStore-backed list
 // (getWidgetNotifications) with zero real GraphQL call, so its unread count
 // and dropdown were entirely fake for every logged-in user.
+//
+// REQ134 (F-14 residue) — notifications is now {data, paginatorInfo}; this
+// dropdown only ever needs a handful of recent items (first: 20), not
+// every notification the caller has ever received. The badge count comes
+// from a separate unreadNotificationCount query, not a client-side count
+// over this bounded list -- counting client-side would silently
+// undercount once a caller has more unread notifications than fit in one
+// dropdown page.
 const GET_NOTIFICATIONS = gql`
-  query GetNotificationsForBell {
-    notifications {
-      id title message type priority is_read created_at
+  query GetNotificationsForBell($first: Int) {
+    notifications(first: $first) {
+      data { id title message type priority is_read created_at }
     }
   }
+`;
+const GET_UNREAD_COUNT = gql`
+  query GetUnreadNotificationCountForBell { unreadNotificationCount }
 `;
 const MARK_READ     = gql`mutation MarkNotificationReadFromBell($id: ID!) { markNotificationRead(id: $id) { success } }`;
 const MARK_ALL_READ = gql`mutation MarkAllNotificationsReadFromBell        { markAllNotificationsRead      { success } }`;
@@ -52,15 +63,17 @@ const timeAgo = (dateStr) => {
 
 export default function NotificationBell() {
   const [anchorEl, setAnchorEl] = useState(null);
-  const { data, refetch } = useQuery(GET_NOTIFICATIONS, { fetchPolicy: 'cache-and-network' });
-  const [markReadMut]    = useMutation(MARK_READ,     { onCompleted: () => refetch() });
-  const [markAllReadMut] = useMutation(MARK_ALL_READ, { onCompleted: () => refetch() });
+  const { data, refetch } = useQuery(GET_NOTIFICATIONS, { variables: { first: 20 }, fetchPolicy: 'cache-and-network' });
+  const { data: unreadData, refetch: refetchUnread } = useQuery(GET_UNREAD_COUNT, { fetchPolicy: 'cache-and-network' });
+  const refetchAll = () => { refetch(); refetchUnread(); };
+  const [markReadMut]    = useMutation(MARK_READ,     { onCompleted: refetchAll });
+  const [markAllReadMut] = useMutation(MARK_ALL_READ, { onCompleted: refetchAll });
 
-  const list = (data?.notifications || []).map((n) => ({
+  const list = (data?.notifications?.data || []).map((n) => ({
     id: n.id, unread: !n.is_read, type: n.type, title: n.title, body: n.message,
     time: timeAgo(n.created_at),
   }));
-  const unread = list.filter((n) => n.unread).length;
+  const unread = unreadData?.unreadNotificationCount ?? 0;
 
   const markAllRead = () => markAllReadMut();
   const markRead    = (id) => markReadMut({ variables: { id } });

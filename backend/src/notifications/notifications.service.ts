@@ -7,16 +7,51 @@ import { orgScope, isPlatformOperator } from '../common/scoping/tenant-scope';
 export class NotificationsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async findAll(filter: string | undefined, user: JwtPayload) {
-    const rows = await this.prisma.notifications.findMany({
-      where: {
-        user_id: user.sub,
-        is_deleted: false,
-        is_read: filter === 'unread' ? false : undefined,
+  // REQ134 (F-14 residue) — {data, paginatorInfo}, matching
+  // test-results.service.ts#findAll's own $transaction([count, findMany])
+  // pagination math (REQ133).
+  async findAll(filter: string | undefined, first: number, page: number, user: JwtPayload) {
+    const where = {
+      user_id: user.sub,
+      is_deleted: false,
+      is_read: filter === 'unread' ? false : undefined,
+    };
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.notifications.count({ where }),
+      this.prisma.notifications.findMany({
+        where,
+        orderBy: { created_at: 'desc' },
+        skip: (page - 1) * first,
+        take: first,
+      }),
+    ]);
+    const lastPage = Math.max(1, Math.ceil(total / first));
+    const firstItem = total === 0 ? 0 : (page - 1) * first + 1;
+    return {
+      data: rows,
+      paginatorInfo: {
+        count: rows.length,
+        currentPage: page,
+        firstItem,
+        hasMorePages: page < lastPage,
+        lastItem: firstItem + rows.length - 1,
+        lastPage,
+        perPage: first,
+        total,
       },
-      orderBy: { created_at: 'desc' },
+    };
+  }
+
+  // REQ134 — a real DB count(), decoupled from findAll()'s own bounded
+  // page fetch. NotificationBell.jsx's badge needs the true total unread
+  // count regardless of how many rows its own dropdown list actually
+  // fetches; counting client-side from a now-bounded list would silently
+  // undercount once a caller has more unread notifications than the
+  // list's own page size.
+  async unreadCount(user: JwtPayload) {
+    return this.prisma.notifications.count({
+      where: { user_id: user.sub, is_deleted: false, is_read: false },
     });
-    return rows;
   }
 
   async markRead(id: string, user: JwtPayload) {

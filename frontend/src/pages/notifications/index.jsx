@@ -16,12 +16,16 @@ import { useAuth } from '../../context/AuthContext'
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 
+// REQ134 (F-14 residue) — notifications is now {data, paginatorInfo}.
 const GET_NOTIFICATIONS = gql`
   query GetNotifications($filter: String) {
     notifications(filter: $filter) {
-      id title message type priority is_read created_at
+      data { id title message type priority is_read created_at }
     }
   }
+`
+const GET_UNREAD_COUNT = gql`
+  query GetUnreadNotificationCount { unreadNotificationCount }
 `
 const MARK_READ     = gql`mutation MarkNotificationRead($id:ID!)           { markNotificationRead(id:$id)           { success } }`
 const MARK_ALL_READ = gql`mutation MarkAllNotificationsRead               { markAllNotificationsRead               { success } }`
@@ -85,6 +89,11 @@ export default function NotificationsPage() {
     pollInterval: 30000,  // 30s real-time substitute
     skip: !user?.id,      // SUG-NOTIF-003: don't fire for unauthenticated users
   })
+  // REQ134 (F-14 residue) — the true total, decoupled from the (now
+  // bounded, first: 200 by default) list fetch above. A client-side
+  // count over that list would silently undercount once a caller has
+  // more unread notifications than fit in one page.
+  const { data: unreadData, refetch: refetchUnread } = useQuery(GET_UNREAD_COUNT, { skip: !user?.id, pollInterval: 30000 })
 
   const [markRead]     = useMutation(MARK_READ)
   const [markAllRead]  = useMutation(MARK_ALL_READ)
@@ -92,16 +101,16 @@ export default function NotificationsPage() {
 
   // SUG-NOTIF-001: fall back to mock data when the backend is unreachable (2s timeout)
   // so the page doesn't show an empty inbox while the topbar bell shows unread items.
-  const notifications = data?.notifications || (error ? MOCK_NOTIFICATIONS : [])
-  const hasUnread      = notifications.some(n => !n.is_read)
-  const unreadCount    = notifications.filter(n => !n.is_read).length // SUG-NOTIF-006
+  const notifications = data?.notifications?.data || (error ? MOCK_NOTIFICATIONS : [])
+  const unreadCount    = error ? notifications.filter(n => !n.is_read).length : (unreadData?.unreadNotificationCount ?? 0) // SUG-NOTIF-006
+  const hasUnread      = unreadCount > 0
 
   // SUG-NOTIF-004: prevent concurrent mutations racing each other
   const run = async (fn, vars) => {
     if (pendingId) return
     setPendingId(vars?.id || 'all')
     setActionError(null)
-    try { await fn({ variables: vars }); refetch() }
+    try { await fn({ variables: vars }); refetch(); refetchUnread() }
     catch (err) { setActionError(err.message) }
     finally { setPendingId(null) }
   }

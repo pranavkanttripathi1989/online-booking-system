@@ -1,6 +1,6 @@
-import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { NotificationsService } from './notifications.service';
-import { NotificationType, NotificationMutationResultType, NotificationDeliveryStatType } from './entities/notification.entity';
+import { NotificationType, NotificationMutationResultType, NotificationDeliveryStatType, NotificationPaginatedType } from './entities/notification.entity';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -9,9 +9,24 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 export class NotificationsResolver {
   constructor(private readonly notificationsService: NotificationsService) {}
 
-  @Query(() => [NotificationType])
-  notifications(@Args('filter', { nullable: true }) filter: string, @CurrentUser() user: JwtPayload) {
-    return this.notificationsService.findAll(filter, user);
+  // REQ134 (F-14 residue) — first defaults to 200 (matching
+  // clampTakeMiddleware's own DEFAULT_MAX_TAKE), keeping today's
+  // "fetch everything" behaviour unchanged for every caller under that
+  // size while making the query genuinely bounded by construction.
+  @Query(() => NotificationPaginatedType)
+  notifications(
+    @Args('filter', { nullable: true }) filter: string,
+    @Args('first', { type: () => Int, defaultValue: 200 }) first: number,
+    @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.notificationsService.findAll(filter, first, page, user);
+  }
+
+  // REQ134 — decoupled from the bounded list above; always the true total.
+  @Query(() => Int)
+  unreadNotificationCount(@CurrentUser() user: JwtPayload) {
+    return this.notificationsService.unreadCount(user);
   }
 
   @Mutation(() => NotificationMutationResultType)

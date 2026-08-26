@@ -19,6 +19,29 @@ export class NotificationMutationResultType {
   @Field() success: boolean;
 }
 
+// REQ134 (F-14 residue) — findAll() previously returned a plain, unbounded
+// array (no `take` at all beyond the global 200-row clampTakeMiddleware
+// safety net). Migrated to this codebase's own established {data,
+// paginatorInfo} convention, matching TestResultPaginatedType (REQ133)
+// and AppointmentPaginatedType.
+@ObjectType('NotificationPaginatorInfo')
+export class NotificationPaginatorInfoType {
+  @Field(() => Int) count: number;
+  @Field(() => Int) currentPage: number;
+  @Field(() => Int) firstItem: number;
+  @Field() hasMorePages: boolean;
+  @Field(() => Int) lastItem: number;
+  @Field(() => Int) lastPage: number;
+  @Field(() => Int) perPage: number;
+  @Field(() => Int) total: number;
+}
+
+@ObjectType('NotificationPaginated')
+export class NotificationPaginatedType {
+  @Field(() => [NotificationType]) data: NotificationType[];
+  @Field(() => NotificationPaginatorInfoType) paginatorInfo: NotificationPaginatorInfoType;
+}
+
 // REQ025 (US-NOT-05) — one row per event_type + channel + status
 // combination, org-scoped. "per template" in the requirement doc's own
 // wording maps onto event_type here — this codebase's notification

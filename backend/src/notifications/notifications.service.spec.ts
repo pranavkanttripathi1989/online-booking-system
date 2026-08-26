@@ -6,8 +6,9 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('NotificationsService', () => {
   let service: NotificationsService;
   let prisma: {
-    notifications: { findMany: jest.Mock; updateMany: jest.Mock; create: jest.Mock };
+    notifications: { findMany: jest.Mock; updateMany: jest.Mock; create: jest.Mock; count: jest.Mock };
     notificationSendLog: { groupBy: jest.Mock };
+    $transaction: jest.Mock;
   };
 
   const user: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-a', patient_id: 'pat-1', clinician_id: null } as JwtPayload;
@@ -16,8 +17,12 @@ describe('NotificationsService', () => {
 
   beforeEach(async () => {
     prisma = {
-      notifications: { findMany: jest.fn(), updateMany: jest.fn(), create: jest.fn() },
+      notifications: { findMany: jest.fn().mockResolvedValue([]), updateMany: jest.fn(), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
       notificationSendLog: { groupBy: jest.fn().mockResolvedValue([]) },
+      // REQ134 — findAll() now runs count()/findMany() inside a
+      // $transaction([...]); Promise.all mirrors how the real client awaits
+      // an array of already-issued query promises.
+      $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [NotificationsService, { provide: PrismaService, useValue: prisma }],
@@ -27,27 +32,65 @@ describe('NotificationsService', () => {
 
   describe('findAll — self-scoping', () => {
     it('scopes to the caller only, excludes soft-deleted, no read filter by default', async () => {
-      prisma.notifications.findMany.mockResolvedValue([]);
-      await service.findAll(undefined, user);
+      await service.findAll(undefined, 200, 1, user);
       expect(prisma.notifications.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { user_id: 'user-1', is_deleted: false, is_read: undefined } }),
       );
     });
 
     it('applies the unread filter when requested', async () => {
-      prisma.notifications.findMany.mockResolvedValue([]);
-      await service.findAll('unread', user);
+      await service.findAll('unread', 200, 1, user);
       expect(prisma.notifications.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { user_id: 'user-1', is_deleted: false, is_read: false } }),
       );
     });
 
     it('does not apply an unread filter for any other filter value', async () => {
-      prisma.notifications.findMany.mockResolvedValue([]);
-      await service.findAll('read', user);
+      await service.findAll('read', 200, 1, user);
       expect(prisma.notifications.findMany).toHaveBeenCalledWith(
         expect.objectContaining({ where: { user_id: 'user-1', is_deleted: false, is_read: undefined } }),
       );
+    });
+  });
+
+  // REQ134 (F-14 residue)
+  describe('findAll — pagination', () => {
+    it('passes skip/take derived from page/first into findMany', async () => {
+      await service.findAll(undefined, 20, 3, user);
+      expect(prisma.notifications.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ skip: 40, take: 20 }),
+      );
+    });
+
+    it('returns data + a correctly-computed paginatorInfo', async () => {
+      prisma.notifications.count.mockResolvedValue(45);
+      prisma.notifications.findMany.mockResolvedValue([{ id: 'n-1' }]);
+      const result = await service.findAll(undefined, 20, 1, user);
+      expect(result.data).toHaveLength(1);
+      expect(result.paginatorInfo).toEqual({
+        count: 1, currentPage: 1, firstItem: 1, hasMorePages: true, lastItem: 1, lastPage: 3, perPage: 20, total: 45,
+      });
+    });
+
+    it('an empty result set never reports a negative firstItem', async () => {
+      prisma.notifications.count.mockResolvedValue(0);
+      prisma.notifications.findMany.mockResolvedValue([]);
+      const result = await service.findAll(undefined, 20, 1, user);
+      expect(result.paginatorInfo.firstItem).toBe(0);
+    });
+  });
+
+  // REQ134 — decoupled from findAll()'s own bounded page fetch, always the
+  // true total (NotificationBell.jsx's badge needs this, not a client-side
+  // count over a possibly-truncated list).
+  describe('unreadCount', () => {
+    it('counts only the caller\'s own unread, non-deleted notifications', async () => {
+      prisma.notifications.count.mockResolvedValue(7);
+      const result = await service.unreadCount(user);
+      expect(prisma.notifications.count).toHaveBeenCalledWith({
+        where: { user_id: 'user-1', is_deleted: false, is_read: false },
+      });
+      expect(result).toBe(7);
     });
   });
 
