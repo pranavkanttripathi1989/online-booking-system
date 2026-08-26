@@ -11,6 +11,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | PLAN100 | improvement | Retention policies and an automated purge sweep | done | 2026-08-25 | 2026-08-25 | REQ073 | [PLAN100-compliance-dpdp-2026-08-25-retention-policies-and-purge.md](./improvement/PLAN100-compliance-dpdp-2026-08-25-retention-policies-and-purge.md) |
+| PLAN153 | improvement | Retention enforcement extension (consents) | done | 2026-08-26 | 2026-08-26 | REQ113 | [PLAN153-compliance-dpdp-2026-08-26-retention-enforcement-extension.md](./improvement/PLAN153-compliance-dpdp-2026-08-26-retention-enforcement-extension.md) |
 
 ## bug
 

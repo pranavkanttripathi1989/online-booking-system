@@ -11,6 +11,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | REQ073 | improvement | Retention policies and an automated purge sweep | done | 2026-08-25 | 2026-08-25 | REQ034 | [REQ073-compliance-dpdp-2026-08-25-retention-policies-and-purge.md](./improvement/REQ073-compliance-dpdp-2026-08-25-retention-policies-and-purge.md) |
+| REQ113 | improvement | Retention enforcement extension (consents) | done | 2026-08-26 | 2026-08-26 | REQ073 | [REQ113-compliance-dpdp-2026-08-26-retention-enforcement-extension.md](./improvement/REQ113-compliance-dpdp-2026-08-26-retention-enforcement-extension.md) |
 
 ## bug
 
