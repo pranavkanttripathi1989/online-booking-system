@@ -792,6 +792,10 @@ export class AppointmentPaymentsService {
       clinic: {
         name: payment.clinic.client_organization?.name ?? payment.clinic.name,
         contact_phone: payment.clinic.client_organization?.contact_phone ?? undefined,
+        // REQ139 — logo_url only exists on ClientOrganizations, so a
+        // clinic predating org linkage (no client_organization row) has
+        // none, same as its name/contact_phone above already fall back.
+        logo_url: payment.clinic.client_organization?.logo_url ?? undefined,
       },
       patient: {
         full_name: `${payment.patient.first_name} ${payment.patient.last_name}`,

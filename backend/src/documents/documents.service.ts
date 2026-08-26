@@ -44,7 +44,7 @@ export class DocumentsService {
   // acceptance criteria ("the exact same bytes printPrescription() already
   // produces").
   private drawPrescriptionPdf(doc: PDFKit.PDFDocument, data: any) {
-    drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone);
+    drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone, data.clinic.logo_url);
 
     doc.fontSize(11).font('Helvetica-Bold').text(data.clinician.full_name);
     doc.fontSize(9).font('Helvetica');
@@ -136,7 +136,7 @@ export class DocumentsService {
     if (!data) throw new NotFoundException('Invoice not found');
 
     return renderPdfToBuffer((doc) => {
-      drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone);
+      drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone, data.clinic.logo_url);
 
       doc.fontSize(14).font('Helvetica-Bold').text('TAX INVOICE');
       doc.fontSize(10).font('Helvetica');
@@ -188,7 +188,7 @@ export class DocumentsService {
     ]);
 
     return renderPdfToBuffer((doc) => {
-      drawLetterhead(doc, org?.name ?? 'Clinic', org?.contact_phone ?? undefined);
+      drawLetterhead(doc, org?.name ?? 'Clinic', org?.contact_phone ?? undefined, org?.logo_url ?? undefined);
 
       doc.fontSize(14).font('Helvetica-Bold').text('Visit Summary');
       doc.fontSize(10).font('Helvetica');

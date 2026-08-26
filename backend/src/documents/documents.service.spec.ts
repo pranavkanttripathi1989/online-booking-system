@@ -95,6 +95,19 @@ describe('DocumentsService', () => {
       const buffer = await service.prescriptionPdf('rx-1', user);
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     });
+
+    // REQ139 — the org's own logo_url (already present in printPrescription's
+    // assembled data) now flows into drawLetterhead; a nonexistent path
+    // falls back gracefully (real embedding is covered at the render-pdf
+    // unit level, render-pdf.spec.ts).
+    it('still renders a real PDF when the org has a logo_url set', async () => {
+      prescriptionsService.printPrescription.mockResolvedValue({
+        ...printData,
+        clinic: { ...printData.clinic, logo_url: '/uploads/branding/org-a-logo.png' },
+      });
+      const buffer = await service.prescriptionPdf('rx-1', user);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
   });
 
   // REQ109
@@ -150,6 +163,13 @@ describe('DocumentsService', () => {
       expect(appointmentPaymentsService.invoiceForDownload).toHaveBeenCalledWith('pay-1', user);
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     });
+
+    // REQ139
+    it('still renders a real PDF when the org has a logo_url set', async () => {
+      appointmentPaymentsService.invoiceForDownload.mockResolvedValue({ ...invoiceData, clinic: { ...invoiceData.clinic, logo_url: '/uploads/branding/org-a-logo.png' } });
+      const buffer = await service.invoicePdf('pay-1', user);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
   });
 
   describe('visitSummaryPdf', () => {
@@ -180,6 +200,17 @@ describe('DocumentsService', () => {
       expect(encountersService.encounter).toHaveBeenCalledWith('enc-1', user);
       expect(prisma.patients.findUnique).toHaveBeenCalledWith({ where: { id: 'patient-1' } });
       expect(prisma.clinicians.findUnique).toHaveBeenCalledWith({ where: { id: 'clinician-1' } });
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+
+    // REQ139
+    it('still renders a real PDF when the org has a logo_url set', async () => {
+      encountersService.encounter.mockResolvedValue(encounterData);
+      prisma.patients.findUnique.mockResolvedValue({ first_name: 'Anita', last_name: 'Sharma' });
+      prisma.clinicians.findUnique.mockResolvedValue({ first_name: 'Sarah', last_name: 'Mitchell' });
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: { client_organization: { name: 'MG Road Clinic', contact_phone: '+911234', logo_url: '/uploads/branding/org-a-logo.png' } } });
+
+      const buffer = await service.visitSummaryPdf('enc-1', user);
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     });
 

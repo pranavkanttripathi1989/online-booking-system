@@ -690,7 +690,7 @@ describe('AppointmentPaymentsService', () => {
       place_of_supply: null,
       appointment: { product: { name: 'GP Consultation' } },
       patient: { first_name: 'Sarah', last_name: 'Mitchell' },
-      clinic: { name: 'MG Road Clinic', client_organization: { name: 'MG Road Clinic', contact_phone: '+911234' } },
+      clinic: { name: 'MG Road Clinic', client_organization: { name: 'MG Road Clinic', contact_phone: '+911234', logo_url: '/uploads/branding/org-a-logo.png' } },
       tenders: [{ tender_type: 'cash', amount: 50000, reference: null }],
     };
 
@@ -723,7 +723,8 @@ describe('AppointmentPaymentsService', () => {
         amount: 500,
         currency: 'INR',
         gst: { gstin: undefined, hsn_sac_code: undefined, gst_rate: undefined, cgst_amount: undefined, sgst_amount: undefined, igst_amount: undefined, place_of_supply: undefined },
-        clinic: { name: 'MG Road Clinic', contact_phone: '+911234' },
+        // REQ139 — logo_url passed through for the PDF letterhead.
+        clinic: { name: 'MG Road Clinic', contact_phone: '+911234', logo_url: '/uploads/branding/org-a-logo.png' },
         patient: { full_name: 'Sarah Mitchell' },
         product_name: 'GP Consultation',
         tenders: [{ tender_type: 'cash', amount: 500, reference: undefined }],
@@ -734,6 +735,16 @@ describe('AppointmentPaymentsService', () => {
       prisma.appointmentPayments.findUnique.mockResolvedValue(succeededPayment);
       const result = await service.invoiceForDownload('pay-1', patientUser);
       expect(result).not.toBeNull();
+    });
+
+    // REQ139
+    it('falls back to no logo_url when the org has never uploaded one', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue({
+        ...succeededPayment,
+        clinic: { name: 'MG Road Clinic', client_organization: { name: 'MG Road Clinic', contact_phone: '+911234', logo_url: null } },
+      });
+      const result = await service.invoiceForDownload('pay-1', managerUser);
+      expect(result?.clinic.logo_url).toBeUndefined();
     });
   });
 

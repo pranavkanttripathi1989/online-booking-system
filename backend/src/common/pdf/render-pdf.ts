@@ -5,6 +5,8 @@
 // what would add that interop wrapper). The `= require(...)` form always
 // binds directly to `module.exports`, working correctly either way.
 import PDFDocument = require('pdfkit');
+import * as fs from 'fs';
+import * as path from 'path';
 
 // REQ057 (US-PAT-02) — the one place a Buffer is assembled from a pdfkit
 // document. pdfkit is a stream, not a promise-returning renderer; every
@@ -29,15 +31,40 @@ export function renderPdfToBuffer(build: (doc: PDFKit.PDFDocument) => void): Pro
   });
 }
 
-// Shared letterhead — clinic name/logo/phone at the top, matching the
+// REQ139 — org-branding.controller.ts always stores logo_url as a
+// same-origin relative path (`/uploads/branding/<file>`), never a full
+// URL, so resolving it back to a real file is a local filesystem lookup,
+// not a network fetch. Three directories up from src/common/pdf/ is
+// backend/, matching org-branding.controller.ts's own UPLOAD_DIR
+// (path.join(__dirname, '..', '..', 'uploads', 'branding') from
+// src/org-settings/) and main.ts's own useStaticAssets() root.
+const UPLOADS_ROOT = path.join(__dirname, '..', '..', '..', 'uploads');
+
+function resolveLogoPath(logoUrl?: string): string | undefined {
+  if (!logoUrl || !logoUrl.startsWith('/uploads/')) return undefined;
+  const resolved = path.join(UPLOADS_ROOT, logoUrl.slice('/uploads/'.length));
+  return fs.existsSync(resolved) ? resolved : undefined;
+}
+
+// Shared letterhead — clinic logo/name/phone at the top, matching the
 // same real org-branding fields (REQ002: name/logo_url) printPrescription()
-// already reads. logo_url is a local-filesystem-relative URL
-// (org-branding.controller.ts), not fetched here — embedding a remote/
-// local image adds a real failure mode (missing file, wrong format) for
-// marginal visual value on a text-first clinical/financial document, so
-// this renders the clinic name as text only, matching PrescriptionPrint.jsx's
-// own graceful fallback when no logo exists.
-export function drawLetterhead(doc: PDFKit.PDFDocument, clinicName: string, contactPhone?: string) {
+// already reads. A missing/unresolvable logo_url (org never uploaded one,
+// or the stored path is stale) silently falls back to the clinic name as
+// text only, matching PrescriptionPrint.jsx's own graceful fallback when
+// no logo exists -- never a broken document over a missing image.
+export function drawLetterhead(doc: PDFKit.PDFDocument, clinicName: string, contactPhone?: string, logoUrl?: string) {
+  const logoPath = resolveLogoPath(logoUrl);
+  if (logoPath) {
+    try {
+      doc.image(logoPath, { fit: [64, 64] });
+      doc.moveDown(0.3);
+    } catch {
+      // A file that passed fs.existsSync but isn't a pdfkit-decodable
+      // image (corrupt upload, unsupported format slipping past
+      // org-branding.controller.ts's own magic-byte check) -- fall
+      // through to text-only rather than crash the whole document.
+    }
+  }
   doc.fontSize(18).font('Helvetica-Bold').text(clinicName, { align: 'left' });
   if (contactPhone) {
     doc.fontSize(10).font('Helvetica').text(contactPhone);
