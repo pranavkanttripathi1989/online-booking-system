@@ -7,11 +7,11 @@ import { ROLES_KEY } from '../common/decorators/roles.decorator';
 
 describe('LookupsResolver', () => {
   let resolver: LookupsResolver;
-  let service: { findAll: jest.Mock; create: jest.Mock; update: jest.Mock; remove: jest.Mock };
+  let service: { findAll: jest.Mock; create: jest.Mock; update: jest.Mock; remove: jest.Mock; icd10Codes: jest.Mock };
   const reflector = new Reflector();
 
   beforeEach(async () => {
-    service = { findAll: jest.fn(), create: jest.fn(), update: jest.fn(), remove: jest.fn() };
+    service = { findAll: jest.fn(), create: jest.fn(), update: jest.fn(), remove: jest.fn(), icd10Codes: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [LookupsResolver, { provide: LookupsService, useValue: service }],
     }).compile();
@@ -19,9 +19,10 @@ describe('LookupsResolver', () => {
   });
 
   describe('role gating (@Auth annotations)', () => {
-    it('leaves clinicianTypes/roomTypes ungated for any authenticated role', () => {
+    it('leaves clinicianTypes/roomTypes/icd10Codes ungated for any authenticated role', () => {
       expect(reflector.get(ROLES_KEY, LookupsResolver.prototype.clinicianTypes)).toBeUndefined();
       expect(reflector.get(ROLES_KEY, LookupsResolver.prototype.roomTypes)).toBeUndefined();
+      expect(reflector.get(ROLES_KEY, LookupsResolver.prototype.icd10Codes)).toBeUndefined();
     });
 
     it.each([
@@ -75,6 +76,21 @@ describe('LookupsResolver', () => {
     it('re-throws a non-HttpException error rather than swallowing it', async () => {
       service.remove.mockRejectedValue(new Error('db connection lost'));
       await expect(resolver.deleteClinicianType('ct-1')).rejects.toThrow('db connection lost');
+    });
+  });
+
+  // REQ108
+  describe('icd10Codes', () => {
+    it('delegates to the service with the given search term', async () => {
+      service.icd10Codes.mockResolvedValue([]);
+      await resolver.icd10Codes('J0');
+      expect(service.icd10Codes).toHaveBeenCalledWith('J0');
+    });
+
+    it('delegates with undefined when no search term is given', async () => {
+      service.icd10Codes.mockResolvedValue([]);
+      await resolver.icd10Codes(undefined);
+      expect(service.icd10Codes).toHaveBeenCalledWith(undefined);
     });
   });
 });

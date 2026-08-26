@@ -2261,6 +2261,22 @@ model Languages {
   clinicianLanguages ClinicianLanguages[]
 }
 
+// REQ108 — a curated ~100-code OPD-relevant starter set, not the full WHO
+// ICD-10 (~14,000+ codes). Platform-global, like Languages above — no
+// client_org_id, shared by every tenant by design. Diagnoses.icd10_code
+// stays a free String? (soft validation only — a clinician can still save
+// any text or leave it blank); this table exists to power the search
+// dropdown, not to constrain the write.
+model Icd10Codes {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  description String
+  category    String
+  is_active   Boolean @default(true)
+
+  @@index([category])
+}
+
 model ClinicianLanguages {
   id            String   @id @default(uuid())
   clinician_id  String

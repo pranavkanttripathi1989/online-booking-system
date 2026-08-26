@@ -59,4 +59,20 @@ export class LookupsService {
     await this.delegate(model).delete({ where: { id } });
     return true;
   }
+
+  // REQ108 -- search by code prefix OR description substring, both
+  // case-insensitive. Capped at 20 (F-14 clampTakeMiddleware convention
+  // for an unbounded list) -- a type-ahead dropdown never needs more.
+  icd10Codes(search?: string) {
+    return this.prisma.icd10Codes.findMany({
+      where: {
+        is_active: true,
+        ...(search
+          ? { OR: [{ code: { startsWith: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }] }
+          : {}),
+      },
+      orderBy: { code: 'asc' },
+      take: 20,
+    });
+  }
 }

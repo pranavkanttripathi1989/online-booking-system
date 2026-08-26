@@ -8,6 +8,7 @@ describe('LookupsService', () => {
   let prisma: {
     clinicianTypeModel: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; delete: jest.Mock };
     roomTypeModel: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock; delete: jest.Mock };
+    icd10Codes: { findMany: jest.Mock };
   };
 
   const consultant = { id: 'ct-1', name: 'Consultant', description: null, is_active: true };
@@ -21,7 +22,7 @@ describe('LookupsService', () => {
   });
 
   beforeEach(async () => {
-    prisma = { clinicianTypeModel: makeDelegate(), roomTypeModel: makeDelegate() };
+    prisma = { clinicianTypeModel: makeDelegate(), roomTypeModel: makeDelegate(), icd10Codes: { findMany: jest.fn() } };
     const module: TestingModule = await Test.createTestingModule({
       providers: [LookupsService, { provide: PrismaService, useValue: prisma }],
     }).compile();
@@ -107,6 +108,39 @@ describe('LookupsService', () => {
       const result = await service.remove('roomTypeModel', 'rt-1');
       expect(prisma.roomTypeModel.delete).toHaveBeenCalledWith({ where: { id: 'rt-1' } });
       expect(result).toBe(true);
+    });
+  });
+
+  // REQ108
+  describe('icd10Codes', () => {
+    it('with no search term, returns up to 20 active rows ordered by code', async () => {
+      prisma.icd10Codes.findMany.mockResolvedValue([{ id: '1', code: 'A09', description: 'x', category: 'y' }]);
+      await service.icd10Codes(undefined);
+      expect(prisma.icd10Codes.findMany).toHaveBeenCalledWith({
+        where: { is_active: true },
+        orderBy: { code: 'asc' },
+        take: 20,
+      });
+    });
+
+    it('filters by code-prefix OR description-substring, case-insensitive, when a search term is given', async () => {
+      prisma.icd10Codes.findMany.mockResolvedValue([]);
+      await service.icd10Codes('J0');
+      expect(prisma.icd10Codes.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: {
+          is_active: true,
+          OR: [
+            { code: { startsWith: 'J0', mode: 'insensitive' } },
+            { description: { contains: 'J0', mode: 'insensitive' } },
+          ],
+        },
+      }));
+    });
+
+    it('excludes inactive rows regardless of search term', async () => {
+      await service.icd10Codes('fever');
+      const where = prisma.icd10Codes.findMany.mock.calls[0][0].where;
+      expect(where.is_active).toBe(true);
     });
   });
 });

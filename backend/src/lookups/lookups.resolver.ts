@@ -3,6 +3,7 @@ import { HttpException } from '@nestjs/common';
 import { LookupsService } from './lookups.service';
 import { ClinicianTypeType } from './entities/clinician-type.entity';
 import { RoomTypeType } from './entities/room-type.entity';
+import { Icd10CodeType } from './entities/icd10-code.entity';
 import { LookupMutationResultType } from './entities/lookup-mutation-result.entity';
 import {
   CreateRoomTypeInput,
@@ -78,5 +79,11 @@ export class LookupsResolver {
   @Mutation(() => LookupMutationResultType)
   deleteRoomType(@Args('id', { type: () => ID }) id: string) {
     return toResult(() => this.lookupsService.remove('roomTypeModel', id));
+  }
+
+  // REQ108 -- platform reference data, ungated like clinicianTypes/roomTypes above.
+  @Query(() => [Icd10CodeType])
+  icd10Codes(@Args('search', { nullable: true }) search?: string) {
+    return this.lookupsService.icd10Codes(search);
   }
 }
