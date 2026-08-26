@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR186 | improvement | Pending-dispense queue results | pass | 2026-08-26 | 2026-08-26 | TP186 | [TR186-prescriptions-2026-08-26-pending-dispense-queue.md](./improvement/TR186-prescriptions-2026-08-26-pending-dispense-queue.md) |
 | TR173 | improvement | OTP-gated WhatsApp sharing results | pass | 2026-08-26 | 2026-08-26 | TP173 | [TR173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/TR173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
 
 ## bug

@@ -9,7 +9,7 @@
 | platform-integrations | 1 | 4 | 0 | 0 | 5 | 2026-08-26 | [platform-integrations](./platform-integrations/README.md) |
 | insurance-claims | 1 | 3 | 0 | 0 | 4 | 2026-08-26 | [insurance-claims](./insurance-claims/README.md) |
 | pharmacy | 1 | 3 | 0 | 0 | 4 | 2026-08-26 | [pharmacy](./pharmacy/README.md) |
-| prescriptions | 1 | 1 | 0 | 0 | 2 | 2026-08-26 | [prescriptions](./prescriptions/README.md) |
+| prescriptions | 1 | 2 | 0 | 0 | 3 | 2026-08-26 | [prescriptions](./prescriptions/README.md) |
 | clinical-records | 1 | 2 | 0 | 0 | 3 | 2026-08-26 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 2 | 0 | 0 | 3 | 2026-08-26 | [scheduling-engine](./scheduling-engine/README.md) |
 | messaging | 1 | 5 | 0 | 0 | 6 | 2026-08-26 | [messaging](./messaging/README.md) |

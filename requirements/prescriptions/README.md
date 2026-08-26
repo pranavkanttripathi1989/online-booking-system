@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ126 | improvement | Pending-dispense queue across the whole pharmacy | done | 2026-08-26 | 2026-08-26 | REQ021 | [REQ126-prescriptions-2026-08-26-pending-dispense-queue.md](./improvement/REQ126-prescriptions-2026-08-26-pending-dispense-queue.md) |
 | REQ109 | improvement | OTP-gated WhatsApp sharing of a prescription PDF | done | 2026-08-26 | 2026-08-26 | REQ021 | [REQ109-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/REQ109-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
 
 ## bug
