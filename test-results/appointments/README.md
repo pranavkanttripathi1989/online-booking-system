@@ -12,6 +12,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR180 | improvement | Bulk-reschedule results | pass | 2026-08-26 | 2026-08-26 | TP180 | [TR180-appointments-2026-08-26-bulk-reschedule.md](./improvement/TR180-appointments-2026-08-26-bulk-reschedule.md) |
 | TR118 | improvement | Dependant self-scoping for prescriptions and test results results | pass | 2026-08-25 | 2026-08-25 | TP119 | [TR118-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md](./improvement/TR118-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md) |
 | TR101 | improvement | Auto-no-show + intake fields results | pass | 2026-08-25 | 2026-08-25 | TP102 | [TR101-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/TR101-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 | TR163 | improvement | Booking-widget embed code UI results | pass | 2026-08-26 | 2026-08-26 | TP163 | [TR163-appointments-2026-08-26-booking-widget-embed-code-ui.md](./improvement/TR163-appointments-2026-08-26-booking-widget-embed-code-ui.md) |

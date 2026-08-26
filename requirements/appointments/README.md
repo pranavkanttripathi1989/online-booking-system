@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ120 | improvement | Bulk-reschedule a clinician's whole day | done | 2026-08-26 | 2026-08-26 | REQ017 | [REQ120-appointments-2026-08-26-bulk-reschedule.md](./improvement/REQ120-appointments-2026-08-26-bulk-reschedule.md) |
 | REQ065 | improvement | Dependant self-scoping for prescriptions and test results | done | 2026-08-25 | 2026-08-25 | REQ018 | [REQ065-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md](./improvement/REQ065-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md) |
 | REQ052 | improvement | Auto-mark-no-show after grace period, and configurable intake fields | done | 2026-08-25 | 2026-08-25 | REQ018 | [REQ052-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/REQ052-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 | REQ105 | improvement | Booking-widget embed code UI | done | 2026-08-26 | 2026-08-26 | REQ018 | [REQ105-appointments-2026-08-26-booking-widget-embed-code-ui.md](./improvement/REQ105-appointments-2026-08-26-booking-widget-embed-code-ui.md) |
