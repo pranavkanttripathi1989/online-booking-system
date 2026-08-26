@@ -35,6 +35,9 @@ under.
 | [06-execution-plan.md](./06-execution-plan.md) | Phased delivery plan P0–P5 with per-phase Definition of Done, sequencing rationale, and the first ten commits. |
 | [07-prd-gap-analysis-and-roadmap.md](./07-prd-gap-analysis-and-roadmap.md) | Maps `PRD-Healthcare-Booking-SaaS-India.md` ("CareOS") against the codebase module by module, and sequences the resulting 22 `requirements/REQ014`–`REQ035` documents into phases F–I on top of this directory's own P0–P1 foundation work. |
 | [08-integration-gap-analysis.md](./08-integration-gap-analysis.md) | Fresh 2026-08-25 sweep: every backend operation cross-checked against real frontend usage, and every remaining `mocks/store`/`useMockData` import individually classified. 12 real findings (1 × S1 — the entire clinician dashboard is fabricated end to end), plus a confirmed false positive and a stale-CLAUDE.md correction. |
+| [09-next-15-slice-roadmap.md](./09-next-15-slice-roadmap.md) | A 15-slice next-batch survey — superseded by `10` once a parallel session's own independent survey was discovered and reconciled. |
+| [10-next-14-slice-batch-reconciled.md](./10-next-14-slice-batch-reconciled.md) | Reconciles `09` against a parallel session's own concurrent survey (`REQ080` Tasks work already in progress there); sequences the resulting 14 slices (`REQ100`–`REQ113`), all shipped. |
+| [11-next-10-slice-batch.md](./11-next-10-slice-batch.md) | The next 10-slice selection after `10` shipped, verified against live code, no cross-session collision this round. |
 | [technical-plans/](./technical-plans/README.md) | **Phase-wise engineering detail** for building the PRD scope: schema DDL, migration order, module layout, constraint decisions, and per-phase DoD. Six documents — `00-foundation-hardening` (the hard prerequisite), `01-phase1-mvp`, `02-phase2-v1-ga`, `03-phase3-v2`, `04-data-model-evolution`, `05-cross-cutting-conventions`. |
 
 ## How this was produced

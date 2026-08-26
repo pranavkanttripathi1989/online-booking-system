@@ -12,6 +12,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP174 | improvement | OTP-login real SMS send verification | approved | 2026-08-26 | 2026-08-26 | PLAN154 | [TP174-security-2026-08-26-otp-login-real-sms-send.md](./improvement/TP174-security-2026-08-26-otp-login-real-sms-send.md) |
 | TP114 | improvement | Clinician verification UI | approved | 2026-08-25 | 2026-08-25 | PLAN087 | [TP114-security-2026-08-25-clinician-verification-ui.md](./improvement/TP114-security-2026-08-25-clinician-verification-ui.md) |
 | TP103 | improvement | Break-glass + impersonation verification | approved | 2026-08-25 | 2026-08-25 | PLAN076 | [TP103-security-2026-08-25-break-glass-and-impersonation.md](./improvement/TP103-security-2026-08-25-break-glass-and-impersonation.md) |
 
