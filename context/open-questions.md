@@ -2,6 +2,48 @@
 
 Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the question, why it's genuinely ambiguous (not just unimplemented), and current status.
 
+## 18. Retention-purge enforcement for `messages` — whose retention clock governs a shared, cross-participant thread?
+
+**Status:** Open, raised 2026-08-26 while scoping `REQ143` (picking up
+`REQ073`'s own remaining unenforced data classes after `REQ113` closed
+`consents`).
+
+`REQ073`'s own doc named this exact tension: a `MessageThreads` row
+"spans two people's own conversation, not one patient's record," and
+`createThread()` (`messages.service.ts`) confirmed it structurally, not
+just in theory — `client_org_id` is derived from *one* participant (the
+caller, or the first org-linked participant found) at create time, with
+no check that every `participant_ids` entry belongs to that same org.
+A thread with staff from two different orgs, or a patient and a
+different org's staff member, is not prevented by anything in the
+schema or the service today.
+
+This blocks an automated purge two ways, not one: (1) **whose org's
+`RetentionPolicies` row governs** a thread that could span participants
+from more than one org — the org derived at creation time, the oldest
+participant's org, all participants' orgs independently (each purging
+their own "view," which the data model has no concept of)? (2) **there
+is no `is_deleted` column on either `Messages` or `MessageThreads` at
+all** — confirmed by reading both models directly — so even a
+resolved policy-ownership answer would still need a schema change
+before any purge could run, and a design decision on granularity
+(soft-delete individual `Messages` rows past their own `sent_at`, or
+cascade an entire thread once its `last_activity` ages out, silently
+deleting one participant's ability to reference a conversation the
+other participant's own org might still be within its retention window
+for).
+
+**Decision needed from the user:** does a `messages` retention policy
+apply per-org (only that org's own... something — there's no per-org
+"share" of a shared thread to isolate today), or does this need a
+schema change first (e.g. thread-level `client_org_id` becoming
+authoritative and multi-org threads disallowed outright, closing
+question (1) by design rather than by policy) before retention
+enforcement is even well-defined? `clinical_records` remains blocked on
+a separate, already-logged legal-review question (`REQ073`'s own doc)
+and was not re-investigated this slice — no new information changes
+that one.
+
 ## 17. What actually distinguishes a "walk-in" from a "booked" appointment, given no such flag exists in the schema?
 
 **Status:** Open, raised 2026-08-26 while building `REQ119`'s hybrid-mode
