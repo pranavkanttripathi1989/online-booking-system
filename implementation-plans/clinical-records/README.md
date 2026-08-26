@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN167 | improvement | Investigation orders (FR-EMR-08) | done | 2026-08-26 | 2026-08-26 | REQ127 | [PLAN167-clinical-records-2026-08-26-investigation-orders.md](./improvement/PLAN167-clinical-records-2026-08-26-investigation-orders.md) |
 | PLAN148 | improvement | Validated ICD-10 coding for diagnoses | done | 2026-08-26 | 2026-08-26 | REQ108 | [PLAN148-clinical-records-2026-08-26-icd10-diagnosis-coding.md](./improvement/PLAN148-clinical-records-2026-08-26-icd10-diagnosis-coding.md) |
 | PLAN088 | improvement | Structured diagnosis entry and note-template creation UI | done | 2026-08-25 | 2026-08-25 | REQ061 | [PLAN088-clinical-records-2026-08-25-structured-diagnosis-and-note-templates-ui.md](./improvement/PLAN088-clinical-records-2026-08-25-structured-diagnosis-and-note-templates-ui.md) |
 
