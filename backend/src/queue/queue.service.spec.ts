@@ -76,15 +76,49 @@ describe('QueueService', () => {
     it('returns now-serving, the next-5 waiting, and an average wait computed only from today\'s done entries', async () => {
       prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
       prisma.queueEntries.findFirst.mockResolvedValue(entry({ id: 'q-serving', status: 'called', called_at: new Date() }));
+      // Anchored to Date.now() minus a few hours, not a fixed local-clock
+      // date — a fixed date is timezone-ambiguous against the service's
+      // local-midnight `todayStart` boundary (see CLAUDE.md's own
+      // documented finding on this exact class of fixture bug).
+      const todayCheckedIn = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const todayCalled = new Date(todayCheckedIn.getTime() + 10 * 60000);
       prisma.queueEntries.findMany
         .mockResolvedValueOnce([entry({ id: 'q-2' }), entry({ id: 'q-3' })]) // waiting
-        .mockResolvedValueOnce([
-          { checked_in_at: new Date('2026-08-24T09:00:00Z'), called_at: new Date('2026-08-24T09:10:00Z') },
-        ]); // doneToday
+        .mockResolvedValueOnce([{ checked_in_at: todayCheckedIn, called_at: todayCalled }]); // doneInWindow
       const board = await service.queueBoard('cln-a', staffA);
       expect(board.now_serving?.id).toBe('q-serving');
       expect(board.waiting).toHaveLength(2);
       expect(board.average_wait_minutes).toBe(10);
+    });
+
+    // REQ117 (US-QUE-04) — predicted_wait_minutes is a rolling median
+    // across the trailing window, distinct from average_wait_minutes'
+    // today-only scope; this asserts the two diverge correctly rather
+    // than one silently mirroring the other.
+    it('computes predicted_wait_minutes as a rolling median across the trailing window, separate from the today-only average', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(null);
+      const todayCheckedIn = new Date(Date.now() - 2 * 60 * 60 * 1000);
+      const todayCalled = new Date(todayCheckedIn.getTime() + 10 * 60000);
+      const pastCheckedIn = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000);
+      const pastCalled = new Date(pastCheckedIn.getTime() + 20 * 60000);
+      prisma.queueEntries.findMany
+        .mockResolvedValueOnce([]) // waiting
+        .mockResolvedValueOnce([
+          { checked_in_at: todayCheckedIn, called_at: todayCalled },
+          { checked_in_at: pastCheckedIn, called_at: pastCalled },
+        ]); // doneInWindow
+      const board = await service.queueBoard('cln-a', staffA);
+      expect(board.average_wait_minutes).toBe(10); // today's entry only
+      expect(board.predicted_wait_minutes).toBe(15); // median of [10, 20]
+    });
+
+    it('leaves predicted_wait_minutes undefined when no completed visits exist in the trailing window', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(null);
+      prisma.queueEntries.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
+      const board = await service.queueBoard('cln-a', staffA);
+      expect(board.predicted_wait_minutes).toBeUndefined();
     });
   });
 

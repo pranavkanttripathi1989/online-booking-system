@@ -22,9 +22,11 @@ export class QueueEntryType {
   @Field(() => [QueueEventType]) events: QueueEventType[];
 }
 
-// US-QUE-03: now-serving, next N, and a retrospective (not predictive —
-// that's the deferred US-QUE-04 ETA) average wait for today's served
-// patients on this clinician's queue.
+// US-QUE-03: now-serving, next N, and a retrospective average wait for
+// today's served patients. US-QUE-04 (REQ117): predicted_wait_minutes is
+// a rolling median across a trailing multi-day window — the predictive
+// figure a waiting patient should see; average_wait_minutes stays
+// today-only, for staff watching today's own pace.
 @ObjectType('QueueBoard')
 export class QueueBoardType {
   @Field(() => ID) clinician_id: string;
@@ -32,6 +34,7 @@ export class QueueBoardType {
   @Field(() => QueueEntryType, { nullable: true }) now_serving?: QueueEntryType;
   @Field(() => [QueueEntryType]) waiting: QueueEntryType[];
   @Field(() => Int, { nullable: true }) average_wait_minutes?: number;
+  @Field(() => Int, { nullable: true }) predicted_wait_minutes?: number;
 }
 
 // US-QUE-07: a completed appointment with no successful payment on record.

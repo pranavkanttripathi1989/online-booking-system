@@ -25,6 +25,7 @@ const QUEUE_BOARD_QUERY = gql`
       clinician_id
       clinician_name
       average_wait_minutes
+      predicted_wait_minutes
       now_serving { id appointment_id patient_name token_no status called_at }
       waiting { id appointment_id patient_name token_no status checked_in_at }
     }
@@ -189,6 +190,11 @@ function QueueBoardPage() {
                 {board.average_wait_minutes != null && (
                   <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 1 }}>
                     Average wait today: {board.average_wait_minutes} min
+                  </Typography>
+                )}
+                {board.predicted_wait_minutes != null && (
+                  <Typography variant="caption" display="block" color="text.secondary">
+                    Predicted wait (last 14 days): {board.predicted_wait_minutes} min
                   </Typography>
                 )}
               </CardContent>

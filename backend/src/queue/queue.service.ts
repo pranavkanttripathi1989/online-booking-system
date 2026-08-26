@@ -11,6 +11,20 @@ export const QUEUE_UPDATED_EVENT = 'queueUpdated';
 
 const DEFAULT_RETURN_AFTER = 3;
 
+// REQ117 (US-QUE-04) — trailing window for the rolling-median predictive
+// ETA. Wide enough to smooth day-to-day volume swings, narrow enough that
+// a clinician's recently-changed pace (e.g. a new consultation format)
+// still shows up within two weeks rather than being diluted by months of
+// stale history.
+const ETA_WINDOW_DAYS = 14;
+
+function median(values: number[]): number | undefined {
+  if (values.length === 0) return undefined;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return Math.round(sorted.length % 2 !== 0 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2);
+}
+
 const INCLUDE = {
   appointment: { include: { patient: true } },
   clinician: true,
@@ -78,9 +92,14 @@ export class QueueService {
 
   // US-QUE-03: one clinician's live board -- now-serving ('called' or
   // 'in_progress'), the next 5 waiting (skipped entries excluded until
-  // they auto-return), and a retrospective average wait for today's
-  // 'done' entries. Deliberately not a predictive ETA (US-QUE-04, P1 --
-  // that needs a rolling median across many days, this is today-only).
+  // they auto-return), a retrospective average wait for today's 'done'
+  // entries, and (REQ117, US-QUE-04) a predictive rolling-median ETA
+  // across the trailing ETA_WINDOW_DAYS -- median rather than mean since
+  // a single unusually long consultation shouldn't swing the estimate a
+  // waiting patient sees. Both figures are kept, not one replacing the
+  // other: today-only average tells staff how today itself is pacing;
+  // the rolling median is the smoother, more predictive figure for a
+  // patient who just checked in.
   async queueBoard(clinicianId: string, user: JwtPayload) {
     const clinician = await this.prisma.clinicians.findUnique({ where: { id: clinicianId }, include: { clinic: true } });
     if (!clinician) throw new NotFoundException('Clinician not found');
@@ -91,8 +110,11 @@ export class QueueService {
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);
+    const windowStart = new Date();
+    windowStart.setDate(windowStart.getDate() - ETA_WINDOW_DAYS);
+    windowStart.setHours(0, 0, 0, 0);
 
-    const [nowServing, waiting, doneToday] = await Promise.all([
+    const [nowServing, waiting, doneInWindow] = await Promise.all([
       this.prisma.queueEntries.findFirst({
         where: { clinician_id: clinicianId, status: { in: ['called', 'in_progress'] } },
         include: INCLUDE,
@@ -105,15 +127,20 @@ export class QueueService {
         take: 5,
       }),
       this.prisma.queueEntries.findMany({
-        where: { clinician_id: clinicianId, status: 'done', called_at: { not: null }, checked_in_at: { gte: todayStart } },
+        where: { clinician_id: clinicianId, status: 'done', called_at: { not: null }, checked_in_at: { gte: windowStart } },
         select: { checked_in_at: true, called_at: true },
       }),
     ]);
 
-    const waits = doneToday
-      .map((e) => (e.called_at ? (e.called_at.getTime() - e.checked_in_at.getTime()) / 60000 : null))
-      .filter((m): m is number => m != null && m >= 0);
-    const averageWaitMinutes = waits.length > 0 ? Math.round(waits.reduce((a, b) => a + b, 0) / waits.length) : undefined;
+    const waitMinutes = (e: { checked_in_at: Date; called_at: Date | null }) =>
+      e.called_at ? (e.called_at.getTime() - e.checked_in_at.getTime()) / 60000 : null;
+    const isRealWait = (m: number | null): m is number => m != null && m >= 0;
+
+    const todayWaits = doneInWindow.filter((e) => e.checked_in_at >= todayStart).map(waitMinutes).filter(isRealWait);
+    const averageWaitMinutes = todayWaits.length > 0 ? Math.round(todayWaits.reduce((a, b) => a + b, 0) / todayWaits.length) : undefined;
+
+    const windowWaits = doneInWindow.map(waitMinutes).filter(isRealWait);
+    const predictedWaitMinutes = median(windowWaits);
 
     return {
       clinician_id: clinicianId,
@@ -121,6 +148,7 @@ export class QueueService {
       now_serving: nowServing ? this.toGraphQL(nowServing) : undefined,
       waiting: waiting.map((e) => this.toGraphQL(e)),
       average_wait_minutes: averageWaitMinutes,
+      predicted_wait_minutes: predictedWaitMinutes,
     };
   }
 
