@@ -464,6 +464,7 @@ model Prescriptions {
   repeated_from  Prescriptions?  @relation("PrescriptionRepeat", fields: [repeated_from_id], references: [id])
   repeats        Prescriptions[] @relation("PrescriptionRepeat")
   items          PrescriptionItems[]
+  shareOtps      PrescriptionShareOtps[]
 
   @@index([patient_id, issued_at])
   @@index([encounter_id])
@@ -483,6 +484,26 @@ model PrescriptionItems {
 
   prescription Prescriptions @relation(fields: [prescription_id], references: [id], onDelete: Cascade)
   drug         Drugs         @relation(fields: [drug_id], references: [id])
+
+  @@index([prescription_id])
+}
+
+// REQ109 — a dedicated table, not Redis (unlike the login-OTP stub),
+// because this OTP gates a REST download that must survive a Redis
+// restart within its TTL, and because attempts/consumed_at double as the
+// audit trail for "was this ever shared, did the recipient retrieve it" —
+// a real clinical-safety question worth persisting durably.
+model PrescriptionShareOtps {
+  id              String    @id @default(uuid())
+  prescription_id String
+  phone           String
+  otp_code        String
+  attempts        Int       @default(0)
+  expires_at      DateTime
+  consumed_at     DateTime?
+  created_at      DateTime  @default(now())
+
+  prescription Prescriptions @relation(fields: [prescription_id], references: [id])
 
   @@index([prescription_id])
 }

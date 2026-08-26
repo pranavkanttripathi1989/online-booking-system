@@ -12,7 +12,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 // real PDF stream from the fixture data, not a mocked/fabricated Buffer.
 describe('DocumentsService', () => {
   let service: DocumentsService;
-  let prescriptionsService: { printPrescription: jest.Mock };
+  let prescriptionsService: { printPrescription: jest.Mock; assembleForShare: jest.Mock; verifyShareOtp: jest.Mock };
   let appointmentPaymentsService: { invoiceForDownload: jest.Mock };
   let encountersService: { encounter: jest.Mock };
   let prisma: {
@@ -24,7 +24,7 @@ describe('DocumentsService', () => {
   const user: JwtPayload = { sub: 'u1', roles: ['patient'], client_org_id: 'org-a', patient_id: 'patient-1', clinician_id: null } as JwtPayload;
 
   beforeEach(async () => {
-    prescriptionsService = { printPrescription: jest.fn() };
+    prescriptionsService = { printPrescription: jest.fn(), assembleForShare: jest.fn(), verifyShareOtp: jest.fn() };
     appointmentPaymentsService = { invoiceForDownload: jest.fn() };
     encountersService = { encounter: jest.fn() };
     prisma = {
@@ -72,6 +72,35 @@ describe('DocumentsService', () => {
     it('renders a DUPLICATE watermark without throwing when is_reprint is true', async () => {
       prescriptionsService.printPrescription.mockResolvedValue({ ...printData, is_reprint: true });
       const buffer = await service.prescriptionPdf('rx-1', user);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+  });
+
+  // REQ109
+  describe('prescriptionPdfForShare', () => {
+    const shareData = {
+      prescription: {
+        issued_at: new Date('2026-08-25T00:00:00.000Z'),
+        items: [{ drug_name: 'Paracetamol', dose: '500mg', frequency: 'BD', route: 'oral', duration_days: 5, qty: 10, instructions: null }],
+      },
+      clinic: { name: 'MG Road Clinic', logo_url: undefined, contact_phone: '+911234', address: undefined },
+      clinician: { full_name: 'Dr. Sarah Mitchell', registration_number: 'REG123', qualifications: 'MBBS' },
+      patient: { full_name: 'Anita Sharma', date_of_birth: new Date('1990-01-01'), gender: 'female' },
+      is_reprint: false,
+    };
+
+    it('verifies the OTP before assembling/rendering anything', async () => {
+      prescriptionsService.verifyShareOtp.mockRejectedValue(new Error('Incorrect code'));
+      await expect(service.prescriptionPdfForShare('rx-1', 'wrong')).rejects.toThrow('Incorrect code');
+      expect(prescriptionsService.assembleForShare).not.toHaveBeenCalled();
+    });
+
+    it('renders the exact same bytes prescriptionPdf produces, from assembleForShare data', async () => {
+      prescriptionsService.verifyShareOtp.mockResolvedValue(undefined);
+      prescriptionsService.assembleForShare.mockResolvedValue(shareData);
+      const buffer = await service.prescriptionPdfForShare('rx-1', '123456');
+      expect(prescriptionsService.verifyShareOtp).toHaveBeenCalledWith('rx-1', '123456');
+      expect(prescriptionsService.assembleForShare).toHaveBeenCalledWith('rx-1');
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     });
   });

@@ -24,6 +24,66 @@ export class DocumentsService {
     private readonly prisma: PrismaService,
   ) {}
 
+  // REQ109 — extracted so both the authenticated download (prescriptionPdf)
+  // and the OTP-gated share retrieval (prescriptionPdfForShare) render
+  // identical bytes from a single drawing implementation, per REQ109's own
+  // acceptance criteria ("the exact same bytes printPrescription() already
+  // produces").
+  private drawPrescriptionPdf(doc: PDFKit.PDFDocument, data: any) {
+    drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone);
+
+    doc.fontSize(11).font('Helvetica-Bold').text(data.clinician.full_name);
+    doc.fontSize(9).font('Helvetica');
+    if (data.clinician.qualifications) doc.text(data.clinician.qualifications);
+    if (data.clinician.registration_number) doc.text(`Reg. No: ${data.clinician.registration_number}`);
+    doc.moveDown(0.75);
+
+    doc.fontSize(11).font('Helvetica-Bold').text(`Patient: ${data.patient.full_name}`);
+    doc.fontSize(9).font('Helvetica');
+    const patientLine = [
+      data.patient.date_of_birth ? `DOB: ${formatDate(data.patient.date_of_birth)}` : undefined,
+      data.patient.gender ? `Gender: ${data.patient.gender}` : undefined,
+    ]
+      .filter(Boolean)
+      .join('   ');
+    if (patientLine) doc.text(patientLine);
+    doc.text(`Date: ${formatDate(data.prescription.issued_at)}`);
+    doc.moveDown(1);
+
+    if (data.is_reprint) {
+      doc.save();
+      doc.rotate(-30, { origin: [297, 420] });
+      doc.fontSize(60).fillColor('#dddddd').font('Helvetica-Bold').text('DUPLICATE', 130, 390, { lineBreak: false });
+      doc.restore();
+      doc.fillColor('black');
+    }
+
+    doc.fontSize(14).font('Helvetica-Bold').text('℞');
+    doc.moveDown(0.5);
+    for (const item of data.prescription.items as any[]) {
+      doc.fontSize(10).font('Helvetica-Bold').text(item.drug_name);
+      const details = [
+        item.dose,
+        item.frequency,
+        item.route,
+        item.duration_days ? `${item.duration_days} days` : undefined,
+        item.qty ? `Qty: ${item.qty}` : undefined,
+      ]
+        .filter(Boolean)
+        .join('  ·  ');
+      doc.fontSize(9).font('Helvetica').text(details);
+      if (item.instructions) {
+        doc.fontSize(9).fillColor('#555555').text(item.instructions);
+        doc.fillColor('black');
+      }
+      doc.moveDown(0.5);
+    }
+
+    doc.moveDown(2);
+    doc.fontSize(9).text('_______________________');
+    doc.text('Signature');
+  }
+
   async prescriptionPdf(id: string, user: JwtPayload): Promise<Buffer> {
     // printPrescription() throws NotFoundException on any access-control
     // failure (wrong org, wrong patient/clinician) -- reused verbatim, not
@@ -34,61 +94,17 @@ export class DocumentsService {
     // downloading the PDF counts the same way, matching that behaviour
     // rather than inventing a separate "this doesn't count" exception.
     const data = await this.prescriptionsService.printPrescription(id, user);
+    return renderPdfToBuffer((doc) => this.drawPrescriptionPdf(doc, data));
+  }
 
-    return renderPdfToBuffer((doc) => {
-      drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone);
-
-      doc.fontSize(11).font('Helvetica-Bold').text(data.clinician.full_name);
-      doc.fontSize(9).font('Helvetica');
-      if (data.clinician.qualifications) doc.text(data.clinician.qualifications);
-      if (data.clinician.registration_number) doc.text(`Reg. No: ${data.clinician.registration_number}`);
-      doc.moveDown(0.75);
-
-      doc.fontSize(11).font('Helvetica-Bold').text(`Patient: ${data.patient.full_name}`);
-      doc.fontSize(9).font('Helvetica');
-      const patientLine = [
-        data.patient.date_of_birth ? `DOB: ${formatDate(data.patient.date_of_birth)}` : undefined,
-        data.patient.gender ? `Gender: ${data.patient.gender}` : undefined,
-      ]
-        .filter(Boolean)
-        .join('   ');
-      if (patientLine) doc.text(patientLine);
-      doc.text(`Date: ${formatDate(data.prescription.issued_at)}`);
-      doc.moveDown(1);
-
-      if (data.is_reprint) {
-        doc.save();
-        doc.rotate(-30, { origin: [297, 420] });
-        doc.fontSize(60).fillColor('#dddddd').font('Helvetica-Bold').text('DUPLICATE', 130, 390, { lineBreak: false });
-        doc.restore();
-        doc.fillColor('black');
-      }
-
-      doc.fontSize(14).font('Helvetica-Bold').text('℞');
-      doc.moveDown(0.5);
-      for (const item of data.prescription.items as any[]) {
-        doc.fontSize(10).font('Helvetica-Bold').text(item.drug_name);
-        const details = [
-          item.dose,
-          item.frequency,
-          item.route,
-          item.duration_days ? `${item.duration_days} days` : undefined,
-          item.qty ? `Qty: ${item.qty}` : undefined,
-        ]
-          .filter(Boolean)
-          .join('  ·  ');
-        doc.fontSize(9).font('Helvetica').text(details);
-        if (item.instructions) {
-          doc.fontSize(9).fillColor('#555555').text(item.instructions);
-          doc.fillColor('black');
-        }
-        doc.moveDown(0.5);
-      }
-
-      doc.moveDown(2);
-      doc.fontSize(9).text('_______________________');
-      doc.text('Signature');
-    });
+  // REQ109 — the OTP-gated WhatsApp-share retrieval path. verifyShareOtp()
+  // throws UnauthorizedException on any failure (expired, wrong code,
+  // exhausted attempts) with a message that never distinguishes those
+  // cases from "no such prescription" -- reused verbatim, not caught.
+  async prescriptionPdfForShare(prescriptionId: string, otp: string): Promise<Buffer> {
+    await this.prescriptionsService.verifyShareOtp(prescriptionId, otp);
+    const data = await this.prescriptionsService.assembleForShare(prescriptionId);
+    return renderPdfToBuffer((doc) => this.drawPrescriptionPdf(doc, data));
   }
 
   async invoicePdf(id: string, user: JwtPayload): Promise<Buffer> {

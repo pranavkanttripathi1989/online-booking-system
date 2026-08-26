@@ -1,9 +1,21 @@
-import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
+import * as crypto from 'crypto';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScopeVia, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-scope';
 import { CreatePrescriptionInput, CreatePrescriptionSetInput, PrescriptionItemInput } from './dto/prescription.input';
 import { PatientsService } from '../patients/patients.service';
+import { NotificationProviderConfigService } from '../notifications/notification-provider-config.service';
+
+// REQ109 — same 6-digit-numeric-OTP shape auth.service.ts's own
+// requestOtp()/verifyOtp() use, and the same lockout threshold
+// (OTP_MAX_ATTEMPTS), deliberately NOT imported from auth.service.ts
+// (not exported, and this domain's own OTP is a durable DB row, not a
+// Redis key — see PLAN149 on why).
+const OTP_MAX_ATTEMPTS = Number(process.env.OTP_MAX_ATTEMPTS ?? 3);
+const SHARE_LINK_TTL_MINUTES = 15;
+const RX_SHARE_PURPOSE = 'rx_share';
 
 // REQ021 (Phase 1, slice 3) P0 -- prescription builder, print view, and
 // repeat-Rx. Prescriptions has no client_org_id of its own -- scoped
@@ -27,6 +39,8 @@ export class PrescriptionsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly patientsService: PatientsService,
+    private readonly jwtService: JwtService,
+    private readonly providerConfigService: NotificationProviderConfigService,
   ) {}
 
   private calculateQty(frequency: string, durationDays?: number): number | undefined {
@@ -198,18 +212,11 @@ export class PrescriptionsService {
     };
   }
 
-  // US-RX-03: one-call print payload. The first fetch right after issuance
-  // is the original (reprint_count stays 0); every fetch after that is a
-  // reprint, incremented here and reported back so the frontend renders a
-  // "DUPLICATE" watermark from the second view onward, never the first.
-  async printPrescription(id: string, user: JwtPayload) {
-    const prescription = await this.loadPrescriptionForUser(id, user);
-    const isReprint = prescription.reprint_count > 0;
-    if (isReprint) {
-      await this.prisma.prescriptions.update({ where: { id }, data: { reprint_count: { increment: 1 } } });
-    } else {
-      await this.prisma.prescriptions.update({ where: { id }, data: { reprint_count: 1 } });
-    }
+  // REQ109 — shared by printPrescription() (bumps reprint_count) and
+  // assembleForShare() (does not — see that method's own comment on why
+  // those are different concepts). Extracted verbatim from printPrescription's
+  // own pre-REQ109 body; no behaviour change to that method's own output.
+  private async assemblePrintPayload(prescription: any, isReprint: boolean) {
     const items = await this.itemsToGraphQL(prescription.items as any[]);
 
     // Letterhead reuses the real org branding (REQ002: name/logo_url) plus
@@ -242,6 +249,120 @@ export class PrescriptionsService {
       },
       is_reprint: isReprint,
     };
+  }
+
+  // US-RX-03: one-call print payload. The first fetch right after issuance
+  // is the original (reprint_count stays 0); every fetch after that is a
+  // reprint, incremented here and reported back so the frontend renders a
+  // "DUPLICATE" watermark from the second view onward, never the first.
+  async printPrescription(id: string, user: JwtPayload) {
+    const prescription = await this.loadPrescriptionForUser(id, user);
+    const isReprint = prescription.reprint_count > 0;
+    if (isReprint) {
+      await this.prisma.prescriptions.update({ where: { id }, data: { reprint_count: { increment: 1 } } });
+    } else {
+      await this.prisma.prescriptions.update({ where: { id }, data: { reprint_count: 1 } });
+    }
+    return this.assemblePrintPayload(prescription, isReprint);
+  }
+
+  // REQ109 — the WhatsApp-shared retrieval path. Deliberately NO access
+  // control here (the caller already passed the OTP + signed-link-token
+  // check before reaching this) and deliberately NO reprint_count bump —
+  // that counter tracks reprints of the CLINIC's own print view; a
+  // patient retrieving their own already-shared copy is a different
+  // concept and must not eventually mark the clinic's own original as
+  // "DUPLICATE".
+  async assembleForShare(prescriptionId: string) {
+    const prescription = await this.prisma.prescriptions.findUnique({
+      where: { id: prescriptionId },
+      include: { encounter: true, items: true },
+    });
+    if (!prescription) throw new NotFoundException('Prescription not found');
+    return this.assemblePrintPayload(prescription, false);
+  }
+
+  // REQ109 — two-channel delivery: WhatsApp carries the link, SMS (to the
+  // same phone) carries the OTP. A single channel carrying both would
+  // defeat the point of a second factor. The real access-control check
+  // is loadPrescriptionForUser() (same as printPrescription's own) — no
+  // new logic invented for who may trigger a share.
+  async sharePrescriptionViaWhatsapp(id: string, user: JwtPayload) {
+    const prescription = await this.loadPrescriptionForUser(id, user);
+    const patient = await this.prisma.patients.findUnique({ where: { id: prescription.patient_id } });
+    if (!patient?.phone) {
+      return { success: false, userErrors: [{ message: 'This patient has no phone number on file' }] };
+    }
+    // The prescription's OWN org, not the caller's -- a platform operator
+    // (client_org_id: null) still shares against the real org whose
+    // provider credentials must be used.
+    const orgId = prescription.encounter.client_org_id;
+    if (!orgId) {
+      return { success: false, userErrors: [{ message: 'This prescription has no organization to resolve a provider from' }] };
+    }
+
+    const whatsappConfig = await this.providerConfigService.getActiveConfigForOrg(orgId, 'whatsapp');
+    if (!whatsappConfig) {
+      return { success: false, userErrors: [{ message: 'No WhatsApp provider configured for this organization' }] };
+    }
+    const smsConfig = await this.providerConfigService.getActiveConfigForOrg(orgId, 'sms');
+    if (!smsConfig) {
+      return { success: false, userErrors: [{ message: 'No SMS provider configured for this organization -- cannot deliver a one-time code' }] };
+    }
+
+    const otpCode = crypto.randomInt(0, 1_000_000).toString().padStart(6, '0');
+    const expiresAt = new Date(Date.now() + SHARE_LINK_TTL_MINUTES * 60_000);
+    await this.prisma.prescriptionShareOtps.create({
+      data: { prescription_id: id, phone: patient.phone, otp_code: otpCode, expires_at: expiresAt },
+    });
+    // Same JWT-as-short-lived-token pattern auth.service.ts's own
+    // TOTP_CHALLENGE_PURPOSE uses -- a distinct `purpose` claim so this
+    // token can never be replayed as, or confused with, a login/session
+    // credential, and is scoped to exactly this one prescription.
+    const shareToken = this.jwtService.sign(
+      { purpose: RX_SHARE_PURPOSE, prescriptionId: id },
+      { secret: process.env.JWT_ACCESS_SECRET, expiresIn: `${SHARE_LINK_TTL_MINUTES}m` },
+    );
+    const shareUrl = `${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/share/rx/${shareToken}`;
+
+    const linkResult = await whatsappConfig.provider.send(
+      whatsappConfig.credentials,
+      patient.phone,
+      `Your prescription is ready to view: ${shareUrl}\nThis link expires in ${SHARE_LINK_TTL_MINUTES} minutes.`,
+    );
+    if (!linkResult.sent) {
+      return { success: false, userErrors: [{ message: linkResult.error ?? 'Failed to send WhatsApp link' }] };
+    }
+    const otpResult = await smsConfig.provider.send(
+      smsConfig.credentials,
+      patient.phone,
+      `Your prescription verification code is ${otpCode}. It expires in ${SHARE_LINK_TTL_MINUTES} minutes.`,
+    );
+    if (!otpResult.sent) {
+      return { success: false, userErrors: [{ message: otpResult.error ?? 'WhatsApp link sent, but the verification code could not be delivered -- please try again' }] };
+    }
+
+    return { success: true, userErrors: [], phone_last_two: patient.phone.slice(-2) };
+  }
+
+  // REQ109 — called from documents.service.ts before rendering the PDF.
+  // Never distinguishes "no such prescription" from "wrong code" in its
+  // error messages -- both a nonexistent prescriptionId and a genuinely
+  // expired/exhausted OTP surface the identical "expired, please request
+  // a new share link" message, so neither leaks which case occurred.
+  async verifyShareOtp(prescriptionId: string, code: string): Promise<void> {
+    const row = await this.prisma.prescriptionShareOtps.findFirst({
+      where: { prescription_id: prescriptionId, consumed_at: null },
+      orderBy: { created_at: 'desc' },
+    });
+    if (!row || row.expires_at < new Date() || row.attempts >= OTP_MAX_ATTEMPTS) {
+      throw new UnauthorizedException('This code has expired -- please request a new share link');
+    }
+    if (row.otp_code !== code) {
+      await this.prisma.prescriptionShareOtps.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
+      throw new UnauthorizedException('Incorrect code');
+    }
+    await this.prisma.prescriptionShareOtps.update({ where: { id: row.id }, data: { consumed_at: new Date() } });
   }
 
   // clinician_id set = personal favourite; null = org-shared. Mirrors

@@ -92,3 +92,21 @@ export class PrescriptionPrintPayloadType {
   // print.
   @Field() is_reprint: boolean;
 }
+
+// REQ109 — {success, userErrors} with no entity to return, matching
+// 05-cross-cutting-conventions.md's own explicit guidance for a new
+// domain with no consumer yet ("use {success, userErrors} for anything").
+@ObjectType('SharePrescriptionUserError')
+export class SharePrescriptionUserErrorType {
+  @Field() message: string;
+}
+
+@ObjectType('SharePrescriptionResult')
+export class SharePrescriptionResultType {
+  @Field() success: boolean;
+  @Field(() => [SharePrescriptionUserErrorType]) userErrors: SharePrescriptionUserErrorType[];
+  // Last 2 digits only, e.g. "89" -- enough for the frontend's own
+  // confirmation toast ("sent to the number ending in 89") without
+  // echoing the full phone number back into the UI unnecessarily.
+  @Field({ nullable: true }) phone_last_two?: string;
+}

@@ -19,6 +19,11 @@ import { NotificationTriggerService } from './notification-trigger.service';
     NotificationProviderConfigResolver,
     NotificationTriggerService,
   ],
-  exports: [NotificationsService, NotificationTriggerService],
+  // REQ109 — prescriptions.service.ts needs direct provider-config access
+  // (WhatsApp + SMS separately, its own two-channel design) rather than
+  // going through NotificationTriggerService's own single-recipient
+  // dispatch() shape, which assumes a UserProfiles row (a shared
+  // prescription's recipient frequently has none).
+  exports: [NotificationsService, NotificationTriggerService, NotificationProviderConfigService],
 })
 export class NotificationsModule {}

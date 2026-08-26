@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Req, Res, UnauthorizedException } from '@nestjs/common';
+import { Controller, Get, Post, Body, Param, Req, Res, UnauthorizedException } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { Request, Response } from 'express';
 import { DocumentsService } from './documents.service';
@@ -66,5 +66,31 @@ export class DocumentsController {
     const user = await this.authenticate(req);
     const buffer = await this.documentsService.visitSummaryPdf(id, user);
     this.sendPdf(res, buffer, `visit-summary-${id}.pdf`);
+  }
+
+  // REQ109 — genuinely public: no Bearer token, no `authenticate()` call.
+  // The signed link token + OTP together ARE the access control (the
+  // prescriptionId is never a client-supplied URL/body id -- it's derived
+  // server-side from the token's own verified claims, so a caller can
+  // never probe a prescription id they don't already hold a valid link
+  // for).
+  @Post('prescriptions/share-verify')
+  async verifyPrescriptionShare(@Body() body: { token?: string; otp?: string }, @Res() res: Response) {
+    if (!body.token || !body.otp) throw new UnauthorizedException('Missing token or code');
+    let claims: { purpose: string; prescriptionId: string };
+    try {
+      claims = await this.jwtService.verifyAsync(body.token, { secret: process.env.JWT_ACCESS_SECRET });
+    } catch {
+      throw new UnauthorizedException('This link has expired or is invalid');
+    }
+    // Must match prescriptions.service.ts's own RX_SHARE_PURPOSE literally
+    // -- not imported, since that file has no exported constant for it
+    // (same "each file re-declares its own JWT purpose string" shape as
+    // auth.service.ts's own TOTP_CHALLENGE_PURPOSE).
+    if (claims.purpose !== 'rx_share' || !claims.prescriptionId) {
+      throw new UnauthorizedException('Invalid link');
+    }
+    const buffer = await this.documentsService.prescriptionPdfForShare(claims.prescriptionId, body.otp);
+    this.sendPdf(res, buffer, `prescription-${claims.prescriptionId}.pdf`);
   }
 }

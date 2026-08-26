@@ -6,6 +6,7 @@ import {
   PrescriptionDraftType,
   PrescriptionSetType,
   PrescriptionPrintPayloadType,
+  SharePrescriptionResultType,
 } from './entities/prescription.entity';
 import { CreatePrescriptionInput, CreatePrescriptionSetInput } from './dto/prescription.input';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -53,6 +54,14 @@ export class PrescriptionsResolver {
   @Query(() => PrescriptionPrintPayloadType)
   printPrescription(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
     return this.prescriptionsService.printPrescription(id, user);
+  }
+
+  // REQ109 — same @Auth gate as printPrescription above (its own access
+  // control, loadPrescriptionForUser, is identical to this method's).
+  @Auth('patient', 'clinician', 'manager', 'admin', 'super_admin', 'staff')
+  @Mutation(() => SharePrescriptionResultType)
+  sharePrescriptionViaWhatsapp(@Args('id', { type: () => ID }) id: string, @CurrentUser() user: JwtPayload) {
+    return this.prescriptionsService.sharePrescriptionViaWhatsapp(id, user);
   }
 
   @Auth('clinician', 'manager', 'admin', 'super_admin')

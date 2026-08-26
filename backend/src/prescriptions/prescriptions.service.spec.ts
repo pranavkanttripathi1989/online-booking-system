@@ -1,8 +1,10 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
+import { NotFoundException, BadRequestException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
+import { JwtService } from '@nestjs/jwt';
 import { PrescriptionsService } from './prescriptions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientsService } from '../patients/patients.service';
+import { NotificationProviderConfigService } from '../notifications/notification-provider-config.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // REQ021 P0. Prescriptions has no client_org_id of its own — org isolation
@@ -13,6 +15,8 @@ describe('PrescriptionsService', () => {
   let service: PrescriptionsService;
   let prisma: any;
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
+  let jwtService: { sign: jest.Mock; verifyAsync: jest.Mock };
+  let providerConfigService: { getActiveConfigForOrg: jest.Mock };
 
   const clinicianA: JwtPayload = { sub: 'clin-a', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-a' } as JwtPayload;
   const clinicianB: JwtPayload = { sub: 'clin-b', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-b' } as JwtPayload;
@@ -40,6 +44,7 @@ describe('PrescriptionsService', () => {
       patients: { findUnique: jest.fn() },
       clientOrganizations: { findUnique: jest.fn() },
       prescriptionSets: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), findUnique: jest.fn() },
+      prescriptionShareOtps: { create: jest.fn(), findFirst: jest.fn(), update: jest.fn() },
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -55,6 +60,8 @@ describe('PrescriptionsService', () => {
             ownAndDependantPatientIds: jest.fn().mockImplementation(async (user: JwtPayload) => [user.patient_id ?? '__no_patient_link__']),
           }),
         },
+        { provide: JwtService, useValue: (jwtService = { sign: jest.fn().mockReturnValue('signed-token'), verifyAsync: jest.fn() }) },
+        { provide: NotificationProviderConfigService, useValue: (providerConfigService = { getActiveConfigForOrg: jest.fn() }) },
       ],
     }).compile();
     service = module.get(PrescriptionsService);
@@ -302,6 +309,114 @@ describe('PrescriptionsService', () => {
       const result = await service.applyPrescriptionSet('set-1', clinicianA);
       expect(result[0].qty).toBe(10);
       expect(result[0].drug_name).toBe('Amoxicillin');
+    });
+  });
+
+  // REQ109
+  describe('sharePrescriptionViaWhatsapp — two-channel OTP-gated delivery', () => {
+    const patientWithPhone = { id: 'pat-a', first_name: 'A', last_name: 'B', phone: '+919876543289' };
+    const whatsappConfig = { provider: { send: jest.fn() }, credentials: {} };
+    const smsConfig = { provider: { send: jest.fn() }, credentials: {} };
+
+    beforeEach(() => {
+      prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);
+      prisma.patients.findUnique.mockResolvedValue(patientWithPhone);
+      whatsappConfig.provider.send.mockReset().mockResolvedValue({ sent: true });
+      smsConfig.provider.send.mockReset().mockResolvedValue({ sent: true });
+    });
+
+    it('rejects for an unauthorized caller, delegating to the same access control as printPrescription', async () => {
+      await expect(service.sharePrescriptionViaWhatsapp('rx-1', managerB)).rejects.toThrow(NotFoundException);
+      expect(providerConfigService.getActiveConfigForOrg).not.toHaveBeenCalled();
+    });
+
+    it('returns success:false when no WhatsApp provider is configured', async () => {
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue(null);
+      const result = await service.sharePrescriptionViaWhatsapp('rx-1', clinicianA);
+      expect(result.success).toBe(false);
+      expect(result.userErrors[0].message).toMatch(/No WhatsApp provider/);
+      expect(prisma.prescriptionShareOtps.create).not.toHaveBeenCalled();
+    });
+
+    it('returns success:false when WhatsApp is configured but SMS is not (OTP undeliverable)', async () => {
+      providerConfigService.getActiveConfigForOrg.mockImplementation((_orgId: string, channel: string) =>
+        channel === 'whatsapp' ? whatsappConfig : null,
+      );
+      const result = await service.sharePrescriptionViaWhatsapp('rx-1', clinicianA);
+      expect(result.success).toBe(false);
+      expect(result.userErrors[0].message).toMatch(/No SMS provider/);
+      expect(whatsappConfig.provider.send).not.toHaveBeenCalled();
+    });
+
+    it('sends both the WhatsApp link and the SMS OTP, and writes a PrescriptionShareOtps row', async () => {
+      providerConfigService.getActiveConfigForOrg.mockImplementation((_orgId: string, channel: string) =>
+        channel === 'whatsapp' ? whatsappConfig : smsConfig,
+      );
+      const result = await service.sharePrescriptionViaWhatsapp('rx-1', clinicianA);
+      expect(result.success).toBe(true);
+      expect(result.phone_last_two).toBe('89');
+      expect(whatsappConfig.provider.send).toHaveBeenCalledWith(whatsappConfig.credentials, patientWithPhone.phone, expect.stringContaining('/share/rx/'));
+      expect(smsConfig.provider.send).toHaveBeenCalledWith(smsConfig.credentials, patientWithPhone.phone, expect.stringContaining('verification code'));
+      expect(prisma.prescriptionShareOtps.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ prescription_id: 'rx-1', phone: patientWithPhone.phone }),
+      }));
+      expect(jwtService.sign).toHaveBeenCalledWith(
+        expect.objectContaining({ purpose: 'rx_share', prescriptionId: 'rx-1' }),
+        expect.objectContaining({ expiresIn: '15m' }),
+      );
+    });
+
+    it('does not report success when the WhatsApp send itself fails', async () => {
+      providerConfigService.getActiveConfigForOrg.mockImplementation((_orgId: string, channel: string) =>
+        channel === 'whatsapp' ? whatsappConfig : smsConfig,
+      );
+      whatsappConfig.provider.send.mockResolvedValue({ sent: false, error: 'provider down' });
+      const result = await service.sharePrescriptionViaWhatsapp('rx-1', clinicianA);
+      expect(result.success).toBe(false);
+      expect(smsConfig.provider.send).not.toHaveBeenCalled();
+    });
+
+    it('does not report success when the link sent but the OTP SMS failed', async () => {
+      providerConfigService.getActiveConfigForOrg.mockImplementation((_orgId: string, channel: string) =>
+        channel === 'whatsapp' ? whatsappConfig : smsConfig,
+      );
+      smsConfig.provider.send.mockResolvedValue({ sent: false, error: 'provider down' });
+      const result = await service.sharePrescriptionViaWhatsapp('rx-1', clinicianA);
+      expect(result.success).toBe(false);
+      expect(result.userErrors[0].message).toBe('provider down');
+    });
+  });
+
+  // REQ109
+  describe('verifyShareOtp — one-time-use, lockout, expiry', () => {
+    const activeRow = { id: 'otp-1', prescription_id: 'rx-1', otp_code: '123456', attempts: 0, expires_at: new Date(Date.now() + 60_000), consumed_at: null };
+
+    it('rejects when no matching unconsumed row exists (never distinguishable from "wrong code")', async () => {
+      prisma.prescriptionShareOtps.findFirst.mockResolvedValue(null);
+      await expect(service.verifyShareOtp('rx-1', '123456')).rejects.toThrow(UnauthorizedException);
+      await expect(service.verifyShareOtp('rx-1', '123456')).rejects.toThrow(/expired/);
+    });
+
+    it('rejects an expired row with the same message as no row at all', async () => {
+      prisma.prescriptionShareOtps.findFirst.mockResolvedValue({ ...activeRow, expires_at: new Date(Date.now() - 1000) });
+      await expect(service.verifyShareOtp('rx-1', '123456')).rejects.toThrow(/expired/);
+    });
+
+    it('rejects once attempts reach the lockout threshold', async () => {
+      prisma.prescriptionShareOtps.findFirst.mockResolvedValue({ ...activeRow, attempts: 3 });
+      await expect(service.verifyShareOtp('rx-1', '123456')).rejects.toThrow(/expired/);
+    });
+
+    it('increments attempts on a wrong code, distinct message, does not consume the row', async () => {
+      prisma.prescriptionShareOtps.findFirst.mockResolvedValue(activeRow);
+      await expect(service.verifyShareOtp('rx-1', 'wrong1')).rejects.toThrow('Incorrect code');
+      expect(prisma.prescriptionShareOtps.update).toHaveBeenCalledWith({ where: { id: 'otp-1' }, data: { attempts: { increment: 1 } } });
+    });
+
+    it('consumes the row on a correct code within TTL and under the attempt limit', async () => {
+      prisma.prescriptionShareOtps.findFirst.mockResolvedValue(activeRow);
+      await service.verifyShareOtp('rx-1', '123456');
+      expect(prisma.prescriptionShareOtps.update).toHaveBeenCalledWith({ where: { id: 'otp-1' }, data: { consumed_at: expect.any(Date) } });
     });
   });
 });
