@@ -1888,6 +1888,7 @@ model Departments {
   clinicians          Clinicians[]
   products            Products[]
   messageThreads      MessageThreads[]
+  staffMembers        UserProfiles[]
 
   @@index([client_org_id, clinic_id])
 }
@@ -2130,11 +2131,19 @@ model UserProfiles {
   totp_enabled          Boolean  @default(false)
   totp_backup_codes     Json?    // array of bcrypt-hashed one-time codes
 
+  // REQ102 — a separate, real FK to the clinical Departments entity, used
+  // for message-thread auto-participant-add. Distinct from the free-text
+  // `department` column above (an administrative label, e.g. "Front
+  // Desk") — a staff member's administrative team and their clinical
+  // department assignment are independent by design; see REQ102's own doc.
+  department_id_ref String?
+
   user        Users                @relation(fields: [id], references: [id])
   role        UserRoles            @relation(fields: [role_id], references: [id])
   clinic      Clinics?             @relation(fields: [clinic_id], references: [id])
   clinician   Clinicians?          @relation(fields: [clinician_id], references: [id])
   patient     Patients?            @relation(fields: [patient_id], references: [id])
+  departmentRef Departments?       @relation(fields: [department_id_ref], references: [id])
   client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   orderedTestResults TestResults[]
   bookedAppointments Appointments[] @relation("AppointmentBookedBy")
@@ -2150,6 +2159,7 @@ model UserProfiles {
   @@index([clinic_id])
   @@index([patient_id])
   @@index([clinician_id])
+  @@index([department_id_ref])
 }
 
 model UserRoles {

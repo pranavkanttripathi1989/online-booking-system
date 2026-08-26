@@ -1,4 +1,4 @@
-import { InputType, Field } from '@nestjs/graphql';
+import { InputType, Field, ID } from '@nestjs/graphql';
 import { IsNotEmpty, IsOptional, IsEmail, IsIn, IsDateString, MinLength } from 'class-validator';
 
 const STAFF_STATUSES = ['active', 'on_leave', 'inactive'];
@@ -20,6 +20,8 @@ export class CreateStaffInput {
   @Field({ nullable: true }) @IsOptional() @IsDateString() since?: string;
   @Field({ nullable: true }) @IsOptional() address?: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
+  // REQ102 — distinct from the free-text `department` field above.
+  @Field(() => ID, { nullable: true }) @IsOptional() departmentId?: string;
   @Field() @MinLength(8) password: string;
 }
 
@@ -34,6 +36,8 @@ export class UpdateStaffInput {
   @Field({ nullable: true }) @IsOptional() @IsDateString() since?: string;
   @Field({ nullable: true }) @IsOptional() address?: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
+  // REQ102 — distinct from the free-text `department` field above.
+  @Field(() => ID, { nullable: true }) @IsOptional() departmentId?: string;
   // context/open-questions.md #3 — resolved: admin sets a specific password
   // directly (not an emailed reset link).
   @Field({ nullable: true }) @IsOptional() @MinLength(8) password?: string;

@@ -301,16 +301,24 @@ export class MessagesService {
   // themselves is NOT auto-added (they weren't a participant of any
   // thread before this slice either) -- see departmentThreads() below for
   // the oversight path that doesn't require participation.
+  // REQ102 — unions two sources of department membership: clinicians (via
+  // their own Clinicians.department_id) and non-clinician staff (via the
+  // separate UserProfiles.department_id_ref this slice added). A Set
+  // dedupes the (should-not-happen-in-practice) case where a profile is
+  // reachable via both paths, and guards against a duplicate-participant
+  // insert below.
   private async resolveScopedMemberUserIds(departmentId: string | undefined, clinicId: string | undefined) {
     if (departmentId) {
       const clinicians = await this.prisma.clinicians.findMany({ where: { department_id: departmentId }, select: { id: true } });
       const clinicianIds = clinicians.map((c) => c.id);
-      if (!clinicianIds.length) return [];
-      const profiles = await this.prisma.userProfiles.findMany({
-        where: { clinician_id: { in: clinicianIds }, is_deleted: false },
-        select: { id: true },
-      });
-      return profiles.map((p) => p.id);
+      const [clinicianProfiles, staffProfiles] = await Promise.all([
+        clinicianIds.length
+          ? this.prisma.userProfiles.findMany({ where: { clinician_id: { in: clinicianIds }, is_deleted: false }, select: { id: true } })
+          : Promise.resolve([] as { id: string }[]),
+        this.prisma.userProfiles.findMany({ where: { department_id_ref: departmentId, is_deleted: false }, select: { id: true } }),
+      ]);
+      const ids = new Set([...clinicianProfiles.map((p) => p.id), ...staffProfiles.map((p) => p.id)]);
+      return [...ids];
     }
     if (clinicId) {
       const profiles = await this.prisma.userProfiles.findMany({ where: { clinic_id: clinicId, is_deleted: false }, select: { id: true } });

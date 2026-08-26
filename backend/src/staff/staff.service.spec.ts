@@ -3,6 +3,7 @@ import { NotFoundException, ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { StaffService } from './staff.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { DepartmentsService } from '../departments/departments.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: findOne/update/deactivate previously had NO
@@ -12,6 +13,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('StaffService — access scoping', () => {
   let service: StaffService;
   let prisma: { userProfiles: { findUnique: jest.Mock; update: jest.Mock } };
+  let departmentsService: { assertDepartmentInScope: jest.Mock };
 
   const managerSameOrg: JwtPayload = { sub: 'u-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const managerOtherOrg: JwtPayload = { sub: 'u-2', roles: ['manager'], client_org_id: 'org-2' } as JwtPayload;
@@ -26,8 +28,13 @@ describe('StaffService — access scoping', () => {
         update: jest.fn().mockResolvedValue(staffRow),
       },
     };
+    departmentsService = { assertDepartmentInScope: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StaffService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        StaffService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: DepartmentsService, useValue: departmentsService },
+      ],
     }).compile();
     service = module.get(StaffService);
   });
@@ -128,6 +135,7 @@ describe('StaffService — access scoping', () => {
 describe('StaffService — create', () => {
   let service: StaffService;
   let prisma: any;
+  let departmentsService: { assertDepartmentInScope: jest.Mock };
   const currentUser: JwtPayload = { sub: 'u-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const createInput = {
     name: 'New Staff', email: 'new.staff@example.com', phone: '+919810000099',
@@ -141,8 +149,13 @@ describe('StaffService — create', () => {
       users: { create: jest.fn().mockResolvedValue({ id: 'new-id' }) },
       $transaction: jest.fn((cb: any) => cb(prisma)),
     };
+    departmentsService = { assertDepartmentInScope: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StaffService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        StaffService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: DepartmentsService, useValue: departmentsService },
+      ],
     }).compile();
     service = module.get(StaffService);
   });
@@ -161,6 +174,21 @@ describe('StaffService — create', () => {
   it('rejects a duplicate phone without creating a user', async () => {
     prisma.userProfiles.findUnique = jest.fn((args: any) => (args.where.phone ? Promise.resolve({ id: 'existing' }) : Promise.resolve(null)));
     await expect(service.create(createInput, currentUser)).rejects.toThrow(ConflictException);
+    expect(prisma.users.create).not.toHaveBeenCalled();
+  });
+
+  // REQ102
+  it('validates a supplied departmentId via DepartmentsService and persists department_id_ref', async () => {
+    departmentsService.assertDepartmentInScope.mockResolvedValue({ id: 'dept-a' });
+    await service.create({ ...createInput, departmentId: 'dept-a' } as any, currentUser);
+    expect(departmentsService.assertDepartmentInScope).toHaveBeenCalledWith('dept-a', currentUser);
+    const call = prisma.userProfiles.create.mock.calls[0][0];
+    expect(call.data.department_id_ref).toBe('dept-a');
+  });
+
+  it('rejects create when the supplied departmentId is cross-org', async () => {
+    departmentsService.assertDepartmentInScope.mockRejectedValue(new Error('Department not found'));
+    await expect(service.create({ ...createInput, departmentId: 'dept-other-org' } as any, currentUser)).rejects.toThrow();
     expect(prisma.users.create).not.toHaveBeenCalled();
   });
 
@@ -183,12 +211,18 @@ describe('StaffService — create', () => {
 describe('StaffService — toGraphQL since fallback', () => {
   let service: StaffService;
   let prisma: { userProfiles: { findMany: jest.Mock } };
+  let departmentsService: { assertDepartmentInScope: jest.Mock };
   const user: JwtPayload = { sub: 'u-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
 
   beforeEach(async () => {
     prisma = { userProfiles: { findMany: jest.fn() } };
+    departmentsService = { assertDepartmentInScope: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [StaffService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        StaffService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: DepartmentsService, useValue: departmentsService },
+      ],
     }).compile();
     service = module.get(StaffService);
   });

@@ -365,6 +365,51 @@ describe('MessagesService', () => {
         expect(addedIds).toEqual(expect.arrayContaining(['user-other', 'user-me', 'user-dept-1', 'user-dept-2']));
       });
 
+      // REQ102 — a staff member with department_id_ref set is included even
+      // with zero clinicians in that department (the pre-existing early
+      // `if (!clinicianIds.length) return []` this slice removed).
+      it('includes a non-clinician staff member via department_id_ref even when the department has no clinicians', async () => {
+        departmentsService.assertDepartmentInScope.mockResolvedValue({ id: 'dept-a', clinic_id: 'clinic-a', client_org_id: 'org-a' });
+        prisma.clinicians.findMany.mockResolvedValue([]);
+        prisma.userProfiles.findMany.mockResolvedValue([{ id: 'staff-dept-1' }]);
+        const tx = makeTx();
+        tx.messageThreads.create.mockResolvedValue({ ...thread1, department_id: 'dept-a', clinic_id: 'clinic-a' });
+        prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+        await service.createThread(
+          { participant_ids: ['user-other'], first_message: 'hi', department_id: 'dept-a' } as any,
+          meUser,
+        );
+
+        expect(prisma.userProfiles.findMany).toHaveBeenCalledWith(
+          expect.objectContaining({ where: expect.objectContaining({ department_id_ref: 'dept-a' }) }),
+        );
+        const call = tx.messageParticipants.createMany.mock.calls[0][0];
+        const addedIds = call.data.map((d: any) => d.user_id);
+        expect(addedIds).toEqual(expect.arrayContaining(['staff-dept-1']));
+      });
+
+      // REQ102 — a profile reachable via both the clinician path and the
+      // direct staff-department path must not be added as a duplicate
+      // participant.
+      it('does not add a duplicate participant when reachable via both the clinician and staff paths', async () => {
+        departmentsService.assertDepartmentInScope.mockResolvedValue({ id: 'dept-a', clinic_id: 'clinic-a', client_org_id: 'org-a' });
+        prisma.clinicians.findMany.mockResolvedValue([{ id: 'clinician-1' }]);
+        prisma.userProfiles.findMany.mockResolvedValue([{ id: 'same-user' }]);
+        const tx = makeTx();
+        tx.messageThreads.create.mockResolvedValue({ ...thread1, department_id: 'dept-a', clinic_id: 'clinic-a' });
+        prisma.$transaction.mockImplementation((cb) => cb(tx));
+
+        await service.createThread(
+          { participant_ids: ['user-other'], first_message: 'hi', department_id: 'dept-a' } as any,
+          meUser,
+        );
+
+        const call = tx.messageParticipants.createMany.mock.calls[0][0];
+        const addedIds = call.data.map((d: any) => d.user_id);
+        expect(addedIds.filter((id: string) => id === 'same-user')).toHaveLength(1);
+      });
+
       it('auto-adds every clinic member as a participant for a branch-wide (no-department) thread', async () => {
         prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-a', client_org_id: 'org-a', is_deleted: false });
         prisma.userProfiles.findMany.mockResolvedValue([{ id: 'user-branch-1' }]);

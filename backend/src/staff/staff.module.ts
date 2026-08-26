@@ -1,8 +1,10 @@
 import { Module } from '@nestjs/common';
 import { StaffService } from './staff.service';
 import { StaffResolver } from './staff.resolver';
+import { DepartmentsModule } from '../departments/departments.module';
 
 @Module({
+  imports: [DepartmentsModule],
   providers: [StaffService, StaffResolver],
   exports: [StaffService],
 })

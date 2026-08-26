@@ -5,11 +5,15 @@ import { CreateStaffInput, UpdateStaffInput } from './dto/staff.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgIdForWrite, orgScope } from '../common/scoping/tenant-scope';
 import { BCRYPT_COST } from '../common/crypto/bcrypt-cost';
+import { DepartmentsService } from '../departments/departments.service';
 
 
 @Injectable()
 export class StaffService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly departmentsService: DepartmentsService,
+  ) {}
 
   private toGraphQL(p: any) {
     return {
@@ -26,6 +30,8 @@ export class StaffService {
       since: p.staff_since ?? p.created_at,
       address: p.address_line1 ?? undefined,
       notes: p.notes ?? undefined,
+      // REQ102.
+      departmentId: p.department_id_ref ?? undefined,
     };
   }
 
@@ -89,6 +95,12 @@ export class StaffService {
     const staffRole = await this.prisma.userRoles.findFirst({ where: { name: 'staff', client_org_id: null } });
     if (!staffRole) throw new NotFoundException('Staff system role not seeded');
 
+    // REQ102 — Hard Rule 6 cross-domain FK validation, matching services
+    // .service.ts's own use of the identical helper.
+    if (input.departmentId) {
+      await this.departmentsService.assertDepartmentInScope(input.departmentId, currentUser);
+    }
+
     const [firstName, ...rest] = input.name.trim().split(' ');
     const hashed = await bcrypt.hash(input.password, BCRYPT_COST);
 
@@ -109,6 +121,7 @@ export class StaffService {
           staff_since: input.since ? new Date(input.since) : undefined,
           address_line1: input.address,
           notes: input.notes,
+          department_id_ref: input.departmentId,
           // BUG006 — `?? undefined` silently created an ORG-LESS staff account.
           client_org_id: orgIdForWrite(currentUser, 'staff member'),
         },
@@ -132,6 +145,9 @@ export class StaffService {
     if (input.phone && input.phone !== existing.phone) {
       const phoneTaken = await this.prisma.userProfiles.findUnique({ where: { phone: input.phone } });
       if (phoneTaken) throw new ConflictException('A user with this phone number already exists');
+    }
+    if (input.departmentId) {
+      await this.departmentsService.assertDepartmentInScope(input.departmentId, user);
     }
 
     let firstName = existing.first_name;
@@ -160,6 +176,7 @@ export class StaffService {
         staff_since: input.since ? new Date(input.since) : undefined,
         address_line1: input.address,
         notes: input.notes,
+        department_id_ref: input.departmentId,
         password: hashedPassword,
       },
       include: { role: true },

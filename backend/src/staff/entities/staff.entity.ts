@@ -16,4 +16,6 @@ export class StaffType {
   @Field() since: Date;
   @Field({ nullable: true }) address?: string;
   @Field({ nullable: true }) notes?: string;
+  // REQ102 — distinct from the free-text `department` field above.
+  @Field(() => ID, { nullable: true }) departmentId?: string;
 }
