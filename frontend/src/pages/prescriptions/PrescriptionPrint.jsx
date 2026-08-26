@@ -1,11 +1,24 @@
 import { useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { useQuery, gql } from '@apollo/client'
+import { useQuery, useMutation, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import { Alert, Box, Button, CircularProgress, Divider, Stack, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Typography } from '@mui/material'
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import { downloadAuthenticatedPdf } from '../../utils/documents'
+
+// REQ109 — {success, userErrors} only, no entity (this mutation has
+// nothing to return beyond the outcome itself).
+const SHARE_VIA_WHATSAPP = gql`
+  mutation SharePrescriptionViaWhatsapp($id: ID!) {
+    sharePrescriptionViaWhatsapp(id: $id) {
+      success
+      userErrors { message }
+      phone_last_two
+    }
+  }
+`
 
 // REQ021 US-RX-03/06 -- one rendering path for both on-screen preview and
 // window.print(), the only print precedent this codebase has
@@ -45,6 +58,24 @@ function PrescriptionPrint() {
     }
   }
 
+  // REQ109 — a link (WhatsApp) + a separate one-time code (SMS), to the
+  // patient's own registered phone. Only the last 2 digits of that number
+  // are ever echoed back into this toast — avoids an unnecessary PHI echo.
+  const [shareViaWhatsapp, { loading: sharing }] = useMutation(SHARE_VIA_WHATSAPP)
+  const handleShare = async () => {
+    try {
+      const { data: result } = await shareViaWhatsapp({ variables: { id } })
+      if (result?.sharePrescriptionViaWhatsapp?.success) {
+        const lastTwo = result.sharePrescriptionViaWhatsapp.phone_last_two
+        enqueueSnackbar(`Link and verification code sent to the number ending in ${lastTwo ?? '••'}.`, { variant: 'success' })
+      } else {
+        enqueueSnackbar(result?.sharePrescriptionViaWhatsapp?.userErrors?.[0]?.message || 'Failed to share prescription', { variant: 'error' })
+      }
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message, { variant: 'error' })
+    }
+  }
+
   if (loading) return <Box p={4}><CircularProgress /></Box>
   if (error) return <Box p={4}><Alert severity="error">{error.message}</Alert></Box>
   if (!payload) return <Box p={4}><Alert severity="warning">Prescription not found.</Alert></Box>
@@ -70,6 +101,14 @@ function PrescriptionPrint() {
             disabled={downloading}
           >
             {downloading ? 'Preparing PDF…' : 'Download PDF'}
+          </Button>
+          <Button
+            variant="outlined"
+            startIcon={sharing ? <CircularProgress size={16} /> : <WhatsAppIcon />}
+            onClick={handleShare}
+            disabled={sharing}
+          >
+            {sharing ? 'Sending…' : 'Share via WhatsApp'}
           </Button>
         </Stack>
       </Box>

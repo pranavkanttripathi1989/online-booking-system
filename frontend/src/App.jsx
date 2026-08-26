@@ -50,6 +50,7 @@ const OnboardingWizard   = lazy(() => import('./pages/onboarding/index'))
 const Landing       = lazy(() => import('./pages/public/landing'))
 const DoctorProfile = lazy(() => import('./pages/public/doctor-profile'))
 const Checkin       = lazy(() => import('./pages/public/checkin'))
+const PrescriptionOtp = lazy(() => import('./pages/share/prescription-otp'))
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
 const NotFoundPage = lazy(() => import('./pages/errors/not-found'))
@@ -213,6 +214,11 @@ function App() {
             all: the token in the URL is the sole authority. */}
         <Route path="/checkin/:token" element={
           <Suspense fallback={<FullPageLoader />}><Checkin /></Suspense>
+        } />
+        {/* REQ109 — same "no auth required, token in the URL is the sole
+            authority" shape, plus a separate OTP the visitor types in. */}
+        <Route path="/share/rx/:token" element={
+          <Suspense fallback={<FullPageLoader />}><PrescriptionOtp /></Suspense>
         } />
       </Route>
 

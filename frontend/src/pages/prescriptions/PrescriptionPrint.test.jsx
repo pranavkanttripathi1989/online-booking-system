@@ -1,6 +1,8 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
+import { SnackbarProvider } from 'notistack'
 import { gql } from '@apollo/client'
 import PrescriptionPrint from './PrescriptionPrint'
 
@@ -12,6 +14,16 @@ const PRINT_QUERY = gql`
       clinic { name logo_url contact_phone address }
       clinician { full_name registration_number qualifications }
       patient { full_name date_of_birth gender }
+    }
+  }
+`
+// REQ109
+const SHARE_VIA_WHATSAPP = gql`
+  mutation SharePrescriptionViaWhatsapp($id: ID!) {
+    sharePrescriptionViaWhatsapp(id: $id) {
+      success
+      userErrors { message }
+      phone_last_two
     }
   }
 `
@@ -27,12 +39,14 @@ const PAYLOAD = {
   patient: { full_name: 'Anita Sharma', date_of_birth: '1990-01-01', gender: 'female' },
 }
 
-function renderPage() {
+function renderPage(extraMocks = []) {
   return render(
-    <MockedProvider mocks={[{ request: { query: PRINT_QUERY, variables: { id: 'rx-1' } }, result: { data: { printPrescription: PAYLOAD } } }]} addTypename={false}>
-      <MemoryRouter initialEntries={['/prescriptions/rx-1/print']}>
-        <Routes><Route path="/prescriptions/:id/print" element={<PrescriptionPrint />} /></Routes>
-      </MemoryRouter>
+    <MockedProvider mocks={[{ request: { query: PRINT_QUERY, variables: { id: 'rx-1' } }, result: { data: { printPrescription: PAYLOAD } } }, ...extraMocks]} addTypename={false}>
+      <SnackbarProvider>
+        <MemoryRouter initialEntries={['/prescriptions/rx-1/print']}>
+          <Routes><Route path="/prescriptions/:id/print" element={<PrescriptionPrint />} /></Routes>
+        </MemoryRouter>
+      </SnackbarProvider>
     </MockedProvider>,
   )
 }
@@ -58,5 +72,26 @@ describe('PrescriptionPrint', () => {
       </MockedProvider>,
     )
     await waitFor(() => expect(screen.getByText('DUPLICATE')).toBeInTheDocument())
+  })
+
+  // REQ109
+  it('shows a success toast with only the last 2 digits of the phone on a successful share', async () => {
+    renderPage([{
+      request: { query: SHARE_VIA_WHATSAPP, variables: { id: 'rx-1' } },
+      result: { data: { sharePrescriptionViaWhatsapp: { success: true, userErrors: [], phone_last_two: '89' } } },
+    }])
+    await waitFor(() => expect(screen.getByText('City Heart Clinic')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: /Share via WhatsApp/i }))
+    await waitFor(() => expect(screen.getByText(/ending in 89/)).toBeInTheDocument())
+  })
+
+  it('shows the real error message when the mutation reports success:false', async () => {
+    renderPage([{
+      request: { query: SHARE_VIA_WHATSAPP, variables: { id: 'rx-1' } },
+      result: { data: { sharePrescriptionViaWhatsapp: { success: false, userErrors: [{ message: 'No WhatsApp provider configured for this organization' }], phone_last_two: null } } },
+    }])
+    await waitFor(() => expect(screen.getByText('City Heart Clinic')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: /Share via WhatsApp/i }))
+    await waitFor(() => expect(screen.getByText('No WhatsApp provider configured for this organization')).toBeInTheDocument())
   })
 })
