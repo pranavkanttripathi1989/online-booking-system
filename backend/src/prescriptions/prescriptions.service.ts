@@ -86,6 +86,23 @@ export class PrescriptionsService {
     return items.map((i) => ({ ...i, drug_name: nameById.get(i.drug_id) ?? 'Unknown drug' }));
   }
 
+  // REQ137 (US-INS-06) — used by InsuranceService to auto-attach an
+  // appointment's issued prescriptions as claim evidence. Access control
+  // is already enforced by the caller (InsuranceService#loadClaimForUser
+  // validates the claim's own org before this is ever called), so this
+  // is a plain data fetch on an already-authorized encounter id, not a
+  // second independent authorization check.
+  async prescriptionsForEncounter(encounterId: string) {
+    const prescriptions = await this.prisma.prescriptions.findMany({
+      where: { encounter_id: encounterId },
+      include: { items: true },
+      orderBy: { issued_at: 'desc' },
+    });
+    return Promise.all(
+      prescriptions.map(async (p) => ({ ...p, items: await this.itemsToGraphQL(p.items as any[]) })),
+    );
+  }
+
   private async loadPrescriptionForUser(id: string, user: JwtPayload) {
     const prescription = await this.prisma.prescriptions.findUnique({
       where: { id },

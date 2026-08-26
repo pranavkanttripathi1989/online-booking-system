@@ -480,4 +480,26 @@ describe('PrescriptionsService', () => {
       expect(prisma.prescriptionShareOtps.update).toHaveBeenCalledWith({ where: { id: 'otp-1' }, data: { consumed_at: expect.any(Date) } });
     });
   });
+
+  // REQ137 (US-INS-06) — used by InsuranceService to auto-attach a
+  // claim's evidence; access control lives entirely on the caller's
+  // side (this is a plain fetch on an already-authorized encounter id).
+  describe('prescriptionsForEncounter', () => {
+    it('fetches by encounter_id, newest first, and maps drug_name onto each item', async () => {
+      prisma.prescriptions.findMany.mockResolvedValue([prescriptionOpen]);
+      const result = await service.prescriptionsForEncounter('enc-1');
+      expect(prisma.prescriptions.findMany).toHaveBeenCalledWith({
+        where: { encounter_id: 'enc-1' },
+        include: { items: true },
+        orderBy: { issued_at: 'desc' },
+      });
+      expect(result).toEqual([{ ...prescriptionOpen, items: [{ ...rxItem, drug_name: 'Amoxicillin' }] }]);
+    });
+
+    it('returns an empty array for an encounter with no prescriptions', async () => {
+      prisma.prescriptions.findMany.mockResolvedValue([]);
+      const result = await service.prescriptionsForEncounter('enc-2');
+      expect(result).toEqual([]);
+    });
+  });
 });

@@ -1,6 +1,7 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { InsuranceService } from './insurance.service';
 import { PayerType, PayerEmpanelmentType, PatientInsurancePolicyType, PayerTariffType, PayerChargeEstimateType, ClaimType } from './entities/insurance.entity';
+import { PrescriptionType } from '../prescriptions/entities/prescription.entity';
 import {
   PayerInput,
   PayerEmpanelmentInput,
@@ -129,5 +130,14 @@ export class InsuranceResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.insuranceService.updateClaimStatus(id, input, user);
+  }
+
+  // REQ137 (US-INS-06) — same @Auth gate as claims()/claim() above
+  // (front-desk/insurance-desk read access), since this is read-only
+  // evidence for a claim they can already view.
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Query(() => [PrescriptionType])
+  claimEvidencePrescriptions(@Args('claim_id', { type: () => ID }) claimId: string, @CurrentUser() user: JwtPayload) {
+    return this.insuranceService.claimEvidencePrescriptions(claimId, user);
   }
 }

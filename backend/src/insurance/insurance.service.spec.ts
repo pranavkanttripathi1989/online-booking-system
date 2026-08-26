@@ -3,6 +3,7 @@ import { BadRequestException, NotFoundException } from '@nestjs/common';
 import { InsuranceService } from './insurance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientsService } from '../patients/patients.service';
+import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // REQ031 (US-INS-01/03, P1 scope) — Payers is global reference data (no
@@ -20,8 +21,10 @@ describe('InsuranceService', () => {
     patients: { findUnique: jest.Mock };
     appointments: { findUnique: jest.Mock };
     claims: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+    encounters: { findUnique: jest.Mock };
   };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
+  let prescriptionsService: { prescriptionsForEncounter: jest.Mock };
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const clinicA = { id: 'clinic-a', client_org_id: 'org-a', is_deleted: false };
@@ -47,13 +50,16 @@ describe('InsuranceService', () => {
       patients: { findUnique: jest.fn() },
       appointments: { findUnique: jest.fn() },
       claims: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), update: jest.fn() },
+      encounters: { findUnique: jest.fn() },
     };
     patientsService = { ownAndDependantPatientIds: jest.fn() };
+    prescriptionsService = { prescriptionsForEncounter: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InsuranceService,
         { provide: PrismaService, useValue: prisma },
         { provide: PatientsService, useValue: patientsService },
+        { provide: PrescriptionsService, useValue: prescriptionsService },
       ],
     }).compile();
     service = module.get(InsuranceService);
@@ -336,6 +342,33 @@ describe('InsuranceService', () => {
       expect(prisma.claims.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ status: 'settled', settled_at: expect.any(Date) }),
       }));
+    });
+  });
+
+  // REQ137 (US-INS-06)
+  describe('claimEvidencePrescriptions', () => {
+    it('rejects a cross-org claim, same access control as claim()', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, appointment: { ...appointmentOpen, clinic: clinicB } });
+      await expect(service.claimEvidencePrescriptions('claim-1', orgAUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.encounters.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns an empty list when the appointment has no encounter yet', async () => {
+      prisma.claims.findUnique.mockResolvedValue(claimSubmitted);
+      prisma.encounters.findUnique.mockResolvedValue(null);
+      const result = await service.claimEvidencePrescriptions('claim-1', orgAUser);
+      expect(result).toEqual([]);
+      expect(prescriptionsService.prescriptionsForEncounter).not.toHaveBeenCalled();
+    });
+
+    it('looks up the encounter by the claim\'s own appointment_id, then delegates to PrescriptionsService', async () => {
+      prisma.claims.findUnique.mockResolvedValue(claimSubmitted);
+      prisma.encounters.findUnique.mockResolvedValue({ id: 'enc-1', appointment_id: 'appt-1' });
+      prescriptionsService.prescriptionsForEncounter.mockResolvedValue([{ id: 'rx-1' }]);
+      const result = await service.claimEvidencePrescriptions('claim-1', orgAUser);
+      expect(prisma.encounters.findUnique).toHaveBeenCalledWith({ where: { appointment_id: 'appt-1' } });
+      expect(prescriptionsService.prescriptionsForEncounter).toHaveBeenCalledWith('enc-1');
+      expect(result).toEqual([{ id: 'rx-1' }]);
     });
   });
 });

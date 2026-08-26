@@ -1,6 +1,7 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientsService } from '../patients/patients.service';
+import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import {
   PayerInput,
   PayerEmpanelmentInput,
@@ -35,6 +36,7 @@ export class InsuranceService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly patientsService: PatientsService,
+    private readonly prescriptionsService: PrescriptionsService,
   ) {}
 
   async findPayers(isActive: boolean | undefined) {
@@ -299,5 +301,21 @@ export class InsuranceService {
       include: { payer: true, patient: true, appointment: true },
     });
     return this.toClaimGraphQL(row);
+  }
+
+  // REQ137 (US-INS-06) — auto-attaches the claim's own appointment's
+  // signed prescriptions as reimbursement evidence, rather than a
+  // separate manual-attachment upload flow. A claim's appointment has at
+  // most one Encounters row (appointment_id is @unique); an appointment
+  // with no encounter yet (never checked in, or a claim submitted ahead
+  // of the actual visit) has no evidence to show, which is a legitimate
+  // empty state, not an error.
+  async claimEvidencePrescriptions(claimId: string, user: JwtPayload) {
+    const claim = await this.loadClaimForUser(claimId, user);
+    const encounter = await this.prisma.encounters.findUnique({
+      where: { appointment_id: claim.appointment_id },
+    });
+    if (!encounter) return [];
+    return this.prescriptionsService.prescriptionsForEncounter(encounter.id);
   }
 }
