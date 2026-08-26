@@ -44,6 +44,10 @@ export class AvailabilityType {
   @Field() mode: string;
   @Field(() => Int, { nullable: true }) capacity?: number;
   @Field(() => Int) overbookAllowance: number;
+  // REQ119 — was write-only (accepted by CreateAvailabilityInput/
+  // UpdateAvailabilityInput, never returned) before this slice built the
+  // interleaving algorithm that actually reads it.
+  @Field(() => Int, { nullable: true }) walkinRatio?: number;
   @Field(() => AvailabilityClinicianType) clinician: AvailabilityClinicianType;
   @Field(() => AvailabilityClinicType) clinic: AvailabilityClinicType;
   @Field(() => AvailabilityRoomType, { nullable: true }) room?: AvailabilityRoomType;

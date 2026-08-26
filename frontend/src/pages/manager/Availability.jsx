@@ -125,8 +125,10 @@ const MOCK_AVAILABILITIES = [
 
 const DAYS_OF_WEEK = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday']
 const RECURRENCE_TYPES = ['daily', 'weekly', 'monthly', 'custom']
-// REQ017 dual-mode scheduling. 'hybrid' is selectable (schema exists) but
-// its walk-in interleaving logic is P1, not built yet — the form says so.
+// REQ017 dual-mode scheduling; REQ119 built the walk-in interleaving
+// itself (a queue.service.ts-side reorder driven by this window's own
+// walkin_ratio — no further frontend wiring needed here beyond the mode
+// picker and walkin_ratio field already below).
 const SCHEDULING_MODES = [
   { value: 'slot', label: 'Fixed slots' },
   { value: 'session', label: 'Session / token' },
@@ -153,6 +155,7 @@ const GET_AVAILABILITY_DATA = gql`
       mode
       capacity
       overbookAllowance
+      walkinRatio
       clinician { id firstName lastName }
       clinic    { id name }
       room      { id roomNumber }
@@ -224,6 +227,7 @@ const defaultForm = {
   mode: 'slot',
   capacity: '',
   overbook_allowance: 0,
+  walkin_ratio: '',
 }
 
 // ─── Component ────────────────────────────────────────────────────────────────
@@ -291,6 +295,7 @@ export default function ManagerAvailability() {
       mode:             avail.mode || 'slot',
       capacity:         avail.capacity ?? '',
       overbook_allowance: avail.overbookAllowance ?? 0,
+      walkin_ratio:     avail.walkinRatio ?? '',
     })
     setShowForm(true)
     setFormError(null)
@@ -365,6 +370,9 @@ export default function ManagerAvailability() {
       mode:             form.mode,
       capacity:         form.mode !== 'slot' ? parseInt(form.capacity, 10) : null,
       overbook_allowance: form.mode !== 'slot' ? (parseInt(form.overbook_allowance, 10) || 0) : 0,
+      // REQ119 — only meaningful in hybrid mode; the backend's own
+      // queueBoard() ordering only reorders when this is a positive int.
+      walkin_ratio:     form.mode === 'hybrid' && form.walkin_ratio ? parseInt(form.walkin_ratio, 10) : null,
     }
     try {
       if (editingId) {
@@ -491,10 +499,12 @@ export default function ManagerAvailability() {
                         helperText="Extra bookings allowed past capacity" />
                     </Grid>
                     {form.mode === 'hybrid' && (
-                      <Grid item xs={12}>
-                        <Alert severity="info" sx={{ py: 0.5 }}>
-                          Walk-in interleaving for hybrid mode is not built yet — this window will behave like a session for now.
-                        </Alert>
+                      <Grid item xs={6} sm={3}>
+                        <TextField fullWidth size="small" type="number" label="Booked:walk-in ratio"
+                          inputProps={{ min: 1 }}
+                          value={form.walkin_ratio}
+                          onChange={e => setField('walkin_ratio', e.target.value)}
+                          helperText="e.g. 3 = 3 booked, then 1 walk-in slot" />
                       </Grid>
                     )}
                   </>

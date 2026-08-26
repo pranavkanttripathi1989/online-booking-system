@@ -29,6 +29,7 @@ export class AvailabilityService {
       mode: a.mode,
       capacity: a.capacity ?? undefined,
       overbookAllowance: a.overbook_allowance,
+      walkinRatio: a.walkin_ratio ?? undefined,
       clinician: { id: a.clinician.id, firstName: a.clinician.first_name, lastName: a.clinician.last_name },
       clinic: { id: a.clinic.id, name: a.clinic.name },
       room: a.room ? { id: a.room.id, roomNumber: a.room.room_number } : undefined,

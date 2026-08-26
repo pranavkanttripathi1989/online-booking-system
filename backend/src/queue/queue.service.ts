@@ -7,6 +7,7 @@ import { orgScopeVia, isSameOrg } from '../common/scoping/tenant-scope';
 import { SkipQueueEntryInput, TransferQueueEntryInput } from './dto/queue.input';
 import { ChecklistService } from '../checklist/checklist.service';
 import { NotificationTriggerService, DispatchPayload } from '../notifications/notification-trigger.service';
+import { interleaveByRatio } from '../common/scheduling/interleave-walkins';
 
 export const QUEUE_UPDATED_EVENT = 'queueUpdated';
 
@@ -68,6 +69,29 @@ export class QueueService {
       throw new NotFoundException('Clinician not found');
     }
     return clinician;
+  }
+
+  // REQ119 (REQ017 US-CAL-04 / REQ019 FR-QUE-02) — classifies each waiting
+  // entry as booked-in-advance vs. walk-in, then hands both groups to the
+  // shared interleaveByRatio() (common/scheduling/interleave-walkins.ts) —
+  // this method only owns the classification, not the merge order.
+  //
+  // No `is_walk_in` flag exists anywhere in this schema (confirmed by grep
+  // before building this). The heuristic used — an appointment created on
+  // the same calendar day it's scheduled for is treated as a walk-in — is
+  // a deliberate, honestly-documented simplification, not a guessed
+  // certainty: see context/open-questions.md #17 for the false-positive
+  // case (a patient who books online same-morning for a same-day slot)
+  // and what a real flag would need.
+  private applyWalkInInterleaving(entries: any[], ratio: number) {
+    const sameCalendarDay = (a: Date, b: Date) => a.toISOString().slice(0, 10) === b.toISOString().slice(0, 10);
+    const booked: any[] = [];
+    const walkIns: any[] = [];
+    for (const e of entries) {
+      const isWalkIn = sameCalendarDay(e.appointment.created_at, e.appointment.appointment_time);
+      (isWalkIn ? walkIns : booked).push(e);
+    }
+    return interleaveByRatio(booked, walkIns, ratio);
   }
 
   // REQ118 (US-QUE-06) — dispatches to every currently-'waiting' patient's
@@ -161,23 +185,41 @@ export class QueueService {
     windowStart.setDate(windowStart.getDate() - ETA_WINDOW_DAYS);
     windowStart.setHours(0, 0, 0, 0);
 
-    const [nowServing, waiting, doneInWindow] = await Promise.all([
+    const [nowServing, allWaiting, hybridWindow, doneInWindow] = await Promise.all([
       this.prisma.queueEntries.findFirst({
         where: { clinician_id: clinicianId, status: { in: ['called', 'in_progress'] } },
         include: INCLUDE,
         orderBy: { called_at: 'asc' },
       }),
+      // REQ119 -- fetched in full (no `take`) so hybrid-mode interleaving
+      // can reorder across the whole waiting list before the display-only
+      // top-5 slice below; slot/session mode (the overwhelming majority)
+      // keeps its pre-existing token_no/checked_in_at order untouched.
       this.prisma.queueEntries.findMany({
         where: { clinician_id: clinicianId, status: 'waiting' },
         include: INCLUDE,
         orderBy: [{ token_no: 'asc' }, { checked_in_at: 'asc' }],
-        take: 5,
+      }),
+      this.prisma.clinicianAvailability.findFirst({
+        where: {
+          clinician_id: clinicianId,
+          is_deleted: false,
+          is_active: true,
+          mode: 'hybrid',
+          walkin_ratio: { not: null },
+          OR: [{ day_of_week: new Date().getUTCDay() }, { recurrence_type: 'daily' }],
+        },
       }),
       this.prisma.queueEntries.findMany({
         where: { clinician_id: clinicianId, status: 'done', called_at: { not: null }, checked_in_at: { gte: windowStart } },
         select: { checked_in_at: true, called_at: true },
       }),
     ]);
+
+    const orderedWaiting = hybridWindow?.walkin_ratio
+      ? this.applyWalkInInterleaving(allWaiting, hybridWindow.walkin_ratio)
+      : allWaiting;
+    const waiting = orderedWaiting.slice(0, 5);
 
     const waitMinutes = (e: { checked_in_at: Date; called_at: Date | null }) =>
       e.called_at ? (e.called_at.getTime() - e.checked_in_at.getTime()) / 60000 : null;

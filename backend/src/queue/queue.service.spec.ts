@@ -50,6 +50,9 @@ describe('QueueService', () => {
       clinics: { findUnique: jest.fn() },
       appointments: { findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
       userProfiles: { findFirst: jest.fn() },
+      // Defaults to null (no hybrid window) so every pre-existing test's
+      // waiting-list order is untouched by REQ119's interleaving.
+      clinicianAvailability: { findFirst: jest.fn().mockResolvedValue(null) },
       $transaction: jest.fn((cb) => cb(prisma)),
     };
     pubSub = { publish: jest.fn() };
@@ -124,6 +127,54 @@ describe('QueueService', () => {
       prisma.queueEntries.findMany.mockResolvedValueOnce([]).mockResolvedValueOnce([]);
       const board = await service.queueBoard('cln-a', staffA);
       expect(board.predicted_wait_minutes).toBeUndefined();
+    });
+  });
+
+  // REQ119 (REQ017 US-CAL-04 / REQ019 FR-QUE-02)
+  describe('queueBoard — hybrid-mode walk-in interleaving', () => {
+    it('interleaves walk-ins among booked entries at the configured ratio when a hybrid window applies', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(null);
+      prisma.clinicianAvailability.findFirst.mockResolvedValue({ mode: 'hybrid', walkin_ratio: 2 });
+
+      // Booked-in-advance: created days before the appointment's own date.
+      const bookedAppt = { patient, created_at: new Date('2026-08-20T08:00:00Z'), appointment_time: new Date('2026-08-24T09:00:00Z') };
+      // Walk-in: created the same calendar day as the appointment itself.
+      const walkinAppt = { patient, created_at: new Date('2026-08-24T08:55:00Z'), appointment_time: new Date('2026-08-24T09:00:00Z') };
+
+      prisma.queueEntries.findMany
+        .mockResolvedValueOnce([
+          entry({ id: 'b1', appointment: bookedAppt }),
+          entry({ id: 'b2', appointment: bookedAppt }),
+          entry({ id: 'w1', appointment: walkinAppt }),
+          entry({ id: 'b3', appointment: bookedAppt }),
+        ]) // waiting
+        .mockResolvedValueOnce([]); // doneInWindow
+
+      const board = await service.queueBoard('cln-a', staffA);
+      expect(board.waiting.map((e) => e.id)).toEqual(['b1', 'b2', 'w1', 'b3']);
+    });
+
+    it('leaves the pre-existing token_no/checked_in_at order unchanged when no hybrid window applies', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(null);
+      prisma.clinicianAvailability.findFirst.mockResolvedValue(null);
+      prisma.queueEntries.findMany
+        .mockResolvedValueOnce([entry({ id: 'q-a' }), entry({ id: 'q-b' })])
+        .mockResolvedValueOnce([]);
+      const board = await service.queueBoard('cln-a', staffA);
+      expect(board.waiting.map((e) => e.id)).toEqual(['q-a', 'q-b']);
+    });
+
+    it('leaves order unchanged for a hybrid window with no walkin_ratio configured', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findFirst.mockResolvedValue(null);
+      prisma.clinicianAvailability.findFirst.mockResolvedValue({ mode: 'hybrid', walkin_ratio: null });
+      prisma.queueEntries.findMany
+        .mockResolvedValueOnce([entry({ id: 'q-a' }), entry({ id: 'q-b' })])
+        .mockResolvedValueOnce([]);
+      const board = await service.queueBoard('cln-a', staffA);
+      expect(board.waiting.map((e) => e.id)).toEqual(['q-a', 'q-b']);
     });
   });
 
