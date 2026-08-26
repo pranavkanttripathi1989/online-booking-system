@@ -43,6 +43,12 @@ const CALL_NEXT = gql`mutation CallNext($clinician_id: ID!) { callNextInQueue(cl
 const RECALL = gql`mutation Recall($id: ID!) { recallQueueEntry(id: $id) { id } }`
 const SKIP = gql`mutation Skip($input: SkipQueueEntryInput!) { skipQueueEntry(input: $input) { id } }`
 const TRANSFER = gql`mutation Transfer($input: TransferQueueEntryInput!) { transferQueueEntry(input: $input) { id } }`
+// REQ118 (US-QUE-06)
+const BROADCAST_DELAY = gql`
+  mutation BroadcastQueueDelay($clinician_id: ID!, $delay_minutes: Int!) {
+    broadcastQueueDelay(clinician_id: $clinician_id, delay_minutes: $delay_minutes) { waiting_count notified_count }
+  }
+`
 
 function waitMinutes(checkedInAt) {
   return Math.max(0, Math.round((Date.now() - new Date(checkedInAt).getTime()) / 60000))
@@ -60,6 +66,8 @@ function QueueBoardPage() {
   const [transferTarget, setTransferTarget] = useState(null)
   const [transferEntry, setTransferEntry] = useState(null)
   const [skipEntry, setSkipEntry] = useState(null)
+  const [delayDialogOpen, setDelayDialogOpen] = useState(false)
+  const [delayMinutes, setDelayMinutes] = useState('10')
 
   const { data: cliniciansData } = useQuery(CLINICIANS_QUERY, { variables: { first: 50 }, skip: isClinician })
   const clinicians = cliniciansData?.clinicians?.data ?? []
@@ -89,6 +97,7 @@ function QueueBoardPage() {
   const [recall] = useMutation(RECALL, { onCompleted: () => refetchBoard() })
   const [skip] = useMutation(SKIP, { onCompleted: () => refetchBoard() })
   const [transfer] = useMutation(TRANSFER, { onCompleted: () => refetchBoard() })
+  const [broadcastDelay, { loading: broadcasting }] = useMutation(BROADCAST_DELAY)
 
   const board = boardData?.queueBoard
   const unbilled = unbilledData?.unbilledVisits ?? []
@@ -122,20 +131,57 @@ function QueueBoardPage() {
       enqueueSnackbar(err?.graphQLErrors?.[0]?.message || 'Failed to transfer', { variant: 'error' })
     }
   }
+  const handleBroadcastDelay = async () => {
+    const minutes = parseInt(delayMinutes, 10)
+    if (!minutes || minutes <= 0) { enqueueSnackbar('Enter a positive number of minutes', { variant: 'warning' }); return }
+    try {
+      const { data } = await broadcastDelay({ variables: { clinician_id: clinicianId, delay_minutes: minutes } })
+      const { waiting_count, notified_count } = data.broadcastQueueDelay
+      enqueueSnackbar(`Notified ${notified_count} of ${waiting_count} waiting patient${waiting_count === 1 ? '' : 's'}.`, { variant: 'success' })
+      setDelayDialogOpen(false)
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || 'Failed to broadcast delay', { variant: 'error' })
+    }
+  }
 
   return (
     <Box p={{ xs: 1.5, md: 3 }}>
       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2} flexWrap="wrap" gap={1}>
         <Typography variant="h5" fontWeight={700}>Live Queue</Typography>
         {clinicianId && (
-          <Button
-            startIcon={<TvRoundedIcon />} variant="outlined"
-            onClick={() => navigate(`/queue/display/${clinicianId}`)}
-          >
-            TV Display
-          </Button>
+          <Stack direction="row" spacing={1}>
+            <Button variant="outlined" color="warning" onClick={() => setDelayDialogOpen(true)}>
+              Report Delay
+            </Button>
+            <Button
+              startIcon={<TvRoundedIcon />} variant="outlined"
+              onClick={() => navigate(`/queue/display/${clinicianId}`)}
+            >
+              TV Display
+            </Button>
+          </Stack>
         )}
       </Stack>
+
+      <Dialog open={delayDialogOpen} onClose={() => setDelayDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Report a Delay</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2, mt: 1 }}>
+            Every currently-waiting patient with a linked account will be notified.
+          </Typography>
+          <TextField
+            fullWidth type="number" label="Delay (minutes)" size="small"
+            value={delayMinutes} onChange={(e) => setDelayMinutes(e.target.value)}
+            inputProps={{ min: 1 }}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setDelayDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" color="warning" disabled={broadcasting} onClick={handleBroadcastDelay}>
+            {broadcasting ? 'Sending…' : 'Notify Waiting Patients'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {!isClinician && (
         <Autocomplete

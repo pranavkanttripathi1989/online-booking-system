@@ -37,6 +37,14 @@ export class QueueBoardType {
   @Field(() => Int, { nullable: true }) predicted_wait_minutes?: number;
 }
 
+// US-QUE-06 (REQ118) — result of notifying every currently-waiting
+// patient that this clinician is running behind schedule.
+@ObjectType('QueueDelayBroadcastResult')
+export class QueueDelayBroadcastResultType {
+  @Field(() => Int) waiting_count: number;
+  @Field(() => Int) notified_count: number;
+}
+
 // US-QUE-07: a completed appointment with no successful payment on record.
 @ObjectType('UnbilledVisit')
 export class UnbilledVisitType {

@@ -1,6 +1,6 @@
-import { Resolver, Query, Mutation, Subscription, Args, ID } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Subscription, Args, ID, Int } from '@nestjs/graphql';
 import { QueueService, QUEUE_UPDATED_EVENT } from './queue.service';
-import { QueueBoardType, QueueEntryType, UnbilledVisitType } from './entities/queue.entity';
+import { QueueBoardType, QueueEntryType, UnbilledVisitType, QueueDelayBroadcastResultType } from './entities/queue.entity';
 import { SkipQueueEntryInput, TransferQueueEntryInput } from './dto/queue.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -75,5 +75,16 @@ export class QueueResolver {
   @Mutation(() => QueueEntryType)
   transferQueueEntry(@Args('input') input: TransferQueueEntryInput, @CurrentUser() user: JwtPayload) {
     return this.queueService.transfer(input, user);
+  }
+
+  // REQ118 (US-QUE-06)
+  @Auth(...QUEUE_STAFF_ROLES)
+  @Mutation(() => QueueDelayBroadcastResultType)
+  broadcastQueueDelay(
+    @Args('clinician_id', { type: () => ID }) clinicianId: string,
+    @Args('delay_minutes', { type: () => Int }) delayMinutes: number,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.queueService.broadcastDelay(clinicianId, delayMinutes, user);
   }
 }

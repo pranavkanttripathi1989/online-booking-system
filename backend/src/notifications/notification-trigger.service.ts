@@ -46,6 +46,11 @@ const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; a
   // managers, same shape as break_glass_requested's own internal-ops
   // profile: app+email, no SMS/WhatsApp.
   low_stock_alert: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  // REQ118 (US-QUE-06) — a patient already sitting in the waiting room
+  // needs this on the channel most likely to reach them immediately, not
+  // email (which they won't check while waiting); no WhatsApp default
+  // since it's the least time-critical of the real-time channels here.
+  queue_delay: { email_enabled: false, sms_enabled: true, app_enabled: true, whatsapp_enabled: false },
 };
 
 // US-NOT-04's own acceptance criterion names "an imminent appointment

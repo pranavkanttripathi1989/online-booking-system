@@ -6,6 +6,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScopeVia, isSameOrg } from '../common/scoping/tenant-scope';
 import { SkipQueueEntryInput, TransferQueueEntryInput } from './dto/queue.input';
 import { ChecklistService } from '../checklist/checklist.service';
+import { NotificationTriggerService, DispatchPayload } from '../notifications/notification-trigger.service';
 
 export const QUEUE_UPDATED_EVENT = 'queueUpdated';
 
@@ -40,6 +41,7 @@ export class QueueService {
     private readonly prisma: PrismaService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
     private readonly checklistService: ChecklistService,
+    private readonly notificationTrigger: NotificationTriggerService,
   ) {}
 
   private orgScope(user: JwtPayload) {
@@ -52,6 +54,56 @@ export class QueueService {
   private selfScope(user: JwtPayload) {
     if (user.roles.includes('clinician')) return { clinician_id: user.clinician_id ?? '__no_clinician_link__' };
     return {};
+  }
+
+  // Shared by queueBoard() and broadcastDelay() (REQ117/REQ118) -- both
+  // need "does this clinician exist, is it in the caller's org, and if
+  // the caller is a clinician are they viewing their own queue" resolved
+  // identically before touching any QueueEntries.
+  private async assertClinicianAccess(clinicianId: string, user: JwtPayload) {
+    const clinician = await this.prisma.clinicians.findUnique({ where: { id: clinicianId }, include: { clinic: true } });
+    if (!clinician) throw new NotFoundException('Clinician not found');
+    if (!isSameOrg(user, clinician.clinic.client_org_id)) throw new NotFoundException('Clinician not found');
+    if (user.roles.includes('clinician') && clinicianId !== (user.clinician_id ?? '__no_clinician_link__')) {
+      throw new NotFoundException('Clinician not found');
+    }
+    return clinician;
+  }
+
+  // REQ118 (US-QUE-06) — dispatches to every currently-'waiting' patient's
+  // linked login account, if any (same "unlinked account is skipped
+  // silently, not an error" convention as appointments.service.ts's own
+  // notifyLinkedProfile). Never touches 'called'/'in_progress'/'done'
+  // entries -- only patients still actually waiting need the notice.
+  private async notifyPatientAccount(patientId: string, eventType: string, payload: DispatchPayload): Promise<boolean> {
+    const profile = await this.prisma.userProfiles.findFirst({ where: { patient_id: patientId, is_deleted: false } });
+    if (!profile) return false;
+    await this.notificationTrigger.dispatch(profile.id, eventType, payload);
+    return true;
+  }
+
+  async broadcastDelay(clinicianId: string, delayMinutes: number, user: JwtPayload) {
+    if (!Number.isInteger(delayMinutes) || delayMinutes <= 0) {
+      throw new BadRequestException('delay_minutes must be a positive integer');
+    }
+    const clinician = await this.assertClinicianAccess(clinicianId, user);
+    const waitingEntries = await this.prisma.queueEntries.findMany({
+      where: { clinician_id: clinicianId, status: 'waiting' },
+      include: { appointment: true },
+    });
+
+    let notifiedCount = 0;
+    for (const entry of waitingEntries) {
+      const notified = await this.notifyPatientAccount(entry.appointment.patient_id, 'queue_delay', {
+        title: 'Running behind schedule',
+        message: `${clinician.first_name} ${clinician.last_name} is running approximately ${delayMinutes} minutes behind schedule. Thanks for your patience.`,
+        type: 'appointment',
+        priority: 'medium',
+      });
+      if (notified) notifiedCount += 1;
+    }
+
+    return { waiting_count: waitingEntries.length, notified_count: notifiedCount };
   }
 
   private toGraphQL(entry: any) {
@@ -101,12 +153,7 @@ export class QueueService {
   // the rolling median is the smoother, more predictive figure for a
   // patient who just checked in.
   async queueBoard(clinicianId: string, user: JwtPayload) {
-    const clinician = await this.prisma.clinicians.findUnique({ where: { id: clinicianId }, include: { clinic: true } });
-    if (!clinician) throw new NotFoundException('Clinician not found');
-    if (!isSameOrg(user, clinician.clinic.client_org_id)) throw new NotFoundException('Clinician not found');
-    if (user.roles.includes('clinician') && clinicianId !== (user.clinician_id ?? '__no_clinician_link__')) {
-      throw new NotFoundException('Clinician not found');
-    }
+    const clinician = await this.assertClinicianAccess(clinicianId, user);
 
     const todayStart = new Date();
     todayStart.setHours(0, 0, 0, 0);

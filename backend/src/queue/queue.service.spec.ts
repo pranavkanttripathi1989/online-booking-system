@@ -5,6 +5,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { ChecklistService } from '../checklist/checklist.service';
+import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 
 // REQ019 P0. QueueEntries has no client_org_id of its own — org isolation
 // is asserted via clinic.client_org_id (isSameOrg/orgScopeVia), mirroring
@@ -15,6 +16,7 @@ describe('QueueService', () => {
   let prisma: any;
   let pubSub: { publish: jest.Mock };
   let checklistService: { getIncompleteRequiredItems: jest.Mock };
+  let notificationTrigger: { dispatch: jest.Mock };
 
   const staffA: JwtPayload = { sub: 'staff-a', roles: ['manager'], client_org_id: 'org-a' } as JwtPayload;
   const staffB: JwtPayload = { sub: 'staff-b', roles: ['manager'], client_org_id: 'org-b' } as JwtPayload;
@@ -47,16 +49,19 @@ describe('QueueService', () => {
       clinicians: { findUnique: jest.fn() },
       clinics: { findUnique: jest.fn() },
       appointments: { findMany: jest.fn().mockResolvedValue([]), update: jest.fn() },
+      userProfiles: { findFirst: jest.fn() },
       $transaction: jest.fn((cb) => cb(prisma)),
     };
     pubSub = { publish: jest.fn() };
     checklistService = { getIncompleteRequiredItems: jest.fn().mockResolvedValue([]) };
+    notificationTrigger = { dispatch: jest.fn().mockResolvedValue(undefined) };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         QueueService,
         { provide: PrismaService, useValue: prisma },
         { provide: PUB_SUB, useValue: pubSub },
         { provide: ChecklistService, useValue: checklistService },
+        { provide: NotificationTriggerService, useValue: notificationTrigger },
       ],
     }).compile();
     service = module.get(QueueService);
@@ -275,6 +280,47 @@ describe('QueueService', () => {
       expect(prisma.appointments.update).toHaveBeenCalledWith({ where: { id: 'appt-1' }, data: { clinician_id: 'cln-y' } });
       expect(prisma.queueEntries.update).toHaveBeenCalledWith(expect.objectContaining({
         data: { clinician_id: 'cln-y', status: 'waiting', called_at: null, token_no: null },
+      }));
+    });
+  });
+
+  // REQ118 (US-QUE-06)
+  describe('broadcastDelay', () => {
+    it('rejects a non-positive delay', async () => {
+      await expect(service.broadcastDelay('cln-a', 0, staffA)).rejects.toThrow(BadRequestException);
+      await expect(service.broadcastDelay('cln-a', -5, staffA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects a cross-org caller', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      await expect(service.broadcastDelay('cln-a', 10, staffB)).rejects.toThrow(NotFoundException);
+    });
+
+    it('notifies only the linked accounts among currently-waiting patients, skipping unlinked ones honestly', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findMany.mockResolvedValue([
+        entry({ id: 'q-1', appointment: { patient_id: 'pat-1' } }),
+        entry({ id: 'q-2', appointment: { patient_id: 'pat-2' } }),
+      ]);
+      prisma.userProfiles.findFirst
+        .mockResolvedValueOnce({ id: 'user-1' }) // pat-1 has a linked login
+        .mockResolvedValueOnce(null); // pat-2 does not
+
+      const result = await service.broadcastDelay('cln-a', 15, staffA);
+
+      expect(result).toEqual({ waiting_count: 2, notified_count: 1 });
+      expect(notificationTrigger.dispatch).toHaveBeenCalledTimes(1);
+      expect(notificationTrigger.dispatch).toHaveBeenCalledWith('user-1', 'queue_delay', expect.objectContaining({
+        message: expect.stringContaining('15 minutes'),
+      }));
+    });
+
+    it('only considers entries still waiting, never called/in_progress/done', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue(clinicianRow);
+      prisma.queueEntries.findMany.mockResolvedValue([]);
+      await service.broadcastDelay('cln-a', 10, staffA);
+      expect(prisma.queueEntries.findMany).toHaveBeenCalledWith(expect.objectContaining({
+        where: expect.objectContaining({ clinician_id: 'cln-a', status: 'waiting' }),
       }));
     });
   });
