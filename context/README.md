@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| test-coverage-audit-2026-08-26-req142 | test-coverage-audit | 2026-08-26 | REQ142, PLAN182, TP202, TR202 | done | [manifest.md](./test-coverage-audit-2026-08-26-req142/manifest.md) |
 | test-coverage-audit-2026-08-26-req141 | test-coverage-audit | 2026-08-26 | REQ141, PLAN181, TP201, TR201 | done | [manifest.md](./test-coverage-audit-2026-08-26-req141/manifest.md) |
 | organizations-2026-08-26-req140 | organizations | 2026-08-26 | REQ140, PLAN180, TP200, TR200 | done | [manifest.md](./organizations-2026-08-26-req140/manifest.md) |
 | organization-branding-2026-08-26-req139 | organization-branding | 2026-08-26 | REQ139, PLAN179, TP199, TR199 | done | [manifest.md](./organization-branding-2026-08-26-req139/manifest.md) |
