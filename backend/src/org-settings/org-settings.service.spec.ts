@@ -109,6 +109,45 @@ describe('OrgSettingsService', () => {
       expect(result.success).toBe(false);
       expect(result.userErrors[0].message).toBe('db exploded');
     });
+
+    // P1-01/REQ144
+    describe('whatsapp_monthly_cap_rupees', () => {
+      it('converts rupees to paise when setting a cap', async () => {
+        prisma.clientOrganizations.update.mockResolvedValue(orgRow({ whatsapp_monthly_cap_paise: 500000 }));
+        await service.updateMyCommunicationSettings({ whatsapp_monthly_cap_rupees: 5000 } as any, orgUser);
+        expect(prisma.clientOrganizations.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ whatsapp_monthly_cap_paise: 500000 }) }),
+        );
+      });
+
+      it('leaves the stored cap untouched when the field is omitted', async () => {
+        prisma.clientOrganizations.update.mockResolvedValue(orgRow());
+        await service.updateMyCommunicationSettings({ email_from_name: 'X' } as any, orgUser);
+        expect(prisma.clientOrganizations.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ whatsapp_monthly_cap_paise: undefined }) }),
+        );
+      });
+
+      it('clears the cap on an explicit null, back to "no cap configured"', async () => {
+        prisma.clientOrganizations.update.mockResolvedValue(orgRow({ whatsapp_monthly_cap_paise: null }));
+        await service.updateMyCommunicationSettings({ whatsapp_monthly_cap_rupees: null } as any, orgUser);
+        expect(prisma.clientOrganizations.update).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ whatsapp_monthly_cap_paise: null }) }),
+        );
+      });
+
+      it('reads the stored cap back converted to rupees', async () => {
+        prisma.clientOrganizations.findUnique.mockResolvedValue(orgRow({ whatsapp_monthly_cap_paise: 500000 }));
+        const result = await service.myCommunicationSettings(orgUser);
+        expect(result?.whatsapp_monthly_cap_rupees).toBe(5000);
+      });
+
+      it('reports no cap as undefined, not zero, when none is configured', async () => {
+        prisma.clientOrganizations.findUnique.mockResolvedValue(orgRow({ whatsapp_monthly_cap_paise: null }));
+        const result = await service.myCommunicationSettings(orgUser);
+        expect(result?.whatsapp_monthly_cap_rupees).toBeUndefined();
+      });
+    });
   });
 
   // REQ012/PLAN021 — admin/Policies.jsx "Security & Privacy" tab

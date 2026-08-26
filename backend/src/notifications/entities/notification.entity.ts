@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 
 // Registered 'Notification' — formalizes notifications/index.jsx's already-
 // live inline contract exactly, including its {success}-only mutation
@@ -54,4 +54,25 @@ export class NotificationDeliveryStatType {
   @Field() channel: string;
   @Field() status: string;
   @Field(() => Int) count: number;
+}
+
+// P1-01/REQ144 — WhatsApp conversation spend for the current IST billing
+// month. costRupees is converted from the service's internal
+// cost_micro_rupees at this resolver boundary (Hard Rule 9's "money
+// converted to rupees only at the resolver boundary" — the internal
+// micro-rupee scale exists only because Meta's real per-message rates are
+// sub-paise; nothing past this boundary should ever see that unit).
+@ObjectType('WhatsappCategorySpend')
+export class WhatsappCategorySpendType {
+  @Field() category: string;
+  @Field(() => Int) count: number;
+  @Field(() => Float) costRupees: number;
+}
+
+@ObjectType('WhatsappConversationSpend')
+export class WhatsappConversationSpendType {
+  @Field() periodStart: Date;
+  @Field() periodEnd: Date;
+  @Field(() => [WhatsappCategorySpendType]) byCategory: WhatsappCategorySpendType[];
+  @Field(() => Float) totalCostRupees: number;
 }

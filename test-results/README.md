@@ -22,7 +22,7 @@
 | public | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [public](./public/README.md) |
 | communications-policies | 2 | 2 | 0 | 4 | 0 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 2 | 0 | 0 | 1 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
-| notifications | 3 | 1 | 0 | 1 | 3 | 2026-08-25 | [notifications](./notifications/README.md) |
+| notifications | 3 | 2 | 0 | 1 | 4 | 2026-08-27 | [notifications](./notifications/README.md) |
 | organization-branding | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 1 | 0 | 2026-08-21 | [products](./products/README.md) |
 | security | 3 | 3 | 2 | 1 | 7 | 2026-08-26 | [security](./security/README.md) |

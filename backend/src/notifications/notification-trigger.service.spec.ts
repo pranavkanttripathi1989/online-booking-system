@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotificationTriggerService } from './notification-trigger.service';
+import { NotificationTriggerService, resolveTemplateCategory } from './notification-trigger.service';
 import { NotificationsService } from './notifications.service';
 import { NotificationProviderConfigService } from './notification-provider-config.service';
 import { PrismaService } from '../prisma/prisma.service';
@@ -308,8 +308,20 @@ describe('NotificationTriggerService', () => {
 
       await service.dispatch('user-1', 'new_appointment', payload);
 
+      // P1-01/REQ144 — SMS is not Meta-billed under this model, so a
+      // 'failed' SMS row (like every SMS row) carries no category/cost.
       expect(prisma.notificationSendLog.create).toHaveBeenCalledWith({
-        data: { user_id: 'user-1', event_type: 'new_appointment', channel: 'sms', status: 'failed', error_message: 'bad authkey', client_org_id: 'org-a' },
+        data: {
+          user_id: 'user-1',
+          event_type: 'new_appointment',
+          channel: 'sms',
+          status: 'failed',
+          error_message: 'bad authkey',
+          client_org_id: 'org-a',
+          template_category: null,
+          billable: false,
+          cost_micro_rupees: null,
+        },
       });
     });
 
@@ -322,8 +334,80 @@ describe('NotificationTriggerService', () => {
       await service.dispatch('user-1', 'new_appointment', payload);
 
       expect(prisma.notificationSendLog.create).toHaveBeenCalledWith({
-        data: { user_id: 'user-1', event_type: 'new_appointment', channel: 'sms', status: 'sent', error_message: undefined, client_org_id: 'org-a' },
+        data: {
+          user_id: 'user-1',
+          event_type: 'new_appointment',
+          channel: 'sms',
+          status: 'sent',
+          error_message: undefined,
+          client_org_id: 'org-a',
+          template_category: null,
+          billable: false,
+          cost_micro_rupees: null,
+        },
       });
+    });
+  });
+
+  // P1-01/REQ144
+  describe('WhatsApp template-category routing + conversation metering', () => {
+    it('logs a sent WhatsApp reminder as billable, category utility, at the utility rate', async () => {
+      const whatsappSend = jest.fn().mockResolvedValue({ sent: true });
+      prisma.notificationPreferences.findUnique.mockResolvedValue({ app_enabled: false, sms_enabled: false, whatsapp_enabled: true, email_enabled: false });
+      prisma.userProfiles.findUnique.mockResolvedValue({ phone: '+919810000000', client_org_id: 'org-a' });
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue({ provider: { id: 'gupshup_whatsapp', send: whatsappSend }, credentials: {} });
+
+      await service.dispatch('user-1', 'appointment_reminder', payload);
+
+      expect(prisma.notificationSendLog.create).toHaveBeenCalledWith({
+        data: {
+          user_id: 'user-1',
+          event_type: 'appointment_reminder',
+          channel: 'whatsapp',
+          status: 'sent',
+          error_message: undefined,
+          client_org_id: 'org-a',
+          template_category: 'utility',
+          billable: true,
+          cost_micro_rupees: 115000,
+        },
+      });
+    });
+
+    it('logs a sent WhatsApp new_review nudge as category marketing, at the marketing rate — 7.5x utility', async () => {
+      const whatsappSend = jest.fn().mockResolvedValue({ sent: true });
+      prisma.notificationPreferences.findUnique.mockResolvedValue({ app_enabled: false, sms_enabled: false, whatsapp_enabled: true, email_enabled: false });
+      prisma.userProfiles.findUnique.mockResolvedValue({ phone: '+919810000000', client_org_id: 'org-a' });
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue({ provider: { id: 'gupshup_whatsapp', send: whatsappSend }, credentials: {} });
+
+      await service.dispatch('user-1', 'new_review', payload);
+
+      const call = prisma.notificationSendLog.create.mock.calls[0][0];
+      expect(call.data.template_category).toBe('marketing');
+      expect(call.data.cost_micro_rupees).toBe(863100); // ~7.5x utility's 115000, not an exact multiple (PRD-v2's own rounded "7.5x" is approximate)
+    });
+
+    it('a failed WhatsApp send is logged as not billable, with no cost — Meta never opened the conversation', async () => {
+      const whatsappSend = jest.fn().mockResolvedValue({ sent: false, error: 'template not approved' });
+      prisma.notificationPreferences.findUnique.mockResolvedValue({ app_enabled: false, sms_enabled: false, whatsapp_enabled: true, email_enabled: false });
+      prisma.userProfiles.findUnique.mockResolvedValue({ phone: '+919810000000', client_org_id: 'org-a' });
+      providerConfigService.getActiveConfigForOrg.mockResolvedValue({ provider: { id: 'gupshup_whatsapp', send: whatsappSend }, credentials: {} });
+
+      await service.dispatch('user-1', 'appointment_reminder', payload);
+
+      const call = prisma.notificationSendLog.create.mock.calls[0][0];
+      expect(call.data.status).toBe('failed');
+      expect(call.data.billable).toBe(false);
+      expect(call.data.cost_micro_rupees).toBeNull();
+    });
+
+    it('resolveTemplateCategory pins every transactional event away from marketing, and an unmapped event fails toward the expensive category, never toward free', () => {
+      expect(resolveTemplateCategory('appointment_reminder')).toBe('utility');
+      expect(resolveTemplateCategory('payment_received')).toBe('utility');
+      ['new_appointment', 'appointment_reminder', 'appointment_cancelled', 'payment_received', 'queue_delay'].forEach((eventType) => {
+        expect(resolveTemplateCategory(eventType)).not.toBe('marketing');
+      });
+      expect(resolveTemplateCategory('totally_unmapped_event')).toBe('marketing');
     });
   });
 });

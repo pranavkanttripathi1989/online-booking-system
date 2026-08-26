@@ -4,6 +4,7 @@ import { NotificationsResolver } from './notifications.resolver';
 import { NotificationProviderConfigService } from './notification-provider-config.service';
 import { NotificationProviderConfigResolver } from './notification-provider-config.resolver';
 import { NotificationTriggerService } from './notification-trigger.service';
+import { NotificationBillingService } from './notification-billing.service';
 
 // @Global() so AppointmentsModule/MessagesModule/AppointmentPaymentsModule
 // can inject NotificationTriggerService without each declaring an explicit
@@ -18,6 +19,7 @@ import { NotificationTriggerService } from './notification-trigger.service';
     NotificationProviderConfigService,
     NotificationProviderConfigResolver,
     NotificationTriggerService,
+    NotificationBillingService,
   ],
   // REQ109 — prescriptions.service.ts needs direct provider-config access
   // (WhatsApp + SMS separately, its own two-channel design) rather than

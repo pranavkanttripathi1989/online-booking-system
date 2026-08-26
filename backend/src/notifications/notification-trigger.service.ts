@@ -66,6 +66,58 @@ const QUIET_HOURS_BYPASS_EVENTS = ['appointment_reminder'];
 // "no more than N messages to one recipient per day" wording.
 const MAX_EXTERNAL_SENDS_PER_DAY = 10;
 
+// P1-01/REQ144 — Meta's WhatsApp Business API bills per conversation
+// category, not per notification event type, and from 1 Oct 2026 a
+// utility/service conversation inside the 24h window stops being free
+// (PRD-v2-CareOS.md's own pricing table, live-verified 2026-08-27):
+// utility ₹0.1150, authentication ₹0.1150, marketing ₹0.8631 — 7.5x
+// utility. TEMPLATE_CATEGORY pins one category per event type; it is never
+// caller-supplied, so a transactional send can't drift into the 7.5x tier
+// even if a future call site tried to pass one explicitly.
+type TemplateCategory = 'utility' | 'marketing' | 'authentication';
+
+const TEMPLATE_CATEGORY: Record<string, TemplateCategory> = {
+  new_appointment: 'utility',
+  appointment_reminder: 'utility',
+  appointment_cancelled: 'utility',
+  new_message: 'utility',
+  new_review: 'marketing', // the one deliberately marketing-classified event: a post-visit review nudge, not a transactional receipt
+  payment_received: 'utility',
+  system_announcement: 'marketing',
+  break_glass_requested: 'utility', // internal ops alert; DEFAULTS never enables whatsapp for it today, but the category is still pinned correctly for if that changes
+  low_stock_alert: 'utility',
+  queue_delay: 'utility',
+};
+
+// Every event type here carries real transactional content (a specific
+// appointment, a specific payment, a specific queue position) — none of
+// these may ever resolve to 'marketing', at any cost or under any future
+// edit to TEMPLATE_CATEGORY above. resolveTemplateCategory() asserts this
+// at runtime rather than trusting the map to stay correct by inspection.
+const TRANSACTIONAL_EVENTS = ['new_appointment', 'appointment_reminder', 'appointment_cancelled', 'payment_received', 'queue_delay'];
+
+// Meta's real per-message rates are sub-paise (₹0.1150 = 11.50 paise), so
+// this codebase's usual "money as Int paise" convention (CLAUDE.md Hard
+// Rule 9) has no precision to hold them. Rates are in micro-rupees
+// (1 rupee = 1,000,000) instead — the smallest scaled-integer unit that
+// makes both ₹0.1150 and ₹0.8631 exact integers.
+const CATEGORY_RATE_MICRO_RUPEES: Record<TemplateCategory, number> = {
+  utility: 115000,
+  authentication: 115000,
+  marketing: 863100,
+};
+
+export function resolveTemplateCategory(eventType: string): TemplateCategory {
+  const category = TEMPLATE_CATEGORY[eventType] ?? 'marketing'; // fail toward the expensive/conservative category for an unmapped event, never toward "free"
+  if (category === 'marketing' && TRANSACTIONAL_EVENTS.includes(eventType)) {
+    // Defensive: this can only happen if TEMPLATE_CATEGORY itself is edited
+    // incorrectly in the future. Refuse outright rather than send a
+    // transactional message at the marketing rate.
+    throw new Error(`refusing to classify transactional event '${eventType}' as 'marketing' — check TEMPLATE_CATEGORY`);
+  }
+  return category;
+}
+
 // No per-user timezone is stored anywhere in this schema yet (REQ025 non-
 // functional notes; project-plans' own zone-less-timestamp note on
 // appointment_date/appointment_time is the same pre-existing
@@ -131,9 +183,34 @@ export class NotificationTriggerService {
   // successful ones, so delivery analytics has real failures to show.
   // client_org_id is denormalized from the recipient at write time (see
   // schema.prisma's own comment on this column).
-  private async logSendAttempt(userId: string, eventType: string, channel: string, status: 'sent' | 'failed', errorMessage: string | undefined, clientOrgId: string | null) {
+  //
+  // P1-01/REQ144 — a failed send never opened a billable WhatsApp
+  // conversation with Meta, so billable/cost are only ever set on a
+  // 'sent' whatsapp row; a 'failed' row always logs billable=false,
+  // cost=null, matching how underDailyFrequencyCap() already excludes
+  // failed rows from spend by only counting status:'sent'.
+  private async logSendAttempt(
+    userId: string,
+    eventType: string,
+    channel: string,
+    status: 'sent' | 'failed',
+    errorMessage: string | undefined,
+    clientOrgId: string | null,
+  ) {
+    const billable = channel === 'whatsapp' && status === 'sent';
+    const templateCategory = channel === 'whatsapp' ? resolveTemplateCategory(eventType) : null;
     await this.prisma.notificationSendLog.create({
-      data: { user_id: userId, event_type: eventType, channel, status, error_message: errorMessage, client_org_id: clientOrgId },
+      data: {
+        user_id: userId,
+        event_type: eventType,
+        channel,
+        status,
+        error_message: errorMessage,
+        client_org_id: clientOrgId,
+        template_category: templateCategory,
+        billable,
+        cost_micro_rupees: billable ? CATEGORY_RATE_MICRO_RUPEES[templateCategory as TemplateCategory] : null,
+      },
     });
   }
 

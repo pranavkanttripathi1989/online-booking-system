@@ -1,13 +1,23 @@
 import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { NotificationsService } from './notifications.service';
-import { NotificationType, NotificationMutationResultType, NotificationDeliveryStatType, NotificationPaginatedType } from './entities/notification.entity';
+import { NotificationBillingService } from './notification-billing.service';
+import {
+  NotificationType,
+  NotificationMutationResultType,
+  NotificationDeliveryStatType,
+  NotificationPaginatedType,
+  WhatsappConversationSpendType,
+} from './entities/notification.entity';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 @Resolver(() => NotificationType)
 export class NotificationsResolver {
-  constructor(private readonly notificationsService: NotificationsService) {}
+  constructor(
+    private readonly notificationsService: NotificationsService,
+    private readonly billingService: NotificationBillingService,
+  ) {}
 
   // REQ134 (F-14 residue) — first defaults to 200 (matching
   // clampTakeMiddleware's own DEFAULT_MAX_TAKE), keeping today's
@@ -49,5 +59,22 @@ export class NotificationsResolver {
   @Query(() => [NotificationDeliveryStatType])
   notificationDeliveryAnalytics(@CurrentUser() user: JwtPayload) {
     return this.notificationsService.deliveryAnalytics(user);
+  }
+
+  // P1-01/REQ144 — same gate as notificationDeliveryAnalytics above: this is
+  // an org-operations view (spend/cap), not a patient- or clinician-facing
+  // one. orgId is honoured only for a platform operator (see
+  // NotificationBillingService.getConversationSpend's own scope guard) —
+  // an org-scoped caller is always scoped to their own org regardless of it.
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => WhatsappConversationSpendType)
+  async whatsappConversationSpend(@CurrentUser() user: JwtPayload, @Args('orgId', { nullable: true }) orgId?: string) {
+    const spend = await this.billingService.getConversationSpend(user, orgId);
+    return {
+      periodStart: spend.periodStart,
+      periodEnd: spend.periodEnd,
+      byCategory: spend.byCategory.map((c) => ({ category: c.category, count: c.count, costRupees: c.costMicroRupees / 1_000_000 })),
+      totalCostRupees: spend.totalCostMicroRupees / 1_000_000,
+    };
   }
 }

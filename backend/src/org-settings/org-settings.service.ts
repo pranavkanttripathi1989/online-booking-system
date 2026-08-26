@@ -25,6 +25,8 @@ export class OrgSettingsService {
       email_from_address: row.email_from_address ?? undefined,
       email_reply_to: row.email_reply_to ?? undefined,
       email_include_branding: row.email_include_branding,
+      // P1-01/REQ144
+      whatsapp_monthly_cap_rupees: row.whatsapp_monthly_cap_paise != null ? PAISE_TO_RUPEES(row.whatsapp_monthly_cap_paise) : undefined,
     };
   }
 
@@ -78,6 +80,15 @@ export class OrgSettingsService {
           email_from_address: input.email_from_address,
           email_reply_to: input.email_reply_to,
           email_include_branding: input.email_include_branding,
+          // P1-01/REQ144 — undefined leaves the stored cap untouched, null
+          // clears it, a number sets it. RUPEES_TO_PAISE is only safe to
+          // call once we already know the value isn't null/undefined.
+          whatsapp_monthly_cap_paise:
+            input.whatsapp_monthly_cap_rupees === undefined
+              ? undefined
+              : input.whatsapp_monthly_cap_rupees === null
+                ? null
+                : RUPEES_TO_PAISE(input.whatsapp_monthly_cap_rupees),
         },
       });
       return { success: true, userErrors: [], settings: this.toCommunicationSettings(row) };

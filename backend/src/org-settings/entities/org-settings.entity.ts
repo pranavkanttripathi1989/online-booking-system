@@ -9,6 +9,8 @@ export class OrgCommunicationSettingsType {
   @Field({ nullable: true }) email_from_address?: string;
   @Field({ nullable: true }) email_reply_to?: string;
   @Field() email_include_branding: boolean;
+  // P1-01/REQ144
+  @Field(() => Float, { nullable: true }) whatsapp_monthly_cap_rupees?: number;
 }
 
 @ObjectType('OrgCommunicationSettingsUserError')

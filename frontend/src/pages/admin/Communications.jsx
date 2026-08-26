@@ -5,7 +5,8 @@ import {
   Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, Tab, Tabs,
   TextField, Paper, Switch, FormControlLabel, Select, MenuItem,
   FormControl, InputLabel, Divider, IconButton, Alert, Dialog, DialogTitle,
-  DialogContent, CircularProgress,
+  DialogContent, CircularProgress, Table, TableHead, TableBody, TableRow,
+  TableCell, TableContainer, LinearProgress, useTheme,
 } from '@mui/material';
 import EmailIcon from '@mui/icons-material/Email';
 import SmsIcon from '@mui/icons-material/Sms';
@@ -14,6 +15,7 @@ import EditIcon from '@mui/icons-material/Edit';
 import PreviewIcon from '@mui/icons-material/Preview';
 import SendIcon from '@mui/icons-material/Send';
 import CloseIcon from '@mui/icons-material/Close';
+import MonetizationOnIcon from '@mui/icons-material/MonetizationOn';
 
 // REQ011 — real backend/src/email-templates data (the same module and rows
 // admin/EmailTemplates.jsx's full editor uses), replacing a 100% hardcoded
@@ -42,15 +44,28 @@ const TEMPLATE_TYPE_LABELS = {
   cancellation_fee: 'Cancellation Fee',
 };
 
-// REQ006 — Global Settings tab, Email half.
+// REQ006 — Global Settings tab, Email half. P1-01/REQ144 added
+// whatsapp_monthly_cap_rupees to the same settings row.
 const GET_COMMUNICATION_SETTINGS = gql`
   query GetOrgCommunicationSettings {
-    myOrgCommunicationSettings { email_from_name email_from_address email_reply_to email_include_branding }
+    myOrgCommunicationSettings { email_from_name email_from_address email_reply_to email_include_branding whatsapp_monthly_cap_rupees }
   }
 `;
 const UPDATE_COMMUNICATION_SETTINGS = gql`
   mutation UpdateOrgCommunicationSettings($input: UpdateOrgCommunicationSettingsInput!) {
     updateMyOrgCommunicationSettings(input: $input) { success userErrors { message } }
+  }
+`;
+
+// P1-01/REQ144 — current-IST-month WhatsApp conversation spend by Meta
+// template category (utility/marketing/authentication). Never caller-
+// classified -- the category is resolved server-side per event type.
+const GET_WHATSAPP_SPEND = gql`
+  query GetWhatsappConversationSpend {
+    whatsappConversationSpend {
+      periodStart periodEnd totalCostRupees
+      byCategory { category count costRupees }
+    }
   }
 `;
 
@@ -77,6 +92,7 @@ const UPDATE_NOTIFICATION_PROVIDER_CONFIG = gql`
 export default function AdminCommunications() {
   const client = useApolloClient();
   const navigate = useNavigate();
+  const theme = useTheme();
   const [templates, setTemplates] = useState([]);
   const [loadingTemplates, setLoadingTemplates] = useState(true);
   const [templatesError, setTemplatesError] = useState(null);
@@ -118,6 +134,24 @@ export default function AdminCommunications() {
   const [emailSettingsSaved, setEmailSettingsSaved] = useState(false);
   const [savingEmailSettings, setSavingEmailSettings] = useState(false);
 
+  // P1-01/REQ144 — WhatsApp conversation spend card
+  const [whatsappSpend, setWhatsappSpend] = useState(null);
+  const [loadingSpend, setLoadingSpend] = useState(true);
+  const [spendError, setSpendError] = useState(null);
+  const [capRupees, setCapRupees] = useState(''); // '' = no cap configured
+  const [savingCap, setSavingCap] = useState(false);
+  const [capSaved, setCapSaved] = useState(false);
+  const [capError, setCapError] = useState(null);
+
+  const loadSpend = () => {
+    setLoadingSpend(true); setSpendError(null)
+    client.query({ query: GET_WHATSAPP_SPEND, fetchPolicy: 'network-only' })
+      .then(({ data }) => setWhatsappSpend(data?.whatsappConversationSpend ?? null))
+      .catch((err) => setSpendError(err.message))
+      .finally(() => setLoadingSpend(false))
+  }
+  useEffect(() => { loadSpend() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // REQ008/PLAN017 — SMS/OTP provider configuration
   const [smsProviders, setSmsProviders] = useState([]);
   const [smsSelectedProvider, setSmsSelectedProvider] = useState('');
@@ -138,6 +172,7 @@ export default function AdminCommunications() {
         setEmailFromAddress(s.email_from_address ?? '')
         setEmailReplyTo(s.email_reply_to ?? '')
         setEmailIncludeBranding(!!s.email_include_branding)
+        setCapRupees(s.whatsapp_monthly_cap_rupees != null ? String(s.whatsapp_monthly_cap_rupees) : '')
       })
       .catch((err) => setEmailSettingsError(err.message))
   }, [client])
@@ -201,6 +236,35 @@ export default function AdminCommunications() {
     } catch (err) { setEmailSettingsError(err.message) }
     finally { setSavingEmailSettings(false) }
   }
+
+  // P1-01/REQ144 — a partial update: only whatsapp_monthly_cap_rupees is
+  // sent, so the email fields above are left untouched by this codebase's
+  // own "undefined = don't touch" convention (never re-sends the email
+  // fields, so a stale local email draft here can never clobber a saved
+  // value on a cap-only save).
+  const handleSaveCap = async () => {
+    setCapError(null); setSavingCap(true)
+    try {
+      const trimmed = capRupees.trim()
+      const value = trimmed === '' ? null : Number(trimmed)
+      if (value !== null && (Number.isNaN(value) || value < 0)) {
+        throw new Error('Enter a non-negative amount, or leave blank to remove the cap')
+      }
+      const { data } = await client.mutate({
+        mutation: UPDATE_COMMUNICATION_SETTINGS,
+        variables: { input: { whatsapp_monthly_cap_rupees: value } },
+      })
+      if (!data?.updateMyOrgCommunicationSettings?.success) {
+        throw new Error(data?.updateMyOrgCommunicationSettings?.userErrors?.[0]?.message ?? 'Failed to save the WhatsApp spend cap')
+      }
+      setCapSaved(true); setTimeout(() => setCapSaved(false), 2500)
+    } catch (err) { setCapError(err.message) }
+    finally { setSavingCap(false) }
+  }
+
+  const capRupeesNumber = whatsappSpend && capRupees.trim() !== '' && !Number.isNaN(Number(capRupees)) ? Number(capRupees) : null
+  const capRemaining = capRupeesNumber != null && whatsappSpend ? capRupeesNumber - whatsappSpend.totalCostRupees : null
+  const capUsedFraction = capRupeesNumber ? Math.min(1, (whatsappSpend?.totalCostRupees ?? 0) / capRupeesNumber) : 0
 
   return (
     <Box>
@@ -352,6 +416,108 @@ export default function AdminCommunications() {
                     {savingSms ? 'Saving…' : 'Save SMS Provider Settings'}
                   </Button>
                 </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* P1-01/REQ144 — WhatsApp conversation spend + monthly cap */}
+          <Grid item xs={12}>
+            <Card>
+              <CardContent sx={{ p: 2.5 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                  <MonetizationOnIcon sx={{ color: theme.palette.primary.main }} />
+                  <Typography variant="h5" fontWeight={700}>WhatsApp Conversation Spend</Typography>
+                </Stack>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Meta bills WhatsApp by conversation category — utility/authentication (₹0.115) is 7.5× cheaper than marketing (₹0.863).
+                  Category is always assigned by the notification type, never editable here, so a reminder can never be sent at the marketing rate.
+                </Alert>
+                {spendError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setSpendError(null)}>{spendError}</Alert>}
+
+                {loadingSpend ? (
+                  <Box display="flex" justifyContent="center" py={4}><CircularProgress size={28} /></Box>
+                ) : !whatsappSpend ? (
+                  spendError ? null : (
+                    <Typography variant="body2" color="text.secondary">Spend data isn't available right now.</Typography>
+                  )
+                ) : (
+                  <Stack spacing={2}>
+                    <Typography variant="caption" color="text.secondary">
+                      Billing period: {new Date(whatsappSpend.periodStart).toLocaleDateString('en-IN')} – {new Date(whatsappSpend.periodEnd).toLocaleDateString('en-IN')} (IST)
+                    </Typography>
+
+                    {whatsappSpend.byCategory.length === 0 ? (
+                      <Typography variant="body2" color="text.secondary">No billable WhatsApp conversations yet this period.</Typography>
+                    ) : (
+                      <TableContainer sx={{ maxWidth: 480 }}>
+                        <Table size="small">
+                          <TableHead>
+                            <TableRow>
+                              <TableCell>Category</TableCell>
+                              <TableCell align="right">Conversations</TableCell>
+                              <TableCell align="right">Cost</TableCell>
+                            </TableRow>
+                          </TableHead>
+                          <TableBody>
+                            {whatsappSpend.byCategory.map((c) => (
+                              <TableRow key={c.category}>
+                                <TableCell sx={{ textTransform: 'capitalize' }}>{c.category}</TableCell>
+                                <TableCell align="right">{c.count}</TableCell>
+                                <TableCell align="right">₹{c.costRupees.toFixed(2)}</TableCell>
+                              </TableRow>
+                            ))}
+                            <TableRow>
+                              <TableCell sx={{ fontWeight: 700 }}>Total</TableCell>
+                              <TableCell />
+                              <TableCell align="right" sx={{ fontWeight: 700 }}>₹{whatsappSpend.totalCostRupees.toFixed(2)}</TableCell>
+                            </TableRow>
+                          </TableBody>
+                        </Table>
+                      </TableContainer>
+                    )}
+
+                    <Divider />
+
+                    {capSaved && <Alert severity="success">WhatsApp spend cap saved.</Alert>}
+                    {capError && <Alert severity="error" onClose={() => setCapError(null)}>{capError}</Alert>}
+
+                    <Stack direction="row" spacing={2} alignItems="flex-end" flexWrap="wrap" useFlexGap>
+                      <TextField
+                        label="Monthly cap (₹, optional)"
+                        size="small"
+                        value={capRupees}
+                        onChange={(e) => setCapRupees(e.target.value)}
+                        placeholder="No cap configured"
+                        sx={{ maxWidth: 220 }}
+                        inputProps={{ inputMode: 'decimal', 'aria-label': 'WhatsApp monthly spend cap in rupees' }}
+                      />
+                      <Button variant="contained" size="small" disabled={savingCap} onClick={handleSaveCap}>
+                        {savingCap ? 'Saving…' : 'Save Cap'}
+                      </Button>
+                    </Stack>
+
+                    {capRupeesNumber != null && (
+                      <Box>
+                        <Stack direction="row" justifyContent="space-between" sx={{ mb: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">
+                            ₹{whatsappSpend.totalCostRupees.toFixed(2)} of ₹{capRupeesNumber.toFixed(2)} used this period
+                          </Typography>
+                          <Typography variant="caption" fontWeight={700} color={capRemaining != null && capRemaining < 0 ? 'error.main' : 'text.secondary'}>
+                            {capRemaining != null && capRemaining < 0
+                              ? `₹${Math.abs(capRemaining).toFixed(2)} over cap`
+                              : `₹${(capRemaining ?? 0).toFixed(2)} remaining`}
+                          </Typography>
+                        </Stack>
+                        <LinearProgress
+                          variant="determinate"
+                          value={capUsedFraction * 100}
+                          color={capUsedFraction >= 1 ? 'error' : capUsedFraction >= 0.8 ? 'warning' : 'primary'}
+                          sx={{ height: 8, borderRadius: 4 }}
+                        />
+                      </Box>
+                    )}
+                  </Stack>
+                )}
               </CardContent>
             </Card>
           </Grid>

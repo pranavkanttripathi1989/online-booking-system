@@ -13,6 +13,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | PLAN096 | improvement | Notification delivery analytics | done | 2026-08-25 | 2026-08-25 | REQ069 | [PLAN096-notifications-2026-08-25-delivery-analytics.md](./improvement/PLAN096-notifications-2026-08-25-delivery-analytics.md) |
+| PLAN184 | improvement | WhatsApp template-category routing + conversation metering | done | 2026-08-27 | 2026-08-27 | REQ144 | [PLAN184-notifications-2026-08-27-whatsapp-template-category-and-spend-cap.md](./improvement/PLAN184-notifications-2026-08-27-whatsapp-template-category-and-spend-cap.md) |
 
 ## bug
 

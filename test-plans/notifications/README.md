@@ -14,6 +14,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TP123 | improvement | Notification delivery analytics | approved | 2026-08-25 | 2026-08-25 | PLAN096 | [TP123-notifications-2026-08-25-delivery-analytics.md](./improvement/TP123-notifications-2026-08-25-delivery-analytics.md) |
+| TP204 | improvement | WhatsApp template-category routing + conversation metering | approved | 2026-08-27 | 2026-08-27 | PLAN184 | [TP204-notifications-2026-08-27-whatsapp-template-category-and-spend-cap.md](./improvement/TP204-notifications-2026-08-27-whatsapp-template-category-and-spend-cap.md) |
 
 ## bug
 

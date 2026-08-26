@@ -38,7 +38,7 @@ rule). Update `Status` in the same change that ships the slice.
 
 | # | Slice | Track | Status | Depends on | Why now |
 |---|---|---|:--:|---|---|
-| **P1-01** | WhatsApp template-category routing + conversation metering | BE+FE | not started | — | **Dated deadline: 1 Oct 2026.** Utility ₹0.115 vs marketing ₹0.863 — 7.5×. Margin work, not plumbing |
+| **P1-01** | WhatsApp template-category routing + conversation metering | BE+FE | **done** (`REQ144`) | — | **Dated deadline: 1 Oct 2026.** Utility ₹0.115 vs marketing ₹0.863 — 7.5×. Margin work, not plumbing |
 | **P1-02** | Auth tokens out of `localStorage` (SEC-2) | BE+FE | not started | — | Open security gap. Cheapest security win available |
 | **P1-03** | Frontend CI gates: prettier, size-limit, axe-core, secret scanning | FE | not started | — | Until these run, most of `FRONTEND_RULES.md` is advisory |
 | **P1-04** | Entitlement guard (plan limits enforced) | BE+FE | not started | — | Tiers are unmonetisable without it. Build the guard integration as its own reviewed step (`CLAUDE.md`'s standing caution on `REQ032`) |
@@ -88,6 +88,13 @@ should, at volume, silently.
   change.
 - **Exit:** a reminder cannot be sent as marketing even deliberately; a manager
   can see spend before the October change lands.
+- **Shipped 2026-08-27** (`REQ144`/`PLAN184`/`TP204`/`TR204`,
+  `context/notifications-2026-08-27-req144/manifest.md`). Real gap found
+  while scoping, not fixed here: no frontend UI configures the org's
+  WhatsApp provider credentials at all (`REQ048` registered
+  `gupshup_whatsapp` in the backend registry; only SMS has a config card
+  on `admin/Communications.jsx`) — logged in `REQ144`'s own doc, a
+  candidate for its own future slice.
 
 ### P1-02 — Auth tokens out of `localStorage` (SEC-2)
 

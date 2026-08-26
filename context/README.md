@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| notifications-2026-08-27-req144 | notifications | 2026-08-27 | REQ144, PLAN184, TP204, TR204 | done | [manifest.md](./notifications-2026-08-27-req144/manifest.md) |
 | compliance-dpdp-2026-08-26-req143 | compliance-dpdp | 2026-08-26 | REQ143, PLAN183, TP203, TR203 | done | [manifest.md](./compliance-dpdp-2026-08-26-req143/manifest.md) |
 | test-coverage-audit-2026-08-26-req142 | test-coverage-audit | 2026-08-26 | REQ142, PLAN182, TP202, TR202 | done | [manifest.md](./test-coverage-audit-2026-08-26-req142/manifest.md) |
 | test-coverage-audit-2026-08-26-req141 | test-coverage-audit | 2026-08-26 | REQ141, PLAN181, TP201, TR201 | done | [manifest.md](./test-coverage-audit-2026-08-26-req141/manifest.md) |

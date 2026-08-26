@@ -722,6 +722,15 @@ model ClientOrganizations {
   email_from_address     String? // falls back to the platform default (noreply@) when null
   email_reply_to         String?
   email_include_branding Boolean @default(true)
+  // P1-01/REQ144 — admin/Communications.jsx "Global Settings" tab, WhatsApp
+  // conversation-spend card. Null means no cap configured (spend is tracked
+  // and shown, but nothing is ever blocked) -- this is a visibility control
+  // for now, not an enforcement point; P1-04's entitlement guard is the
+  // future consumer that would actually act on it. Paise, same convention
+  // as no_show_fee_paise above; NotificationBillingService converts its own
+  // internal micro-rupee spend total to paise-comparable rupees only at
+  // this same resolver boundary when computing "remaining".
+  whatsapp_monthly_cap_paise Int?
   // admin/Policies.jsx "Booking Policies" tab. Cancellation Policy/Late Fee
   // sliders are deliberately not modeled here -- they conceptually overlap
   // with ProductCancellationRules' global-rule support, see
@@ -2215,10 +2224,33 @@ model NotificationSendLog {
   error_message String?
   client_org_id String?
 
+  // P1-01/REQ144 — Meta's WhatsApp Business API prices per-conversation by
+  // category, not per-notification-type, and from 1 Oct 2026 utility/service
+  // conversations inside the 24h window stop being free (PRD-v2-CareOS.md
+  // §pricing). template_category is resolved server-side from a fixed
+  // event-type map (resolveTemplateCategory() in
+  // notification-trigger.service.ts) -- never caller-supplied -- so a
+  // transactional event can never be sent, even deliberately, as the 7.5x
+  // more expensive 'marketing' category. Only set for channel='whatsapp';
+  // null for app/sms/email, which this table also logs but which this
+  // Meta-specific pricing model doesn't apply to.
+  template_category String? // utility | marketing | authentication
+  billable           Boolean @default(false)
+  // Meta's real per-message rates are sub-paise (utility ₹0.1150 = 11.50
+  // paise), so the schema's usual "money as Int paise" convention
+  // (CLAUDE.md Hard Rule 9) has no precision to represent them. This column
+  // uses micro-rupees (1 rupee = 1,000,000) instead, the smallest scaled-
+  // integer unit that makes ₹0.1150 and ₹0.8631 both exact integers
+  // (115000 and 863100) -- converted to rupees only at the resolver
+  // boundary, same discipline as every other money field, just a different
+  // scale for this one Meta-billing table.
+  cost_micro_rupees Int?
+
   user Users @relation(fields: [user_id], references: [id], onDelete: Cascade)
 
   @@index([user_id, sent_at])
   @@index([client_org_id, event_type, sent_at])
+  @@index([client_org_id, channel, template_category, sent_at])
 }
 
 model UserProfiles {

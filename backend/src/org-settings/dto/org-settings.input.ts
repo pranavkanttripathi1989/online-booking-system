@@ -9,6 +9,10 @@ export class UpdateOrgCommunicationSettingsInput {
   @Field({ nullable: true }) @IsOptional() @IsEmail() email_from_address?: string;
   @Field({ nullable: true }) @IsOptional() @IsEmail() email_reply_to?: string;
   @Field({ nullable: true }) @IsOptional() @IsBoolean() email_include_branding?: boolean;
+  // P1-01/REQ144 — explicit null clears the cap (back to "no cap
+  // configured"); omitted leaves it untouched; matching every other
+  // nullable-clear field in this input's own convention.
+  @Field(() => Float, { nullable: true }) @IsOptional() @Min(0) whatsapp_monthly_cap_rupees?: number;
 }
 
 // REQ024 (US-MSG-04) — all three optional; the auto-responder in

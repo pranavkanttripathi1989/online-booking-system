@@ -14,6 +14,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TR122 | improvement | Notification delivery analytics results | pass | 2026-08-25 | 2026-08-25 | TP123 | [TR122-notifications-2026-08-25-delivery-analytics.md](./improvement/TR122-notifications-2026-08-25-delivery-analytics.md) |
+| TR204 | improvement | WhatsApp template-category routing + conversation metering results | pass | 2026-08-27 | 2026-08-27 | TP204 | [TR204-notifications-2026-08-27-whatsapp-template-category-and-spend-cap.md](./improvement/TR204-notifications-2026-08-27-whatsapp-template-category-and-spend-cap.md) |
 
 ## bug
 
