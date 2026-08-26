@@ -8,6 +8,7 @@ import {
   CreateDiagnosisInput,
   OrderInvestigationInput,
   CreateReferralInput,
+  UpdateReferralStatusInput,
   RecordVitalsInput,
   VITAL_UNITS,
   CreateEncounterTemplateInput,
@@ -15,6 +16,19 @@ import {
   CreateAttachmentInput,
 } from './dto/encounter.input';
 import { PatientsService } from '../patients/patients.service';
+
+// REQ135 -- more permissive than insurance.service.ts's own CLAIM_TRANSITIONS
+// (money changing hands there warrants a stricter machine): a referral is
+// tracking metadata, not a financial workflow, so 'pending' may go straight
+// to 'completed'/'declined' without forcing a 'scheduled' stop first --
+// real referrals are often only confirmed after the fact, with no separate
+// "we scheduled it" step ever recorded. completed/declined are terminal.
+const REFERRAL_TRANSITIONS: Record<string, string[]> = {
+  pending: ['scheduled', 'completed', 'declined'],
+  scheduled: ['completed', 'declined'],
+  completed: [],
+  declined: [],
+};
 
 // REQ020 (Phase 1, slice 2) P0 -- consultation workspace / clinical records.
 // Encounters owns client_org_id directly (denormalized from the
@@ -324,6 +338,27 @@ export class EncountersService {
         urgency: input.urgency ?? 'routine',
       },
     });
+  }
+
+  // REQ135 -- Referrals has no client_org_id of its own (same reasoning as
+  // Diagnoses); org access is asserted via the parent encounter's own
+  // direct client_org_id column, one join deep. Broader than createReferral's
+  // own clinician-only gate at the resolver -- follow-up on a referral's
+  // real-world outcome is administrative tracking, not new clinical
+  // content, so front-desk/manager/admin callers may record it too.
+  async updateReferralStatus(id: string, input: UpdateReferralStatusInput, user: JwtPayload) {
+    const referral = await this.prisma.referrals.findUnique({
+      where: { id },
+      include: { encounter: true },
+    });
+    if (!referral) throw new NotFoundException('Referral not found');
+    assertSameOrg(user, referral.encounter.client_org_id, 'Referral');
+
+    const legalNext = REFERRAL_TRANSITIONS[referral.status] ?? [];
+    if (!legalNext.includes(input.status)) {
+      throw new BadRequestException(`Cannot move a referral from '${referral.status}' to '${input.status}'`);
+    }
+    return this.prisma.referrals.update({ where: { id }, data: { status: input.status } });
   }
 
   // REQ130 (FR-EMR-05) -- a batch of readings recorded together (one

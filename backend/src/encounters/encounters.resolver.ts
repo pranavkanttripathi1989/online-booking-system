@@ -18,6 +18,7 @@ import {
   CreateDiagnosisInput,
   OrderInvestigationInput,
   CreateReferralInput,
+  UpdateReferralStatusInput,
   RecordVitalsInput,
   CreateEncounterTemplateInput,
   ApplyTemplateInput,
@@ -90,6 +91,19 @@ export class EncountersResolver {
   @Mutation(() => ReferralType)
   createReferral(@Args('input') input: CreateReferralInput, @CurrentUser() user: JwtPayload) {
     return this.encountersService.createReferral(input, user);
+  }
+
+  // REQ135 — broader than createReferral's own clinician-only gate:
+  // recording a referral's real-world outcome is administrative
+  // follow-up, not new clinical content.
+  @Auth('clinician', 'manager', 'admin', 'super_admin', 'staff')
+  @Mutation(() => ReferralType)
+  updateReferralStatus(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: UpdateReferralStatusInput,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.encountersService.updateReferralStatus(id, input, user);
   }
 
   // REQ130 (FR-EMR-05)

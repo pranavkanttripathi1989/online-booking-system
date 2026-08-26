@@ -42,7 +42,8 @@ describe('EncountersService', () => {
       // backed patientTimeline()/withRelations().
       testResults: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
       // REQ128: create() drives createReferral(); findMany() backs withRelations().
-      referrals: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
+      // REQ135: findUnique()/update() drive updateReferralStatus().
+      referrals: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       // REQ130: createMany() drives recordVitals(); findMany() also backs
       // withRelations() and patientVitals().
       vitals: { findMany: jest.fn().mockResolvedValue([]), createMany: jest.fn() },
@@ -359,6 +360,71 @@ describe('EncountersService', () => {
       ]);
       const result = await service.encounter('enc-1', clinicianA);
       expect(result.referrals).toEqual([expect.objectContaining({ id: 'ref-1', referred_to_specialty: 'Cardiology', status: 'pending' })]);
+    });
+  });
+
+  // REQ135 — referral status-transition state machine.
+  describe('updateReferralStatus', () => {
+    const referralPending = {
+      id: 'ref-1', encounter_id: 'enc-1', patient_id: 'pat-a', referred_to_specialty: 'Cardiology',
+      referred_to_clinician_id: null, reason: 'Murmur', urgency: 'routine', status: 'pending',
+      created_at: new Date('2026-08-26T00:00:00Z'), updated_at: new Date('2026-08-26T00:00:00Z'),
+      encounter: encounterOpen,
+    };
+
+    it('rejects an unknown referral', async () => {
+      prisma.referrals.findUnique.mockResolvedValue(null);
+      await expect(service.updateReferralStatus('ref-1', { status: 'scheduled' } as any, managerA)).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a cross-org referral', async () => {
+      prisma.referrals.findUnique.mockResolvedValue({ ...referralPending, encounter: { ...encounterOpen, client_org_id: 'org-b' } });
+      await expect(service.updateReferralStatus('ref-1', { status: 'scheduled' } as any, managerA)).rejects.toThrow(NotFoundException);
+    });
+
+    it('allows pending -> scheduled', async () => {
+      prisma.referrals.findUnique.mockResolvedValue(referralPending);
+      prisma.referrals.update.mockResolvedValue({ ...referralPending, status: 'scheduled' });
+      const result = await service.updateReferralStatus('ref-1', { status: 'scheduled' } as any, managerA);
+      expect(prisma.referrals.update).toHaveBeenCalledWith({ where: { id: 'ref-1' }, data: { status: 'scheduled' } });
+      expect(result.status).toBe('scheduled');
+    });
+
+    it('allows pending -> completed directly, skipping scheduled (a referral is often only confirmed after the fact)', async () => {
+      prisma.referrals.findUnique.mockResolvedValue(referralPending);
+      prisma.referrals.update.mockResolvedValue({ ...referralPending, status: 'completed' });
+      await service.updateReferralStatus('ref-1', { status: 'completed' } as any, managerA);
+      expect(prisma.referrals.update).toHaveBeenCalledWith({ where: { id: 'ref-1' }, data: { status: 'completed' } });
+    });
+
+    it('allows pending -> declined', async () => {
+      prisma.referrals.findUnique.mockResolvedValue(referralPending);
+      prisma.referrals.update.mockResolvedValue({ ...referralPending, status: 'declined' });
+      await service.updateReferralStatus('ref-1', { status: 'declined' } as any, managerA);
+      expect(prisma.referrals.update).toHaveBeenCalledWith({ where: { id: 'ref-1' }, data: { status: 'declined' } });
+    });
+
+    it('allows scheduled -> completed', async () => {
+      prisma.referrals.findUnique.mockResolvedValue({ ...referralPending, status: 'scheduled' });
+      prisma.referrals.update.mockResolvedValue({ ...referralPending, status: 'completed' });
+      await service.updateReferralStatus('ref-1', { status: 'completed' } as any, managerA);
+      expect(prisma.referrals.update).toHaveBeenCalledWith({ where: { id: 'ref-1' }, data: { status: 'completed' } });
+    });
+
+    it('rejects an illegal transition (scheduled -> pending, going backward)', async () => {
+      prisma.referrals.findUnique.mockResolvedValue({ ...referralPending, status: 'scheduled' });
+      await expect(service.updateReferralStatus('ref-1', { status: 'pending' } as any, managerA)).rejects.toThrow(BadRequestException);
+      expect(prisma.referrals.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects moving a terminal referral (completed) anywhere', async () => {
+      prisma.referrals.findUnique.mockResolvedValue({ ...referralPending, status: 'completed' });
+      await expect(service.updateReferralStatus('ref-1', { status: 'scheduled' } as any, managerA)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects moving a terminal referral (declined) anywhere', async () => {
+      prisma.referrals.findUnique.mockResolvedValue({ ...referralPending, status: 'declined' });
+      await expect(service.updateReferralStatus('ref-1', { status: 'scheduled' } as any, managerA)).rejects.toThrow(BadRequestException);
     });
   });
 

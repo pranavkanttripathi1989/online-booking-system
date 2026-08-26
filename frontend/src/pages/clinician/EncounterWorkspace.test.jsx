@@ -79,6 +79,12 @@ const CREATE_REFERRAL = gql`
     createReferral(input: $input) { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
   }
 `
+// REQ135
+const UPDATE_REFERRAL_STATUS = gql`
+  mutation UpdateReferralStatus($id: ID!, $input: UpdateReferralStatusInput!) {
+    updateReferralStatus(id: $id, input: $input) { id status }
+  }
+`
 // REQ130
 const RECORD_VITALS = gql`
   mutation RecordVitals($input: RecordVitalsInput!) {
@@ -320,6 +326,52 @@ describe('EncounterWorkspace — referrals (REQ128)', () => {
     await waitFor(() => expect(screen.getByText('Chronic knee pain')).toBeInTheDocument())
     expect(screen.getByText('Orthopaedics')).toBeInTheDocument()
   }, 20000)
+
+  // REQ135
+  it('shows the legal next-status buttons for a pending referral', async () => {
+    const enc = encounter({
+      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByText('Cardiology')).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Mark scheduled' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mark completed' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Mark declined' })).toBeInTheDocument()
+  })
+
+  it('shows no transition buttons for a terminal (completed) referral', async () => {
+    const enc = encounter({
+      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'completed', created_at: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByText('Cardiology')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /Mark /i })).not.toBeInTheDocument()
+  })
+
+  it('advances a referral to scheduled via the real updateReferralStatus mutation and refetches', async () => {
+    const enc = encounter({
+      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'pending', created_at: '2026-08-26T10:00:00.000Z' }],
+    })
+    const scheduled = encounter({
+      referrals: [{ __typename: 'Referral', id: 'ref-1', referred_to_specialty: 'Cardiology', referred_to_clinician_id: null, reason: 'Murmur on exam', urgency: 'routine', status: 'scheduled', created_at: '2026-08-26T10:00:00.000Z' }],
+    })
+    renderPage([
+      ...baseMocks(enc),
+      {
+        request: { query: UPDATE_REFERRAL_STATUS, variables: { id: 'ref-1', input: { status: 'scheduled' } } },
+        result: { data: { updateReferralStatus: { __typename: 'Referral', id: 'ref-1', status: 'scheduled' } } },
+      },
+      { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: scheduled } } },
+    ])
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Mark scheduled' })).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Mark scheduled' }))
+
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Mark completed' })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Mark scheduled' })).not.toBeInTheDocument()
+  })
 })
 
 describe('EncounterWorkspace — vitals + growth chart (REQ130)', () => {

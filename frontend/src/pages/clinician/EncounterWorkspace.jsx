@@ -113,6 +113,12 @@ const CREATE_REFERRAL = gql`
     createReferral(input: $input) { id referred_to_specialty referred_to_clinician_id reason urgency status created_at }
   }
 `
+// REQ135
+const UPDATE_REFERRAL_STATUS = gql`
+  mutation UpdateReferralStatus($id: ID!, $input: UpdateReferralStatusInput!) {
+    updateReferralStatus(id: $id, input: $input) { id status }
+  }
+`
 // REQ130 (FR-EMR-05)
 const RECORD_VITALS = gql`
   mutation RecordVitals($input: RecordVitalsInput!) {
@@ -149,6 +155,16 @@ const SECTIONS = [
 
 function sectionContent(notes, key) {
   return notes?.find((n) => n.section === key)?.content ?? ''
+}
+
+// REQ135 -- matches REFERRAL_TRANSITIONS in
+// backend/src/encounters/encounters.service.ts verbatim (the backend is
+// still the real enforcement; this only decides which buttons to show).
+const REFERRAL_TRANSITIONS = {
+  pending: ['scheduled', 'completed', 'declined'],
+  scheduled: ['completed', 'declined'],
+  completed: [],
+  declined: [],
 }
 
 // REQ130 (FR-EMR-05) -- matches VITAL_CODES/VITAL_UNITS in
@@ -263,7 +279,7 @@ function TimelinePane({ patientId }) {
 }
 
 // ─── Center pane: structured note sections ─────────────────────────────────
-function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAddInvestigation, onAddReferral, onRecordVitals }) {
+function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAddInvestigation, onAddReferral, onUpdateReferralStatus, onRecordVitals }) {
   const [drafts, setDrafts] = useState({})
   const [addendumOpen, setAddendumOpen] = useState(false)
   const [addendumText, setAddendumText] = useState('')
@@ -408,9 +424,18 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis, onAdd
                     <Chip size="small" label={r.status} variant="outlined" sx={{ textTransform: 'capitalize' }} />
                   </Stack>
                   <Typography variant="body2">{r.reason}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                  <Typography variant="caption" color="text.secondary" display="block" mb={REFERRAL_TRANSITIONS[r.status]?.length ? 1 : 0}>
                     Referred {new Date(r.created_at).toLocaleDateString()}
                   </Typography>
+                  {(REFERRAL_TRANSITIONS[r.status] ?? []).length > 0 && (
+                    <Stack direction="row" spacing={1}>
+                      {REFERRAL_TRANSITIONS[r.status].map((next) => (
+                        <Button key={next} size="small" variant="outlined" onClick={() => onUpdateReferralStatus(r.id, next)}>
+                          Mark {next}
+                        </Button>
+                      ))}
+                    </Stack>
+                  )}
                 </Paper>
               ))}
             </Stack>
@@ -862,6 +887,7 @@ function EncounterWorkspace() {
   const [createDiagnosis] = useMutation(CREATE_DIAGNOSIS)
   const [orderInvestigationMutation] = useMutation(ORDER_INVESTIGATION)
   const [createReferralMutation] = useMutation(CREATE_REFERRAL)
+  const [updateReferralStatusMutation] = useMutation(UPDATE_REFERRAL_STATUS)
   const [recordVitalsMutation] = useMutation(RECORD_VITALS)
   const [createEncounterTemplate] = useMutation(CREATE_ENCOUNTER_TEMPLATE)
 
@@ -926,6 +952,13 @@ function EncounterWorkspace() {
       refetch()
     } catch (err) { reportError(err, 'Failed to refer patient') }
   }, [createReferralMutation, encounterId, refetch, reportError])
+
+  const handleUpdateReferralStatus = useCallback(async (id, status) => {
+    try {
+      await updateReferralStatusMutation({ variables: { id, input: { status } } })
+      refetch()
+    } catch (err) { reportError(err, 'Failed to update referral status') }
+  }, [updateReferralStatusMutation, refetch, reportError])
 
   const handleRecordVitals = useCallback(async (readings) => {
     try {
@@ -1006,7 +1039,7 @@ function EncounterWorkspace() {
               <TimelinePane patientId={encounter.patient_id} />
             </Grid>
             <Grid item xs={12} md={6}>
-              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} onAddInvestigation={handleAddInvestigation} onAddReferral={handleAddReferral} onRecordVitals={handleRecordVitals} />
+              <NotesPane encounter={encounter} onSaveNote={handleSaveNote} onAddAddendum={handleAddAddendum} onAddDiagnosis={handleAddDiagnosis} onAddInvestigation={handleAddInvestigation} onAddReferral={handleAddReferral} onUpdateReferralStatus={handleUpdateReferralStatus} onRecordVitals={handleRecordVitals} />
             </Grid>
             <Grid item xs={12} md={3}>
               <ActionsPane

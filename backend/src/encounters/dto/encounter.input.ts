@@ -130,6 +130,15 @@ export class CreateReferralInput {
   urgency?: string;
 }
 
+// REQ135 -- referral status-transition, matching Referrals.status'
+// existing valid values verbatim (REQ128's own schema comment).
+export const REFERRAL_STATUSES = ['pending', 'scheduled', 'completed', 'declined'] as const;
+
+@InputType()
+export class UpdateReferralStatusInput {
+  @Field() @IsIn(REFERRAL_STATUSES) status: string;
+}
+
 // REQ130 (FR-EMR-05) -- no client-supplied unit: EncountersService derives
 // it from code via a fixed map (VITAL_UNITS), so a growth chart can never
 // end up with mixed units (e.g. 'kg' vs 'Kg' vs 'kilograms') for the same
