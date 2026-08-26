@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ134 | improvement | Bounded pagination for notifications (F-14 residue) | done | 2026-08-26 | 2026-08-26 | REQ035 | [REQ134-platform-nfr-2026-08-26-notifications-bounded-pagination.md](./improvement/REQ134-platform-nfr-2026-08-26-notifications-bounded-pagination.md) |
 | REQ133 | improvement | Bounded pagination for testResults (F-14 residue) | done | 2026-08-26 | 2026-08-26 | REQ035 | [REQ133-platform-nfr-2026-08-26-testresults-bounded-pagination.md](./improvement/REQ133-platform-nfr-2026-08-26-testresults-bounded-pagination.md) |
 | REQ039 | improvement | Prisma safety-net middleware: no findMany returns an unbounded collection | done | 2026-08-23 | 2026-08-23 | REQ035 | [REQ039-platform-nfr-2026-08-23-pagination-safety-net-middleware.md](./improvement/REQ039-platform-nfr-2026-08-23-pagination-safety-net-middleware.md) |
 | REQ038 | improvement | Security headers, boot-time NODE_ENV assertion, and a redesigned auth throttle | done | 2026-08-23 | 2026-08-23 | REQ035 | [REQ038-platform-nfr-2026-08-23-helmet-csp-hsts-node-env-assertion-throttle-redesign.md](./improvement/REQ038-platform-nfr-2026-08-23-helmet-csp-hsts-node-env-assertion-throttle-redesign.md) |
