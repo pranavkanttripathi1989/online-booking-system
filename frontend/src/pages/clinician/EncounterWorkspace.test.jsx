@@ -1,4 +1,4 @@
-import { render, screen, waitFor, within } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
@@ -53,6 +53,12 @@ const CREATE_ENCOUNTER_TEMPLATE = gql`
     createEncounterTemplate(input: $input) { id name specialty sections_json }
   }
 `
+// REQ108
+const ICD10_SEARCH_QUERY = gql`
+  query Icd10Codes($search: String) {
+    icd10Codes(search: $search) { id code description category }
+  }
+`
 
 const APPOINTMENT_ID = 'appt-1'
 const ENCOUNTER_ID = 'enc-1'
@@ -72,6 +78,10 @@ function encounter(overrides = {}) {
     attachments: [],
     ...overrides,
   }
+}
+
+function icd10Mock(search, codes = []) {
+  return { request: { query: ICD10_SEARCH_QUERY, variables: { search } }, result: { data: { icd10Codes: codes } } }
 }
 
 function baseMocks(enc) {
@@ -117,6 +127,7 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
     })
     renderPage([
       ...baseMocks(enc),
+      icd10Mock(undefined),
       { request: { query: CREATE_DIAGNOSIS, variables: { input: { encounter_id: ENCOUNTER_ID, type: 'diagnosis', text: 'Penicillin allergy' } } }, result: { data: { createDiagnosis: { __typename: 'EncounterDiagnosis', id: 'dx-2', type: 'diagnosis', icd10_code: null, text: 'Penicillin allergy', status: 'active', created_at: '2026-08-25T10:00:00.000Z' } } } },
       { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withDiagnosis } } },
     ])
@@ -125,9 +136,52 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
     await userEvent.click(screen.getByRole('button', { name: 'Add Diagnosis' }))
     const dialog = await screen.findByRole('dialog')
     await userEvent.type(within(dialog).getByLabelText('Description'), 'Penicillin allergy')
+    // ICD-10 field left blank (free-text-capable, per REQ108's own soft-
+    // validation scope) -- Save must still work with no code selected.
     await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
 
     await waitFor(() => expect(screen.getByText('Penicillin allergy')).toBeInTheDocument())
+  }, 20000)
+
+  // REQ108
+  it('renders the ICD-10 field as a searchable Autocomplete, not a bare text box', async () => {
+    const enc = encounter()
+    renderPage([...baseMocks(enc), icd10Mock(undefined)])
+
+    await waitFor(() => expect(screen.getByText('No diagnoses recorded yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Add Diagnosis' }))
+    const dialog = await screen.findByRole('dialog')
+    const icd10Field = within(dialog).getByLabelText(/^ICD-10 code/)
+    expect(icd10Field).toHaveAttribute('role', 'combobox')
+  })
+
+  it('searches real codes as the clinician types and lets them select one', async () => {
+    const enc = encounter()
+    renderPage([
+      ...baseMocks(enc),
+      icd10Mock(undefined),
+      icd10Mock('J0', [{ __typename: 'Icd10Code', id: 'icd-1', code: 'J06.9', description: 'Acute upper respiratory infection, unspecified', category: 'Respiratory' }]),
+      {
+        request: { query: CREATE_DIAGNOSIS, variables: { input: { encounter_id: ENCOUNTER_ID, type: 'diagnosis', text: 'URI', icd10_code: 'J06.9' } } },
+        result: { data: { createDiagnosis: { __typename: 'EncounterDiagnosis', id: 'dx-3', type: 'diagnosis', icd10_code: 'J06.9', text: 'URI', status: 'active', created_at: '2026-08-25T10:00:00.000Z' } } },
+      },
+      { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: encounter({ diagnoses: [{ __typename: 'EncounterDiagnosis', id: 'dx-3', type: 'diagnosis', icd10_code: 'J06.9', text: 'URI', status: 'active', created_at: '2026-08-25T10:00:00.000Z' }] }) } } },
+    ])
+
+    await waitFor(() => expect(screen.getByText('No diagnoses recorded yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Add Diagnosis' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.type(within(dialog).getByLabelText('Description'), 'URI')
+    const icd10Field = within(dialog).getByLabelText(/^ICD-10 code/)
+    await userEvent.click(icd10Field)
+    // A single fireEvent.change (not userEvent.type's per-keystroke firing)
+    // so exactly one Icd10Codes request goes out, matching the 'J0' mock.
+    fireEvent.change(icd10Field, { target: { value: 'J0' } })
+    await userEvent.click(await screen.findByRole('option', { name: /J06\.9/ }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(screen.getByText('URI')).toBeInTheDocument())
+    expect(screen.getByText('J06.9')).toBeInTheDocument()
   }, 20000)
 
   it('saves the current note content as a reusable template', async () => {

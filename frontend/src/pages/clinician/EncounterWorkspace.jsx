@@ -3,7 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import {
-  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
+  Alert, Autocomplete, Box, Button, Chip, CircularProgress, Dialog, DialogActions,
   DialogContent, DialogContentText, DialogTitle, Divider, Grid, List,
   ListItemButton, ListItemText, Paper, Stack, TextField, Typography,
 } from '@mui/material'
@@ -97,6 +97,12 @@ const CREATE_ENCOUNTER_TEMPLATE = gql`
     createEncounterTemplate(input: $input) { id name specialty sections_json }
   }
 `
+// REQ108 — platform reference data (ungated, like clinicianTypes/roomTypes).
+const ICD10_SEARCH_QUERY = gql`
+  query Icd10Codes($search: String) {
+    icd10Codes(search: $search) { id code description category }
+  }
+`
 
 const SECTIONS = [
   { key: 'complaints', label: 'Chief Complaints' },
@@ -149,6 +155,21 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis }) {
   const [addendumText, setAddendumText] = useState('')
   const [diagnosisOpen, setDiagnosisOpen] = useState(false)
   const [diagnosisForm, setDiagnosisForm] = useState({ type: 'diagnosis', text: '', icd10_code: '' })
+
+  // REQ108 — ICD-10 type-ahead search, freeSolo (a clinician can still type
+  // free text or leave it blank — soft validation only, per REQ108's own
+  // scope). 300ms debounce, same pattern as patients/index.jsx's own search.
+  const [icd10Search, setIcd10Search] = useState('')
+  const [icd10Debounced, setIcd10Debounced] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setIcd10Debounced(icd10Search), 300)
+    return () => clearTimeout(t)
+  }, [icd10Search])
+  const { data: icd10Data, loading: icd10Loading } = useQuery(ICD10_SEARCH_QUERY, {
+    variables: { search: icd10Debounced || undefined },
+    skip: !diagnosisOpen,
+  })
+  const icd10Options = icd10Data?.icd10Codes ?? []
 
   useEffect(() => {
     const next = {}
@@ -271,9 +292,48 @@ function NotesPane({ encounter, onSaveNote, onAddAddendum, onAddDiagnosis }) {
               fullWidth multiline minRows={2} label="Description" value={diagnosisForm.text}
               onChange={(e) => setDiagnosisForm((f) => ({ ...f, text: e.target.value }))}
             />
-            <TextField
-              fullWidth label="ICD-10 code (optional)" value={diagnosisForm.icd10_code}
-              onChange={(e) => setDiagnosisForm((f) => ({ ...f, icd10_code: e.target.value }))}
+            <Autocomplete
+              freeSolo
+              fullWidth
+              options={icd10Options}
+              loading={icd10Loading}
+              inputValue={diagnosisForm.icd10_code}
+              onInputChange={(_, value, reason) => {
+                setIcd10Search(value)
+                // 'reason' distinguishes real typing from MUI's own
+                // programmatic sync of the input text after a selection
+                // (reason: 'reset') or a clear (reason: 'clear') — only
+                // real typing should write free text here, otherwise this
+                // clobbers the clean code onChange just set below with the
+                // selected option's full rendered label.
+                if (reason === 'input') setDiagnosisForm((f) => ({ ...f, icd10_code: value }))
+              }}
+              onChange={(_, value) => {
+                // A selected option is an { id, code, ... } object; a
+                // freeSolo Enter/blur with no selection passes the raw
+                // string (or null on clear) instead — store just the code
+                // string either way, matching the field's existing shape.
+                const code = value && typeof value === 'object' ? value.code : (value ?? '')
+                setDiagnosisForm((f) => ({ ...f, icd10_code: code }))
+              }}
+              getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} — ${option.description}`)}
+              isOptionEqualToValue={(option, value) => option.code === (typeof value === 'string' ? value : value?.code)}
+              noOptionsText={icd10Search.length < 1 ? 'Start typing a code or description…' : 'No match — you can still save this as free text'}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="ICD-10 code (optional)"
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {icd10Loading ? <CircularProgress size={16} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
+                  }}
+                />
+              )}
             />
           </Stack>
         </DialogContent>
