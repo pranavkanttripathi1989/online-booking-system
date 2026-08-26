@@ -13,7 +13,7 @@ related: [PLAN144, TP161, TR161]
 
 ## Correction to this slice's own starting premise
 
-This slice was originally scoped against `project-plans/06-execution-plan.md`'s
+This slice was originally scoped against `project-plans/analysis/06-execution-plan.md`'s
 P1 item 1.6 ("frontend unit tests for `AuthContext`/`ProtectedRoute`/
 booking-wizard validation/currency-date utils") and `CLAUDE.md`'s own "What
 Phase F did NOT close" section, both of which list this as still open.

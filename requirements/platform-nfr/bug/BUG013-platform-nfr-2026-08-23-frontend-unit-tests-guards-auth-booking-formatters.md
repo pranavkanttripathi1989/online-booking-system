@@ -19,7 +19,7 @@ test-design bug found and fixed while writing the coverage this slice adds
 
 ## How this was found
 
-Second of three sequenced slices to finish `project-plans/06-execution-plan.md`'s
+Second of three sequenced slices to finish `project-plans/analysis/06-execution-plan.md`'s
 P1 ("prove the boundary") — the first (the backend tenancy matrix, `BUG012`)
 is done. P1.6 is: "Frontend unit tests where risk concentrates: `AuthContext`,
 `ProtectedRoute`/`RoleGuard`, booking-wizard validation, currency/date utils;

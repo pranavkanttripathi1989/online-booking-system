@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/08-integration-gap-analysis.md` finding A-7 — a fresh
+`project-plans/analysis/08-integration-gap-analysis.md` finding A-7 — a fresh
 sweep cross-checking every backend GraphQL operation against real
 frontend usage. Closes real, already-shipped backend capability from
 `REQ031`'s own P0 scope that never got frontend UI.

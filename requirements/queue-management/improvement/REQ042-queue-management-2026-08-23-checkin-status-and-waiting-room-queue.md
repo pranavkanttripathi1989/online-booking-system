@@ -13,7 +13,7 @@ related: [BUG019]
 
 First vertical slice of `REQ019` (queue management) — not the full PRD scope
 (session/token mode, live queue board with wait-time estimation, the
-patient-facing check-in kiosk). Also closes `project-plans/06-execution-plan.md`
+patient-facing check-in kiosk). Also closes `project-plans/analysis/06-execution-plan.md`
 P2.2's `waiting-room` item: one of the three genuinely backend-less pages
 now has a real backend, so it comes off that list rather than staying
 reachable-but-fabricated.

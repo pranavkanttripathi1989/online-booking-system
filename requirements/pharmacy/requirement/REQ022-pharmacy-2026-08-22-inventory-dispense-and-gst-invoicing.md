@@ -30,7 +30,7 @@ build on.
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M9 — Pharmacy & Inventory** (`FR-PHR-01`–`FR-PHR-14`). Cross-referenced against `backend/src/products` and `project-plans/05-competitive-analysis.md` §2 ("pharmacy is a profit centre, often the biggest one in a small clinic").
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M9 — Pharmacy & Inventory** (`FR-PHR-01`–`FR-PHR-14`). Cross-referenced against `backend/src/products` and `project-plans/analysis/05-competitive-analysis.md` §2 ("pharmacy is a profit centre, often the biggest one in a small clinic").
 
 ## Current state vs. PRD ambition
 

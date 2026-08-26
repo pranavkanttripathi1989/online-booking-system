@@ -11,7 +11,7 @@ related: []
 
 # REQ039 — Prisma safety-net middleware: no `findMany` returns an unbounded collection
 
-`project-plans/06-execution-plan.md` P3.3 (F-14), **partial**. The full item
+`project-plans/analysis/06-execution-plan.md` P3.3 (F-14), **partial**. The full item
 is pagination on every unbounded list resolver, matching each consumer's
 existing contract — real, per-domain requirement-sized work across ~19
 services (each needs a GraphQL contract change, checked against what its

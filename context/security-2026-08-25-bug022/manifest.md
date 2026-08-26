@@ -6,12 +6,12 @@ created: 2026-08-25
 updated: 2026-08-25
 status: done
 parent: BUG022
-related: [PLAN084, TP111, TR110, project-plans/08-integration-gap-analysis.md]
+related: [PLAN084, TP111, TR110, project-plans/analysis/08-integration-gap-analysis.md]
 ---
 
 # security — BUG022, password-reset flow had no second step (2026-08-25, closed same day)
 
-Found via `project-plans/08-integration-gap-analysis.md` (finding A-1) —
+Found via `project-plans/analysis/08-integration-gap-analysis.md` (finding A-1) —
 a real, already-tested backend mutation (`resetPassword`) with no
 frontend page ever calling it. `forgot-password.jsx` only ever called the
 first step (`forgotPassword`), so the flow dead-ended at "check your
@@ -58,6 +58,6 @@ anywhere in this codebase yet), not something this fix builds. OTP/SMS
 password recovery is out of scope — this is the email-token path only,
 matching what the backend actually implements.
 
-The remaining findings in `project-plans/08-integration-gap-analysis.md`
+The remaining findings in `project-plans/analysis/08-integration-gap-analysis.md`
 (A-2 through A-10, B-2 through B-4) are still open, per that document's
 own "Fix sequencing" section.

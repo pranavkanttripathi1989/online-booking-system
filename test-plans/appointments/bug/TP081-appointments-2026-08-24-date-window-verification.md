@@ -45,5 +45,5 @@ via extracting and inspecting raw GraphQL request/response bodies from
 Playwright trace network logs against `backend_e2e` (port 4001). TC-10/11/12
 via `npx playwright test` with `E2E_BASE_URL=http://localhost:3101` against
 the isolated e2e stack (`docker compose --profile e2e up -d
---force-recreate`), per `project-plans/06-execution-plan.md` P1.5's isolated
+--force-recreate`), per `project-plans/analysis/06-execution-plan.md` P1.5's isolated
 stack.

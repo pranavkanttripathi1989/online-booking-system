@@ -13,7 +13,7 @@ related: [PLAN143, TP160, TR160]
 
 ## Why this slice
 
-`project-plans/02-findings-register.md` F-32 measured the backend unit
+`project-plans/analysis/02-findings-register.md` F-32 measured the backend unit
 suite at ~400s inside `medibook_backend` (via `docker exec`) versus
 ~42s quoted historically on the host — this session's own real run
 measured 189s on the host for the current, larger suite (84 suites /

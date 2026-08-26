@@ -13,7 +13,7 @@ related: [PLAN182, TP202, TR202]
 
 ## Why this slice
 
-`project-plans/02-findings-register.md` F-28's own prior status line:
+`project-plans/analysis/02-findings-register.md` F-28's own prior status line:
 *"What's not confirmed: whether every e2e spec actually runs against
 [the isolated e2e] stack rather than the shared dev database... Not
 independently re-investigated spec-by-spec."* This slice does exactly

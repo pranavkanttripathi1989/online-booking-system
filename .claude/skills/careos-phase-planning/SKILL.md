@@ -61,7 +61,7 @@ rather than proceeding quietly.
 ## Mapping a PRD `FR-*` id to work
 
 1. Find its module (M1–M17) in PRD §9.
-2. Look up the module in `project-plans/07-prd-gap-analysis-and-roadmap.md` §1 — that table maps every module to its feature slug, current state, and `REQ` id.
+2. Look up the module in `project-plans/analysis/07-prd-gap-analysis-and-roadmap.md` §1 — that table maps every module to its feature slug, current state, and `REQ` id.
 3. Open that `REQ` document for the acceptance criteria.
 4. Open the matching phase document in `technical-plans/` for the schema and constraints.
 5. *Then* enter plan mode, read the real code, and write the `PLAN###`.

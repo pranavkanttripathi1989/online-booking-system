@@ -11,7 +11,7 @@ related: [PLAN170, TP190, TR190]
 
 # clinical-records — REQ130: discrete vitals and growth chart (2026-08-26)
 
-Seventh slice of the next 10-slice batch (`project-plans/12-next-10-slice-batch.md`).
+Seventh slice of the next 10-slice batch (`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 

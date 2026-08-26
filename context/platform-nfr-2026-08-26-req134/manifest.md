@@ -11,7 +11,7 @@ related: [PLAN174, TP194, TR194]
 
 # platform-nfr — REQ134: notifications bounded pagination (2026-08-26)
 
-First slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+First slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

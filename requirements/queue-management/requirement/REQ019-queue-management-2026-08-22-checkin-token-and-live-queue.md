@@ -46,7 +46,7 @@ re-attempted here.
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M6 — Clinic Check-In & Queue Management** (`FR-QUE-01`–`FR-QUE-09`). Cross-referenced against `project-plans/01-codebase-analysis.md` §3.2 and `project-plans/02-findings-register.md` F-18.
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M6 — Clinic Check-In & Queue Management** (`FR-QUE-01`–`FR-QUE-09`). Cross-referenced against `project-plans/analysis/01-codebase-analysis.md` §3.2 and `project-plans/analysis/02-findings-register.md` F-18.
 
 ## Current state vs. PRD ambition
 

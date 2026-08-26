@@ -11,7 +11,7 @@ related: [BUG009, BUG015]
 
 # BUG016 — Two more fabricated pages wired to real data; a real gap found and closed along the way
 
-Second slice of `project-plans/06-execution-plan.md` P2.1's remaining 4
+Second slice of `project-plans/analysis/06-execution-plan.md` P2.1's remaining 4
 fabricated pages. `patients/detail.jsx` is deliberately excluded from this
 slice — see "What this does not close".
 

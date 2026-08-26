@@ -17,7 +17,7 @@ Investigation-heavy, per this slice's own scoping — no application code
 change was warranted (see requirement doc's "Deliberately out of
 scope"). What did change:
 
-**`project-plans/02-findings-register.md`**: F-28's status paragraph
+**`project-plans/analysis/02-findings-register.md`**: F-28's status paragraph
 rewritten with the concrete, spec-by-spec-confirmed evidence — the
 corrected "matching fixture names isn't proof of stack" reasoning, the
 structural `playwright.config.js`/`npm run e2e` default evidence, the
@@ -57,6 +57,6 @@ timeout) on the first run, 2/2 passed (14.3s, 19.2s) on the second.
 `REQ142` (this requirement, carries the full investigation account),
 `PLAN182` (this plan), `TP202`/`TR202` (verification), a context bundle,
 and index updates across all five doc roots plus the
-`test-coverage-audit` feature README. `project-plans/02-findings-register.md`'s
+`test-coverage-audit` feature README. `project-plans/analysis/02-findings-register.md`'s
 F-28 entry updated in place (not a new finding — same section, revised
 status).

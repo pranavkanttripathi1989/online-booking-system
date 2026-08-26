@@ -13,7 +13,7 @@ related: [BUG026, PLAN103]
 
 Executed 2026-08-25/26 against `medibook_backend`/`medibook_postgres` on
 `master`, as part of a 10-finding pick-up from
-`project-plans/02-findings-register.md`.
+`project-plans/analysis/02-findings-register.md`.
 
 ## Unit
 

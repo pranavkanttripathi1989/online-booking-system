@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/08-integration-gap-analysis.md` findings A-2 and A-3 — a
+`project-plans/analysis/08-integration-gap-analysis.md` findings A-2 and A-3 — a
 fresh sweep cross-checking every backend GraphQL operation against real
 frontend usage. Both close out real, already-shipped backend capability
 from `REQ022`'s own P0 scope that never got frontend UI.

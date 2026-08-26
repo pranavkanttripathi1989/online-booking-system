@@ -11,7 +11,7 @@ related: [PLAN172, TP192, TR192]
 
 # test-coverage-audit — REQ132: F-24 named-target confirmation (2026-08-26)
 
-Ninth slice of the next 10-slice batch (`project-plans/12-next-10-slice-batch.md`).
+Ninth slice of the next 10-slice batch (`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 

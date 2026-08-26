@@ -17,7 +17,7 @@ audit-logging or role-cloning UI attached, unlike US-SEC-01).
 
 ## Why this slice
 
-`project-plans/02-findings-register.md`'s headline finding: the custom
+`project-plans/analysis/02-findings-register.md`'s headline finding: the custom
 Roles/Permissions system this codebase's RBAC competitive-gap work built
 (`Permissions`, `RolePermissions`, `UserRoles.client_org_id` for per-org
 custom roles, `updateRolePermissions` mutation for assigning them) had

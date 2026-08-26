@@ -13,7 +13,7 @@ related: [PLAN141, TP165, TR165]
 
 ## Why this slice (and a correction to the original premise)
 
-`project-plans/02-findings-register.md` F-17 says `AppointmentPayments` has
+`project-plans/analysis/02-findings-register.md` F-17 says `AppointmentPayments` has
 no GST fields at all. That is now **stale** — `REQ047` (US-BIL-09) already
 added `gstin`, `hsn_sac_code`, `gst_rate`, `cgst_amount`, `sgst_amount`,
 `igst_amount`, `place_of_supply`, and `invoice_number` to

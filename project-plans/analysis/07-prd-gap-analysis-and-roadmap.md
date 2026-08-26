@@ -57,18 +57,18 @@ The exact split matters less than the shape: the product's booking/scheduling/pa
 
 ## 2. The hard prerequisite: this PRD cannot be built on the current foundation as-is
 
-`project-plans/02-findings-register.md` identified 3 ship-blocking findings (S1) before any of this PRD work was read: a live cross-tenant data-disclosure path (F-01), a client-side authentication bypass (F-02), and zero database indexes across all 41 models (F-13). Building 9 new net-new modules and extending 13 more on top of that foundation would not just leave those 3 findings unfixed — it would **replicate them at 20x the surface area**, since every new tenant-scoped table inherits the same risk pattern if the underlying `orgScope()` helper isn't fixed first.
+`project-plans/analysis/02-findings-register.md` identified 3 ship-blocking findings (S1) before any of this PRD work was read: a live cross-tenant data-disclosure path (F-01), a client-side authentication bypass (F-02), and zero database indexes across all 41 models (F-13). Building 9 new net-new modules and extending 13 more on top of that foundation would not just leave those 3 findings unfixed — it would **replicate them at 20x the surface area**, since every new tenant-scoped table inherits the same risk pattern if the underlying `orgScope()` helper isn't fixed first.
 
 This is not a hypothetical caution. `REQ020` (clinical records) explicitly calls out that its module "handles the most sensitive PHI in the entire product" and that the cross-tenant read `project-plans` found on the catalogue domain "would be materially worse if it recurred here." `REQ031` (insurance) makes the identical point about financial and clinical data. `REQ035` (platform NFRs) makes the point structurally: it requires every new table in `REQ014`–`034` to carry indexes from day one, specifically because retrofitting indexing across 20+ new modules would cost far more than building it in correctly now.
 
-**Recommendation: `project-plans/06-execution-plan.md`'s P0 phase (secure and stabilise, ~2 weeks) and P1 phase (prove the tenancy boundary with a real integration test, ~1.5 weeks) must complete before implementation planning begins on any `REQ014`–`035` document.** This is a re-statement of an existing recommendation, not a new one — it is restated here because the scale of new work being proposed makes the cost of skipping it much higher than when it was first written.
+**Recommendation: `project-plans/analysis/06-execution-plan.md`'s P0 phase (secure and stabilise, ~2 weeks) and P1 phase (prove the tenancy boundary with a real integration test, ~1.5 weeks) must complete before implementation planning begins on any `REQ014`–`035` document.** This is a re-statement of an existing recommendation, not a new one — it is restated here because the scale of new work being proposed makes the cost of skipping it much higher than when it was first written.
 
 ## 3. Sequencing the 22 requirements into phases
 
 The PRD's own three-phase structure (§6: Phase 1 MVP, Phase 2 V1 GA, Phase 3 V2) is sound and this roadmap follows it, layered on top of the `project-plans` P0/P1 foundation work.
 
 ### Phase F — Foundation (prerequisite, ~3.5 weeks)
-`project-plans/06-execution-plan.md` P0 + P1, unchanged. Not re-scoped here.
+`project-plans/analysis/06-execution-plan.md` P0 + P1, unchanged. Not re-scoped here.
 
 ### Phase G — PRD MVP core ("run the OPD day")
 The PRD's own Q1–Q2 roadmap milestones. Sequencing within this phase follows the dependency chain each `REQ` document states explicitly:
@@ -157,4 +157,4 @@ It does not attempt to schedule every one of the PRD's ~200 individual `FR-*` re
 
 ## 5. Next step
 
-Per `CLAUDE.md`'s working loop, none of `REQ014`–`035` should proceed to an implementation-plan document until: (a) `project-plans/06-execution-plan.md` P0–P1 is complete, and (b) each requirement's own genuine ambiguities (several are flagged explicitly in their "Open questions" sections — drug database licensing, regional-language priority, free-tier strategy, payer-partnership approach) are either resolved or explicitly accepted as deferred, logged in `context/open-questions.md` rather than guessed at.
+Per `CLAUDE.md`'s working loop, none of `REQ014`–`035` should proceed to an implementation-plan document until: (a) `project-plans/analysis/06-execution-plan.md` P0–P1 is complete, and (b) each requirement's own genuine ambiguities (several are flagged explicitly in their "Open questions" sections — drug database licensing, regional-language priority, free-tier strategy, payer-partnership approach) are either resolved or explicitly accepted as deferred, logged in `context/open-questions.md` rather than guessed at.

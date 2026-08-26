@@ -13,13 +13,13 @@ related: []
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §7 (System Architecture & Tenancy Model) and §13 (Non-Functional Requirements) in full. Cross-referenced against `project-plans/01-codebase-analysis.md` and `project-plans/06-execution-plan.md` P0/P3.
+`PRD-Healthcare-Booking-SaaS-India.md` §7 (System Architecture & Tenancy Model) and §13 (Non-Functional Requirements) in full. Cross-referenced against `project-plans/analysis/01-codebase-analysis.md` and `project-plans/analysis/06-execution-plan.md` P0/P3.
 
 ## Current state vs. PRD ambition
 
 This requirement is unusual among the set: it is not primarily about missing features, but about whether the platform can carry the PRD's stated scale target (§13: 5,000 tenants, 50,000 concurrent staff sessions at peak, 5M appointments/month, 50M patient records by Year 2) at all. `project-plans` already answered a large part of this question independently, and this requirement should be read as adopting those findings as its own acceptance criteria rather than re-deriving them.
 
-**The single most important fact here:** `project-plans/02-findings-register.md` F-13 found **zero declared indexes across all 41 Prisma models** (`grep -c "@@index" schema.prisma` → 0), confirmed live against the running database (`\d "Appointments"` shows only the primary key). At the current 4 appointments this is invisible; at the PRD's stated Year-2 target of 5 million appointments/month it is not a performance problem, it is an outage. **No module in this entire PRD-derived requirements set should ship new tenant-scoped tables without indexes on their scoping and hot-query columns from day one** — the cost of fixing this retroactively across 20+ new modules would be far higher than building it in correctly now.
+**The single most important fact here:** `project-plans/analysis/02-findings-register.md` F-13 found **zero declared indexes across all 41 Prisma models** (`grep -c "@@index" schema.prisma` → 0), confirmed live against the running database (`\d "Appointments"` shows only the primary key). At the current 4 appointments this is invisible; at the PRD's stated Year-2 target of 5 million appointments/month it is not a performance problem, it is an outage. **No module in this entire PRD-derived requirements set should ship new tenant-scoped tables without indexes on their scoping and hot-query columns from day one** — the cost of fixing this retroactively across 20+ new modules would be far higher than building it in correctly now.
 
 Similarly, `project-plans` F-14 (unbounded list resolvers) and F-15 (N+1 query patterns, JS-side aggregation) describe exactly the failure modes the PRD's peak-load NFR (9–11 AM and 6–9 PM IST, per §13) would expose first, since that's precisely when every clinic's queue board, calendar, and dashboard are being refreshed simultaneously.
 
@@ -28,13 +28,13 @@ Gaps genuinely new to this requirement, not already covered by `project-plans`:
 1. **Offline resilience** (front desk must continue check-in for ≥15 min of connectivity loss) — no such capability exists in the frontend architecture at all; flagged already as needing its own technical spike under `REQ019`.
 2. **Low-bandwidth mode** (<300 KB initial payload) — the current Vite/React bundle has not been measured or budgeted against this target.
 3. **Accessibility** (WCAG 2.1 AA on patient-facing surfaces) — not audited; `project-plans` didn't specifically check this.
-4. **Localisation** (English + Hindi + 6 regional languages) — no i18n framework exists in the frontend at all (`project-plans/05-competitive-analysis.md` Tier 3 item 14).
+4. **Localisation** (English + Hindi + 6 regional languages) — no i18n framework exists in the frontend at all (`project-plans/analysis/05-competitive-analysis.md` Tier 3 item 14).
 5. **Formal SLOs and error budgets** — no structured logging/tracing/business-metric alerting exists; `project-plans` F-26 (no CI) and general observability gaps mean there's no measurement infrastructure to even know if an SLO is being met.
 6. **Deployability requirements** (feature flags for progressive rollout, per-tenant canary, zero-downtime migrations) — no feature-flag system exists.
 
 ## Gap classification
 
-- **Already scoped as fixes elsewhere (adopt, don't duplicate):** F-13 (indexes), F-14 (pagination), F-15 (N+1/aggregation) — `project-plans/06-execution-plan.md` P0/P3 items. This requirement's role is to make those fixes a **standing engineering constraint for every future module** in this requirements set, not to re-plan them.
+- **Already scoped as fixes elsewhere (adopt, don't duplicate):** F-13 (indexes), F-14 (pagination), F-15 (N+1/aggregation) — `project-plans/analysis/06-execution-plan.md` P0/P3 items. This requirement's role is to make those fixes a **standing engineering constraint for every future module** in this requirements set, not to re-plan them.
 - **Net-new:** offline resilience, low-bandwidth budget, accessibility audit and remediation, i18n framework, observability/SLOs, feature-flag/canary deployment infrastructure.
 
 ## Phase assignment
@@ -43,7 +43,7 @@ PRD Phase: performance/scale/security/auditability NFRs are effectively **MVP-bl
 
 ## Dependencies
 
-- **Requires:** `project-plans/06-execution-plan.md` P0 (index migration, CI) as a hard prerequisite — no module in this requirements set (`REQ014`–`034`) should be implemented before that P0 phase completes, since every one of them adds new tenant-scoped tables that would otherwise repeat F-13.
+- **Requires:** `project-plans/analysis/06-execution-plan.md` P0 (index migration, CI) as a hard prerequisite — no module in this requirements set (`REQ014`–`034`) should be implemented before that P0 phase completes, since every one of them adds new tenant-scoped tables that would otherwise repeat F-13.
 - **Blocks:** implicitly gates every other requirement's "done" definition — a feature that is functionally correct but violates the indexing/pagination/N+1 constraints below is not actually done per this requirement's acceptance bar.
 
 ## User stories
@@ -54,12 +54,12 @@ PRD Phase: performance/scale/security/auditability NFRs are effectively **MVP-bl
 - PRD refs: §7.2 (data layer), §13 (scale)
 - Priority: P0
 - Acceptance criteria: given any new table introduced by `REQ014`–`034`, its migration includes the relevant `@@index` declarations in the same commit that creates the table — this is a code-review gate, not a follow-up task.
-  - This closes `project-plans` F-13 as a forward-looking standing rule, in addition to the backward-looking fix already scoped in `project-plans/06-execution-plan.md` P0 item 0.4 for the 41 existing models.
+  - This closes `project-plans` F-13 as a forward-looking standing rule, in addition to the backward-looking fix already scoped in `project-plans/analysis/06-execution-plan.md` P0 item 0.4 for the 41 existing models.
 
 **US-NFR-02** — As the system, I want every list-returning resolver to be paginated or capped by default, so that a large tenant's catalogue or appointment history cannot degrade the API for every other tenant.
 - PRD refs: §13 (scale)
 - Priority: P0
-- Acceptance criteria: no new resolver in this requirements set returns an unbounded array — this closes `project-plans` F-14 as a standing rule for new work, alongside the existing-resolver fix in `project-plans/06-execution-plan.md` P3.
+- Acceptance criteria: no new resolver in this requirements set returns an unbounded array — this closes `project-plans` F-14 as a standing rule for new work, alongside the existing-resolver fix in `project-plans/analysis/06-execution-plan.md` P3.
 
 **US-NFR-03** — As the system, I want aggregation (counts, sums, medians) computed in the database, not by looping over full result sets in application code, so that reporting and queue/ETA calculations stay fast as data volume grows.
 - PRD refs: §13 (performance targets: slot-availability p95 < 400ms, queue board update latency < 2s)

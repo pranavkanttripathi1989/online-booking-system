@@ -436,7 +436,7 @@ removed the same day at explicit user request: 5 attempts/minute is tight
 enough that it tripped on ordinary manual re-testing during this session
 (`ThrottlerException: Too Many Requests` on the 6th attempt within a minute)
 and was the confirmed root cause of the e2e suite's batched-run flakiness
-(`project-plans/06-execution-plan.md` P1.5 investigation — `--workers=4` still
+(`project-plans/analysis/06-execution-plan.md` P1.5 investigation — `--workers=4` still
 failed 50/66 on this, not browser contention). The global 100-req/60s bucket
 (`GqlThrottlerGuard`) and the separate per-account Redis lockout
 (`auth.service.ts`, 5 failed attempts / 15 min, untouched by this change) are
@@ -904,7 +904,7 @@ found three more real, previously-unfixed gaps of the same shape as this
 finding's own — `availabilities` and `spacerBlocks`/`roomBlocks` had no
 `@Auth()` at all, and `getSpacerBlocks` had neither auth nor any scoping,
 a live cross-tenant IDOR. `KNOWN_GAPS` is now `[]`. This closes the specific
-gap `project-plans/06-execution-plan.md`'s P1.3 DoD ("the tenancy matrix
+gap `project-plans/analysis/06-execution-plan.md`'s P1.3 DoD ("the tenancy matrix
 covers every domain") required.
 
 ### F-26 · S2 · No CI — ✅ CLOSED 2026-08-22
@@ -1062,7 +1062,7 @@ backend command list points at it explicitly instead of restating a
 number by hand, and its own text names the exact prior instance of this
 drift as the reason ("this exact line once said '645 tests / 50 suites'
 and was still there, unnoticed, at 1470 tests / 92 suites"). Found while
-re-verifying the folded-in note in `project-plans/12-next-10-slice-batch.md`
+re-verifying the folded-in note in `project-plans/analysis/12-next-10-slice-batch.md`
 during `REQ133` — this status line itself is the correction that note
 flagged as missing.
 

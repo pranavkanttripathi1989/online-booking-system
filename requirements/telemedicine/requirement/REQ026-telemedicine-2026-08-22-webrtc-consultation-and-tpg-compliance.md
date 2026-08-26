@@ -13,7 +13,7 @@ related: [REQ021, REQ018]
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M12 — Telemedicine** (`FR-TEL-01`–`FR-TEL-08`). Cross-referenced against `project-plans/01-codebase-analysis.md` §3.2 and `project-plans/06-execution-plan.md` P5 Wave B item 5.8.
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M12 — Telemedicine** (`FR-TEL-01`–`FR-TEL-08`). Cross-referenced against `project-plans/analysis/01-codebase-analysis.md` §3.2 and `project-plans/analysis/06-execution-plan.md` P5 Wave B item 5.8.
 
 ## Current state vs. PRD ambition
 

@@ -13,7 +13,7 @@ related: [PP002, PP006, TECH005, TECH006]
 
 **Duration estimate:** ~3.5 weeks (P0 ≈ 2 weeks, P1 ≈ 1.5 weeks)
 **Blocks:** every phase below. Not optional sequencing advice — see README §"The one hard prerequisite".
-**Source:** `project-plans/06-execution-plan.md` P0+P1, restated at implementation detail.
+**Source:** `project-plans/analysis/06-execution-plan.md` P0+P1, restated at implementation detail.
 
 This phase fixes nothing the PRD asked for. It exists because the PRD asks for
 ~40 new tenant-scoped tables, and the current foundation would replicate three

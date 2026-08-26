@@ -20,7 +20,7 @@ verified), so no server data leaked through this route alone — but combined
 with any surviving mock-fallback page, the forged session made fabricated data
 look like a real, complete admin experience.
 
-## Evidence (`project-plans/02-findings-register.md` F-02)
+## Evidence (`project-plans/analysis/02-findings-register.md` F-02)
 
 - `frontend/src/context/AuthContext.jsx`'s `getInitialState()` trusted any
   token beginning with `mock_` as fully authenticated, taking the role array

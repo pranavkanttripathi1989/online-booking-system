@@ -11,7 +11,7 @@ related: [BUG015]
 
 # REQ038 — Security headers, boot-time NODE_ENV assertion, and a redesigned auth throttle
 
-`project-plans/06-execution-plan.md` P3.7 (F-09, F-12). Three independent
+`project-plans/analysis/06-execution-plan.md` P3.7 (F-09, F-12). Three independent
 hardening items, bundled since all three land in `main.ts`/`auth.resolver.ts`
 in the same pass.
 

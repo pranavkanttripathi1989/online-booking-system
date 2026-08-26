@@ -13,17 +13,17 @@ related: [REQ020, REQ021, REQ027, REQ034]
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M14 — ABDM & Health Data Interoperability** (`FR-ABDM-01`–`10`), which the PRD explicitly frames as *"a go-to-market gate, not a nice-to-have"* (§1.2, §4.3, §17). Cross-referenced against `project-plans/05-competitive-analysis.md` §2.2 (Eka Care/Bajaj Finserv Health positioning) and Tier 2 recommendation #8.
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M14 — ABDM & Health Data Interoperability** (`FR-ABDM-01`–`10`), which the PRD explicitly frames as *"a go-to-market gate, not a nice-to-have"* (§1.2, §4.3, §17). Cross-referenced against `project-plans/analysis/05-competitive-analysis.md` §2.2 (Eka Care/Bajaj Finserv Health positioning) and Tier 2 recommendation #8.
 
 ## Current state vs. PRD ambition
 
-No ABDM integration of any kind exists in the codebase — no ABHA creation flow, no FHIR R4 document generation, no HFR/HPR linkage, no consent-artefact model. This is entirely net-new, and `project-plans/05-competitive-analysis.md` independently flagged it as *"the single largest strategic gap"* in a competitive sense: Eka Care and Bajaj Finserv Health are positioned specifically around ABDM depth, and the PRD's own market analysis (§2, §1.2) argues certification is becoming a hard requirement for any facility tied to government schemes.
+No ABDM integration of any kind exists in the codebase — no ABHA creation flow, no FHIR R4 document generation, no HFR/HPR linkage, no consent-artefact model. This is entirely net-new, and `project-plans/analysis/05-competitive-analysis.md` independently flagged it as *"the single largest strategic gap"* in a competitive sense: Eka Care and Bajaj Finserv Health are positioned specifically around ABDM depth, and the PRD's own market analysis (§2, §1.2) argues certification is becoming a hard requirement for any facility tied to government schemes.
 
 This requirement scopes milestones M1–M3 only (ABHA creation, care-context linking as a Health Information Provider, consent-based record fetch as a Health Information User), matching the PRD's own phasing — M4 (NHCX claims integration) belongs to `REQ031` (insurance), not here, since it is a distinct certification track with its own regulatory timeline.
 
 ## Gap classification
 
-- **Net-new, entirely.** This is a compliance/certification programme as much as an engineering task — sandbox onboarding, certification review, and progressive milestone sign-off are external dependencies with lead times the engineering team does not control, which is why `project-plans/06-execution-plan.md` P5 Wave B explicitly recommends starting the paperwork in Wave A even though the build lands later.
+- **Net-new, entirely.** This is a compliance/certification programme as much as an engineering task — sandbox onboarding, certification review, and progressive milestone sign-off are external dependencies with lead times the engineering team does not control, which is why `project-plans/analysis/06-execution-plan.md` P5 Wave B explicitly recommends starting the paperwork in Wave A even though the build lands later.
 
 ## Phase assignment
 

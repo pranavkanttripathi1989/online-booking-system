@@ -13,7 +13,7 @@ related: [PLAN172, TP192, TR192]
 
 ## Why this slice
 
-`project-plans/02-findings-register.md` F-24's own status line: *"The
+`project-plans/analysis/02-findings-register.md` F-24's own status line: *"The
 named highest-risk targets (`AuthContext`, `ProtectedRoute`/`RoleGuard`,
 booking-wizard step validation, currency/date utils, zod schemas) have
 not been specifically confirmed covered — not re-investigated

@@ -21,7 +21,7 @@ password.
 
 ## How this was found
 
-`project-plans/08-integration-gap-analysis.md` (finding A-1), a fresh
+`project-plans/analysis/08-integration-gap-analysis.md` (finding A-1), a fresh
 sweep cross-checking every backend GraphQL operation against real
 frontend usage.
 

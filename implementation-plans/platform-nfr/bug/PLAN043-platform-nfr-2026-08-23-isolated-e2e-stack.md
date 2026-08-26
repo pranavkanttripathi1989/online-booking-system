@@ -11,7 +11,7 @@ related: [REQ035, BUG017, BUG007]
 
 # PLAN043 — P1.5: a separate, seeded e2e database + backend + frontend stack
 
-Closes `project-plans/06-execution-plan.md` P1 item 1.5 (finding F-28: "the
+Closes `project-plans/analysis/06-execution-plan.md` P1 item 1.5 (finding F-28: "the
 development database is the test database"). Until this slice, every
 `frontend/e2e/*.spec.js` ran against the shared dev stack's real database
 (`medibook_db`) — this session had already hit that fragility directly

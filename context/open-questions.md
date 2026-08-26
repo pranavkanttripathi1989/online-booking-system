@@ -242,7 +242,7 @@ allergy/diagnosis piece) versus which should be removed from this page
 entirely until built for real, rather than left as permanently-local,
 never-persisted UI. Until that's decided, the page is intentionally left
 as-is beyond its `TableContainer` fix (`BUG015`) and is not claimed as
-"wired" anywhere in `project-plans/06-execution-plan.md`.
+"wired" anywhere in `project-plans/analysis/06-execution-plan.md`.
 
 ---
 

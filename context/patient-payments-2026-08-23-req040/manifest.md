@@ -11,8 +11,8 @@ related: [REQ004, PLAN044, TP071, TR070]
 
 # patient-payments — REQ040, Razorpay webhook + reconciliation + throttle (2026-08-23)
 
-Closes `project-plans/06-execution-plan.md` P3.5 and the full scope of
-`project-plans/02-findings-register.md` F-07 (the phase-plan row only named
+Closes `project-plans/analysis/06-execution-plan.md` P3.5 and the full scope of
+`project-plans/analysis/02-findings-register.md` F-07 (the phase-plan row only named
 the webhook half; F-07's own text also flagged the two unauthenticated,
 unthrottled mutations as an abuse surface).
 
@@ -28,8 +28,8 @@ unthrottled mutations as an abuse surface).
 
 ## What this closes
 
-- `project-plans/06-execution-plan.md` P3.5.
-- `project-plans/02-findings-register.md` F-07, in full (not just the
+- `project-plans/analysis/06-execution-plan.md` P3.5.
+- `project-plans/analysis/02-findings-register.md` F-07, in full (not just the
   webhook half the phase-plan row named).
 
 ## Real findings made while building this (not assumed)

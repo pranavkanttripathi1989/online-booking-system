@@ -12,7 +12,7 @@ related: [PLAN183, TP203, TR203]
 # compliance-dpdp — REQ143: DPDP retention-purge, remaining domains re-investigated (2026-08-26)
 
 Tenth and final slice of the next 10-slice batch
-(`project-plans/13-next-10-slice-batch.md`).
+(`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/02-findings-register.md` F-15, part of a 10-finding
+`project-plans/analysis/02-findings-register.md` F-15, part of a 10-finding
 pick-up. Re-verification before starting found the finding **mostly
 already closed** by unrelated later work — only one of its four named
 instances was still real.
@@ -60,4 +60,4 @@ batching only matters when listing many threads at once.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-15.
+`project-plans/analysis/02-findings-register.md` F-15.

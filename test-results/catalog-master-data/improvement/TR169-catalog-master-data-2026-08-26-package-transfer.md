@@ -86,6 +86,6 @@ test-tooling layer.
 ## Full consolidated suite
 
 Deferred to the batch-final consolidated run per this batch's own
-established discipline (`project-plans/10-next-14-slice-batch-reconciled.md`
+established discipline (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`
 "Execution discipline") — this slice's own scoped backend + frontend
 suites are green as recorded above.

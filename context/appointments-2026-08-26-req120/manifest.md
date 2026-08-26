@@ -11,7 +11,7 @@ related: [PLAN160, TP180, TR180]
 
 # appointments — REQ120: bulk-reschedule a clinician's day (2026-08-26)
 
-Seventh slice of the next 10-slice batch (`project-plans/11-next-10-slice-batch.md`).
+Seventh slice of the next 10-slice batch (`project-plans/analysis/11-next-10-slice-batch.md`).
 
 ## Documents
 

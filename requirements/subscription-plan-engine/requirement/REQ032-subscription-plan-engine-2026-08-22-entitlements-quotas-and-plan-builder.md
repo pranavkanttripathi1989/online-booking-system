@@ -28,7 +28,7 @@ bolt onto this additive data-model slice.
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §10 **Subscription, Plans & Pricing Engine (Super Admin)** (`FR-PLAN-01`–`14`, §10.2 plan matrix). Cross-referenced against `SubscriptionPlans`/`OrganizationSubscriptions` in `schema.prisma` and `project-plans/02-findings-register.md`.
+`PRD-Healthcare-Booking-SaaS-India.md` §10 **Subscription, Plans & Pricing Engine (Super Admin)** (`FR-PLAN-01`–`14`, §10.2 plan matrix). Cross-referenced against `SubscriptionPlans`/`OrganizationSubscriptions` in `schema.prisma` and `project-plans/analysis/02-findings-register.md`.
 
 ## Current state vs. PRD ambition
 

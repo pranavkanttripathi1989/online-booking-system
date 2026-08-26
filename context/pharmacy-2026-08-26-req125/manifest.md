@@ -11,7 +11,7 @@ related: [PLAN165, TP185, TR185]
 
 # pharmacy — REQ125: FEFO default on the dispense batch picker (2026-08-26)
 
-Second slice of the next 10-slice batch (`project-plans/12-next-10-slice-batch.md`).
+Second slice of the next 10-slice batch (`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 

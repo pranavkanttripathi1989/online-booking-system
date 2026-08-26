@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-Part of a 10-finding pick-up from `project-plans/02-findings-register.md`
+Part of a 10-finding pick-up from `project-plans/analysis/02-findings-register.md`
 (the original 2026-08-22 codebase audit), `F-04`. Re-verified against the
 current code before starting, since ~30 slices have shipped since the
 finding was written — confirmed still fully open.
@@ -80,4 +80,4 @@ regression on legitimate data.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-04.
+`project-plans/analysis/02-findings-register.md` F-04.

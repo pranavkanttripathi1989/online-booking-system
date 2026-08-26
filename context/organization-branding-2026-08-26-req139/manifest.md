@@ -11,7 +11,7 @@ related: [PLAN179, TP199, TR199]
 
 # organization-branding — REQ139: org logo propagated into PDF letterheads (2026-08-26)
 
-Sixth slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+Sixth slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

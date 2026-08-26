@@ -13,7 +13,7 @@ related: [REQ063]
 
 ## Source
 
-`project-plans/08-integration-gap-analysis.md` finding A-9 — the last
+`project-plans/analysis/08-integration-gap-analysis.md` finding A-9 — the last
 S3/S4-tier finding from the same fresh integration sweep that produced
 A-4 through A-8 (`REQ060`–`REQ063`). Closes real, already-shipped backend
 capability from `REQ018`'s own booking-widget scope that never got

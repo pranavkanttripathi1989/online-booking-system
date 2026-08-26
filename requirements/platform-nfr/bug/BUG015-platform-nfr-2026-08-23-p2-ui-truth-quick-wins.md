@@ -11,7 +11,7 @@ related: [BUG009]
 
 # BUG015 — P2 "Truth in the UI" quick wins: TableContainer wrappers, dead mock component, stale debug line
 
-First slice of `project-plans/06-execution-plan.md` P2, picked for being the
+First slice of `project-plans/analysis/06-execution-plan.md` P2, picked for being the
 cheapest, safest, highest-confidence items after the 2026-08-23 P2/P3 audit
 (see that doc's own updated status table). Three independent, small fixes,
 bundled into one bug doc since each is mechanical and low-risk — same

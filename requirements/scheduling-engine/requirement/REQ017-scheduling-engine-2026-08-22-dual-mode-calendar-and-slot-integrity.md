@@ -30,7 +30,7 @@ the current Phase 1 pass).
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M4 — Provider Profiles, Availability & Calendar Engine** (`FR-CAL-01`–`FR-CAL-16`), explicitly flagged by the PRD as *"the heart of the product. Failure here is unrecoverable."* Cross-referenced against `backend/src/availability`, `CLAUDE.md`, and `project-plans/02-findings-register.md` F-16.
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M4 — Provider Profiles, Availability & Calendar Engine** (`FR-CAL-01`–`FR-CAL-16`), explicitly flagged by the PRD as *"the heart of the product. Failure here is unrecoverable."* Cross-referenced against `backend/src/availability`, `CLAUDE.md`, and `project-plans/analysis/02-findings-register.md` F-16.
 
 ## Current state vs. PRD ambition
 

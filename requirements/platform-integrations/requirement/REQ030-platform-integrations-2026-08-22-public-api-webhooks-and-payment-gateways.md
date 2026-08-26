@@ -32,7 +32,7 @@ untouched.
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M16 — Integrations & Extensibility** (`FR-INT-01`–`07`). Cross-referenced against `backend/src/app.module.ts` (existing GraphQL-only surface) and `project-plans/02-findings-register.md` F-07.
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M16 — Integrations & Extensibility** (`FR-INT-01`–`07`). Cross-referenced against `backend/src/app.module.ts` (existing GraphQL-only surface) and `project-plans/analysis/02-findings-register.md` F-07.
 
 ## Current state vs. PRD ambition
 

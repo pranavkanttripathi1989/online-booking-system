@@ -12,7 +12,7 @@ related: [PLAN173, TP193, TR193]
 # platform-nfr — REQ133: testResults bounded pagination (2026-08-26)
 
 Tenth and final slice of the next 10-slice batch
-(`project-plans/12-next-10-slice-batch.md`).
+(`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 
@@ -51,7 +51,7 @@ established discipline for every shared file touched across all ten
 slices in this batch.
 
 Also folds in the batch plan's own noted F-30 correction in
-`project-plans/02-findings-register.md` (points at
+`project-plans/analysis/02-findings-register.md` (points at
 `scripts/test-count-status.mjs`, built by `REQ123`, which the finding
 had never been updated to reference).
 
@@ -65,6 +65,6 @@ ever had), `eslint` clean, full lint ratchet unchanged at 1909.
 
 ## Batch closed
 
-This is the tenth and final slice of `project-plans/12-next-10-slice-batch.md`
+This is the tenth and final slice of `project-plans/analysis/12-next-10-slice-batch.md`
 (`REQ124`–`REQ133`). A consolidated full-suite verification pass across
 the whole batch is the next and last step.

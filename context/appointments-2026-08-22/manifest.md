@@ -19,4 +19,4 @@ This is a requirement-only bundle — no implementation plan, test plan, or test
 
 - [scheduling-engine-2026-08-22 bundle](../scheduling-engine-2026-08-22/manifest.md) — REQ017, the calendar-engine dependency this booking module sits on top of.
 - [appointments-2026-08-18 bundle](../appointments-2026-08-18/manifest.md) — the pre-existing test-coverage bundle for this same feature slug (REQ013/TP003/TR003), unrelated to this new PRD-derived scope.
-- [project-plans/07-prd-gap-analysis-and-roadmap.md](../../project-plans/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.
+- [project-plans/analysis/07-prd-gap-analysis-and-roadmap.md](../../project-plans/analysis/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.

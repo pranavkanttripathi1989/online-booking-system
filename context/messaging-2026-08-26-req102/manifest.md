@@ -11,7 +11,7 @@ related: [PLAN142, TP166, TR166]
 
 # messaging — REQ102: non-clinician staff department membership (2026-08-26)
 
-Slice of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 
 ## Documents
 

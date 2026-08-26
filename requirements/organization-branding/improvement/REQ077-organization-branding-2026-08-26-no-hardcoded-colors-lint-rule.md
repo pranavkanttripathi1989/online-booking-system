@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/02-findings-register.md` F-19, part of a 10-finding
+`project-plans/analysis/02-findings-register.md` F-19, part of a 10-finding
 pick-up. Re-verified: 90 of 122 files under `pages/`/`components/`/
 `layouts/` still hardcode hex colors, essentially unchanged since
 2026-08-22 — `CLAUDE.md`'s own Hard Rule 5 has been a documented rule
@@ -59,4 +59,4 @@ ratchet already established for this project.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-19.
+`project-plans/analysis/02-findings-register.md` F-19.

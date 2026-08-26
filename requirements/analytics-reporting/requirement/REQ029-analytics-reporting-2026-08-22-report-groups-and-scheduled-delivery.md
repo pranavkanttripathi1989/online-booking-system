@@ -49,7 +49,7 @@ Gaps against the PRD's fuller report taxonomy (`§9 M15`'s report-group table):
 6. **No custom dashboard builder** (`FR-RPT-04`) — P2, not urgent.
 7. **Role-scoping exists in spirit but should be re-verified** (`FR-RPT-03`) against the corrected `orgScope()` pattern once `project-plans` F-01 lands, since analytics queries are exactly the catalogue-shaped, potentially-unscoped query type that finding was about.
 
-The true-utilisation fix (walking `ClinicianAvailability` minus `Blocks` rather than using the completion-rate proxy) is independently named in `project-plans/05-competitive-analysis.md` Tier 3 item 13 as a competitive-parity item — this requirement should implement that fix as part of closing out the Operational report group, not leave it as a permanent documented caveat.
+The true-utilisation fix (walking `ClinicianAvailability` minus `Blocks` rather than using the completion-rate proxy) is independently named in `project-plans/analysis/05-competitive-analysis.md` Tier 3 item 13 as a competitive-parity item — this requirement should implement that fix as part of closing out the Operational report group, not leave it as a permanent documented caveat.
 
 ## Gap classification
 

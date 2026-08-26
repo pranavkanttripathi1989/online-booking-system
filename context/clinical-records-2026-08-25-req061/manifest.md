@@ -11,7 +11,7 @@ related: [PLAN088, TP115, TR114]
 
 # clinical-records — Structured diagnosis + note-template creation UI (2026-08-25)
 
-Closes `project-plans/08-integration-gap-analysis.md` findings A-5 and
+Closes `project-plans/analysis/08-integration-gap-analysis.md` findings A-5 and
 A-6 — part of the A-4–A-8 gap-fix batch found by a fresh
 backend-vs-frontend integration sweep. `REQ020`'s own real, tested
 `createDiagnosis`/`createEncounterTemplate` mutations had no frontend UI

@@ -11,7 +11,7 @@ related: [REQ035]
 
 # platform-nfr — REQ036, getClinicians N+1 fix (2026-08-23)
 
-First slice of `project-plans/06-execution-plan.md` P3 ("Booking integrity
+First slice of `project-plans/analysis/06-execution-plan.md` P3 ("Booking integrity
 and scale"). `getClinicians()` batched into a single `reviews.groupBy` call
 instead of one `reviews.aggregate()` per clinician.
 

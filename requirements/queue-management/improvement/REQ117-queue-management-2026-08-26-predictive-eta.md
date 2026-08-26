@@ -16,7 +16,7 @@ related: [PLAN157, TP177, TR177]
 `REQ019` shipped `queueBoard`'s `average_wait_minutes` with an explicit
 deferral in its own code comment: *"Deliberately not a predictive ETA
 (US-QUE-04, P1 — that needs a rolling median across many days, this is
-today-only)."* `project-plans/11-next-10-slice-batch.md` picked up
+today-only)."* `project-plans/analysis/11-next-10-slice-batch.md` picked up
 exactly that deferred story.
 
 Investigated the existing `queueBoard()` query before scoping: it

@@ -13,7 +13,7 @@ related: [PLAN158, TP178, TR178]
 
 ## Why this slice
 
-`project-plans/11-next-10-slice-batch.md` picked up `REQ019`'s own
+`project-plans/analysis/11-next-10-slice-batch.md` picked up `REQ019`'s own
 deferred "delay broadcast" story alongside `REQ117`'s predictive ETA in
 the same feature area. When a clinician is running behind, front desk
 today has no way to tell already-checked-in, still-waiting patients

@@ -11,7 +11,7 @@ related: [PLAN178, TP198, TR198]
 
 # insurance-claims — REQ138: reimbursement-pack PDF generation (2026-08-26)
 
-Fifth slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+Fifth slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

@@ -11,7 +11,7 @@ related: [PLAN141, TP165, TR165]
 
 # patient-payments — REQ101: GST rate/GSTIN on real appointment payments (2026-08-26)
 
-Slice of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 
 ## Documents
 

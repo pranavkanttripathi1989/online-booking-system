@@ -11,7 +11,7 @@ related: [BUG007, REQ035]
 
 # platform-nfr — BUG012, closing the tenancy matrix's KNOWN_GAPS domains (2026-08-23)
 
-First of three sequenced slices to actually finish `project-plans/06-execution-plan.md`'s
+First of three sequenced slices to actually finish `project-plans/analysis/06-execution-plan.md`'s
 P1 ("prove the boundary"), which `07-prd-gap-analysis-and-roadmap.md` names as
 a hard prerequisite before any of the 22 PRD-derived requirements
 (`REQ014`–`REQ035`) may proceed to implementation planning. `CLAUDE.md`'s
@@ -41,7 +41,7 @@ that.
 | `test/integration/setup/domain-cases.ts` | 7 new `CASES` entries (reviews, cancellation-rules, availability, analytics, blocks, dashboard, services) | `af9c2dc` |
 | `test/integration/setup/fixture.ts` | new org-A/org-B rows for `Reviews`, `ProductCancellationRules`, `ClinicianAvailability`, `SpacerBlocks` | `af9c2dc` |
 | `test/integration/matrix-coverage.int-spec.ts` | `organizations`/`org-settings`/`notifications` → `EXEMPT`; `KNOWN_GAPS` → `[]` | `af9c2dc` |
-| `project-plans/02-findings-register.md`, `06-execution-plan.md` | F-25 and P1.3 marked closed, with the exemption reasoning cross-referenced | (docs, this pass) |
+| `project-plans/analysis/02-findings-register.md`, `06-execution-plan.md` | F-25 and P1.3 marked closed, with the exemption reasoning cross-referenced | (docs, this pass) |
 
 ## Outcome
 

@@ -89,5 +89,5 @@ count before/after this slice's edit); full `npm run lint` unchanged at
 scope-correction), `PLAN173` (this plan), `TP193`/`TR193` (verification),
 a context bundle, and index updates across all five doc roots plus the
 `platform-nfr` feature README. Also folds in the batch plan's own noted
-F-30 one-line correction in `project-plans/02-findings-register.md`
+F-30 one-line correction in `project-plans/analysis/02-findings-register.md`
 (pointing at `scripts/test-count-status.mjs`, built by `REQ123`).

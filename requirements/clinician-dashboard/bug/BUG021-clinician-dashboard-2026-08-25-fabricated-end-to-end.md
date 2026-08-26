@@ -23,7 +23,7 @@ does on their own dashboard today reaches the database.
 
 ## How this was found
 
-`project-plans/08-integration-gap-analysis.md` (finding B-1), a fresh
+`project-plans/analysis/08-integration-gap-analysis.md` (finding B-1), a fresh
 sweep cross-checking every backend operation against real frontend usage
 and re-classifying every remaining `mocks/store`/`useMockData` import
 under `frontend/src/pages`. `clinician/Dashboard.jsx` still importing

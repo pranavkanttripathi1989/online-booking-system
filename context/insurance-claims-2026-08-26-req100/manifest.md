@@ -11,7 +11,7 @@ related: [PLAN140, TP164, TR164]
 
 # insurance-claims — REQ100: payer-tariff pricing wiring (2026-08-26)
 
-Slice of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 
 ## Documents
 

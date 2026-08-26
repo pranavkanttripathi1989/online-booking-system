@@ -9,7 +9,7 @@ parent: null
 related: [BUG024, BUG025, BUG026, BUG027, REQ074, REQ075, REQ076, REQ077, REQ078]
 ---
 
-# A 10-finding pick-up from project-plans/02-findings-register.md (2026-08-26)
+# A 10-finding pick-up from project-plans/analysis/02-findings-register.md (2026-08-26)
 
 One combined bundle for a heterogeneous batch spanning `patients`,
 `security`, `test-results`, `messaging`, `test-coverage-audit`,
@@ -21,7 +21,7 @@ status lines is more proportionate than 9 near-empty per-finding ones.
 
 ## What was picked, and why
 
-The user asked what was pending in `project-plans/02-findings-register.md`
+The user asked what was pending in `project-plans/analysis/02-findings-register.md`
 (the original 2026-08-22 codebase audit), then asked for 10 more to be
 picked up and worked, continuing this session's established "pick N and
 work through them" pattern. Every finding not already marked closed in

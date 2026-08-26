@@ -11,7 +11,7 @@ related: [PLAN156, TP176, TR176]
 
 # platform-integrations — REQ116: enforce API keys with a real guard (2026-08-26)
 
-Third slice of the next 10-slice batch (`project-plans/11-next-10-slice-batch.md`).
+Third slice of the next 10-slice batch (`project-plans/analysis/11-next-10-slice-batch.md`).
 
 ## Documents
 

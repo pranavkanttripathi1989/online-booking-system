@@ -11,8 +11,8 @@ related: [REQ023]
 
 # REQ040 — Razorpay webhook, pending-payment reconciliation, and order-creation abuse hardening
 
-Closes `project-plans/06-execution-plan.md` P3.5 and the full scope of
-`project-plans/02-findings-register.md` F-07 — the execution plan's own P3.5
+Closes `project-plans/analysis/06-execution-plan.md` P3.5 and the full scope of
+`project-plans/analysis/02-findings-register.md` F-07 — the execution plan's own P3.5
 row only names the webhook half; F-07's actual text also flags that
 `createRazorpayOrder`/`verifyRazorpayPayment` are both `@Public()` with no
 rate limit, letting anyone who learns an appointment UUID generate unbounded

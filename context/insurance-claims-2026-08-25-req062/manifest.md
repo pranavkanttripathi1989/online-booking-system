@@ -11,7 +11,7 @@ related: [PLAN089, TP116, TR115]
 
 # insurance-claims — Patient insurance policy capture UI (2026-08-25)
 
-Closes `project-plans/08-integration-gap-analysis.md` finding A-7 — part
+Closes `project-plans/analysis/08-integration-gap-analysis.md` finding A-7 — part
 of the A-4–A-8 gap-fix batch found by a fresh backend-vs-frontend
 integration sweep. `REQ031`'s own real, tested
 `patientInsurancePolicies`/`createPatientInsurancePolicy` had no frontend

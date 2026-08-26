@@ -7,7 +7,7 @@ status: done
 
 # security — 2026-08-22 (F-01: org-less caller sees every tenant)
 
-Closed `project-plans/02-findings-register.md` F-01 — the last of the audit's three S1 findings, after `BUG002`/F-11 and `BUG003`/F-02.
+Closed `project-plans/analysis/02-findings-register.md` F-01 — the last of the audit's three S1 findings, after `BUG002`/F-11 and `BUG003`/F-02.
 
 The bug was inferring privilege from the *absence* of a field: ~12 call sites read `user.client_org_id ? { client_org_id: ... } : {}`, meaning "an org-less caller sees everything". Correct while only seeded platform operators had a null org; wrong the moment `@Public() register` began minting `patient` accounts with `client_org_id: null` on demand. Replaced with an explicit role allow-list (`isPlatformOperator`) plus fail-closed sentinel filters, centralised in one new module (`common/scoping/tenant-scope.ts`) so a sixth domain cannot reintroduce the ternary. Migrated `clinics`, `rooms`, `services`, `products`, `clinicians`.
 

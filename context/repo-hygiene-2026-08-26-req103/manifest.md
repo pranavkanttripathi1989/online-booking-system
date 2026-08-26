@@ -11,7 +11,7 @@ related: [PLAN143, TP160, TR160]
 
 # repo-hygiene — REQ103: backend unit test speed in container (2026-08-26)
 
-Slice 4 of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice 4 of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 
 ## Documents
 

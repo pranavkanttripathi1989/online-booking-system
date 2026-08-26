@@ -11,7 +11,7 @@ related: [PLAN091, TP118, TR117]
 
 # platform-integrations — Booking widget edit UI (2026-08-25)
 
-Closes `project-plans/08-integration-gap-analysis.md` finding A-9 — the
+Closes `project-plans/analysis/08-integration-gap-analysis.md` finding A-9 — the
 last of the gap analysis's own real, actionable findings (`A-10`, `B-3`,
 `B-4` remain S4/already-correctly-deferred, no action needed).
 
@@ -37,7 +37,7 @@ existing `settings/index.test.jsx`. e2e coverage added as a 5th test to
 
 ## This closes out the gap analysis's own real, actionable findings
 
-`project-plans/08-integration-gap-analysis.md`'s "Fix sequencing" list
+`project-plans/analysis/08-integration-gap-analysis.md`'s "Fix sequencing" list
 is now fully worked through: B-1, A-1, B-2, A-2/A-3, A-4 through A-9 all
 done. `A-10` is explicitly not a new discovery (already logged
 elsewhere as a deliberate scope cut); `B-3`/`B-4` are known, correctly

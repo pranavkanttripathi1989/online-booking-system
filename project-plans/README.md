@@ -1,77 +1,105 @@
+# project-plans — MediBook / CareOS
+
+Planning root. Three folders, three different questions:
+
+```
+project-plans/
+├── phase-plans/      WHAT to build, in order, front-end and back-end together
+├── technical-plans/  HOW to build it — schema, conventions, FE architecture, rules
+└── analysis/         WHY — point-in-time audits, findings, competitive, slice history
+```
+
 ---
-id: PP000
-type: index
-feature: project-plans
-created: 2026-08-22
-updated: 2026-08-22
-status: active
-parent: null
-related: [PP001, PP002, PP003, PP004, PP005, PP006, PP007, PP008]
----
 
-# project-plans — MediBook / HealthSync
+## Start here
 
-Full-codebase analysis and forward plan, produced 2026-08-22 by reading every
-source, test, and requirement file in the repository and probing the running
-stack (Docker: `medibook_backend`, `medibook_postgres`, `medibook_redis`,
-`medibook_frontend`) live.
-
-This root is **analysis and planning only**. It does not replace the five
-existing roots (`requirements/`, `implementation-plans/`, `test-plans/`,
-`test-results/`, `test-suggestions/`) — every actionable item here is written
-to be promoted into those roots through the normal `CLAUDE.md` working loop,
-and each finding carries the requirement/bug classification it should be filed
-under.
-
-## Documents
-
-| Doc | What it is |
+| If you want to… | Read |
 |---|---|
-| [01-codebase-analysis.md](./01-codebase-analysis.md) | Verified inventory and architecture assessment: what exists, how it is wired, what is real versus decorative. Every number measured, not quoted from an index. |
-| [02-findings-register.md](./02-findings-register.md) | The 33 findings, each with severity, hard evidence, blast radius, and a specific fix. This is the backlog. |
-| [03-security-and-tenancy-audit.md](./03-security-and-tenancy-audit.md) | Security deep-dive, including a reproducible live proof of a cross-tenant data-disclosure path that the current 602-test suite passes clean. |
-| [04-test-and-quality-strategy.md](./04-test-and-quality-strategy.md) | Measured test reality versus the documented claims, why the suite missed the findings above, and the target pyramid. |
-| [05-competitive-analysis.md](./05-competitive-analysis.md) | Where MediBook stands against the real competitive set for the Indian market (Practo, Eka Care, Bajaj Finserv Health, Semble, Cliniko, Jane, SimplePractice, NexHealth, Zocdoc, Phreesia), and the ranked feature recommendations that follow. |
-| [06-execution-plan.md](./06-execution-plan.md) | Phased delivery plan P0–P5 with per-phase Definition of Done, sequencing rationale, and the first ten commits. |
-| [07-prd-gap-analysis-and-roadmap.md](./07-prd-gap-analysis-and-roadmap.md) | Maps `PRD-Healthcare-Booking-SaaS-India.md` ("CareOS") against the codebase module by module, and sequences the resulting 22 `requirements/REQ014`–`REQ035` documents into phases F–I on top of this directory's own P0–P1 foundation work. |
-| [08-integration-gap-analysis.md](./08-integration-gap-analysis.md) | Fresh 2026-08-25 sweep: every backend operation cross-checked against real frontend usage, and every remaining `mocks/store`/`useMockData` import individually classified. 12 real findings (1 × S1 — the entire clinician dashboard is fabricated end to end), plus a confirmed false positive and a stale-CLAUDE.md correction. |
-| [09-next-15-slice-roadmap.md](./09-next-15-slice-roadmap.md) | A 15-slice next-batch survey — superseded by `10` once a parallel session's own independent survey was discovered and reconciled. |
-| [10-next-14-slice-batch-reconciled.md](./10-next-14-slice-batch-reconciled.md) | Reconciles `09` against a parallel session's own concurrent survey (`REQ080` Tasks work already in progress there); sequences the resulting 14 slices (`REQ100`–`REQ113`), all shipped. |
-| [11-next-10-slice-batch.md](./11-next-10-slice-batch.md) | The next 10-slice selection after `10` shipped, verified against live code, no cross-session collision this round. |
-| [12-next-10-slice-batch.md](./12-next-10-slice-batch.md) | The next 10-slice selection after `11` shipped (`REQ124`–`REQ133`), each candidate re-verified against live code via a research fork — several near-misses turned out already closed elsewhere. |
-| [13-next-10-slice-batch.md](./13-next-10-slice-batch.md) | The next 10-slice selection after `12` shipped (`REQ134`–`REQ143`), sourced mainly from `REQ124`–`133`'s own logged "deliberately out of scope" follow-ons plus a fresh research-fork pass. |
-| [technical-plans/](./technical-plans/README.md) | **Phase-wise engineering detail** for building the PRD scope: schema DDL, migration order, module layout, constraint decisions, and per-phase DoD. Six documents — `00-foundation-hardening` (the hard prerequisite), `01-phase1-mvp`, `02-phase2-v1-ga`, `03-phase3-v2`, `04-data-model-evolution`, `05-cross-cutting-conventions`. |
+| **Know what to work on next** | [`phase-plans/README.md`](./phase-plans/README.md) — carries the `▶ CURRENT POSITION` block and the `continue` protocol |
+| **Know what is actually built** | [`phase-plans/00-implementation-status.md`](./phase-plans/00-implementation-status.md) — measured, not inherited |
+| **Build a slice** | [`technical-plans/05-cross-cutting-conventions.md`](./technical-plans/05-cross-cutting-conventions.md) (backend) + [`technical-plans/08-frontend-backend-integration.md`](./technical-plans/08-frontend-backend-integration.md) (the contract between halves) |
+| **Touch any frontend file** | [`../FRONTEND_RULES.md`](../FRONTEND_RULES.md) + [`technical-plans/07-frontend-rules-compliance.md`](./technical-plans/07-frontend-rules-compliance.md) |
+| **Understand the product strategy** | [`../PRD-v2-CareOS.md`](../PRD-v2-CareOS.md) — supersedes v1 where the market moved |
+| **Know why a rule or finding exists** | [`analysis/`](./analysis/) — historical, cite for provenance only |
 
-## How this was produced
+---
 
-- Static: full tree walk of `backend/src` (230 TypeScript files), `frontend/src`
-  (122 JSX files across pages and components), `backend/prisma/schema.prisma`
-  (1,071 lines, 41 models), all 23 migrations, all 49 backend spec files, all 31
-  Playwright specs, and all 185 markdown documents across the five doc roots.
-- Dynamic: backend Jest suite executed (49 suites / 602 tests, green, 140s);
-  frontend Jest executed (1 suite / 4 tests); frontend ESLint executed; live
-  PostgreSQL index and row-count inspection; live GraphQL probes against
-  `http://localhost:4000/graphql` including an authenticated cross-tenant read
-  performed with a freshly self-registered account.
+## The document hierarchy
 
-## Headline conclusion
+Five layers. Don't duplicate content between them.
 
-The backend is genuinely well-built at the level of individual resolvers: the
-guard chain is correct and fail-closed, the tenant-scoping *pattern* is right,
-DTO validation is real, secrets are encrypted with AES-256-GCM, and the domain
-modules match the frontend contract. The problems are all at the **seams**:
+| Layer | Answers | Where |
+|---|---|---|
+| **PRD** | What is the product, commercially and functionally? | `PRD-v2-CareOS.md` (current) · `PRD-Healthcare-Booking-SaaS-India.md` (v1, still authoritative for unchanged architecture, RBAC, M1–M17 FRs, payments, data model) |
+| **Phase plans** | What next, in what order, both tracks? | `phase-plans/` |
+| **Technical plans** | How is it built? | `technical-plans/` |
+| **Requirements → results** | The per-slice loop | `requirements/` → `implementation-plans/` → `test-plans/` → `test-results/` → `context/` |
+| **Analysis** | Why does this constraint exist? | `analysis/` |
 
-1. A public self-registration path mints accounts with `client_org_id: null`,
-   and roughly a dozen queries interpret "no org" as "see everything". This is
-   live-reproducible today (see `03`).
-2. The database has **zero declared indexes** across 41 models. It works at
-   4 appointments; it will not work at 4,000.
-3. The frontend still ships a client-side authentication bypass (`mock_` tokens
-   plus a forgeable cached user object) and 14 routed pages of fabricated data.
-4. The RBAC permission matrix — the headline of the competitive-gap requirement
-   — stores permissions that nothing ever reads.
-5. There is no CI, so the hard rule "verify before you commit" is unenforceable.
+**Precedence when two documents disagree:** the user's own instruction → `CLAUDE.md`
+hard rules → `FRONTEND_RULES.md` (frontend) → `PRD-v2` → `phase-plans/` →
+`technical-plans/` → `analysis/`. Analysis loses every argument about *current
+state*; it wins arguments about *why something was decided*.
 
-None of these are hard to fix. All five are cheap relative to their blast
-radius, and all five block a real pilot. `06-execution-plan.md` sequences them
-first, before any new feature work.
+---
+
+## `phase-plans/` — the execution spine
+
+| Doc | Purpose |
+|---|---|
+| [`README.md`](./phase-plans/README.md) | `▶ CURRENT POSITION`, the `continue` protocol, the parallel-track rule, slice DoD |
+| [`00-implementation-status.md`](./phase-plans/00-implementation-status.md) | Measured FE+BE state per module; frontend platform debt; re-measure commands |
+| [`01-phase1-close-the-gates.md`](./phase-plans/01-phase1-close-the-gates.md) | **Current.** 18 slices: ABDM, AI, and the revenue/security/margin blockers |
+| [`02-phase2-win-the-midmarket.md`](./phase-plans/02-phase2-win-the-midmarket.md) | 21 slices: agentic claims, migration importer, revenue-share, i18n depth |
+| [`03-phase3-depth-and-moat.md`](./phase-plans/03-phase3-depth-and-moat.md) | 20 slices: NHCX, speciality packs, Capacitor shell, platform |
+
+**Every slice has a BE track and an FE track and ships as one unit.** This is a
+rule, not a preference — two backend-only batches in this repo's history each
+needed a catch-up frontend pass, and each pass found bugs that existed *only
+because* the halves shipped apart. See `phase-plans/README.md`.
+
+## `technical-plans/` — how
+
+| Doc | Scope |
+|---|---|
+| [`00-foundation-hardening.md`](./technical-plans/00-foundation-hardening.md) | Phase F — tenant scoping, indexes, CI, tenancy matrix. **Complete** |
+| [`01-phase1-mvp.md`](./technical-plans/01-phase1-mvp.md) · [`02`](./technical-plans/02-phase2-v1-ga.md) · [`03`](./technical-plans/03-phase3-v2.md) | Original per-phase engineering detail. Substantially built — see the status doc |
+| [`04-data-model-evolution.md`](./technical-plans/04-data-model-evolution.md) | Schema changes in dependency order, migration naming, index catalogue |
+| [`05-cross-cutting-conventions.md`](./technical-plans/05-cross-cutting-conventions.md) | **Shortest and most load-bearing.** Backend module scaffolding, dialect + response decision tables, per-slice DoD |
+| [`06-frontend-architecture-and-mobile.md`](./technical-plans/06-frontend-architecture-and-mobile.md) | Responsive tiering, the element-level overflow probe, PWA budgets |
+| [`07-frontend-rules-compliance.md`](./technical-plans/07-frontend-rules-compliance.md) | **New.** Per-rule audit of `FRONTEND_RULES.md` with evidence and priority order |
+| [`08-frontend-backend-integration.md`](./technical-plans/08-frontend-backend-integration.md) | **New.** The contract between tracks, the five shipped contract bugs, test-layer division of labour |
+
+## `analysis/` — why (historical)
+
+Accurate when written; several have drifted and say so in their own headers.
+**Cite for provenance, never for current state.**
+
+| Doc | What |
+|---|---|
+| [`01-codebase-analysis.md`](./analysis/01-codebase-analysis.md) | Original inventory (2026-08-22) |
+| [`02-findings-register.md`](./analysis/02-findings-register.md) | **The 33 findings (F-01…F-33)** with evidence and status lines. Most-cited doc in the repo |
+| [`03-security-and-tenancy-audit.md`](./analysis/03-security-and-tenancy-audit.md) | Includes a live-reproduced cross-tenant read the then-602-test suite passed clean |
+| [`04-test-and-quality-strategy.md`](./analysis/04-test-and-quality-strategy.md) | Why the suite missed those findings |
+| [`05-competitive-analysis.md`](./analysis/05-competitive-analysis.md) | **Superseded by `PRD-v2` §2** — its own header admits competitor data was never live-verified, and most of its Tier 1/2 recommendations have since shipped |
+| [`06-execution-plan.md`](./analysis/06-execution-plan.md) | Original P0–P5. P0/P1 complete; superseded by `phase-plans/` |
+| [`07-prd-gap-analysis-and-roadmap.md`](./analysis/07-prd-gap-analysis-and-roadmap.md) | PRD v1 → code mapping. **Header admits it drifted twice** — superseded by `phase-plans/00` |
+| [`08-integration-gap-analysis.md`](./analysis/08-integration-gap-analysis.md) | 2026-08-25 sweep, incl. the S1 fabricated clinician dashboard. All findings closed |
+| [`09`–`13`](./analysis/13-next-10-slice-batch.md) | Slice-batch history (`REQ100`–`REQ143`). Useful for "has this been tried" |
+| [`_audit-dashboard.html`](./analysis/_audit-dashboard.html) | Rendered audit view |
+
+---
+
+## Provenance
+
+Produced 2026-08-22 by reading every source, test and requirement file and
+probing the running stack; restructured and re-baselined 2026-08-27 alongside
+`PRD-v2-CareOS.md` and the `FRONTEND_RULES.md` v2.0 rewrite.
+
+The 2026-08-22 headline conclusion — *"the backend is well-built at the level of
+individual resolvers; the problems are all at the seams"* — has largely been
+addressed: all five of its named P0 blockers are closed (cross-tenant read,
+client-side auth bypass, zero indexes, fabricated pages, no CI). **The seams that
+remain are different ones:** the front-end/back-end contract (hence
+`technical-plans/08`), the front-end platform debt (hence `07`), and the two
+absent modules that now gate a sale (hence `phase-plans/01`).

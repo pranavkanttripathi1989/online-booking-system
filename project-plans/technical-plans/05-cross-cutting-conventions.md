@@ -123,7 +123,7 @@ Non-negotiable per `CLAUDE.md` Hard Rules 2–3. A slice is not done without:
 Note the measured reality when planning test effort: the backend suite is 602
 tests across 49 suites and runs in ~140s **on the host** — a single spec file
 exceeded 400s inside `medibook_backend`, so run tests host-side in the normal
-loop (`project-plans/02-findings-register.md` F-32).
+loop (`project-plans/analysis/02-findings-register.md` F-32).
 
 ## 7. Definition of done (per slice, all phases)
 

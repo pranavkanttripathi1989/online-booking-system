@@ -6,12 +6,12 @@ created: 2026-08-25
 updated: 2026-08-25
 status: done
 parent: REQ059
-related: [PLAN086, TP113, TR112, project-plans/08-integration-gap-analysis.md]
+related: [PLAN086, TP113, TR112, project-plans/analysis/08-integration-gap-analysis.md]
 ---
 
 # pharmacy — REQ059, drug catalog + dispense + movement-history UI (2026-08-25, closed same day)
 
-Closes `project-plans/08-integration-gap-analysis.md` findings A-2 and
+Closes `project-plans/analysis/08-integration-gap-analysis.md` findings A-2 and
 A-3 — real, already-tested backend CRUD (`createDrug`/`updateDrug`/
 `deleteDrug`) and the pharmacy ledger's own dispense/history operations
 (`dispensePrescriptionItem`/`stockMovements`) with zero frontend UI.
@@ -64,6 +64,6 @@ tracks it, a real, standing gap not hidden by this slice. Purchase
 orders, FEFO suggestions, and GST purchase invoicing remain out of scope,
 matching `REQ022`'s own P1 designation for all three.
 
-The remaining findings in `project-plans/08-integration-gap-analysis.md`
+The remaining findings in `project-plans/analysis/08-integration-gap-analysis.md`
 (A-4 through A-10, B-3, B-4) are still open, per that document's own "Fix
 sequencing" section.

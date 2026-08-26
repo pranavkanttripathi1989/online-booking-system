@@ -18,4 +18,4 @@ This is a requirement-only bundle — no implementation plan, test plan, or test
 ## Related
 
 - [patient-payments-2026-08-20 bundle](../patient-payments-2026-08-20/manifest.md) — REQ004, the real Razorpay integration this requirement builds on top of.
-- [project-plans/07-prd-gap-analysis-and-roadmap.md](../../project-plans/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.
+- [project-plans/analysis/07-prd-gap-analysis-and-roadmap.md](../../project-plans/analysis/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.

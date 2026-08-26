@@ -11,7 +11,7 @@ related: [PLAN181, TP201, TR201]
 
 # test-coverage-audit — REQ141: zod-schema test coverage, round 2 (2026-08-26)
 
-Eighth slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+Eighth slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

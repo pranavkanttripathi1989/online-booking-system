@@ -11,7 +11,7 @@ related: [PLAN168, TP188, TR188]
 
 # clinical-records — REQ128: referrals (2026-08-26)
 
-Fifth slice of the next 10-slice batch (`project-plans/12-next-10-slice-batch.md`).
+Fifth slice of the next 10-slice batch (`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 

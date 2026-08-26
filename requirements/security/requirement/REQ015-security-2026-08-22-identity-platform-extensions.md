@@ -31,7 +31,7 @@ guard (no public API exists to authenticate into yet — see `REQ030`) —
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §8 (RBAC & Permission Model) and §9 **M2 — Identity, Authentication & Security** (`FR-AUTH-01`–`FR-AUTH-07`). Cross-referenced against `project-plans/02-findings-register.md` F-03/F-06 and `project-plans/03-security-and-tenancy-audit.md` §4.
+`PRD-Healthcare-Booking-SaaS-India.md` §8 (RBAC & Permission Model) and §9 **M2 — Identity, Authentication & Security** (`FR-AUTH-01`–`FR-AUTH-07`). Cross-referenced against `project-plans/analysis/02-findings-register.md` F-03/F-06 and `project-plans/analysis/03-security-and-tenancy-audit.md` §4.
 
 ## Current state vs. PRD ambition
 

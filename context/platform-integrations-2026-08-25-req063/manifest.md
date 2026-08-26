@@ -11,7 +11,7 @@ related: [PLAN090, TP117, TR116]
 
 # platform-integrations — Webhook delivery log UI (2026-08-25)
 
-Closes `project-plans/08-integration-gap-analysis.md` finding A-8 — the
+Closes `project-plans/analysis/08-integration-gap-analysis.md` finding A-8 — the
 last of the A-4–A-8 gap-fix batch found by a fresh backend-vs-frontend
 integration sweep. `REQ030`'s own real, tested `webhookDeliveryLog` query
 had no frontend UI — an org integrator had no way to see why their
@@ -38,7 +38,7 @@ delivery entry.
 
 ## This is the last finding in the A-4–A-8 batch
 
-`project-plans/08-integration-gap-analysis.md`'s own "Fix sequencing"
+`project-plans/analysis/08-integration-gap-analysis.md`'s own "Fix sequencing"
 list marks A-4 through A-8 as one batch (S3, additive UI slices, batched
 the way Phase G+1/G+2/G+3 batched similarly-scoped work); this closes
 it. `A-9`/`A-10` remain S4/opportunistic, not part of this batch.

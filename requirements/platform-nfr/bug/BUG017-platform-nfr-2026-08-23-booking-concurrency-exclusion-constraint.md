@@ -11,7 +11,7 @@ related: []
 
 # BUG017 — Concurrent bookings for the same slot could all succeed
 
-`project-plans/06-execution-plan.md` P3.1 (F-16). `AppointmentsService.create()`
+`project-plans/analysis/06-execution-plan.md` P3.1 (F-16). `AppointmentsService.create()`
 checks slot availability (`assertSlotFree()`) and inserts the row in two
 separate statements with no application-level lock between them — N
 concurrent requests for the same clinician/slot could all pass the check

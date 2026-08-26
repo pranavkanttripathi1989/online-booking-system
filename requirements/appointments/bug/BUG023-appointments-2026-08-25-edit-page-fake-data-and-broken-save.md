@@ -13,11 +13,11 @@ related: []
 
 ## Severity
 
-S2, escalated in practice: what started as `project-plans/08-integration-gap-analysis.md`'s narrowly-scoped finding B-2 (clinician/room dropdown mock fallback) turned out, on reading the whole file, to be five compounding real defects — the worst of which (defect #5) means **no edit made through this page has ever actually saved**, for any appointment, ever, since the day it shipped.
+S2, escalated in practice: what started as `project-plans/analysis/08-integration-gap-analysis.md`'s narrowly-scoped finding B-2 (clinician/room dropdown mock fallback) turned out, on reading the whole file, to be five compounding real defects — the worst of which (defect #5) means **no edit made through this page has ever actually saved**, for any appointment, ever, since the day it shipped.
 
 ## How this was found
 
-`project-plans/08-integration-gap-analysis.md` (finding B-2) flagged the clinician/room dropdown fallback specifically. Reading the whole file to fix that narrow finding surfaced four more real defects in the same file — three found by reading the code, one (the most severe) found only by live-testing the fix against the real backend.
+`project-plans/analysis/08-integration-gap-analysis.md` (finding B-2) flagged the clinician/room dropdown fallback specifically. Reading the whole file to fix that narrow finding surfaced four more real defects in the same file — three found by reading the code, one (the most severe) found only by live-testing the fix against the real backend.
 
 ## The five defects
 

@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/02-findings-register.md` F-06, part of the same
+`project-plans/analysis/02-findings-register.md` F-06, part of the same
 10-finding pick-up as `BUG024`/`BUG025`. Re-verified still open: neither
 `updateRolePermissions` nor `getAuditLogs` had changed since the finding
 was written, though `F-03` (the sibling finding in the same section) had
@@ -72,4 +72,4 @@ would have been decoration, not a fix.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-06.
+`project-plans/analysis/02-findings-register.md` F-06.

@@ -13,7 +13,7 @@ related: [REQ001]
 
 ## Severity
 
-**Critical (confirmed live, not theoretical).** This upgrades `project-plans/02-findings-register.md` F-11 from "any environment started without a root `.env` signs tokens with a public, known key" (a conditional risk) to a confirmed fact about the actual running dev environment at the time of discovery.
+**Critical (confirmed live, not theoretical).** This upgrades `project-plans/analysis/02-findings-register.md` F-11 from "any environment started without a root `.env` signs tokens with a public, known key" (a conditional risk) to a confirmed fact about the actual running dev environment at the time of discovery.
 
 ## Evidence
 
@@ -85,7 +85,7 @@ both the configuration and the running system are now verified.
 
 ## Note on root .env.example
 
-`project-plans/02-findings-register.md` F-11 also flagged that the root `.env.example` still documents the abandoned pre-pivot MySQL/Nginx/Pusher/Laravel stack. That rewrite is a larger, separate documentation task and is **not** included in this fix — tracked separately, not silently dropped.
+`project-plans/analysis/02-findings-register.md` F-11 also flagged that the root `.env.example` still documents the abandoned pre-pivot MySQL/Nginx/Pusher/Laravel stack. That rewrite is a larger, separate documentation task and is **not** included in this fix — tracked separately, not silently dropped.
 
 ## Note on a related, higher-blast-radius finding not fixed here
 

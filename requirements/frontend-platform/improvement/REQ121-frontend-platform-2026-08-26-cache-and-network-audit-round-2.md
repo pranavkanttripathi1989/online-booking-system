@@ -61,4 +61,4 @@ live-regression pass, per `REQ078`'s own reasoning.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-21; `REQ078` (round 1).
+`project-plans/analysis/02-findings-register.md` F-21; `REQ078` (round 1).

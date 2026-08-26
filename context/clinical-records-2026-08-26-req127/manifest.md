@@ -11,7 +11,7 @@ related: [PLAN167, TP187, TR187]
 
 # clinical-records — REQ127: investigation orders (2026-08-26)
 
-Fourth slice of the next 10-slice batch (`project-plans/12-next-10-slice-batch.md`).
+Fourth slice of the next 10-slice batch (`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 

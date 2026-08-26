@@ -13,11 +13,11 @@ related: [REQ008, REQ024, REQ048, PLAN062]
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M11 — Messaging & Notifications**, transactional-notification half (`FR-MSG-01`–`05`, `10`–`11`) and §2.3.4 ("WhatsApp is the patient channel... WhatsApp Business API is not optional"). Cross-referenced against `backend/src/notifications` and `project-plans/05-competitive-analysis.md` Tier 1 recommendation #1.
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M11 — Messaging & Notifications**, transactional-notification half (`FR-MSG-01`–`05`, `10`–`11`) and §2.3.4 ("WhatsApp is the patient channel... WhatsApp Business API is not optional"). Cross-referenced against `backend/src/notifications` and `project-plans/analysis/05-competitive-analysis.md` Tier 1 recommendation #1.
 
 ## Current state vs. PRD ambition
 
-`REQ008` already built the right architecture for this: a real `NotificationTriggerService` reading per-user preferences with a defaults fallback, and a genuinely pluggable provider registry (`notifications/providers/registry.ts`) with per-org AES-256-GCM-encrypted credentials, currently implementing MSG91, Gupshup, Twilio, and AWS SNS. `project-plans/05-competitive-analysis.md` independently identified adding WhatsApp to this exact registry as *"the highest-ROI item in this document"* — the infrastructure is real and this requirement is additive to it, not a rebuild.
+`REQ008` already built the right architecture for this: a real `NotificationTriggerService` reading per-user preferences with a defaults fallback, and a genuinely pluggable provider registry (`notifications/providers/registry.ts`) with per-org AES-256-GCM-encrypted credentials, currently implementing MSG91, Gupshup, Twilio, and AWS SNS. `project-plans/analysis/05-competitive-analysis.md` independently identified adding WhatsApp to this exact registry as *"the highest-ROI item in this document"* — the infrastructure is real and this requirement is additive to it, not a rebuild.
 
 Gaps against the PRD:
 
@@ -37,7 +37,7 @@ Gaps against the PRD:
 
 ## Phase assignment
 
-PRD Phase: `FR-MSG-01`, `02`, `05` are **MVP (P0)**; `03`, `04`, `11` are **V1 GA (P1)**; `10` (broadcast) is **V2 (P2)**. Recommended internal sequencing: WhatsApp provider addition should be scheduled immediately — `project-plans/06-execution-plan.md` P5 Wave A already names it first, and this requirement should not wait for the full M11 scope to land before shipping it.
+PRD Phase: `FR-MSG-01`, `02`, `05` are **MVP (P0)**; `03`, `04`, `11` are **V1 GA (P1)**; `10` (broadcast) is **V2 (P2)**. Recommended internal sequencing: WhatsApp provider addition should be scheduled immediately — `project-plans/analysis/06-execution-plan.md` P5 Wave A already names it first, and this requirement should not wait for the full M11 scope to land before shipping it.
 
 ## Dependencies
 

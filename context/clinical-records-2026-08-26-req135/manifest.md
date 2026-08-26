@@ -11,7 +11,7 @@ related: [PLAN175, TP195, TR195]
 
 # clinical-records — REQ135: referral status-transition mutation (2026-08-26)
 
-Second slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+Second slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

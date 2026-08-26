@@ -12,7 +12,7 @@ related: [PLAN163, TP183, TR183]
 # repo-hygiene — REQ123: findings freshness + live test-count script (2026-08-26)
 
 Tenth and final slice of the next 10-slice batch
-(`project-plans/11-next-10-slice-batch.md`).
+(`project-plans/analysis/11-next-10-slice-batch.md`).
 
 ## Documents
 
@@ -25,7 +25,7 @@ Tenth and final slice of the next 10-slice batch
 
 ## What shipped
 
-Status lines added to `project-plans/02-findings-register.md`'s `F-10`,
+Status lines added to `project-plans/analysis/02-findings-register.md`'s `F-10`,
 `F-17`, `F-20`, `F-32` — all four independently re-verified against
 real code/schema before writing (F-10 fixed via `REQ053`'s
 break-glass/impersonation migration, F-17 via `REQ047`, F-20 confirmed

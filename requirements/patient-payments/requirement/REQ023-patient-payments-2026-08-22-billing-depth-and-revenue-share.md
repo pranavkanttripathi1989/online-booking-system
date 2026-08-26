@@ -13,7 +13,7 @@ related: [REQ004, REQ040, REQ047, PLAN064]
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M10 — Billing, Invoicing & Patient Payments** (`FR-BIL-01`–`FR-BIL-14`) and §11.1 Flow A refinements. Cross-referenced against `backend/src/appointment-payments` (249 lines, 22 tests) and `project-plans/02-findings-register.md` F-07/F-17.
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M10 — Billing, Invoicing & Patient Payments** (`FR-BIL-01`–`FR-BIL-14`) and §11.1 Flow A refinements. Cross-referenced against `backend/src/appointment-payments` (249 lines, 22 tests) and `project-plans/analysis/02-findings-register.md` F-07/F-17.
 
 ## Current state vs. PRD ambition
 

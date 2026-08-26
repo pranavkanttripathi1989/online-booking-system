@@ -39,13 +39,13 @@ requirement's own Data Model Impact section never lists one.
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §9 **M7 — Consultation & Clinical Records (EMR)** (`FR-EMR-01`–`FR-EMR-14`). Cross-referenced against `project-plans/05-competitive-analysis.md` §3 (Tier 2 "the moat") and `frontend/src/pages/patients/detail.jsx`.
+`PRD-Healthcare-Booking-SaaS-India.md` §9 **M7 — Consultation & Clinical Records (EMR)** (`FR-EMR-01`–`FR-EMR-14`). Cross-referenced against `project-plans/analysis/05-competitive-analysis.md` §3 (Tier 2 "the moat") and `frontend/src/pages/patients/detail.jsx`.
 
 ## Current state vs. PRD ambition
 
 This module does not exist. There is no `Encounter`, `EncounterNote`, `Vital`, or `Diagnosis` model anywhere in `schema.prisma`, and no consultation workspace of any kind in the backend. The closest surface is `pages/patients/detail.jsx` — a 1,013-line page with UI for documents, diagnoses, and letters — which `project-plans` F-18 already identified as **entirely driven by `useState([])`**: it renders a clinical-record shell with nothing behind it. That finding is directly relevant here, because it means the frontend investment for this module's UI already exists in outline; what's missing is everything underneath it.
 
-`project-plans/05-competitive-analysis.md` calls this the single largest strategic gap in the codebase relative to the market: *"the product is one layer short of being a system of record."* Every named competitor (Semble, Cliniko, Jane, SimplePractice, HealthPlix) has a working clinical-notes layer; MediBook has patient demographics and free-text notes only.
+`project-plans/analysis/05-competitive-analysis.md` calls this the single largest strategic gap in the codebase relative to the market: *"the product is one layer short of being a system of record."* Every named competitor (Semble, Cliniko, Jane, SimplePractice, HealthPlix) has a working clinical-notes layer; MediBook has patient demographics and free-text notes only.
 
 Given the scale, this requirement scopes the **MVP-critical subset** the PRD itself prioritises as P0: structured note capture, templates/favourites, allergy/condition banners, attachments, sign-off immutability, and the patient timeline. Coded diagnosis (ICD-10), investigation orders, referrals, voice dictation, clinical decision support, and speciality packs are explicitly P1/P2 and should be scoped as follow-on requirements once this foundation exists — attempting all fourteen `FR-EMR` items in one slice would violate the PRD's own phase gates (§6.4, "scope creep" is R9 in its own risk register).
 

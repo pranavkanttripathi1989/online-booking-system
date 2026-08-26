@@ -11,7 +11,7 @@ related: []
 
 # REQ036 — `getClinicians` issued one extra query per row instead of one query total
 
-`project-plans/06-execution-plan.md` P3.4. `public.service.ts`'s
+`project-plans/analysis/06-execution-plan.md` P3.4. `public.service.ts`'s
 `getClinicians()` (backs the public doctor-directory listing) fetched every
 matching clinician with a single `findMany`, then fanned out
 `Promise.all(clinicians.map(async c => ratingFor(c.id)))` — a separate

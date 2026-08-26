@@ -11,7 +11,7 @@ related: [PLAN182, TP202, TR202]
 
 # test-coverage-audit — REQ142: F-28 residue, e2e stack targeting confirmed (2026-08-26)
 
-Ninth slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+Ninth slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

@@ -11,7 +11,7 @@ related: [PLAN166, TP186, TR186]
 
 # prescriptions — REQ126: pending-dispense queue (2026-08-26)
 
-Third slice of the next 10-slice batch (`project-plans/12-next-10-slice-batch.md`).
+Third slice of the next 10-slice batch (`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 

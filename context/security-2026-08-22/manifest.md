@@ -19,4 +19,4 @@ This is a requirement-only bundle — no implementation plan, test plan, or test
 
 - [security-2026-08-21 bundle](../security-2026-08-21/manifest.md) — REQ012, the org-wide security-policy toggles this requirement's permission-enforcement work is distinct from but complementary to.
 - [security-2026-08-17 bundle](../security-2026-08-17/manifest.md) — REQ001, the original master security-requirements document this requirement is a child of.
-- [project-plans/07-prd-gap-analysis-and-roadmap.md](../../project-plans/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.
+- [project-plans/analysis/07-prd-gap-analysis-and-roadmap.md](../../project-plans/analysis/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.

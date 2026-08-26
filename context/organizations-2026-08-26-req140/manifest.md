@@ -11,7 +11,7 @@ related: [PLAN180, TP200, TR200]
 
 # organizations — REQ140: batch branch-override prefetch for the appointments list preview (2026-08-26)
 
-Seventh slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+Seventh slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

@@ -11,7 +11,7 @@ related: [BUG009, REQ035]
 
 # platform-nfr — BUG015, P2 UI-truth quick wins (2026-08-23)
 
-First slice of `project-plans/06-execution-plan.md` P2 ("Truth in the UI"),
+First slice of `project-plans/analysis/06-execution-plan.md` P2 ("Truth in the UI"),
 picked after a full live audit of P2/P3 found only 1 of 14 items actually
 done. Bundles the three cheapest, lowest-risk P2 items: the 3 missing
 `TableContainer` wrappers (F-20), the dead `GlobalSearch` mock component

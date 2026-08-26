@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/02-findings-register.md` F-08, part of the same
+`project-plans/analysis/02-findings-register.md` F-08, part of the same
 10-finding pick-up as `BUG024`–`BUG026`. Re-verified still fully open:
 `OrderTestInput` had only `patient` (free text) and `testType`; the
 "Order New Test" dialog in `pages/test-results/index.jsx` was a plain
@@ -60,4 +60,4 @@ the same kind of patient search-and-select.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-08.
+`project-plans/analysis/02-findings-register.md` F-08.

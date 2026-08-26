@@ -11,7 +11,7 @@ related: [PLAN146, TP170, TR170]
 
 # scheduling-engine — REQ106: booking waitlist for fully-booked slots (2026-08-26)
 
-Slice of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 First of REQ017's four deferred P1 items (hybrid-mode interleaving,
 waitlist, delay broadcast, bulk-reschedule) to be picked up.
 

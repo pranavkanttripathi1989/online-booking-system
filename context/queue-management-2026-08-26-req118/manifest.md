@@ -11,7 +11,7 @@ related: [PLAN158, TP178, TR178]
 
 # queue-management — REQ118: delay broadcast to waiting patients (2026-08-26)
 
-Fifth slice of the next 10-slice batch (`project-plans/11-next-10-slice-batch.md`).
+Fifth slice of the next 10-slice batch (`project-plans/analysis/11-next-10-slice-batch.md`).
 
 ## Documents
 

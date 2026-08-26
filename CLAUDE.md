@@ -22,6 +22,20 @@ Read these indexes before planning or implementing anything, then open the speci
 @test-suggestions/README.md
 @context/README.md
 
+**Before touching anything under `frontend/src`, read `FRONTEND_RULES.md`** (repo
+root) — ~190 numbered hard rules for this React/JSX + MUI + Apollo frontend,
+written for the Indian market. It is authoritative for frontend work in the same
+way this file's own hard rules are, and the skill `medibook-frontend-rules`
+carries the load-bearing parts plus the honest compliance state.
+@FRONTEND_RULES.md
+
+**When the instruction is a bare `continue`**, read
+`project-plans/phase-plans/README.md` — it carries a `▶ CURRENT POSITION` block
+and an explicit resumption protocol. Do not re-survey the codebase or start a new
+batch; pick up the next unstarted slice in the current phase doc, which names
+both its backend and its frontend track.
+@project-plans/phase-plans/README.md
+
 Read-order rule: ACTIVE documents are authoritative. Consult `context/archive/README.md` and `test-results/_archive/` ONLY when the active tree does not answer the question (e.g. tracing why a decision was made, or auditing a historical test run). Never treat an archived document as current.
 
 ### Product direction: the CareOS PRD and its technical plans
@@ -34,9 +48,25 @@ end-to-end on 2026-08-22 and turned into two layers of planning:
 @project-plans/README.md
 @project-plans/technical-plans/README.md
 
+**`project-plans/` was restructured on 2026-08-27 into three folders**, and the
+old flat `project-plans/NN-*.md` paths no longer exist:
+
+| Folder | Answers | Note |
+|---|---|---|
+| **`phase-plans/`** | *What next, in what order, front-end and back-end together.* | **Start here.** Carries `▶ CURRENT POSITION`, the `continue` protocol, the measured implementation status, and Phases 1–3 with paired BE/FE tracks per slice |
+| **`technical-plans/`** | *How* it is built | Schema DDL, migration order, conventions, frontend architecture, the `FRONTEND_RULES` compliance audit (`07`) and the FE↔BE contract (`08`) |
+| **`analysis/`** | *Why* a constraint exists | The former `01`–`13` audits. **Historical** — several have drifted and say so in their own headers. Cite for provenance, never for current state |
+
 - **`requirements/REQ014`–`REQ035`** — 22 requirement documents (19 new feature slugs plus extensions to `security`/`patient-payments`/`notifications`) covering *what* each PRD module needs, with user stories, Given/When/Then acceptance criteria, and `FR-*` traceability.
-- **`project-plans/technical-plans/`** — *how* to build them: phase-wise schema DDL, migration order, module layout, constraint decisions, and per-phase DoD. Seven documents: `00-foundation-hardening` (Phase F), `01-phase1-mvp`, `02-phase2-v1-ga`, `03-phase3-v2`, `04-data-model-evolution`, `05-cross-cutting-conventions`, and `06-frontend-architecture-and-mobile` (read this before touching anything under `frontend/src` — it carries the responsive **tiering** model, the design-system/typography rules, PWA budgets, and the frontend hard rules `FE-1`–`FE-6`).
-- **`project-plans/01`–`07`** — the codebase audit those plans are grounded in: 33 findings with live-reproduced evidence (`02-findings-register.md`), the security/tenancy audit, test strategy, competitive analysis, and the consolidated roadmap.
+- **`project-plans/technical-plans/`** — *how* to build them: phase-wise schema DDL, migration order, module layout, constraint decisions, and per-phase DoD. Nine documents now: `00-foundation-hardening` (Phase F), `01-phase1-mvp`, `02-phase2-v1-ga`, `03-phase3-v2`, `04-data-model-evolution`, `05-cross-cutting-conventions`, `06-frontend-architecture-and-mobile`, **`07-frontend-rules-compliance`** (per-rule audit of `FRONTEND_RULES.md`, including the BASE-3 JS-not-TypeScript bargain), and **`08-frontend-backend-integration`** (the contract between a slice's two tracks, grounded in five real contract bugs that shipped because the halves shipped apart).
+- **`project-plans/analysis/01`–`13`** — the codebase audit those plans are grounded in: 33 findings with live-reproduced evidence (`02-findings-register.md`), the security/tenancy audit, test strategy, competitive analysis, the consolidated roadmap, and the `REQ100`–`REQ143` slice-batch history.
+
+**Product direction is now `PRD-v2-CareOS.md`** (2026-08-27), which supersedes
+the v1 PRD where the market moved: AI ambient documentation is table stakes
+rather than a Phase-3 feature, ABDM M1–M3 is a licence to sell rather than a
+differentiator, and AI voice/chat agents are a category v1 does not mention.
+v1 remains authoritative for unchanged architecture, RBAC, the M1–M17 FR set,
+payments and the data model.
 
 **These do not replace `implementation-plans/`.** The working loop below still
 requires plan mode and reading the real code before writing a `PLAN###` for a
@@ -96,7 +126,7 @@ below 12 when `NODE_ENV=production`.
 client you add needs the same, or `app.close()` will hang again.
 
 **Phase G (PRD MVP core) — five of six requirements shipped, one to go.**
-`project-plans/07-prd-gap-analysis-and-roadmap.md` §3's Phase G sequence is
+`project-plans/analysis/07-prd-gap-analysis-and-roadmap.md` §3's Phase G sequence is
 `REQ017 → REQ020 → REQ021 → REQ019 → REQ018 → REQ032` (dependency order,
 `REQ017` first since it's the critical path both `REQ018`/`REQ019` need).
 `REQ017`, `REQ020`, `REQ021`, `REQ019`, and `REQ018`'s own P0 subset all
@@ -213,7 +243,7 @@ lower-risk, and treat the guard's integration into the shared chain as its
 own reviewed step.
 
 **Phase G+1 — five more PRD-derived slices shipped 2026-08-24, chosen and
-scoped by cross-checking `project-plans/07-prd-gap-analysis-and-roadmap.md`'s
+scoped by cross-checking `project-plans/analysis/07-prd-gap-analysis-and-roadmap.md`'s
 remaining candidates against the real code first.** Sequence:
 `REQ014 → REQ029 → REQ025 → REQ016 → REQ023`. All five follow the same
 pattern as Phase G's own four slices — additive, isolated, no new external
@@ -548,7 +578,7 @@ not yet been scheduled. Full verification for the batch: backend unit
 integration 4/4 suites (369/369 tests, up from 315), `eslint`/
 `tsc --noEmit` clean throughout. See `context/queue-management-2026-08-25-req051/manifest.md`
 through `context/messaging-2026-08-25-req058/manifest.md` for each
-slice's own full account, and `project-plans/07-prd-gap-analysis-and-roadmap.md`'s
+slice's own full account, and `project-plans/analysis/07-prd-gap-analysis-and-roadmap.md`'s
 own staleness note for how this batch changes the PRD-module gap picture.
 
 **Phase G+3 frontend completion — the "no frontend UI in this slice"
@@ -611,7 +641,7 @@ one container) — not more targeted retries.
 
 ### A fresh backend↔frontend integration gap audit, and its first fix (2026-08-25)
 
-`project-plans/08-integration-gap-analysis.md` is a fresh sweep — every
+`project-plans/analysis/08-integration-gap-analysis.md` is a fresh sweep — every
 backend `@Query`/`@Mutation` cross-checked against real frontend usage,
 and every remaining `mocks/store`/`useMockData` import in `frontend/src/
 pages` individually re-classified — producing 12 real findings (severities
@@ -870,7 +900,7 @@ demo account to a real `Patients` row (reverted after); `setRetentionPolicy`/
 `retentionPolicies` against the real dev DB (left in place, inert — 7
 years retention has no effect on data this young).
 
-### A 10-finding pick-up from `project-plans/02-findings-register.md`, 2026-08-26
+### A 10-finding pick-up from `project-plans/analysis/02-findings-register.md`, 2026-08-26
 
 Asked what was still pending in the original 2026-08-22 findings
 register, then asked to pick up and work 10 more. Every finding not
@@ -942,13 +972,13 @@ pickup/manifest.md` for the full account.
   domain-cases.ts` before trusting it, not this sentence — it will drift
   again the next time a new resolver domain ships. What Phase F's own closure
   still did NOT
-  reach is `project-plans/06-execution-plan.md`'s P1 items **1.5** (a
+  reach is `project-plans/analysis/06-execution-plan.md`'s P1 items **1.5** (a
   realistic seed dataset + a separately seeded e2e database) and **1.6**
   (frontend unit tests for `AuthContext`/`ProtectedRoute`/booking-wizard
   validation/currency-date utils) — both still open, sequenced as their own
   future slices. `project-plans/technical-plans/00-foundation-hardening.md`
   is "Phase F" in that root's own language (`07-prd-gap-analysis-and-roadmap.md`:
-  "Phase F = `project-plans/06-execution-plan.md` P0 + P1, unchanged") — read
+  "Phase F = `project-plans/analysis/06-execution-plan.md` P0 + P1, unchanged") — read
   it, not just this file, before treating Phase F as fully closed; P1 isn't,
   yet.
 - **e2e is not in CI**, deliberately (F-27: smoke-weighted, no negative-RBAC;
@@ -999,7 +1029,7 @@ Working loop for all future work in this repo:
 2. **Test before you claim done.** "I wrote the resolver" is not done — "the test suite proves the resolver works, including tenant-isolation and validation-failure cases" is done. Every new or touched resolver/service gets unit tests; every user-facing flow gets an integration/e2e test (`npm run e2e` in `frontend/`, Playwright). All 22 backend domains now have `.spec.ts` coverage (see Current priorities) — the remaining Priority 1 gap is per-domain e2e coverage, not unit coverage.
 3. **Verify before you commit.** Run lint + typecheck + the full test suite (backend `npm test`, frontend `npm test` and `npm run e2e` for touched flows) and confirm green before every commit. Never commit red.
 4. **Commit per vertical slice, same branch.** After a slice is built, tested, and verified, commit it with a conventional-commit message (`feat(backend): ...`, `test(backend): ...`, `feat(integration): ...`). Stay on the current branch unless explicitly told otherwise. Small, frequent, verified commits — not one giant commit at the end.
-5. **Responsiveness is tiered and mandatory, not polish.** Full detail and the measured audit behind this live in `project-plans/technical-plans/06-frontend-architecture-and-mobile.md`; the rules in short:
+5. **Responsiveness is tiered and mandatory, not polish.** `FRONTEND_RULES.md` is the authoritative frontend rule set (~190 rules; §5 carries the tiering table, §22 the honest waiver register). Full measured audit: `project-plans/technical-plans/07-frontend-rules-compliance.md`; architecture and the overflow probe: `project-plans/technical-plans/06-frontend-architecture-and-mobile.md`. The rules in short:
    - **Declare the screen's tier and verify at that tier's widths.** *Mobile-first* (public booking, patient PWA, QR check-in, patient portal) — designed for 360px, full function, verify 360/414/768. *Tablet-first* (clinician consult, Rx builder, clinician calendar) — designed for 1024px, verify 768/1024/1280; on a phone it must be readable and scrollable, not necessarily efficient. *Desktop-dense* (front desk, billing, admin, reports, pharmacy POS) — designed for density, verify 1280/1440; at 360px scrolling is fine but **truncated data is not**. A flat "check 360/768/1280 everywhere" rule asked the billing console to meet the patient booking page's bar, and so got ignored — this replaces it.
    - **No silent truncation, ever.** Content wider than its container must *scroll*, not clip. `overflow-x: hidden` on an ancestor of tabular or form content is a bug, and every `<Table>` needs a `<TableContainer>`. This has now been violated three times; two were found by accident. **`document.scrollWidth > clientWidth` does NOT catch it** — it reports clean on both live-confirmed defects (a truncated column on `/dashboard`, and the entire unreachable "In-App" column on `/settings`). Use the element-level probe in `06-frontend-architecture-and-mobile.md` §7.
    - **Theme tokens only — no `#RRGGBB` literals** in `pages/`, `components/`, `layouts/`. 87 of 122 files currently bypass the real theme that already exists (`#006D77` appears 264 times), which is why `REQ002`'s shipped org-branding feature cannot actually re-theme the product.
@@ -1158,6 +1188,7 @@ Prefer these over any generic guidance when they conflict:
 | `medibook-prisma-migrations` | Touching `schema.prisma`. Hand-written-SQL workflow (`prisma migrate dev` cannot run here), naming conventions, index discipline, the restart-after-`generate` rule. |
 | `medibook-graphql-contracts` | Writing/changing a resolver, entity, or DTO. The two dialects, the three mutation-response conventions, guard defaults, pagination. |
 | `careos-phase-planning` | "What should we build next", mapping a PRD `FR-*` onto this codebase, checking what blocks what. |
+| `medibook-frontend-rules` | **Before writing or reviewing ANY frontend code.** Carries `FRONTEND_RULES.md`'s load-bearing rules, the BASE-3 JS-not-TypeScript bargain and its compensating controls, the twelve rules with real shipped-bug provenance, and the honest compliance state so you don't claim compliance the codebase doesn't have. |
 | `medibook-responsive-mobile` | Touching any screen under `frontend/src`. The tiering model, the element-level overflow probe (the standard `scrollWidth` check provably misses real truncation here), touch/type floors, PWA gaps. |
 | `medibook-design-system` | Picking a colour or font size, styling a component, branding/white-label work. Theme tokens vs. the 87 files that bypass them, and why `REQ002` branding is currently inert. |
 | `medibook-frontend-data-wiring` | Building/reviewing a page that displays data, or investigating wrong/empty/stale values. The fabricated-page detection method, the no-mock-fallback rule, Apollo's `cache-first`/`errorPolicy` traps. |
@@ -1178,7 +1209,7 @@ treating a vendored skill's advice as this project's own convention.
 
 ### Priority 1 — Close the testing gap on what's already built
 
-`backend/src` has 22 built domain modules; **all 22** (`auth`, `analytics`, `appointments`, `availability`, `blocks`, `clinicians`, `clinics`, `email-templates`, `languages`, `lookups`, `messages`, `notifications`, `organizations`, `patients`, `products`, `public`, `reviews`, `rooms`, `services`, `staff`, `test-results`, `users`) now have `.spec.ts` coverage, plus both global guards (`common/guards/*.spec.ts`) — the unit-test half of this priority's DoD is done. `frontend/e2e/` now has real-backend specs for **all 22 domains** — each one confirmed real (not mock-fallback) via live inspection before the spec was written (`context/qa-full-inventory.md` §7), not assumed; five of those (`analytics`, `public`, `services`, `staff`, `users` — see below) required finding the *right* page to target or fixing a real bug first, since the obvious route was either mock-only or broken. `admin-roles.spec.js` (pre-existing) doesn't count toward this — at the time it was written it exercised `admin/Roles.jsx` while that page was still 100% `mocks/store.js`-driven; **stale as of 2026-08-25** (`project-plans/08-integration-gap-analysis.md` §C) — `admin/Roles.jsx` now has real `useQuery`/`useMutation` calls (`GET_ROLES_DATA`/`CREATE_ROLE`/`UPDATE_ROLE`/`DELETE_ROLE`) and no live mock usage, just an unremoved historical comment; whoever wired it never updated this sentence. `public` needed two real fixes before a spec was possible (`@Public()` on `getClinicianAvailability`, `App.jsx`'s `OptionalAuthShell`) — `pages/public/landing.jsx` itself is still mock, so its specs go straight to `/doctor/:id`/`/appointments/book` with a real clinician id instead. `services` needed a full rewrite of `manager/services/index.jsx` against the real `services`/`productCategories` contract plus a real backend bug fix (`ServicesService.toGraphQL()` crashing on any service with a linked clinician; fixed both the bug and its unit test). `staff` — the last domain, closed out this session — needed `staff/{index,new,edit}.jsx` rewired off `mocks/store.js` entirely onto `backend/src/staff`'s pre-existing (never-wired) resolvers, which surfaced three real bugs in the process: (1) `StaffService.create()`/`update()` let a `phone` (globally `@unique`, for OTP login) or `update()`-time `email` collision hit Prisma directly, leaking a raw unique-constraint error — including an internal file path — to the client instead of a clean `ConflictException`, fixed with an explicit pre-check mirroring the existing email-on-create check, plus 5 new `staff.service.spec.ts` cases; (2) `admin-users.spec.js` (a different, previously-green spec) broke as a side effect — it assumed `admin@medibook.dev` would be on the users directory's default unfiltered first page, but that page is server-paginated at 8 rows/page newest-first, and the new `staff` spec's account creation was the row that finally pushed the real (accumulating, never-reset) dev-DB user count from 8 to 9, bumping the oldest seeded account off page 1 — fixed by searching for each account rather than assuming page-1 visibility, the same "don't assume a stable dataset against a real, growing backend" lesson as the `services` price-locator fix below; (3) `staff/index.jsx`'s table had no `TableContainer` wrapper (every other `Table`-based list page in the app has one), so real (wider, more numerous) data overflowed the viewport at both 360px and 1280px — not caught before because mock data happened to fit; fixed by adding the wrapper to match the established convention. `UpdateStaffInput`'s missing password-reset field and `CreateStaffInput`'s missing `status`/`since` fields were logged as open questions (`context/open-questions.md` #3) rather than guessed at, then resolved and built the same day (`REQ009`/`PLAN018`) — see Priority 2. Full e2e suite now confirmed fully green at 28/28 (run in small batches rather than one long `--workers=1` invocation, after the dev machine's host resource contention made single long runs unreliable to observe) — one other real bug found and fixed in the process: `manager-services.spec.js`'s price assertion used a page-wide `getByText('₹50.00')`, which broke once repeated real-backend test runs had accumulated more than one prior ₹50 `E2E Service *` row (the spec creates but never deletes its test service) — fixed by scoping the assertion to the specific service's `MuiCard-root`. Backend suite reconfirmed green 2026-08-22: **641 tests / 50 suites**, 129 s (the older "405/405, 37 suites" figure recorded here was stale by two sessions — verify this count against a real run rather than trusting it). Run it as `npx jest --maxWorkers=2`: a bare `npm test` at default worker count is killed by the OOM killer (exit 137) on this host before it finishes.
+`backend/src` has 22 built domain modules; **all 22** (`auth`, `analytics`, `appointments`, `availability`, `blocks`, `clinicians`, `clinics`, `email-templates`, `languages`, `lookups`, `messages`, `notifications`, `organizations`, `patients`, `products`, `public`, `reviews`, `rooms`, `services`, `staff`, `test-results`, `users`) now have `.spec.ts` coverage, plus both global guards (`common/guards/*.spec.ts`) — the unit-test half of this priority's DoD is done. `frontend/e2e/` now has real-backend specs for **all 22 domains** — each one confirmed real (not mock-fallback) via live inspection before the spec was written (`context/qa-full-inventory.md` §7), not assumed; five of those (`analytics`, `public`, `services`, `staff`, `users` — see below) required finding the *right* page to target or fixing a real bug first, since the obvious route was either mock-only or broken. `admin-roles.spec.js` (pre-existing) doesn't count toward this — at the time it was written it exercised `admin/Roles.jsx` while that page was still 100% `mocks/store.js`-driven; **stale as of 2026-08-25** (`project-plans/analysis/08-integration-gap-analysis.md` §C) — `admin/Roles.jsx` now has real `useQuery`/`useMutation` calls (`GET_ROLES_DATA`/`CREATE_ROLE`/`UPDATE_ROLE`/`DELETE_ROLE`) and no live mock usage, just an unremoved historical comment; whoever wired it never updated this sentence. `public` needed two real fixes before a spec was possible (`@Public()` on `getClinicianAvailability`, `App.jsx`'s `OptionalAuthShell`) — `pages/public/landing.jsx` itself is still mock, so its specs go straight to `/doctor/:id`/`/appointments/book` with a real clinician id instead. `services` needed a full rewrite of `manager/services/index.jsx` against the real `services`/`productCategories` contract plus a real backend bug fix (`ServicesService.toGraphQL()` crashing on any service with a linked clinician; fixed both the bug and its unit test). `staff` — the last domain, closed out this session — needed `staff/{index,new,edit}.jsx` rewired off `mocks/store.js` entirely onto `backend/src/staff`'s pre-existing (never-wired) resolvers, which surfaced three real bugs in the process: (1) `StaffService.create()`/`update()` let a `phone` (globally `@unique`, for OTP login) or `update()`-time `email` collision hit Prisma directly, leaking a raw unique-constraint error — including an internal file path — to the client instead of a clean `ConflictException`, fixed with an explicit pre-check mirroring the existing email-on-create check, plus 5 new `staff.service.spec.ts` cases; (2) `admin-users.spec.js` (a different, previously-green spec) broke as a side effect — it assumed `admin@medibook.dev` would be on the users directory's default unfiltered first page, but that page is server-paginated at 8 rows/page newest-first, and the new `staff` spec's account creation was the row that finally pushed the real (accumulating, never-reset) dev-DB user count from 8 to 9, bumping the oldest seeded account off page 1 — fixed by searching for each account rather than assuming page-1 visibility, the same "don't assume a stable dataset against a real, growing backend" lesson as the `services` price-locator fix below; (3) `staff/index.jsx`'s table had no `TableContainer` wrapper (every other `Table`-based list page in the app has one), so real (wider, more numerous) data overflowed the viewport at both 360px and 1280px — not caught before because mock data happened to fit; fixed by adding the wrapper to match the established convention. `UpdateStaffInput`'s missing password-reset field and `CreateStaffInput`'s missing `status`/`since` fields were logged as open questions (`context/open-questions.md` #3) rather than guessed at, then resolved and built the same day (`REQ009`/`PLAN018`) — see Priority 2. Full e2e suite now confirmed fully green at 28/28 (run in small batches rather than one long `--workers=1` invocation, after the dev machine's host resource contention made single long runs unreliable to observe) — one other real bug found and fixed in the process: `manager-services.spec.js`'s price assertion used a page-wide `getByText('₹50.00')`, which broke once repeated real-backend test runs had accumulated more than one prior ₹50 `E2E Service *` row (the spec creates but never deletes its test service) — fixed by scoping the assertion to the specific service's `MuiCard-root`. Backend suite reconfirmed green 2026-08-22: **641 tests / 50 suites**, 129 s (the older "405/405, 37 suites" figure recorded here was stale by two sessions — verify this count against a real run rather than trusting it). Run it as `npx jest --maxWorkers=2`: a bare `npm test` at default worker count is killed by the OOM killer (exit 137) on this host before it finishes.
 
 1. Pick one domain at a time from the e2e gap above (all 22 backend domains now have unit coverage; the remaining work here is writing/confirming each domain's Playwright spec).
 2. Write unit tests per resolver/service: happy path, validation failures, tenant-isolation AND self-scoping (see Architecture) both provably rejected for cross-tenant/cross-patient/cross-clinician access, role-gating (`@Auth`/`@Public` behaving as declared) — a resolver-vs-real-source cross-check like this has found a real, previously-unfixed security bug in every domain checked closely so far, so treat "read the code while writing the matrix" as part of the test-writing step, not a separate audit.

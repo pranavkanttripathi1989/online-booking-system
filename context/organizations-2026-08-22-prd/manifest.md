@@ -20,4 +20,4 @@ This is a requirement-only bundle — no implementation plan, test plan, or test
 ## Related
 
 - [organizations-2026-08-22 bundle](../organizations-2026-08-22/manifest.md) — the unrelated, already-done REQ013 Phase B bundle for this same feature slug and date.
-- [project-plans/07-prd-gap-analysis-and-roadmap.md](../../project-plans/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.
+- [project-plans/analysis/07-prd-gap-analysis-and-roadmap.md](../../project-plans/analysis/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.

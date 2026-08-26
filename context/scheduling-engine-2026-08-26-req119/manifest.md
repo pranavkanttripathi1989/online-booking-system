@@ -11,7 +11,7 @@ related: [PLAN159, TP179, TR179]
 
 # scheduling-engine — REQ119: hybrid-mode walk-in interleaving (2026-08-26)
 
-Sixth slice of the next 10-slice batch (`project-plans/11-next-10-slice-batch.md`).
+Sixth slice of the next 10-slice batch (`project-plans/analysis/11-next-10-slice-batch.md`).
 
 ## Documents
 

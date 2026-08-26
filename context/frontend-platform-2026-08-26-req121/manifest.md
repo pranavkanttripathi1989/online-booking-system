@@ -11,7 +11,7 @@ related: [PLAN161, TP181, TR181]
 
 # frontend-platform — REQ121: cache-and-network audit round 2 (2026-08-26)
 
-Eighth slice of the next 10-slice batch (`project-plans/11-next-10-slice-batch.md`).
+Eighth slice of the next 10-slice batch (`project-plans/analysis/11-next-10-slice-batch.md`).
 
 ## Documents
 

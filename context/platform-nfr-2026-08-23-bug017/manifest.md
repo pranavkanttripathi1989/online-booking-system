@@ -11,7 +11,7 @@ related: [REQ035]
 
 # platform-nfr — BUG017, booking-concurrency exclusion constraint (2026-08-23)
 
-Closes `project-plans/06-execution-plan.md` P3.1, the acceptance criterion
+Closes `project-plans/analysis/06-execution-plan.md` P3.1, the acceptance criterion
 `booking-concurrency.int-spec.ts` was written against back in Phase F. The
 test itself was found to be broken (a stale `AppointmentInput` shape,
 failing GraphQL validation rather than exercising the real bug) and fixed

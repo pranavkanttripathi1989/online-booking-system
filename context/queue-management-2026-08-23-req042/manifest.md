@@ -12,7 +12,7 @@ related: [REQ019, PLAN045, TP072, TR071, BUG019]
 # queue-management — REQ042, real check-in status + waiting-room queue (2026-08-23)
 
 First vertical slice of `REQ019`, chosen because it also closes
-`project-plans/06-execution-plan.md` P2.2's `waiting-room` third and
+`project-plans/analysis/06-execution-plan.md` P2.2's `waiting-room` third and
 resolves `context/open-questions.md` #11(a)'s "lightweight status vs. full
 queue/token model" question — for check-in specifically, not for the full
 requirement.
@@ -29,7 +29,7 @@ requirement.
 
 ## What this closes
 
-- `project-plans/06-execution-plan.md` P2.2's `waiting-room` third (still
+- `project-plans/analysis/06-execution-plan.md` P2.2's `waiting-room` third (still
   partial overall — `tasks`/`onboarding` remain).
 - `context/open-questions.md` #11(a) — the check-in half only; the
   full queue/token model REQ019 also describes is still open.

@@ -18,7 +18,7 @@ tenant's clinics, full service and product catalogues with prices, all rooms,
 and the complete clinician roster, via a single HTTP call — no exploit tooling
 beyond `curl` required.
 
-## Evidence (`project-plans/02-findings-register.md` F-01)
+## Evidence (`project-plans/analysis/02-findings-register.md` F-01)
 
 Roughly a dozen call sites across `clinics.service.ts`, `rooms.service.ts`,
 `services.service.ts`, `products.service.ts`, and `clinicians.service.ts`

@@ -34,8 +34,9 @@ Don't duplicate content between them.
 | Layer | Question it answers | Where |
 |---|---|---|
 | **Requirements** | *What* should the product do, and why? User stories, acceptance criteria, PRD `FR-*` traceability. | `requirements/<feature>/` (`REQ014`–`REQ035`) |
-| **Roadmap** | In *what order*, and what blocks what? | `project-plans/07-prd-gap-analysis-and-roadmap.md` |
+| **Roadmap** | In *what order*, and what blocks what? | **`project-plans/phase-plans/`** — carries `▶ CURRENT POSITION` and the `continue` protocol. *(The older `analysis/07-prd-gap-analysis-and-roadmap.md` is superseded; its own header admits it drifted twice.)* |
 | **Technical plans** (this directory) | *How* is it built? Schema DDL, migration order, module layout, resolver contracts, index strategy, integration points. | `project-plans/technical-plans/` |
+| **Frontend rules** | What must every frontend change satisfy? | **`FRONTEND_RULES.md`** (repo root, ~190 rules) + `07-frontend-rules-compliance.md` here |
 | **Implementation plans** | The actual per-slice plan written immediately before coding, after reading the real code. | `implementation-plans/<feature>/` (`PLAN###`) |
 
 **These are not a substitute for `implementation-plans/`.** `CLAUDE.md`'s working
@@ -55,6 +56,8 @@ each slice's plan doesn't re-derive the same architecture from scratch.
 | [04-data-model-evolution.md](./04-data-model-evolution.md) | cross-phase | Every schema change across all phases in dependency order, with migration-file naming, backfill strategy, and the index catalogue. |
 | [05-cross-cutting-conventions.md](./05-cross-cutting-conventions.md) | cross-phase | Module scaffolding template, GraphQL dialect/response-convention decision table, testing obligations per slice, definition of done. |
 | [06-frontend-architecture-and-mobile.md](./06-frontend-architecture-and-mobile.md) | cross-phase | Frontend/mobile plan for current **and** PRD surfaces: measured responsiveness audit (live-verified at 360 px), the responsive **tiering** model (mobile-first / tablet-first / desktop-dense), design-system and typography rules, PWA + performance budgets, frontend hard rules, and the CI gates that enforce them. |
+| [07-frontend-rules-compliance.md](./07-frontend-rules-compliance.md) | cross-phase | **Per-rule audit of `FRONTEND_RULES.md` v2.0** against the measured codebase: what is compliant, compliant-but-unenforced, ratcheted, a gap, waived, or conditional — with evidence, the enforcement mechanism, and the priority order to close. Includes the **BASE-3 bargain** (JS instead of TypeScript) and why two of its three compensating controls are currently unpaid. |
+| [08-frontend-backend-integration.md](./08-frontend-backend-integration.md) | cross-phase | **The contract between the two tracks of a slice.** The five things to pin before writing either half, the eight-step interleave, the pagination + decoupled-count contract, auth-gate parity, and the test-layer division of labour. Grounded in the five real contract bugs that shipped because the halves shipped apart. |
 
 ## Reading order
 
@@ -69,7 +72,7 @@ whenever you touch anything under `frontend/src`.
 `00-foundation-hardening.md` is not optional sequencing advice. Nine of the
 PRD's twenty modules are entirely net-new and eleven more are extensions —
 roughly 40 new tenant-scoped tables. Every one of them inherits the
-`client_org_id`-scoping bug class (`project-plans/02-findings-register.md` F-01,
+`client_org_id`-scoping bug class (`project-plans/analysis/02-findings-register.md` F-01,
 F-04, F-05) and the zero-index defect (F-13) if the shared helper and the index
 discipline aren't in place first. Building Phase 1 on the current foundation
 means fixing those defects ~40 times instead of once.

@@ -11,7 +11,7 @@ related: [PLAN176, TP196, TR196]
 
 # prescriptions — REQ136: a real frontend surface for prescription-integrity verification (2026-08-26)
 
-Third slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+Third slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

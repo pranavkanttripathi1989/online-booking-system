@@ -11,7 +11,7 @@ related: [PLAN177, TP197, TR197]
 
 # insurance-claims — REQ137: auto-attach a claim's issued prescriptions as evidence (2026-08-26)
 
-Fourth slice of the next 10-slice batch (`project-plans/13-next-10-slice-batch.md`).
+Fourth slice of the next 10-slice batch (`project-plans/analysis/13-next-10-slice-batch.md`).
 
 ## Documents
 

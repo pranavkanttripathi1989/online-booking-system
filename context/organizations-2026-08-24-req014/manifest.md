@@ -13,7 +13,7 @@ related: [PLAN060, TP087, TR086]
 
 First of five PRD-derived requirement slices picked and built in one pass
 (REQ014 → REQ029 → REQ025 → REQ016 → REQ023), selected by cross-checking
-`project-plans/07-prd-gap-analysis-and-roadmap.md`'s remaining Phase G/H
+`project-plans/analysis/07-prd-gap-analysis-and-roadmap.md`'s remaining Phase G/H
 candidates against the real, current code before committing to scope — see
 this session's plan file for the full selection rationale.
 

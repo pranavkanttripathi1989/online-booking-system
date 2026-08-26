@@ -11,7 +11,7 @@ related: [PLAN148, TP172, TR172]
 
 # clinical-records — REQ108: validated ICD-10 coding for diagnoses (2026-08-26)
 
-Slice of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 `REQ020`'s own long-deferred P1 residue (FR-EMR-03).
 
 ## Documents

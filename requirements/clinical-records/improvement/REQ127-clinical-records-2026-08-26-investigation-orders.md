@@ -23,7 +23,7 @@ requested it.
 
 ## Scope correction, found before starting
 
-This session's own batch plan (`project-plans/12-next-10-slice-batch.md`)
+This session's own batch plan (`project-plans/analysis/12-next-10-slice-batch.md`)
 originally described this slice as "new table, links encounters →
 test-results" — a parallel `InvestigationOrders` table. Reading
 `TestResults`' real schema before writing any migration changed that:

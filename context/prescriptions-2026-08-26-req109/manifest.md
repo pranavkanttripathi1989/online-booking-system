@@ -12,7 +12,7 @@ related: [PLAN149, TP173, TR173]
 # prescriptions — REQ109: OTP-gated WhatsApp sharing of a prescription PDF (2026-08-26)
 
 Final slice of the reconciled 14-slice batch
-(`project-plans/10-next-14-slice-batch-reconciled.md`). `REQ021`'s own
+(`project-plans/analysis/10-next-14-slice-batch-reconciled.md`). `REQ021`'s own
 P1 scope residue.
 
 ## Documents

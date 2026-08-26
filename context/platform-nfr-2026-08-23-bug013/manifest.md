@@ -11,7 +11,7 @@ related: [BUG012, REQ035]
 
 # platform-nfr — BUG013, frontend unit tests for guards/auth/booking/formatters (2026-08-23)
 
-Second of three sequenced slices to finish `project-plans/06-execution-plan.md`'s
+Second of three sequenced slices to finish `project-plans/analysis/06-execution-plan.md`'s
 P1 ("prove the boundary") — the first (backend tenancy matrix) is `BUG012`.
 P1.6 named `AuthContext`, `ProtectedRoute`/`RoleGuard`, booking-wizard
 validation, and the date/currency formatters as where frontend test risk

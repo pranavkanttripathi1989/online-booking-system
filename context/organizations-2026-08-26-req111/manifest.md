@@ -11,7 +11,7 @@ related: [PLAN151, TP162, TR162]
 
 # organizations — REQ111: branch-override admin UI (2026-08-26)
 
-Slice 3 of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice 3 of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 
 ## Documents
 

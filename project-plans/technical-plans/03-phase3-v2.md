@@ -134,7 +134,7 @@ lays out the two positions. Resolve before scoping.
 
 ## 7. Platform maturity (continuous, not a discrete step)
 
-Carried from `REQ035` and `project-plans/06-execution-plan.md`:
+Carried from `REQ035` and `project-plans/analysis/06-execution-plan.md`:
 
 - **Observability/SLOs**: structured logs, tracing, per-tenant error budgets, and the specific business-metric alert the PRD names (a live tenant's bookings dropping to zero pages on-call).
 - **Feature flags + per-tenant canary** — distinct from `REQ032`'s plan-entitlement flags. Do not conflate a deployment-risk mechanism with a commercial-packaging one; they have different lifecycles and different owners.

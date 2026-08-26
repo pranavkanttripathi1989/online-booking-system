@@ -13,7 +13,7 @@ related: [PLAN163, TP183, TR183]
 
 ## Why this slice
 
-`project-plans/02-findings-register.md` is the project's own backlog of
+`project-plans/analysis/02-findings-register.md` is the project's own backlog of
 record, and this session's own `CLAUDE.md` repeatedly documents the
 identical failure mode: a status claim written once, never re-verified,
 silently wrong for sessions afterward (the register's own `F-19`/`F-21`
@@ -40,7 +40,7 @@ another document's own claim:
 ## What shipped
 
 - Status lines added to `F-10`/`F-17`/`F-20`/`F-32` in
-  `project-plans/02-findings-register.md`, each citing the real evidence
+  `project-plans/analysis/02-findings-register.md`, each citing the real evidence
   above rather than a bare "done".
 - `scripts/test-count-status.mjs` — runs the backend unit suite (and,
   with `--integration`, the integration suite too) and prints a dated,

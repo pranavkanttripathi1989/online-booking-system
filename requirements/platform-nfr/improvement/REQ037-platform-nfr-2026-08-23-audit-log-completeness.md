@@ -11,7 +11,7 @@ related: []
 
 # REQ037 — Audit-log completeness: outcome, user_agent, and actually populating resource_id/details
 
-`project-plans/06-execution-plan.md` P3.6 (F-10). `AuditLogs` already had
+`project-plans/analysis/06-execution-plan.md` P3.6 (F-10). `AuditLogs` already had
 `resource_id`/`details` columns — nothing ever wrote to either. There was
 no `outcome` column at all, so a successful and a rejected mutation wrote
 an identical row; no `user_agent` column either.

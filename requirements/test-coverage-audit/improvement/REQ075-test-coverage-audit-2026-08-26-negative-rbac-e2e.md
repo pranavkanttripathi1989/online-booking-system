@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/02-findings-register.md` F-27, part of a 10-finding
+`project-plans/analysis/02-findings-register.md` F-27, part of a 10-finding
 pick-up. Scoped to just the two scenarios the finding's own text names —
 general e2e cleanup hygiene across the existing ~30 specs is separate,
 much larger churn, deliberately out of scope here.
@@ -63,4 +63,4 @@ passes, and a direct DB check now confirms the fixture row is gone.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-27.
+`project-plans/analysis/02-findings-register.md` F-27.

@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/02-findings-register.md` F-21, part of a 10-finding
+`project-plans/analysis/02-findings-register.md` F-21, part of a 10-finding
 pick-up. The plan scoped this to applying `fetchPolicy:
 'cache-and-network'` to the four genuinely stale-prone list pages named
 in the finding's own reasoning: the live queue board
@@ -50,4 +50,4 @@ page-by-page live-regression pass, not something to fold into a
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-21.
+`project-plans/analysis/02-findings-register.md` F-21.

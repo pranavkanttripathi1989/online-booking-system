@@ -11,7 +11,7 @@ related: [PLAN145, TP163, TR163]
 
 # appointments — REQ105: booking-widget embed code UI (2026-08-26)
 
-Slice of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 
 ## Documents
 

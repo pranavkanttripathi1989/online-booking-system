@@ -13,7 +13,7 @@ related: [REQ013, PLAN060]
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §7.1 (entity hierarchy), §9 **M1 — Tenant Onboarding & Organization Management** (`FR-ORG-01`–`FR-ORG-10`). Cross-referenced against `project-plans/01-codebase-analysis.md` §2.4 and `CLAUDE.md`'s Architecture section.
+`PRD-Healthcare-Booking-SaaS-India.md` §7.1 (entity hierarchy), §9 **M1 — Tenant Onboarding & Organization Management** (`FR-ORG-01`–`FR-ORG-10`). Cross-referenced against `project-plans/analysis/01-codebase-analysis.md` §2.4 and `CLAUDE.md`'s Architecture section.
 
 ## Current state vs. PRD ambition
 
@@ -42,7 +42,7 @@ One gap that is a real requirement, not yet decided:
 
 ## Phase assignment
 
-PRD Phase: **1 (MVP)** for org/branch/department/resource masters and the real onboarding wizard; **1 (V1 GA / Phase 2)** for import tooling and self-serve trial signup, matching the PRD's own priority split (`FR-ORG-01/02` are P0; `FR-ORG-07/08` are P1). Recommended sequencing: after `project-plans/06-execution-plan.md` P0–P1 (tenant-isolation and index fixes) — a new `Department`/`Resource` layer inherits every existing tenant-scoping bug class (Hard Rule 6) and should not be built on an unverified `orgScope()`.
+PRD Phase: **1 (MVP)** for org/branch/department/resource masters and the real onboarding wizard; **1 (V1 GA / Phase 2)** for import tooling and self-serve trial signup, matching the PRD's own priority split (`FR-ORG-01/02` are P0; `FR-ORG-07/08` are P1). Recommended sequencing: after `project-plans/analysis/06-execution-plan.md` P0–P1 (tenant-isolation and index fixes) — a new `Department`/`Resource` layer inherits every existing tenant-scoping bug class (Hard Rule 6) and should not be built on an unverified `orgScope()`.
 
 ## Dependencies
 

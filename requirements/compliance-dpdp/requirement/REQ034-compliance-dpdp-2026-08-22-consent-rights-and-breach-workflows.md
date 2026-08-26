@@ -31,11 +31,11 @@ own scope).
 
 ## Source
 
-`PRD-Healthcare-Booking-SaaS-India.md` §12.1 (`FR-DPDP-01`–`09`) and §12.2's clinical/sectoral requirements not already covered by another requirement (`FR-REG-05`, `06`). Cross-referenced against `project-plans/03-security-and-tenancy-audit.md` §7 and `REQ012` (org-wide security settings).
+`PRD-Healthcare-Booking-SaaS-India.md` §12.1 (`FR-DPDP-01`–`09`) and §12.2's clinical/sectoral requirements not already covered by another requirement (`FR-REG-05`, `06`). Cross-referenced against `project-plans/analysis/03-security-and-tenancy-audit.md` §7 and `REQ012` (org-wide security settings).
 
 ## Current state vs. PRD ambition
 
-`project-plans/03-security-and-tenancy-audit.md` §7 already assessed this precisely: encryption at rest for credentials exists (`secrets.ts`, AES-256-GCM), a self-service `myDataExport` query exists as a partial data-portability start, org-level retention settings are persisted, and audit logging exists but is shallow (`project-plans` F-10 — resolved separately under that finding, not duplicated here). What's missing entirely: consent artefacts with purpose limitation, a documented retention/erasure job, breach-notification tooling, a processor/sub-processor register, and a formal Data Processing Agreement as part of the standard tenant contract.
+`project-plans/analysis/03-security-and-tenancy-audit.md` §7 already assessed this precisely: encryption at rest for credentials exists (`secrets.ts`, AES-256-GCM), a self-service `myDataExport` query exists as a partial data-portability start, org-level retention settings are persisted, and audit logging exists but is shallow (`project-plans` F-10 — resolved separately under that finding, not duplicated here). What's missing entirely: consent artefacts with purpose limitation, a documented retention/erasure job, breach-notification tooling, a processor/sub-processor register, and a formal Data Processing Agreement as part of the standard tenant contract.
 
 The PRD's timeline (§1.2, §12.1) is a hard external clock, not a target the team sets itself: DPDP Rules were notified 13 November 2025; enforcement and Consent Manager registration activate 13 November 2026; full compliance is due 13 May 2027. `PRD §17` risk R3 states plainly: *"DPDP enforcement arrives before we are audit-ready → deal blocker in enterprise procurement; penalty exposure for tenants."*
 

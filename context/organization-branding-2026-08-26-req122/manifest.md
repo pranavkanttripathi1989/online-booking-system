@@ -11,7 +11,7 @@ related: [PLAN162, TP182, TR182]
 
 # organization-branding — REQ122: hex-color sweep round 1 (2026-08-26)
 
-Ninth slice of the next 10-slice batch (`project-plans/11-next-10-slice-batch.md`).
+Ninth slice of the next 10-slice batch (`project-plans/analysis/11-next-10-slice-batch.md`).
 
 ## Documents
 

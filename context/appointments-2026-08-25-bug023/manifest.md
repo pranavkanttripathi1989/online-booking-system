@@ -6,12 +6,12 @@ created: 2026-08-25
 updated: 2026-08-25
 status: done
 parent: BUG023
-related: [PLAN085, TP112, TR111, project-plans/08-integration-gap-analysis.md]
+related: [PLAN085, TP112, TR111, project-plans/analysis/08-integration-gap-analysis.md]
 ---
 
 # appointments — BUG023, edit page fake data + broken save (2026-08-25, closed same day)
 
-Started as `project-plans/08-integration-gap-analysis.md` finding B-2
+Started as `project-plans/analysis/08-integration-gap-analysis.md` finding B-2
 (clinician/room dropdown mock fallback, S2). Reading the whole file to fix
 that narrow finding surfaced four more real defects in the same file —
 the worst found only by live-testing the fix: `AppointmentUpdateInput`
@@ -64,6 +64,6 @@ persisted.
 
 ## What this does not close
 
-The remaining findings in `project-plans/08-integration-gap-analysis.md`
+The remaining findings in `project-plans/analysis/08-integration-gap-analysis.md`
 (A-2 through A-10, B-3, B-4) are still open, per that document's own "Fix
 sequencing" section.

@@ -6,12 +6,12 @@ created: 2026-08-25
 updated: 2026-08-25
 status: done
 parent: BUG021
-related: [PLAN083, TP110, TR109, project-plans/08-integration-gap-analysis.md]
+related: [PLAN083, TP110, TR109, project-plans/analysis/08-integration-gap-analysis.md]
 ---
 
 # clinician-dashboard — BUG021, dashboard fabricated end to end (2026-08-25, closed same day)
 
-Found via `project-plans/08-integration-gap-analysis.md` (finding B-1, the
+Found via `project-plans/analysis/08-integration-gap-analysis.md` (finding B-1, the
 one S1 in that sweep) — a fresh backend↔frontend integration audit that
 cross-checked every backend operation against real frontend usage and
 individually re-classified every remaining `mocks/store`/`useMockData`
@@ -99,6 +99,6 @@ Same two residual notes as `BUG021` itself: the seeded
 a real prompt, not fake data — it doesn't link the account); no other
 role's dashboard shares this defect (each was individually re-verified
 during the originating gap analysis). The remaining 11 findings in
-`project-plans/08-integration-gap-analysis.md` (A-1 through A-10, B-2
+`project-plans/analysis/08-integration-gap-analysis.md` (A-1 through A-10, B-2
 through B-4) are still open, sequenced per that document's own "Fix
 sequencing" section — this bundle closes only B-1.

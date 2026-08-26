@@ -5,8 +5,8 @@ metadata:
   origin: project-specific
   vetted: >-
     Written 2026-08-22 from this repository's own audit findings
-    (project-plans/02-findings-register.md F-01/F-04/F-05/F-06, and
-    project-plans/03-security-and-tenancy-audit.md), not vendored from an
+    (project-plans/analysis/02-findings-register.md F-01/F-04/F-05/F-06, and
+    project-plans/analysis/03-security-and-tenancy-audit.md), not vendored from an
     external source. Every claim traces to a finding reproduced against the
     running stack in that audit.
 ---

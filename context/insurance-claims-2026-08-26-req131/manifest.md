@@ -11,7 +11,7 @@ related: [PLAN171, TP191, TR191]
 
 # insurance-claims — REQ131: OPD cashless claim submission and tracking (2026-08-26)
 
-Eighth slice of the next 10-slice batch (`project-plans/12-next-10-slice-batch.md`).
+Eighth slice of the next 10-slice batch (`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 

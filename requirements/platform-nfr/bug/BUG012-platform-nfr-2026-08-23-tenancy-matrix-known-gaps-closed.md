@@ -22,7 +22,7 @@ had zero scoping of any kind.
 
 ## How this was found
 
-`project-plans/06-execution-plan.md` names P0 ("stabilise and secure") and
+`project-plans/analysis/06-execution-plan.md` names P0 ("stabilise and secure") and
 P1 ("prove the boundary") as a hard prerequisite before any of the 22
 PRD-derived requirements (`REQ014`–`REQ035`) may proceed to implementation
 planning. `CLAUDE.md`'s "Phase F COMPLETE" claim maps to P0 plus part of

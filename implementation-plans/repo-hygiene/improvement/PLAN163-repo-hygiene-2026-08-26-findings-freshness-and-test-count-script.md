@@ -13,7 +13,7 @@ related: [TP183, TR183]
 
 ## Change
 
-**`project-plans/02-findings-register.md`**: status lines added to
+**`project-plans/analysis/02-findings-register.md`**: status lines added to
 `F-10`, `F-17`, `F-20`, `F-32`, each with the specific real-code
 evidence checked (see `REQ123`'s own table) — not a bare "fixed",
 matching this document's own established convention for prior status

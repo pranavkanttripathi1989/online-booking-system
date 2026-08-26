@@ -11,7 +11,7 @@ related: [PLAN087, TP114, TR113]
 
 # security — Clinician verification UI (2026-08-25)
 
-Closes `project-plans/08-integration-gap-analysis.md` finding A-4 — part
+Closes `project-plans/analysis/08-integration-gap-analysis.md` finding A-4 — part
 of the A-4–A-8 gap-fix batch found by a fresh backend-vs-frontend
 integration sweep. Real, tested `updateClinicianVerification` mutation
 had no frontend UI at all.

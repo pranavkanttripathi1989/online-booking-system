@@ -17,7 +17,7 @@ related: [PLAN156, TP176, TR176]
 hashing, revocation, and a `verify()` method — but its own documentation
 was explicit that nothing consumed it: *"not wired to any guard yet in
 this slice (no public API exists to authenticate into), kept for a
-future slice that adds one."* `project-plans/11-next-10-slice-batch.md`
+future slice that adds one."* `project-plans/analysis/11-next-10-slice-batch.md`
 picked this future slice up: a real `ApiKeyGuard` plus one real REST
 endpoint gated by it, so an issued key actually does something instead
 of only existing in a settings table.

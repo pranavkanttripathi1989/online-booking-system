@@ -11,7 +11,7 @@ related: [REQ015, REQ012, PLAN052, TP079, TR078]
 
 # security — REQ049, PermissionsGuard enforcement (2026-08-23)
 
-First vertical slice of `REQ015`. Closes `project-plans/02-findings-register.md`'s
+First vertical slice of `REQ015`. Closes `project-plans/analysis/02-findings-register.md`'s
 headline finding: the custom Roles/Permissions system had nothing that
 ever read it back.
 

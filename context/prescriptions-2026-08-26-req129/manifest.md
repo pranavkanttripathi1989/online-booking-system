@@ -11,7 +11,7 @@ related: [PLAN169, TP189, TR189]
 
 # prescriptions — REQ129: tamper-evident hash on printed prescriptions (2026-08-26)
 
-Sixth slice of the next 10-slice batch (`project-plans/12-next-10-slice-batch.md`).
+Sixth slice of the next 10-slice batch (`project-plans/analysis/12-next-10-slice-batch.md`).
 
 ## Documents
 

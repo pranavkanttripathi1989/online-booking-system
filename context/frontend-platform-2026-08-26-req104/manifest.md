@@ -11,7 +11,7 @@ related: [PLAN144, TP161, TR161]
 
 # frontend-platform — REQ104: hook unit test coverage (2026-08-26)
 
-Slice 5 of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice 5 of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 
 ## Documents
 
@@ -26,7 +26,7 @@ Slice 5 of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-
 
 This slice's own starting premise (frontend unit tests for
 `AuthContext`/`ProtectedRoute`/booking-wizard validation/currency-date
-utils, per `project-plans/06-execution-plan.md`'s P1.6) turned out
+utils, per `project-plans/analysis/06-execution-plan.md`'s P1.6) turned out
 already closed by commit `030c333` (2026-08-23) — a real stale-
 documentation finding, corrected in `REQ104`'s own doc rather than
 silently building redundant coverage. Retargeted to two genuinely

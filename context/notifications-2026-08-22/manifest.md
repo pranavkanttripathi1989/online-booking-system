@@ -7,7 +7,7 @@ status: in-progress
 
 # notifications — 2026-08-22
 
-Derived from the CareOS PRD's M11 transactional-notification half, extending the real trigger pipeline and pluggable provider registry already shipped under `REQ008`. `project-plans/05-competitive-analysis.md` independently named adding a WhatsApp provider to this exact registry as "the highest-ROI item" in its entire competitive analysis — the encrypted-credential and dispatch infrastructure already exists; this requirement is additive, not a rebuild. Also scopes per-org sender identity, a message credit wallet, quiet hours/frequency caps, and delivery analytics.
+Derived from the CareOS PRD's M11 transactional-notification half, extending the real trigger pipeline and pluggable provider registry already shipped under `REQ008`. `project-plans/analysis/05-competitive-analysis.md` independently named adding a WhatsApp provider to this exact registry as "the highest-ROI item" in its entire competitive analysis — the encrypted-credential and dispatch infrastructure already exists; this requirement is additive, not a rebuild. Also scopes per-org sender identity, a message credit wallet, quiet hours/frequency caps, and delivery analytics.
 
 This is a requirement-only bundle — no implementation plan, test plan, or test result exists yet.
 
@@ -18,4 +18,4 @@ This is a requirement-only bundle — no implementation plan, test plan, or test
 ## Related
 
 - [notifications-2026-08-21 bundle](../notifications-2026-08-21/manifest.md) — REQ008, the trigger pipeline and provider registry this requirement extends.
-- [project-plans/07-prd-gap-analysis-and-roadmap.md](../../project-plans/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.
+- [project-plans/analysis/07-prd-gap-analysis-and-roadmap.md](../../project-plans/analysis/07-prd-gap-analysis-and-roadmap.md) — the consolidated cross-feature phase roadmap this requirement is one part of.

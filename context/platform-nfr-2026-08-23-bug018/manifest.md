@@ -11,7 +11,7 @@ related: [PLAN043, TP070, TR069, BUG017, BUG007, appointments-2026-08-23-bug019]
 
 # platform-nfr — BUG018, P1.5 isolated e2e stack + seed-script fixes (2026-08-23)
 
-Closes `project-plans/06-execution-plan.md` P1 item 1.5, the last item in
+Closes `project-plans/analysis/06-execution-plan.md` P1 item 1.5, the last item in
 P1 ("prove the boundary") — a realistic seed dataset in a separately seeded
 e2e database, isolated from the shared dev stack. `PLAN043` is the stack
 itself (docker-compose `e2e` profile, `seed-e2e.ts`, Playwright wiring);
@@ -31,7 +31,7 @@ could ever have surfaced.
 
 ## What this closes
 
-- `project-plans/06-execution-plan.md` P1 item 1.5 — P1 as a whole is now
+- `project-plans/analysis/06-execution-plan.md` P1 item 1.5 — P1 as a whole is now
   **complete** (1.1–1.6 all done).
 - The `07-prd-gap-analysis-and-roadmap.md` gate ("P0–P1 must complete before
   any REQ014–035 implementation planning begins") is now satisfied.

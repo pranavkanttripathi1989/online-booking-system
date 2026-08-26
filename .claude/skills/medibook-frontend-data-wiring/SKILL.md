@@ -5,7 +5,7 @@ metadata:
   origin: project-specific
   vetted: >-
     Written 2026-08-22 from this repository's own audit findings
-    (project-plans/02-findings-register.md F-18 and F-21). The 14-page list
+    (project-plans/analysis/02-findings-register.md F-18 and F-21). The 14-page list
     was produced by checking every JSX file for any GraphQL reference at all,
     which is what the prior grep-for-an-import audits structurally could not
     see.

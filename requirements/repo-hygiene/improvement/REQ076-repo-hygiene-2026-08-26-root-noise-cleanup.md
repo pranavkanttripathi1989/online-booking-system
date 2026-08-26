@@ -13,7 +13,7 @@ related: []
 
 ## Source
 
-`project-plans/02-findings-register.md` F-31, part of a 10-finding
+`project-plans/analysis/02-findings-register.md` F-31, part of a 10-finding
 pick-up. Re-verified all named items still present before starting.
 
 ## What shipped
@@ -52,4 +52,4 @@ so nobody expects the sweep script to manage this subdirectory later.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-31.
+`project-plans/analysis/02-findings-register.md` F-31.

@@ -7,7 +7,7 @@ status: done
 
 # security — 2026-08-22 (F-02: frontend mock-auth bypass)
 
-Closed `project-plans/02-findings-register.md` F-02 (S1, client-side authentication and role bypass), the second of the audit's three S1 findings to close this session after `BUG002`/F-11.
+Closed `project-plans/analysis/02-findings-register.md` F-02 (S1, client-side authentication and role bypass), the second of the audit's three S1 findings to close this session after `BUG002`/F-11.
 
 Deleted the `mock_`-token trust branch and `MOCK_USERS` login fallback from `AuthContext.jsx`/`login.jsx` entirely, rather than gating or hardening them — there was no legitimate use for a client-side-only authenticated state once every real login path already issues a real JWT. Changed the `ME_QUERY` failure handler to always log out instead of falling back to a cached user. Rebuilt OTP login onto the real `requestOtp`/`verifyOtp` resolvers (previously a pure client-side simulation accepting a hardcoded `123456`), which required a real UI correction: the backend's `RequestOtpInput` is phone-only, so the "email or phone" field became "Phone Number" — matching the actual contract rather than the guessed one, per Hard Rule 7. Deleted `login-legacy.jsx` and its `/login-legacy` route outright (a second, less-visible copy of the same bypass) rather than fixing a duplicate page.
 
@@ -28,5 +28,5 @@ Reproduced the exact bypass live before fixing it (planted a forged `mock_admin_
 
 ## Related
 
-- [security-2026-08-22 bundle](../security-2026-08-22/manifest.md) — `BUG002`/F-11, the first S1 finding closed this session; both were fixed in the same working session as part of `project-plans/06-execution-plan.md`'s Phase F.
-- [project-plans/07-prd-gap-analysis-and-roadmap.md](../../project-plans/07-prd-gap-analysis-and-roadmap.md) — Phase F (foundation hardening) is the hard prerequisite this fix is part of, before any PRD-derived `REQ014`–`035` work begins.
+- [security-2026-08-22 bundle](../security-2026-08-22/manifest.md) — `BUG002`/F-11, the first S1 finding closed this session; both were fixed in the same working session as part of `project-plans/analysis/06-execution-plan.md`'s Phase F.
+- [project-plans/analysis/07-prd-gap-analysis-and-roadmap.md](../../project-plans/analysis/07-prd-gap-analysis-and-roadmap.md) — Phase F (foundation hardening) is the hard prerequisite this fix is part of, before any PRD-derived `REQ014`–`035` work begins.

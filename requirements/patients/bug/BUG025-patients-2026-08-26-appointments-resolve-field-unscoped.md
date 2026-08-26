@@ -13,7 +13,7 @@ related: [BUG024]
 
 ## Source
 
-`project-plans/02-findings-register.md` F-05, part of the same
+`project-plans/analysis/02-findings-register.md` F-05, part of the same
 10-finding pick-up as `BUG024`. Re-verified still fully open before
 starting: `patients.resolver.ts`'s `appointments()` `@ResolveField` took
 no `@CurrentUser()` at all.
@@ -58,4 +58,4 @@ dependant case (showing nothing) instead of restricting it.
 
 ## Traceability
 
-`project-plans/02-findings-register.md` F-05.
+`project-plans/analysis/02-findings-register.md` F-05.

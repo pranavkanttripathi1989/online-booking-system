@@ -17,7 +17,7 @@ related: [PLAN155, TP175, TR175]
 tested `purchasePackage` mutation on day one, and `REQ110` later added
 `transferPackage` plus a real "Purchased Packages" tab on
 `patients/detail.jsx`. A grep sweep before scoping this batch
-(`project-plans/11-next-10-slice-batch.md`) confirmed `purchasePackage`
+(`project-plans/analysis/11-next-10-slice-batch.md`) confirmed `purchasePackage`
 has **zero** frontend callers anywhere in the app — a patient can never
 actually buy a package through the UI, only via a raw GraphQL call. This
 is the same "backend built, no frontend caller" gap class this session

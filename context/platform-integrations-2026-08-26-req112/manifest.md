@@ -11,7 +11,7 @@ related: [PLAN152, TP168, TR168]
 
 # platform-integrations — REQ112: webhook delivery retry with backoff (2026-08-26)
 
-Slice of the reconciled 14-slice batch (`project-plans/10-next-14-slice-batch-reconciled.md`).
+Slice of the reconciled 14-slice batch (`project-plans/analysis/10-next-14-slice-batch-reconciled.md`).
 
 ## Documents
 

@@ -11,7 +11,7 @@ related: [PLAN155, TP175, TR175]
 
 # catalog-master-data — REQ115: Sell a Package UI (2026-08-26)
 
-Second slice of the next 10-slice batch (`project-plans/11-next-10-slice-batch.md`).
+Second slice of the next 10-slice batch (`project-plans/analysis/11-next-10-slice-batch.md`).
 
 ## Documents
 
