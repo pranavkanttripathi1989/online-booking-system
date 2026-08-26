@@ -5,7 +5,7 @@ import {
   Box, Button, Typography, TextField, Grid, Card, CardContent,
   Stack, Divider, Chip, Avatar, MenuItem, Select, FormControl,
   InputLabel, FormHelperText, LinearProgress, Tooltip, IconButton, Paper,
-  InputAdornment, alpha,
+  InputAdornment, alpha, Autocomplete,
 } from '@mui/material'
 import ArrowBackRoundedIcon     from '@mui/icons-material/ArrowBackRounded'
 import PersonRoundedIcon        from '@mui/icons-material/PersonRounded'
@@ -22,7 +22,7 @@ import VisibilityOffRoundedIcon from '@mui/icons-material/VisibilityOffRounded'
 import CheckCircleRoundedIcon   from '@mui/icons-material/CheckCircleRounded'
 import SaveRoundedIcon          from '@mui/icons-material/SaveRounded'
 import { useSnackbar } from 'notistack'
-import { useMutation, gql } from '@apollo/client'
+import { useMutation, useQuery, gql } from '@apollo/client'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const TEAL = '#006D77'
@@ -35,6 +35,9 @@ const CREATE_STAFF = gql`
     createStaff(input: $input) { id }
   }
 `
+// REQ102 — real org departments, distinct from the DEPARTMENTS constant
+// below (an administrative label, not a clinical department).
+const GET_REAL_DEPARTMENTS = gql`query GetRealDepartments { departments { id name } }`
 
 const ROLES = ['Receptionist', 'Admin', 'Nurse', 'Lab Technician', 'IT Administrator', 'Billing Specialist', 'Security Officer', 'Pharmacist', 'Coordinator']
 const DEPARTMENTS = ['Front Desk', 'Management', 'General Practice', 'Laboratory', 'Finance', 'IT & Systems', 'Security', 'Pharmacy', 'Radiology']
@@ -47,7 +50,7 @@ const STATUSES = [
 const EMPTY = {
   name: '', email: '', phone: '', role: '', department: '', status: 'active',
   since: new Date().toISOString().split('T')[0], address: '', notes: '',
-  password: '', confirmPassword: '',
+  password: '', confirmPassword: '', clinicalDepartment: null,
 }
 
 function getInitials(name) {
@@ -84,6 +87,8 @@ export default function AddStaffPage() {
   const [showPwd, setShowPwd]  = useState(false)
   const [showPwd2, setShowPwd2] = useState(false)
   const [createStaffMutation, { loading: saving }] = useMutation(CREATE_STAFF)
+  const { data: realDeptData } = useQuery(GET_REAL_DEPARTMENTS)
+  const realDepartments = realDeptData?.departments ?? []
 
   const set = (field) => (e) => {
     setForm(prev => ({ ...prev, [field]: e.target.value }))
@@ -115,6 +120,7 @@ export default function AddStaffPage() {
             role: form.role, department: form.department,
             status: form.status, since: form.since,
             address: form.address, notes: form.notes, password: form.password,
+            departmentId: form.clinicalDepartment?.id || undefined,
           },
         },
       })
@@ -296,6 +302,19 @@ export default function AddStaffPage() {
                       </Select>
                       {errors.department && <FormHelperText>{errors.department}</FormHelperText>}
                     </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Autocomplete
+                      options={realDepartments}
+                      getOptionLabel={(o) => o.name}
+                      value={form.clinicalDepartment}
+                      onChange={(e, val) => setForm(prev => ({ ...prev, clinicalDepartment: val }))}
+                      renderInput={(params) => (
+                        <TextField {...params} size="small" label="Clinical Department"
+                          helperText="Used to auto-include this staff member in that department's message threads"
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                      )}
+                    />
                   </Grid>
                 </Grid>
               </FieldSection>

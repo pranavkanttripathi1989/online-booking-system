@@ -6,7 +6,7 @@ import {
   Stack, Divider, Chip, Avatar, MenuItem, Select, FormControl,
   InputLabel, FormHelperText, LinearProgress, IconButton, Tooltip,
   InputAdornment, Dialog, DialogTitle, DialogContent, DialogActions,
-  DialogContentText, alpha,
+  DialogContentText, alpha, Autocomplete,
 } from '@mui/material'
 import ArrowBackRoundedIcon     from '@mui/icons-material/ArrowBackRounded'
 import PersonRoundedIcon        from '@mui/icons-material/PersonRounded'
@@ -33,7 +33,7 @@ const TEAL_LIGHT = '#00858F'
 const GET_STAFF_MEMBER = gql`
   query GetStaffMember($id: ID!) {
     staffMember(id: $id) {
-      id name email phone role department status since address notes
+      id name email phone role department status since address notes departmentId
     }
   }
 `
@@ -42,10 +42,13 @@ const GET_STAFF_MEMBER = gql`
 const UPDATE_STAFF = gql`
   mutation UpdateStaff($id: ID!, $input: UpdateStaffInput!) {
     updateStaff(id: $id, input: $input) {
-      id name email phone role department status since address notes
+      id name email phone role department status since address notes departmentId
     }
   }
 `
+// REQ102 — real org departments, distinct from the DEPARTMENTS constant
+// below (an administrative label, not a clinical department).
+const GET_REAL_DEPARTMENTS = gql`query GetRealDepartments { departments { id name } }`
 const DEACTIVATE_STAFF = gql`
   mutation DeactivateStaff($id: ID!) {
     deactivateStaff(id: $id) { id status }
@@ -105,17 +108,23 @@ export default function EditStaffPage() {
   const [saveStaffMutation, { loading: saving }] = useMutation(UPDATE_STAFF)
   const [deactivateStaffMutation] = useMutation(DEACTIVATE_STAFF)
   const staffRecord = data?.staffMember
+  const { data: realDeptData } = useQuery(GET_REAL_DEPARTMENTS)
+  const realDepartments = realDeptData?.departments ?? []
 
   useEffect(() => {
-    if (staffRecord) {
-      const normalized = { ...staffRecord, since: staffRecord.since ? staffRecord.since.split('T')[0] : '' }
+    // Wait for both queries — resolving the form before realDeptData
+    // arrives would permanently null out clinicalDepartment (setForm only
+    // ever initializes once, via the `prev ??` guard below).
+    if (staffRecord && realDeptData) {
+      const clinicalDepartment = realDepartments.find(d => d.id === staffRecord.departmentId) || null
+      const normalized = { ...staffRecord, since: staffRecord.since ? staffRecord.since.split('T')[0] : '', clinicalDepartment }
       setForm(prev => prev ?? normalized)
       setOriginal(prev => prev ?? normalized)
     } else if (loadError) {
       enqueueSnackbar('Staff member not found', { variant: 'error' })
       navigate('/staff')
     }
-  }, [id, staffRecord, loadError])
+  }, [id, staffRecord, loadError, realDeptData]) // eslint-disable-line react-hooks/exhaustive-deps
 
   if (!form) return (
     <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: 300 }}>
@@ -155,6 +164,10 @@ export default function EditStaffPage() {
             role: form.role, department: form.department, status: form.status,
             since: form.since, address: form.address, notes: form.notes,
             password: newPassword || undefined,
+            // Explicit null (not undefined) when cleared — an omitted field
+            // means "leave unchanged" under this backend's partial-update
+            // convention, which would silently no-op a real clear action.
+            departmentId: form.clinicalDepartment?.id ?? null,
           },
         },
       })
@@ -360,6 +373,19 @@ export default function EditStaffPage() {
                       </Select>
                       {errors.department && <FormHelperText>{errors.department}</FormHelperText>}
                     </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <Autocomplete
+                      options={realDepartments}
+                      getOptionLabel={(o) => o.name}
+                      value={form.clinicalDepartment}
+                      onChange={(e, val) => setForm(prev => ({ ...prev, clinicalDepartment: val }))}
+                      renderInput={(params) => (
+                        <TextField {...params} size="small" label="Clinical Department"
+                          helperText="Used to auto-include this staff member in that department's message threads"
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+                      )}
+                    />
                   </Grid>
                 </Grid>
               </FieldSection>
