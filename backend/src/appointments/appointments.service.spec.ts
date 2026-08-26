@@ -11,6 +11,7 @@ import { PatientsService } from '../patients/patients.service';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
+import { BranchOverridesService } from '../branch-overrides/branch-overrides.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -39,6 +40,7 @@ describe('AppointmentsService — access scoping', () => {
   let intakeFieldsService: { forBooking: jest.Mock };
   let waitlistService: { promoteNext: jest.Mock };
   let queueService: { syncFromAppointmentStatus: jest.Mock; publish: jest.Mock };
+  let branchOverridesService: { getManyForPricing: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -112,6 +114,12 @@ describe('AppointmentsService — access scoping', () => {
         // cancel/no_show -- mocked no-op here, exercised for real in
         // waitlist.service.spec.ts and the dedicated describe block below.
         { provide: WaitlistService, useValue: (waitlistService = { promoteNext: jest.fn() }) },
+        // REQ140: findAll() now batch-prefetches branch overrides for the
+        // list-preview price -- defaults to "no overrides found" (an empty
+        // Map, same meaning getManyForPricing's own real "no matching row"
+        // case has) so every pre-existing test in this file keeps pricing
+        // straight from the product/patient-category as before this slice.
+        { provide: BranchOverridesService, useValue: (branchOverridesService = { getManyForPricing: jest.fn().mockResolvedValue(new Map()) }) },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -146,6 +154,51 @@ describe('AppointmentsService — access scoping', () => {
       await service.findAll(undefined, 20, 1, unlinkedClinicianUser);
       const where = prisma.appointments.findMany.mock.calls[0][0].where;
       expect(where.clinician_id).toBe('__no_clinician_link__');
+    });
+
+    // REQ140 (REQ055's own named follow-up) — the list-preview price now
+    // applies a branch override, batch-prefetched in one query.
+    describe('branch-override batch prefetch', () => {
+      it('de-duplicates repeated (product_id, clinic_id) pairs across rows into one batch call, and applies the resolved override to each row\'s price', async () => {
+        const product = { id: 'svc-1', name: 'GP Consult', price: 50000 };
+        const rowA = { ...baseAppointmentRow, id: 'appt-a', product_id: 'svc-1', clinic_id: 'clinic-1', product };
+        const rowB = { ...baseAppointmentRow, id: 'appt-b', product_id: 'svc-1', clinic_id: 'clinic-1', product };
+        prisma.appointments.findMany.mockResolvedValue([rowA, rowB]);
+        prisma.appointments.count.mockResolvedValue(2);
+        branchOverridesService.getManyForPricing.mockResolvedValue(
+          new Map([['svc-1:clinic-1', { mode: 'override', override_price: 40000 }]]),
+        );
+
+        const result = await service.findAll(undefined, 20, 1, staffUser);
+
+        expect(branchOverridesService.getManyForPricing).toHaveBeenCalledWith([
+          { productId: 'svc-1', clinicId: 'clinic-1' },
+          { productId: 'svc-1', clinicId: 'clinic-1' },
+        ]);
+        expect(result.data[0].service.price).toBe(400);
+        expect(result.data[1].service.price).toBe(400);
+      });
+
+      it('excludes rows with no product from the batch-prefetch pairs', async () => {
+        const rowNoProduct = { ...baseAppointmentRow, id: 'appt-c', product_id: null, clinic_id: 'clinic-1', product: null };
+        prisma.appointments.findMany.mockResolvedValue([rowNoProduct]);
+        prisma.appointments.count.mockResolvedValue(1);
+
+        await service.findAll(undefined, 20, 1, staffUser);
+
+        expect(branchOverridesService.getManyForPricing).toHaveBeenCalledWith([]);
+      });
+
+      it('a row whose pair has no override in the batch map prices straight from the product (unchanged behaviour)', async () => {
+        const product = { id: 'svc-1', name: 'GP Consult', price: 50000 };
+        const row = { ...baseAppointmentRow, id: 'appt-a', product_id: 'svc-1', clinic_id: 'clinic-1', product };
+        prisma.appointments.findMany.mockResolvedValue([row]);
+        prisma.appointments.count.mockResolvedValue(1);
+        branchOverridesService.getManyForPricing.mockResolvedValue(new Map());
+
+        const result = await service.findAll(undefined, 20, 1, staffUser);
+        expect(result.data[0].service.price).toBe(500);
+      });
     });
   });
 

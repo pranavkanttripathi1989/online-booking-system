@@ -153,4 +153,48 @@ describe('BranchOverridesService', () => {
       expect(result).toEqual({ mode: 'override', override_price: 30000, override_category_pricing_json: { corporate: 25000 }, override_channel_pricing_json: null });
     });
   });
+
+  // REQ140 (REQ055's own named follow-up) — the batched form
+  // appointments.service.ts#findAll() uses to avoid an N+1 per row.
+  describe('getManyForPricing', () => {
+    it('returns an empty Map without querying at all when given no pairs', async () => {
+      const result = await service.getManyForPricing([]);
+      expect(result.size).toBe(0);
+      expect(prisma.productBranchOverrides.findMany).not.toHaveBeenCalled();
+    });
+
+    it('de-duplicates repeated pairs into a single OR clause with one entry per distinct pair', async () => {
+      prisma.productBranchOverrides.findMany.mockResolvedValue([]);
+      await service.getManyForPricing([
+        { productId: 'svc-1', clinicId: 'clinic-a' },
+        { productId: 'svc-1', clinicId: 'clinic-a' },
+        { productId: 'svc-2', clinicId: 'clinic-a' },
+      ]);
+      expect(prisma.productBranchOverrides.findMany).toHaveBeenCalledWith({
+        where: {
+          OR: [
+            { product_id: 'svc-1', clinic_id: 'clinic-a' },
+            { product_id: 'svc-2', clinic_id: 'clinic-a' },
+          ],
+        },
+      });
+    });
+
+    it('keys the returned Map as `${product_id}:${clinic_id}`, one entry per matching row', async () => {
+      prisma.productBranchOverrides.findMany.mockResolvedValue([
+        { product_id: 'svc-1', clinic_id: 'clinic-a', mode: 'override', override_price: 30000, override_category_pricing_json: null, override_channel_pricing_json: null },
+        { product_id: 'svc-2', clinic_id: 'clinic-a', mode: 'skip', override_price: null, override_category_pricing_json: null, override_channel_pricing_json: null },
+      ]);
+      const result = await service.getManyForPricing([
+        { productId: 'svc-1', clinicId: 'clinic-a' },
+        { productId: 'svc-2', clinicId: 'clinic-a' },
+        { productId: 'svc-3', clinicId: 'clinic-a' },
+      ]);
+      expect(result.get('svc-1:clinic-a')).toEqual({ mode: 'override', override_price: 30000, override_category_pricing_json: null, override_channel_pricing_json: null });
+      expect(result.get('svc-2:clinic-a')).toEqual({ mode: 'skip', override_price: null, override_category_pricing_json: null, override_channel_pricing_json: null });
+      // A pair with no matching row is simply absent, same "no stance" the
+      // singular getForPricing() expresses as a null return.
+      expect(result.has('svc-3:clinic-a')).toBe(false);
+    });
+  });
 });

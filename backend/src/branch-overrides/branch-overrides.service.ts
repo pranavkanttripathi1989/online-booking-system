@@ -135,4 +135,36 @@ export class BranchOverridesService {
       override_channel_pricing_json: row.override_channel_pricing_json,
     };
   }
+
+  // REQ140 (REQ055's own named follow-up) — the same shape getForPricing
+  // returns, batched: one query for every distinct (product_id, clinic_id)
+  // pair a caller needs, instead of an N+1 lookup per row in a list.
+  // Returns a Map keyed by `${productId}:${clinicId}` (matching how
+  // Prisma's own compound-unique key is joined, but as a plain string so a
+  // caller can use it as a Map key directly) — a pair with no override row
+  // is simply absent from the map, same "no stance = inherit" meaning
+  // getForPricing's own null return already has.
+  async getManyForPricing(
+    pairs: { productId: string; clinicId: string }[],
+  ): Promise<Map<string, BranchPriceOverride>> {
+    const result = new Map<string, BranchPriceOverride>();
+    // De-duplicate: a page of appointments routinely repeats the same
+    // (product, clinic) pair many times over, and Prisma's `OR` builds one
+    // clause per entry regardless of duplicates.
+    const uniquePairs = new Map(pairs.map((p) => [`${p.productId}:${p.clinicId}`, p]));
+    if (uniquePairs.size === 0) return result;
+
+    const rows = await this.prisma.productBranchOverrides.findMany({
+      where: { OR: [...uniquePairs.values()].map((p) => ({ product_id: p.productId, clinic_id: p.clinicId })) },
+    });
+    for (const row of rows) {
+      result.set(`${row.product_id}:${row.clinic_id}`, {
+        mode: row.mode,
+        override_price: row.override_price,
+        override_category_pricing_json: row.override_category_pricing_json,
+        override_channel_pricing_json: row.override_channel_pricing_json,
+      });
+    }
+    return result;
+  }
 }

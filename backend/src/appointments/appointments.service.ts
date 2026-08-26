@@ -3,7 +3,8 @@ import * as crypto from 'crypto';
 import { PubSub } from 'graphql-subscriptions';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { resolveServicePrice } from '../common/pricing/resolve-price';
+import { resolveServicePrice, BranchPriceOverride } from '../common/pricing/resolve-price';
+import { BranchOverridesService } from '../branch-overrides/branch-overrides.service';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput, BulkRescheduleAppointmentsInput } from './dto/appointment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -59,6 +60,7 @@ export class AppointmentsService {
     private readonly webhookDispatch: WebhookDispatchService,
     private readonly intakeFieldsService: IntakeFieldsService,
     private readonly waitlistService: WaitlistService,
+    private readonly branchOverridesService: BranchOverridesService,
   ) {}
 
   // REQ008/PLAN017 — notify the clinician's own login account, if linked.
@@ -93,7 +95,7 @@ export class AppointmentsService {
   // caller of toGraphQL() omits it, so a normal read never has it to leak
   // — the raw token was never persisted anywhere to leak from in the
   // first place, only its hash was.
-  private toGraphQL(a: any, statusLogs: any[] = [], rawCheckinToken?: string) {
+  private toGraphQL(a: any, statusLogs: any[] = [], rawCheckinToken?: string, branchOverride?: BranchPriceOverride | null) {
     const start = a.appointment_time as Date;
     const end = new Date(start.getTime() + a.duration_minutes * 60000);
     return {
@@ -152,17 +154,18 @@ export class AppointmentsService {
       // a.product.price directly — the exact inconsistency risk this
       // requirement's own research flagged between this call site and
       // appointment-payments.service.ts's charge computation.
-      // REQ055 (US-ORG-05) — branch overrides are deliberately NOT applied
-      // here for the same reason: toGraphQL() is synchronous and shared by
-      // a list endpoint (findAll), so wiring a per-row branch-override
-      // lookup in would mean either an N+1 query per appointment in a list,
-      // or a batched pre-fetch keyed on a (product_id, clinic_id) pair this
-      // function doesn't have visibility into today. Both real charge-
-      // determining call sites (createRazorpayOrder, recordCounterPayment)
-      // DO apply it — this is a display-preview gap only, logged as a
-      // follow-up rather than silently accepted (see REQ055's own doc).
+      // REQ055 (US-ORG-05) / REQ140 — branch overrides ARE now applied
+      // here too, via an optional pre-fetched branchOverride the caller
+      // supplies. findAll() below batch-prefetches every distinct
+      // (product_id, clinic_id) pair in a page with ONE query
+      // (BranchOverridesService#getManyForPricing) rather than an N+1
+      // lookup per row; every other toGraphQL() call site (single-row
+      // create/update/read paths, where an N+1 concern doesn't apply)
+      // simply omits it, which resolveServicePrice() already treats
+      // identically to "inherit" (undefined branchOverride), unchanged
+      // from before this slice.
       service: a.product
-        ? { id: a.product.id, name: a.product.name, duration_minutes: a.product.duration_minutes ?? undefined, price: PAISE_TO_RUPEES(resolveServicePrice(a.product, a.patient)) }
+        ? { id: a.product.id, name: a.product.name, duration_minutes: a.product.duration_minutes ?? undefined, price: PAISE_TO_RUPEES(resolveServicePrice(a.product, a.patient, undefined, branchOverride)) }
         : undefined,
       booked_by_user: a.booked_by_user
         ? { id: a.booked_by_user.id, name: `${a.booked_by_user.first_name} ${a.booked_by_user.last_name}` }
@@ -232,8 +235,14 @@ export class AppointmentsService {
     ]);
     const lastPage = Math.max(1, Math.ceil(total / first));
     const firstItem = total === 0 ? 0 : (page - 1) * first + 1;
+    // REQ140 (REQ055's own named follow-up) — one batch query for every
+    // distinct (product_id, clinic_id) pair on this page, not an N+1 per
+    // row (a row with no product has nothing to price).
+    const overridesByKey = await this.branchOverridesService.getManyForPricing(
+      rows.filter((r) => r.product_id).map((r) => ({ productId: r.product_id as string, clinicId: r.clinic_id })),
+    );
     return {
-      data: rows.map((r) => this.toGraphQL(r)),
+      data: rows.map((r) => this.toGraphQL(r, [], undefined, overridesByKey.get(`${r.product_id}:${r.clinic_id}`))),
       paginatorInfo: {
         count: rows.length,
         currentPage: page,
