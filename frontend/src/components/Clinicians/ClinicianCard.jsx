@@ -52,7 +52,7 @@ function AvailabilityHeatmap({ templates = [] }) {
   )
   return (
     <Box>
-      <Typography variant="caption" sx={{ color: '#5F6368' }} fontWeight={600} mb={0.5} display="block">
+      <Typography variant="caption" sx={{ color: 'text.secondary' }} fontWeight={600} mb={0.5} display="block">
         Availability
       </Typography>
       <Stack direction="row" spacing={0.5}>
@@ -63,7 +63,7 @@ function AvailabilityHeatmap({ templates = [] }) {
                 width: 22,
                 height: 22,
                 borderRadius: 1,
-                bgcolor: activeDays.has(idx) ? '#0F9D58' : '#F1F3F4',
+                bgcolor: activeDays.has(idx) ? 'success.main' : '#F1F3F4',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -71,7 +71,7 @@ function AvailabilityHeatmap({ templates = [] }) {
                 '&:hover': { transform: 'scale(1.2)' },
               }}
             >
-              <Typography variant="caption" sx={{ fontSize: 8, color: activeDays.has(idx) ? '#FFFFFF' : '#9AA0A6', fontWeight: 700 }}>
+              <Typography variant="caption" sx={{ fontSize: 8, color: activeDays.has(idx) ? 'common.white' : '#9AA0A6', fontWeight: 700 }}>
                 {label[0]}
               </Typography>
             </Box>
@@ -103,13 +103,13 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
         display: 'flex',
         flexDirection: 'column',
         border: '1px solid',
-        borderColor: clinician.is_active ? '#E8EAED' : '#F5C6C2',
+        borderColor: clinician.is_active ? 'divider' : '#F5C6C2',
         borderRadius: 3,
         transition: 'all 0.25s ease',
         '&:hover': {
           transform: 'translateY(-3px)',
           boxShadow: '0 8px 24px rgba(26,115,232,0.14)',
-          borderColor: '#AECBFA',
+          borderColor: 'info.light',
         },
         opacity: clinician.is_active ? 1 : 0.75,
       }}
@@ -132,12 +132,12 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
             {!clinician.avatar_url && initials(clinician.full_name)}
           </Avatar>
           <Box flex={1} minWidth={0}>
-            <Typography fontWeight={700} noWrap sx={{ color: '#202124' }}>{clinician.full_name}</Typography>
+            <Typography fontWeight={700} noWrap sx={{ color: 'text.primary' }}>{clinician.full_name}</Typography>
             {clinician.clinician_type && (
               <Chip
                 label={clinician.clinician_type.name}
                 size="small"
-                sx={{ bgcolor: '#E8F0FE', color: '#1557B0', border: '1px solid #AECBFA', borderRadius: '8px', height: 22, fontSize: '0.70rem', fontWeight: 700, mt: 0.25 }}
+                sx={{ bgcolor: 'primary.50', color: 'primary.dark', border: `1px solid ${theme.palette.info.light}`, borderRadius: '8px', height: 22, fontSize: '0.70rem', fontWeight: 700, mt: 0.25 }}
               />
             )}
           </Box>
@@ -159,12 +159,12 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
         {/* Services */}
         {clinician.services?.length > 0 && (
           <Box mb={1.5}>
-            <Typography variant="caption" sx={{ color: '#5F6368' }} fontWeight={600} display="block" mb={0.5}>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }} fontWeight={600} display="block" mb={0.5}>
               Services
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={0.5}>
               {clinician.services.slice(0, 4).map((s) => (
-                <Chip key={s.id} label={s.name} size="small" sx={{ bgcolor: '#F8F9FA', color: '#5F6368', border: '1px solid #E8EAED', borderRadius: '6px', height: 20, fontSize: '0.68rem' }} />
+                <Chip key={s.id} label={s.name} size="small" sx={{ bgcolor: 'background.default', color: 'text.secondary', border: `1px solid ${theme.palette.divider}`, borderRadius: '6px', height: 20, fontSize: '0.68rem' }} />
               ))}
               {clinician.services.length > 4 && (
                 <Chip label={`+${clinician.services.length - 4}`} size="small" variant="outlined" sx={{ fontSize: 10, height: 20 }} />
@@ -205,9 +205,9 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
           startIcon={<OpenInDrawerIcon fontSize="small" />}
           onClick={() => onViewProfile(clinician)}
           sx={{
-            borderColor: '#AECBFA', color: '#1A73E8',
+            borderColor: 'info.light', color: 'primary.main',
             fontWeight: 700, borderRadius: 2,
-            '&:hover': { bgcolor: '#E8F0FE', borderColor: '#1A73E8' },
+            '&:hover': { bgcolor: 'primary.50', borderColor: 'primary.main' },
           }}
         >
           View Profile

@@ -160,7 +160,7 @@ function MergePatientsDialog({ open, patientA, patientB, onClose, onConfirm }) {
         <RadioGroup value={primaryId} onChange={(e) => setPrimaryId(e.target.value)}>
           <Stack spacing={1.5} sx={{ mb: 2 }}>
             {[patientA, patientB].map((p) => (
-              <Paper key={p.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: primaryId === p.id ? '#1A73E8' : '#E8EAED' }}>
+              <Paper key={p.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2, borderColor: primaryId === p.id ? 'primary.main' : 'divider' }}>
                 <FormControlLabel
                   value={p.id}
                   control={<Radio size="small" />}
@@ -359,8 +359,8 @@ export default function PatientsPage() {
         }}
       >
         <Box>
-          <Typography variant="h4" fontWeight={800} sx={{ color: '#202124', fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>Patients</Typography>
-          <Typography variant="body2" sx={{ color: '#5F6368' }}>
+          <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary', fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>Patients</Typography>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             {loading ? 'Loading…' : `${useMock ? patients.length : total} patient${total !== 1 ? 's' : ''}`}
           </Typography>
         </Box>
@@ -386,9 +386,9 @@ export default function PatientsPage() {
             sx={{
               borderRadius: 2.5, textTransform: 'none', fontWeight: 700,
               flex: { xs: 1, sm: 'initial' },
-              background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
+              background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
               boxShadow: '0 2px 8px rgba(26,115,232,0.30)',
-              '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)', boxShadow: '0 4px 14px rgba(26,115,232,0.40)' },
+              '&:hover': { background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`, boxShadow: '0 4px 14px rgba(26,115,232,0.40)' },
             }}
           >
             Add Patient
@@ -397,7 +397,7 @@ export default function PatientsPage() {
       </Box>
 
       {mergeMode && (
-        <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: '1px solid #FBBC04', borderRadius: 3, bgcolor: '#FEF7E0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+        <Paper elevation={0} sx={{ p: 1.5, mb: 2, border: (t) => `1px solid ${t.palette.warning.light}`, borderRadius: 3, bgcolor: '#FEF7E0', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
           <Typography variant="body2" fontWeight={600}>
             {mergeSelection.length === 0 && 'Select two patient records to merge.'}
             {mergeSelection.length === 1 && 'Select one more record to compare and merge.'}
@@ -414,7 +414,7 @@ export default function PatientsPage() {
       )}
 
       {/* ── Search + Gender filters ──────────────────────────────────── */}
-      <Paper elevation={0} sx={{ p: 2, mb: 2, border: '1px solid #E8EAED', borderRadius: 3, bgcolor: '#FFFFFF' }}>
+      <Paper elevation={0} sx={{ p: 2, mb: 2, border: (t) => `1px solid ${t.palette.divider}`, borderRadius: 3, bgcolor: 'background.paper' }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
           <TextField
             fullWidth size="small" placeholder="Search by name, email or phone…"
@@ -425,12 +425,12 @@ export default function PatientsPage() {
             }}
             sx={{
               '& .MuiOutlinedInput-root': { borderRadius: 2 },
-              '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#1A73E8' },
+              '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: 'primary.main' },
             }}
           />
           <ToggleButtonGroup value={genderFilter} exclusive onChange={(_, v) => { if (v) { setGenderFilter(v); setPage(0) } }} size="small" sx={{ flexShrink: 0 }}>
             {[['all','All'], ['male','Male'], ['female','Female']].map(([v, l]) => (
-              <ToggleButton key={v} value={v} sx={{ textTransform: 'none', fontWeight: 700, px: 2, '&.Mui-selected': { bgcolor: '#E8F0FE', color: '#1A73E8', borderColor: '#AECBFA' } }}>{l}</ToggleButton>
+              <ToggleButton key={v} value={v} sx={{ textTransform: 'none', fontWeight: 700, px: 2, '&.Mui-selected': { bgcolor: 'primary.50', color: 'primary.main', borderColor: 'info.light' } }}>{l}</ToggleButton>
             ))}
           </ToggleButtonGroup>
           <Chip
@@ -443,16 +443,16 @@ export default function PatientsPage() {
       </Paper>
 
       {/* ── A-Z Alphabet Filter ──────────────────────────────────────── */}
-      <Paper elevation={0} sx={{ px: 2, py: 1.25, mb: 2.5, border: '1px solid #E8EAED', borderRadius: 3, overflowX: 'auto' }}>
+      <Paper elevation={0} sx={{ px: 2, py: 1.25, mb: 2.5, border: (t) => `1px solid ${t.palette.divider}`, borderRadius: 3, overflowX: 'auto' }}>
         <Box sx={{ display: 'flex', flexWrap: { xs: 'nowrap', sm: 'wrap' }, gap: 0.5, alignItems: 'center', minWidth: 'max-content' }}>
           <Chip label="All" size="small" onClick={() => setActiveLetter(null)} variant={!activeLetter ? 'filled' : 'outlined'}
-            sx={{ fontWeight: 700, cursor: 'pointer', borderRadius: 1.5, bgcolor: !activeLetter ? '#E8F0FE' : undefined, color: !activeLetter ? '#1A73E8' : '#5F6368', borderColor: !activeLetter ? '#AECBFA' : '#E8EAED' }} />
+            sx={{ fontWeight: 700, cursor: 'pointer', borderRadius: 1.5, bgcolor: !activeLetter ? 'primary.50' : undefined, color: !activeLetter ? 'primary.main' : 'text.secondary', borderColor: !activeLetter ? 'info.light' : 'divider' }} />
           {ALPHABET.map(l => (
             <Chip key={l} label={l} size="small" onClick={() => setActiveLetter(activeLetter === l ? null : l)}
               sx={{ fontWeight: 700, cursor: 'pointer', minWidth: 28, borderRadius: 1.5,
-                bgcolor: activeLetter === l ? '#E8F0FE' : 'transparent',
-                color: activeLetter === l ? '#1A73E8' : '#5F6368',
-                border: `1px solid ${activeLetter === l ? '#AECBFA' : '#E8EAED'}`,
+                bgcolor: activeLetter === l ? 'primary.50' : 'transparent',
+                color: activeLetter === l ? 'primary.main' : 'text.secondary',
+                border: (t) => `1px solid ${activeLetter === l ? t.palette.info.light : t.palette.divider}`,
               }}
             />
           ))}
@@ -466,11 +466,11 @@ export default function PatientsPage() {
       )}
 
       {/* ── Table ───────────────────────────────────────────────────── */}
-      <Paper elevation={0} sx={{ border: '1px solid #E8EAED', borderRadius: 3, overflow: 'hidden' }}>
+      <Paper elevation={0} sx={{ border: (t) => `1px solid ${t.palette.divider}`, borderRadius: 3, overflow: 'hidden' }}>
         <TableContainer>
           <Table>
             <TableHead>
-              <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: '#F8F9FA', color: '#9AA0A6', fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.10em', py: 1.5 } }}>
+              <TableRow sx={{ '& th': { fontWeight: 700, bgcolor: 'background.default', color: '#9AA0A6', fontSize: '0.70rem', textTransform: 'uppercase', letterSpacing: '0.10em', py: 1.5 } }}>
                 {mergeMode && <TableCell padding="checkbox" />}
                 <TableCell>Patient</TableCell>
                 <TableCell sx={{ display: { xs: 'none', sm: 'table-cell' } }}>Email</TableCell>
@@ -506,9 +506,9 @@ export default function PatientsPage() {
                       sx={{
                         cursor: mergeMode && p.archived ? 'not-allowed' : 'pointer',
                         opacity: p.archived ? 0.6 : 1,
-                        bgcolor: mergeSelection.includes(p.id) ? '#E8F0FE' : undefined,
-                        '&:last-child td': { border: 0 }, '&:hover': { bgcolor: mergeSelection.includes(p.id) ? '#E8F0FE' : '#F1F3F4' },
-                        '&:focus-visible': { outline: '2px solid #1A73E8', outlineOffset: '-2px' },
+                        bgcolor: mergeSelection.includes(p.id) ? 'primary.50' : undefined,
+                        '&:last-child td': { border: 0 }, '&:hover': { bgcolor: mergeSelection.includes(p.id) ? 'primary.50' : '#F1F3F4' },
+                        '&:focus-visible': { outline: (t) => `2px solid ${t.palette.primary.main}`, outlineOffset: '-2px' },
                       }}
                     >
                       {mergeMode && (
@@ -523,9 +523,9 @@ export default function PatientsPage() {
                       )}
                       <TableCell>
                         <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
-                          <Avatar sx={{ width: 34, height: 34, bgcolor: '#E8F0FE', color: '#1A73E8', fontSize: 14, fontWeight: 700 }}>{p.full_name?.[0] ?? 'P'}</Avatar>
+                          <Avatar sx={{ width: 34, height: 34, bgcolor: 'primary.50', color: 'primary.main', fontSize: 14, fontWeight: 700 }}>{p.full_name?.[0] ?? 'P'}</Avatar>
                           <Box>
-                            <Typography variant="body2" fontWeight={600} sx={{ color: '#202124' }}>{p.full_name}</Typography>
+                            <Typography variant="body2" fontWeight={600} sx={{ color: 'text.primary' }}>{p.full_name}</Typography>
                             {(p.on_hold || p.archived || p.merge_history?.length > 0 || p.labels?.length > 0) && (
                               <Stack direction="row" spacing={0.5} flexWrap="wrap" sx={{ mt: 0.25 }}>
                                 {p.on_hold && (
@@ -553,9 +553,9 @@ export default function PatientsPage() {
                           </Box>
                         </Stack>
                       </TableCell>
-                      <TableCell sx={{ fontSize: 13, color: '#5F6368', display: { xs: 'none', sm: 'table-cell' } }}>{p.email ?? '—'}</TableCell>
-                      <TableCell sx={{ fontSize: 13, color: '#5F6368' }}>{p.phone ?? '—'}</TableCell>
-                      <TableCell sx={{ fontSize: 13, color: '#5F6368', display: { xs: 'none', md: 'table-cell' } }}>
+                      <TableCell sx={{ fontSize: 13, color: 'text.secondary', display: { xs: 'none', sm: 'table-cell' } }}>{p.email ?? '—'}</TableCell>
+                      <TableCell sx={{ fontSize: 13, color: 'text.secondary' }}>{p.phone ?? '—'}</TableCell>
+                      <TableCell sx={{ fontSize: 13, color: 'text.secondary', display: { xs: 'none', md: 'table-cell' } }}>
                         {p.date_of_birth ? dayjs(p.date_of_birth).format('DD/MM/YYYY') : '—'}
                       </TableCell>
                       <TableCell>
@@ -576,7 +576,7 @@ export default function PatientsPage() {
                           </IconButton>
                         </Tooltip>
                         <Tooltip title="Edit Patient">
-                          <IconButton size="small" onClick={() => navigate(`/patients/${p.id}/edit`)} sx={{ color: '#F9AB00' }}>
+                          <IconButton size="small" onClick={() => navigate(`/patients/${p.id}/edit`)} sx={{ color: 'warning.main' }}>
                             <span style={{ fontSize: '14px', lineHeight: 1 }}>✎</span>
                           </IconButton>
                         </Tooltip>
