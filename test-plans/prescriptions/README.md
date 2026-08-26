@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP173 | improvement | OTP-gated WhatsApp sharing verification | approved | 2026-08-26 | 2026-08-26 | PLAN149 | [TP173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/TP173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
 
 ## bug
 

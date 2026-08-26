@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ109 | improvement | OTP-gated WhatsApp sharing of a prescription PDF | done | 2026-08-26 | 2026-08-26 | REQ021 | [REQ109-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/REQ109-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
 
 ## bug
 
