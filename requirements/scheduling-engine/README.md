@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ106 | improvement | Booking waitlist for fully-booked slots | done | 2026-08-26 | 2026-08-26 | REQ017 | [REQ106-scheduling-engine-2026-08-26-booking-waitlist.md](./improvement/REQ106-scheduling-engine-2026-08-26-booking-waitlist.md) |
 
 ## bug
 

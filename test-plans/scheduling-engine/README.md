@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP170 | improvement | Booking waitlist for fully-booked slots verification | approved | 2026-08-26 | 2026-08-26 | PLAN146 | [TP170-scheduling-engine-2026-08-26-booking-waitlist.md](./improvement/TP170-scheduling-engine-2026-08-26-booking-waitlist.md) |
 
 ## bug
 
