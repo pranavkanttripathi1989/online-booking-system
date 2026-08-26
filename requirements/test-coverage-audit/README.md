@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ141 | improvement | Zod-schema test coverage, round 2 | done | 2026-08-26 | 2026-08-26 | REQ132 | [REQ141-test-coverage-audit-2026-08-26-zod-schema-coverage-round-2.md](./improvement/REQ141-test-coverage-audit-2026-08-26-zod-schema-coverage-round-2.md) |
 | REQ132 | improvement | F-24 named highest-risk targets, confirmed file-by-file | done | 2026-08-26 | 2026-08-26 | REQ013 | [REQ132-test-coverage-audit-2026-08-26-f24-named-target-confirmation.md](./improvement/REQ132-test-coverage-audit-2026-08-26-f24-named-target-confirmation.md) |
 | REQ075 | improvement | Negative-RBAC e2e coverage | done | 2026-08-26 | 2026-08-26 | — | [REQ075-test-coverage-audit-2026-08-26-negative-rbac-e2e.md](./improvement/REQ075-test-coverage-audit-2026-08-26-negative-rbac-e2e.md) |
 
