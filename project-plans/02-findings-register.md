@@ -959,17 +959,37 @@ what caused the two documented false failures.
 patients, ~2,000 appointments across a date range, payments, messages) plus a
 separate database for e2e and a reset between runs.
 
-**Status: the infrastructure half is done, adoption is inconsistent.**
-`backend/prisma/seed-e2e.ts` plus a dedicated `postgres_e2e`/
-`medibook_e2e` compose service (`docker-compose.yml`, `--profile e2e`)
-both exist — re-confirmed 2026-08-25. What's not confirmed: whether
-every e2e spec actually runs against that isolated stack rather than the
-shared dev database. Most specs added throughout this session's own
-history are documented as verified "against the real dev stack," which
-reads as the dev DB, not the e2e one — real usage may not match the
-infrastructure's intent. Not independently re-investigated spec-by-spec;
-logged as a real, narrower open question than the original finding, not
-closed.
+**Status: independently re-investigated spec-by-spec 2026-08-26 (`REQ142`)
+— the infrastructure is real and reasonably well-designed, but is not
+what actually runs in practice.** `backend/prisma/seed-e2e.ts` deliberately
+mirrors the dev seed's own fixture names (Sarah Mitchell, MG Road Clinic,
+`admin@medibook.dev`, ...), so a spec matching those names is *not* on
+its own proof of which stack it ran against — that earlier assumption in
+this finding's prior status line was wrong, corrected here. The real,
+structural evidence: `playwright.config.js`'s `baseURL`/`webServer.url`
+default to `http://localhost:3000` (the shared dev frontend) whenever
+`E2E_BASE_URL` is unset, and `npm run e2e` (`"playwright test"`, no env
+var) is the command actually invoked throughout this session's own
+verification history — only 5 of ~190+ `test-results`/`context` documents
+even mention `npm run e2e:isolated` or the isolated stack by name. Live-
+confirmed the same day: `medibook_backend_e2e` was found completely
+non-functional (357 TS compile errors — a stale Prisma Client and a
+`node_modules` volume missing `pdfkit` entirely, itself real evidence for
+"adoption is inconsistent") until `npx prisma generate` + `npm install` +
+a restart were run inside it; even freshly healthy, its first e2e test
+against a cold Vite dev server timed out waiting for the login form (a
+second run, server now warm, passed both tests cleanly in under 20s
+each) — the same "full suite never completes cleanly" pattern `TR069`
+already recorded three times on 2026-08-23. **Conclusion: the isolated
+stack is not a silently-broken idea, it is a real, working, portable
+design that nobody's actual workflow exercises** — the default command
+points at dev, and the isolated stack's own operational fragility
+(staleness between uses, cold-start timing) likely reinforces why. Fixed
+live as part of this investigation (Prisma Client + `node_modules` now
+current); not otherwise closed — no code change to `playwright.config.js`
+or `package.json`'s default `e2e` script was made, since redirecting the
+default command is a real behavioral change warranting its own reviewed
+slice, not a rider on an investigation.
 
 **File as:** requirement, feature `test-coverage-audit`.
 

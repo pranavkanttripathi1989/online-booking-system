@@ -175,8 +175,8 @@ describe('AppointmentsService — access scoping', () => {
           { productId: 'svc-1', clinicId: 'clinic-1' },
           { productId: 'svc-1', clinicId: 'clinic-1' },
         ]);
-        expect(result.data[0].service.price).toBe(400);
-        expect(result.data[1].service.price).toBe(400);
+        expect(result.data[0]!.service!.price).toBe(400);
+        expect(result.data[1]!.service!.price).toBe(400);
       });
 
       it('excludes rows with no product from the batch-prefetch pairs', async () => {
@@ -197,7 +197,7 @@ describe('AppointmentsService — access scoping', () => {
         branchOverridesService.getManyForPricing.mockResolvedValue(new Map());
 
         const result = await service.findAll(undefined, 20, 1, staffUser);
-        expect(result.data[0].service.price).toBe(500);
+        expect(result.data[0]!.service!.price).toBe(500);
       });
     });
   });
