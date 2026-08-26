@@ -11,12 +11,14 @@ describe('RetentionPurgeService', () => {
   let prisma: {
     retentionPolicies: { findMany: jest.Mock };
     testResults: { updateMany: jest.Mock };
+    consents: { updateMany: jest.Mock };
   };
 
   beforeEach(async () => {
     prisma = {
       retentionPolicies: { findMany: jest.fn().mockResolvedValue([]) },
       testResults: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
+      consents: { updateMany: jest.fn().mockResolvedValue({ count: 0 }) },
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [RetentionPurgeService, { provide: PrismaService, useValue: prisma }],
@@ -32,7 +34,7 @@ describe('RetentionPurgeService', () => {
   it('only queries policies with legal_hold: false and a supported data class', async () => {
     await service.sweep();
     expect(prisma.retentionPolicies.findMany).toHaveBeenCalledWith({
-      where: { legal_hold: false, data_class: { in: ['test_results'] } },
+      where: { legal_hold: false, data_class: { in: ['test_results', 'consents'] } },
     });
   });
 
@@ -55,6 +57,28 @@ describe('RetentionPurgeService', () => {
     const cutoff = prisma.testResults.updateMany.mock.calls[0][0].where.date_ordered.lt;
     const expectedYear = new Date().getFullYear() - 7;
     expect(cutoff.getFullYear()).toBe(expectedYear);
+  });
+
+  // REQ113
+  it('soft-deletes consents older than the retention window, scoped to the policy org', async () => {
+    prisma.retentionPolicies.findMany.mockResolvedValue([
+      { client_org_id: 'org-a', data_class: 'consents', retention_years: 3, legal_hold: false },
+    ]);
+    prisma.consents.updateMany.mockResolvedValue({ count: 2 });
+
+    await service.sweep();
+
+    expect(prisma.consents.updateMany).toHaveBeenCalledWith({
+      where: {
+        is_deleted: false,
+        client_org_id: 'org-a',
+        OR: [
+          { revoked_at: { not: null, lt: expect.any(Date) } },
+          { revoked_at: null, granted_at: { lt: expect.any(Date) } },
+        ],
+      },
+      data: { is_deleted: true },
+    });
   });
 
   it('never touches an unsupported data class even if one somehow comes back from the query', async () => {

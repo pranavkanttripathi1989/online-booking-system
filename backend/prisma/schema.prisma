@@ -2304,6 +2304,11 @@ model Consents {
   granted_at    DateTime  @default(now())
   revoked_at    DateTime?
   notice_version String
+  // REQ113 — the one purely mechanical blocker of the three RetentionPurgeService
+  // named as not-yet-enforced (clinical_records has a real legal-review
+  // tension, messages has a real two-party deletion-scoping question;
+  // consents just had no column to soft-delete through).
+  is_deleted    Boolean   @default(false)
 
   patient             Patients             @relation(fields: [patient_id], references: [id])
   client_organization ClientOrganizations  @relation(fields: [client_org_id], references: [id])

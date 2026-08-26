@@ -18,14 +18,14 @@ import { PrismaService } from '../prisma/prisma.service';
 // RETENTION_DATA_CLASSES (consent.input.ts) — 'clinical_records',
 // 'consents', and 'messages' can all be stored as a real, documented
 // policy (the requirement's own "documented retention schedule" half of
-// the acceptance criterion), but this slice does not act on them yet:
-// clinical records carry the exact statutory-retention-vs-erasure tension
-// REQ034's own requirement doc flags for legal review before automating;
-// Consents has no is_deleted column to safely soft-delete through at all;
-// and Messages spans two people's own conversation, not one patient's
-// record, which is a different deletion-scoping question this slice does
-// not answer. Only test_results is enforced today.
-const SUPPORTED_DATA_CLASSES = ['test_results'] as const;
+// the acceptance criterion). REQ113 closed the one purely mechanical gap
+// (consents now has an is_deleted column) and enforces it below.
+// clinical_records and messages remain unenforced: clinical records carry
+// the exact statutory-retention-vs-erasure tension REQ034's own
+// requirement doc flags for legal review before automating; messages
+// spans two people's own conversation, not one patient's record, which
+// is a different deletion-scoping question neither slice has answered.
+const SUPPORTED_DATA_CLASSES = ['test_results', 'consents'] as const;
 
 @Injectable()
 export class RetentionPurgeService {
@@ -55,6 +55,26 @@ export class RetentionPurgeService {
           });
           if (count > 0) {
             this.logger.log(`Retention purge: soft-deleted ${count} test_results row(s) for org ${policy.client_org_id} (older than ${policy.retention_years}y)`);
+          }
+        }
+        if (policy.data_class === 'consents') {
+          // REQ113 — the retention clock runs from revoked_at once a
+          // consent has been revoked (that's the point past which keeping
+          // it on record stops being justified by an active permission);
+          // for a still-granted consent, it runs from granted_at.
+          const { count } = await this.prisma.consents.updateMany({
+            where: {
+              is_deleted: false,
+              client_org_id: policy.client_org_id,
+              OR: [
+                { revoked_at: { not: null, lt: cutoff } },
+                { revoked_at: null, granted_at: { lt: cutoff } },
+              ],
+            },
+            data: { is_deleted: true },
+          });
+          if (count > 0) {
+            this.logger.log(`Retention purge: soft-deleted ${count} consents row(s) for org ${policy.client_org_id} (older than ${policy.retention_years}y)`);
           }
         }
       } catch (err) {

@@ -38,7 +38,8 @@ export class ConsentService {
 
   async myConsents(patientId: string, user: JwtPayload) {
     await this.assertPatientAccessible(patientId, user);
-    return this.prisma.consents.findMany({ where: { patient_id: patientId, ...orgScope(user) }, orderBy: { granted_at: 'desc' } });
+    // REQ113 — exclude retention-purged rows from the live consent list.
+    return this.prisma.consents.findMany({ where: { patient_id: patientId, is_deleted: false, ...orgScope(user) }, orderBy: { granted_at: 'desc' } });
   }
 
   async updateConsent(input: UpdateConsentInput, user: JwtPayload) {
