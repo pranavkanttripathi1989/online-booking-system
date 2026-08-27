@@ -8,9 +8,12 @@ import { PatientsModule } from '../patients/patients.module';
 // short-lived share-link token, the same JwtService instance, not a
 // second JwtModule.register() with a different secret.
 import { AuthModule } from '../auth/auth.module';
+// REQ159 (P2-07) — reuses EncountersService.patientAllergyBanner()
+// rather than re-deriving the same Diagnoses query.
+import { EncountersModule } from '../encounters/encounters.module';
 
 @Module({
-  imports: [PatientsModule, AuthModule],
+  imports: [PatientsModule, AuthModule, EncountersModule],
   providers: [PrescriptionsService, PrescriptionsResolver],
   // REQ057 — documents.module.ts reuses printPrescription() rather than
   // re-deriving the same assembly logic.

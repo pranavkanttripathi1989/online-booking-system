@@ -7,6 +7,8 @@ import { orgScopeVia, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-
 import { CreatePrescriptionInput, CreatePrescriptionSetInput, PrescriptionItemInput } from './dto/prescription.input';
 import { PatientsService } from '../patients/patients.service';
 import { NotificationProviderConfigService } from '../notifications/notification-provider-config.service';
+import { EncountersService } from '../encounters/encounters.service';
+import { findAllergyConflict } from './allergy-check';
 
 // REQ109 — same 6-digit-numeric-OTP shape auth.service.ts's own
 // requestOtp()/verifyOtp() use, and the same lockout threshold
@@ -41,6 +43,7 @@ export class PrescriptionsService {
     private readonly patientsService: PatientsService,
     private readonly jwtService: JwtService,
     private readonly providerConfigService: NotificationProviderConfigService,
+    private readonly encountersService: EncountersService,
   ) {}
 
   private calculateQty(frequency: string, durationDays?: number): number | undefined {
@@ -223,6 +226,32 @@ export class PrescriptionsService {
     }
   }
 
+  // REQ159 (P2-07, scoped down to allergy-only — see its own doc for
+  // why drug-drug interaction checking was deliberately not built). A
+  // real hard stop, no override, matching assertTpgCompliant()'s own
+  // shape immediately above. Reuses EncountersService.patientAllergyBanner()
+  // rather than re-deriving the same Diagnoses query — same discipline
+  // as ai-clinical.service.ts's preConsultSummary().
+  private async assertNoAllergyConflict(patientId: string, items: PrescriptionItemInput[], user: JwtPayload): Promise<void> {
+    const allergies = (await this.encountersService.patientAllergyBanner(patientId, user)) as { id: string; text: string }[];
+    if (allergies.length === 0) return;
+
+    const drugIds = [...new Set(items.map((i) => i.drug_id))];
+    const drugs = await this.prisma.drugs.findMany({ where: { id: { in: drugIds } } });
+    const drugById = new Map(drugs.map((d) => [d.id, d]));
+
+    for (const item of items) {
+      const drug = drugById.get(item.drug_id);
+      if (!drug) continue;
+      const conflict = findAllergyConflict(drug, allergies);
+      if (conflict) {
+        throw new BadRequestException(
+          `${drug.name} conflicts with this patient's recorded allergy to "${conflict.text}" — cannot be prescribed`,
+        );
+      }
+    }
+  }
+
   // Clinician-only: issuing a script is a clinical act, matching
   // encounters.service.ts's own signEncounter() role restriction.
   // Deliberately independent of the encounter's own locked state -- signing
@@ -246,6 +275,7 @@ export class PrescriptionsService {
     // prohibited/unclassified cases.
     const mode = encounter.consultation_mode;
     await this.assertTpgCompliant(encounter, input.items);
+    await this.assertNoAllergyConflict(encounter.patient_id, input.items, user);
 
     if (input.repeated_from_id) {
       const source = await this.loadPrescriptionForUser(input.repeated_from_id, user);

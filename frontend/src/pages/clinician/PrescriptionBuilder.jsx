@@ -2,6 +2,7 @@ import { useState, useMemo } from 'react'
 import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useLazyQuery, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
+import { alpha } from '@mui/material'
 import {
   Alert,
   Autocomplete,
@@ -46,6 +47,19 @@ const DRUGS_QUERY = gql`
       name
       strength
       form
+      composition
+    }
+  }
+`
+// REQ159 (P2-07) — same query EncounterWorkspace.jsx's own persistent
+// allergy banner already uses (patientAllergyBanner), reused verbatim
+// here rather than re-declared with different fields.
+const PATIENT_ALLERGY_BANNER = gql`
+  query PatientAllergyBanner($patient_id: ID!) {
+    patientAllergyBanner(patient_id: $patient_id) {
+      id
+      text
+      icd10_code
     }
   }
 `
@@ -131,6 +145,24 @@ function emptyLine() {
   return { drug: null, dose: '', frequency: 'OD', route: '', duration_days: '', qty: '', instructions: '', substitutable: true }
 }
 
+// REQ159 (P2-07) — a client-side mirror of the backend's own
+// findAllergyConflict() (allergy-check.ts): the same bidirectional
+// substring check, so the warning shown here matches exactly what the
+// real hard-stop enforces server-side. This page's own check is UX
+// only (SEC-18: a frontend check is never the security boundary) — the
+// backend rejects the mutation regardless of what this function finds.
+function findAllergyConflict(drug, allergies) {
+  if (!drug?.name) return null
+  const drugName = drug.name.toLowerCase().trim()
+  const drugText = `${drug.name} ${drug.composition ?? ''}`.toLowerCase().trim()
+  for (const allergy of allergies) {
+    const allergyText = (allergy.text ?? '').toLowerCase().trim()
+    if (allergyText.length < 3) continue
+    if (drugText.includes(allergyText) || allergyText.includes(drugName)) return allergy
+  }
+  return null
+}
+
 function PrescriptionBuilder() {
   const [searchParams] = useSearchParams()
   const encounterId = searchParams.get('encounterId')
@@ -171,6 +203,8 @@ function PrescriptionBuilder() {
   const [setName, setSetName] = useState('')
 
   const { data: drugsData } = useQuery(DRUGS_QUERY, { variables: { search: drugSearch }, skip: drugSearch.length < 2 })
+  const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, { variables: { patient_id: patientId }, skip: !patientId })
+  const allergies = useMemo(() => allergyData?.patientAllergyBanner ?? [], [allergyData])
   const { data: historyData } = useQuery(PATIENT_PRESCRIPTIONS_QUERY, {
     variables: { patient_id: patientId },
     skip: !patientId || !historyOpen,
@@ -227,6 +261,8 @@ function PrescriptionBuilder() {
   }
 
   const validLines = useMemo(() => lines.filter((l) => l.drug && l.dose && l.frequency), [lines])
+  const lineConflicts = useMemo(() => lines.map((l) => (l.drug ? findAllergyConflict(l.drug, allergies) : null)), [lines, allergies])
+  const hasAllergyConflict = lineConflicts.some(Boolean)
 
   const buildItemsInput = () =>
     validLines.map((l) => ({
@@ -242,6 +278,10 @@ function PrescriptionBuilder() {
   const handleIssue = async () => {
     if (validLines.length === 0) {
       enqueueSnackbar('Add at least one drug line before issuing', { variant: 'warning' })
+      return
+    }
+    if (hasAllergyConflict) {
+      enqueueSnackbar('Resolve the allergy conflict shown below before issuing', { variant: 'error' })
       return
     }
     try {
@@ -313,7 +353,10 @@ function PrescriptionBuilder() {
                 </TableHead>
                 <TableBody>
                   {lines.map((line, idx) => (
-                    <TableRow key={idx}>
+                    <TableRow
+                      key={idx}
+                      sx={lineConflicts[idx] ? { bgcolor: (theme) => alpha(theme.palette.error.main, 0.08) } : undefined}
+                    >
                       <TableCell sx={{ minWidth: 200 }}>
                         <Autocomplete
                           size="small"
@@ -322,7 +365,14 @@ function PrescriptionBuilder() {
                           value={line.drug}
                           onChange={(_, v) => updateLine(idx, { drug: v })}
                           onInputChange={(_, v) => setDrugSearch(v)}
-                          renderInput={(params) => <TextField {...params} placeholder="Search drug…" />}
+                          renderInput={(params) => (
+                            <TextField
+                              {...params}
+                              placeholder="Search drug…"
+                              error={Boolean(lineConflicts[idx])}
+                              helperText={lineConflicts[idx] ? `Allergy: ${lineConflicts[idx].text}` : undefined}
+                            />
+                          )}
                           isOptionEqualToValue={(opt, val) => opt.id === val.id}
                         />
                       </TableCell>
@@ -399,8 +449,14 @@ function PrescriptionBuilder() {
 
             <Divider sx={{ my: 2 }} />
 
+            {hasAllergyConflict && (
+              <Alert severity="error" sx={{ mb: 2 }}>
+                One or more drugs above conflict with this patient's recorded allergies — resolve before issuing.
+              </Alert>
+            )}
+
             <Stack direction="row" spacing={1.5}>
-              <Button variant="contained" onClick={handleIssue} disabled={issuing || validLines.length === 0}>
+              <Button variant="contained" onClick={handleIssue} disabled={issuing || validLines.length === 0 || hasAllergyConflict}>
                 Issue Prescription
               </Button>
               <Button variant="outlined" onClick={() => setSaveSetOpen(true)} disabled={validLines.length === 0}>

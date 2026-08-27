@@ -5,6 +5,7 @@ import { PrescriptionsService } from './prescriptions.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientsService } from '../patients/patients.service';
 import { NotificationProviderConfigService } from '../notifications/notification-provider-config.service';
+import { EncountersService } from '../encounters/encounters.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // REQ021 P0. Prescriptions has no client_org_id of its own — org isolation
@@ -17,6 +18,7 @@ describe('PrescriptionsService', () => {
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
   let jwtService: { sign: jest.Mock; verifyAsync: jest.Mock };
   let providerConfigService: { getActiveConfigForOrg: jest.Mock };
+  let encountersService: { patientAllergyBanner: jest.Mock };
 
   const clinicianA: JwtPayload = { sub: 'clin-a', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-a' } as JwtPayload;
   const clinicianB: JwtPayload = { sub: 'clin-b', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-b' } as JwtPayload;
@@ -71,6 +73,10 @@ describe('PrescriptionsService', () => {
         },
         { provide: JwtService, useValue: (jwtService = { sign: jest.fn().mockReturnValue('signed-token'), verifyAsync: jest.fn() }) },
         { provide: NotificationProviderConfigService, useValue: (providerConfigService = { getActiveConfigForOrg: jest.fn() }) },
+        // REQ159 — defaults to "no recorded allergies" so every
+        // pre-existing createPrescription test keeps passing unchanged;
+        // only the new allergy-hard-stop tests override this.
+        { provide: EncountersService, useValue: (encountersService = { patientAllergyBanner: jest.fn().mockResolvedValue([]) }) },
       ],
     }).compile();
     service = module.get(PrescriptionsService);
@@ -242,6 +248,68 @@ describe('PrescriptionsService', () => {
       prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
       await service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any] } as any, clinicianA);
       expect(prisma.prescriptions.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ mode: 'video' }) }));
+    });
+  });
+
+  // REQ159 (P2-07, scoped to allergy-only — see the service's own comment
+  // on why drug-drug interaction checking was not built).
+  describe('createPrescription — allergy hard-stop', () => {
+    it('blocks a drug conflicting with a recorded allergy, with no override', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      encountersService.patientAllergyBanner.mockResolvedValue([{ id: 'al-1', text: 'Amoxicillin' }]);
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-1', name: 'Amoxicillin', composition: 'Amoxicillin', tpg_list: 'O' }]);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).rejects.toThrow(/conflicts with this patient's recorded allergy/i);
+      expect(prisma.prescriptions.create).not.toHaveBeenCalled();
+    });
+
+    it('allows a drug that does not conflict with any recorded allergy', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      encountersService.patientAllergyBanner.mockResolvedValue([{ id: 'al-1', text: 'Penicillin' }]);
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-2', name: 'Metformin', composition: 'Metformin Hydrochloride', tpg_list: 'O' }]);
+      prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-2', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).resolves.toBeDefined();
+    });
+
+    it('skips the allergy lookup entirely when the patient has none recorded', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      encountersService.patientAllergyBanner.mockResolvedValue([]);
+      prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
+      await service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any] } as any, clinicianA);
+      // one drugs.findMany call for TPG classification only, not a second for allergies
+      expect(prisma.drugs.findMany).toHaveBeenCalledTimes(1);
+    });
+
+    it('checks every item, not just the first, and blocks on the first conflict found', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      encountersService.patientAllergyBanner.mockResolvedValue([{ id: 'al-1', text: 'Amoxicillin' }]);
+      prisma.drugs.findMany.mockResolvedValue([
+        { id: 'drug-2', name: 'Metformin', composition: 'Metformin Hydrochloride', tpg_list: 'O' },
+        { id: 'drug-1', name: 'Amoxicillin', composition: 'Amoxicillin', tpg_list: 'O' },
+      ]);
+      await expect(
+        service.createPrescription(
+          {
+            encounter_id: 'enc-1',
+            items: [
+              { drug_id: 'drug-2', dose: '1', frequency: 'OD' } as any,
+              { drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any,
+            ],
+          } as any,
+          clinicianA,
+        ),
+      ).rejects.toThrow(/Amoxicillin/);
+      expect(prisma.prescriptions.create).not.toHaveBeenCalled();
+    });
+
+    it("passes the caller's own JWT through to patientAllergyBanner, reusing its own access control rather than re-deriving it", async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
+      await service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any] } as any, clinicianA);
+      expect(encountersService.patientAllergyBanner).toHaveBeenCalledWith('pat-a', clinicianA);
     });
   });
 
