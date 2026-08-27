@@ -41,7 +41,7 @@ gates. Phase 2's claim work depends on both.
 | **P2-04** | Denial analytics + payer scorecards | BE+FE | **done** (`REQ156`) | P2-03 | `Claims` data model already there |
 | **P2-05** | AI-assisted migration importer (Practo / MocDoc / HealthPlix mappers) | BE+FE | **done** (`REQ157`) | P1-11 | #1 switching blocker. AI *structures* imported free-text notes — rivals can't |
 | **P2-06** | Doctor revenue-share & payouts engine | BE+FE | **done** (`REQ158`) | — | Named chain-ICP need; branch overrides already built |
-| **P2-07** | Drug interaction + allergy hard-stops | BE+FE | not started | P1-12 | Safety. Allergy banner + drug master already there |
+| **P2-07** | Drug interaction + allergy hard-stops | BE+FE | **done, scoped** (`REQ159`) | P1-12 | Allergy-only — drug-drug interaction deferred, see the slice's own doc |
 | **P2-08** | Regional-language Rx print (i18n for documents) | BE+FE | not started | P1-07 | Rivals market 23+ languages |
 | **P2-09** | i18n: 3 more regional languages | FE | not started | P1-07 | Prioritise by where clinics actually are |
 | **P2-10** | Recurring/series appointments + treatment-plan scheduling | BE+FE | not started | — | Multi-sitting packages exist; series scheduling doesn't |
@@ -203,6 +203,31 @@ and fixed mid-slice.
 This closes out P2-03/P2-05/P2-06, the three slices this document names
 as "carrying the phase." Every other unblocked Phase 2 row (`P2-07`
 onward) remains not started; `P2-01` stays blocked on `P1-10`.
+
+### P2-07 — Drug interaction + allergy hard-stops (scoped)
+
+**Shipped 2026-08-27, allergy-only** (`REQ159`/`PLAN201`/`TP221`/`TR221`).
+Asked the user explicitly which half of this slice's own title to
+build: drug-drug interaction checking needs real interaction-pair data
+this codebase has none of, and the PRD's own drug-database licensing
+question (build vs. license) is unresolved — fabricating it for a
+safety-critical hard stop was declined. The allergy half shipped in
+full: `assertNoAllergyConflict()` in `prescriptions.service.ts`, called
+from `createPrescription()` alongside the existing
+`assertTpgCompliant()` (same hard-stop shape, no override), reusing
+`EncountersService.patientAllergyBanner()` rather than re-deriving it.
+A deterministic, bidirectional substring matcher
+(`allergy-check.ts`) — the same "honestly non-exhaustive" ethic as
+`column-mapping.ts`/`denial-classification.ts` — catches an allergy
+recorded by drug name against the prescribed drug's own name/
+composition, with a named limitation (no drug-class-level matching,
+e.g. "Penicillin" allergy vs. an Amoxicillin drug) stated plainly rather
+than silently claimed as covered. Frontend mirrors the same check
+client-side for a live inline warning before submit. Full verification:
+backend 126/126 suites / 2011/2011 tests, frontend 6/6 new+existing
+`PrescriptionBuilder` tests (2 new). Drug-drug interaction checking
+remains a named, explicit follow-on, blocked on the licensing decision
+above — see `REQ159`'s own doc.
 
 ---
 
