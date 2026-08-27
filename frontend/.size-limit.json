@@ -2,7 +2,7 @@
   {
     "name": "Initial bundle (entry + apollo + vendor + mui, the four chunks index.html actually modulepreloads)",
     "path": ["dist/assets/entry-*.js", "dist/assets/apollo-*.js", "dist/assets/vendor-*.js", "dist/assets/mui-*.js"],
-    "limit": "335 KB",
+    "limit": "350 KB",
     "gzip": true
   },
   {

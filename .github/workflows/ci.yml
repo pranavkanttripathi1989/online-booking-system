@@ -155,8 +155,16 @@ jobs:
       # `--max-warnings` is a ratchet, not a target: it blocks NEW warnings
       # while the existing ones stay visible. Lower the number as they are
       # fixed (197 -> 177 -> 1909 as the hex-color rule swept the real count
-      # into view, REQ077); never raise it. See package.json's own script.
+      # into view, REQ077 -> 4779 as P1-07's own i18n-string rule did the
+      # same for I18N-1); never raise it except when a new ratchet rule is
+      # deliberately added, same as this one was. See package.json's own script.
       - run: npm run lint
+      # P1-07 (I18N-10, CI-10) — a missing translation is invisible at
+      # runtime by design (i18next silently falls back to English, see
+      # i18n/config.js) — this is the build-time gate that catches it
+      # instead of it shipping unnoticed. Also confirms the checked-in
+      # pseudo-locale (I18N-4) is current.
+      - run: npm run i18n:coverage
       # P1-03 (CI-3) — formatting is never discussed in review. The whole
       # tree was reformatted once (REQ146) specifically so this could be a
       # real, enforced gate from day one rather than a ratchet with nothing

@@ -8,6 +8,7 @@ export { default as SearchField } from './SearchField'
 export { default as RoleBadge } from './RoleBadge'
 export { default as NotificationBell } from './NotificationBell'
 export { default as DoctorCard } from './DoctorCard'
+export { default as LanguageSwitcher } from './LanguageSwitcher'
 export { GlobalSnackbarProvider, useSnackbar } from './GlobalSnackbar'
 
 // Skeleton loaders

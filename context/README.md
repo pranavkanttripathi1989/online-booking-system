@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| frontend-platform-2026-08-27-p1-07-i18n-framework | frontend-platform | 2026-08-27 | REQ150, PLAN190, TP210, TR210 | done | [manifest.md](./frontend-platform-2026-08-27-p1-07-i18n-framework/manifest.md) |
 | reviews-2026-08-27-p1-06-review-submission | reviews | 2026-08-27 | REQ149, PLAN189, TP209, TR209 | done | [manifest.md](./reviews-2026-08-27-p1-06-review-submission/manifest.md) |
 | appointments-2026-08-27-p1-05-slot-hold-and-idempotency | appointments | 2026-08-27 | REQ148, PLAN188, TP208, TR208 | done | [manifest.md](./appointments-2026-08-27-p1-05-slot-hold-and-idempotency/manifest.md) |
 | subscription-plan-engine-2026-08-27-req147 | subscription-plan-engine | 2026-08-27 | REQ147, PLAN187, TP207, TR207 | done | [manifest.md](./subscription-plan-engine-2026-08-27-req147/manifest.md) |

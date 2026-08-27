@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
 import { useParams, useNavigate, useLocation, useSearchParams } from 'react-router-dom'
 import { useQuery, useMutation, gql } from '@apollo/client'
 import {
@@ -209,6 +210,7 @@ function clearIdempotencyKey() {
 // P1-05 (BOOK-2) — "Slot held for 9:45", ticking every second from a real
 // server-issued expiry, never a client-only guess.
 function HoldCountdown({ expiresAt, onExpire }) {
+  const { t } = useTranslation()
   const [remainingMs, setRemainingMs] = useState(() => expiresAt.getTime() - Date.now())
 
   useEffect(() => {
@@ -229,7 +231,7 @@ function HoldCountdown({ expiresAt, onExpire }) {
 
   return (
     <Alert severity={totalSeconds <= 60 ? 'warning' : 'info'} sx={{ mb: 2 }}>
-      Slot held for {minutes}:{String(seconds).padStart(2, '0')} — complete your booking before it's released.
+      {t('booking.holdCountdown', { minutes, seconds: String(seconds).padStart(2, '0') })}
     </Alert>
   )
 }
@@ -287,7 +289,9 @@ function CustomStepIcon(props) {
   return <RadioButtonUnchecked color="disabled" className={className} />
 }
 
-const steps = ['Select Time', 'Your Details', 'Choose Service', 'Review and Pay']
+// I18N-1 — module scope can't call useTranslation(), so this is i18n
+// keys, not display text; translated at the point of render.
+const STEP_I18N_KEYS = ['booking.steps.selectTime', 'booking.steps.yourDetails', 'booking.steps.chooseService', 'booking.steps.reviewAndPay']
 
 const PaymentForm = ({ bookingData, clinician, handleBack, price, holdToken, onBookingSuccess }) => {
   const navigate = useNavigate()
@@ -499,6 +503,7 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price, holdToken, onB
 }
 
 export default function BookingWizard() {
+  const { t } = useTranslation()
   // BUG011: '/appointments/book' has no :clinicianId route segment (see
   // App.jsx) -- useParams().clinicianId was always undefined here, so this
   // page always fell back to a hardcoded mock clinician regardless of which
@@ -845,7 +850,7 @@ export default function BookingWizard() {
         </Paper>
 
         <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-          Consultation Type
+          {t('booking.consultationType')}
         </Typography>
         <ToggleButtonGroup
           fullWidth
@@ -855,15 +860,15 @@ export default function BookingWizard() {
           sx={{ mb: 4 }}
         >
           <ToggleButton value="inperson">
-            <LocalHospital sx={{ mr: 1 }} fontSize="small" /> In-Person
+            <LocalHospital sx={{ mr: 1 }} fontSize="small" /> {t('booking.inPerson')}
           </ToggleButton>
           <ToggleButton value="video">
-            <Videocam sx={{ mr: 1 }} fontSize="small" /> Video Consultation
+            <Videocam sx={{ mr: 1 }} fontSize="small" /> {t('booking.video')}
           </ToggleButton>
         </ToggleButtonGroup>
 
         <Typography variant="subtitle1" gutterBottom fontWeight={600}>
-          Select Date & Time
+          {t('booking.selectDateTime')}
         </Typography>
         <Grid container spacing={3}>
           <Grid item xs={12} md={6}>
@@ -899,7 +904,7 @@ export default function BookingWizard() {
                 </Grid>
               ) : (
                 <Alert severity="info" sx={{ mt: 1 }}>
-                  No availability for this date. Please select another date.
+                  {t('booking.noAvailability')}
                   {/* REQ106 -- deliberately NOT anonymous (see JOIN_WAITLIST's own
                       comment): a real patient-linked account is required, so an
                       anonymous visitor sees a login prompt instead of the action. */}
@@ -1179,13 +1184,13 @@ export default function BookingWizard() {
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="lg" mx="auto">
       <Typography variant="h4" fontWeight={800} gutterBottom>
-        Book Appointment
+        {t('booking.title')}
       </Typography>
 
       <Stepper activeStep={activeStep} alternativeLabel sx={{ mb: { xs: 4, md: 6 }, mt: 3 }}>
-        {steps.map((label) => (
-          <Step key={label}>
-            <StepLabel StepIconComponent={CustomStepIcon}>{label}</StepLabel>
+        {STEP_I18N_KEYS.map((key) => (
+          <Step key={key}>
+            <StepLabel StepIconComponent={CustomStepIcon}>{t(key)}</StepLabel>
           </Step>
         ))}
       </Stepper>
@@ -1203,10 +1208,10 @@ export default function BookingWizard() {
           {activeStep < 3 && (
             <Box display="flex" justifyContent="space-between" mt={4}>
               <Button disabled={activeStep === 0} onClick={handleBack} variant="outlined">
-                Back
+                {t('booking.back')}
               </Button>
               <Button variant="contained" size="large" onClick={handleNext} disabled={isNextDisabled()}>
-                Next Step
+                {t('booking.next')}
               </Button>
             </Box>
           )}

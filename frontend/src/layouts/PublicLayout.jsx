@@ -4,6 +4,7 @@
  */
 import React, { useState } from 'react'
 import { Outlet, Link as RouterLink, useNavigate } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 import {
   AppBar,
   Toolbar,
@@ -25,19 +26,23 @@ import {
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
 import MenuIcon from '@mui/icons-material/Menu'
 import CloseIcon from '@mui/icons-material/Close'
-
-const NAV_LINKS = [
-  { label: 'Find a Doctor', href: '/#search' },
-  { label: 'How It Works', href: '/#how-it-works' },
-  { label: 'Specialties', href: '/#specialties' },
-  { label: 'For Clinicians', href: '/login' },
-]
+import { LanguageSwitcher } from '../components/shared'
 
 export default function PublicLayout() {
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // I18N-1 — no hardcoded user-facing string; hrefs are structural, not
+  // translated content, so they stay as plain data here.
+  const NAV_LINKS = [
+    { label: t('layout.nav.findDoctor'), href: '/#search' },
+    { label: t('layout.nav.howItWorks'), href: '/#how-it-works' },
+    { label: t('layout.nav.specialties'), href: '/#specialties' },
+    { label: t('layout.nav.forClinicians'), href: '/login' },
+  ]
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
@@ -67,7 +72,7 @@ export default function PublicLayout() {
               <MedicalServicesIcon sx={{ color: '#fff', fontSize: 16 }} />
             </Box>
             <Typography fontWeight={800} sx={{ color: '#006D77', fontSize: '1.1rem' }}>
-              HealthSync
+              {t('layout.brand')}
             </Typography>
           </Stack>
 
@@ -91,20 +96,25 @@ export default function PublicLayout() {
 
           {!isMobile ? (
             <Stack direction="row" spacing={1.5} alignItems="center">
+              {/* I18N-3 — reachable in one tap, before login, on every public route */}
+              <LanguageSwitcher />
               <Button onClick={() => navigate('/get-started')} sx={{ fontWeight: 700 }}>
-                For Clinics
+                {t('layout.forClinics')}
               </Button>
               <Button variant="outlined" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
-                Sign In
+                {t('layout.signIn')}
               </Button>
               <Button variant="contained" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
-                Book Now
+                {t('layout.bookNow')}
               </Button>
             </Stack>
           ) : (
-            <IconButton onClick={() => setDrawerOpen(true)} aria-label="Open navigation menu">
-              <MenuIcon />
-            </IconButton>
+            <Stack direction="row" spacing={1} alignItems="center">
+              <LanguageSwitcher size="small" />
+              <IconButton onClick={() => setDrawerOpen(true)} aria-label={t('layout.openNav')}>
+                <MenuIcon />
+              </IconButton>
+            </Stack>
           )}
         </Toolbar>
       </AppBar>
@@ -112,7 +122,7 @@ export default function PublicLayout() {
       {/* Mobile Drawer */}
       <Drawer anchor="right" open={drawerOpen} onClose={() => setDrawerOpen(false)} PaperProps={{ sx: { width: 280 } }}>
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'flex-end' }}>
-          <IconButton onClick={() => setDrawerOpen(false)} aria-label="Close navigation">
+          <IconButton onClick={() => setDrawerOpen(false)} aria-label={t('layout.closeNav')}>
             <CloseIcon />
           </IconButton>
         </Box>
@@ -126,12 +136,12 @@ export default function PublicLayout() {
           ))}
           <ListItem sx={{ pt: 2 }}>
             <Button fullWidth variant="contained" onClick={() => navigate('/login')} sx={{ fontWeight: 700 }}>
-              Sign In / Book
+              {t('layout.signInOrBook')}
             </Button>
           </ListItem>
           <ListItem>
             <Button fullWidth variant="outlined" onClick={() => navigate('/get-started')} sx={{ fontWeight: 700 }}>
-              Run a clinic? Get started
+              {t('layout.getStarted')}
             </Button>
           </ListItem>
         </List>
@@ -163,19 +173,19 @@ export default function PublicLayout() {
                   <MedicalServicesIcon sx={{ color: '#003B42', fontSize: 14 }} />
                 </Box>
                 <Typography fontWeight={800} sx={{ fontSize: '1.1rem' }}>
-                  HealthSync
+                  {t('layout.brand')}
                 </Typography>
               </Stack>
               <Typography variant="body2" sx={{ color: 'rgba(255,255,255,0.6)', maxWidth: 260 }}>
-                Connecting patients with the right clinicians, faster and simpler.
+                {t('layout.footer.tagline')}
               </Typography>
             </Box>
 
             {/* Links */}
             {[
-              { title: 'Patients', items: ['Find a Doctor', 'Book Appointment', 'Video Consultation', 'Medical Records'] },
-              { title: 'Clinicians', items: ['Join HealthSync', 'Clinician Portal', 'Availability Manager', 'Billing'] },
-              { title: 'Company', items: ['About Us', 'Blog', 'Careers', 'Contact'] },
+              { title: t('layout.footer.patients'), items: t('layout.footer.patientsLinks', { returnObjects: true }) },
+              { title: t('layout.footer.clinicians'), items: t('layout.footer.cliniciansLinks', { returnObjects: true }) },
+              { title: t('layout.footer.company'), items: t('layout.footer.companyLinks', { returnObjects: true }) },
             ].map(({ title, items }) => (
               <Box key={title}>
                 <Typography
@@ -203,10 +213,10 @@ export default function PublicLayout() {
           <Divider sx={{ my: 3, borderColor: 'rgba(255,255,255,0.1)' }} />
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems="center" spacing={1}>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.45)' }}>
-              © 2026 HealthSync Ltd. All rights reserved. Registered in England & Wales.
+              {t('layout.footer.copyright')}
             </Typography>
             <Stack direction="row" spacing={2}>
-              {['Privacy Policy', 'Terms of Service', 'Cookie Policy'].map((item) => (
+              {t('layout.footer.legalLinks', { returnObjects: true }).map((item) => (
                 <Typography
                   key={item}
                   variant="caption"

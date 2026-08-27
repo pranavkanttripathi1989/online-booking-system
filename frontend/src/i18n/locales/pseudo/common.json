@@ -1,0 +1,68 @@
+{
+  "languageSwitcher": {
+    "ariaLabel": "[Chȯȯsė lȧngůȧgė ẊẊẊẊẊẊ]"
+  },
+  "layout": {
+    "brand": "[HėȧlthSync ẊẊẊẊ]",
+    "nav": {
+      "findDoctor": "[Fïnd ȧ Dȯctȯr ẊẊẊẊẊẊ]",
+      "howItWorks": "[Hȯw Ït Wȯrks ẊẊẊẊẊ]",
+      "specialties": "[Spėcïȧltïės ẊẊẊẊẊ]",
+      "forClinicians": "[Fȯr Clïnïcïȧns ẊẊẊẊẊẊ]"
+    },
+    "forClinics": "[Fȯr Clïnïcs ẊẊẊẊẊ]",
+    "signIn": "[Sïgn Ïn ẊẊẊ]",
+    "bookNow": "[Bȯȯk Nȯw ẊẊẊẊ]",
+    "signInOrBook": "[Sïgn Ïn / Bȯȯk ẊẊẊẊẊẊ]",
+    "getStarted": "[Růn ȧ clïnïc? Gėt stȧrtėd ẊẊẊẊẊẊẊẊẊẊ]",
+    "openNav": "[Ȯpėn nȧvïgȧtïȯn mėnů ẊẊẊẊẊẊẊẊ]",
+    "closeNav": "[Clȯsė nȧvïgȧtïȯn ẊẊẊẊẊẊẊ]",
+    "footer": {
+      "tagline": "[Cȯnnėctïng pȧtïėnts wïth thė rïght clïnïcïȧns, fȧstėr ȧnd sïmplėr. ẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊ]",
+      "patients": "[Pȧtïėnts ẊẊẊẊ]",
+      "patientsLinks": [
+        "[Fïnd ȧ Dȯctȯr ẊẊẊẊẊẊ]",
+        "[Bȯȯk Ȧppȯïntmėnt ẊẊẊẊẊẊẊ]",
+        "[Vïdėȯ Cȯnsůltȧtïȯn ẊẊẊẊẊẊẊẊ]",
+        "[Mėdïcȧl Rėcȯrds ẊẊẊẊẊẊ]"
+      ],
+      "clinicians": "[Clïnïcïȧns ẊẊẊẊ]",
+      "cliniciansLinks": [
+        "[Jȯïn HėȧlthSync ẊẊẊẊẊẊ]",
+        "[Clïnïcïȧn Pȯrtȧl ẊẊẊẊẊẊẊ]",
+        "[Ȧvȧïlȧbïlïty Mȧnȧgėr ẊẊẊẊẊẊẊẊ]",
+        "[Bïllïng ẊẊẊ]"
+      ],
+      "company": "[Cȯmpȧny ẊẊẊ]",
+      "companyLinks": [
+        "[Ȧbȯůt Ůs ẊẊẊẊ]",
+        "[Blȯg ẊẊẊ]",
+        "[Cȧrėėrs ẊẊẊ]",
+        "[Cȯntȧct ẊẊẊ]"
+      ],
+      "copyright": "[© 2026 HėȧlthSync Ltd. Ȧll rïghts rėsėrvėd. Rėgïstėrėd ïn Ėnglȧnd & Wȧlės. ẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊ]",
+      "legalLinks": [
+        "[Prïvȧcy Pȯlïcy ẊẊẊẊẊẊ]",
+        "[Tėrms ȯf Sėrvïcė ẊẊẊẊẊẊẊ]",
+        "[Cȯȯkïė Pȯlïcy ẊẊẊẊẊẊ]"
+      ]
+    }
+  },
+  "booking": {
+    "title": "[Bȯȯk Ȧppȯïntmėnt ẊẊẊẊẊẊẊ]",
+    "steps": {
+      "selectTime": "[Sėlėct Tïmė ẊẊẊẊẊ]",
+      "yourDetails": "[Yȯůr Dėtȧïls ẊẊẊẊẊ]",
+      "chooseService": "[Chȯȯsė Sėrvïcė ẊẊẊẊẊẊ]",
+      "reviewAndPay": "[Rėvïėw ȧnd Pȧy ẊẊẊẊẊẊ]"
+    },
+    "consultationType": "[Cȯnsůltȧtïȯn Typė ẊẊẊẊẊẊẊ]",
+    "inPerson": "[Ïn-Pėrsȯn ẊẊẊẊ]",
+    "video": "[Vïdėȯ Cȯnsůltȧtïȯn ẊẊẊẊẊẊẊẊ]",
+    "selectDateTime": "[Sėlėct Dȧtė & Tïmė ẊẊẊẊẊẊẊẊ]",
+    "next": "[Nėxt Stėp ẊẊẊẊ]",
+    "back": "[Bȧck ẊẊẊ]",
+    "noAvailability": "[Nȯ ȧvȧïlȧbïlïty fȯr thïs dȧtė. Plėȧsė sėlėct ȧnȯthėr dȧtė. ẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊ]",
+    "holdCountdown": "[Slȯt hėld fȯr {{minutes}}:{{seconds}} — cȯmplėtė yȯůr bȯȯkïng bėfȯrė ït's rėlėȧsėd. ẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊ]"
+  }
+}

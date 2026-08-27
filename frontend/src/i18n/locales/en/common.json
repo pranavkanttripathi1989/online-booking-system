@@ -1,0 +1,49 @@
+{
+  "languageSwitcher": {
+    "ariaLabel": "Choose language"
+  },
+  "layout": {
+    "brand": "HealthSync",
+    "nav": {
+      "findDoctor": "Find a Doctor",
+      "howItWorks": "How It Works",
+      "specialties": "Specialties",
+      "forClinicians": "For Clinicians"
+    },
+    "forClinics": "For Clinics",
+    "signIn": "Sign In",
+    "bookNow": "Book Now",
+    "signInOrBook": "Sign In / Book",
+    "getStarted": "Run a clinic? Get started",
+    "openNav": "Open navigation menu",
+    "closeNav": "Close navigation",
+    "footer": {
+      "tagline": "Connecting patients with the right clinicians, faster and simpler.",
+      "patients": "Patients",
+      "patientsLinks": ["Find a Doctor", "Book Appointment", "Video Consultation", "Medical Records"],
+      "clinicians": "Clinicians",
+      "cliniciansLinks": ["Join HealthSync", "Clinician Portal", "Availability Manager", "Billing"],
+      "company": "Company",
+      "companyLinks": ["About Us", "Blog", "Careers", "Contact"],
+      "copyright": "© 2026 HealthSync Ltd. All rights reserved. Registered in England & Wales.",
+      "legalLinks": ["Privacy Policy", "Terms of Service", "Cookie Policy"]
+    }
+  },
+  "booking": {
+    "title": "Book Appointment",
+    "steps": {
+      "selectTime": "Select Time",
+      "yourDetails": "Your Details",
+      "chooseService": "Choose Service",
+      "reviewAndPay": "Review and Pay"
+    },
+    "consultationType": "Consultation Type",
+    "inPerson": "In-Person",
+    "video": "Video Consultation",
+    "selectDateTime": "Select Date & Time",
+    "next": "Next Step",
+    "back": "Back",
+    "noAvailability": "No availability for this date. Please select another date.",
+    "holdCountdown": "Slot held for {{minutes}}:{{seconds}} — complete your booking before it's released."
+  }
+}

@@ -83,6 +83,36 @@ export default [
           message:
             'Use a theme token instead of a literal hex color — see project-plans/technical-plans/06-frontend-architecture-and-mobile.md',
         },
+        // P1-07 (I18N-1) — "NO hardcoded user-facing string anywhere.
+        // Every string goes through the i18n layer from the first commit
+        // of that layer onward." This is that gate, added the same day
+        // the layer itself landed, matching no-hardcoded-colors' own
+        // precedent immediately above: the ratchet comes first, a
+        // mechanical sweep of every existing page is its own future
+        // slice (FRONTEND_RULES.md §20.1's own warning that this is the
+        // single most expensive rule in the document to retrofit — the
+        // point of gating now is that it stops getting more expensive).
+        //
+        // Two selectors, deliberately imprecise rather than silent:
+        // JSXText catches literal text between tags (`<Typography>Hi</Typography>`);
+        // the attribute selector catches the handful of props that are
+        // almost always user-facing copy, not configuration (label,
+        // placeholder, title, helperText, alt, aria-label). Both require
+        // at least 2 consecutive letters, so a lone "·" separator, a
+        // numeral, or an icon-only prop doesn't trip it. This will flag
+        // real false positives (a data attribute named "label" that
+        // isn't display text, a technical `alt=""`) — treat those the
+        // same way the hex-color rule's own false positives are treated:
+        // read them, and only add an inline eslint-disable with a reason
+        // when the string genuinely isn't user-facing.
+        {
+          selector: 'JSXText[value=/[A-Za-z]{2,}/]',
+          message: 'Hardcoded user-facing string — route it through the i18n layer (src/i18n/) instead of a JSX text literal (I18N-1).',
+        },
+        {
+          selector: 'JSXAttribute[name.name=/^(label|placeholder|title|helperText|alt|aria-label)$/] > Literal[value=/[A-Za-z]{2,}/]',
+          message: 'Hardcoded user-facing string — route it through the i18n layer (src/i18n/) instead of a literal prop value (I18N-1).',
+        },
       ],
     },
   },
