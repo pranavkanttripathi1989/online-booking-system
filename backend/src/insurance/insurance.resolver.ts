@@ -1,6 +1,15 @@
 import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { InsuranceService } from './insurance.service';
-import { PayerType, PayerEmpanelmentType, PatientInsurancePolicyType, PayerTariffType, PayerChargeEstimateType, ClaimType } from './entities/insurance.entity';
+import {
+  PayerType,
+  PayerEmpanelmentType,
+  PatientInsurancePolicyType,
+  PayerTariffType,
+  PayerChargeEstimateType,
+  ClaimType,
+  ClaimAppealType,
+} from './entities/insurance.entity';
+import { EncounterCodeSuggestionsType } from '../ai-clinical/entities/ai-clinical.entity';
 import { PrescriptionType } from '../prescriptions/entities/prescription.entity';
 import {
   PayerInput,
@@ -10,6 +19,7 @@ import {
   PayerTariffInput,
   SubmitClaimInput,
   UpdateClaimStatusInput,
+  ApproveClaimAppealInput,
 } from './dto/insurance.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -139,5 +149,33 @@ export class InsuranceResolver {
   @Query(() => [PrescriptionType])
   claimEvidencePrescriptions(@Args('claim_id', { type: () => ID }) claimId: string, @CurrentUser() user: JwtPayload) {
     return this.insuranceService.claimEvidencePrescriptions(claimId, user);
+  }
+
+  // P2-03 -- same @Auth gate as claims()/submitClaim() above: the
+  // claims-desk role set. No EntitlementGuard, mirroring REQ154's own
+  // suggestEncounterCodes -- pure deterministic matching, no vendor cost.
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Query(() => EncounterCodeSuggestionsType)
+  suggestClaimCodes(@Args('appointment_id', { type: () => ID }) appointmentId: string, @CurrentUser() user: JwtPayload) {
+    return this.insuranceService.suggestClaimCodes(appointmentId, user);
+  }
+
+  // P2-03 -- same read-access gate as claimEvidencePrescriptions above.
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Query(() => ClaimAppealType, { nullable: true })
+  claimAppeal(@Args('claim_id', { type: () => ID }) claimId: string, @CurrentUser() user: JwtPayload) {
+    return this.insuranceService.claimAppeal(claimId, user);
+  }
+
+  // P2-03 -- manager+ only, matching updateClaimStatus's own approve/
+  // reject gate: deciding an appeal is the same class of decision.
+  @Auth('manager', 'admin', 'super_admin')
+  @Mutation(() => ClaimAppealType)
+  approveClaimAppeal(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: ApproveClaimAppealInput,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.insuranceService.approveClaimAppeal(id, input, user);
   }
 }

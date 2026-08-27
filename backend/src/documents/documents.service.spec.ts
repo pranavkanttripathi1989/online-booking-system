@@ -16,7 +16,7 @@ describe('DocumentsService', () => {
   let prescriptionsService: { printPrescription: jest.Mock; assembleForShare: jest.Mock; verifyShareOtp: jest.Mock };
   let appointmentPaymentsService: { invoiceForDownload: jest.Mock };
   let encountersService: { encounter: jest.Mock };
-  let insuranceService: { claim: jest.Mock; claimEvidencePrescriptions: jest.Mock };
+  let insuranceService: { claim: jest.Mock; claimEvidencePrescriptions: jest.Mock; claimAppeal: jest.Mock };
   let prisma: {
     patients: { findUnique: jest.Mock };
     clinicians: { findUnique: jest.Mock };
@@ -30,7 +30,7 @@ describe('DocumentsService', () => {
     prescriptionsService = { printPrescription: jest.fn(), assembleForShare: jest.fn(), verifyShareOtp: jest.fn() };
     appointmentPaymentsService = { invoiceForDownload: jest.fn() };
     encountersService = { encounter: jest.fn() };
-    insuranceService = { claim: jest.fn(), claimEvidencePrescriptions: jest.fn() };
+    insuranceService = { claim: jest.fn(), claimEvidencePrescriptions: jest.fn(), claimAppeal: jest.fn() };
     prisma = {
       patients: { findUnique: jest.fn() },
       clinicians: { findUnique: jest.fn() },
@@ -277,6 +277,49 @@ describe('DocumentsService', () => {
       prisma.appointments.findUnique.mockResolvedValue(null);
 
       const buffer = await service.reimbursementPackPdf('claim-1', staffUser);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+  });
+
+  // P2-03
+  describe('appealPdf', () => {
+    const draftAppeal = { id: 'appeal-1', claim_id: 'claim-1', status: 'draft', draft_content: 'Appeal — Claim claim-1\n...' };
+
+    it('rejects a patient/clinician caller before ever calling InsuranceService', async () => {
+      await expect(service.appealPdf('claim-1', user)).rejects.toThrow(ForbiddenException);
+      expect(insuranceService.claim).not.toHaveBeenCalled();
+    });
+
+    it('throws when the claim itself is not found', async () => {
+      insuranceService.claim.mockResolvedValue(null);
+      insuranceService.claimAppeal.mockResolvedValue(draftAppeal);
+      await expect(service.appealPdf('claim-1', staffUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('throws an honest error when no appeal has been drafted for this claim yet', async () => {
+      insuranceService.claim.mockResolvedValue({ id: 'claim-1', appointment_id: 'appt-1' });
+      insuranceService.claimAppeal.mockResolvedValue(null);
+      await expect(service.appealPdf('claim-1', staffUser)).rejects.toThrow('No appeal has been drafted for this claim');
+    });
+
+    it('renders a real PDF with the draft appeal content for an authorized staff caller', async () => {
+      insuranceService.claim.mockResolvedValue({ id: 'claim-1', appointment_id: 'appt-1' });
+      insuranceService.claimAppeal.mockResolvedValue(draftAppeal);
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: { name: 'MG Road Clinic', phone: '+911234' } });
+
+      const buffer = await service.appealPdf('claim-1', staffUser);
+
+      expect(insuranceService.claim).toHaveBeenCalledWith('claim-1', staffUser);
+      expect(insuranceService.claimAppeal).toHaveBeenCalledWith('claim-1', staffUser);
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+
+    it('still renders when the clinic lookup resolves to null', async () => {
+      insuranceService.claim.mockResolvedValue({ id: 'claim-1', appointment_id: 'appt-1' });
+      insuranceService.claimAppeal.mockResolvedValue(draftAppeal);
+      prisma.appointments.findUnique.mockResolvedValue(null);
+
+      const buffer = await service.appealPdf('claim-1', staffUser);
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     });
   });

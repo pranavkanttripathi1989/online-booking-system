@@ -37,7 +37,7 @@ gates. Phase 2's claim work depends on both.
 |---|---|---|:--:|---|---|
 | **P2-01** | ABDM M3 (HIU) — consent-based fetch of external records | BE+FE | not started | P1-10 | Completes the interop story |
 | **P2-02** | AI coding assist — ICD-10 + procedure codes from the note | BE+FE | **done** (`REQ154`) | P1-11 | `REQ020` P1 named ICD-10; now AI-driven |
-| **P2-03** | Agentic claim lifecycle — auto-code → submit → track → draft appeal | BE+FE | not started | P2-02 | The differentiator. Claim state machine + evidence attach already built |
+| **P2-03** | Agentic claim lifecycle — auto-code → submit → track → draft appeal | BE+FE | **done** (`REQ155`) | P2-02 | The differentiator. Claim state machine + evidence attach already built |
 | **P2-04** | Denial analytics + payer scorecards | BE+FE | not started | P2-03 | `Claims` data model already there |
 | **P2-05** | AI-assisted migration importer (Practo / MocDoc / HealthPlix mappers) | BE+FE | not started | P1-11 | #1 switching blocker. AI *structures* imported free-text notes — rivals can't |
 | **P2-06** | Doctor revenue-share & payouts engine | BE+FE | not started | — | Named chain-ICP need; branch overrides already built |
@@ -78,6 +78,40 @@ Every competitor's AI stops at the note. This continues into the money, and the
   to clinical sign-off.
 - ⚖️ Get sign-off before any automated submission to a payer.
 - **Exit:** a denial produces a drafted appeal a human approves in one click.
+
+**Shipped 2026-08-27** (`REQ155`/`PLAN196`/`TP216`/`TR216`) — both
+tracks. Scoped, before any code was written, against a hard constraint:
+no live payer API exists anywhere in this codebase (confirmed again by
+grep). "Auto-populate and submit"/"poll/track status" therefore map to
+human-reviewed code suggestions at submission time plus the existing,
+unchanged manual state machine — not fabricated external connectivity.
+The genuinely new agentic surface, needing no external system at all,
+is denial classification (`denial-classification.ts`, deterministic
+keyword rules, honestly not true NLU) and drafted appeals
+(`appeal-draft.ts`, templated from real claim/evidence data). A
+rejection auto-drafts a `ClaimAppeals` row inside the existing
+`updateClaimStatus` transition; the claims desk reviews, edits, and
+approves in one click via a new "Appeal" action — never auto-submitted
+anywhere, matching this section's own ⚖️ constraint and this
+environment's honest lack of a payer API to submit to. `ClaimAppeals`
+itself is the audit trail ("every agent action audited and
+reversible") — created unattributed, `approved_by_user_id`/
+`approved_at` populated only once a real human approves; a
+re-rejection regenerates the draft in place rather than accumulating
+stale ones. Full verification: backend 117/117 suites (1885/1885
+tests, 29 new), integration 9/9 suites (414/414 tests, confirming the
+new migration and no new tenancy-matrix domain needed), frontend 7/7 in
+`manager/claims/index.test.jsx` (2 new). See
+`context/insurance-claims-2026-08-27-req155/manifest.md` for the full
+account, including a real bug class check (none found this slice —
+all new tests passed on first implementation, matching the pattern this
+codebase's own history calls out when a batch front-loads a prior
+slice's lessons).
+
+This is the first of the three slices this document names as "carrying
+the phase" (`P2-03`/`P2-05`/`P2-06`) to ship — `P2-05`/`P2-06` remain
+their own future slices. `P2-04` (denial analytics + payer scorecards)
+depends on this slice and can now proceed.
 
 ### P2-05 — AI-assisted migration importer
 

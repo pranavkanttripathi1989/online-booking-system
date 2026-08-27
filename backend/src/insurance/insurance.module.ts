@@ -7,9 +7,13 @@ import { PatientsModule } from '../patients/patients.module';
 // "reuse an already-exported service" pattern documents.module.ts
 // established for PrescriptionsService (REQ057).
 import { PrescriptionsModule } from '../prescriptions/prescriptions.module';
+// P2-03 — reuses AiClinicalService#suggestEncounterCodes (REQ154) for
+// suggestClaimCodes(), the same "reuse an already-exported service"
+// pattern PrescriptionsModule above already establishes for this module.
+import { AiClinicalModule } from '../ai-clinical/ai-clinical.module';
 
 @Module({
-  imports: [PatientsModule, PrescriptionsModule],
+  imports: [PatientsModule, PrescriptionsModule, AiClinicalModule],
   providers: [InsuranceService, InsuranceResolver],
   exports: [InsuranceService],
 })

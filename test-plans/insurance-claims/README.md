@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP216 | improvement | Agentic claim lifecycle verification (P2-03) | done | 2026-08-27 | 2026-08-27 | PLAN196 | [TP216-insurance-claims-2026-08-27-agentic-claim-lifecycle.md](./improvement/TP216-insurance-claims-2026-08-27-agentic-claim-lifecycle.md) |
 | TP198 | improvement | Reimbursement-pack PDF generation verification | approved | 2026-08-26 | 2026-08-26 | PLAN178 | [TP198-insurance-claims-2026-08-26-reimbursement-pack-pdf.md](./improvement/TP198-insurance-claims-2026-08-26-reimbursement-pack-pdf.md) |
 | TP197 | improvement | Auto-attach prescription evidence verification | approved | 2026-08-26 | 2026-08-26 | PLAN177 | [TP197-insurance-claims-2026-08-26-auto-attach-prescription-evidence.md](./improvement/TP197-insurance-claims-2026-08-26-auto-attach-prescription-evidence.md) |
 | TP191 | improvement | OPD cashless claim submission and tracking verification | approved | 2026-08-26 | 2026-08-26 | PLAN171 | [TP191-insurance-claims-2026-08-26-opd-cashless-claim-submission.md](./improvement/TP191-insurance-claims-2026-08-26-opd-cashless-claim-submission.md) |

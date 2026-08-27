@@ -2,6 +2,7 @@ import { Injectable, BadRequestException, NotFoundException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientsService } from '../patients/patients.service';
 import { PrescriptionsService } from '../prescriptions/prescriptions.service';
+import { AiClinicalService } from '../ai-clinical/ai-clinical.service';
 import {
   PayerInput,
   PayerEmpanelmentInput,
@@ -10,10 +11,13 @@ import {
   PayerTariffInput,
   SubmitClaimInput,
   UpdateClaimStatusInput,
+  ApproveClaimAppealInput,
 } from './dto/insurance.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, orgScopeVia, orgIdForWrite, isSameOrg } from '../common/scoping/tenant-scope';
 import { resolveServicePrice } from '../common/pricing/resolve-price';
+import { classifyDenial } from './denial-classification';
+import { buildAppealDraft } from './appeal-draft';
 
 // REQ131 — the only legal forward transitions; submitted/under_review are
 // the working states, rejected/settled are terminal (no map entry = no
@@ -37,6 +41,7 @@ export class InsuranceService {
     private readonly prisma: PrismaService,
     private readonly patientsService: PatientsService,
     private readonly prescriptionsService: PrescriptionsService,
+    private readonly aiClinicalService: AiClinicalService,
   ) {}
 
   async findPayers(isActive: boolean | undefined) {
@@ -209,7 +214,15 @@ export class InsuranceService {
       appointment_date: row.appointment?.appointment_date,
       claim_amount: row.claim_amount / 100,
       approved_amount: row.approved_amount != null ? row.approved_amount / 100 : undefined,
+      // P2-03 -- DB column name differs from the GraphQL field name;
+      // Prisma's Json column round-trips the stored array as-is.
+      diagnosis_codes: row.diagnosis_codes_json ?? undefined,
+      procedure_codes: row.procedure_codes_json ?? undefined,
     };
+  }
+
+  private toClaimAppealGraphQL(row: any) {
+    return { ...row };
   }
 
   // REQ131 (REQ031's own P2 follow-on). patient_id is derived from the
@@ -242,10 +255,35 @@ export class InsuranceService {
         claim_amount: Math.round(input.claim_amount * 100),
         notes: input.notes,
         submitted_by_user_id: user.sub,
+        // P2-03 -- reviewed/accepted by the submitting human before this
+        // mutation fires (the claims desk's own Submit Claim dialog), not
+        // written automatically by this method itself.
+        diagnosis_codes_json: input.diagnosis_codes as any,
+        procedure_codes_json: input.procedure_codes as any,
       },
       include: { payer: true, patient: true, appointment: true },
     });
     return this.toClaimGraphQL(row);
+  }
+
+  // P2-03 -- "auto-populate" step: resolves the appointment's own encounter
+  // (if any) and reuses REQ154's suggestEncounterCodes() verbatim, rather
+  // than re-deriving encounter access or duplicating the matching logic.
+  // Returns the same empty-suggestions shape (never an error) when no
+  // encounter exists yet for the appointment, mirroring
+  // claimEvidencePrescriptions()'s own "no encounter = empty, not an
+  // error" precedent.
+  async suggestClaimCodes(appointmentId: string, user: JwtPayload) {
+    const appointment = await this.prisma.appointments.findUnique({
+      where: { id: appointmentId },
+      include: { clinic: true },
+    });
+    if (!appointment || appointment.is_deleted) throw new NotFoundException('Appointment not found');
+    if (!isSameOrg(user, appointment.clinic.client_org_id)) throw new NotFoundException('Appointment not found');
+
+    const encounter = await this.prisma.encounters.findUnique({ where: { appointment_id: appointmentId } });
+    if (!encounter) return { diagnosis_suggestions: [], procedure_suggestions: [] };
+    return this.aiClinicalService.suggestEncounterCodes(encounter.id, user);
   }
 
   async claims(status: string | undefined, user: JwtPayload) {
@@ -277,6 +315,15 @@ export class InsuranceService {
   // anywhere. approved_amount is required to move into 'approved',
   // rejection_reason is required to move into 'rejected' -- both real
   // decision artifacts, not optional metadata.
+  //
+  // P2-03 -- the "agent" step lives here: a real transition into
+  // 'rejected' auto-drafts (or, on a later re-rejection, regenerates) an
+  // appeal via classifyDenial()/buildAppealDraft(), the same "extend an
+  // existing transition's own side effects" pattern REQ019's queue sync
+  // already established inside AppointmentsService.transitionStatus().
+  // Never auto-submitted anywhere -- the draft only becomes 'approved'
+  // once a real human calls approveClaimAppeal, and this codebase has no
+  // live payer API to submit an approved appeal to regardless.
   async updateClaimStatus(id: string, input: UpdateClaimStatusInput, user: JwtPayload) {
     const claim = await this.loadClaimForUser(id, user);
     const legalNext = CLAIM_TRANSITIONS[claim.status] ?? [];
@@ -300,7 +347,51 @@ export class InsuranceService {
       },
       include: { payer: true, patient: true, appointment: true },
     });
-    return this.toClaimGraphQL(row);
+    const graphqlClaim = this.toClaimGraphQL(row);
+
+    if (input.status === 'rejected') {
+      await this.draftAppealFor(graphqlClaim);
+    }
+
+    return graphqlClaim;
+  }
+
+  // Pure orchestration: classify the denial reason, gather the claim's
+  // own real evidence, compose the draft, upsert it. `graphqlClaim` is
+  // the already-shaped (rupees, resolved names) claim from
+  // toClaimGraphQL -- avoids a second raw-row fetch for display fields
+  // buildAppealDraft needs.
+  private async draftAppealFor(graphqlClaim: any) {
+    const { category } = classifyDenial(graphqlClaim.rejection_reason ?? '');
+    const evidence = await this.prescriptionEvidenceFor(graphqlClaim.appointment_id);
+    const draft = buildAppealDraft(
+      {
+        id: graphqlClaim.id,
+        payerName: graphqlClaim.payer.name,
+        patientName: graphqlClaim.patient_name,
+        appointmentDate: graphqlClaim.appointment_date,
+        claimAmountRupees: graphqlClaim.claim_amount,
+        rejectionReason: graphqlClaim.rejection_reason ?? '',
+      },
+      category,
+      evidence.map((rx: any) => ({ issuedAt: rx.issued_at, drugNames: (rx.items ?? []).map((i: any) => i.drug_name) })),
+    );
+
+    await this.prisma.claimAppeals.upsert({
+      where: { claim_id: graphqlClaim.id },
+      // A re-rejection (a real, if unusual, path back through the state
+      // machine) regenerates the draft in place and resets it to 'draft'
+      // -- an earlier approval of a since-superseded draft should not
+      // silently remain 'approved' against different content.
+      create: { claim_id: graphqlClaim.id, denial_category: category, draft_content: draft },
+      update: { denial_category: category, draft_content: draft, status: 'draft', approved_by_user_id: null, approved_at: null },
+    });
+  }
+
+  private async prescriptionEvidenceFor(appointmentId: string) {
+    const encounter = await this.prisma.encounters.findUnique({ where: { appointment_id: appointmentId } });
+    if (!encounter) return [];
+    return this.prescriptionsService.prescriptionsForEncounter(encounter.id);
   }
 
   // REQ137 (US-INS-06) — auto-attaches the claim's own appointment's
@@ -312,10 +403,43 @@ export class InsuranceService {
   // empty state, not an error.
   async claimEvidencePrescriptions(claimId: string, user: JwtPayload) {
     const claim = await this.loadClaimForUser(claimId, user);
-    const encounter = await this.prisma.encounters.findUnique({
-      where: { appointment_id: claim.appointment_id },
+    return this.prescriptionEvidenceFor(claim.appointment_id);
+  }
+
+  // P2-03 -- read-only; reuses loadClaimForUser for org access rather
+  // than re-deriving it. Nullable: a claim that has never been rejected
+  // has no appeal row at all, a legitimate empty state, not an error.
+  async claimAppeal(claimId: string, user: JwtPayload) {
+    await this.loadClaimForUser(claimId, user);
+    const appeal = await this.prisma.claimAppeals.findUnique({ where: { claim_id: claimId } });
+    return appeal ? this.toClaimAppealGraphQL(appeal) : null;
+  }
+
+  // P2-03 -- the "one-click accept/override" the phase plan's own FE
+  // requirement names. Gated to manager/admin/super_admin (not `staff`),
+  // matching updateClaimStatus's own approve/reject gate -- deciding an
+  // appeal is the same class of decision as deciding the claim itself.
+  // Never touches claim.status or submits anywhere -- approving marks
+  // the DRAFT ready, nothing more; this environment has no live payer
+  // API to send it to.
+  async approveClaimAppeal(appealId: string, input: ApproveClaimAppealInput, user: JwtPayload) {
+    const appeal = await this.prisma.claimAppeals.findUnique({
+      where: { id: appealId },
+      include: { claim: { include: { appointment: { include: { clinic: true } } } } },
     });
-    if (!encounter) return [];
-    return this.prescriptionsService.prescriptionsForEncounter(encounter.id);
+    if (!appeal) throw new NotFoundException('Appeal not found');
+    if (!isSameOrg(user, appeal.claim.appointment.clinic.client_org_id)) {
+      throw new NotFoundException('Appeal not found');
+    }
+    const row = await this.prisma.claimAppeals.update({
+      where: { id: appealId },
+      data: {
+        status: 'approved',
+        approved_by_user_id: user.sub,
+        approved_at: new Date(),
+        draft_content: input.content ?? appeal.draft_content,
+      },
+    });
+    return this.toClaimAppealGraphQL(row);
   }
 }

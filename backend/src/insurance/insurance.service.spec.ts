@@ -4,6 +4,7 @@ import { InsuranceService } from './insurance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientsService } from '../patients/patients.service';
 import { PrescriptionsService } from '../prescriptions/prescriptions.service';
+import { AiClinicalService } from '../ai-clinical/ai-clinical.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // REQ031 (US-INS-01/03, P1 scope) — Payers is global reference data (no
@@ -22,9 +23,11 @@ describe('InsuranceService', () => {
     appointments: { findUnique: jest.Mock };
     claims: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     encounters: { findUnique: jest.Mock };
+    claimAppeals: { findUnique: jest.Mock; upsert: jest.Mock; update: jest.Mock };
   };
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
   let prescriptionsService: { prescriptionsForEncounter: jest.Mock };
+  let aiClinicalService: { suggestEncounterCodes: jest.Mock };
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const clinicA = { id: 'clinic-a', client_org_id: 'org-a', is_deleted: false };
@@ -51,15 +54,18 @@ describe('InsuranceService', () => {
       appointments: { findUnique: jest.fn() },
       claims: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), update: jest.fn() },
       encounters: { findUnique: jest.fn() },
+      claimAppeals: { findUnique: jest.fn(), upsert: jest.fn(), update: jest.fn() },
     };
     patientsService = { ownAndDependantPatientIds: jest.fn() };
     prescriptionsService = { prescriptionsForEncounter: jest.fn() };
+    aiClinicalService = { suggestEncounterCodes: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         InsuranceService,
         { provide: PrismaService, useValue: prisma },
         { provide: PatientsService, useValue: patientsService },
         { provide: PrescriptionsService, useValue: prescriptionsService },
+        { provide: AiClinicalService, useValue: aiClinicalService },
       ],
     }).compile();
     service = module.get(InsuranceService);
@@ -257,6 +263,29 @@ describe('InsuranceService', () => {
       }));
     });
 
+    // P2-03
+    it('stores diagnosis_codes/procedure_codes verbatim when the human-reviewed input includes them', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1' });
+      prisma.claims.create.mockResolvedValue(claimSubmitted);
+      const diagnosis_codes = [{ code: 'J06.9', description: 'Acute URI' }];
+      await service.submitClaim({ appointment_id: 'appt-1', payer_id: 'payer-1', claim_amount: 5000, diagnosis_codes } as any, orgAUser);
+      expect(prisma.claims.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ diagnosis_codes_json: diagnosis_codes, procedure_codes_json: undefined }),
+      }));
+    });
+
+    it('exposes the claim\'s own stored codes on read, mapped from the *_json columns', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
+      prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1' });
+      prisma.claims.create.mockResolvedValue({
+        ...claimSubmitted, diagnosis_codes_json: [{ code: 'J06.9', description: 'Acute URI' }], procedure_codes_json: null,
+      });
+      const result = await service.submitClaim({ appointment_id: 'appt-1', payer_id: 'payer-1', claim_amount: 5000 } as any, orgAUser);
+      expect(result.diagnosis_codes).toEqual([{ code: 'J06.9', description: 'Acute URI' }]);
+      expect(result.procedure_codes).toBeUndefined();
+    });
+
     it('returns claim_amount as rupees (Float) and a flattened patient_name, not paise/a raw join', async () => {
       prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
       prisma.payers.findUnique.mockResolvedValue({ id: 'payer-1' });
@@ -341,6 +370,135 @@ describe('InsuranceService', () => {
       await service.updateClaimStatus('claim-1', { status: 'settled' } as any, orgAUser);
       expect(prisma.claims.update).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ status: 'settled', settled_at: expect.any(Date) }),
+      }));
+    });
+
+    // P2-03 — the "agent" step: a rejection auto-drafts an appeal.
+    it('auto-drafts an appeal when a claim moves to rejected, classifying the denial reason', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, status: 'under_review' });
+      prisma.claims.update.mockResolvedValue({
+        ...claimSubmitted, status: 'rejected', rejection_reason: 'Documentation was missing',
+      });
+      prisma.encounters.findUnique.mockResolvedValue(null);
+
+      await service.updateClaimStatus('claim-1', { status: 'rejected', rejection_reason: 'Documentation was missing' } as any, orgAUser);
+
+      expect(prisma.claimAppeals.upsert).toHaveBeenCalledTimes(1);
+      const call = prisma.claimAppeals.upsert.mock.calls[0][0];
+      expect(call.where).toEqual({ claim_id: 'claim-1' });
+      expect(call.create.denial_category).toBe('missing_documentation');
+      expect(call.create.draft_content).toContain('claim-1');
+      expect(call.update).toMatchObject({ status: 'draft', approved_by_user_id: null, approved_at: null });
+    });
+
+    it('never drafts an appeal for a non-rejection transition', async () => {
+      prisma.claims.findUnique.mockResolvedValue(claimSubmitted);
+      prisma.claims.update.mockResolvedValue({ ...claimSubmitted, status: 'under_review' });
+      await service.updateClaimStatus('claim-1', { status: 'under_review' } as any, orgAUser);
+      expect(prisma.claimAppeals.upsert).not.toHaveBeenCalled();
+    });
+
+    it('includes real evidence in the drafted appeal when the appointment has an encounter', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, status: 'under_review' });
+      prisma.claims.update.mockResolvedValue({ ...claimSubmitted, status: 'rejected', rejection_reason: 'Incorrect ICD code' });
+      prisma.encounters.findUnique.mockResolvedValue({ id: 'enc-1', appointment_id: 'appt-1' });
+      prescriptionsService.prescriptionsForEncounter.mockResolvedValue([
+        { issued_at: new Date('2026-08-20'), items: [{ drug_name: 'Paracetamol 650mg' }] },
+      ]);
+
+      await service.updateClaimStatus('claim-1', { status: 'rejected', rejection_reason: 'Incorrect ICD code' } as any, orgAUser);
+
+      const call = prisma.claimAppeals.upsert.mock.calls[0][0];
+      expect(call.create.denial_category).toBe('coding_mismatch');
+      expect(call.create.draft_content).toContain('Paracetamol 650mg');
+    });
+  });
+
+  // P2-03
+  describe('suggestClaimCodes', () => {
+    it('rejects a cross-org appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...appointmentOpen, clinic: clinicB });
+      await expect(service.suggestClaimCodes('appt-1', orgAUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.encounters.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('returns empty suggestions when the appointment has no encounter yet, never throwing', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
+      prisma.encounters.findUnique.mockResolvedValue(null);
+      const result = await service.suggestClaimCodes('appt-1', orgAUser);
+      expect(result).toEqual({ diagnosis_suggestions: [], procedure_suggestions: [] });
+      expect(aiClinicalService.suggestEncounterCodes).not.toHaveBeenCalled();
+    });
+
+    it('delegates to AiClinicalService#suggestEncounterCodes for the resolved encounter, reusing its own self-scoping', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(appointmentOpen);
+      prisma.encounters.findUnique.mockResolvedValue({ id: 'enc-1', appointment_id: 'appt-1' });
+      aiClinicalService.suggestEncounterCodes.mockResolvedValue({ diagnosis_suggestions: [{ code: 'J06.9' }], procedure_suggestions: [] });
+      const result = await service.suggestClaimCodes('appt-1', orgAUser);
+      expect(aiClinicalService.suggestEncounterCodes).toHaveBeenCalledWith('enc-1', orgAUser);
+      expect(result.diagnosis_suggestions).toEqual([{ code: 'J06.9' }]);
+    });
+  });
+
+  // P2-03
+  describe('claimAppeal', () => {
+    it('rejects a cross-org claim, same access control as claim()', async () => {
+      prisma.claims.findUnique.mockResolvedValue({ ...claimSubmitted, appointment: { ...appointmentOpen, clinic: clinicB } });
+      await expect(service.claimAppeal('claim-1', orgAUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('returns null for a claim that has never been rejected, never throwing', async () => {
+      prisma.claims.findUnique.mockResolvedValue(claimSubmitted);
+      prisma.claimAppeals.findUnique.mockResolvedValue(null);
+      const result = await service.claimAppeal('claim-1', orgAUser);
+      expect(result).toBeNull();
+    });
+
+    it('returns the real drafted appeal when one exists', async () => {
+      prisma.claims.findUnique.mockResolvedValue(claimSubmitted);
+      prisma.claimAppeals.findUnique.mockResolvedValue({ id: 'appeal-1', claim_id: 'claim-1', status: 'draft' });
+      const result = await service.claimAppeal('claim-1', orgAUser);
+      expect(result).toMatchObject({ id: 'appeal-1', status: 'draft' });
+    });
+  });
+
+  // P2-03 — the "one-click accept/override".
+  describe('approveClaimAppeal', () => {
+    const appealDraft = {
+      id: 'appeal-1', claim_id: 'claim-1', denial_category: 'coding_mismatch', draft_content: 'draft text',
+      status: 'draft', approved_by_user_id: null, approved_at: null,
+      claim: { ...claimSubmitted, appointment: { ...appointmentOpen, clinic: clinicA } },
+    };
+
+    it('rejects an appeal for a cross-org claim', async () => {
+      prisma.claimAppeals.findUnique.mockResolvedValue({
+        ...appealDraft, claim: { ...claimSubmitted, appointment: { ...appointmentOpen, clinic: clinicB } },
+      });
+      await expect(service.approveClaimAppeal('appeal-1', {} as any, orgAUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.claimAppeals.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown appeal id', async () => {
+      prisma.claimAppeals.findUnique.mockResolvedValue(null);
+      await expect(service.approveClaimAppeal('appeal-x', {} as any, orgAUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('approves as-is when no override content is given, attributing the human decision', async () => {
+      prisma.claimAppeals.findUnique.mockResolvedValue(appealDraft);
+      prisma.claimAppeals.update.mockResolvedValue({ ...appealDraft, status: 'approved', approved_by_user_id: 'u1' });
+      await service.approveClaimAppeal('appeal-1', {} as any, orgAUser);
+      expect(prisma.claimAppeals.update).toHaveBeenCalledWith({
+        where: { id: 'appeal-1' },
+        data: { status: 'approved', approved_by_user_id: 'u1', approved_at: expect.any(Date), draft_content: 'draft text' },
+      });
+    });
+
+    it('overrides the draft content when the human edits it before approving', async () => {
+      prisma.claimAppeals.findUnique.mockResolvedValue(appealDraft);
+      prisma.claimAppeals.update.mockResolvedValue({ ...appealDraft, draft_content: 'edited text', status: 'approved' });
+      await service.approveClaimAppeal('appeal-1', { content: 'edited text' } as any, orgAUser);
+      expect(prisma.claimAppeals.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ draft_content: 'edited text' }),
       }));
     });
   });

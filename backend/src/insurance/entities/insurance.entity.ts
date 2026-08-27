@@ -50,6 +50,14 @@ export class PayerChargeEstimateType {
   @Field() has_tariff: boolean;
 }
 
+// P2-03 — a claim's own stored diagnosis/procedure code, echoing
+// ClaimCodeInput's own {code, description} shape.
+@ObjectType('ClaimCode')
+export class ClaimCodeType {
+  @Field() code: string;
+  @Field() description: string;
+}
+
 // REQ131 — a basic OPD cashless claim-tracking record. claim_amount/
 // approved_amount cross the resolver boundary as rupees (Float), same
 // paise->rupees convention as PayerTariffType.tariff_price above.
@@ -70,4 +78,22 @@ export class ClaimType {
   @Field({ nullable: true }) decided_at?: Date;
   @Field({ nullable: true }) settled_at?: Date;
   @Field({ nullable: true }) notes?: string;
+  // P2-03
+  @Field(() => [ClaimCodeType], { nullable: true }) diagnosis_codes?: ClaimCodeType[];
+  @Field(() => [ClaimCodeType], { nullable: true }) procedure_codes?: ClaimCodeType[];
+}
+
+// P2-03 — the auto-drafted appeal for a rejected claim. approved_at/
+// approved_by_user_id stay null while status is 'draft' -- populated only
+// once a real human calls approveClaimAppeal.
+@ObjectType('ClaimAppeal')
+export class ClaimAppealType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) claim_id: string;
+  @Field() denial_category: string;
+  @Field() draft_content: string;
+  @Field() status: string;
+  @Field(() => ID, { nullable: true }) approved_by_user_id?: string;
+  @Field({ nullable: true }) approved_at?: Date;
+  @Field() created_at: Date;
 }

@@ -2979,6 +2979,13 @@ model Claims {
   decided_at            DateTime?
   settled_at            DateTime?
   notes                 String?
+  // REQ154 (P2-02) -- optional, auto-populated at submission time from
+  // suggestEncounterCodes() when the caller accepts a suggestion; each
+  // element is {code, description}. Json, not a relation table, matching
+  // this schema's own established convention for structured-but-not-
+  // independently-queried side data (recipients_json, category_pricing_json).
+  diagnosis_codes_json  Json?
+  procedure_codes_json  Json?
   created_at            DateTime  @default(now())
   updated_at            DateTime  @updatedAt
 
@@ -2987,11 +2994,42 @@ model Claims {
   payer        Payers                     @relation(fields: [payer_id], references: [id])
   policy       PatientInsurancePolicies?  @relation(fields: [policy_id], references: [id])
   submitted_by UserProfiles               @relation(fields: [submitted_by_user_id], references: [id])
+  appeal       ClaimAppeals?
 
   @@index([status])
   @@index([patient_id])
   @@index([appointment_id])
   @@index([payer_id])
+}
+
+// P2-03 -- the "agent" step of the claim lifecycle: the moment a claim is
+// rejected (updateClaimStatus), a draft appeal is auto-generated from a
+// deterministic denial classifier (denial-classification.ts) plus the
+// claim's own already-real evidence (REQ137's claimEvidencePrescriptions).
+// This row IS the audit trail Hard Rule "every agent action audited and
+// reversible" asks for: created unattributed (the agent's own draft),
+// approved_by_user_id/approved_at populated only once a real human
+// reviews and approves it (approveClaimAppeal) -- never auto-submitted to
+// a payer anywhere in this codebase, matching the phase plan's own "never
+// auto-submit without a human decision point" constraint and this
+// environment's honest lack of a real payer API to submit to.
+// @unique claim_id -- one live draft per claim; re-rejecting a claim
+// (a real, if unusual, path back through the state machine) regenerates
+// it in place rather than accumulating stale drafts.
+model ClaimAppeals {
+  id                   String    @id @default(uuid())
+  claim_id             String    @unique
+  denial_category      String    // missing_documentation | coding_mismatch | not_covered | authorization_required | duplicate_claim | other
+  draft_content        String
+  status               String    @default("draft") // draft | approved
+  approved_by_user_id  String?
+  approved_at          DateTime?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  claim Claims @relation(fields: [claim_id], references: [id], onDelete: Cascade)
+
+  @@index([claim_id])
 }
 
 // ============================================================

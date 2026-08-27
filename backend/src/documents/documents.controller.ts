@@ -85,6 +85,14 @@ export class DocumentsController {
     this.sendPdf(res, buffer, `reimbursement-pack-${id}.pdf`);
   }
 
+  // P2-03
+  @Get('claims/:id/appeal/pdf')
+  async appealPdf(@Param('id') id: string, @Req() req: Request, @Res() res: Response) {
+    const user = await this.authenticate(req);
+    const buffer = await this.documentsService.appealPdf(id, user);
+    this.sendPdf(res, buffer, `claim-appeal-${id}.pdf`);
+  }
+
   // REQ109 — genuinely public: no Bearer token, no `authenticate()` call.
   // The signed link token + OTP together ARE the access control (the
   // prescriptionId is never a client-supplied URL/body id -- it's derived

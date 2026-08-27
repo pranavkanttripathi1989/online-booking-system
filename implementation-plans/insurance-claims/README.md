@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN196 | improvement | Agentic claim lifecycle (P2-03) | done | 2026-08-27 | 2026-08-27 | REQ155 | [PLAN196-insurance-claims-2026-08-27-agentic-claim-lifecycle.md](./improvement/PLAN196-insurance-claims-2026-08-27-agentic-claim-lifecycle.md) |
 | PLAN178 | improvement | Reimbursement-pack PDF generation | done | 2026-08-26 | 2026-08-26 | REQ138 | [PLAN178-insurance-claims-2026-08-26-reimbursement-pack-pdf.md](./improvement/PLAN178-insurance-claims-2026-08-26-reimbursement-pack-pdf.md) |
 | PLAN177 | improvement | Auto-attach a claim's issued prescriptions as evidence (US-INS-06) | done | 2026-08-26 | 2026-08-26 | REQ137 | [PLAN177-insurance-claims-2026-08-26-auto-attach-prescription-evidence.md](./improvement/PLAN177-insurance-claims-2026-08-26-auto-attach-prescription-evidence.md) |
 | PLAN171 | improvement | OPD cashless claim submission and tracking | done | 2026-08-26 | 2026-08-26 | REQ131 | [PLAN171-insurance-claims-2026-08-26-opd-cashless-claim-submission.md](./improvement/PLAN171-insurance-claims-2026-08-26-opd-cashless-claim-submission.md) |

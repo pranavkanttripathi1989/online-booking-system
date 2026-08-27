@@ -303,4 +303,42 @@ export class DocumentsService {
       }
     });
   }
+
+  // P2-03 -- the drafted (or, once a human has reviewed it,
+  // human-approved) appeal for a rejected claim, as a PDF a claims-desk
+  // user can hand to a payer/TPA. Same explicit role re-check as
+  // reimbursementPackPdf above -- this REST controller never passes
+  // through GqlAuthGuard/RolesGuard, so InsuranceService#claim()/
+  // claimAppeal()'s own org-only access check is not enough on its own.
+  async appealPdf(claimId: string, user: JwtPayload): Promise<Buffer> {
+    if (!user.roles.some((r) => ['staff', 'manager', 'admin', 'super_admin'].includes(r))) {
+      throw new ForbiddenException('Not authorized to view claim documents');
+    }
+    const [claim, appeal] = await Promise.all([
+      this.insuranceService.claim(claimId, user),
+      this.insuranceService.claimAppeal(claimId, user),
+    ]);
+    if (!claim) throw new NotFoundException('Claim not found');
+    if (!appeal) throw new NotFoundException('No appeal has been drafted for this claim');
+
+    const appointment = await this.prisma.appointments.findUnique({
+      where: { id: claim.appointment_id },
+      include: { clinic: true },
+    });
+
+    return renderPdfToBuffer((doc) => {
+      drawLetterhead(doc, appointment?.clinic.name ?? 'Clinic', appointment?.clinic.phone);
+
+      doc.fontSize(14).font('Helvetica-Bold').text('Insurance Claim Appeal');
+      doc.fontSize(9).font('Helvetica').fillColor('#555555');
+      doc.text(appeal.status === 'approved' ? 'Status: Approved' : 'Status: Draft — pending review');
+      doc.fillColor('black');
+      doc.moveDown(1);
+      doc.fontSize(10).font('Helvetica');
+      // draft_content is plain multi-line text (appeal-draft.ts's own
+      // '\n'-joined output) -- pdfkit wraps it directly, matching the
+      // same free-text rendering visitSummaryPdf's own notes section uses.
+      doc.text((appeal as any).draft_content);
+    });
+  }
 }

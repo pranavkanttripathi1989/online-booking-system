@@ -27,6 +27,7 @@ import {
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import PolicyRoundedIcon from '@mui/icons-material/PolicyRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded'
 import ErrorBoundary from '../../../components/ErrorBoundary'
 import { downloadAuthenticatedPdf } from '../../../utils/documents'
 
@@ -113,6 +114,54 @@ const UPDATE_CLAIM_STATUS = gql`
     }
   }
 `
+// P2-03 — draft suggestions only; the claims desk reviews/edits before
+// they are ever included in a real SubmitClaim call.
+const SUGGEST_CLAIM_CODES = gql`
+  query SuggestClaimCodes($appointment_id: ID!) {
+    suggestClaimCodes(appointment_id: $appointment_id) {
+      diagnosis_suggestions {
+        code
+        description
+        matched_terms
+      }
+      procedure_suggestions {
+        code
+        description
+        matched_terms
+      }
+    }
+  }
+`
+const GET_CLAIM_APPEAL = gql`
+  query GetClaimAppeal($claim_id: ID!) {
+    claimAppeal(claim_id: $claim_id) {
+      id
+      denial_category
+      draft_content
+      status
+      approved_at
+    }
+  }
+`
+const APPROVE_CLAIM_APPEAL = gql`
+  mutation ApproveClaimAppeal($id: ID!, $input: ApproveClaimAppealInput!) {
+    approveClaimAppeal(id: $id, input: $input) {
+      id
+      status
+      draft_content
+      approved_at
+    }
+  }
+`
+
+const DENIAL_CATEGORY_LABEL = {
+  missing_documentation: 'Missing documentation',
+  coding_mismatch: 'Coding mismatch',
+  not_covered: 'Not covered under policy',
+  authorization_required: 'Prior authorization required',
+  duplicate_claim: 'Duplicate claim',
+  other: 'Other / unclassified',
+}
 
 const STATUS_COLOR = { submitted: 'default', under_review: 'warning', approved: 'info', rejected: 'error', settled: 'success' }
 const STATUS_LABEL = {
@@ -131,7 +180,9 @@ function ClaimsDesk() {
   const [submitOpen, setSubmitOpen] = useState(false)
   const [patientSearch, setPatientSearch] = useState('')
   const [selectedAppointment, setSelectedAppointment] = useState(null)
-  const [claimForm, setClaimForm] = useState({ payer_id: '', policy_id: '', claim_amount: '', notes: '' })
+  const [claimForm, setClaimForm] = useState({
+    payer_id: '', policy_id: '', claim_amount: '', notes: '', diagnosis_codes: [], procedure_codes: [],
+  })
   const [downloadingId, setDownloadingId] = useState(null)
 
   const [searchAppointments, { data: apptData, loading: apptLoading }] = useLazyQuery(SEARCH_APPOINTMENTS)
@@ -139,22 +190,51 @@ function ClaimsDesk() {
   const [loadPolicies, { data: policiesData }] = useLazyQuery(GET_PATIENT_POLICIES_FOR_CLAIM)
   const [submitClaimMutation, { loading: submitting }] = useMutation(SUBMIT_CLAIM)
   const [updateStatus] = useMutation(UPDATE_CLAIM_STATUS)
+  // P2-03 — network-only: suggestions must reflect the appointment's
+  // current saved notes, not a stale cached read from an earlier visit.
+  const [loadSuggestedCodes, { data: suggestData, loading: suggestLoading }] = useLazyQuery(SUGGEST_CLAIM_CODES, {
+    fetchPolicy: 'network-only',
+  })
 
   const [decisionDialog, setDecisionDialog] = useState(null) // { claim, targetStatus }
   const [decisionForm, setDecisionForm] = useState({ approved_amount: '', rejection_reason: '' })
 
+  // P2-03 — the claims-desk "agent column": view/approve/override the
+  // auto-drafted appeal for a rejected claim.
+  const [appealDialog, setAppealDialog] = useState(null) // the claim being viewed
+  const [appealContent, setAppealContent] = useState('')
+  const [loadAppeal, { data: appealData, loading: appealLoading }] = useLazyQuery(GET_CLAIM_APPEAL, {
+    fetchPolicy: 'network-only',
+  })
+  const [approveAppeal, { loading: approvingAppeal }] = useMutation(APPROVE_CLAIM_APPEAL)
+
   const handleSelectAppointment = useCallback(
     (appt) => {
       setSelectedAppointment(appt)
-      if (appt) loadPolicies({ variables: { patient_id: appt.patient.id } })
+      if (appt) {
+        loadPolicies({ variables: { patient_id: appt.patient.id } })
+        // P2-03 — "auto-populate": suggested codes load as soon as an
+        // appointment is picked, reviewed/edited by the human before
+        // Submit ever fires (nothing here is saved on its own).
+        loadSuggestedCodes({ variables: { appointment_id: appt.id } })
+      }
     },
-    [loadPolicies],
+    [loadPolicies, loadSuggestedCodes],
   )
 
   const resetSubmitForm = () => {
     setPatientSearch('')
     setSelectedAppointment(null)
-    setClaimForm({ payer_id: '', policy_id: '', claim_amount: '', notes: '' })
+    setClaimForm({ payer_id: '', policy_id: '', claim_amount: '', notes: '', diagnosis_codes: [], procedure_codes: [] })
+  }
+
+  // P2-03 — one-click accept from a suggestion; a second click on an
+  // already-accepted code removes it (a real override, not one-way).
+  const toggleClaimCode = (field, code) => {
+    setClaimForm((f) => {
+      const exists = f[field].some((c) => c.code === code.code)
+      return { ...f, [field]: exists ? f[field].filter((c) => c.code !== code.code) : [...f[field], code] }
+    })
   }
 
   const handleSubmitClaim = async () => {
@@ -167,6 +247,12 @@ function ClaimsDesk() {
             policy_id: claimForm.policy_id || undefined,
             claim_amount: Number(claimForm.claim_amount),
             notes: claimForm.notes || undefined,
+            diagnosis_codes: claimForm.diagnosis_codes.length
+              ? claimForm.diagnosis_codes.map(({ code, description }) => ({ code, description }))
+              : undefined,
+            procedure_codes: claimForm.procedure_codes.length
+              ? claimForm.procedure_codes.map(({ code, description }) => ({ code, description }))
+              : undefined,
           },
         },
       })
@@ -229,6 +315,36 @@ function ClaimsDesk() {
       enqueueSnackbar(err?.message || 'Failed to download reimbursement pack', { variant: 'error' })
     } finally {
       setDownloadingId(null)
+    }
+  }
+
+  // P2-03 — opens the agent's own drafted appeal for review. The
+  // TextField pre-fills from the real draft; editing it before Approve
+  // is the "override" half of "one-click accept/override".
+  const handleOpenAppeal = (claim) => {
+    setAppealDialog(claim)
+    setAppealContent('')
+    loadAppeal({ variables: { claim_id: claim.id } })
+  }
+
+  const handleApproveAppeal = async () => {
+    const appeal = appealData?.claimAppeal
+    if (!appeal) return
+    try {
+      const edited = appealContent.trim() && appealContent !== appeal.draft_content ? appealContent : undefined
+      await approveAppeal({ variables: { id: appeal.id, input: { content: edited } } })
+      enqueueSnackbar('Appeal approved.', { variant: 'success' })
+      setAppealDialog(null)
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to approve appeal', { variant: 'error' })
+    }
+  }
+
+  const handleDownloadAppealPdf = async (claim) => {
+    try {
+      await downloadAuthenticatedPdf(`/documents/claims/${claim.id}/appeal/pdf`, `claim-appeal-${claim.id}.pdf`)
+    } catch (err) {
+      enqueueSnackbar(err?.message || 'Failed to download appeal', { variant: 'error' })
     }
   }
 
@@ -302,6 +418,13 @@ function ClaimsDesk() {
                         {c.status === 'approved' && (
                           <Button size="small" onClick={() => handleAdvance(c)}>
                             Mark Settled
+                          </Button>
+                        )}
+                        {/* P2-03 — the agent's own drafted appeal, one click away from
+                            the claim it belongs to. */}
+                        {c.status === 'rejected' && (
+                          <Button size="small" startIcon={<AutoAwesomeRoundedIcon fontSize="small" />} onClick={() => handleOpenAppeal(c)}>
+                            Appeal
                           </Button>
                         )}
                         <Button
@@ -409,6 +532,50 @@ function ClaimsDesk() {
                   value={claimForm.notes}
                   onChange={(e) => setClaimForm((f) => ({ ...f, notes: e.target.value }))}
                 />
+
+                {/* P2-03 — "auto-populate": suggested from the visit's own
+                    notes, but nothing is added until a human clicks it. */}
+                <Box>
+                  <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+                    <AutoAwesomeRoundedIcon fontSize="small" color="primary" />
+                    <Typography variant="subtitle2" fontWeight={700}>
+                      Suggested codes
+                    </Typography>
+                    {suggestLoading && <CircularProgress size={16} />}
+                  </Stack>
+                  {!suggestLoading &&
+                    (suggestData?.suggestClaimCodes?.diagnosis_suggestions?.length ?? 0) === 0 &&
+                    (suggestData?.suggestClaimCodes?.procedure_suggestions?.length ?? 0) === 0 && (
+                      <Typography variant="caption" color="text.secondary">
+                        No suggestions available for this visit yet.
+                      </Typography>
+                    )}
+                  <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap sx={{ mb: 1 }}>
+                    {(suggestData?.suggestClaimCodes?.diagnosis_suggestions ?? []).map((s) => (
+                      <Chip
+                        key={`dx-${s.code}`}
+                        size="small"
+                        label={`${s.code} — ${s.description}`}
+                        color={claimForm.diagnosis_codes.some((c) => c.code === s.code) ? 'primary' : 'default'}
+                        onClick={() => toggleClaimCode('diagnosis_codes', s)}
+                      />
+                    ))}
+                    {(suggestData?.suggestClaimCodes?.procedure_suggestions ?? []).map((s) => (
+                      <Chip
+                        key={`pr-${s.code}`}
+                        size="small"
+                        label={`${s.code} — ${s.description}`}
+                        color={claimForm.procedure_codes.some((c) => c.code === s.code) ? 'secondary' : 'default'}
+                        onClick={() => toggleClaimCode('procedure_codes', s)}
+                      />
+                    ))}
+                  </Stack>
+                  {(claimForm.diagnosis_codes.length > 0 || claimForm.procedure_codes.length > 0) && (
+                    <Typography variant="caption" color="text.secondary">
+                      Codes to attach: {[...claimForm.diagnosis_codes, ...claimForm.procedure_codes].map((c) => c.code).join(', ')}
+                    </Typography>
+                  )}
+                </Box>
               </>
             )}
           </Stack>
@@ -487,6 +654,68 @@ function ClaimsDesk() {
               onClick={() => handleDecision('rejected')}
             >
               Reject
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+
+      {/* ── AI-drafted appeal — review, edit, approve ───────────────────── */}
+      <Dialog open={!!appealDialog} onClose={() => setAppealDialog(null)} fullWidth maxWidth="sm">
+        <DialogTitle>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <AutoAwesomeRoundedIcon fontSize="small" color="primary" />
+            <span>Claim Appeal</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          {appealLoading ? (
+            <Stack alignItems="center" sx={{ py: 3 }}>
+              <CircularProgress size={24} />
+            </Stack>
+          ) : !appealData?.claimAppeal ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+              No appeal has been drafted for this claim yet.
+            </Typography>
+          ) : (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              <Stack direction="row" spacing={1} alignItems="center">
+                <Chip
+                  size="small"
+                  label={DENIAL_CATEGORY_LABEL[appealData.claimAppeal.denial_category] ?? appealData.claimAppeal.denial_category}
+                />
+                <Chip
+                  size="small"
+                  label={appealData.claimAppeal.status === 'approved' ? 'Approved' : 'Draft — pending review'}
+                  color={appealData.claimAppeal.status === 'approved' ? 'success' : 'warning'}
+                />
+              </Stack>
+              <TextField
+                fullWidth
+                multiline
+                minRows={10}
+                label="Appeal content"
+                value={appealContent || appealData.claimAppeal.draft_content}
+                onChange={(e) => setAppealContent(e.target.value)}
+                helperText="Auto-drafted by the system — edit before approving if needed."
+              />
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAppealDialog(null)}>Close</Button>
+          {appealDialog && (
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<DownloadRoundedIcon />}
+              onClick={() => handleDownloadAppealPdf(appealDialog)}
+            >
+              Download PDF
+            </Button>
+          )}
+          {appealData?.claimAppeal && appealData.claimAppeal.status !== 'approved' && (
+            <Button variant="contained" color="success" disabled={approvingAppeal} onClick={handleApproveAppeal}>
+              {approvingAppeal ? 'Approving…' : 'Approve'}
             </Button>
           )}
         </DialogActions>

@@ -1,5 +1,6 @@
 import { InputType, Field, ID, Float } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsIn, IsDateString, IsNumber, Min } from 'class-validator';
+import { IsArray, IsNotEmpty, IsOptional, IsIn, IsDateString, IsNumber, Min, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 // REQ031 (US-INS-01) — global reference data (like Languages), no
 // client_org_id: insurers/TPAs are shared across every tenant, not owned
@@ -54,6 +55,17 @@ export class PayerTariffInput {
 // portal-assist, not a real payer API.
 export const CLAIM_STATUSES = ['submitted', 'under_review', 'approved', 'rejected', 'settled'] as const;
 
+// P2-03 -- a claim's own suggested/accepted diagnosis or procedure code,
+// stored verbatim into Claims.diagnosis_codes_json/procedure_codes_json.
+// Mirrors REQ154's CodeSuggestionType's own {code, description} shape
+// minus matched_terms/score, which are review-time-only signal with no
+// reason to persist once a human has accepted a code.
+@InputType('ClaimCodeInput')
+export class ClaimCodeInput {
+  @Field() @IsNotEmpty() code: string;
+  @Field() @IsNotEmpty() description: string;
+}
+
 @InputType('SubmitClaimInput')
 export class SubmitClaimInput {
   @Field(() => ID) @IsNotEmpty() appointment_id: string;
@@ -61,6 +73,23 @@ export class SubmitClaimInput {
   @Field(() => ID, { nullable: true }) @IsOptional() policy_id?: string;
   @Field(() => Float) @IsNumber() @Min(0) claim_amount: number;
   @Field({ nullable: true }) @IsOptional() notes?: string;
+  // P2-03 -- optional; populated by the claims desk from REQ154's own
+  // suggestClaimCodes() suggestions, reviewed and (optionally edited or
+  // dropped) by the submitting human before this mutation ever fires. An
+  // omitted array leaves the claim's own codes unset, unchanged behaviour
+  // for every existing caller.
+  @Field(() => [ClaimCodeInput], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClaimCodeInput)
+  diagnosis_codes?: ClaimCodeInput[];
+  @Field(() => [ClaimCodeInput], { nullable: true })
+  @IsOptional()
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => ClaimCodeInput)
+  procedure_codes?: ClaimCodeInput[];
 }
 
 @InputType('UpdateClaimStatusInput')
@@ -68,4 +97,13 @@ export class UpdateClaimStatusInput {
   @Field() @IsIn(CLAIM_STATUSES) status: string;
   @Field(() => Float, { nullable: true }) @IsOptional() @IsNumber() @Min(0) approved_amount?: number;
   @Field({ nullable: true }) @IsOptional() rejection_reason?: string;
+}
+
+// P2-03 -- the "one-click accept/override" the phase plan's own FE
+// requirement names: content is optional because accepting the draft
+// as-is (no edits) is the common case; supplying it lets a human correct
+// the auto-generated text before it counts as approved.
+@InputType('ApproveClaimAppealInput')
+export class ApproveClaimAppealInput {
+  @Field({ nullable: true }) @IsOptional() content?: string;
 }
