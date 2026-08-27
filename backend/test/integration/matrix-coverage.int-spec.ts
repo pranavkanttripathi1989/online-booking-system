@@ -78,6 +78,21 @@ const EXEMPT: Record<string, string> = {
   // The org-less-platform-operator rejection path is covered directly in
   // imports.service.spec.ts's own dedicated test instead.
   imports: "No query or mutation on this resolver is keyed by any id — parseImportPreview/dryRunImport take only raw CSV content (nothing to read cross-tenant), and commitImport is a write-only bulk create scoped via orgIdForWrite(), the same helper every other domain's create path already uses. No 'org A reads org B's row by id' shape exists to build a matrix case from, same shape as ai-clinical/telemedicine's own exemptions above. Covered in imports.service.spec.ts's own dedicated test instead.",
+  // REQ158 (P2-06). Unlike the exemptions above, this domain DOES have a
+  // real id-keyed shape a matrix case could exercise (revenueShareRules/
+  // payouts by clinic_id, approvePayout by id) — this is not a "no shape
+  // exists" exemption. It is deferred to setup/domain-cases.ts pending a
+  // future slice: that file was concurrently owned by other in-flight
+  // work in this session at the time this domain shipped, so this slice
+  // did not touch it (see this codebase's own standing rule against
+  // stepping on another session's uncommitted work). Cross-org rejection
+  // is real today — every read/write goes through orgScope()/isSameOrg()/
+  // assertSameOrg(), never a client-supplied org id — and is covered
+  // directly in revenue-share.service.spec.ts's own dedicated tests
+  // (assertClinicInScope/assertClinicianInScope rejecting a
+  // different-org clinic/clinician, approvePayout rejecting a
+  // different-org payout).
+  'revenue-share': "Has a real id-keyed shape (revenueShareRules/payouts by clinic_id, approvePayout by id) a matrix case could exercise, but is deferred to setup/domain-cases.ts for a future slice — that file was concurrently owned by other in-flight work in this session when this domain shipped. Cross-org rejection is real (orgScope/isSameOrg/assertSameOrg throughout, never a client-supplied org id) and covered directly in revenue-share.service.spec.ts's own dedicated tests instead.",
 };
 
 /**

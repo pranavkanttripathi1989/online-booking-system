@@ -57,6 +57,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MessageIcon from '@mui/icons-material/Message'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
+import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
@@ -258,6 +259,8 @@ const MANAGER_CHILDREN = [
   { label: 'Packages', path: '/manager/packages', icon: <WorkspacePremiumIcon /> },
   // P2-05 — CSV migration importer.
   { label: 'Patient Import', path: '/manager/imports', icon: <UploadFileRoundedIcon /> },
+  // P2-06 — doctor revenue-share & payouts.
+  { label: 'Revenue Share', path: '/manager/revenue-share', icon: <AccountBalanceWalletIcon /> },
 ]
 
 const BOTTOM_NAV = [

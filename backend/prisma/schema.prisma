@@ -928,6 +928,8 @@ model ClientOrganizations {
   cannedReplies          CannedReplies[]
   tasks                  Tasks[]
   importJobs             ImportJobs[]
+  revenueShareRules      RevenueShareRules[]
+  payouts                Payouts[]
 }
 
 model ClinicianAvailability {
@@ -1028,6 +1030,8 @@ model Clinicians {
   waitlistEntries     WaitlistEntries[]
   // REQ128 -- referrals naming this clinician as the target, not one they authored.
   referralsReceived   Referrals[]
+  revenueShareRules   RevenueShareRules[]
+  payouts             Payouts[]
 
   @@index([clinic_id, is_deleted, is_active])
   @@index([department_id])
@@ -1115,6 +1119,8 @@ model Clinics {
   productBranchOverrides ProductBranchOverrides[]
   messageThreads     MessageThreads[]
   waitlistEntries    WaitlistEntries[]
+  revenueShareRules  RevenueShareRules[]
+  payouts            Payouts[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -3343,4 +3349,72 @@ model Tasks {
   @@index([client_org_id, status])
   @@index([assigned_to_user_id])
   @@index([patient_id])
+}
+
+// REQ158 (P2-06) -- doctor revenue-share & payouts. `scope` mirrors
+// resolveServicePrice()'s own most-specific-wins pattern
+// (resolve-price.ts, REQ055/REQ100): a clinician-level rule is checked
+// before a clinic-level rule, which is checked before the org-level
+// default. clinic_id/clinician_id are only ever set together with the
+// scope that names them ('clinic' sets clinic_id only; 'clinician' sets
+// both, since a clinician's own rule is naturally attached to the branch
+// they're at today -- see the schema note on Clinicians.clinic_id being
+// singular, not a many-to-many). No DB-level uniqueness across the
+// nullable scope columns (Postgres treats NULL as distinct per row, so a
+// plain @@unique can't express "at most one org-default row"); the
+// service enforces "at most one active rule per scope key" via a
+// find-then-upsert, the same division of labour PayerTariffs' own
+// setPayerTariff uses for its own natural key.
+model RevenueShareRules {
+  id                  String   @id @default(uuid())
+  client_org_id       String
+  scope               String   // org | clinic | clinician
+  clinic_id           String?
+  clinician_id        String?
+  share_percentage    Float    // 0-100; the clinician's own cut
+  created_by_user_id  String?
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  clientOrg ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic    Clinics?            @relation(fields: [clinic_id], references: [id])
+  clinician Clinicians?         @relation(fields: [clinician_id], references: [id])
+
+  @@index([client_org_id])
+  @@index([clinic_id])
+  @@index([clinician_id])
+}
+
+// REQ158 (P2-06) -- one row per clinician per clinic per calendar month.
+// share_percentage_used is a snapshot at computation time, deliberately
+// independent of RevenueShareRules going forward -- US-REV-03's own
+// invariant is that an approved payout can never be silently altered by
+// a later rate change or a re-run of the computation; only a
+// pending_approval row is ever recomputed in place.
+model Payouts {
+  id                    String    @id @default(uuid())
+  client_org_id         String
+  clinic_id             String
+  clinician_id          String
+  period_start          DateTime // first day of the month, UTC midnight
+  period_end            DateTime // first day of the FOLLOWING month, UTC midnight (exclusive upper bound)
+  gross_amount          Int      // paise, sum of succeeded AppointmentPayments in period
+  share_percentage_used Float
+  payout_amount         Int      // paise
+  appointment_count     Int      @default(0)
+  status                String   @default("pending_approval") // pending_approval | approved
+  approved_by_user_id   String?
+  approved_at           DateTime?
+  computed_by_user_id   String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  clientOrg ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic    Clinics             @relation(fields: [clinic_id], references: [id])
+  clinician Clinicians          @relation(fields: [clinician_id], references: [id])
+
+  @@unique([clinician_id, clinic_id, period_start])
+  @@index([client_org_id, period_start])
+  @@index([clinic_id, period_start])
+  @@index([clinician_id])
 }

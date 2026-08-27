@@ -173,6 +173,7 @@ const AdminRightsRequests = lazy(() => import('./pages/admin/RightsRequests'))
 const ManagerPharmacy = lazy(() => import('./pages/manager/pharmacy/index'))
 const ManagerClaims = lazy(() => import('./pages/manager/claims/index'))
 const ManagerReports = lazy(() => import('./pages/manager/reports/index'))
+const ManagerRevenueShare = lazy(() => import('./pages/manager/revenue-share/index'))
 const ManagerImports = lazy(() => import('./pages/manager/imports/index'))
 import AdminLayout from './layouts/AdminLayout'
 
@@ -797,6 +798,15 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <ManagerImports />
+                </Suspense>
+              }
+            />
+            {/* P2-06 */}
+            <Route
+              path="/manager/revenue-share"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerRevenueShare />
                 </Suspense>
               }
             />
