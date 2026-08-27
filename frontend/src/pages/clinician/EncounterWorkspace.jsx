@@ -1,6 +1,6 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { useQuery, useMutation, gql } from '@apollo/client'
+import { useQuery, useMutation, useLazyQuery, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import {
   Alert,
@@ -37,10 +37,25 @@ import BiotechRoundedIcon from '@mui/icons-material/BiotechRounded'
 import ForwardToInboxRoundedIcon from '@mui/icons-material/ForwardToInboxRounded'
 import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded'
 import ShowChartRoundedIcon from '@mui/icons-material/ShowChartRounded'
+import MicRoundedIcon from '@mui/icons-material/MicRounded'
+import StopCircleRoundedIcon from '@mui/icons-material/StopCircleRounded'
+import AutoAwesomeRoundedIcon from '@mui/icons-material/AutoAwesomeRounded'
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { useAuth } from '../../hooks/useAuth'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { downloadAuthenticatedPdf } from '../../utils/documents'
+
+// P1-12 (FR-AI-04) — a blob → base64 payload for submitTranscription's
+// audio_base64 input; FileReader is the only web API that does this
+// without pulling in a dependency (BASE-5).
+function blobToBase64(blob) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve(String(reader.result).split(',')[1] ?? '')
+    reader.onerror = () => reject(new Error('Could not read the recording'))
+    reader.readAsDataURL(blob)
+  })
+}
 
 // ─── GraphQL (REQ020 P0) ────────────────────────────────────────────────────
 // A new domain, no pre-existing frontend contract to match (Hard Rule 7 is
@@ -70,6 +85,7 @@ const ENCOUNTER_QUERY = gql`
         section
         content
         version
+        ai_generated
       }
       addenda {
         id
@@ -116,8 +132,61 @@ const ENCOUNTER_QUERY = gql`
         value
         unit
         recorded_at
+        ai_generated
       }
     }
+  }
+`
+
+// ─── GraphQL (P1-11/P1-12 — AI clinical intelligence) ──────────────────────
+const START_TRANSCRIPTION_SESSION = gql`
+  mutation StartTranscriptionSession($input: StartTranscriptionSessionInput!) {
+    startTranscriptionSession(input: $input) {
+      id
+      status
+    }
+  }
+`
+const SUBMIT_TRANSCRIPTION = gql`
+  mutation SubmitTranscription($input: SubmitTranscriptionInput!) {
+    submitTranscription(input: $input) {
+      id
+      status
+      error_message
+    }
+  }
+`
+const STRUCTURE_TRANSCRIPT_SESSION = gql`
+  mutation StructureTranscriptSession($sessionId: ID!) {
+    structureTranscriptSession(session_id: $sessionId) {
+      success
+      message
+      sections {
+        section
+        content
+      }
+      vitals {
+        code
+        value
+      }
+    }
+  }
+`
+const AI_EXTRACTED_PRESCRIPTION_DRAFT = gql`
+  query AiExtractedPrescriptionDraft($sessionId: ID!) {
+    aiExtractedPrescriptionDraft(session_id: $sessionId) {
+      drug_name_text
+      drug_id
+      matched_drug_name
+      dose
+      frequency
+      duration_days
+    }
+  }
+`
+const PRE_CONSULT_SUMMARY = gql`
+  query PreConsultSummary($patientId: ID!) {
+    preConsultSummary(patient_id: $patientId)
   }
 `
 
@@ -319,6 +388,12 @@ const SECTIONS = [
 
 function sectionContent(notes, key) {
   return notes?.find((n) => n.section === key)?.content ?? ''
+}
+
+// P1-11 (FR-AI-06) — "every AI-derived field is visibly flagged" until a
+// real clinician edit clears it server-side (see saveEncounterNote()).
+function sectionAiGenerated(notes, key) {
+  return !!notes?.find((n) => n.section === key)?.ai_generated
 }
 
 // REQ135 -- matches REFERRAL_TRANSITIONS in
@@ -532,9 +607,20 @@ function NotesPane({
       <Stack spacing={2.5}>
         {SECTIONS.map((s) => (
           <Box key={s.key}>
-            <Typography variant="subtitle2" fontWeight={700} mb={0.5} id={`section-label-${s.key}`}>
-              {s.label}
-            </Typography>
+            <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
+              <Typography variant="subtitle2" fontWeight={700} id={`section-label-${s.key}`}>
+                {s.label}
+              </Typography>
+              {sectionAiGenerated(encounter?.notes, s.key) && (
+                <Chip
+                  size="small"
+                  icon={<AutoAwesomeRoundedIcon fontSize="small" />}
+                  label="AI draft — review before signing"
+                  color="info"
+                  variant="outlined"
+                />
+              )}
+            </Stack>
             <TextField
               fullWidth
               multiline
@@ -706,7 +792,10 @@ function NotesPane({
                 <Chip
                   key={v.id}
                   size="small"
+                  icon={v.ai_generated ? <AutoAwesomeRoundedIcon fontSize="small" /> : undefined}
                   label={`${VITAL_FIELDS.find((f) => f.code === v.code)?.label ?? v.code}: ${v.value} ${v.unit}`}
+                  color={v.ai_generated ? 'info' : 'default'}
+                  variant={v.ai_generated ? 'outlined' : 'filled'}
                 />
               ))}
             </Stack>
@@ -999,8 +1088,218 @@ function NotesPane({
   )
 }
 
+// ─── AI Scribe: consent-gated recording → transcript → structured draft ────
+// P1-11/P1-12 (FR-AI-01/03/04/05/06/07). Every write this produces lands as
+// ai_generated: true (badged above, in NotesPane/vitals) and is fully
+// clinician-editable before sign-off; nothing here is ever auto-submitted.
+// Audio itself is never persisted past this component's own memory — only
+// the transcript text is stored server-side (FR-AI-07).
+function AiScribePanel({ encounter, onNotesUpdated }) {
+  const navigate = useNavigate()
+  const { enqueueSnackbar } = useSnackbar()
+  const [consentOpen, setConsentOpen] = useState(false)
+  const [session, setSession] = useState(null)
+  const [recording, setRecording] = useState(false)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState(null)
+  const recorderRef = useRef(null)
+
+  const [startSession] = useMutation(START_TRANSCRIPTION_SESSION)
+  const [submitTranscription] = useMutation(SUBMIT_TRANSCRIPTION)
+  const [structureSession] = useMutation(STRUCTURE_TRANSCRIPT_SESSION)
+  const [fetchDraft, { loading: draftLoading }] = useLazyQuery(AI_EXTRACTED_PRESCRIPTION_DRAFT, { fetchPolicy: 'network-only' })
+
+  const canRecord = typeof window !== 'undefined' && !!window.MediaRecorder && !!navigator.mediaDevices?.getUserMedia
+  const locked = !!encounter?.locked
+
+  const handleConfirmConsent = async () => {
+    setError(null)
+    setConsentOpen(false)
+    try {
+      const { data } = await startSession({
+        variables: { input: { encounter_id: encounter.id, consent_given: true } },
+      })
+      const newSession = data?.startTranscriptionSession
+      if (!newSession) throw new Error('Could not start a recording session')
+
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new window.MediaRecorder(stream)
+      const chunks = []
+      recorder.ondataavailable = (e) => {
+        if (e.data.size > 0) chunks.push(e.data)
+      }
+      recorderRef.current = { recorder, stream, chunks, startedAt: Date.now() }
+      recorder.start()
+      setSession(newSession)
+      setRecording(true)
+    } catch (err) {
+      setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Could not start recording — check microphone permission')
+    }
+  }
+
+  const handleStop = async () => {
+    const ref = recorderRef.current
+    if (!ref) return
+    setRecording(false)
+    setBusy(true)
+    setError(null)
+    const durationSeconds = Math.max(1, Math.round((Date.now() - ref.startedAt) / 1000))
+    await new Promise((resolve) => {
+      ref.recorder.onstop = resolve
+      ref.recorder.stop()
+    })
+    ref.stream.getTracks().forEach((t) => t.stop())
+    recorderRef.current = null
+
+    try {
+      const blob = new Blob(ref.chunks, { type: ref.chunks[0]?.type || 'audio/webm' })
+      const audioBase64 = await blobToBase64(blob)
+      const { data } = await submitTranscription({
+        variables: { input: { session_id: session.id, audio_base64: audioBase64, duration_seconds: durationSeconds } },
+      })
+      const result = data?.submitTranscription
+      setSession(result)
+      if (result?.status === 'failed') {
+        setError(result.error_message || 'Transcription failed')
+      }
+    } catch (err) {
+      setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Failed to submit the recording')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleStructure = async () => {
+    if (!session?.id) return
+    setBusy(true)
+    setError(null)
+    try {
+      const { data } = await structureSession({ variables: { sessionId: session.id } })
+      const result = data?.structureTranscriptSession
+      if (!result?.success) throw new Error(result?.message || 'Could not draft notes from this recording')
+      enqueueSnackbar('Notes drafted from the recording — review each section before signing.', { variant: 'success' })
+      onNotesUpdated()
+    } catch (err) {
+      setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Failed to draft notes')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleVoiceToRx = async () => {
+    if (!session?.id) return
+    setError(null)
+    try {
+      const { data } = await fetchDraft({ variables: { sessionId: session.id } })
+      const items = data?.aiExtractedPrescriptionDraft ?? []
+      if (items.length === 0) {
+        enqueueSnackbar('No drug mentions found in this recording.', { variant: 'info' })
+        return
+      }
+      navigate(`/clinician/prescriptions/new?encounterId=${encounter.id}&patientId=${encounter.patient_id}`, {
+        state: { aiDraftItems: items },
+      })
+    } catch (err) {
+      setError(err?.graphQLErrors?.[0]?.message || err?.message || 'Failed to load the drug draft')
+    }
+  }
+
+  const transcribed = session?.status === 'transcribed' || session?.status === 'structured'
+  const failed = session?.status === 'failed'
+
+  return (
+    <Box>
+      <Stack direction="row" spacing={1} alignItems="center" mb={1}>
+        <AutoAwesomeRoundedIcon fontSize="small" color="primary" />
+        <Typography variant="subtitle2" fontWeight={700}>
+          AI Scribe
+        </Typography>
+      </Stack>
+
+      {!canRecord && (
+        <Alert severity="warning" sx={{ mb: 1 }}>
+          This browser doesn't support in-app recording. AI Scribe is unavailable here — notes can still be typed as usual.
+        </Alert>
+      )}
+
+      {error && (
+        <Alert severity="error" sx={{ mb: 1 }} onClose={() => setError(null)}>
+          {error}
+        </Alert>
+      )}
+
+      {canRecord && !locked && (
+        <Stack spacing={1}>
+          {!recording && !session && (
+            <Button fullWidth variant="outlined" startIcon={<MicRoundedIcon />} onClick={() => setConsentOpen(true)}>
+              Record Consultation
+            </Button>
+          )}
+          {recording && (
+            <Button fullWidth variant="contained" color="error" startIcon={<StopCircleRoundedIcon />} onClick={handleStop}>
+              Stop Recording
+            </Button>
+          )}
+          {busy && !recording && (
+            <Stack direction="row" spacing={1} alignItems="center">
+              <CircularProgress size={16} />
+              <Typography variant="caption" color="text.secondary">
+                Processing…
+              </Typography>
+            </Stack>
+          )}
+          {transcribed && !busy && (
+            <Button fullWidth variant="contained" onClick={handleStructure}>
+              Draft Notes From Recording
+            </Button>
+          )}
+          {(transcribed || failed) && !busy && (
+            <Button
+              fullWidth
+              variant="outlined"
+              startIcon={draftLoading ? <CircularProgress size={16} /> : <MedicationRoundedIcon />}
+              disabled={draftLoading || !transcribed}
+              onClick={handleVoiceToRx}
+            >
+              Voice-to-Rx: Draft Prescription
+            </Button>
+          )}
+          {session && (
+            <Button size="small" onClick={() => setSession(null)}>
+              Start a new recording
+            </Button>
+          )}
+        </Stack>
+      )}
+
+      {locked && (
+        <Typography variant="body2" color="text.secondary">
+          This encounter is signed — AI Scribe is only available before sign-off.
+        </Typography>
+      )}
+
+      <Dialog open={consentOpen} onClose={() => setConsentOpen(false)} fullWidth maxWidth="xs">
+        <DialogTitle>Record this consultation?</DialogTitle>
+        <DialogContent>
+          <DialogContentText>
+            The patient must be informed this consultation is being recorded for note-taking. The audio is used only to draft notes and
+            is never stored — only the resulting text transcript is saved. Every drafted note and vital is clearly marked and must be
+            reviewed before you sign this encounter.
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConsentOpen(false)}>Cancel</Button>
+          <Button variant="contained" onClick={handleConfirmConsent}>
+            Patient Consents — Start Recording
+          </Button>
+        </DialogActions>
+      </Dialog>
+    </Box>
+  )
+}
+
 // ─── Right pane: templates, attachments, sign-off ──────────────────────────
-function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onUpload, onNewPrescription }) {
+function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onUpload, onNewPrescription, onNotesUpdated }) {
   const { data: templatesData, refetch: refetchTemplates } = useQuery(ENCOUNTER_TEMPLATES)
   const templates = templatesData?.encounterTemplates ?? []
   const [signOpen, setSignOpen] = useState(false)
@@ -1025,6 +1324,9 @@ function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onU
 
   return (
     <Paper variant="outlined" sx={{ p: 2, height: '100%', overflowY: 'auto' }}>
+      <AiScribePanel encounter={encounter} onNotesUpdated={onNotesUpdated} />
+      <Divider sx={{ my: 2 }} />
+
       <Stack direction="row" alignItems="center" justifyContent="space-between" mb={1}>
         <Typography variant="subtitle2" fontWeight={700}>
           Templates
@@ -1205,6 +1507,14 @@ function EncounterWorkspace() {
 
   const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, {
     variables: { patient_id: encounter?.patient_id },
+    skip: !encounter?.patient_id,
+  })
+
+  // P1-13 (FR-AI-09) — pre-consult prep: a ranked summary of what a
+  // clinician needs before starting, not a patient-facing view (see the
+  // resolver's own @Auth exclusion of 'patient'/'staff').
+  const { data: preConsultData } = useQuery(PRE_CONSULT_SUMMARY, {
+    variables: { patientId: encounter?.patient_id },
     skip: !encounter?.patient_id,
   })
 
@@ -1414,6 +1724,18 @@ function EncounterWorkspace() {
           </Alert>
         )}
 
+        {(preConsultData?.preConsultSummary ?? []).length > 0 && (
+          <Alert severity="info" icon={<AutoAwesomeRoundedIcon />} sx={{ mb: 2 }}>
+            <Stack spacing={0.25}>
+              {preConsultData.preConsultSummary.map((line, i) => (
+                <Typography key={i} variant="body2">
+                  {line}
+                </Typography>
+              ))}
+            </Stack>
+          </Alert>
+        )}
+
         {loading && <CircularProgress />}
         {error && <Alert severity="error">{error.message}</Alert>}
 
@@ -1444,6 +1766,7 @@ function EncounterWorkspace() {
                 onNewPrescription={() =>
                   navigate(`/clinician/prescriptions/new?encounterId=${encounter.id}&patientId=${encounter.patient_id}`)
                 }
+                onNotesUpdated={refetch}
               />
             </Grid>
           </Grid>

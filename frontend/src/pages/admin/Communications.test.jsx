@@ -84,6 +84,39 @@ const GET_WHATSAPP_SPEND = gql`
   }
 `
 
+// P1-11 — re-declared to match Communications.jsx's own gql documents
+// exactly (query AST equality).
+const GET_AI_PROVIDERS = gql`
+  query GetAiTranscriptionProviders {
+    aiTranscriptionProviders {
+      id
+      label
+      fields {
+        key
+        label
+        type
+        required
+      }
+    }
+  }
+`
+const GET_MY_AI_PROVIDER_CONFIG = gql`
+  query GetMyAiProviderConfig {
+    myAiProviderConfig {
+      provider
+      has_credentials
+    }
+  }
+`
+const UPDATE_AI_PROVIDER_CONFIG = gql`
+  mutation UpdateMyAiProviderConfig($input: UpdateAiProviderConfigInput!) {
+    updateMyAiProviderConfig(input: $input) {
+      success
+      message
+    }
+  }
+`
+
 const baseMocks = (overrides = {}) => [
   { request: { query: GET_EMAIL_TEMPLATES }, result: { data: { emailTemplates: [] } } },
   {
@@ -120,6 +153,8 @@ const baseMocks = (overrides = {}) => [
       },
     },
   },
+  { request: { query: GET_AI_PROVIDERS }, result: { data: { aiTranscriptionProviders: overrides.aiProviders ?? [] } } },
+  { request: { query: GET_MY_AI_PROVIDER_CONFIG }, result: { data: { myAiProviderConfig: overrides.aiConfig ?? null } } },
 ]
 
 function renderPage(mocks) {
@@ -212,6 +247,50 @@ describe('AdminCommunications — WhatsApp conversation spend (P1-01/REQ144)', (
     fireEvent.click(screen.getByRole('button', { name: /Save Cap/ }))
 
     await waitFor(() => expect(screen.getByText(/non-negative amount/)).toBeInTheDocument())
+  })
+})
+
+describe('AdminCommunications — AI Scribe provider config (P1-11)', () => {
+  it('lists the real registered transcription providers, not a hardcoded one', async () => {
+    const mocks = baseMocks({ aiProviders: [{ id: 'sarvam', label: 'Sarvam AI', fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }] }] })
+    renderPage(mocks)
+    await openGlobalSettingsTab()
+
+    await waitFor(() => expect(screen.getByText('AI Scribe (Consultation Transcription)')).toBeInTheDocument())
+    fireEvent.mouseDown(screen.getByLabelText('Transcription Provider'))
+    expect(await screen.findByRole('option', { name: 'Sarvam AI' })).toBeInTheDocument()
+  })
+
+  it('shows a configured-credentials chip once a provider is saved, without ever rendering the secret', async () => {
+    const mocks = baseMocks({
+      aiProviders: [{ id: 'sarvam', label: 'Sarvam AI', fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }] }],
+      aiConfig: { provider: 'sarvam', has_credentials: true },
+    })
+    renderPage(mocks)
+    await openGlobalSettingsTab()
+
+    await waitFor(() => expect(screen.getByText('Credentials configured')).toBeInTheDocument())
+    // has_credentials only ever tells the client a secret exists -- the
+    // backend never returns it, so the field must render empty, not a
+    // fabricated placeholder value standing in for the real secret.
+    expect(screen.getByLabelText('API Key')).toHaveValue('')
+  })
+
+  it('saves the provider selection and credentials via the real mutation, never a raw key/value payload logged elsewhere', async () => {
+    const mocks = baseMocks({ aiProviders: [{ id: 'sarvam', label: 'Sarvam AI', fields: [{ key: 'api_key', label: 'API Key', type: 'password', required: true }] }] })
+    const saveMock = {
+      request: { query: UPDATE_AI_PROVIDER_CONFIG, variables: { input: { provider: 'sarvam', credentials: [{ key: 'api_key', value: 'sk-test-123' }] } } },
+      result: { data: { updateMyAiProviderConfig: { success: true, message: null } } },
+    }
+    renderPage([...mocks, saveMock])
+    await openGlobalSettingsTab()
+
+    fireEvent.mouseDown(await screen.findByLabelText('Transcription Provider'))
+    fireEvent.click(await screen.findByRole('option', { name: 'Sarvam AI' }))
+    fireEvent.change(await screen.findByLabelText('API Key'), { target: { value: 'sk-test-123' } })
+    fireEvent.click(screen.getByRole('button', { name: 'Save AI Scribe Settings' }))
+
+    await waitFor(() => expect(screen.getByText('AI Scribe provider settings saved.')).toBeInTheDocument())
   })
 })
 

@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react'
-import { useSearchParams, useNavigate } from 'react-router-dom'
+import { useSearchParams, useNavigate, useLocation } from 'react-router-dom'
 import { useQuery, useMutation, useLazyQuery, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import {
@@ -136,9 +136,35 @@ function PrescriptionBuilder() {
   const encounterId = searchParams.get('encounterId')
   const patientId = searchParams.get('patientId')
   const navigate = useNavigate()
+  const location = useLocation()
   const { enqueueSnackbar } = useSnackbar()
 
-  const [lines, setLines] = useState([emptyLine()])
+  // P1-12 (FR-AI-04, "Voice-to-Rx") — EncounterWorkspace's AI Scribe panel
+  // navigates here with draft items in router state (never a committed
+  // prescription, never auto-submitted — the clinician still reviews and
+  // hits Issue). Read once via useState's lazy initializer, so a later
+  // in-page navigation (e.g. Back then forward) doesn't silently re-import.
+  const importedAiDraftCount = location.state?.aiDraftItems?.length ?? 0
+  const [lines, setLines] = useState(() => {
+    const draft = location.state?.aiDraftItems
+    if (!Array.isArray(draft) || draft.length === 0) return [emptyLine()]
+    return draft.map((i) => {
+      const frequency = i.frequency && FREQUENCY_PER_DAY[i.frequency] !== undefined ? i.frequency : 'OD'
+      // P1-12's own exit criterion: voice-to-Rx reuses REQ021's existing
+      // auto-quantity arithmetic rather than a second copy of it.
+      const qty = computeQty(frequency, Number(i.duration_days))
+      return {
+        drug: i.drug_id ? { id: i.drug_id, name: i.matched_drug_name } : null,
+        dose: i.dose ?? '',
+        frequency,
+        route: '',
+        duration_days: i.duration_days ?? '',
+        qty,
+        instructions: i.drug_id ? '' : `AI-transcribed as "${i.drug_name_text}" — confirm the drug before issuing`,
+        substitutable: true,
+      }
+    })
+  })
   const [drugSearch, setDrugSearch] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [saveSetOpen, setSaveSetOpen] = useState(false)
@@ -260,6 +286,13 @@ function PrescriptionBuilder() {
           New Prescription
         </Typography>
       </Stack>
+
+      {importedAiDraftCount > 0 && (
+        <Alert severity="info" sx={{ mb: 2 }}>
+          Imported {importedAiDraftCount} draft item{importedAiDraftCount === 1 ? '' : 's'} from AI Scribe — review each drug and dose
+          before issuing. Nothing here has been saved yet.
+        </Alert>
+      )}
 
       <Grid container spacing={2}>
         <Grid item xs={12} md={8}>

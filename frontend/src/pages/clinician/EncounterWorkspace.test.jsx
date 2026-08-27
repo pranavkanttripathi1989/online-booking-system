@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
 import { gql } from '@apollo/client'
@@ -47,6 +47,7 @@ const ENCOUNTER_QUERY = gql`
         section
         content
         version
+        ai_generated
       }
       addenda {
         id
@@ -93,10 +94,65 @@ const ENCOUNTER_QUERY = gql`
         value
         unit
         recorded_at
+        ai_generated
       }
     }
   }
 `
+
+// P1-11/P1-12 — re-declared to match EncounterWorkspace.jsx's own gql
+// documents exactly (query AST equality).
+const START_TRANSCRIPTION_SESSION = gql`
+  mutation StartTranscriptionSession($input: StartTranscriptionSessionInput!) {
+    startTranscriptionSession(input: $input) {
+      id
+      status
+    }
+  }
+`
+const SUBMIT_TRANSCRIPTION = gql`
+  mutation SubmitTranscription($input: SubmitTranscriptionInput!) {
+    submitTranscription(input: $input) {
+      id
+      status
+      error_message
+    }
+  }
+`
+const STRUCTURE_TRANSCRIPT_SESSION = gql`
+  mutation StructureTranscriptSession($sessionId: ID!) {
+    structureTranscriptSession(session_id: $sessionId) {
+      success
+      message
+      sections {
+        section
+        content
+      }
+      vitals {
+        code
+        value
+      }
+    }
+  }
+`
+const AI_EXTRACTED_PRESCRIPTION_DRAFT = gql`
+  query AiExtractedPrescriptionDraft($sessionId: ID!) {
+    aiExtractedPrescriptionDraft(session_id: $sessionId) {
+      drug_name_text
+      drug_id
+      matched_drug_name
+      dose
+      frequency
+      duration_days
+    }
+  }
+`
+const PRE_CONSULT_SUMMARY = gql`
+  query PreConsultSummary($patientId: ID!) {
+    preConsultSummary(patient_id: $patientId)
+  }
+`
+
 const PATIENT_ALLERGY_BANNER = gql`
   query PatientAllergyBanner($patient_id: ID!) {
     patientAllergyBanner(patient_id: $patient_id) {
@@ -260,7 +316,16 @@ function baseMocks(enc) {
     { request: { query: PATIENT_ALLERGY_BANNER, variables: { patient_id: PATIENT_ID } }, result: { data: { patientAllergyBanner: [] } } },
     { request: { query: PATIENT_TIMELINE, variables: { patient_id: PATIENT_ID } }, result: { data: { patientTimeline: [] } } },
     { request: { query: ENCOUNTER_TEMPLATES }, result: { data: { encounterTemplates: [] } } },
+    { request: { query: PRE_CONSULT_SUMMARY, variables: { patientId: PATIENT_ID } }, result: { data: { preConsultSummary: [] } } },
   ]
+}
+
+// A marker route so a Voice-to-Rx navigation test can assert both the
+// destination URL and the router-state payload it was handed, without
+// mounting the real (much heavier) PrescriptionBuilder page.
+function PrescriptionBuilderMarker() {
+  const location = useLocation()
+  return <div data-testid="prescription-builder-marker">{JSON.stringify(location.state)}</div>
 }
 
 function renderPage(mocks) {
@@ -271,6 +336,7 @@ function renderPage(mocks) {
         <MockedProvider mocks={mocks}>
           <Routes>
             <Route path="/clinician/encounters/:appointmentId" element={<EncounterWorkspace />} />
+            <Route path="/clinician/prescriptions/new" element={<PrescriptionBuilderMarker />} />
           </Routes>
         </MockedProvider>
       </SnackbarProvider>
@@ -797,5 +863,209 @@ describe('EncounterWorkspace — vitals + growth chart (REQ130)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Growth Chart' }))
     await waitFor(() => expect(screen.getByText('No height readings recorded yet.')).toBeInTheDocument())
     expect(screen.queryByText('No weight readings recorded yet.')).not.toBeInTheDocument()
+  })
+})
+
+describe('EncounterWorkspace — AI Scribe (P1-11/P1-12)', () => {
+  it('badges an AI-generated note section and leaves a human-authored one unbadged', async () => {
+    const enc = encounter({
+      notes: [
+        { __typename: 'EncounterNote', id: 'n-1', section: 'advice', content: 'Rest and fluids', version: 1, ai_generated: true },
+        { __typename: 'EncounterNote', id: 'n-2', section: 'complaints', content: 'Fever x2 days', version: 1, ai_generated: false },
+      ],
+    })
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByDisplayValue('Rest and fluids')).toBeInTheDocument())
+    expect(screen.getByText('AI draft — review before signing')).toBeInTheDocument()
+    // Only one section is flagged -- exactly one badge, not one per section.
+    expect(screen.getAllByText('AI draft — review before signing')).toHaveLength(1)
+  })
+
+  it('badges an AI-generated vital reading', async () => {
+    const enc = encounter({
+      vitals: [{ __typename: 'Vital', id: 'v-ai', code: 'bp_systolic', value: 118, unit: 'mmHg', recorded_at: '2026-08-27T09:00:00.000Z', ai_generated: true }],
+    })
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByText('BP Systolic: 118 mmHg')).toBeInTheDocument())
+    const chip = screen.getByText('BP Systolic: 118 mmHg').closest('.MuiChip-root')
+    expect(within(chip).getByTestId('AutoAwesomeRoundedIcon')).toBeInTheDocument()
+  })
+
+  it('shows the pre-consult summary the backend ranks, when there is one', async () => {
+    const enc = encounter()
+    renderPage([
+      ...baseMocks(enc).filter((m) => m.request.query !== PRE_CONSULT_SUMMARY),
+      {
+        request: { query: PRE_CONSULT_SUMMARY, variables: { patientId: PATIENT_ID } },
+        result: { data: { preConsultSummary: ['⚠ Allergic to: Penicillin', 'Last diagnosis: Hypertension'] } },
+      },
+    ])
+
+    await waitFor(() => expect(screen.getByText('⚠ Allergic to: Penicillin')).toBeInTheDocument())
+    expect(screen.getByText('Last diagnosis: Hypertension')).toBeInTheDocument()
+  })
+
+  it('hides recording controls and shows a graceful notice when this browser cannot record', async () => {
+    // jsdom has no MediaRecorder by default -- the real "never a broken
+    // button" (WV-17) fallback for the majority of headless/CI browsers.
+    const enc = encounter()
+    renderPage(baseMocks(enc))
+
+    await waitFor(() => expect(screen.getByText('AI Scribe')).toBeInTheDocument())
+    expect(screen.getByText(/doesn't support in-app recording/)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Record Consultation' })).not.toBeInTheDocument()
+  })
+
+  describe('with a recording-capable browser', () => {
+    const originalMediaRecorder = window.MediaRecorder
+    const originalMediaDevices = navigator.mediaDevices
+    const originalFileReader = global.FileReader
+    const FAKE_AUDIO_BASE64 = 'ZmFrZS1hdWRpbw=='
+
+    beforeEach(() => {
+      window.MediaRecorder = class {
+        constructor() {}
+        start() {}
+        stop() {
+          this.ondataavailable?.({ data: { size: 1, type: 'audio/webm' } })
+          this.onstop?.()
+        }
+      }
+      // Stubbed so the resulting base64 is a fixed, assertable value --
+      // this test exercises the GraphQL wiring, not jsdom's own Blob/
+      // FileReader byte-for-byte encoding of a fake MediaRecorder chunk.
+      global.FileReader = class {
+        readAsDataURL() {
+          this.result = `data:audio/webm;base64,${FAKE_AUDIO_BASE64}`
+          this.onloadend?.()
+        }
+      }
+    })
+
+    afterEach(() => {
+      window.MediaRecorder = originalMediaRecorder
+      global.FileReader = originalFileReader
+      Object.defineProperty(navigator, 'mediaDevices', { value: originalMediaDevices, configurable: true })
+    })
+
+    it('shows a graceful error, not a crash, when microphone access is denied', async () => {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: { getUserMedia: jest.fn().mockRejectedValue(new Error('Permission denied')) },
+        configurable: true,
+      })
+      const enc = encounter()
+      renderPage([
+        ...baseMocks(enc),
+        {
+          request: { query: START_TRANSCRIPTION_SESSION, variables: { input: { encounter_id: ENCOUNTER_ID, consent_given: true } } },
+          result: { data: { startTranscriptionSession: { __typename: 'AiTranscriptionSession', id: 'sess-1', status: 'recording' } } },
+        },
+      ])
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Record Consultation' })).toBeInTheDocument())
+      await userEvent.click(screen.getByRole('button', { name: 'Record Consultation' }))
+      const dialog = await screen.findByRole('dialog')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Patient Consents — Start Recording' }))
+
+      await waitFor(() => expect(screen.getByText('Permission denied')).toBeInTheDocument())
+      // No crash: the rest of the workspace is still usable. `hidden: true`
+      // because MUI's Dialog exit transition never resolves under jsdom (no
+      // real `transitionend`), leaving its aria-hidden wrapper in place --
+      // a jsdom/MUI-transition artifact, not a real app bug.
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Record Consultation', hidden: true })).toBeInTheDocument())
+    }, 20000)
+
+    it('records, transcribes, drafts AI-flagged notes, and offers Voice-to-Rx through the real mutations end to end', async () => {
+      Object.defineProperty(navigator, 'mediaDevices', {
+        value: { getUserMedia: jest.fn().mockResolvedValue({ getTracks: () => [{ stop: jest.fn() }] }) },
+        configurable: true,
+      })
+      const enc = encounter()
+      const withAiNotes = encounter({
+        notes: [{ __typename: 'EncounterNote', id: 'n-ai', section: 'advice', content: 'Paracetamol advised', version: 1, ai_generated: true }],
+      })
+      const submitMockFor = (durationSeconds) => ({
+        request: {
+          query: SUBMIT_TRANSCRIPTION,
+          variables: { input: { session_id: 'sess-1', audio_base64: FAKE_AUDIO_BASE64, duration_seconds: durationSeconds } },
+        },
+        result: { data: { submitTranscription: { __typename: 'AiTranscriptionSession', id: 'sess-1', status: 'transcribed', error_message: null } } },
+      })
+      renderPage([
+        ...baseMocks(enc),
+        {
+          request: { query: START_TRANSCRIPTION_SESSION, variables: { input: { encounter_id: ENCOUNTER_ID, consent_given: true } } },
+          result: { data: { startTranscriptionSession: { __typename: 'AiTranscriptionSession', id: 'sess-1', status: 'recording' } } },
+        },
+        // duration_seconds is real wall-clock elapsed time (min 1s); allow
+        // either value a fast test run can plausibly land on rather than
+        // pinning to a single fragile number.
+        submitMockFor(1),
+        submitMockFor(2),
+        {
+          request: { query: STRUCTURE_TRANSCRIPT_SESSION, variables: { sessionId: 'sess-1' } },
+          result: {
+            data: {
+              structureTranscriptSession: {
+                __typename: 'StructureTranscriptResult',
+                success: true,
+                message: null,
+                sections: [{ __typename: 'AiStructuredSection', section: 'advice', content: 'Paracetamol advised' }],
+                vitals: [],
+              },
+            },
+          },
+        },
+        { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withAiNotes } } },
+        {
+          request: { query: AI_EXTRACTED_PRESCRIPTION_DRAFT, variables: { sessionId: 'sess-1' } },
+          result: {
+            data: {
+              aiExtractedPrescriptionDraft: [
+                { __typename: 'AiExtractedPrescriptionItem', drug_name_text: 'paracetamol', drug_id: null, matched_drug_name: null, dose: '500mg', frequency: 'BD', duration_days: 5 },
+              ],
+            },
+          },
+        },
+      ])
+
+      // MUI's Dialog exit transition never resolves under jsdom (no real
+      // `transitionend`), which leaves its aria-hidden wrapper on the rest
+      // of the page indefinitely -- a jsdom/MUI-transition artifact, not a
+      // real app bug (nothing in this suite's other dialogs asserts via
+      // getByRole post-close for the same reason). `hidden: true` opts
+      // back into querying past that wrapper, same as every getByText
+      // assertion elsewhere in this file already implicitly does.
+      const findHiddenButton = (name) => screen.findByRole('button', { name, hidden: true })
+
+      await waitFor(() => expect(screen.getByRole('button', { name: 'Record Consultation' })).toBeInTheDocument())
+      await userEvent.click(screen.getByRole('button', { name: 'Record Consultation' }))
+      const dialog = await screen.findByRole('dialog')
+      await userEvent.click(within(dialog).getByRole('button', { name: 'Patient Consents — Start Recording' }))
+
+      await userEvent.click(await findHiddenButton('Stop Recording'))
+      await userEvent.click(await findHiddenButton('Draft Notes From Recording'))
+
+      // The structuring write really landed and refetched: the badge now
+      // shows on the real, re-fetched encounter, not an optimistic guess.
+      await waitFor(() => expect(screen.getByText('AI draft — review before signing')).toBeInTheDocument())
+
+      await userEvent.click(await findHiddenButton('Voice-to-Rx: Draft Prescription'))
+      const marker = await screen.findByTestId('prescription-builder-marker')
+      const state = JSON.parse(marker.textContent)
+      expect(state.aiDraftItems).toEqual([
+        {
+          __typename: 'AiExtractedPrescriptionItem',
+          drug_name_text: 'paracetamol',
+          drug_id: null,
+          matched_drug_name: null,
+          dose: '500mg',
+          frequency: 'BD',
+          duration_days: 5,
+        },
+      ])
+    }, 20000)
   })
 })

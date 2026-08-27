@@ -45,12 +45,12 @@ rule). Update `Status` in the same change that ships the slice.
 | **P1-05** | Server-side slot hold + booking idempotency key (BOOK-2, BOOK-3) | BE+FE | **done** (`REQ148`) | — | Double bookings. The rules doc calls this the fastest way to destroy clinic trust |
 | **P1-06** | Review submission + request loop | BE+FE | **done** (`REQ149`) | P1-01 | Reputation flywheel has no first step. Flagged 2026-08-22, still open |
 | **P1-07** | i18n framework + English/Hindi extraction | FE | **done** (`REQ150`) | P1-03 | Cost grows with every commit. `FRONTEND_RULES` §20.1 |
-| **P1-08** | ABDM M1 — ABHA create/verify, patient discovery, QR at reception | BE+FE | not started | — | **Gate.** Parallel workstream, own owner, starts day 1 |
-| **P1-09** | FHIR R4 projection of clinical resources | BE | not started | P1-08 | Required output format for M2. BE-only: no user surface |
-| **P1-10** | ABDM M2 (HIP) — care-context linking, consent-gated sharing | BE+FE | not started | P1-08, P1-09 | **Gate** |
-| **P1-11** | Ambient AI scribe → structured notes/diagnoses/vitals | BE+FE | not started | — | Table stakes. Highest leverage in the whole plan |
-| **P1-12** | Voice-to-Rx against the real drug master | BE+FE | not started | P1-11 | Reuses `REQ021` auto-quantity arithmetic |
-| **P1-13** | Pre-consult AI summary (patient in 5 bullets) | BE+FE | not started | P1-11 | Small; `patientTimeline` already built |
+| **P1-08** | ABDM M1 — ABHA create/verify, patient discovery, QR at reception | BE+FE | **blocked** — needs real NHA sandbox credentials + literal government certification, unverifiable in this environment. Skipped per explicit user decision 2026-08-27, not silently dropped | — | **Gate.** Parallel workstream, own owner, starts day 1 |
+| **P1-09** | FHIR R4 projection of clinical resources | BE | **blocked** (depends on P1-08) | P1-08 | Required output format for M2. BE-only: no user surface |
+| **P1-10** | ABDM M2 (HIP) — care-context linking, consent-gated sharing | BE+FE | **blocked** (depends on P1-08/09) | P1-08, P1-09 | **Gate** |
+| **P1-11** | Ambient AI scribe → structured notes/diagnoses/vitals | BE+FE | **done** (`REQ151`) | — | Table stakes. Highest leverage in the whole plan |
+| **P1-12** | Voice-to-Rx against the real drug master | BE+FE | **done** (`REQ151`) | P1-11 | Reuses `REQ021` auto-quantity arithmetic |
+| **P1-13** | Pre-consult AI summary (patient in 5 bullets) | BE+FE | **done** (`REQ151`) | P1-11 | Small; `patientTimeline` already built |
 | **P1-14** | AI voice front-desk agent (inbound booking/reschedule/status) | BE+FE | not started | P1-05 | Needs the slot hold to be safe |
 | **P1-15** | WhatsApp AI agent (same brain, chat channel) | BE+FE | not started | P1-14, P1-01 | Reuses `REQ025` dispatch |
 | **P1-16** | Real telemedicine (WebRTC/vendor) + TPG drug list | BE+FE | not started | — | Replaces the simulated stub. A stub in a demo is worse than an honest gap |
@@ -217,6 +217,24 @@ schemas that already exist and are already tested.
 - **P1-13** — pre-consult summary: condense `patientTimeline` to ≤5 bullets.
 - **Exit:** median consult ≤30 s clinician effort, no mandatory typing; drug-name
   precision ≥98% gate before any market goes live.
+
+**Shipped 2026-08-27** (`REQ151`/`PLAN191`/`TP211`/`TR211`, new feature slug
+`ai-clinical`) — all three BE+FE tracks. Real Sarvam-provider transcription
+(buy-not-build), deterministic (not LLM) structuring/vitals-extraction as an
+honestly-labeled swappable first pass, `FR-AI-13` satisfied via the existing
+`REQ020` Postgres lock trigger (inherited, not re-derived), per-tenant
+metering gated behind `REQ147`'s `EntitlementGuard`. Voice-to-Rx imports
+draft items into the existing `PrescriptionBuilder.jsx` via router state,
+reusing `REQ021`'s `computeQty()` verbatim; an unmatched drug stays
+un-issuable until the clinician picks a real one. Pre-consult summary is a
+pure ranking function over already-real data. **Not done**: the drug-name
+precision ≥98% exit gate (no labeled Indian-brand-name transcript corpus
+exists in this environment — logged open in `REQ151`, not claimed) and a
+live browser/microphone pass (no browser-automation MCP server connected
+this session). See `context/ai-clinical-2026-08-27-req151/manifest.md` for
+the full account, including 6 real bugs found (two in this slice's own
+integration test, one a stale-Prisma-Client environment gap pre-dating this
+slice, two jsdom/MUI-testing artifacts).
 
 ### P1-14 / P1-15 — AI front desk
 

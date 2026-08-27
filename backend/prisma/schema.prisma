@@ -347,6 +347,7 @@ model Encounters {
   investigationOrders TestResults[]
   referrals           Referrals[]
   vitals              Vitals[]
+  aiTranscriptionSessions AiTranscriptionSessions[]
 
   @@index([client_org_id, patient_id])
   @@index([clinician_id])
@@ -367,6 +368,15 @@ model EncounterNotes {
   version     Int      @default(1)
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
+  // P1-11 (FR-AI-06) — "every AI-derived field is visibly flagged, diff-able
+  // and clinician-editable before sign-off". true only from the moment an
+  // AI structuring pass writes/overwrites this section until the clinician
+  // saves it again through the existing saveEncounterNote() path (which
+  // flips it back to false — see that method's own comment) — a genuine
+  // human edit, even of AI-authored content, is no longer "AI-derived,
+  // unreviewed".
+  ai_generated Boolean  @default(false)
+  ai_source_session_id String?
 
   encounter Encounters @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
 
@@ -453,6 +463,12 @@ model Vitals {
   unit         String
   recorded_by_user_id String
   recorded_at  DateTime @default(now())
+  // P1-11 (FR-AI-05, FR-AI-06) — same flagging convention as
+  // EncounterNotes.ai_generated; recorded_by_user_id is still always the
+  // clinician (never a service account), extracted readings are pending
+  // clinician confirmation, not confirmed automatically.
+  ai_generated Boolean  @default(false)
+  ai_source_session_id String?
 
   encounter   Encounters   @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
   recorded_by UserProfiles @relation(fields: [recorded_by_user_id], references: [id])
@@ -856,6 +872,8 @@ model ClientOrganizations {
   productSubcategories   ProductSubcategories[]
   drugs                  Drugs[]
   notificationProviderConfigs NotificationProviderConfig[]
+  aiProviderConfigs      AiProviderConfig[]
+  aiTranscriptionSessions AiTranscriptionSessions[]
   resources              Resources[]
   departments            Departments[]
   encounters             Encounters[]
@@ -1149,6 +1167,58 @@ model NotificationProviderConfig {
   @@unique([client_org_id, channel])
 }
 
+// P1-11 (FR-AI-12) — swappable per org, same shape/precedent as
+// NotificationProviderConfig above (encrypted credentials, one row per
+// org+purpose). purpose is 'transcription' today; a second AI purpose
+// (e.g. a future structuring-LLM provider) adds a value here, not a
+// second table.
+model AiProviderConfig {
+  id                    String   @id @default(uuid())
+  client_org_id         String
+  purpose               String   @default("transcription")
+  provider              String
+  credentials_encrypted String
+  is_active             Boolean  @default(true)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @default(now())
+
+  client_org ClientOrganizations @relation(fields: [client_org_id], references: [id])
+
+  @@unique([client_org_id, purpose])
+}
+
+// P1-11 (FR-AI-01, FR-AI-07, FR-AI-11) — one row per record-and-transcribe
+// attempt. consented_at is the logged proof FR-AI-01 requires ("refuse to
+// record without it") — startTranscriptionSession() will not create this
+// row at all without it, so a row's mere existence is part of that proof.
+// Audio bytes are never columns here (FR-AI-07's "never persisted beyond
+// transcription unless the org opts in") — they pass through to the
+// provider and are discarded server-side the moment transcription
+// returns; duration_seconds is the only trace, and only for metering.
+model AiTranscriptionSessions {
+  id                  String    @id @default(uuid())
+  client_org_id       String
+  encounter_id        String
+  patient_id          String
+  consented_by_user_id String
+  consented_at        DateTime
+  status              String    @default("pending_consent") // pending_consent|recording|transcribing|transcribed|structured|failed
+  provider            String?
+  raw_transcript       String?
+  duration_seconds     Int?      // metering input (FR-AI-11) — real audio length, not wall-clock session time
+  error_message        String?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  encounter           Encounters          @relation(fields: [encounter_id], references: [id])
+  patient              Patients            @relation(fields: [patient_id], references: [id])
+  consented_by         UserProfiles        @relation(fields: [consented_by_user_id], references: [id])
+
+  @@index([client_org_id, created_at])
+  @@index([encounter_id])
+}
+
 model OrganizationSubscriptions {
   id                   String              @id @default(uuid())
   client_org_id        String
@@ -1247,6 +1317,7 @@ model Patients {
   insurancePolicies        PatientInsurancePolicies[]
   patientPackages          PatientPackages[]
   tasks                    Tasks[]
+  aiTranscriptionSessions  AiTranscriptionSessions[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -2370,6 +2441,7 @@ model UserProfiles {
   uploadedAttachments Attachments[]          @relation("AttachmentUploadedBy")
   recordedVitals     Vitals[]
   submittedClaims    Claims[]
+  aiTranscriptionConsents AiTranscriptionSessions[]
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])

@@ -48,6 +48,18 @@ const EXEMPT: Record<string, string> = {
   // user.client_org_id off the JWT) and covered in
   // entitlements.service.spec.ts / entitlement.guard.spec.ts instead.
   entitlements: "myEntitlements returns literally the caller's own resolved entitlements, keyed by JWT client_org_id — same shape as org-settings' own myOrgBranding exemption above.",
+  // P1-11 (2026-08-27) — no list query exists on this resolver to build a
+  // same-org-A-vs-B matrix case from (aiTranscriptionProviders is a global
+  // catalog, myAiUsage/myAiProviderConfig are self-scoped off JWT
+  // client_org_id like entitlements' own exemption above; every other
+  // handler is a single-record mutation/query keyed by a session/patient
+  // id, not a list). Cross-org isolation is real — loadSessionForUser()'s
+  // own client_org_id check, plus reused (not re-derived)
+  // EncountersService.encounter()/patientTimeline()/patientAllergyBanner()
+  // self- and org-scoping — and covered directly in
+  // ai-clinical.service.spec.ts's own "rejects a caller from a different
+  // org" test.
+  'ai-clinical': "No list query exists on this resolver to build a cross-org matrix case from (a global catalog query, two self-scoped-off-JWT queries, and single-record mutations keyed by session/patient id) — same shape as entitlements' own exemption above. Cross-org isolation is real and covered in ai-clinical.service.spec.ts's own dedicated test instead.",
 };
 
 /**

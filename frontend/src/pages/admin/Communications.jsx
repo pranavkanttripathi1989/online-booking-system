@@ -44,6 +44,7 @@ import PreviewIcon from '@mui/icons-material/Preview'
 import SendIcon from '@mui/icons-material/Send'
 import CloseIcon from '@mui/icons-material/Close'
 import MonetizationOnIcon from '@mui/icons-material/MonetizationOn'
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 
 // REQ011 — real backend/src/email-templates data (the same module and rows
 // admin/EmailTemplates.jsx's full editor uses), replacing a 100% hardcoded
@@ -173,6 +174,41 @@ const UPDATE_NOTIFICATION_PROVIDER_CONFIG = gql`
   }
 `
 
+// P1-11 (FR-AI-12, "provider is swappable") — same registry/encrypted-
+// credential shape as the SMS block above, one purpose ('transcription')
+// today. aiTranscriptionProviders is the public catalog; myAiProviderConfig
+// never returns raw credentials (has_credentials only), same convention.
+const GET_AI_PROVIDERS = gql`
+  query GetAiTranscriptionProviders {
+    aiTranscriptionProviders {
+      id
+      label
+      fields {
+        key
+        label
+        type
+        required
+      }
+    }
+  }
+`
+const GET_MY_AI_PROVIDER_CONFIG = gql`
+  query GetMyAiProviderConfig {
+    myAiProviderConfig {
+      provider
+      has_credentials
+    }
+  }
+`
+const UPDATE_AI_PROVIDER_CONFIG = gql`
+  mutation UpdateMyAiProviderConfig($input: UpdateAiProviderConfigInput!) {
+    updateMyAiProviderConfig(input: $input) {
+      success
+      message
+    }
+  }
+`
+
 export default function AdminCommunications() {
   const client = useApolloClient()
   const navigate = useNavigate()
@@ -292,6 +328,60 @@ export default function AdminCommunications() {
   }, [client])
 
   const selectedSmsProvider = smsProviders.find((p) => p.id === smsSelectedProvider)
+
+  // P1-11 — AI transcription provider configuration
+  const [aiProviders, setAiProviders] = useState([])
+  const [aiSelectedProvider, setAiSelectedProvider] = useState('')
+  const [aiCredentials, setAiCredentials] = useState({})
+  const [aiHasCredentials, setAiHasCredentials] = useState(false)
+  const [aiError, setAiError] = useState(null)
+  const [aiSaved, setAiSaved] = useState(false)
+  const [savingAi, setSavingAi] = useState(false)
+  const [loadingAi, setLoadingAi] = useState(true)
+
+  useEffect(() => {
+    Promise.all([
+      client.query({ query: GET_AI_PROVIDERS, fetchPolicy: 'network-only' }),
+      client.query({ query: GET_MY_AI_PROVIDER_CONFIG, fetchPolicy: 'network-only' }),
+    ])
+      .then(([{ data: providersData }, { data: configData }]) => {
+        setAiProviders(providersData?.aiTranscriptionProviders ?? [])
+        const cfg = configData?.myAiProviderConfig
+        if (cfg) {
+          setAiSelectedProvider(cfg.provider ?? '')
+          setAiHasCredentials(!!cfg.has_credentials)
+        }
+      })
+      .catch((err) => setAiError(err.message))
+      .finally(() => setLoadingAi(false))
+  }, [client])
+
+  const selectedAiProvider = aiProviders.find((p) => p.id === aiSelectedProvider)
+
+  const handleSaveAiSettings = async () => {
+    setAiError(null)
+    setSavingAi(true)
+    try {
+      const credentials = Object.entries(aiCredentials)
+        .filter(([, v]) => v)
+        .map(([key, value]) => ({ key, value }))
+      const { data } = await client.mutate({
+        mutation: UPDATE_AI_PROVIDER_CONFIG,
+        variables: { input: { provider: aiSelectedProvider, credentials } },
+      })
+      if (!data?.updateMyAiProviderConfig?.success) {
+        throw new Error(data?.updateMyAiProviderConfig?.message ?? 'Failed to save AI Scribe provider settings')
+      }
+      setAiHasCredentials(true)
+      setAiCredentials({})
+      setAiSaved(true)
+      setTimeout(() => setAiSaved(false), 2500)
+    } catch (err) {
+      setAiError(err.message)
+    } finally {
+      setSavingAi(false)
+    }
+  }
 
   const handleSaveSmsSettings = async () => {
     setSmsError(null)
@@ -641,6 +731,80 @@ export default function AdminCommunications() {
 
                   <Button variant="contained" size="small" disabled={savingSms || !smsSelectedProvider} onClick={handleSaveSmsSettings}>
                     {savingSms ? 'Saving…' : 'Save SMS Provider Settings'}
+                  </Button>
+                </Stack>
+              </CardContent>
+            </Card>
+          </Grid>
+
+          {/* P1-11 (FR-AI-12) — AI Scribe transcription provider */}
+          <Grid item xs={12} md={6}>
+            <Card>
+              <CardContent sx={{ p: 2.5 }}>
+                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
+                  <AutoAwesomeIcon sx={{ color: theme.palette.primary.main }} />
+                  <Typography variant="h5" component="h3" fontWeight={700}>
+                    AI Scribe (Consultation Transcription)
+                  </Typography>
+                </Stack>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Choose the speech-to-text provider used to draft consultation notes from a recorded conversation. Credentials are
+                  encrypted at rest and never shown again once saved. Also requires the AI Scribe feature on your plan.
+                </Alert>
+                {aiSaved && (
+                  <Alert severity="success" sx={{ mb: 2 }}>
+                    AI Scribe provider settings saved.
+                  </Alert>
+                )}
+                {aiError && (
+                  <Alert severity="error" sx={{ mb: 2 }} onClose={() => setAiError(null)}>
+                    {aiError}
+                  </Alert>
+                )}
+                <Stack spacing={2}>
+                  <FormControl fullWidth size="small" disabled={loadingAi}>
+                    <InputLabel id="ai-provider-label">Transcription Provider</InputLabel>
+                    <Select
+                      labelId="ai-provider-label"
+                      label="Transcription Provider"
+                      value={aiSelectedProvider}
+                      onChange={(e) => {
+                        setAiSelectedProvider(e.target.value)
+                        setAiCredentials({})
+                      }}
+                    >
+                      {aiProviders.map((p) => (
+                        <MenuItem key={p.id} value={p.id}>
+                          {p.label}
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+
+                  {selectedAiProvider &&
+                    selectedAiProvider.fields.map((f) => (
+                      <TextField
+                        key={f.key}
+                        fullWidth
+                        size="small"
+                        label={f.label + (f.required ? '' : ' (optional)')}
+                        type={f.type === 'password' ? 'password' : 'text'}
+                        value={aiCredentials[f.key] ?? ''}
+                        onChange={(e) => setAiCredentials((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                        placeholder={aiHasCredentials ? '••••••••  (leave blank to keep current)' : ''}
+                      />
+                    ))}
+
+                  {aiHasCredentials && (
+                    <Chip
+                      size="small"
+                      label="Credentials configured"
+                      sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontWeight: 700, alignSelf: 'flex-start' }}
+                    />
+                  )}
+
+                  <Button variant="contained" size="small" disabled={savingAi || !aiSelectedProvider} onClick={handleSaveAiSettings}>
+                    {savingAi ? 'Saving…' : 'Save AI Scribe Settings'}
                   </Button>
                 </Stack>
               </CardContent>
