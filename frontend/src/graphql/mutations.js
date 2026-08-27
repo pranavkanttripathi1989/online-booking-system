@@ -151,6 +151,11 @@ export const CREATE_APPOINTMENT_MUTATION = gql`
         name
       }
       checkin_token
+      no_show_risk {
+        score
+        level
+        reasons
+      }
     }
   }
 `

@@ -17,6 +17,7 @@
 | PLAN075 | improvement | Auto-no-show sweep + configurable intake fields | done | 2026-08-25 | 2026-08-25 | REQ052 | [PLAN075-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/PLAN075-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 | PLAN145 | improvement | Booking-widget embed code UI | done | 2026-08-26 | 2026-08-26 | REQ105 | [PLAN145-appointments-2026-08-26-booking-widget-embed-code-ui.md](./improvement/PLAN145-appointments-2026-08-26-booking-widget-embed-code-ui.md) |
 | PLAN188 | improvement | Server-side slot hold + booking idempotency (P1-05) | done | 2026-08-27 | 2026-08-27 | REQ148 | [PLAN188-appointments-2026-08-27-slot-hold-and-idempotency.md](./improvement/PLAN188-appointments-2026-08-27-slot-hold-and-idempotency.md) |
+| PLAN193 | improvement | No-show risk score (P1-17) | done | 2026-08-27 | 2026-08-27 | REQ152 | [PLAN193-appointments-2026-08-27-no-show-risk-score.md](./improvement/PLAN193-appointments-2026-08-27-no-show-risk-score.md) |
 
 ## bug
 

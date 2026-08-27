@@ -18,6 +18,7 @@
 | TR101 | improvement | Auto-no-show + intake fields results | pass | 2026-08-25 | 2026-08-25 | TP102 | [TR101-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/TR101-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 | TR163 | improvement | Booking-widget embed code UI results | pass | 2026-08-26 | 2026-08-26 | TP163 | [TR163-appointments-2026-08-26-booking-widget-embed-code-ui.md](./improvement/TR163-appointments-2026-08-26-booking-widget-embed-code-ui.md) |
 | TR208 | improvement | Server-side slot hold + booking idempotency results | pass | 2026-08-27 | 2026-08-27 | TP208 | [TR208-appointments-2026-08-27-slot-hold-and-idempotency.md](./improvement/TR208-appointments-2026-08-27-slot-hold-and-idempotency.md) |
+| TR213 | improvement | No-show risk score results (P1-17) | pass | 2026-08-27 | 2026-08-27 | TP213 | [TR213-appointments-2026-08-27-no-show-risk-score.md](./improvement/TR213-appointments-2026-08-27-no-show-risk-score.md) |
 
 ## bug
 

@@ -218,6 +218,10 @@ model Appointments {
   // three — none existed before the Appointments-domain increment (backend-hard-rules.md Rule 9).
   cancellation_reason String?
   reminder_sent_at    DateTime?
+  // P1-17 — reminder_sent_at alone can't express "how many reminders",
+  // needed since a high no-show-risk appointment gets an extra early
+  // reminder on top of the standard one (AppointmentReminderSweepService).
+  reminder_count      Int       @default(0)
   booked_by_user_id   String?
   // calendar/index.jsx's type filter and video/index.jsx's getAppointment
   // both expect an appointment "type" (in_person/video/home_visit) — no

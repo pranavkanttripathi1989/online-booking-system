@@ -3,6 +3,7 @@ import { ScheduleModule } from '@nestjs/schedule';
 import { AppointmentsService } from './appointments.service';
 import { AppointmentsResolver } from './appointments.resolver';
 import { NoShowSweepService } from './no-show-sweep.service';
+import { AppointmentReminderSweepService } from './appointment-reminder-sweep.service';
 import { QueueModule } from '../queue/queue.module';
 import { PatientsModule } from '../patients/patients.module';
 import { WebhooksModule } from '../webhooks/webhooks.module';
@@ -26,7 +27,7 @@ import { ReviewsModule } from '../reviews/reviews.module';
     SlotHoldsModule,
     ReviewsModule,
   ],
-  providers: [AppointmentsService, AppointmentsResolver, NoShowSweepService],
+  providers: [AppointmentsService, AppointmentsResolver, NoShowSweepService, AppointmentReminderSweepService],
   exports: [AppointmentsService],
 })
 export class AppointmentsModule {}

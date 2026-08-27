@@ -54,7 +54,7 @@ rule). Update `Status` in the same change that ships the slice.
 | **P1-14** | AI voice front-desk agent (inbound booking/reschedule/status) | BE+FE | **blocked** — needs a real inbound telephony vendor (Twilio Voice/Exotel) *and* a real LLM/conversational-AI provider, neither of which exists in this codebase; P1-11's deterministic-algorithm workaround doesn't extend to open-ended phone conversation. Skipped per explicit user decision 2026-08-27, not silently dropped | P1-05 | Needs the slot hold to be safe |
 | **P1-15** | WhatsApp AI agent (same brain, chat channel) | BE+FE | **blocked** (depends on P1-14) | P1-14, P1-01 | Reuses `REQ025` dispatch |
 | **P1-16** | Real telemedicine (WebRTC/vendor) + TPG drug list | BE+FE | **done** (`REQ026`) | — | Replaces the simulated stub. A stub in a demo is worse than an honest gap |
-| **P1-17** | No-show risk score → deposit / reminder / overbook policy | BE+FE | not started | P1-01 | All three levers already shipped; this joins them |
+| **P1-17** | No-show risk score → deposit / reminder / overbook policy | BE+FE | **done** (`REQ152`) | P1-01 | All three levers already shipped; this joins them |
 | **P1-18** | Observability — traces, error tracking, SLO dashboards | BE+FE | not started | — | Cannot currently answer "was it down" |
 
 **Sequencing note.** P1-08/09/10 (ABDM) is a *parallel workstream with its own
@@ -294,6 +294,30 @@ account.
   colour alone); explain the deposit requirement to the patient at booking
   (`BOOK-14` spirit — never a surprise).
 - **Exit:** a high-risk booking demands prepayment and says why.
+
+**Shipped 2026-08-27** (`REQ152`/`PLAN193`/`TP213`/`TR213`) — both tracks.
+Two research forks investigated "all three levers already exist" before
+any code was written and found it only partly true: prepayment (real,
+joined — the flat `no_show_count` threshold compare became one input
+into a real `computeNoShowRisk()` score); reminder intensity (**not
+real** — `appointment_reminder` was a fully registered notification
+event type nothing ever dispatched, per the codebase's own "needs a
+scheduled job, not an event hook" comment; built from scratch as
+`AppointmentReminderSweepService`, mirroring `NoShowSweepService`'s own
+shape); overbook allowance (real but static — **deliberately left
+that way**, a considered scheduling-safety scope cut, not an oversight).
+**Two real bugs found**: the risk function's own first-draft weighting
+would have silently broken REQ052's pre-existing "threshold reached ==
+forced prepayment" guarantee for a same-day booking, caught by that
+exact pre-existing regression test before it shipped; and a real,
+separate, pre-existing gap — the internal booking wizard
+(`BookingStep5Confirm.jsx`) showed "Booked! 🎉" unconditionally
+regardless of the real returned status, so a booking already landing
+`awaiting_payment` under the *existing* REQ052 mechanism was always
+shown as confirmed, with no frontend surface anywhere handling that
+status before this fix. See
+`context/appointments-2026-08-27-req152/manifest.md` for the full
+account.
 
 ### P1-18 — Observability
 

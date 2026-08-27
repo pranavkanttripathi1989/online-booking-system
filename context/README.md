@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| appointments-2026-08-27-req152 | appointments | 2026-08-27 | REQ152, PLAN193, TP213, TR213 | done | [manifest.md](./appointments-2026-08-27-req152/manifest.md) |
 | telemedicine-2026-08-27-req026 | telemedicine | 2026-08-27 | REQ026, PLAN192, TP212, TR212 | done | [manifest.md](./telemedicine-2026-08-27-req026/manifest.md) |
 | ai-clinical-2026-08-27-req151 | ai-clinical | 2026-08-27 | REQ151, PLAN191, TP211, TR211 | done | [manifest.md](./ai-clinical-2026-08-27-req151/manifest.md) |
 | frontend-platform-2026-08-27-p1-07-i18n-framework | frontend-platform | 2026-08-27 | REQ150, PLAN190, TP210, TR210 | done | [manifest.md](./frontend-platform-2026-08-27-p1-07-i18n-framework/manifest.md) |

@@ -3,6 +3,7 @@ import { useMutation } from '@apollo/client'
 import dayjs from 'dayjs'
 import { Alert, Avatar, Box, Button, CircularProgress, Divider, Paper, Stack, Typography } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import PendingActionsIcon from '@mui/icons-material/PendingActions'
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
 import PersonIcon from '@mui/icons-material/Person'
@@ -110,6 +111,74 @@ function SuccessScreen({ appointment, navigate, onBookAnother }) {
   )
 }
 
+// P1-17 / BOOK-14 / BOOK-19 — a real, previously-shipped gap: this wizard
+// rendered SuccessScreen unconditionally on any createAppointment
+// response, even one that actually landed 'awaiting_payment' (a service
+// with prepayment_policy: 'required', or now a high no-show-risk booking)
+// — "never show a booking as confirmed until the server confirms it" was
+// being violated for the mechanism that already existed, before this
+// slice added a second reason to hit it. No frontend surface anywhere
+// handled awaiting_payment before this fix (confirmed by search).
+function AwaitingPaymentScreen({ appointment, navigate }) {
+  const riskReasons = appointment?.no_show_risk?.level === 'high' ? appointment.no_show_risk.reasons : []
+  return (
+    <Box textAlign="center" py={4}>
+      <Box
+        sx={{
+          width: 80,
+          height: 80,
+          borderRadius: '50%',
+          bgcolor: 'warning.light',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          mx: 'auto',
+          mb: 3,
+        }}
+      >
+        <PendingActionsIcon sx={{ fontSize: 44, color: 'warning.dark' }} />
+      </Box>
+      <Typography variant="h5" fontWeight={800} mb={1}>
+        Prepayment Required to Confirm
+      </Typography>
+      <Typography variant="body2" color="text.secondary" mb={0.5}>
+        Reference ID
+      </Typography>
+      <Typography
+        variant="h6"
+        fontWeight={700}
+        color="primary"
+        sx={{ fontFamily: 'monospace', letterSpacing: 2, mb: 3, px: 2, py: 0.75, border: '1px solid', borderColor: 'primary.light', borderRadius: 2, display: 'inline-block' }}
+      >
+        #{appointment?.id ?? '—'}
+      </Typography>
+      <Alert severity="warning" sx={{ textAlign: 'left', maxWidth: 420, mx: 'auto', mb: 3 }}>
+        This slot is held but not yet confirmed.{' '}
+        {riskReasons.length > 0
+          ? `Based on this patient's recent scheduling history (${riskReasons.join(', ').toLowerCase()}), a prepayment is required to hold the slot.`
+          : 'This service requires prepayment to confirm the booking.'}{' '}
+        Collect payment now, or the patient must pay before their visit — the slot is not guaranteed until then.
+      </Alert>
+      <Box mb={3}>
+        <Typography variant="body2" color="text.secondary">
+          {appointment?.patient?.full_name} • {appointment?.service?.name}
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          {appointment?.start_datetime ? dayjs(appointment.start_datetime).format('dddd, DD MMM YYYY at h:mm A') : ''}
+        </Typography>
+      </Box>
+      <Stack direction="row" spacing={2} justifyContent="center">
+        <Button variant="contained" color="warning" onClick={() => navigate(`/appointments/${appointment.id}`)}>
+          Collect Payment Now
+        </Button>
+        <Button variant="outlined" onClick={() => navigate('/appointments')}>
+          View Later
+        </Button>
+      </Stack>
+    </Box>
+  )
+}
+
 // ─── BookingStep5Confirm ──────────────────────────────────────────────────────
 export default function BookingStep5Confirm({ wizardData, navigate }) {
   const [createdAppointment, setCreatedAppointment] = useState(null)
@@ -182,7 +251,11 @@ export default function BookingStep5Confirm({ wizardData, navigate }) {
   }
 
   if (createdAppointment) {
-    return <SuccessScreen appointment={createdAppointment} navigate={navigate} onBookAnother={handleBookAnother} />
+    return createdAppointment.status === 'awaiting_payment' ? (
+      <AwaitingPaymentScreen appointment={createdAppointment} navigate={navigate} />
+    ) : (
+      <SuccessScreen appointment={createdAppointment} navigate={navigate} onBookAnother={handleBookAnother} />
+    )
   }
 
   const patientDisplay =

@@ -64,6 +64,15 @@ export class AppointmentBookedByUserType {
   @Field() name: string;
 }
 
+// P1-17 — computed fresh on every read from the patient's current
+// no_show_count, never a stored/stale column.
+@ObjectType('NoShowRisk')
+export class NoShowRiskType {
+  @Field(() => Int) score: number;
+  @Field() level: string; // low|medium|high
+  @Field(() => [String]) reasons: string[];
+}
+
 @ObjectType('AppointmentStatusLog')
 export class AppointmentStatusLogType {
   @Field(() => ID) id: string;
@@ -103,6 +112,7 @@ export class AppointmentType {
   @Field({ nullable: true }) reminder_sent_at?: Date;
   @Field() created_at: Date;
   @Field() updated_at: Date;
+  @Field(() => NoShowRiskType) no_show_risk: NoShowRiskType;
   @Field(() => AppointmentPatientType) patient: AppointmentPatientType;
   @Field(() => AppointmentClinicianType) clinician: AppointmentClinicianType;
   @Field(() => AppointmentClinicType) clinic: AppointmentClinicType;

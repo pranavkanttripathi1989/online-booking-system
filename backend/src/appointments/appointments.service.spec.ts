@@ -394,6 +394,24 @@ describe('AppointmentsService — access scoping', () => {
         const created = prisma.appointments.create.mock.calls[0][0].data;
         expect(created.status).toBe('awaiting_payment');
       });
+
+      // P1-17 — the flat threshold is now one input into a real risk
+      // score joining lead time and booking channel, not the sole trigger.
+      it('a self-booked, far-out booking can be forced into prepayment even below the raw no-show count threshold', async () => {
+        prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', no_show_count: 2 }); // below the threshold of 3 alone
+        const farOutInput = { ...baseInput, start_datetime: new Date(Date.now() + 20 * 86_400_000).toISOString() };
+        await service.create(farOutInput as any, patientUser);
+        const created = prisma.appointments.create.mock.calls[0][0].data;
+        expect(created.status).toBe('awaiting_payment');
+      });
+
+      it('a clean-history, staff-booked appointment is never forced into prepayment regardless of lead time', async () => {
+        prisma.patients.findUnique.mockResolvedValue({ id: 'pat-1', no_show_count: 0 });
+        const farOutInput = { ...baseInput, start_datetime: new Date(Date.now() + 60 * 86_400_000).toISOString() };
+        await service.create(farOutInput as any, staffUser);
+        const created = prisma.appointments.create.mock.calls[0][0].data;
+        expect(created.status).toBe('scheduled');
+      });
     });
 
     // REQ052 (US-BOOK-06) — configurable intake fields.
@@ -613,6 +631,22 @@ describe('AppointmentsService — access scoping', () => {
     it('a clinician caller is rejected loading another clinician\'s appointment (TC-APPT-API-010)', async () => {
       prisma.appointments.findUnique.mockResolvedValue(baseAppointment({ clinician_id: 'cln-2' }));
       await expect(service.findOne('appt-1', clinicianUser)).rejects.toThrow(NotFoundException);
+    });
+
+    // P1-17 — computed fresh from the patient's current no_show_count on
+    // every read, not a stored column.
+    it('exposes a real no_show_risk computed from the patient\'s current history', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(
+        baseAppointment({
+          created_at: new Date(),
+          booked_by_user_id: null,
+          patient: { id: 'pat-1', first_name: 'A', last_name: 'B', date_of_birth: new Date(), no_show_count: 5 },
+          clinic: { client_org_id: 'org-1', client_organization: { no_show_prepayment_threshold: 3 } },
+        }),
+      );
+      const result = await service.findOne('appt-1', clinicianUser);
+      expect(result.no_show_risk.level).toBe('high');
+      expect(result.no_show_risk.reasons).toContain('5 prior no-shows');
     });
 
     // REQ016 (US-CAT-04) — display-mapping call site, reads through the

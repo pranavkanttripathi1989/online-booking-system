@@ -50,12 +50,46 @@ import DeselctRoundedIcon from '@mui/icons-material/DeselectRounded'
 import PointOfSaleRoundedIcon from '@mui/icons-material/PointOfSaleRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
+import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
+import ErrorRoundedIcon from '@mui/icons-material/ErrorRounded'
+import CheckCircleOutlineRoundedIcon from '@mui/icons-material/CheckCircleOutlineRounded'
 
-import { APPOINTMENTS_QUERY, CLINICIANS_QUERY, CLINICS_QUERY } from '../../graphql/queries'
+import { APPOINTMENT_FIELDS, CLINICIANS_QUERY, CLINICS_QUERY } from '../../graphql/queries'
 import { CANCEL_APPOINTMENT_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations'
 import CancelDialog from '../../components/Appointments/CancelDialog'
 import Menu from '@mui/material/Menu'
 import { useAuth } from '../../hooks/useAuth'
+
+// P1-17 — a page-local extension of the shared APPOINTMENTS_QUERY, adding
+// no_show_risk as a sibling of the AppointmentFields fragment spread
+// (never editing the shared fragment/query itself, which 4 other pages
+// also consume — Hard Rule 7/ARCH-15: touch only this page's own real
+// contract, not a shared one for a field only this list needs).
+const APPOINTMENTS_WITH_RISK_QUERY = gql`
+  query AppointmentsWithRisk($filters: AppointmentFilters, $first: Int = 20, $page: Int) {
+    appointments(filters: $filters, first: $first, page: $page) {
+      data {
+        ...AppointmentFields
+        no_show_risk {
+          score
+          level
+          reasons
+        }
+      }
+      paginatorInfo {
+        count
+        currentPage
+        firstItem
+        hasMorePages
+        lastItem
+        lastPage
+        perPage
+        total
+      }
+    }
+  }
+  ${APPOINTMENT_FIELDS}
+`
 
 // REQ056 (US-BIL-04, scoped subset) — page-local gql, matching this
 // codebase's real convention. closeCashDrawer's own @Auth gate is wider
@@ -121,6 +155,40 @@ function StatusChip({ status }) {
         height: 24,
       }}
     />
+  )
+}
+
+// P1-17 — A11Y-3: never colour alone. Each level gets its own icon, not
+// just a different dot colour, so it reads correctly for the ~1-in-12
+// colour-blind Indian male users FRONTEND_RULES.md itself cites.
+const RISK_CFG = {
+  high: { label: 'High risk', bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', Icon: ErrorRoundedIcon },
+  medium: { label: 'Medium risk', bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', Icon: WarningAmberRoundedIcon },
+  low: { label: 'Low risk', bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', Icon: CheckCircleOutlineRoundedIcon },
+}
+
+// ─── No-show Risk Chip ───────────────────────────────────────────────────────
+function NoShowRiskChip({ risk }) {
+  if (!risk) return null
+  const cfg = RISK_CFG[risk.level] ?? RISK_CFG.low
+  const Icon = cfg.Icon
+  return (
+    <Tooltip title={risk.reasons.length ? risk.reasons.join(', ') : 'No risk factors on file'} placement="top">
+      <Chip
+        icon={<Icon sx={{ fontSize: '0.9rem !important', color: `${cfg.color} !important` }} />}
+        label={cfg.label}
+        size="small"
+        sx={{
+          bgcolor: cfg.bg,
+          color: cfg.color,
+          border: `1px solid ${cfg.border}`,
+          fontWeight: 700,
+          borderRadius: '8px',
+          fontSize: '0.68rem',
+          height: 24,
+        }}
+      />
+    </Tooltip>
   )
 }
 
@@ -282,7 +350,7 @@ export default function AppointmentsPage() {
   }, [dateFrom, dateTo, viewTab, status, clinicianId, search])
 
   // ── Queries ───────────────────────────────────────────────────────────────
-  const { data, loading, error, refetch } = useQuery(APPOINTMENTS_QUERY, {
+  const { data, loading, error, refetch } = useQuery(APPOINTMENTS_WITH_RISK_QUERY, {
     variables: {
       filters: buildFilters(),
       first: paginationModel.pageSize,
@@ -633,6 +701,13 @@ export default function AppointmentsPage() {
           </Menu>
         </>
       ),
+    },
+    {
+      field: 'no_show_risk',
+      headerName: 'No-show Risk',
+      width: 150,
+      sortable: false,
+      renderCell: ({ row }) => <NoShowRiskChip risk={row.no_show_risk} />,
     },
     {
       field: 'actions',

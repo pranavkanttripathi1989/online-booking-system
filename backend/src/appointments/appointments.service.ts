@@ -17,6 +17,7 @@ import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { SlotHoldsService } from '../slot-holds/slot-holds.service';
+import { computeNoShowRisk } from './no-show-risk';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -42,7 +43,10 @@ const OVERLAP_CONSTRAINT_NAMES = [
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
 const INCLUDE = {
-  clinic: true,
+  // P1-17 — needed to read the org's own no_show_prepayment_threshold for
+  // the list-view risk computation below, the same nested shape create()
+  // already loads separately for the at-booking-time computation.
+  clinic: { include: { client_organization: true } },
   room: true,
   clinician: true,
   patient: true,
@@ -136,6 +140,23 @@ export class AppointmentsService {
       reminder_sent_at: a.reminder_sent_at ?? undefined,
       created_at: a.created_at,
       updated_at: a.updated_at,
+      // P1-17 — computed fresh on every read (never a stored/stale
+      // column), from the patient's CURRENT no_show_count, so an old
+      // appointment's risk reflects what's true today, not what it was
+      // at booking time.
+      // isSelfBooked here is a coarser proxy than create()'s own
+      // user.roles.includes('patient') check: booked_by_user_id is only
+      // ever null for a booking made through the separate public dialect
+      // (public.service.ts's bookPatientAppointment) -- this canonical
+      // path always stamps SOME caller id, including a patient's own.
+      // Acceptable: it's the minor (+10) factor here, not the dominant
+      // no-show-history one, and no extra role join is worth adding for it.
+      no_show_risk: computeNoShowRisk({
+        noShowCount: a.patient?.no_show_count ?? 0,
+        leadTimeDays: (start.getTime() - new Date(a.created_at).getTime()) / 86_400_000,
+        isSelfBooked: !a.booked_by_user_id,
+        noShowCountThreshold: a.clinic?.client_organization?.no_show_prepayment_threshold ?? 3,
+      }),
       patient: {
         id: a.patient.id,
         first_name: a.patient.first_name,
@@ -476,15 +497,24 @@ export class AppointmentsService {
     // payment.captured branch) transitions it to 'confirmed'. "optional"/
     // "none" (the default) preserve today's behaviour exactly.
     //
-    // REQ052 (US-BOOK-04) — a repeat-no-show patient is forced into the
-    // same 'awaiting_payment' gate regardless of the service's own policy,
-    // once their no_show_count reaches the org's configured threshold.
-    // Reuses the existing prepayment mechanism rather than a second one.
+    // REQ052 (US-BOOK-04) → P1-17 — a high-no-show-risk booking is forced
+    // into the same 'awaiting_payment' gate regardless of the service's
+    // own policy. Reuses the existing prepayment mechanism rather than a
+    // second one; the flat "no_show_count >= threshold" comparison is now
+    // one input into computeNoShowRisk() (joining lead time and booking
+    // channel) rather than the sole trigger, but the org's own configured
+    // threshold still governs how much weight prior history carries.
     const patient = await this.prisma.patients.findUnique({ where: { id: input.patient_id } });
     const noShowThreshold = (clinic as any)?.client_organization?.no_show_prepayment_threshold ?? 3;
-    const forcedByNoShowHistory = (patient?.no_show_count ?? 0) >= noShowThreshold;
-    const initialStatus = service.prepayment_policy === 'required' || forcedByNoShowHistory ? 'awaiting_payment' : 'scheduled';
     const start = new Date(input.start_datetime);
+    const noShowRisk = computeNoShowRisk({
+      noShowCount: patient?.no_show_count ?? 0,
+      leadTimeDays: (start.getTime() - Date.now()) / 86_400_000,
+      isSelfBooked: user.roles.includes('patient'),
+      noShowCountThreshold: noShowThreshold,
+    });
+    const forcedByNoShowRisk = noShowRisk.level === 'high';
+    const initialStatus = service.prepayment_policy === 'required' || forcedByNoShowRisk ? 'awaiting_payment' : 'scheduled';
     const durationMinutes = service.duration_minutes ?? 30;
     const end = new Date(start.getTime() + durationMinutes * 60000);
     // REQ107 — a no-prepayment booking is immediately checkin-eligible;

@@ -18,6 +18,7 @@
 | TP102 | improvement | Auto-no-show + intake fields verification | approved | 2026-08-25 | 2026-08-25 | PLAN075 | [TP102-appointments-2026-08-25-auto-no-show-and-intake-fields.md](./improvement/TP102-appointments-2026-08-25-auto-no-show-and-intake-fields.md) |
 | TP163 | improvement | Booking-widget embed code UI | approved | 2026-08-26 | 2026-08-26 | PLAN145 | [TP163-appointments-2026-08-26-booking-widget-embed-code-ui.md](./improvement/TP163-appointments-2026-08-26-booking-widget-embed-code-ui.md) |
 | TP208 | improvement | Server-side slot hold + booking idempotency verification | done | 2026-08-27 | 2026-08-27 | PLAN188 | [TP208-appointments-2026-08-27-slot-hold-and-idempotency.md](./improvement/TP208-appointments-2026-08-27-slot-hold-and-idempotency.md) |
+| TP213 | improvement | No-show risk score verification (P1-17) | done | 2026-08-27 | 2026-08-27 | REQ152 | [TP213-appointments-2026-08-27-no-show-risk-score.md](./improvement/TP213-appointments-2026-08-27-no-show-risk-score.md) |
 
 ## bug
 

@@ -20,8 +20,8 @@ order, front-end and back-end together.*
 ```yaml
 current_phase:  1
 current_doc:    01-phase1-close-the-gates.md
-current_slice:  P1-17            # first unstarted, unblocked slice in that doc's tracker
-last_completed: REQ026           # P1-16 (real telemedicine: vendor SDK, TPG enforcement, escalation) closed 2026-08-27
+current_slice:  P1-18            # first unstarted, unblocked slice in that doc's tracker
+last_completed: REQ152           # P1-17 (no-show risk score: prepayment/reminders joined+built, overbook deliberately left static) closed 2026-08-27
 blocked_on:     P1-08/09/10, P1-14/15   # ABDM (NHA credentials + certification) and the voice/WhatsApp AI agent (no telephony vendor or LLM provider in this codebase) — both skipped per explicit user decision, not silently dropped
 ```
 
