@@ -66,6 +66,18 @@ const EXEMPT: Record<string, string> = {
   // ai-clinical's own exemption above. Covered directly in
   // telemedicine.service.spec.ts.
   telemedicine: "No list query exists on this resolver — two mutations keyed by encounter_id, both reusing EncountersService.encounter()'s own self/org-scoping rather than re-deriving it. Cross-org/cross-patient/cross-clinician isolation is covered in telemedicine.service.spec.ts's own dedicated tests instead.",
+  // P2-05 (2026-08-27) — no query or mutation on this resolver is keyed
+  // by any id at all: parseImportPreview/dryRunImport take only raw CSV
+  // content (nothing to read cross-tenant — there is no stored resource
+  // an org-B caller could ever address), and commitImport is a write-only
+  // bulk create scoped via orgIdForWrite(user, 'ImportJob'), the same
+  // fail-closed helper every other domain's own create path already
+  // uses. There is no "org A caller reads org B's row by id" shape this
+  // matrix's generic same-org-sees-same-row case could express here —
+  // same reasoning as ai-clinical/telemedicine's own exemptions above.
+  // The org-less-platform-operator rejection path is covered directly in
+  // imports.service.spec.ts's own dedicated test instead.
+  imports: "No query or mutation on this resolver is keyed by any id — parseImportPreview/dryRunImport take only raw CSV content (nothing to read cross-tenant), and commitImport is a write-only bulk create scoped via orgIdForWrite(), the same helper every other domain's create path already uses. No 'org A reads org B's row by id' shape exists to build a matrix case from, same shape as ai-clinical/telemedicine's own exemptions above. Covered in imports.service.spec.ts's own dedicated test instead.",
 };
 
 /**

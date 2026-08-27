@@ -39,7 +39,7 @@ gates. Phase 2's claim work depends on both.
 | **P2-02** | AI coding assist — ICD-10 + procedure codes from the note | BE+FE | **done** (`REQ154`) | P1-11 | `REQ020` P1 named ICD-10; now AI-driven |
 | **P2-03** | Agentic claim lifecycle — auto-code → submit → track → draft appeal | BE+FE | **done** (`REQ155`) | P2-02 | The differentiator. Claim state machine + evidence attach already built |
 | **P2-04** | Denial analytics + payer scorecards | BE+FE | **done** (`REQ156`) | P2-03 | `Claims` data model already there |
-| **P2-05** | AI-assisted migration importer (Practo / MocDoc / HealthPlix mappers) | BE+FE | not started | P1-11 | #1 switching blocker. AI *structures* imported free-text notes — rivals can't |
+| **P2-05** | AI-assisted migration importer (Practo / MocDoc / HealthPlix mappers) | BE+FE | **done** (`REQ157`) | P1-11 | #1 switching blocker. AI *structures* imported free-text notes — rivals can't |
 | **P2-06** | Doctor revenue-share & payouts engine | BE+FE | not started | — | Named chain-ICP need; branch overrides already built |
 | **P2-07** | Drug interaction + allergy hard-stops | BE+FE | not started | P1-12 | Safety. Allergy banner + drug master already there |
 | **P2-08** | Regional-language Rx print (i18n for documents) | BE+FE | not started | P1-07 | Rivals market 23+ languages |
@@ -127,6 +127,39 @@ switching blocker. Rivals win on "free migration, 1-day go-live."
   clear per-row error report. Never a silent partial import.
 - **Exit:** a real Practo export lands as structured patients, appointments and
   encounters in ≤2 business days, self-serve.
+
+**Shipped 2026-08-27** (`REQ157`/`PLAN198`/`TP218`/`TR218`, new feature
+slug `data-migration`) — both tracks, with a real scope correction made
+before any code was written: this codebase has no verified knowledge
+of Practo/MocDoc/HealthPlix's actual export column layouts, so a
+"per-vendor mapper" claiming fidelity to any of them would have been
+fabricating a capability with no evidence behind it. Built instead as a
+generic, deterministic column-mapping suggester (real header-name
+matching, honest about being a starting point a human reviews and can
+override, not a guaranteed match) — genuinely usable against a real
+competitor export the moment one exists to test against. Also scoped
+to **patients only** this slice, not the full "patients, appointments
+and encounters" the bullet above names — synthesizing valid
+`Appointments` rows (which `Encounters` requires) from CSV-only source
+data would mean inventing clinics/clinicians/services the file never
+specified; logged as a named follow-on, not silently dropped. The AI
+wedge itself shipped as scoped: `Patients.medical_notes` (already a
+real, existing field) is where a mapped notes/history column lands,
+structured via P1-11's own `structureTranscript()` classifier reused
+verbatim — a rival's free-text export becomes labeled, sectioned data
+inside this product, exactly the framing this slice exists to prove
+out, without needing to fabricate the appointment/encounter chain to
+do it. A real 4-step wizard (Upload → Map columns → Dry run → Commit)
+ships on `manager/imports`, and `commitImport` never trusts an earlier
+dry run — both re-validate the same submitted content fresh every
+time. Full verification: backend 122/122 suites (1961/1961 tests, 65
+new), integration 9/9 suites (414/414 tests — the tenancy matrix's own
+gate correctly caught the new domain as unclassified before a proper
+`EXEMPT` entry closed it), frontend 5/5 in the wizard's first-ever test
+file. See `context/data-migration-2026-08-27-req157/manifest.md` for
+the full account, including a real jsdom `File.text()` gap found and
+worked around (extending `TR215`'s own `Blob.text()` finding from
+earlier this session).
 
 ### P2-06 — Doctor revenue-share & payouts
 

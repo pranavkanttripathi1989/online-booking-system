@@ -74,6 +74,7 @@ import EventAvailableIcon from '@mui/icons-material/EventAvailable'
 import BadgeIcon from '@mui/icons-material/Badge'
 import CategoryIcon from '@mui/icons-material/Category'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
+import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import MedicationIcon from '@mui/icons-material/Medication'
 import SummarizeIcon from '@mui/icons-material/Summarize'
 import GavelIcon from '@mui/icons-material/Gavel'
@@ -255,6 +256,8 @@ const MANAGER_CHILDREN = [
   { label: 'Clinic Forms', path: '/manager/clinic-forms', icon: <FormatListNumberedIcon /> },
   // Phase G+3 — multi-sitting service packages (REQ054).
   { label: 'Packages', path: '/manager/packages', icon: <WorkspacePremiumIcon /> },
+  // P2-05 — CSV migration importer.
+  { label: 'Patient Import', path: '/manager/imports', icon: <UploadFileRoundedIcon /> },
 ]
 
 const BOTTOM_NAV = [

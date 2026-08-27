@@ -927,6 +927,7 @@ model ClientOrganizations {
   productBranchOverrides ProductBranchOverrides[]
   cannedReplies          CannedReplies[]
   tasks                  Tasks[]
+  importJobs             ImportJobs[]
 }
 
 model ClinicianAvailability {
@@ -2516,6 +2517,7 @@ model UserProfiles {
   submittedClaims    Claims[]
   aiTranscriptionConsents AiTranscriptionSessions[]
   telemedicineRecordingConsents TelemedicineSessions[]
+  importJobsCreated  ImportJobs[]
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])
@@ -3030,6 +3032,31 @@ model ClaimAppeals {
   claim Claims @relation(fields: [claim_id], references: [id], onDelete: Cascade)
 
   @@index([claim_id])
+}
+
+// P2-05 — a completed (or failed) bulk patient import's own audit
+// record. Deliberately a result-log only, not an input cache: the raw
+// CSV content and the chosen column mapping are never persisted here
+// (or anywhere) -- commitImport() takes both as direct mutation
+// arguments, the same content already in the browser from the file the
+// user picked, re-validated fresh rather than trusted from an earlier
+// dry-run. row_errors_json is capped (see imports.service.ts) rather
+// than storing an error for every one of a potentially very large
+// file's bad rows.
+model ImportJobs {
+  id                  String    @id @default(uuid())
+  client_org_id       String
+  created_by_user_id  String
+  total_rows          Int
+  imported_rows       Int
+  error_rows          Int
+  row_errors_json     Json?
+  created_at          DateTime  @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  created_by          UserProfiles        @relation(fields: [created_by_user_id], references: [id])
+
+  @@index([client_org_id])
 }
 
 // ============================================================

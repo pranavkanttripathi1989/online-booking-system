@@ -61,6 +61,7 @@ import { PackagesModule } from './packages/packages.module';
 import { BranchOverridesModule } from './branch-overrides/branch-overrides.module';
 import { DocumentsModule } from './documents/documents.module';
 import { AiClinicalModule } from './ai-clinical/ai-clinical.module';
+import { ImportsModule } from './imports/imports.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
@@ -184,6 +185,7 @@ import { PubSubModule } from './common/pubsub.module';
     BranchOverridesModule,
     DocumentsModule,
     AiClinicalModule,
+    ImportsModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

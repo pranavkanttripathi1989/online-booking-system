@@ -173,6 +173,7 @@ const AdminRightsRequests = lazy(() => import('./pages/admin/RightsRequests'))
 const ManagerPharmacy = lazy(() => import('./pages/manager/pharmacy/index'))
 const ManagerClaims = lazy(() => import('./pages/manager/claims/index'))
 const ManagerReports = lazy(() => import('./pages/manager/reports/index'))
+const ManagerImports = lazy(() => import('./pages/manager/imports/index'))
 import AdminLayout from './layouts/AdminLayout'
 
 // ─── Loading fallbacks ────────────────────────────────────────────────────────
@@ -787,6 +788,15 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <ManagerReports />
+                </Suspense>
+              }
+            />
+            {/* P2-05 */}
+            <Route
+              path="/manager/imports"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerImports />
                 </Suspense>
               }
             />

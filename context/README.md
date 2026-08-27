@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| data-migration-2026-08-27-req157 | data-migration | 2026-08-27 | REQ157, PLAN198, TP218, TR218 | done | [manifest.md](./data-migration-2026-08-27-req157/manifest.md) |
 | analytics-reporting-2026-08-27-req156 | analytics-reporting | 2026-08-27 | REQ156, PLAN197, TP217, TR217 | done | [manifest.md](./analytics-reporting-2026-08-27-req156/manifest.md) |
 | insurance-claims-2026-08-27-req155 | insurance-claims | 2026-08-27 | REQ155, PLAN196, TP216, TR216 | done | [manifest.md](./insurance-claims-2026-08-27-req155/manifest.md) |
 | ai-clinical-2026-08-27-req154 | ai-clinical | 2026-08-27 | REQ154, PLAN195, TP215, TR215 | done | [manifest.md](./ai-clinical-2026-08-27-req154/manifest.md) |
