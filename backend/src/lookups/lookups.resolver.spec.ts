@@ -7,11 +7,25 @@ import { ROLES_KEY } from '../common/decorators/roles.decorator';
 
 describe('LookupsResolver', () => {
   let resolver: LookupsResolver;
-  let service: { findAll: jest.Mock; create: jest.Mock; update: jest.Mock; remove: jest.Mock; icd10Codes: jest.Mock };
+  let service: {
+    findAll: jest.Mock;
+    create: jest.Mock;
+    update: jest.Mock;
+    remove: jest.Mock;
+    icd10Codes: jest.Mock;
+    procedureCodes: jest.Mock;
+  };
   const reflector = new Reflector();
 
   beforeEach(async () => {
-    service = { findAll: jest.fn(), create: jest.fn(), update: jest.fn(), remove: jest.fn(), icd10Codes: jest.fn() };
+    service = {
+      findAll: jest.fn(),
+      create: jest.fn(),
+      update: jest.fn(),
+      remove: jest.fn(),
+      icd10Codes: jest.fn(),
+      procedureCodes: jest.fn(),
+    };
     const module: TestingModule = await Test.createTestingModule({
       providers: [LookupsResolver, { provide: LookupsService, useValue: service }],
     }).compile();
@@ -19,10 +33,11 @@ describe('LookupsResolver', () => {
   });
 
   describe('role gating (@Auth annotations)', () => {
-    it('leaves clinicianTypes/roomTypes/icd10Codes ungated for any authenticated role', () => {
+    it('leaves clinicianTypes/roomTypes/icd10Codes/procedureCodes ungated for any authenticated role', () => {
       expect(reflector.get(ROLES_KEY, LookupsResolver.prototype.clinicianTypes)).toBeUndefined();
       expect(reflector.get(ROLES_KEY, LookupsResolver.prototype.roomTypes)).toBeUndefined();
       expect(reflector.get(ROLES_KEY, LookupsResolver.prototype.icd10Codes)).toBeUndefined();
+      expect(reflector.get(ROLES_KEY, LookupsResolver.prototype.procedureCodes)).toBeUndefined();
     });
 
     it.each([
@@ -91,6 +106,21 @@ describe('LookupsResolver', () => {
       service.icd10Codes.mockResolvedValue([]);
       await resolver.icd10Codes(undefined);
       expect(service.icd10Codes).toHaveBeenCalledWith(undefined);
+    });
+  });
+
+  // REQ154 (P2-02)
+  describe('procedureCodes', () => {
+    it('delegates to the service with the given search term', async () => {
+      service.procedureCodes.mockResolvedValue([]);
+      await resolver.procedureCodes('PR-0');
+      expect(service.procedureCodes).toHaveBeenCalledWith('PR-0');
+    });
+
+    it('delegates with undefined when no search term is given', async () => {
+      service.procedureCodes.mockResolvedValue([]);
+      await resolver.procedureCodes(undefined);
+      expect(service.procedureCodes).toHaveBeenCalledWith(undefined);
     });
   });
 });

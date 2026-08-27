@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN195 | improvement | AI coding assist: ICD-10 + procedure codes from the note | done | 2026-08-27 | 2026-08-27 | REQ154 | [PLAN195-ai-clinical-2026-08-27-icd10-and-procedure-code-suggestion.md](./improvement/PLAN195-ai-clinical-2026-08-27-icd10-and-procedure-code-suggestion.md) |
 
 ## bug
 

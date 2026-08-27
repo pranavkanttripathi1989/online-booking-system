@@ -9,6 +9,7 @@ import {
   AiTranscriptionSessionType,
   StructureTranscriptResultType,
   AiExtractedPrescriptionItemType,
+  EncounterCodeSuggestionsType,
 } from './entities/ai-clinical.entity';
 import { StartTranscriptionSessionInput, SubmitTranscriptionInput, UpdateAiProviderConfigInput } from './dto/ai-clinical.input';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -80,5 +81,14 @@ export class AiClinicalResolver {
   @Query(() => [String])
   preConsultSummary(@Args('patient_id', { type: () => ID }) patientId: string, @CurrentUser() user: JwtPayload) {
     return this.service.preConsultSummary(patientId, user);
+  }
+
+  // P2-02 — same role gate as the other clinical AI queries above. No
+  // EntitlementGuard: unlike transcription, this has no external vendor
+  // cost to meter.
+  @Auth(...CLINICAL_ROLES)
+  @Query(() => EncounterCodeSuggestionsType)
+  suggestEncounterCodes(@Args('encounter_id', { type: () => ID }) encounterId: string, @CurrentUser() user: JwtPayload) {
+    return this.service.suggestEncounterCodes(encounterId, user);
   }
 }

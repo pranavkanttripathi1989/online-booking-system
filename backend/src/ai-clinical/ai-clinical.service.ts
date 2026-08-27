@@ -9,6 +9,7 @@ import { getTranscriptionProvider, listTranscriptionProviders } from './provider
 import { validateCredentials } from './providers/provider.interface';
 import { structureTranscript, extractVitals } from './transcript-structuring';
 import { extractPrescriptionDraft as extractPrescriptionDraftFromTranscript } from './prescription-extraction';
+import { suggestCodes } from './coding-suggestion';
 import { buildPreConsultSummary } from './pre-consult-summary';
 import { StartTranscriptionSessionInput, SubmitTranscriptionInput, UpdateAiProviderConfigInput } from './dto/ai-clinical.input';
 
@@ -295,6 +296,31 @@ export class AiClinicalService {
       timeline as any,
       (allergies as any[]).map((a) => ({ text: a.text })),
     );
+  }
+
+  // ── Coding assist (P2-02) ────────────────────────────────────────────────
+  // Reuses encountersService.encounter()'s own self-scoping (clinician must
+  // be on this encounter, org boundary already enforced) rather than
+  // re-deriving it — the same "reuse, don't re-derive" pattern
+  // extractPrescriptionDraft/preConsultSummary above already use. Draft
+  // suggestions only: nothing here writes a Diagnoses row. Works against
+  // ANY encounter with saved EncounterNotes content, whether typed by hand
+  // or produced by the ambient scribe (P1-11) — deliberately not gated
+  // behind the paid ai_scribe entitlement, since this is pure deterministic
+  // matching with no external vendor cost, unlike transcription itself.
+  async suggestEncounterCodes(encounterId: string, user: JwtPayload) {
+    const encounter = await this.encountersService.encounter(encounterId, user);
+    const noteText = ((encounter as any).notes ?? []).map((n: any) => n.content).join(' ');
+
+    const [icd10Codes, procedureCodes] = await Promise.all([
+      this.prisma.icd10Codes.findMany({ where: { is_active: true } }),
+      this.prisma.procedureCodes.findMany({ where: { is_active: true } }),
+    ]);
+
+    return {
+      diagnosis_suggestions: suggestCodes(noteText, icd10Codes),
+      procedure_suggestions: suggestCodes(noteText, procedureCodes),
+    };
   }
 
   // ── Internal helpers ─────────────────────────────────────────────────────

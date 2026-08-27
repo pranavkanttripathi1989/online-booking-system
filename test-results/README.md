@@ -2,7 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
-| ai-clinical | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [ai-clinical](./ai-clinical/README.md) |
+| ai-clinical | 1 | 1 | 0 | 0 | 2 | 2026-08-27 | [ai-clinical](./ai-clinical/README.md) |
 | telemedicine | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [telemedicine](./telemedicine/README.md) |
 | clinician-dashboard | 0 | 0 | 1 | 0 | 1 | 2026-08-25 | [clinician-dashboard](./clinician-dashboard/README.md) |
 | analytics-reporting | 2 | 0 | 0 | 0 | 2 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |

@@ -60,6 +60,7 @@ const ENCOUNTER_QUERY = gql`
         id
         type
         icd10_code
+        procedure_code
         text
         status
         created_at
@@ -190,6 +191,7 @@ const CREATE_DIAGNOSIS = gql`
       id
       type
       icd10_code
+      procedure_code
       text
       status
       created_at
@@ -276,6 +278,37 @@ const ICD10_SEARCH_QUERY = gql`
     }
   }
 `
+// REQ154 (P2-02)
+const PROCEDURE_SEARCH_QUERY = gql`
+  query ProcedureCodes($search: String) {
+    procedureCodes(search: $search) {
+      id
+      code
+      description
+      category
+    }
+  }
+`
+const SUGGEST_CODES_QUERY = gql`
+  query SuggestEncounterCodes($encounter_id: ID!) {
+    suggestEncounterCodes(encounter_id: $encounter_id) {
+      diagnosis_suggestions {
+        code
+        description
+        category
+        matched_terms
+        score
+      }
+      procedure_suggestions {
+        code
+        description
+        category
+        matched_terms
+        score
+      }
+    }
+  }
+`
 
 const APPOINTMENT_ID = 'appt-1'
 const ENCOUNTER_ID = 'enc-1'
@@ -302,6 +335,18 @@ function encounter(overrides = {}) {
 
 function icd10Mock(search, codes = []) {
   return { request: { query: ICD10_SEARCH_QUERY, variables: { search } }, result: { data: { icd10Codes: codes } } }
+}
+
+// REQ154 (P2-02)
+function procedureMock(search, codes = []) {
+  return { request: { query: PROCEDURE_SEARCH_QUERY, variables: { search } }, result: { data: { procedureCodes: codes } } }
+}
+
+function suggestCodesMock(diagnosisSuggestions = [], procedureSuggestions = []) {
+  return {
+    request: { query: SUGGEST_CODES_QUERY, variables: { encounter_id: ENCOUNTER_ID } },
+    result: { data: { suggestEncounterCodes: { diagnosis_suggestions: diagnosisSuggestions, procedure_suggestions: procedureSuggestions } } },
+  }
 }
 
 function baseMocks(enc) {
@@ -353,6 +398,7 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
           id: 'dx-1',
           type: 'diagnosis',
           icd10_code: 'J06.9',
+          procedure_code: null,
           text: 'Upper respiratory infection',
           status: 'active',
           created_at: '2026-08-25T10:00:00.000Z',
@@ -374,6 +420,7 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
           id: 'dx-2',
           type: 'allergy',
           icd10_code: null,
+          procedure_code: null,
           text: 'Penicillin allergy',
           status: 'active',
           created_at: '2026-08-25T10:00:00.000Z',
@@ -395,6 +442,7 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
               id: 'dx-2',
               type: 'diagnosis',
               icd10_code: null,
+              procedure_code: null,
               text: 'Penicillin allergy',
               status: 'active',
               created_at: '2026-08-25T10:00:00.000Z',
@@ -454,6 +502,7 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
               id: 'dx-3',
               type: 'diagnosis',
               icd10_code: 'J06.9',
+              procedure_code: null,
               text: 'URI',
               status: 'active',
               created_at: '2026-08-25T10:00:00.000Z',
@@ -472,6 +521,7 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
                   id: 'dx-3',
                   type: 'diagnosis',
                   icd10_code: 'J06.9',
+                  procedure_code: null,
                   text: 'URI',
                   status: 'active',
                   created_at: '2026-08-25T10:00:00.000Z',
@@ -497,6 +547,108 @@ describe('EncounterWorkspace — diagnoses + save-as-template (A-5/A-6)', () => 
 
     await waitFor(() => expect(screen.getByText('URI')).toBeInTheDocument())
     expect(screen.getByText('J06.9')).toBeInTheDocument()
+  }, 20000)
+
+  // REQ154 (P2-02)
+  it('adds a procedure via the real createDiagnosis mutation, using the procedure-code search', async () => {
+    const enc = encounter()
+    renderPage([
+      ...baseMocks(enc),
+      icd10Mock(undefined),
+      procedureMock(undefined),
+      procedureMock('PR-0', [
+        { __typename: 'ProcedureCode', id: 'pr-1', code: 'PR-010', description: 'Wound dressing, minor', category: 'Wound care' },
+      ]),
+      {
+        request: {
+          query: CREATE_DIAGNOSIS,
+          variables: {
+            input: { encounter_id: ENCOUNTER_ID, type: 'procedure', text: 'Dressing change', procedure_code: 'PR-010' },
+          },
+        },
+        result: {
+          data: {
+            createDiagnosis: {
+              __typename: 'EncounterDiagnosis',
+              id: 'dx-4',
+              type: 'procedure',
+              icd10_code: null,
+              procedure_code: 'PR-010',
+              text: 'Dressing change',
+              status: 'active',
+              created_at: '2026-08-25T10:00:00.000Z',
+            },
+          },
+        },
+      },
+      {
+        request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } },
+        result: {
+          data: {
+            encounter: encounter({
+              diagnoses: [
+                {
+                  __typename: 'EncounterDiagnosis',
+                  id: 'dx-4',
+                  type: 'procedure',
+                  icd10_code: null,
+                  procedure_code: 'PR-010',
+                  text: 'Dressing change',
+                  status: 'active',
+                  created_at: '2026-08-25T10:00:00.000Z',
+                },
+              ],
+            }),
+          },
+        },
+      },
+    ])
+
+    await waitFor(() => expect(screen.getByText('No diagnoses recorded yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Add Diagnosis' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.selectOptions(within(dialog).getByLabelText('Type'), 'procedure')
+    await userEvent.type(within(dialog).getByLabelText('Description'), 'Dressing change')
+    const procedureField = within(dialog).getByLabelText(/^Procedure code/)
+    await userEvent.click(procedureField)
+    fireEvent.change(procedureField, { target: { value: 'PR-0' } })
+    await userEvent.click(await screen.findByRole('option', { name: /PR-010/ }))
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(screen.getByText('Dressing change')).toBeInTheDocument())
+    expect(screen.getByText('PR-010')).toBeInTheDocument()
+  }, 20000)
+
+  // REQ154 (P2-02)
+  it('shows AI code suggestions and pre-fills the Add Diagnosis dialog from a suggestion, without auto-saving it', async () => {
+    const enc = encounter()
+    renderPage([
+      ...baseMocks(enc),
+      icd10Mock(undefined),
+      suggestCodesMock(
+        [{ code: 'J02.9', description: 'Acute pharyngitis, unspecified', category: 'Respiratory', matched_terms: ['acute', 'pharyngitis'], score: 1 }],
+        [{ code: 'PR-010', description: 'Wound dressing, minor', category: 'Wound care', matched_terms: ['wound', 'dressing'], score: 1 }],
+      ),
+    ])
+
+    await waitFor(() => expect(screen.getByText('No diagnoses recorded yet.')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('button', { name: 'Suggest Codes' }))
+
+    const suggestDialog = await screen.findByRole('dialog')
+    await waitFor(() => expect(within(suggestDialog).getByText(/J02\.9/)).toBeInTheDocument())
+    expect(within(suggestDialog).getByText(/PR-010/)).toBeInTheDocument()
+    expect(within(suggestDialog).getByText(/Matched: acute, pharyngitis/)).toBeInTheDocument()
+
+    // Nothing is saved by opening the suggestions dialog itself — clicking
+    // "Add" only pre-fills and opens the existing Add Diagnosis dialog, a
+    // human still has to click Save (FR-AI-06's own discipline).
+    const addButtons = within(suggestDialog).getAllByRole('button', { name: 'Add' })
+    await userEvent.click(addButtons[0])
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('Description')).toHaveValue('Acute pharyngitis, unspecified')
+    expect(within(dialog).getByDisplayValue('J02.9')).toBeInTheDocument()
+    expect(screen.getByText('No diagnoses recorded yet.')).toBeInTheDocument()
   }, 20000)
 
   it('saves the current note content as a reusable template', async () => {

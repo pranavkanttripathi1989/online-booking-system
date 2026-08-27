@@ -424,15 +424,26 @@ model EncounterAddenda {
 // Allergies table, so this is the specified model doing double duty, not an
 // invented one. icd10_code is nullable/free-text-fallback at MVP per the
 // requirement's own note -- real coding (FR-EMR-03) is P1.
+//
+// REQ154 (P2-02) -- 'procedure' added as a third `type`, same double-duty
+// reasoning as 'allergy' above: a coded procedure performed during an
+// encounter is a clinical annotation of the identical shape (a code, a
+// free-text description, a status), not a genuinely different entity that
+// would justify its own table. procedure_code is the equivalent free-text/
+// soft-validated column icd10_code already is for a diagnosis row -- kept
+// as its own column rather than overloading icd10_code, since a procedure
+// code is not an ICD-10 code and storing one under that name would mislead
+// any future reader of raw data.
 model Diagnoses {
-  id           String   @id @default(uuid())
-  encounter_id String
-  type         String   @default("diagnosis") // diagnosis | allergy
-  icd10_code   String?
-  text         String
-  status       String   @default("active") // active | resolved
-  created_at   DateTime @default(now())
-  updated_at   DateTime @updatedAt
+  id             String   @id @default(uuid())
+  encounter_id   String
+  type           String   @default("diagnosis") // diagnosis | allergy | procedure
+  icd10_code     String?
+  procedure_code String?
+  text           String
+  status         String   @default("active") // active | resolved
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
 
   encounter Encounters @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
 
@@ -2565,6 +2576,23 @@ model Languages {
 // any text or leave it blank); this table exists to power the search
 // dropdown, not to constrain the write.
 model Icd10Codes {
+  id          String  @id @default(uuid())
+  code        String  @unique
+  description String
+  category    String
+  is_active   Boolean @default(true)
+
+  @@index([category])
+}
+
+// REQ154 (P2-02) — a curated OPD-relevant starter set of procedure/service
+// codes, mirroring Icd10Codes' own shape and honesty note exactly: this is
+// NOT a licensed CPT/HCPCS code set (both are proprietary US terminology
+// systems this codebase has no license to redistribute) -- an internal,
+// India-OPD-relevant reference list ("PR-" prefixed) covering the
+// procedures a general/multi-specialty clinic actually performs. Platform-
+// global, no client_org_id, same as Icd10Codes/Languages/Drugs.
+model ProcedureCodes {
   id          String  @id @default(uuid())
   code        String  @unique
   description String

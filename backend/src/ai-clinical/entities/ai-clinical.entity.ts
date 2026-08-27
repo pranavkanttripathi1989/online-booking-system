@@ -55,6 +55,27 @@ export class AiProviderFieldType {
   @Field() required: boolean;
 }
 
+// P2-02 (FR-AI coding assist) — a DRAFT suggestion only, mirroring
+// AiExtractedPrescriptionItemType's own "draft, never auto-committed"
+// discipline: nothing here is ever saved as a Diagnoses row without a
+// clinician reviewing and submitting it through the existing "Add
+// Diagnosis" dialog. matched_terms surfaces exactly which words in the
+// note triggered this suggestion, so it is reviewable, not a black box.
+@ObjectType('CodeSuggestion')
+export class CodeSuggestionType {
+  @Field() code: string;
+  @Field() description: string;
+  @Field() category: string;
+  @Field(() => [String]) matched_terms: string[];
+  @Field(() => Float) score: number;
+}
+
+@ObjectType('EncounterCodeSuggestions')
+export class EncounterCodeSuggestionsType {
+  @Field(() => [CodeSuggestionType]) diagnosis_suggestions: CodeSuggestionType[];
+  @Field(() => [CodeSuggestionType]) procedure_suggestions: CodeSuggestionType[];
+}
+
 @ObjectType('AiProviderOption')
 export class AiProviderOptionType {
   @Field() id: string;

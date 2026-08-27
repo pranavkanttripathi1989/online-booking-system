@@ -36,7 +36,7 @@ gates. Phase 2's claim work depends on both.
 | # | Slice | Track | Status | Depends on | Notes |
 |---|---|---|:--:|---|---|
 | **P2-01** | ABDM M3 (HIU) — consent-based fetch of external records | BE+FE | not started | P1-10 | Completes the interop story |
-| **P2-02** | AI coding assist — ICD-10 + procedure codes from the note | BE+FE | not started | P1-11 | `REQ020` P1 named ICD-10; now AI-driven |
+| **P2-02** | AI coding assist — ICD-10 + procedure codes from the note | BE+FE | **done** (`REQ154`) | P1-11 | `REQ020` P1 named ICD-10; now AI-driven |
 | **P2-03** | Agentic claim lifecycle — auto-code → submit → track → draft appeal | BE+FE | not started | P2-02 | The differentiator. Claim state machine + evidence attach already built |
 | **P2-04** | Denial analytics + payer scorecards | BE+FE | not started | P2-03 | `Claims` data model already there |
 | **P2-05** | AI-assisted migration importer (Practo / MocDoc / HealthPlix mappers) | BE+FE | not started | P1-11 | #1 switching blocker. AI *structures* imported free-text notes — rivals can't |

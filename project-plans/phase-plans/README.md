@@ -20,8 +20,8 @@ order, front-end and back-end together.*
 ```yaml
 current_phase:  2
 current_doc:    02-phase2-win-the-midmarket.md
-current_slice:  P2-02            # first unstarted, unblocked slice — P2-01 depends on blocked P1-10
-last_completed: REQ153           # P1-18 (observability: /health, Sentry, OTel traces, Web Vitals) closed 2026-08-27
+current_slice:  P2-03            # next unstarted, unblocked slice — P2-01 depends on blocked P1-10; P2-02 done
+last_completed: REQ154           # P2-02 (AI coding assist: ICD-10 + procedure codes from the note) closed 2026-08-27
 blocked_on:     P1-08/09/10, P1-14/15   # ABDM (NHA credentials + certification) and the voice/WhatsApp AI agent (no telephony vendor or LLM provider in this codebase) — both skipped per explicit user decision, not silently dropped
 phase_1_status: complete except the two blocked gates above — every other P1-01..P1-18 slice is done
 ```

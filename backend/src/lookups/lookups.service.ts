@@ -75,4 +75,19 @@ export class LookupsService {
       take: 20,
     });
   }
+
+  // REQ154 (P2-02) — identical shape/contract to icd10Codes() above, for
+  // the procedure_code type-ahead search.
+  procedureCodes(search?: string) {
+    return this.prisma.procedureCodes.findMany({
+      where: {
+        is_active: true,
+        ...(search
+          ? { OR: [{ code: { startsWith: search, mode: 'insensitive' } }, { description: { contains: search, mode: 'insensitive' } }] }
+          : {}),
+      },
+      orderBy: { code: 'asc' },
+      take: 20,
+    });
+  }
 }

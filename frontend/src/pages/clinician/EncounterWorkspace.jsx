@@ -98,6 +98,7 @@ const ENCOUNTER_QUERY = gql`
         id
         type
         icd10_code
+        procedure_code
         text
         status
         created_at
@@ -287,6 +288,7 @@ const CREATE_DIAGNOSIS = gql`
       id
       type
       icd10_code
+      procedure_code
       text
       status
       created_at
@@ -371,6 +373,38 @@ const ICD10_SEARCH_QUERY = gql`
       code
       description
       category
+    }
+  }
+`
+// REQ154 (P2-02) — identical contract to ICD10_SEARCH_QUERY above.
+const PROCEDURE_SEARCH_QUERY = gql`
+  query ProcedureCodes($search: String) {
+    procedureCodes(search: $search) {
+      id
+      code
+      description
+      category
+    }
+  }
+`
+// REQ154 (P2-02) — draft suggestions only; nothing here is auto-saved.
+const SUGGEST_CODES_QUERY = gql`
+  query SuggestEncounterCodes($encounter_id: ID!) {
+    suggestEncounterCodes(encounter_id: $encounter_id) {
+      diagnosis_suggestions {
+        code
+        description
+        category
+        matched_terms
+        score
+      }
+      procedure_suggestions {
+        code
+        description
+        category
+        matched_terms
+        score
+      }
     }
   }
 `
@@ -560,7 +594,9 @@ function NotesPane({
   const [addendumOpen, setAddendumOpen] = useState(false)
   const [addendumText, setAddendumText] = useState('')
   const [diagnosisOpen, setDiagnosisOpen] = useState(false)
-  const [diagnosisForm, setDiagnosisForm] = useState({ type: 'diagnosis', text: '', icd10_code: '' })
+  const [diagnosisForm, setDiagnosisForm] = useState({ type: 'diagnosis', text: '', icd10_code: '', procedure_code: '' })
+  // REQ154 (P2-02) — draft AI code suggestions, never auto-added.
+  const [suggestOpen, setSuggestOpen] = useState(false)
   const [investigationOpen, setInvestigationOpen] = useState(false)
   const [investigationForm, setInvestigationForm] = useState({ test_name: '', test_type: '', urgency: 'routine' })
   const [referralOpen, setReferralOpen] = useState(false)
@@ -583,6 +619,30 @@ function NotesPane({
     skip: !diagnosisOpen,
   })
   const icd10Options = icd10Data?.icd10Codes ?? []
+
+  // REQ154 (P2-02) — identical debounce/skip pattern to icd10 above, active
+  // only when the dialog's Type is set to 'procedure'.
+  const [procedureSearch, setProcedureSearch] = useState('')
+  const [procedureDebounced, setProcedureDebounced] = useState('')
+  useEffect(() => {
+    const t = setTimeout(() => setProcedureDebounced(procedureSearch), 300)
+    return () => clearTimeout(t)
+  }, [procedureSearch])
+  const { data: procedureData, loading: procedureLoading } = useQuery(PROCEDURE_SEARCH_QUERY, {
+    variables: { search: procedureDebounced || undefined },
+    skip: !diagnosisOpen || diagnosisForm.type !== 'procedure',
+  })
+  const procedureOptions = procedureData?.procedureCodes ?? []
+
+  // REQ154 (P2-02) — network-only: suggestions must reflect the encounter's
+  // CURRENT saved note content, not a stale cached read from an earlier
+  // visit to this page.
+  const [runSuggestCodes, { data: suggestData, loading: suggestLoading }] = useLazyQuery(SUGGEST_CODES_QUERY, {
+    variables: { encounter_id: encounter?.id },
+    fetchPolicy: 'network-only',
+  })
+  const diagnosisSuggestions = suggestData?.suggestEncounterCodes?.diagnosis_suggestions ?? []
+  const procedureSuggestions = suggestData?.suggestEncounterCodes?.procedure_suggestions ?? []
 
   useEffect(() => {
     const next = {}
@@ -645,9 +705,21 @@ function NotesPane({
               Diagnoses
             </Typography>
             {!locked && (
-              <Button size="small" startIcon={<MedicationRoundedIcon fontSize="small" />} onClick={() => setDiagnosisOpen(true)}>
-                Add Diagnosis
-              </Button>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  size="small"
+                  startIcon={<AutoAwesomeRoundedIcon fontSize="small" />}
+                  onClick={() => {
+                    runSuggestCodes()
+                    setSuggestOpen(true)
+                  }}
+                >
+                  Suggest Codes
+                </Button>
+                <Button size="small" startIcon={<MedicationRoundedIcon fontSize="small" />} onClick={() => setDiagnosisOpen(true)}>
+                  Add Diagnosis
+                </Button>
+              </Stack>
             )}
           </Stack>
           {(encounter?.diagnoses?.length ?? 0) === 0 ? (
@@ -664,6 +736,11 @@ function NotesPane({
                     {d.icd10_code && (
                       <Typography variant="caption" color="text.secondary">
                         {d.icd10_code}
+                      </Typography>
+                    )}
+                    {d.procedure_code && (
+                      <Typography variant="caption" color="text.secondary">
+                        {d.procedure_code}
                       </Typography>
                     )}
                   </Stack>
@@ -866,6 +943,7 @@ function NotesPane({
             >
               <option value="diagnosis">Diagnosis</option>
               <option value="allergy">Allergy</option>
+              <option value="procedure">Procedure</option>
             </TextField>
             <TextField
               fullWidth
@@ -875,51 +953,91 @@ function NotesPane({
               value={diagnosisForm.text}
               onChange={(e) => setDiagnosisForm((f) => ({ ...f, text: e.target.value }))}
             />
-            <Autocomplete
-              freeSolo
-              fullWidth
-              options={icd10Options}
-              loading={icd10Loading}
-              inputValue={diagnosisForm.icd10_code}
-              onInputChange={(_, value, reason) => {
-                setIcd10Search(value)
-                // 'reason' distinguishes real typing from MUI's own
-                // programmatic sync of the input text after a selection
-                // (reason: 'reset') or a clear (reason: 'clear') — only
-                // real typing should write free text here, otherwise this
-                // clobbers the clean code onChange just set below with the
-                // selected option's full rendered label.
-                if (reason === 'input') setDiagnosisForm((f) => ({ ...f, icd10_code: value }))
-              }}
-              onChange={(_, value) => {
-                // A selected option is an { id, code, ... } object; a
-                // freeSolo Enter/blur with no selection passes the raw
-                // string (or null on clear) instead — store just the code
-                // string either way, matching the field's existing shape.
-                const code = value && typeof value === 'object' ? value.code : (value ?? '')
-                setDiagnosisForm((f) => ({ ...f, icd10_code: code }))
-              }}
-              getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} — ${option.description}`)}
-              isOptionEqualToValue={(option, value) => option.code === (typeof value === 'string' ? value : value?.code)}
-              noOptionsText={
-                icd10Search.length < 1 ? 'Start typing a code or description…' : 'No match — you can still save this as free text'
-              }
-              renderInput={(params) => (
-                <TextField
-                  {...params}
-                  label="ICD-10 code (optional)"
-                  InputProps={{
-                    ...params.InputProps,
-                    endAdornment: (
-                      <>
-                        {icd10Loading ? <CircularProgress size={16} /> : null}
-                        {params.InputProps.endAdornment}
-                      </>
-                    ),
-                  }}
-                />
-              )}
-            />
+            {diagnosisForm.type === 'procedure' ? (
+              // REQ154 (P2-02) — same freeSolo/debounce contract as the
+              // ICD-10 Autocomplete below, targeting procedure_code instead.
+              <Autocomplete
+                freeSolo
+                fullWidth
+                options={procedureOptions}
+                loading={procedureLoading}
+                inputValue={diagnosisForm.procedure_code}
+                onInputChange={(_, value, reason) => {
+                  setProcedureSearch(value)
+                  if (reason === 'input') setDiagnosisForm((f) => ({ ...f, procedure_code: value }))
+                }}
+                onChange={(_, value) => {
+                  const code = value && typeof value === 'object' ? value.code : (value ?? '')
+                  setDiagnosisForm((f) => ({ ...f, procedure_code: code }))
+                }}
+                getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} — ${option.description}`)}
+                isOptionEqualToValue={(option, value) => option.code === (typeof value === 'string' ? value : value?.code)}
+                noOptionsText={
+                  procedureSearch.length < 1 ? 'Start typing a code or description…' : 'No match — you can still save this as free text'
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Procedure code (optional)"
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {procedureLoading ? <CircularProgress size={16} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            ) : (
+              <Autocomplete
+                freeSolo
+                fullWidth
+                options={icd10Options}
+                loading={icd10Loading}
+                inputValue={diagnosisForm.icd10_code}
+                onInputChange={(_, value, reason) => {
+                  setIcd10Search(value)
+                  // 'reason' distinguishes real typing from MUI's own
+                  // programmatic sync of the input text after a selection
+                  // (reason: 'reset') or a clear (reason: 'clear') — only
+                  // real typing should write free text here, otherwise this
+                  // clobbers the clean code onChange just set below with the
+                  // selected option's full rendered label.
+                  if (reason === 'input') setDiagnosisForm((f) => ({ ...f, icd10_code: value }))
+                }}
+                onChange={(_, value) => {
+                  // A selected option is an { id, code, ... } object; a
+                  // freeSolo Enter/blur with no selection passes the raw
+                  // string (or null on clear) instead — store just the code
+                  // string either way, matching the field's existing shape.
+                  const code = value && typeof value === 'object' ? value.code : (value ?? '')
+                  setDiagnosisForm((f) => ({ ...f, icd10_code: code }))
+                }}
+                getOptionLabel={(option) => (typeof option === 'string' ? option : `${option.code} — ${option.description}`)}
+                isOptionEqualToValue={(option, value) => option.code === (typeof value === 'string' ? value : value?.code)}
+                noOptionsText={
+                  icd10Search.length < 1 ? 'Start typing a code or description…' : 'No match — you can still save this as free text'
+                }
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="ICD-10 code (optional)"
+                    InputProps={{
+                      ...params.InputProps,
+                      endAdornment: (
+                        <>
+                          {icd10Loading ? <CircularProgress size={16} /> : null}
+                          {params.InputProps.endAdornment}
+                        </>
+                      ),
+                    }}
+                  />
+                )}
+              />
+            )}
           </Stack>
         </DialogContent>
         <DialogActions>
@@ -932,13 +1050,110 @@ function NotesPane({
                 type: diagnosisForm.type,
                 text: diagnosisForm.text.trim(),
                 icd10_code: diagnosisForm.icd10_code.trim() || undefined,
+                procedure_code: diagnosisForm.procedure_code.trim() || undefined,
               })
-              setDiagnosisForm({ type: 'diagnosis', text: '', icd10_code: '' })
+              setDiagnosisForm({ type: 'diagnosis', text: '', icd10_code: '', procedure_code: '' })
               setDiagnosisOpen(false)
             }}
           >
             Save
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* REQ154 (P2-02) — draft suggestions only; each "Add" pre-fills the
+          Add Diagnosis dialog above rather than saving directly, so a
+          clinician always makes the final call (FR-AI-06's own
+          never-auto-without-a-human-decision discipline). */}
+      <Dialog open={suggestOpen} onClose={() => setSuggestOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle>
+          <Stack direction="row" spacing={1} alignItems="center">
+            <AutoAwesomeRoundedIcon fontSize="small" color="primary" />
+            <span>AI Code Suggestions</span>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          {suggestLoading ? (
+            <Stack alignItems="center" sx={{ py: 3 }}>
+              <CircularProgress size={24} />
+            </Stack>
+          ) : diagnosisSuggestions.length === 0 && procedureSuggestions.length === 0 ? (
+            <Typography variant="body2" color="text.secondary" sx={{ py: 2 }}>
+              No suggestions yet — write a note in Chief Complaints, History, Examination or Advice above, then try again.
+            </Typography>
+          ) : (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {diagnosisSuggestions.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                    Diagnosis codes
+                  </Typography>
+                  <Stack spacing={1}>
+                    {diagnosisSuggestions.map((s) => (
+                      <Paper key={s.code} variant="outlined" sx={{ p: 1.5 }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>
+                              {s.code} — {s.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Matched: {s.matched_terms.join(', ')}
+                            </Typography>
+                          </Box>
+                          <Button
+                            size="small"
+                            onClick={() => {
+                              setDiagnosisForm({ type: 'diagnosis', text: s.description, icd10_code: s.code, procedure_code: '' })
+                              setSuggestOpen(false)
+                              setDiagnosisOpen(true)
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+              {procedureSuggestions.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1 }}>
+                    Procedure codes
+                  </Typography>
+                  <Stack spacing={1}>
+                    {procedureSuggestions.map((s) => (
+                      <Paper key={s.code} variant="outlined" sx={{ p: 1.5 }}>
+                        <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                          <Box>
+                            <Typography variant="body2" fontWeight={600}>
+                              {s.code} — {s.description}
+                            </Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              Matched: {s.matched_terms.join(', ')}
+                            </Typography>
+                          </Box>
+                          <Button
+                            size="small"
+                            onClick={() => {
+                              setDiagnosisForm({ type: 'procedure', text: s.description, icd10_code: '', procedure_code: s.code })
+                              setSuggestOpen(false)
+                              setDiagnosisOpen(true)
+                            }}
+                          >
+                            Add
+                          </Button>
+                        </Stack>
+                      </Paper>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setSuggestOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
 

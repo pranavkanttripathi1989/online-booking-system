@@ -268,6 +268,19 @@ describe('EncountersService', () => {
         expect.objectContaining({ data: expect.objectContaining({ type: 'diagnosis', status: 'active' }) }),
       );
     });
+
+    // REQ154 (P2-02)
+    it('passes procedure_code through for a procedure-type row', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.diagnoses.create.mockResolvedValue({ id: 'dx-2' });
+      await service.createDiagnosis(
+        { encounter_id: 'enc-1', type: 'procedure', procedure_code: 'PR-010', text: 'Wound dressing' } as any,
+        clinicianA,
+      );
+      expect(prisma.diagnoses.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ type: 'procedure', procedure_code: 'PR-010' }) }),
+      );
+    });
   });
 
   // REQ127 (FR-EMR-08)

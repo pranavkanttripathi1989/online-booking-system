@@ -16,6 +16,8 @@ describe('AiClinicalService', () => {
     encounterNotes: { findUnique: jest.Mock; upsert: jest.Mock };
     vitals: { createMany: jest.Mock };
     drugs: { findFirst: jest.Mock };
+    icd10Codes: { findMany: jest.Mock };
+    procedureCodes: { findMany: jest.Mock };
   };
   let encountersService: { encounter: jest.Mock; patientTimeline: jest.Mock; patientAllergyBanner: jest.Mock };
   let entitlementsService: { getQuota: jest.Mock };
@@ -38,6 +40,8 @@ describe('AiClinicalService', () => {
       encounterNotes: { findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn() },
       vitals: { createMany: jest.fn() },
       drugs: { findFirst: jest.fn().mockResolvedValue(null) },
+      icd10Codes: { findMany: jest.fn().mockResolvedValue([]) },
+      procedureCodes: { findMany: jest.fn().mockResolvedValue([]) },
     };
     encountersService = {
       encounter: jest.fn().mockResolvedValue(unlockedEncounter),
@@ -292,6 +296,60 @@ describe('AiClinicalService', () => {
       expect(encountersService.patientTimeline).toHaveBeenCalledWith('pat-1', clinicianUser);
       expect(bullets).toContain('Allergies: Penicillin');
       expect(bullets).toContain('Recent diagnosis: Diabetes');
+    });
+  });
+
+  describe('suggestEncounterCodes — P2-02', () => {
+    it("reuses encountersService.encounter()'s own self-scoping rather than re-deriving it", async () => {
+      encountersService.encounter.mockResolvedValue({ ...unlockedEncounter, notes: [] });
+      await service.suggestEncounterCodes('enc-1', clinicianUser);
+      expect(encountersService.encounter).toHaveBeenCalledWith('enc-1', clinicianUser);
+    });
+
+    it('queries only active reference rows from both code tables', async () => {
+      encountersService.encounter.mockResolvedValue({ ...unlockedEncounter, notes: [] });
+      await service.suggestEncounterCodes('enc-1', clinicianUser);
+      expect(prisma.icd10Codes.findMany).toHaveBeenCalledWith({ where: { is_active: true } });
+      expect(prisma.procedureCodes.findMany).toHaveBeenCalledWith({ where: { is_active: true } });
+    });
+
+    it('joins every note section into one text before matching, so a match can span sections', async () => {
+      encountersService.encounter.mockResolvedValue({
+        ...unlockedEncounter,
+        notes: [
+          { section: 'complaints', content: 'acute pharyngitis' },
+          { section: 'advice', content: 'wound dressing done' },
+        ],
+      });
+      prisma.icd10Codes.findMany.mockResolvedValue([
+        { code: 'J02.9', description: 'Acute pharyngitis, unspecified', category: 'Respiratory' },
+      ]);
+      prisma.procedureCodes.findMany.mockResolvedValue([
+        { code: 'PR-010', description: 'Wound dressing, minor', category: 'Wound care' },
+      ]);
+
+      const result = await service.suggestEncounterCodes('enc-1', clinicianUser);
+
+      expect(result.diagnosis_suggestions.map((s: any) => s.code)).toContain('J02.9');
+      expect(result.procedure_suggestions.map((s: any) => s.code)).toContain('PR-010');
+    });
+
+    it('returns empty suggestion arrays for an encounter with no notes yet, never throwing', async () => {
+      encountersService.encounter.mockResolvedValue({ ...unlockedEncounter, notes: [] });
+      const result = await service.suggestEncounterCodes('enc-1', clinicianUser);
+      expect(result).toEqual({ diagnosis_suggestions: [], procedure_suggestions: [] });
+    });
+
+    it('never fabricates a suggestion outside the real reference tables', async () => {
+      encountersService.encounter.mockResolvedValue({
+        ...unlockedEncounter,
+        notes: [{ section: 'complaints', content: 'patient reports severe headache and nausea' }],
+      });
+      prisma.icd10Codes.findMany.mockResolvedValue([
+        { code: 'E11.9', description: 'Type 2 diabetes mellitus without complications', category: 'Endocrine' },
+      ]);
+      const result = await service.suggestEncounterCodes('enc-1', clinicianUser);
+      expect(result.diagnosis_suggestions).toEqual([]);
     });
   });
 });

@@ -28,6 +28,7 @@ describe('AiClinicalResolver — role and entitlement gating', () => {
       AiClinicalResolver.prototype.aiExtractedPrescriptionDraft,
       AiClinicalResolver.prototype.preConsultSummary,
       AiClinicalResolver.prototype.myAiProviderConfig,
+      AiClinicalResolver.prototype.suggestEncounterCodes,
     ];
     otherHandlers.forEach((handler) => {
       expect(reflector.get(REQUIRES_FEATURE_KEY, handler)).toBeUndefined();
@@ -41,6 +42,7 @@ describe('AiClinicalResolver — role and entitlement gating', () => {
       AiClinicalResolver.prototype.structureTranscriptSession,
       AiClinicalResolver.prototype.aiExtractedPrescriptionDraft,
       AiClinicalResolver.prototype.preConsultSummary,
+      AiClinicalResolver.prototype.suggestEncounterCodes,
     ];
     clinicalHandlers.forEach((handler) => {
       const roles = reflector.get(ROLES_KEY, handler);

@@ -26,6 +26,7 @@ export class DiagnosisType {
   @Field(() => ID) encounter_id: string;
   @Field() type: string;
   @Field({ nullable: true }) icd10_code?: string;
+  @Field({ nullable: true }) procedure_code?: string;
   @Field() text: string;
   @Field() status: string;
   @Field() created_at: Date;

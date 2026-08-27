@@ -353,6 +353,73 @@ async function main() {
   }
   console.log(`  created ${icd10Created} new ICD-10 code(s) (${ICD10_CODES.length - icd10Created} already existed)`);
 
+  // REQ154 (P2-02) -- a curated OPD-relevant starter set of procedure
+  // codes, NOT a licensed CPT/HCPCS set (see the schema's own comment on
+  // ProcedureCodes for why). Diagnoses.procedure_code stays free text;
+  // this table only powers the search dropdown and the AI suggestion
+  // matcher, same role Icd10Codes plays for diagnoses.
+  console.log('Seeding procedure codes (coding-assist reference data)...');
+  const PROCEDURE_CODES = [
+    { code: 'PR-001', description: 'General consultation, new patient', category: 'Consultation' },
+    { code: 'PR-002', description: 'General consultation, follow up', category: 'Consultation' },
+    { code: 'PR-003', description: 'Specialist consultation, referral', category: 'Consultation' },
+    { code: 'PR-004', description: 'Telemedicine video consultation', category: 'Consultation' },
+    { code: 'PR-010', description: 'Wound dressing, minor', category: 'Wound care' },
+    { code: 'PR-011', description: 'Wound dressing, major', category: 'Wound care' },
+    { code: 'PR-012', description: 'Suture removal', category: 'Wound care' },
+    { code: 'PR-013', description: 'Minor suturing of a laceration', category: 'Wound care' },
+    { code: 'PR-014', description: 'Incision and drainage of abscess', category: 'Wound care' },
+    { code: 'PR-020', description: 'Intramuscular injection administration', category: 'Injection/infusion' },
+    { code: 'PR-021', description: 'Subcutaneous injection administration', category: 'Injection/infusion' },
+    { code: 'PR-022', description: 'Intravenous fluid infusion', category: 'Injection/infusion' },
+    { code: 'PR-023', description: 'Nebulization therapy', category: 'Injection/infusion' },
+    { code: 'PR-030', description: 'Vaccination administration, single dose', category: 'Immunization' },
+    { code: 'PR-031', description: 'Vaccination administration, multiple doses', category: 'Immunization' },
+    { code: 'PR-032', description: 'Tetanus toxoid injection', category: 'Immunization' },
+    { code: 'PR-040', description: 'Electrocardiogram (ECG), 12-lead', category: 'Cardiovascular' },
+    { code: 'PR-041', description: 'Blood pressure monitoring, ambulatory', category: 'Cardiovascular' },
+    { code: 'PR-050', description: 'Ear syringing / cerumen removal', category: 'ENT' },
+    { code: 'PR-051', description: 'Nasal packing for epistaxis', category: 'ENT' },
+    { code: 'PR-052', description: 'Foreign body removal, ear or nose', category: 'ENT' },
+    { code: 'PR-060', description: 'Splinting of a limb fracture', category: 'Musculoskeletal' },
+    { code: 'PR-061', description: 'Plaster of Paris cast application', category: 'Musculoskeletal' },
+    { code: 'PR-062', description: 'Joint aspiration', category: 'Musculoskeletal' },
+    { code: 'PR-063', description: 'Intra-articular corticosteroid injection', category: 'Musculoskeletal' },
+    { code: 'PR-070', description: 'Peak flow / spirometry testing', category: 'Respiratory' },
+    { code: 'PR-071', description: 'Oxygen saturation monitoring', category: 'Respiratory' },
+    { code: 'PR-080', description: 'Pap smear collection', category: 'Obstetric/gynaecological' },
+    { code: 'PR-081', description: 'Antenatal check-up, routine', category: 'Obstetric/gynaecological' },
+    { code: 'PR-082', description: 'IUCD (intrauterine device) insertion', category: 'Obstetric/gynaecological' },
+    { code: 'PR-083', description: 'IUCD removal', category: 'Obstetric/gynaecological' },
+    { code: 'PR-090', description: 'Skin lesion excision, minor', category: 'Dermatological' },
+    { code: 'PR-091', description: 'Skin biopsy, punch', category: 'Dermatological' },
+    { code: 'PR-092', description: 'Cryotherapy for skin lesion', category: 'Dermatological' },
+    { code: 'PR-100', description: 'Urinary catheterization', category: 'Genitourinary' },
+    { code: 'PR-101', description: 'Catheter removal', category: 'Genitourinary' },
+    { code: 'PR-110', description: 'Venepuncture for blood sample collection', category: 'Diagnostic' },
+    { code: 'PR-111', description: 'Random blood glucose testing, bedside', category: 'Diagnostic' },
+    { code: 'PR-112', description: 'Rapid antigen testing', category: 'Diagnostic' },
+    { code: 'PR-113', description: 'Urine dipstick testing', category: 'Diagnostic' },
+    { code: 'PR-120', description: 'Nail avulsion, partial', category: 'Minor procedure' },
+    { code: 'PR-121', description: 'Sebaceous cyst excision', category: 'Minor procedure' },
+    { code: 'PR-122', description: 'Circumcision', category: 'Minor procedure' },
+    { code: 'PR-130', description: 'Eye irrigation, foreign body removal', category: 'Ophthalmic' },
+    { code: 'PR-131', description: 'Visual acuity testing', category: 'Ophthalmic' },
+    { code: 'PR-140', description: 'Dental scaling and polishing', category: 'Dental' },
+    { code: 'PR-141', description: 'Tooth extraction, simple', category: 'Dental' },
+    { code: 'PR-150', description: 'Physiotherapy session', category: 'Rehabilitation' },
+    { code: 'PR-151', description: 'Nutrition and dietary counselling', category: 'Counselling' },
+    { code: 'PR-152', description: 'Mental health counselling session', category: 'Counselling' },
+  ];
+  let procedureCodesCreated = 0;
+  for (const row of PROCEDURE_CODES) {
+    const existing = await prisma.procedureCodes.findUnique({ where: { code: row.code } });
+    if (existing) continue;
+    await prisma.procedureCodes.create({ data: row });
+    procedureCodesCreated++;
+  }
+  console.log(`  created ${procedureCodesCreated} new procedure code(s) (${PROCEDURE_CODES.length - procedureCodesCreated} already existed)`);
+
   // REQ045 — the self-serve onboarding wizard's plan-picker step reads this
   // table for real; it was live in the schema since Phase 3.5 but never
   // seeded, so the step always rendered empty against a real backend.

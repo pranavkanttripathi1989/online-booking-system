@@ -2,7 +2,7 @@
 
 | Feature | Requirement | Improvement | Bug | Open | Done | Most recent | Link |
 |---|---|---|---|---|---|---|---|
-| ai-clinical | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [ai-clinical](./ai-clinical/README.md) |
+| ai-clinical | 1 | 1 | 0 | 0 | 2 | 2026-08-27 | [ai-clinical](./ai-clinical/README.md) |
 | clinician-dashboard | 0 | 0 | 1 | 0 | 1 | 2026-08-25 | [clinician-dashboard](./clinician-dashboard/README.md) |
 | insurance-claims | 1 | 6 | 0 | 1 | 6 | 2026-08-26 | [insurance-claims](./insurance-claims/README.md) |
 | clinical-records | 1 | 6 | 0 | 1 | 6 | 2026-08-26 | [clinical-records](./clinical-records/README.md) |

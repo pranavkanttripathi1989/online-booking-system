@@ -278,6 +278,7 @@ export class EncountersService {
         encounter_id: input.encounter_id,
         type: input.type ?? 'diagnosis',
         icd10_code: input.icd10_code,
+        procedure_code: input.procedure_code,
         text: input.text,
         status: input.status ?? 'active',
       },

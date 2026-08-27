@@ -4,6 +4,7 @@ import { LookupsService } from './lookups.service';
 import { ClinicianTypeType } from './entities/clinician-type.entity';
 import { RoomTypeType } from './entities/room-type.entity';
 import { Icd10CodeType } from './entities/icd10-code.entity';
+import { ProcedureCodeType } from './entities/procedure-code.entity';
 import { LookupMutationResultType } from './entities/lookup-mutation-result.entity';
 import {
   CreateRoomTypeInput,
@@ -85,5 +86,11 @@ export class LookupsResolver {
   @Query(() => [Icd10CodeType])
   icd10Codes(@Args('search', { nullable: true }) search?: string) {
     return this.lookupsService.icd10Codes(search);
+  }
+
+  // REQ154 (P2-02) -- platform reference data, ungated like icd10Codes above.
+  @Query(() => [ProcedureCodeType])
+  procedureCodes(@Args('search', { nullable: true }) search?: string) {
+    return this.lookupsService.procedureCodes(search);
   }
 }

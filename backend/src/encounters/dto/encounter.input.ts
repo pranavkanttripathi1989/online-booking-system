@@ -63,7 +63,7 @@ export class CreateDiagnosisInput {
 
   @Field({ nullable: true })
   @IsOptional()
-  @IsIn(['diagnosis', 'allergy'])
+  @IsIn(['diagnosis', 'allergy', 'procedure'])
   type?: string;
 
   // No real ICD-10 coding this slice (P1, per REQ020's own phase split) --
@@ -71,6 +71,12 @@ export class CreateDiagnosisInput {
   @Field({ nullable: true })
   @IsOptional()
   icd10_code?: string;
+
+  // REQ154 (P2-02) -- same free-text/soft-validation shape as icd10_code,
+  // populated when type === 'procedure'.
+  @Field({ nullable: true })
+  @IsOptional()
+  procedure_code?: string;
 
   @Field()
   @IsNotEmpty()
