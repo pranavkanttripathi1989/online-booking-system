@@ -19,6 +19,7 @@ import AddIcon from '@mui/icons-material/Add'
 import DeleteIcon from '@mui/icons-material/Delete'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
 import ScheduleSendIcon from '@mui/icons-material/ScheduleSend'
+import PolicyRoundedIcon from '@mui/icons-material/PolicyRounded'
 import { CLINICS_QUERY } from '../../../graphql/queries'
 
 // REQ029 (US-RPT-02/03) — Patient report group + scheduled delivery.
@@ -37,6 +38,41 @@ const GET_PATIENT_REPORT_GROUP = gql`
         id
         full_name
         last_visit
+      }
+    }
+  }
+`
+// P2-04 — denial analytics + payer scorecards, over Claims submitted in
+// the reporting window.
+const GET_CLAIM_ANALYTICS = gql`
+  query GetClaimAnalytics($clinicId: ID, $startDate: String!, $endDate: String!) {
+    getClaimAnalytics(clinicId: $clinicId, startDate: $startDate, endDate: $endDate) {
+      totalClaims
+      approvedCount
+      rejectedCount
+      settledCount
+      pendingCount
+      approvalRate
+      totalClaimAmount
+      totalApprovedAmount
+      recoveryRate
+      denialCategoryBreakdown {
+        category
+        categoryLabel
+        count
+      }
+      payerScorecards {
+        payerId
+        payerName
+        totalClaims
+        approvedCount
+        rejectedCount
+        pendingCount
+        approvalRate
+        avgDecisionDays
+        totalClaimAmount
+        totalApprovedAmount
+        recoveryRate
       }
     }
   }
@@ -91,6 +127,7 @@ export default function ManagerReportsPage() {
   const [startDate, setStartDate] = useState(daysAgoIso(30))
   const [endDate, setEndDate] = useState(todayIso())
   const [patientGroup, setPatientGroup] = useState(null)
+  const [claimAnalytics, setClaimAnalytics] = useState(null)
   const [schedules, setSchedules] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -109,15 +146,21 @@ export default function ManagerReportsPage() {
     setLoading(true)
     setLoadError(null)
     try {
-      const [{ data: groupData }, { data: schedData }] = await Promise.all([
+      const [{ data: groupData }, { data: claimData }, { data: schedData }] = await Promise.all([
         client.query({
           query: GET_PATIENT_REPORT_GROUP,
           variables: { clinicId: clinicId || undefined, startDate, endDate, lapsedLookbackDays: 90 },
           fetchPolicy: 'network-only',
         }),
+        client.query({
+          query: GET_CLAIM_ANALYTICS,
+          variables: { clinicId: clinicId || undefined, startDate, endDate },
+          fetchPolicy: 'network-only',
+        }),
         client.query({ query: GET_SCHEDULED_REPORTS, fetchPolicy: 'network-only' }),
       ])
       setPatientGroup(groupData?.getPatientReportGroup ?? null)
+      setClaimAnalytics(claimData?.getClaimAnalytics ?? null)
       setSchedules(schedData?.scheduledReports ?? [])
     } catch (err) {
       setLoadError(err.message)
@@ -323,6 +366,150 @@ export default function ManagerReportsPage() {
                         <Typography variant="body2" color="text.secondary">
                           Last visit: {p.last_visit ? new Date(p.last_visit).toLocaleDateString('en-IN') : '—'}
                         </Typography>
+                      </Box>
+                    </Box>
+                  ))}
+                </Box>
+              </Box>
+            </Box>
+          </Card>
+
+          {/* P2-04 — denial analytics + payer scorecards */}
+          <Typography variant="h6" fontWeight={700} mb={1.5}>
+            <PolicyRoundedIcon sx={{ fontSize: 20, verticalAlign: 'middle', mr: 0.5 }} />
+            Claim Analytics
+          </Typography>
+          <Grid container spacing={2.5} mb={2.5}>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ p: 2.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Total Claims
+                </Typography>
+                <Typography variant="h4" fontWeight={800}>
+                  {claimAnalytics?.totalClaims ?? 0}
+                </Typography>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ p: 2.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Approval Rate
+                </Typography>
+                <Typography variant="h4" fontWeight={800}>
+                  {(claimAnalytics?.approvalRate ?? 0).toFixed(1)}%
+                </Typography>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ p: 2.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Recovery Rate
+                </Typography>
+                <Typography variant="h4" fontWeight={800}>
+                  {(claimAnalytics?.recoveryRate ?? 0).toFixed(1)}%
+                </Typography>
+              </Card>
+            </Grid>
+            <Grid item xs={12} sm={6} md={3}>
+              <Card sx={{ p: 2.5 }}>
+                <Typography variant="caption" color="text.secondary">
+                  Total Approved
+                </Typography>
+                <Typography variant="h4" fontWeight={800}>
+                  ₹{(claimAnalytics?.totalApprovedAmount ?? 0).toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                </Typography>
+              </Card>
+            </Grid>
+          </Grid>
+
+          <Card sx={{ mb: 4, p: 2.5 }}>
+            <Typography variant="caption" color="text.secondary" mb={1} display="block">
+              Denial Reasons
+            </Typography>
+            <Stack direction="row" spacing={1} flexWrap="wrap" useFlexGap>
+              {(claimAnalytics?.denialCategoryBreakdown ?? []).length === 0 && (
+                <Typography variant="body2" color="text.secondary">
+                  No rejected claims with a drafted appeal in range
+                </Typography>
+              )}
+              {(claimAnalytics?.denialCategoryBreakdown ?? []).map((d) => (
+                <Chip key={d.category} label={`${d.categoryLabel}: ${d.count}`} size="small" color="error" variant="outlined" />
+              ))}
+            </Stack>
+          </Card>
+
+          <Card sx={{ mb: 4 }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="subtitle1" fontWeight={700}>
+                <PolicyRoundedIcon sx={{ fontSize: 18, verticalAlign: 'middle', mr: 0.5 }} />
+                Payer Scorecards
+              </Typography>
+            </Box>
+            <Box sx={{ overflowX: 'auto' }}>
+              <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
+                <Box component="thead">
+                  <Box component="tr" sx={{ bgcolor: 'grey.50' }}>
+                    {['Payer', 'Total', 'Approved', 'Rejected', 'Pending', 'Approval Rate', 'Avg Decision (days)', 'Recovery Rate'].map(
+                      (h) => (
+                        <Box
+                          key={h}
+                          component="th"
+                          sx={{
+                            px: 2,
+                            py: 1.5,
+                            textAlign: 'left',
+                            typography: 'caption',
+                            fontWeight: 700,
+                            color: 'text.secondary',
+                            textTransform: 'uppercase',
+                            letterSpacing: '0.05em',
+                            borderBottom: '1px solid',
+                            borderColor: 'divider',
+                          }}
+                        >
+                          {h}
+                        </Box>
+                      ),
+                    )}
+                  </Box>
+                </Box>
+                <Box component="tbody">
+                  {(claimAnalytics?.payerScorecards ?? []).length === 0 && (
+                    <Box component="tr">
+                      <Box component="td" colSpan={8} sx={{ textAlign: 'center', py: 4 }}>
+                        <Typography color="text.secondary">No claims submitted in this range</Typography>
+                      </Box>
+                    </Box>
+                  )}
+                  {(claimAnalytics?.payerScorecards ?? []).map((p) => (
+                    <Box
+                      component="tr"
+                      key={p.payerId}
+                      sx={{ '&:hover': { bgcolor: 'grey.50' }, borderBottom: '1px solid', borderColor: 'divider' }}
+                    >
+                      <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                        <Typography fontWeight={600}>{p.payerName}</Typography>
+                      </Box>
+                      <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                        {p.totalClaims}
+                      </Box>
+                      <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                        {p.approvedCount}
+                      </Box>
+                      <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                        {p.rejectedCount}
+                      </Box>
+                      <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                        {p.pendingCount}
+                      </Box>
+                      <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                        {p.approvalRate.toFixed(1)}%
+                      </Box>
+                      <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                        {p.avgDecisionDays != null ? p.avgDecisionDays.toFixed(1) : '—'}
+                      </Box>
+                      <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                        {p.recoveryRate.toFixed(1)}%
                       </Box>
                     </Box>
                   ))}

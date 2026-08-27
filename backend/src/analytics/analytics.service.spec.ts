@@ -10,6 +10,7 @@ describe('AnalyticsService', () => {
     appointments: { findMany: jest.Mock; groupBy: jest.Mock };
     clinicians: { findMany: jest.Mock };
     patients: { findMany: jest.Mock };
+    claims: { findMany: jest.Mock };
   };
 
   const managerUser: JwtPayload = { sub: 'user-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
@@ -39,6 +40,7 @@ describe('AnalyticsService', () => {
       // block further down overrides this per-case.
       clinicians: { findMany: jest.fn().mockResolvedValue([]) },
       patients: { findMany: jest.fn().mockResolvedValue([]) },
+      claims: { findMany: jest.fn().mockResolvedValue([]) },
     };
 
     const module: TestingModule = await Test.createTestingModule({
@@ -284,6 +286,132 @@ describe('AnalyticsService', () => {
       ]);
       const result = await service.getPatientReportGroup(undefined, '2026-08-01', '2026-08-31', 90, managerUser);
       expect(result.lapsedPatients).toEqual([{ id: 'p-lapsed', full_name: 'Old Patient', last_visit: new Date('2026-01-01') }]);
+    });
+  });
+
+  // P2-04
+  describe('getClaimAnalytics', () => {
+    const claim = (overrides: Partial<Record<string, unknown>> = {}) => ({
+      id: 'claim-1',
+      payer_id: 'payer-1',
+      payer: { id: 'payer-1', name: 'Star Health' },
+      claim_amount: 500000, // 5000 rupees
+      approved_amount: null,
+      status: 'submitted',
+      submitted_at: new Date('2026-08-10T00:00:00.000Z'),
+      decided_at: null,
+      appeal: null,
+      ...overrides,
+    });
+
+    it('scopes the claims lookup to the caller org via the 2-level appointment.clinic nesting', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([]);
+      await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      const call = prisma.claims.findMany.mock.calls[0][0];
+      expect(call.where.appointment.clinic).toEqual({ client_org_id: 'org-1' });
+    });
+
+    it('filters by clinicId when supplied, in addition to org scope', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([]);
+      await service.getClaimAnalytics('clinic-9', '2026-08-01', '2026-08-31', managerUser);
+      const call = prisma.claims.findMany.mock.calls[0][0];
+      expect(call.where.appointment.clinic_id).toBe('clinic-9');
+    });
+
+    it('counts claims by status and computes the approval rate over decided claims only', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([
+        claim({ id: 'c1', status: 'approved', approved_amount: 480000, decided_at: new Date('2026-08-12') }),
+        claim({ id: 'c2', status: 'rejected', appeal: { denial_category: 'missing_documentation' } }),
+        claim({ id: 'c3', status: 'settled', approved_amount: 500000, decided_at: new Date('2026-08-15') }),
+        claim({ id: 'c4', status: 'submitted' }),
+      ]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.totalClaims).toBe(4);
+      expect(result.approvedCount).toBe(1);
+      expect(result.rejectedCount).toBe(1);
+      expect(result.settledCount).toBe(1);
+      expect(result.pendingCount).toBe(1);
+      // decided = approved + rejected + settled = 3; approved+settled = 2
+      expect(result.approvalRate).toBeCloseTo((2 / 3) * 100);
+    });
+
+    it('converts claim/approved amounts from paise to rupees and computes recovery rate', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([
+        claim({ claim_amount: 1000000, approved_amount: 800000, status: 'approved' }),
+      ]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.totalClaimAmount).toBe(10000);
+      expect(result.totalApprovedAmount).toBe(8000);
+      expect(result.recoveryRate).toBeCloseTo(80);
+    });
+
+    it('returns a zero approval/recovery rate rather than NaN when there are no claims', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.approvalRate).toBe(0);
+      expect(result.recoveryRate).toBe(0);
+      expect(result.totalClaims).toBe(0);
+    });
+
+    it('builds the denial category breakdown from each rejected claim\'s own drafted appeal', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([
+        claim({ id: 'c1', status: 'rejected', appeal: { denial_category: 'coding_mismatch' } }),
+        claim({ id: 'c2', status: 'rejected', appeal: { denial_category: 'coding_mismatch' } }),
+        claim({ id: 'c3', status: 'rejected', appeal: { denial_category: 'not_covered' } }),
+      ]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.denialCategoryBreakdown).toEqual(
+        expect.arrayContaining([
+          { category: 'coding_mismatch', categoryLabel: 'Coding mismatch', count: 2 },
+          { category: 'not_covered', categoryLabel: 'Not covered under policy', count: 1 },
+        ]),
+      );
+    });
+
+    it('excludes a rejected claim with no drafted appeal, rather than mis-bucketing it', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([claim({ status: 'rejected', appeal: null })]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.denialCategoryBreakdown).toEqual([]);
+    });
+
+    it('never counts an approved/settled/pending claim toward the denial breakdown', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([
+        claim({ status: 'approved', appeal: null }),
+        claim({ status: 'submitted', appeal: null }),
+      ]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.denialCategoryBreakdown).toEqual([]);
+    });
+
+    it('builds one scorecard per payer, sorted by total claims descending', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([
+        claim({ id: 'c1', payer_id: 'payer-a', payer: { id: 'payer-a', name: 'Star Health' }, status: 'approved', approved_amount: 400000 }),
+        claim({ id: 'c2', payer_id: 'payer-a', payer: { id: 'payer-a', name: 'Star Health' }, status: 'rejected' }),
+        claim({ id: 'c3', payer_id: 'payer-b', payer: { id: 'payer-b', name: 'HDFC Ergo' }, status: 'approved', approved_amount: 500000 }),
+      ]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.payerScorecards).toHaveLength(2);
+      expect(result.payerScorecards[0]).toMatchObject({ payerId: 'payer-a', payerName: 'Star Health', totalClaims: 2 });
+      expect(result.payerScorecards[1]).toMatchObject({ payerId: 'payer-b', payerName: 'HDFC Ergo', totalClaims: 1 });
+    });
+
+    it('computes avgDecisionDays only from claims that have actually been decided', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([
+        claim({
+          status: 'approved',
+          submitted_at: new Date('2026-08-01T00:00:00.000Z'),
+          decided_at: new Date('2026-08-04T00:00:00.000Z'),
+        }),
+        claim({ status: 'submitted' }),
+      ]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.payerScorecards[0].avgDecisionDays).toBeCloseTo(3);
+    });
+
+    it('leaves avgDecisionDays undefined, not zero, when no claim from a payer has been decided yet', async () => {
+      prisma.claims.findMany.mockResolvedValueOnce([claim({ status: 'submitted' })]);
+      const result = await service.getClaimAnalytics(undefined, '2026-08-01', '2026-08-31', managerUser);
+      expect(result.payerScorecards[0].avgDecisionDays).toBeUndefined();
     });
   });
 });

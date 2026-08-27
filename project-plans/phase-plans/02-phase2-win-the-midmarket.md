@@ -38,7 +38,7 @@ gates. Phase 2's claim work depends on both.
 | **P2-01** | ABDM M3 (HIU) — consent-based fetch of external records | BE+FE | not started | P1-10 | Completes the interop story |
 | **P2-02** | AI coding assist — ICD-10 + procedure codes from the note | BE+FE | **done** (`REQ154`) | P1-11 | `REQ020` P1 named ICD-10; now AI-driven |
 | **P2-03** | Agentic claim lifecycle — auto-code → submit → track → draft appeal | BE+FE | **done** (`REQ155`) | P2-02 | The differentiator. Claim state machine + evidence attach already built |
-| **P2-04** | Denial analytics + payer scorecards | BE+FE | not started | P2-03 | `Claims` data model already there |
+| **P2-04** | Denial analytics + payer scorecards | BE+FE | **done** (`REQ156`) | P2-03 | `Claims` data model already there |
 | **P2-05** | AI-assisted migration importer (Practo / MocDoc / HealthPlix mappers) | BE+FE | not started | P1-11 | #1 switching blocker. AI *structures* imported free-text notes — rivals can't |
 | **P2-06** | Doctor revenue-share & payouts engine | BE+FE | not started | — | Named chain-ICP need; branch overrides already built |
 | **P2-07** | Drug interaction + allergy hard-stops | BE+FE | not started | P1-12 | Safety. Allergy banner + drug master already there |

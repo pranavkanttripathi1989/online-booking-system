@@ -9,7 +9,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN197 | improvement | Denial analytics + payer scorecards (P2-04) | done | 2026-08-27 | 2026-08-27 | REQ156 | [PLAN197-analytics-reporting-2026-08-27-denial-analytics-and-payer-scorecards.md](./improvement/PLAN197-analytics-reporting-2026-08-27-denial-analytics-and-payer-scorecards.md) |
 
 ## bug
 

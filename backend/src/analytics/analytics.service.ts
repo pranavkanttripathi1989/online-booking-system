@@ -4,6 +4,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 // Aliased: this service has its own private orgScope() for the indirect
 // (via-clinic) case, which would otherwise shadow the import.
 import { orgScope as sharedOrgScope, orgScopeVia } from '../common/scoping/tenant-scope';
+import { DENIAL_CATEGORY_LABELS, DenialCategory } from '../insurance/denial-classification';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? 0 : paise / 100);
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -319,5 +320,108 @@ export class AnalyticsService {
     }));
 
     return { newPatients, repeatPatients, acquisitionSourceBreakdown, lapsedPatients };
+  }
+
+  // P2-04 — denial analytics + payer scorecards, over Claims submitted in
+  // the reporting window. Claims has no client_org_id/clinic_id of its
+  // own (see insurance.service.ts's own claimsOrgScope comment) -- scoped
+  // the identical 2-level-nesting way, duplicated here rather than
+  // imported across modules for one small filter object, matching this
+  // codebase's own established tolerance for that trade-off (see e.g.
+  // public.service.ts's own OVERLAP_CONSTRAINT_NAMES duplication from
+  // appointments.service.ts).
+  async getClaimAnalytics(clinicId: string | undefined, startDate: string, endDate: string, user: JwtPayload) {
+    const start = new Date(`${startDate}T00:00:00.000Z`);
+    const end = new Date(`${endDate}T23:59:59.999Z`);
+
+    const claims = await this.prisma.claims.findMany({
+      where: {
+        submitted_at: { gte: start, lte: end },
+        appointment: {
+          ...orgScopeVia(user, 'clinic'),
+          ...(clinicId ? { clinic_id: clinicId } : {}),
+        },
+      },
+      include: { payer: true, appeal: true },
+      orderBy: { submitted_at: 'desc' },
+    });
+
+    const totalClaims = claims.length;
+    const approvedCount = claims.filter((c) => c.status === 'approved').length;
+    const rejectedCount = claims.filter((c) => c.status === 'rejected').length;
+    const settledCount = claims.filter((c) => c.status === 'settled').length;
+    const pendingCount = claims.filter((c) => ['submitted', 'under_review'].includes(c.status)).length;
+    const decidedCount = approvedCount + rejectedCount + settledCount;
+    const approvalRate = decidedCount ? ((approvedCount + settledCount) / decidedCount) * 100 : 0;
+
+    const totalClaimAmount = claims.reduce((sum, c) => sum + c.claim_amount, 0) / 100;
+    const totalApprovedAmount = claims.reduce((sum, c) => sum + (c.approved_amount ?? 0), 0) / 100;
+    const recoveryRate = totalClaimAmount ? (totalApprovedAmount / totalClaimAmount) * 100 : 0;
+
+    // Real category from each rejected claim's own drafted appeal
+    // (P2-03) -- a rejected claim predating that slice has no appeal row
+    // and is deliberately excluded rather than mis-bucketed into 'other'.
+    const denialCounts = new Map<DenialCategory, number>();
+    for (const c of claims) {
+      if (c.status !== 'rejected' || !c.appeal) continue;
+      const category = c.appeal.denial_category as DenialCategory;
+      denialCounts.set(category, (denialCounts.get(category) ?? 0) + 1);
+    }
+    const denialCategoryBreakdown = [...denialCounts.entries()].map(([category, count]) => ({
+      category,
+      categoryLabel: DENIAL_CATEGORY_LABELS[category] ?? category,
+      count,
+    }));
+
+    const payerMap = new Map<string, { payerId: string; payerName: string; claims: typeof claims }>();
+    for (const c of claims) {
+      const entry = payerMap.get(c.payer_id) ?? { payerId: c.payer_id, payerName: c.payer.name, claims: [] };
+      entry.claims.push(c);
+      payerMap.set(c.payer_id, entry);
+    }
+    const payerScorecards = [...payerMap.values()]
+      .map(({ payerId, payerName, claims: payerClaims }) => {
+        const pApproved = payerClaims.filter((c) => c.status === 'approved').length;
+        const pRejected = payerClaims.filter((c) => c.status === 'rejected').length;
+        const pSettled = payerClaims.filter((c) => c.status === 'settled').length;
+        const pPending = payerClaims.filter((c) => ['submitted', 'under_review'].includes(c.status)).length;
+        const pDecided = pApproved + pRejected + pSettled;
+        const decidedClaims = payerClaims.filter((c) => c.decided_at != null);
+        const avgDecisionDays = decidedClaims.length
+          ? decidedClaims.reduce((sum, c) => sum + (c.decided_at!.getTime() - c.submitted_at.getTime()), 0) /
+            decidedClaims.length /
+            (24 * 60 * 60 * 1000)
+          : undefined;
+        const pClaimAmount = payerClaims.reduce((sum, c) => sum + c.claim_amount, 0) / 100;
+        const pApprovedAmount = payerClaims.reduce((sum, c) => sum + (c.approved_amount ?? 0), 0) / 100;
+        return {
+          payerId,
+          payerName,
+          totalClaims: payerClaims.length,
+          approvedCount: pApproved,
+          rejectedCount: pRejected,
+          pendingCount: pPending,
+          approvalRate: pDecided ? ((pApproved + pSettled) / pDecided) * 100 : 0,
+          avgDecisionDays,
+          totalClaimAmount: pClaimAmount,
+          totalApprovedAmount: pApprovedAmount,
+          recoveryRate: pClaimAmount ? (pApprovedAmount / pClaimAmount) * 100 : 0,
+        };
+      })
+      .sort((a, b) => b.totalClaims - a.totalClaims);
+
+    return {
+      totalClaims,
+      approvedCount,
+      rejectedCount,
+      settledCount,
+      pendingCount,
+      approvalRate,
+      totalClaimAmount,
+      totalApprovedAmount,
+      recoveryRate,
+      denialCategoryBreakdown,
+      payerScorecards,
+    };
   }
 }

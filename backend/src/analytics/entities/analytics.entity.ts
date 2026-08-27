@@ -85,3 +85,49 @@ export class PatientReportGroupType {
   @Field(() => [AcquisitionSourcePointType]) acquisitionSourceBreakdown: AcquisitionSourcePointType[];
   @Field(() => [LapsedPatientPointType]) lapsedPatients: LapsedPatientPointType[];
 }
+
+// P2-04 — denial category counts for claims submitted in the reporting
+// window. category is one of denial-classification.ts's own fixed set
+// (missing_documentation | coding_mismatch | not_covered |
+// authorization_required | duplicate_claim | other); categoryLabel is
+// that module's own human-readable label, echoed here so the frontend
+// never re-derives its own copy of that lookup table.
+@ObjectType('DenialCategoryPoint')
+export class DenialCategoryPointType {
+  @Field() category: string;
+  @Field() categoryLabel: string;
+  @Field(() => Int) count: number;
+}
+
+// P2-04 — one payer's own claim outcomes over the reporting window.
+// avgDecisionDays is null when no claim from this payer has been
+// decided yet in range, a legitimate "not enough data" state, not zero.
+@ObjectType('PayerScorecard')
+export class PayerScorecardType {
+  @Field(() => ID) payerId: string;
+  @Field() payerName: string;
+  @Field(() => Int) totalClaims: number;
+  @Field(() => Int) approvedCount: number;
+  @Field(() => Int) rejectedCount: number;
+  @Field(() => Int) pendingCount: number;
+  @Field(() => Float) approvalRate: number;
+  @Field(() => Float, { nullable: true }) avgDecisionDays?: number;
+  @Field(() => Float) totalClaimAmount: number;
+  @Field(() => Float) totalApprovedAmount: number;
+  @Field(() => Float) recoveryRate: number;
+}
+
+@ObjectType('ClaimAnalytics')
+export class ClaimAnalyticsType {
+  @Field(() => Int) totalClaims: number;
+  @Field(() => Int) approvedCount: number;
+  @Field(() => Int) rejectedCount: number;
+  @Field(() => Int) settledCount: number;
+  @Field(() => Int) pendingCount: number;
+  @Field(() => Float) approvalRate: number;
+  @Field(() => Float) totalClaimAmount: number;
+  @Field(() => Float) totalApprovedAmount: number;
+  @Field(() => Float) recoveryRate: number;
+  @Field(() => [DenialCategoryPointType]) denialCategoryBreakdown: DenialCategoryPointType[];
+  @Field(() => [PayerScorecardType]) payerScorecards: PayerScorecardType[];
+}

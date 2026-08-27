@@ -9,7 +9,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP217 | improvement | Denial analytics + payer scorecards verification (P2-04) | done | 2026-08-27 | 2026-08-27 | PLAN197 | [TP217-analytics-reporting-2026-08-27-denial-analytics-and-payer-scorecards.md](./improvement/TP217-analytics-reporting-2026-08-27-denial-analytics-and-payer-scorecards.md) |
 
 ## bug
 

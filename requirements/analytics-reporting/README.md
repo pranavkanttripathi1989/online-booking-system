@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| REQ156 | improvement | Denial analytics + payer scorecards (P2-04) | done | 2026-08-27 | 2026-08-27 | REQ029 | [REQ156-analytics-reporting-2026-08-27-denial-analytics-and-payer-scorecards.md](./improvement/REQ156-analytics-reporting-2026-08-27-denial-analytics-and-payer-scorecards.md) |
 
 ## bug
 

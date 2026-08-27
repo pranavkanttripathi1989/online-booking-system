@@ -18,7 +18,7 @@
 | telemedicine | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [telemedicine](./telemedicine/README.md) |
 | patient-portal | 1 | 2 | 0 | 1 | 2 | 2026-08-26 | [patient-portal](./patient-portal/README.md) |
 | messaging | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [messaging](./messaging/README.md) |
-| analytics-reporting | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
+| analytics-reporting | 1 | 1 | 0 | 1 | 1 | 2026-08-27 | [analytics-reporting](./analytics-reporting/README.md) |
 | platform-integrations | 1 | 4 | 0 | 1 | 4 | 2026-08-26 | [platform-integrations](./platform-integrations/README.md) |
 | subscription-plan-engine | 1 | 1 | 0 | 0 | 2 | 2026-08-27 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |

@@ -1,7 +1,7 @@
 import { Resolver, Query, Args, ID, Int } from '@nestjs/graphql';
 import { AnalyticsService } from './analytics.service';
 import { ClinicType } from '../clinics/entities/clinic.entity';
-import { AppointmentStatsType, PatientReportGroupType } from './entities/analytics.entity';
+import { AppointmentStatsType, PatientReportGroupType, ClaimAnalyticsType } from './entities/analytics.entity';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -43,5 +43,17 @@ export class AnalyticsResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.analyticsService.getPatientReportGroup(clinicId ?? undefined, startDate, endDate, lapsedLookbackDays, user);
+  }
+
+  // P2-04 — same role gate and clinicId/date-range shape as the reports above.
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => ClaimAnalyticsType)
+  getClaimAnalytics(
+    @Args('clinicId', { type: () => ID, nullable: true }) clinicId: string | undefined,
+    @Args('startDate') startDate: string,
+    @Args('endDate') endDate: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.analyticsService.getClaimAnalytics(clinicId ?? undefined, startDate, endDate, user);
   }
 }

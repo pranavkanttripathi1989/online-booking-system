@@ -5,7 +5,7 @@
 | ai-clinical | 1 | 1 | 0 | 0 | 2 | 2026-08-27 | [ai-clinical](./ai-clinical/README.md) |
 | telemedicine | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [telemedicine](./telemedicine/README.md) |
 | clinician-dashboard | 0 | 0 | 1 | 0 | 1 | 2026-08-25 | [clinician-dashboard](./clinician-dashboard/README.md) |
-| analytics-reporting | 2 | 0 | 0 | 2 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
+| analytics-reporting | 2 | 1 | 0 | 2 | 1 | 2026-08-27 | [analytics-reporting](./analytics-reporting/README.md) |
 | subscription-plan-engine | 1 | 1 | 0 | 2 | 0 | 2026-08-27 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | compliance-dpdp | 1 | 3 | 0 | 4 | 0 | 2026-08-26 | [compliance-dpdp](./compliance-dpdp/README.md) |
 | platform-integrations | 1 | 4 | 0 | 5 | 0 | 2026-08-26 | [platform-integrations](./platform-integrations/README.md) |
