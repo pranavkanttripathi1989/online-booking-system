@@ -17,16 +17,16 @@
 | organizations | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [catalog-master-data](./catalog-master-data/README.md) |
 | abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |
-| compliance-dpdp | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [compliance-dpdp](./compliance-dpdp/README.md) |
+| compliance-dpdp | 1 | 3 | 1 | 2 | 3 | 2026-08-28 | [compliance-dpdp](./compliance-dpdp/README.md) |
 | telemedicine | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [telemedicine](./telemedicine/README.md) |
 | patient-portal | 1 | 2 | 0 | 1 | 2 | 2026-08-26 | [patient-portal](./patient-portal/README.md) |
 | messaging | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [messaging](./messaging/README.md) |
 | analytics-reporting | 1 | 1 | 0 | 1 | 1 | 2026-08-27 | [analytics-reporting](./analytics-reporting/README.md) |
 | platform-integrations | 1 | 4 | 0 | 1 | 4 | 2026-08-26 | [platform-integrations](./platform-integrations/README.md) |
-| subscription-plan-engine | 1 | 1 | 0 | 0 | 2 | 2026-08-27 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
+| subscription-plan-engine | 1 | 1 | 1 | 1 | 2 | 2026-08-28 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |
-| platform-nfr | 1 | 7 | 11 | 1 | 18 | 2026-08-27 | [platform-nfr](./platform-nfr/README.md) |
-| security | 4 | 4 | 6 | 2 | 12 | 2026-08-27 | [security](./security/README.md) |
+| platform-nfr | 1 | 7 | 12 | 2 | 18 | 2026-08-28 | [platform-nfr](./platform-nfr/README.md) |
+| security | 4 | 4 | 7 | 3 | 12 | 2026-08-28 | [security](./security/README.md) |
 | notifications | 3 | 2 | 0 | 1 | 4 | 2026-08-27 | [notifications](./notifications/README.md) |
 | patient-payments | 3 | 3 | 0 | 1 | 5 | 2026-08-26 | [patient-payments](./patient-payments/README.md) |
 | communications-policies | 1 | 2 | 0 | 0 | 3 | 2026-08-22 | [communications-policies](./communications-policies/README.md) |
@@ -41,7 +41,7 @@
 | patients | 0 | 0 | 2 | 0 | 2 | 2026-08-26 | [patients](./patients/README.md) |
 | test-results | 0 | 0 | 1 | 0 | 1 | 2026-08-26 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
-| frontend-platform | 0 | 5 | 0 | 0 | 5 | 2026-08-27 | [frontend-platform](./frontend-platform/README.md) |
+| frontend-platform | 0 | 5 | 1 | 1 | 5 | 2026-08-28 | [frontend-platform](./frontend-platform/README.md) |
 
 ## PRD-derived requirements (2026-08-22)
 

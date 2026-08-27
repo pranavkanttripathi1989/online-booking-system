@@ -16,4 +16,6 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| BUG032 | bug | Admin Console's own quick-nav sidebar omits 4 real admin pages | open | 2026-08-28 | 2026-08-28 | — | [BUG032-frontend-platform-2026-08-28-admin-console-nav-missing-pages.md](./bug/BUG032-frontend-platform-2026-08-28-admin-console-nav-missing-pages.md) |

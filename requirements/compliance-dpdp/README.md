@@ -16,4 +16,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| BUG030 | bug | `/admin/policies` GDPR & Compliance tab cites UK law, not India's DPDP Act | open | 2026-08-28 | 2026-08-28 | — | [BUG030-compliance-dpdp-2026-08-28-policies-page-cites-uk-gdpr.md](./bug/BUG030-compliance-dpdp-2026-08-28-policies-page-cites-uk-gdpr.md) |
