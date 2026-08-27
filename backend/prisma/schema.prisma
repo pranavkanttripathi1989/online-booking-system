@@ -807,9 +807,22 @@ model ClientOrganizations {
   clinical_hours_start             String?
   clinical_hours_end               String?
   clinical_hours_auto_reply_message String?
+  // P1-04 — the entitlement guard's own read path. Nullable: today, no
+  // real org has one assigned yet (this is a new mechanism, not a
+  // backfilled one), and EntitlementsService treats a null plan_id as
+  // "ungated" (every feature flag true, no quota enforced) rather than
+  // "blocked" — the same fail-open-for-legacy-rows precedent this
+  // schema already uses for pre-org-linkage records elsewhere (see
+  // orgScope()'s own doc comment). This is distinct from the OLDER
+  // OrganizationSubscriptions/SubscriptionPlans pair above (the
+  // self-serve-onboarding billing record) — this links to the newer,
+  // versioned Plans/PlanVersions catalog (REQ032) that actually carries
+  // feature_flags_json/quotas_json, the real entitlement source.
+  plan_id       String?
   created_at    DateTime @default(now())
   updated_at    DateTime @default(now())
 
+  plan                   Plans?    @relation(fields: [plan_id], references: [id])
   owner                  Users?    @relation("OrganizationOwner", fields: [owner_user_id], references: [id])
   clinics                Clinics[]
   organizationSubs       OrganizationSubscriptions[]
@@ -2465,7 +2478,8 @@ model Plans {
   is_active  Boolean  @default(true)
   created_at DateTime @default(now())
 
-  versions PlanVersions[]
+  versions      PlanVersions[]
+  organizations ClientOrganizations[]
 }
 
 model PlanVersions {

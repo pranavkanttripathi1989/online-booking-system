@@ -26,12 +26,17 @@ import {
   TableRow,
   Paper,
   CircularProgress,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
 import BusinessIcon from '@mui/icons-material/Business'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
 import { formatDate, formatCurrency } from '../../utils/dateTime'
 
@@ -52,6 +57,8 @@ const GET_ORGS = gql`
         contactEmail
         contactPhone
         is_active
+        plan_id
+        plan_name
         address {
           line1
           line2
@@ -126,6 +133,35 @@ const DELETE_ORG = gql`
   }
 `
 
+// P1-04 — the entitlement guard's own org->plan assignment. is_active only
+// (no versions/current_version needed here — this is a plain picker, not
+// the plan-builder itself, which stays on admin/Plans.jsx).
+const GET_PLANS_FOR_ASSIGNMENT = gql`
+  query GetPlansForAssignment {
+    plans {
+      id
+      name
+      tier
+      is_active
+    }
+  }
+`
+const ASSIGN_ORG_PLAN = gql`
+  mutation AssignOrgPlan($orgId: ID!, $planId: ID) {
+    assignOrgPlan(orgId: $orgId, planId: $planId) {
+      success
+      userErrors {
+        message
+      }
+      organization {
+        id
+        plan_id
+        plan_name
+      }
+    }
+  }
+`
+
 const defaultForm = {
   name: '',
   code: '',
@@ -184,6 +220,15 @@ export default function AdminOrganizations() {
   const [subLoading, setSubLoading] = useState(false)
   const [subData, setSubData] = useState(undefined) // undefined = not yet loaded, null = confirmed no subscription
   const [subError, setSubError] = useState(null)
+
+  // P1-04 — entitlement-plan assignment dialog
+  const [planDialogOpen, setPlanDialogOpen] = useState(false)
+  const [planDialogOrg, setPlanDialogOrg] = useState(null)
+  const [availablePlans, setAvailablePlans] = useState([])
+  const [selectedPlanId, setSelectedPlanId] = useState('')
+  const [planLoading, setPlanLoading] = useState(false)
+  const [planSaving, setPlanSaving] = useState(false)
+  const [planError, setPlanError] = useState(null)
 
   const load = async (searchVal = search) => {
     setLoading(true)
@@ -287,6 +332,44 @@ export default function AdminOrganizations() {
       setSubError(err.message)
     } finally {
       setSubLoading(false)
+    }
+  }
+
+  // P1-04 — plan-catalog fetch is shared across every org (super_admin's
+  // plan builder, admin/Plans.jsx), so this loads once per dialog open,
+  // not cached globally — matches openSubscription's own per-open fetch.
+  const openPlanDialog = async (org) => {
+    setPlanDialogOrg(org)
+    setSelectedPlanId(org.plan_id || '')
+    setPlanError(null)
+    setPlanDialogOpen(true)
+    setPlanLoading(true)
+    try {
+      const { data } = await client.query({ query: GET_PLANS_FOR_ASSIGNMENT, fetchPolicy: 'network-only' })
+      setAvailablePlans(data?.plans ?? [])
+    } catch (err) {
+      setPlanError(err.message)
+    } finally {
+      setPlanLoading(false)
+    }
+  }
+
+  const handleSavePlan = async () => {
+    setPlanSaving(true)
+    setPlanError(null)
+    try {
+      const { data } = await client.mutate({
+        mutation: ASSIGN_ORG_PLAN,
+        variables: { orgId: planDialogOrg.id, planId: selectedPlanId || null },
+      })
+      if (!data?.assignOrgPlan?.success) throw new Error(data?.assignOrgPlan?.userErrors?.[0]?.message ?? 'Failed to assign plan')
+      setPlanDialogOpen(false)
+      showSuccess('Plan updated.')
+      load()
+    } catch (err) {
+      setPlanError(err.message)
+    } finally {
+      setPlanSaving(false)
     }
   }
 
@@ -435,6 +518,14 @@ export default function AdminOrganizations() {
                     <Stack direction="row" spacing={0.5}>
                       <IconButton size="small" onClick={() => openSubscription(org)} title="View subscription">
                         <ReceiptLongIcon fontSize="small" />
+                      </IconButton>
+                      <IconButton
+                        size="small"
+                        onClick={() => openPlanDialog(org)}
+                        title={org.plan_name ? `Plan: ${org.plan_name}` : 'No entitlement plan assigned'}
+                        aria-label={org.plan_name ? `Change entitlement plan (currently ${org.plan_name})` : 'Assign an entitlement plan'}
+                      >
+                        <WorkspacePremiumIcon fontSize="small" color={org.plan_name ? 'primary' : 'action'} />
                       </IconButton>
                       <IconButton size="small" onClick={() => openEdit(org)}>
                         <EditIcon fontSize="small" />
@@ -669,6 +760,60 @@ export default function AdminOrganizations() {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setSubOpen(false)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* P1-04 — entitlement-plan assignment. Distinct from the read-only
+          Subscription dialog above: that reads the older, separately-
+          populated OrganizationSubscriptions billing record; this writes
+          the newer Plans/PlanVersions entitlement assignment
+          (ClientOrganizations.plan_id) that EntitlementsService actually
+          reads to gate features/quotas. */}
+      <Dialog open={planDialogOpen} onClose={() => setPlanDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={700}>Entitlement Plan — {planDialogOrg?.name}</DialogTitle>
+        <DialogContent dividers>
+          {planLoading && (
+            <Box display="flex" justifyContent="center" py={4}>
+              <CircularProgress size={28} />
+            </Box>
+          )}
+          {!planLoading && (
+            <Stack spacing={2}>
+              {planError && (
+                <Alert severity="error" onClose={() => setPlanError(null)}>
+                  {planError}
+                </Alert>
+              )}
+              <Typography variant="caption" color="text.secondary">
+                Controls which features and usage limits (e.g. pharmacy access, clinician seats) apply to this organization. No plan
+                assigned means fully unrestricted — the default for every organization today.
+              </Typography>
+              <FormControl fullWidth size="small">
+                <InputLabel id="org-plan-select-label">Entitlement Plan</InputLabel>
+                <Select
+                  labelId="org-plan-select-label"
+                  label="Entitlement Plan"
+                  value={selectedPlanId}
+                  onChange={(e) => setSelectedPlanId(e.target.value)}
+                >
+                  <MenuItem value="">
+                    <em>None — unrestricted</em>
+                  </MenuItem>
+                  {availablePlans.map((p) => (
+                    <MenuItem key={p.id} value={p.id} disabled={!p.is_active}>
+                      {p.name} ({p.tier}){!p.is_active ? ' — inactive' : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button onClick={() => setPlanDialogOpen(false)}>Cancel</Button>
+          <Button variant="contained" disabled={planLoading || planSaving} onClick={handleSavePlan}>
+            {planSaving ? 'Saving…' : 'Save'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

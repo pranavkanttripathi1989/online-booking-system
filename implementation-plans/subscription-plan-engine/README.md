@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN187 | improvement | Entitlement guard (US-PLAN-03) | done | 2026-08-27 | 2026-08-27 | REQ147 | [PLAN187-subscription-plan-engine-2026-08-27-entitlement-guard.md](./improvement/PLAN187-subscription-plan-engine-2026-08-27-entitlement-guard.md) |
 
 ## bug
 

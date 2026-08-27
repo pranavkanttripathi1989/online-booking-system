@@ -56,6 +56,14 @@ export class OrganizationsResolver {
     return toResult(() => this.organizationsService.update(id, input));
   }
 
+  // P1-04 — assigns this org's entitlement plan. planId: null clears the
+  // assignment back to fully ungated.
+  @Auth('admin', 'super_admin')
+  @Mutation(() => OrganizationMutationResultType)
+  assignOrgPlan(@Args('orgId', { type: () => ID }) orgId: string, @Args('planId', { type: () => ID, nullable: true }) planId?: string) {
+    return toResult(() => this.organizationsService.assignPlan(orgId, planId ?? null));
+  }
+
   @Auth('admin', 'super_admin')
   @Mutation(() => OrganizationMutationResultType)
   async deleteOrganization(@Args('id', { type: () => ID }) id: string) {

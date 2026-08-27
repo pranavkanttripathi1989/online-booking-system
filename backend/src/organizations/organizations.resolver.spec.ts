@@ -7,7 +7,7 @@ import { ROLES_KEY } from '../common/decorators/roles.decorator';
 
 describe('OrganizationsResolver', () => {
   let resolver: OrganizationsResolver;
-  let service: { create: jest.Mock; update: jest.Mock; softDelete: jest.Mock; findAllPaginated: jest.Mock; getSubscription: jest.Mock };
+  let service: { create: jest.Mock; update: jest.Mock; softDelete: jest.Mock; findAllPaginated: jest.Mock; getSubscription: jest.Mock; assignPlan: jest.Mock };
   const reflector = new Reflector();
 
   beforeEach(async () => {
@@ -17,6 +17,7 @@ describe('OrganizationsResolver', () => {
       softDelete: jest.fn(),
       findAllPaginated: jest.fn(),
       getSubscription: jest.fn(),
+      assignPlan: jest.fn(),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [OrganizationsResolver, { provide: OrganizationsService, useValue: service }],
@@ -31,6 +32,7 @@ describe('OrganizationsResolver', () => {
     const cases: [string, (...args: unknown[]) => unknown][] = [
       ['organizationsPaginated', OrganizationsResolver.prototype.organizationsPaginated],
       ['organizationSubscription', OrganizationsResolver.prototype.organizationSubscription],
+      ['assignOrgPlan', OrganizationsResolver.prototype.assignOrgPlan],
       ['createOrganization', OrganizationsResolver.prototype.createOrganization],
       ['updateOrganization', OrganizationsResolver.prototype.updateOrganization],
       ['deleteOrganization', OrganizationsResolver.prototype.deleteOrganization],
@@ -54,6 +56,28 @@ describe('OrganizationsResolver', () => {
       service.getSubscription.mockResolvedValue(null);
       const result = await resolver.organizationSubscription('org-1');
       expect(result).toBeNull();
+    });
+  });
+
+  // P1-04
+  describe('assignOrgPlan', () => {
+    it('assigns a plan and returns {success:true, organization}', async () => {
+      service.assignPlan.mockResolvedValue({ id: 'org-1', plan_id: 'plan-1', plan_name: 'Pro' });
+      const result = await resolver.assignOrgPlan('org-1', 'plan-1');
+      expect(service.assignPlan).toHaveBeenCalledWith('org-1', 'plan-1');
+      expect(result).toEqual({ success: true, userErrors: [], organization: { id: 'org-1', plan_id: 'plan-1', plan_name: 'Pro' } });
+    });
+
+    it('treats an omitted planId as null (clearing the assignment), not undefined', async () => {
+      service.assignPlan.mockResolvedValue({ id: 'org-1', plan_id: null });
+      await resolver.assignOrgPlan('org-1', undefined);
+      expect(service.assignPlan).toHaveBeenCalledWith('org-1', null);
+    });
+
+    it('maps a NotFoundException (unknown org or plan) into {success:false}', async () => {
+      service.assignPlan.mockRejectedValue(new NotFoundException('Plan not found'));
+      const result = await resolver.assignOrgPlan('org-1', 'ghost-plan');
+      expect(result).toEqual({ success: false, userErrors: [{ message: 'Plan not found' }], organization: undefined });
     });
   });
 

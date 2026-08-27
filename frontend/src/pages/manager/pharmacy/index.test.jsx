@@ -162,6 +162,27 @@ const tenantDrug = {
   is_platform_seeded: false,
 }
 
+// P1-04
+const GET_MY_ENTITLEMENTS = gql`
+  query GetMyEntitlementsForPharmacy {
+    myEntitlements {
+      is_gated
+      feature_flags {
+        key
+        enabled
+      }
+    }
+  }
+`
+const entitlementsMock = (myEntitlements) => ({ request: { query: GET_MY_ENTITLEMENTS }, result: { data: { myEntitlements } } })
+const ungatedEntitlements = { __typename: 'OrgEntitlements', is_gated: false, feature_flags: [], quotas: [] }
+const pharmacyBlockedEntitlements = {
+  __typename: 'OrgEntitlements',
+  is_gated: true,
+  feature_flags: [{ __typename: 'EntitlementFeatureFlag', key: 'pharmacy', enabled: false }],
+  quotas: [],
+}
+
 const drugsMock = (drugs = [platformDrug, tenantDrug]) => ({ request: { query: GET_DRUGS }, result: { data: { drugs } } })
 const batchToGraphQL = (b) => ({ __typename: 'DrugBatch', ...b })
 const batchesMock = (batches = []) => ({
@@ -655,5 +676,30 @@ describe('manager/pharmacy (REQ059)', () => {
     await waitFor(() => expect(screen.getByText('Prescription dispense')).toBeInTheDocument())
     expect(screen.getByText('-5')).toBeInTheDocument()
     expect(screen.getByText('+50')).toBeInTheDocument()
+  })
+})
+
+// P1-04 — receiveStock is the one mutation this codebase's entitlement
+// guard actually gates. UI-11/SURF-20: the button is replaced by an
+// upgrade prompt, not merely disabled, once the org's plan excludes
+// pharmacy.
+describe('manager/pharmacy — entitlement gating (P1-04)', () => {
+  it('shows the real "Receive Stock" button for an ungated org (every real org today)', async () => {
+    renderPage([clinicsMock, drugsMock(), batchesMock(), entitlementsMock(ungatedEntitlements)])
+    await waitFor(() => expect(screen.getByRole('button', { name: /Receive Stock/ })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /Upgrade to receive stock/ })).not.toBeInTheDocument()
+  })
+
+  it('replaces "Receive Stock" with an upgrade prompt when the org\'s plan excludes pharmacy', async () => {
+    renderPage([clinicsMock, drugsMock(), batchesMock(), entitlementsMock(pharmacyBlockedEntitlements)])
+    await waitFor(() => expect(screen.getByRole('button', { name: /Upgrade to receive stock/ })).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: 'Receive Stock' })).not.toBeInTheDocument()
+  })
+
+  it('the upgrade prompt explains why and how to upgrade — not a dead end', async () => {
+    renderPage([clinicsMock, drugsMock(), batchesMock(), entitlementsMock(pharmacyBlockedEntitlements)])
+    fireEvent.click(await screen.findByRole('button', { name: /Upgrade to receive stock/ }))
+    expect(await screen.findByText(/isn.t included in your current plan/)).toBeInTheDocument()
+    expect(screen.getByText(/Ask your organization admin to upgrade/)).toBeInTheDocument()
   })
 })

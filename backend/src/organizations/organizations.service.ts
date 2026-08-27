@@ -1,6 +1,7 @@
 import { Injectable, ConflictException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { OrganizationInput, OrganizationSearchInput } from './dto/organization.input';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 // TC-ADMIN-UNIT-008: lowercase, non-alphanumeric runs collapsed to a single
 // hyphen, leading/trailing whitespace and hyphens trimmed.
@@ -14,16 +15,20 @@ export function normalizeOrgCode(raw: string): string {
 
 @Injectable()
 export class OrganizationsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlementsService: EntitlementsService,
+  ) {}
 
   private toGraphQL(org: any) {
     if (!org) return null;
-    const { address_structured, contact_email, contact_phone, ...rest } = org;
+    const { address_structured, contact_email, contact_phone, plan, ...rest } = org;
     return {
       ...rest,
       contactEmail: contact_email,
       contactPhone: contact_phone ?? undefined,
       address: address_structured ?? undefined,
+      plan_name: plan?.name ?? undefined,
     };
   }
 
@@ -44,7 +49,7 @@ export class OrganizationsService {
     };
 
     const [rows, total] = await this.prisma.$transaction([
-      this.prisma.clientOrganizations.findMany({ where, take: limit, skip: offset, orderBy: { created_at: 'desc' } }),
+      this.prisma.clientOrganizations.findMany({ where, take: limit, skip: offset, orderBy: { created_at: 'desc' }, include: { plan: true } }),
       this.prisma.clientOrganizations.count({ where }),
     ]);
 
@@ -148,5 +153,29 @@ export class OrganizationsService {
       max_clinics: row.plan.max_clinics,
       max_users: row.plan.max_users,
     };
+  }
+
+  // P1-04 — assigns (or clears, planId: null) this org's entitlement
+  // plan. Invalidates the entitlement cache for this org unconditionally
+  // (even clearing to null matters: a previously-gated org must see the
+  // new, ungated state immediately, not wait out the cache TTL).
+  async assignPlan(orgId: string, planId: string | null) {
+    const existing = await this.prisma.clientOrganizations.findUnique({ where: { id: orgId } });
+    if (!existing || existing.is_deleted) {
+      throw new NotFoundException('Organization not found');
+    }
+    if (planId) {
+      const plan = await this.prisma.plans.findUnique({ where: { id: planId } });
+      if (!plan) {
+        throw new NotFoundException('Plan not found');
+      }
+    }
+    const org = await this.prisma.clientOrganizations.update({
+      where: { id: orgId },
+      data: { plan_id: planId },
+      include: { plan: true },
+    });
+    await this.entitlementsService.invalidateOrg(orgId);
+    return this.toGraphQL(org);
   }
 }

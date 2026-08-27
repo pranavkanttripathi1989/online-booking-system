@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR207 | improvement | Entitlement guard (US-PLAN-03) results | pass | 2026-08-27 | 2026-08-27 | TP207 | [TR207-subscription-plan-engine-2026-08-27-entitlement-guard.md](./improvement/TR207-subscription-plan-engine-2026-08-27-entitlement-guard.md) |
 
 ## bug
 

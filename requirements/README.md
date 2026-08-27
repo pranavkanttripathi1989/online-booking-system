@@ -19,7 +19,7 @@
 | messaging | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [messaging](./messaging/README.md) |
 | analytics-reporting | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |
 | platform-integrations | 1 | 4 | 0 | 1 | 4 | 2026-08-26 | [platform-integrations](./platform-integrations/README.md) |
-| subscription-plan-engine | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
+| subscription-plan-engine | 1 | 1 | 0 | 0 | 2 | 2026-08-27 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |
 | platform-nfr | 1 | 6 | 11 | 1 | 17 | 2026-08-26 | [platform-nfr](./platform-nfr/README.md) |
 | security | 4 | 4 | 6 | 2 | 12 | 2026-08-27 | [security](./security/README.md) |

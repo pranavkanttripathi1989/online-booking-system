@@ -1,6 +1,7 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { PlanInput, CreatePlanVersionInput, FeatureFlagInput, PlanQuotaInput } from './dto/plan.input';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
 const PAISE_TO_RUPEES = (paise: number) => paise / 100;
@@ -20,14 +21,22 @@ function jsonToQuotas(json: unknown): { key: string; value: number }[] {
   return Object.entries(json as Record<string, number>).map(([key, value]) => ({ key, value }));
 }
 
-// REQ032 (US-PLAN-01/02) — plan-builder data model and versioning only.
-// Platform-level (super_admin-managed catalog), not tenant-scoped — see
-// PLAN066's own note on why this deliberately does NOT wire an
-// entitlement guard: that's a separate, higher-risk future step
-// (CLAUDE.md's explicit caution on this exact module).
+// REQ032 (US-PLAN-01/02) — plan-builder data model and versioning.
+// Platform-level (super_admin-managed catalog), not tenant-scoped.
+// PLAN066's own note explained why this deliberately did NOT wire an
+// entitlement guard at the time — that arrived as its own, separately
+// reviewed step (P1-04, REQ147): ClientOrganizations.plan_id, the real
+// org->plan assignment (organizations.resolver.ts's assignOrgPlan), and
+// EntitlementsService's read path. This service's only new
+// responsibility as a result is invalidating that per-org cache
+// whenever a plan's own catalog data changes — every org currently on
+// the plan being edited, not just one.
 @Injectable()
 export class PlansService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlementsService: EntitlementsService,
+  ) {}
 
   private versionToGraphQL(version: any) {
     return {
@@ -123,6 +132,9 @@ export class PlansService {
       });
       return tx.plans.findUnique({ where: { id: input.plan_id }, include: { versions: { orderBy: { version: 'asc' } } } });
     });
+    // P1-04 — a new version changes what every org currently on this
+    // plan is entitled to; their cached entitlements must not outlive it.
+    await this.entitlementsService.invalidateOrgsOnPlan(input.plan_id);
     return this.planToGraphQL(updated);
   }
 
@@ -134,6 +146,7 @@ export class PlansService {
       data: { is_active: isActive },
       include: { versions: { orderBy: { version: 'asc' } } },
     });
+    await this.entitlementsService.invalidateOrgsOnPlan(id);
     return this.planToGraphQL(updated);
   }
 }

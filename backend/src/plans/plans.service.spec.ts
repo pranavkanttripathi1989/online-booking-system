@@ -2,12 +2,14 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { BadRequestException } from '@nestjs/common';
 import { PlansService } from './plans.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 // REQ032 (US-PLAN-01/02) — platform-level, no client_org_id anywhere.
 // Versioning is the behaviour under test: editing a live plan must close
 // the old version and open a new one, never mutate the old row.
 describe('PlansService', () => {
   let service: PlansService;
+  let entitlementsService: { invalidateOrgsOnPlan: jest.Mock };
   let prisma: {
     plans: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; update: jest.Mock };
     planVersions: { update: jest.Mock; create: jest.Mock };
@@ -23,8 +25,13 @@ describe('PlansService', () => {
       planVersions: { update: jest.fn(), create: jest.fn() },
       $transaction: jest.fn((cb) => cb(prisma)),
     };
+    entitlementsService = { invalidateOrgsOnPlan: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PlansService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        PlansService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EntitlementsService, useValue: entitlementsService },
+      ],
     }).compile();
     service = module.get(PlansService);
   });
@@ -69,6 +76,20 @@ describe('PlansService', () => {
     );
   });
 
+  // P1-04 — every org currently on this plan needs its cached entitlements
+  // dropped once its feature flags/quotas actually change.
+  it('createNewVersion invalidates the entitlement cache for every org on this plan', async () => {
+    prisma.plans.findUnique
+      .mockResolvedValueOnce({ ...plan1, versions: [v1] })
+      .mockResolvedValueOnce({ ...plan1, versions: [v1, { ...v1, id: 'v2', version: 2, effective_until: null }] });
+    await service.createNewVersion({
+      plan_id: 'plan-1', billing_period: 'monthly', price: 1200,
+      feature_flags: [{ key: 'pharmacy', enabled: true }],
+      quotas: [{ key: 'max_clinician_seats', value: 10 }],
+    } as any);
+    expect(entitlementsService.invalidateOrgsOnPlan).toHaveBeenCalledWith('plan-1');
+  });
+
   it('setActive toggles a plan without touching its versions', async () => {
     prisma.plans.findUnique.mockResolvedValue(plan1);
     prisma.plans.update.mockResolvedValue({ ...plan1, is_active: false });
@@ -77,5 +98,12 @@ describe('PlansService', () => {
     expect(prisma.plans.update).toHaveBeenCalledWith(
       expect.objectContaining({ where: { id: 'plan-1' }, data: { is_active: false } }),
     );
+  });
+
+  it('setActive also invalidates the entitlement cache for every org on this plan — is_active gates the whole plan', async () => {
+    prisma.plans.findUnique.mockResolvedValue(plan1);
+    prisma.plans.update.mockResolvedValue({ ...plan1, is_active: false });
+    await service.setActive('plan-1', false);
+    expect(entitlementsService.invalidateOrgsOnPlan).toHaveBeenCalledWith('plan-1');
   });
 });

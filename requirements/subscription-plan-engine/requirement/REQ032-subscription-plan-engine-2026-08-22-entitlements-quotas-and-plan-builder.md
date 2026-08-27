@@ -3,13 +3,13 @@ id: REQ032
 type: requirement
 feature: subscription-plan-engine
 created: 2026-08-22
-updated: 2026-08-24
-status: in-progress
+updated: 2026-08-27
+status: done
 parent: null
-related: [REQ033, PLAN066, TP093, TR092]
+related: [REQ033, REQ147, PLAN066, PLAN187, TP093, TP207, TR092, TR207]
 ---
 
-## Status (2026-08-24)
+## Status (2026-08-27)
 
 **`US-PLAN-01`/`US-PLAN-02` shipped** (`PLAN066`/`TP093`/`TR092`) — the
 plan-builder data model and versioning only: `Plans`/`PlanVersions`,
@@ -17,12 +17,21 @@ super_admin-only CRUD, editing a live plan closes the old version
 (`effective_until`) and opens a new one rather than mutating it in place.
 See `context/subscription-plan-engine-2026-08-24-req032/manifest.md`.
 
-**Deliberately NOT started**: `US-PLAN-03` (entitlement enforcement — the
-global guard consulted on every feature-gated resolver call) and
-`US-PLAN-04` (trials). CLAUDE.md's own explicit caution stands: the guard
-integration is a separate, higher-risk step requiring its own scoped plan
-(Redis-backed caching, cache-invalidation-on-plan-change), not something to
-bolt onto this additive data-model slice.
+**`US-PLAN-03` shipped 2026-08-27** (`REQ147`/`PLAN187`/`TP207`/`TR207`,
+Phase 1 slice P1-04) — exactly the sequencing this status note originally
+called for: the entitlement data model
+(`ClientOrganizations.plan_id`) and read path
+(`EntitlementsService`, Redis-cached with explicit invalidation) shipped
+first, then a deliberately narrow, opt-in `EntitlementGuard` (never
+registered in the shared `APP_GUARD` chain) was integrated into exactly
+one real resolver (`pharmacy.receiveStock`, a feature gate) and one real
+quota check (`clinicians.create`'s `max_clinician_seats`) as concrete,
+live-verified proofs of concept — not a blanket rollout across every
+feature-gated module at once, which remains a deliberate, incremental,
+per-module decision from here.
+
+**`US-PLAN-04` (trials) remains explicitly deferred**, not started — no
+slice in `phase-plans/01-phase1-close-the-gates.md` currently scopes it.
 
 # Super Admin plan builder: entitlements, quotas, metered services, and versioning
 

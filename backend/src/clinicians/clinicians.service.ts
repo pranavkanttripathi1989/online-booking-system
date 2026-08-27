@@ -1,9 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, ForbiddenException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClinicianInput } from './dto/clinician.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScopeVia, assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
 import { DepartmentsService } from '../departments/departments.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 const RUPEES_TO_PAISE = (rupees?: number) => (rupees == null ? undefined : Math.round(rupees * 100));
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
@@ -13,6 +14,7 @@ export class CliniciansService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly departmentsService: DepartmentsService,
+    private readonly entitlementsService: EntitlementsService,
   ) {}
 
   private include() {
@@ -132,6 +134,26 @@ export class CliniciansService {
     const targetClinic = await this.prisma.clinics.findUnique({ where: { id: clinicId } });
     if (!targetClinic || !isSameOrg(user, targetClinic.client_org_id)) {
       throw new BadRequestException('Clinic not found');
+    }
+    // P1-04 — the concrete quota proof-of-concept, matching the exact
+    // example the schema's own PlanVersions.quotas_json comment already
+    // names ({ "max_clinician_seats": 10 }). getQuota() returns null for
+    // an ungated org (no plan assigned — true of every real org today)
+    // or a plan version that simply doesn't constrain this dimension, in
+    // which case this is a no-op, same "fail open" default as the
+    // pharmacy feature-flag guard.
+    if (targetClinic.client_org_id) {
+      const quota = await this.entitlementsService.getQuota(targetClinic.client_org_id, 'max_clinician_seats');
+      if (quota != null) {
+        const currentCount = await this.prisma.clinicians.count({
+          where: { is_deleted: false, clinic: { client_org_id: targetClinic.client_org_id } },
+        });
+        if (currentCount >= quota) {
+          throw new ForbiddenException(
+            `Your organization's plan allows up to ${quota} clinician seats (currently using all ${currentCount}). Upgrade your plan to add more.`,
+          );
+        }
+      }
     }
     // REQ014 (US-ORG-03) — Hard Rule 6 applies to this cross-domain FK the
     // same way it applies to clinic_id above.

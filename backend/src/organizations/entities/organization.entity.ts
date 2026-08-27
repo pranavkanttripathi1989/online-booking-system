@@ -23,15 +23,22 @@ export class OrganizationType {
   @Field({ nullable: true }) contactPhone?: string;
   @Field(() => OrganizationAddressType, { nullable: true }) address?: OrganizationAddressType;
   @Field() is_active: boolean;
+  // P1-04 — the entitlement guard's own org->Plans assignment (REQ032's
+  // versioned catalog, distinct from the older OrganizationSubscription
+  // below). Null for every real org today; nullable id/name pair so the
+  // admin UI can show "no plan assigned" without a second query.
+  @Field(() => ID, { nullable: true }) plan_id?: string;
+  @Field({ nullable: true }) plan_name?: string;
 }
 
 // Read-back for OrganizationSubscriptions/SubscriptionPlans — these tables
 // already existed (a row is written once during self-serve onboarding,
 // organization-onboarding.service.ts#selectPlan()) but nothing ever read
 // them back: no query, no admin UI. Distinct from the newer Plans/
-// PlanVersions catalog builder (REQ032) — that system has no link to
-// ClientOrganizations at all yet (US-PLAN-03, the entitlement guard, is
-// deliberately paused). This type is for the older, already-populated table.
+// PlanVersions catalog builder (REQ032) — that system's own org linkage
+// (OrganizationType.plan_id/plan_name above, assignOrgPlan mutation) and
+// entitlement guard shipped 2026-08-27 (P1-04). This type is for the
+// older, separately-populated OrganizationSubscriptions table.
 @ObjectType('OrganizationSubscription')
 export class OrganizationSubscriptionType {
   @Field(() => ID) id: string;

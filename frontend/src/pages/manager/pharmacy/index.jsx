@@ -28,6 +28,7 @@ import {
   Typography,
 } from '@mui/material'
 import AddIcon from '@mui/icons-material/Add'
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import RemoveIcon from '@mui/icons-material/Remove'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -100,6 +101,20 @@ const RECEIVE_STOCK = gql`
   mutation ReceiveStock($input: ReceiveStockInput!) {
     receiveStock(input: $input) {
       id
+    }
+  }
+`
+// P1-04 — receiveStock is the one mutation this codebase's entitlement
+// guard actually gates today (backend/src/pharmacy/pharmacy.resolver.ts).
+// is_gated:false (every real org today) means fully unrestricted.
+const GET_MY_ENTITLEMENTS = gql`
+  query GetMyEntitlementsForPharmacy {
+    myEntitlements {
+      is_gated
+      feature_flags {
+        key
+        enabled
+      }
     }
   }
 `
@@ -177,6 +192,21 @@ const MOVEMENT_COLOR = { receipt: 'success', adjustment: 'warning', dispense: 'i
 
 export default function PharmacyPage() {
   const client = useApolloClient()
+  // P1-04 — undefined = not yet loaded (don't flash the paywall before we
+  // know); false = ungated/unknown, don't block on a network error either.
+  const [pharmacyEntitled, setPharmacyEntitled] = useState(true)
+  useEffect(() => {
+    client
+      .query({ query: GET_MY_ENTITLEMENTS, fetchPolicy: 'network-only' })
+      .then(({ data }) => {
+        const ent = data?.myEntitlements
+        if (!ent || !ent.is_gated) return // ungated org — stays entitled
+        const flag = ent.feature_flags.find((f) => f.key === 'pharmacy')
+        setPharmacyEntitled(flag ? flag.enabled : false)
+      })
+      .catch(() => {}) // never block the page on this being unreachable
+  }, [client])
+  const [upgradePromptOpen, setUpgradePromptOpen] = useState(false)
   const [tabIndex, setTabIndex] = useState(0)
   const [clinics, setClinics] = useState([])
   const [drugs, setDrugs] = useState([])
@@ -534,9 +564,19 @@ export default function PharmacyPage() {
             Drug catalog, batch-level stock ledger, and dispensing
           </Typography>
         </Box>
-        {tabIndex === 0 && (
+        {/* P1-04 (UI-11, SURF-20) — an upgrade prompt, not a dead disabled
+            button: it says why the action is unavailable and points at the
+            fix (contact an admin to upgrade the plan). The button is
+            replaced, not merely disabled, since "add stock" has no
+            meaning to explain in a tooltip once it's known to be blocked. */}
+        {tabIndex === 0 && pharmacyEntitled && (
           <Button variant="contained" startIcon={<AddIcon />} onClick={() => setShowReceiveForm((p) => !p)}>
             Receive Stock
+          </Button>
+        )}
+        {tabIndex === 0 && !pharmacyEntitled && (
+          <Button variant="outlined" color="warning" startIcon={<WorkspacePremiumIcon />} onClick={() => setUpgradePromptOpen(true)}>
+            Upgrade to receive stock
           </Button>
         )}
         {tabIndex === 1 && (
@@ -1252,6 +1292,26 @@ export default function PharmacyPage() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setHistoryBatch(null)}>Close</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* P1-04 — the upgrade prompt itself (STATE-11: a message this
+          consequential gets a persistent surface, not a 3-second toast). */}
+      <Dialog open={upgradePromptOpen} onClose={() => setUpgradePromptOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle fontWeight={700}>Pharmacy isn&apos;t included in your current plan</DialogTitle>
+        <DialogContent>
+          <Stack spacing={1.5} alignItems="center" sx={{ py: 1, textAlign: 'center' }}>
+            <WorkspacePremiumIcon sx={{ fontSize: 40, color: 'warning.main' }} />
+            <Typography variant="body2" color="text.secondary">
+              Receiving new stock requires the pharmacy module, which isn&apos;t part of your organization&apos;s current plan. Ask your
+              organization admin to upgrade to unlock it — everything already in your stock ledger stays visible either way.
+            </Typography>
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 2 }}>
+          <Button variant="contained" onClick={() => setUpgradePromptOpen(false)}>
+            Got it
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

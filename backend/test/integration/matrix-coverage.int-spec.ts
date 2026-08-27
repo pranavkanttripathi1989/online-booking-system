@@ -39,6 +39,15 @@ const EXEMPT: Record<string, string> = {
   plans: 'Platform-level plan catalog, super_admin-managed — no client_org_id on Plans/PlanVersions, same shape as organizations (no "org A caller" for shared catalog data).',
   // REQ053 (2026-08-25 8-slice pass)
   'break-glass': "myBreakGlassGrants is scoped by grantee_user_id (the caller's own grants), not org — same shape as notifications' own exemption above. Cross-org isolation is real (request()/revoke() both check client_org_id) and covered in break-glass.service.spec.ts unit tests instead.",
+  // P1-04 (2026-08-27) — myEntitlements returns literally the caller's own
+  // resolved entitlements, keyed by JWT client_org_id, same shape as
+  // org-settings' own myOrgBranding exemption above: no client-supplied id
+  // argument exists to construct an "org A caller reads org B's row"
+  // matrix case from. Cross-org isolation is real (EntitlementGuard/
+  // EntitlementsService never accept a client-supplied org id, only
+  // user.client_org_id off the JWT) and covered in
+  // entitlements.service.spec.ts / entitlement.guard.spec.ts instead.
+  entitlements: "myEntitlements returns literally the caller's own resolved entitlements, keyed by JWT client_org_id — same shape as org-settings' own myOrgBranding exemption above.",
 };
 
 /**

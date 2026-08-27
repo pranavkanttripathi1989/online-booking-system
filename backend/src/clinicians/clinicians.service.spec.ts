@@ -1,8 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { BadRequestException } from '@nestjs/common';
+import { BadRequestException, ForbiddenException } from '@nestjs/common';
 import { CliniciansService } from './clinicians.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { DepartmentsService } from '../departments/departments.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // department_id is optional on every fixture below, so this mock is never
@@ -16,9 +17,10 @@ const departmentsServiceMock = { assertDepartmentInScope: jest.fn() };
 // record attributed to a DIFFERENT organization's clinic.
 describe('CliniciansService — create-path org scoping', () => {
   let service: CliniciansService;
+  let entitlementsService: { getQuota: jest.Mock };
   let prisma: {
     clinics: { findUnique: jest.Mock };
-    clinicians: { findUnique: jest.Mock };
+    clinicians: { findUnique: jest.Mock; count: jest.Mock };
     clinicianTypeModel: { findUnique: jest.Mock; findFirst: jest.Mock };
     languages: { findMany: jest.Mock };
     $transaction: jest.Mock;
@@ -32,7 +34,10 @@ describe('CliniciansService — create-path org scoping', () => {
   beforeEach(async () => {
     prisma = {
       clinics: { findUnique: jest.fn() },
-      clinicians: { findUnique: jest.fn().mockResolvedValue({ id: 'cln-new', first_name: 'A', last_name: 'B', clinic: { client_org_id: 'org-1' } }) },
+      clinicians: {
+        findUnique: jest.fn().mockResolvedValue({ id: 'cln-new', first_name: 'A', last_name: 'B', clinic: { client_org_id: 'org-1' } }),
+        count: jest.fn().mockResolvedValue(0),
+      },
       clinicianTypeModel: { findUnique: jest.fn(), findFirst: jest.fn() },
       languages: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn(async (fn) => fn({
@@ -41,8 +46,16 @@ describe('CliniciansService — create-path org scoping', () => {
         clinicianServices: { createMany: jest.fn() },
       })),
     };
+    // Default: no quota configured (ungated) — every pre-existing test in
+    // this describe block reaches the same create() logic unchanged.
+    entitlementsService = { getQuota: jest.fn().mockResolvedValue(null) };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [CliniciansService, { provide: PrismaService, useValue: prisma }, { provide: DepartmentsService, useValue: departmentsServiceMock }],
+      providers: [
+        CliniciansService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: DepartmentsService, useValue: departmentsServiceMock },
+        { provide: EntitlementsService, useValue: entitlementsService },
+      ],
     }).compile();
     service = module.get(CliniciansService);
   });
@@ -71,6 +84,45 @@ describe('CliniciansService — create-path org scoping', () => {
     prisma.clinics.findUnique.mockResolvedValue(null);
     await expect(service.create(baseInput as any, orgLessAdmin)).rejects.toThrow(BadRequestException);
     expect(prisma.$transaction).not.toHaveBeenCalled();
+  });
+
+  // P1-04 — the entitlement quota proof-of-concept, matching the exact
+  // example the schema's own PlanVersions.quotas_json comment already
+  // names ({ "max_clinician_seats": 10 }).
+  describe('max_clinician_seats quota', () => {
+    beforeEach(() => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+    });
+
+    it('allows creation when the org is ungated (no quota configured)', async () => {
+      entitlementsService.getQuota.mockResolvedValue(null);
+      await expect(service.create(baseInput as any, managerSameOrg)).resolves.toBeDefined();
+      expect(prisma.clinicians.count).not.toHaveBeenCalled();
+    });
+
+    it('allows creation when current usage is below the quota', async () => {
+      entitlementsService.getQuota.mockResolvedValue(10);
+      prisma.clinicians.count.mockResolvedValue(5);
+      await expect(service.create(baseInput as any, managerSameOrg)).resolves.toBeDefined();
+    });
+
+    it('rejects creation with a clear message when the org is already at its quota', async () => {
+      entitlementsService.getQuota.mockResolvedValue(10);
+      prisma.clinicians.count.mockResolvedValue(10);
+      await expect(service.create(baseInput as any, managerSameOrg)).rejects.toThrow(ForbiddenException);
+      await expect(service.create(baseInput as any, managerSameOrg)).rejects.toThrow(/10 clinician seats/);
+      expect(prisma.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('counts clinicians scoped to the target clinic\'s own org, not the caller\'s (a platform operator has no org of their own)', async () => {
+      entitlementsService.getQuota.mockResolvedValue(10);
+      prisma.clinicians.count.mockResolvedValue(3);
+      await service.create(baseInput as any, orgLessAdmin);
+      expect(prisma.clinicians.count).toHaveBeenCalledWith({
+        where: { is_deleted: false, clinic: { client_org_id: 'org-1' } },
+      });
+      expect(entitlementsService.getQuota).toHaveBeenCalledWith('org-1', 'max_clinician_seats');
+    });
   });
 });
 
@@ -106,7 +158,12 @@ describe('CliniciansService — read/write tenant isolation (F-01)', () => {
       $transaction: jest.fn((ops) => Promise.all(ops)),
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [CliniciansService, { provide: PrismaService, useValue: prisma }, { provide: DepartmentsService, useValue: departmentsServiceMock }],
+      providers: [
+        CliniciansService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: DepartmentsService, useValue: departmentsServiceMock },
+        { provide: EntitlementsService, useValue: { getQuota: jest.fn().mockResolvedValue(null) } },
+      ],
     }).compile();
     service = module.get(CliniciansService);
   });

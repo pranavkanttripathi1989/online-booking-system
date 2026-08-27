@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { ConflictException, NotFoundException } from '@nestjs/common';
 import { OrganizationsService, normalizeOrgCode } from './organizations.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 
 describe('normalizeOrgCode (TC-ONBOARD-UNIT-001/008)', () => {
   it('lowercases and hyphenates a normal name', () => {
@@ -23,6 +24,7 @@ describe('normalizeOrgCode (TC-ONBOARD-UNIT-001/008)', () => {
 
 describe('OrganizationsService', () => {
   let service: OrganizationsService;
+  let entitlementsService: { invalidateOrg: jest.Mock };
   let prisma: {
     clientOrganizations: {
       findMany: jest.Mock;
@@ -32,6 +34,7 @@ describe('OrganizationsService', () => {
       update: jest.Mock;
     };
     organizationSubscriptions: { findFirst: jest.Mock };
+    plans: { findUnique: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -56,10 +59,16 @@ describe('OrganizationsService', () => {
         update: jest.fn(),
       },
       organizationSubscriptions: { findFirst: jest.fn() },
+      plans: { findUnique: jest.fn() },
       $transaction: jest.fn(),
     };
+    entitlementsService = { invalidateOrg: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [OrganizationsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        OrganizationsService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: EntitlementsService, useValue: entitlementsService },
+      ],
     }).compile();
     service = module.get(OrganizationsService);
   });
@@ -285,6 +294,53 @@ describe('OrganizationsService', () => {
       expect(prisma.organizationSubscriptions.findFirst).toHaveBeenCalledWith(
         expect.objectContaining({ orderBy: { created_at: 'desc' } }),
       );
+    });
+  });
+
+  // P1-04
+  describe('assignPlan', () => {
+    it('assigns a real plan and invalidates the entitlement cache for this org', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(existingOrg);
+      prisma.plans.findUnique.mockResolvedValue({ id: 'plan-1', name: 'Pro' });
+      prisma.clientOrganizations.update.mockResolvedValue({ ...existingOrg, plan_id: 'plan-1', plan: { name: 'Pro' } });
+
+      const result = await service.assignPlan('org-1', 'plan-1');
+
+      expect(prisma.clientOrganizations.update).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+        data: { plan_id: 'plan-1' },
+        include: { plan: true },
+      });
+      expect(entitlementsService.invalidateOrg).toHaveBeenCalledWith('org-1');
+      expect(result.plan_name).toBe('Pro');
+    });
+
+    it('clears the assignment (planId: null) and still invalidates the cache — a previously-gated org must see the ungated state immediately', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(existingOrg);
+      prisma.clientOrganizations.update.mockResolvedValue({ ...existingOrg, plan_id: null, plan: null });
+
+      await service.assignPlan('org-1', null);
+
+      expect(prisma.plans.findUnique).not.toHaveBeenCalled();
+      expect(prisma.clientOrganizations.update).toHaveBeenCalledWith({
+        where: { id: 'org-1' },
+        data: { plan_id: null },
+        include: { plan: true },
+      });
+      expect(entitlementsService.invalidateOrg).toHaveBeenCalledWith('org-1');
+    });
+
+    it('rejects assigning a plan id that does not exist', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(existingOrg);
+      prisma.plans.findUnique.mockResolvedValue(null);
+      await expect(service.assignPlan('org-1', 'ghost-plan')).rejects.toThrow(NotFoundException);
+      expect(prisma.clientOrganizations.update).not.toHaveBeenCalled();
+      expect(entitlementsService.invalidateOrg).not.toHaveBeenCalled();
+    });
+
+    it('rejects assigning a plan to a nonexistent organization', async () => {
+      prisma.clientOrganizations.findUnique.mockResolvedValue(null);
+      await expect(service.assignPlan('ghost-org', 'plan-1')).rejects.toThrow(NotFoundException);
     });
   });
 });
