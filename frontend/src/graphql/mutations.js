@@ -261,6 +261,8 @@ export const CREATE_CLINICIAN_MUTATION = gql`
       first_name
       last_name
       full_name
+      email
+      phone
       consultation_fee
       is_active
       clinician_type {
@@ -286,6 +288,8 @@ export const UPDATE_CLINICIAN_MUTATION = gql`
       first_name
       last_name
       full_name
+      email
+      phone
       bio
       consultation_fee
       is_active

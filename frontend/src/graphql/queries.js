@@ -80,6 +80,8 @@ export const CLINICIAN_FIELDS = gql`
     first_name
     last_name
     full_name
+    email
+    phone
     bio
     avatar_url
     consultation_fee

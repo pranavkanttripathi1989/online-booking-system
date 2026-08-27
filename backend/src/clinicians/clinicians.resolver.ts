@@ -31,6 +31,31 @@ export class CliniciansResolver {
     return this.cliniciansService.availabilityTemplates(clinician.id);
   }
 
+  // BUG028 — email/phone are real, required ClinicianInput fields that
+  // round-trip correctly to the database (confirmed via a direct DB read
+  // against a live edit) but were never exposed on ClinicianType at all,
+  // so no page could ever read them back — the edit form always
+  // populated them blank, which read to the user as "email not
+  // updating" even though the save itself was working. Declared as
+  // @ResolveField(), not a plain @Field() on the entity, specifically so
+  // this can be gated: the clinician()/clinicians() queries have no
+  // @Auth() restriction (any authenticated role, including a patient,
+  // can already read a clinician's public profile fields) — a plain
+  // @Field() would have handed every logged-in patient a clinician's
+  // personal contact email/phone for free, a new leak this fix must not
+  // introduce while closing the real one.
+  @ResolveField(() => String, { nullable: true })
+  email(@Parent() clinician: any, @CurrentUser() user: JwtPayload) {
+    if (user.roles.includes('patient')) return null;
+    return clinician.email ?? null;
+  }
+
+  @ResolveField(() => String, { nullable: true })
+  phone(@Parent() clinician: any, @CurrentUser() user: JwtPayload) {
+    if (user.roles.includes('patient')) return null;
+    return clinician.phone ?? null;
+  }
+
   @Auth('manager', 'admin', 'super_admin')
   @Mutation(() => ClinicianType)
   createClinician(@Args('input') input: ClinicianInput, @CurrentUser() user: JwtPayload) {
