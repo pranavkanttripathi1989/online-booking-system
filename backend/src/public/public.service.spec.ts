@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException } from '@nestjs/common';
 import { PublicService } from './public.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { SlotHoldsService } from '../slot-holds/slot-holds.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: getAppointment (backs video/index.jsx's join
@@ -29,7 +30,15 @@ describe('PublicService — getAppointment access scoping', () => {
   beforeEach(async () => {
     prisma = { appointments: { findUnique: jest.fn().mockResolvedValue(appointmentRow) } };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PublicService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        PublicService,
+        { provide: PrismaService, useValue: prisma },
+        // P1-05: PublicService now depends on SlotHoldsService too -- a real,
+        // no-op-by-default stub here since none of these pre-existing describe
+        // blocks exercise hold/release/held-slot behaviour (see the dedicated
+        // describe block below for that).
+        { provide: SlotHoldsService, useValue: { holdSlot: jest.fn(), releaseSlot: jest.fn(), consumeIfOwned: jest.fn(), listHeldStartTimesForDay: jest.fn().mockResolvedValue([]) } },
+      ],
     }).compile();
     service = module.get(PublicService);
   });
@@ -87,7 +96,15 @@ describe('PublicService — getClinicians rating batching (P3.4)', () => {
       },
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PublicService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        PublicService,
+        { provide: PrismaService, useValue: prisma },
+        // P1-05: PublicService now depends on SlotHoldsService too -- a real,
+        // no-op-by-default stub here since none of these pre-existing describe
+        // blocks exercise hold/release/held-slot behaviour (see the dedicated
+        // describe block below for that).
+        { provide: SlotHoldsService, useValue: { holdSlot: jest.fn(), releaseSlot: jest.fn(), consumeIfOwned: jest.fn(), listHeldStartTimesForDay: jest.fn().mockResolvedValue([]) } },
+      ],
     }).compile();
     service = module.get(PublicService);
   });
@@ -160,7 +177,15 @@ describe('PublicService — bookPatientAppointment session mode (REQ017)', () =>
       $transaction: jest.fn((fn) => fn(prisma)),
     };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [PublicService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        PublicService,
+        { provide: PrismaService, useValue: prisma },
+        // P1-05: PublicService now depends on SlotHoldsService too -- a real,
+        // no-op-by-default stub here since none of these pre-existing describe
+        // blocks exercise hold/release/held-slot behaviour (see the dedicated
+        // describe block below for that).
+        { provide: SlotHoldsService, useValue: { holdSlot: jest.fn(), releaseSlot: jest.fn(), consumeIfOwned: jest.fn(), listHeldStartTimesForDay: jest.fn().mockResolvedValue([]) } },
+      ],
     }).compile();
     service = module.get(PublicService);
   });
@@ -197,5 +222,125 @@ describe('PublicService — bookPatientAppointment session mode (REQ017)', () =>
     expect(prisma.appointments.create).toHaveBeenCalledWith(
       expect.objectContaining({ data: expect.objectContaining({ booking_mode: 'slot', token_no: undefined }) }),
     );
+  });
+});
+
+// P1-05 (BOOK-2, BOOK-3) — public/patient-self-serve dialect's own twin of
+// AppointmentsService's create() coverage.
+describe('PublicService — idempotency key & slot hold (P1-05)', () => {
+  let service: PublicService;
+  let prisma: {
+    clinicians: { findUnique: jest.Mock };
+    productVariations: { findUnique: jest.Mock };
+    products: { findUnique: jest.Mock };
+    patients: { findFirst: jest.Mock; create: jest.Mock };
+    clinicianAvailability: { findFirst: jest.Mock };
+    appointments: { findFirst: jest.Mock; count: jest.Mock; create: jest.Mock; findMany: jest.Mock };
+    appointmentIdempotencyKeys: { findUnique: jest.Mock; create: jest.Mock };
+    rooms: { findFirst: jest.Mock; findUnique: jest.Mock };
+    $executeRawUnsafe: jest.Mock;
+    $transaction: jest.Mock;
+  };
+  let slotHoldsService: { holdSlot: jest.Mock; releaseSlot: jest.Mock; consumeIfOwned: jest.Mock; listHeldStartTimesForDay: jest.Mock };
+
+  const baseInput = { clinicianId: 'cln-1', productId: 'svc-1', date: '2026-08-24', startTime: '18:00', patientId: 'pat-1' };
+
+  beforeEach(async () => {
+    prisma = {
+      clinicians: { findUnique: jest.fn().mockResolvedValue({ id: 'cln-1', clinic_id: 'clinic-1' }) },
+      productVariations: { findUnique: jest.fn().mockResolvedValue(null) },
+      products: { findUnique: jest.fn().mockResolvedValue({ id: 'svc-1', duration_minutes: 15 }) },
+      patients: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      clinicianAvailability: { findFirst: jest.fn().mockResolvedValue(null) },
+      appointments: {
+        findFirst: jest.fn().mockResolvedValue(null),
+        count: jest.fn().mockResolvedValue(0),
+        create: jest.fn().mockResolvedValue({ id: 'appt-new' }),
+        findMany: jest.fn().mockResolvedValue([]),
+      },
+      appointmentIdempotencyKeys: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      rooms: { findFirst: jest.fn().mockResolvedValue({ id: 'room-1' }), findUnique: jest.fn().mockResolvedValue({ id: 'room-1' }) },
+      $executeRawUnsafe: jest.fn(),
+      $transaction: jest.fn((fn) => fn(prisma)),
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PublicService,
+        { provide: PrismaService, useValue: prisma },
+        {
+          provide: SlotHoldsService,
+          useValue: (slotHoldsService = {
+            holdSlot: jest.fn(),
+            releaseSlot: jest.fn(),
+            consumeIfOwned: jest.fn(),
+            listHeldStartTimesForDay: jest.fn().mockResolvedValue([]),
+          }),
+        },
+      ],
+    }).compile();
+    service = module.get(PublicService);
+  });
+
+  describe('bookPatientAppointment', () => {
+    it('short-circuits to the original appointment on a repeat idempotencyKey, before any lookup runs', async () => {
+      prisma.appointmentIdempotencyKeys.findUnique.mockResolvedValueOnce({ idempotency_key: 'key-1', appointment_id: 'appt-existing' });
+      const result = await service.bookPatientAppointment({ ...baseInput, idempotencyKey: 'key-1' } as any);
+      expect(result).toEqual({ id: 'appt-existing' });
+      expect(prisma.clinicians.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('writes the idempotency key row inside the same transaction as a first-time successful create', async () => {
+      await service.bookPatientAppointment({ ...baseInput, idempotencyKey: 'key-2' } as any);
+      expect(prisma.appointmentIdempotencyKeys.create).toHaveBeenCalledWith({ data: { idempotency_key: 'key-2', appointment_id: 'appt-new' } });
+    });
+
+    it('never writes a key row when none was supplied (unchanged, pre-existing behaviour)', async () => {
+      await service.bookPatientAppointment(baseInput as any);
+      expect(prisma.appointmentIdempotencyKeys.create).not.toHaveBeenCalled();
+    });
+
+    it('consumes the hold that led to a successful booking', async () => {
+      await service.bookPatientAppointment({ ...baseInput, holdToken: 'hold-1' } as any);
+      expect(slotHoldsService.consumeIfOwned).toHaveBeenCalledWith('cln-1', expect.any(String), 'hold-1');
+    });
+
+    it('never touches the hold service when no holdToken was supplied (unchanged, pre-existing behaviour)', async () => {
+      await service.bookPatientAppointment(baseInput as any);
+      expect(slotHoldsService.consumeIfOwned).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('holdSlot / releaseSlot', () => {
+    it('holdSlot composes date+startTime into the ISO instant SlotHoldsService expects', async () => {
+      slotHoldsService.holdSlot.mockResolvedValue({ holdToken: 'tok', expiresAt: new Date() });
+      await service.holdSlot('cln-1', '2026-10-15', '09:00');
+      expect(slotHoldsService.holdSlot).toHaveBeenCalledWith('cln-1', '2026-10-15T09:00:00.000Z');
+    });
+
+    it('releaseSlot composes the same way and always resolves true', async () => {
+      const result = await service.releaseSlot('cln-1', '2026-10-15', '09:00', 'tok');
+      expect(slotHoldsService.releaseSlot).toHaveBeenCalledWith('cln-1', '2026-10-15T09:00:00.000Z', 'tok');
+      expect(result).toBe(true);
+    });
+  });
+
+  describe('getAppointments — held slots surface as unavailable (BOOK-2)', () => {
+    it('appends a synthetic entry for every actively-held start time, alongside real booked rows', async () => {
+      prisma.appointments.findMany.mockResolvedValue([
+        { id: 'appt-1', appointment_time: new Date('2026-10-15T08:00:00.000Z'), duration_minutes: 30 },
+      ]);
+      slotHoldsService.listHeldStartTimesForDay.mockResolvedValue(['2026-10-15T09:00:00.000Z']);
+      const result = await service.getAppointments('cln-1', '2026-10-15');
+      expect(result).toHaveLength(2);
+      expect(result.map((r: any) => r.id)).toEqual(['appt-1', 'held:2026-10-15T09:00:00.000Z']);
+    });
+
+    it('returns only real booked rows when nothing is currently held', async () => {
+      prisma.appointments.findMany.mockResolvedValue([
+        { id: 'appt-1', appointment_time: new Date('2026-10-15T08:00:00.000Z'), duration_minutes: 30 },
+      ]);
+      const result = await service.getAppointments('cln-1', '2026-10-15');
+      expect(result).toHaveLength(1);
+    });
   });
 });

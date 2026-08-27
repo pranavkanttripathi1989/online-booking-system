@@ -127,3 +127,11 @@ export class BookedAppointmentResultType {
 }
 
 // PaymentTransactionResultType removed (REQ004) — see public.service.ts.
+
+// P1-05 — BOOK-2's slot-hold countdown, public/camelCase dialect,
+// matching this file's own convention (PublicAppointmentSlotType etc).
+@ObjectType('PublicSlotHoldType')
+export class PublicSlotHoldType {
+  @Field() holdToken: string;
+  @Field() expiresAt: Date;
+}

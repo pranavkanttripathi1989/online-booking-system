@@ -9,11 +9,21 @@ import { WebhooksModule } from '../webhooks/webhooks.module';
 import { IntakeFieldsModule } from '../intake-fields/intake-fields.module';
 import { WaitlistModule } from '../waitlist/waitlist.module';
 import { BranchOverridesModule } from '../branch-overrides/branch-overrides.module';
+import { SlotHoldsModule } from '../slot-holds/slot-holds.module';
 
 @Module({
   // ScheduleModule.forRoot() is idempotent -- appointment-payments.module.ts
   // already calls it too (see its own comment confirming this is safe).
-  imports: [ScheduleModule.forRoot(), QueueModule, PatientsModule, WebhooksModule, IntakeFieldsModule, WaitlistModule, BranchOverridesModule],
+  imports: [
+    ScheduleModule.forRoot(),
+    QueueModule,
+    PatientsModule,
+    WebhooksModule,
+    IntakeFieldsModule,
+    WaitlistModule,
+    BranchOverridesModule,
+    SlotHoldsModule,
+  ],
   providers: [AppointmentsService, AppointmentsResolver, NoShowSweepService],
   exports: [AppointmentsService],
 })

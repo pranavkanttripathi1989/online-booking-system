@@ -100,6 +100,32 @@ function buildMocks({ availability = GET_CLINICIAN_AND_PRODUCTS_SHAPE.getClinici
       }
     }
   `
+  // P1-05 — every test that clicks a slot button now triggers this
+  // mutation, and unmount always triggers a best-effort release; both
+  // mocked here rather than per-test, matching this file's own "one
+  // factory, every test" convention for GET_APPOINTMENTS above. The hold
+  // mock is repeatable (not single-use) since a test can re-select the
+  // same slot more than once (e.g. clicking it, then a different one).
+  const HOLD_PUBLIC_SLOT = gql`
+    mutation HoldPublicSlot($clinicianId: ID!, $date: String!, $startTime: String!) {
+      holdPublicSlot(clinicianId: $clinicianId, date: $date, startTime: $startTime) {
+        holdToken
+        expiresAt
+      }
+    }
+  `
+  const RELEASE_PUBLIC_SLOT = gql`
+    mutation ReleasePublicSlot($clinicianId: ID!, $date: String!, $startTime: String!, $holdToken: String!) {
+      releasePublicSlot(clinicianId: $clinicianId, date: $date, startTime: $startTime, holdToken: $holdToken)
+    }
+  `
+  const heldSlotResult = {
+    request: {
+      query: HOLD_PUBLIC_SLOT,
+      variables: { clinicianId: DOCTOR_ID, date: dayjs().format('YYYY-MM-DD'), startTime: '09:00' },
+    },
+    result: { data: { holdPublicSlot: { holdToken: 'test-hold-token', expiresAt: dayjs().add(10, 'minute').toISOString() } } },
+  }
   return [
     {
       request: { query: GET_CLINICIAN_AND_PRODUCTS, variables: { id: DOCTOR_ID } },
@@ -108,6 +134,19 @@ function buildMocks({ availability = GET_CLINICIAN_AND_PRODUCTS_SHAPE.getClinici
     {
       request: { query: GET_APPOINTMENTS, variables: { clinicianId: DOCTOR_ID, date: dayjs().format('YYYY-MM-DD') } },
       result: { data: { getAppointments: [] } },
+    },
+    // Repeated entries so the same "click 9:00 AM" interaction still
+    // matches across the several tests/re-selections that do it.
+    heldSlotResult,
+    heldSlotResult,
+    heldSlotResult,
+    {
+      request: {
+        query: RELEASE_PUBLIC_SLOT,
+        variables: { clinicianId: DOCTOR_ID, date: dayjs().format('YYYY-MM-DD'), startTime: '09:00', holdToken: 'test-hold-token' },
+      },
+      result: { data: { releasePublicSlot: true } },
+      newData: () => ({ data: { releasePublicSlot: true } }),
     },
   ]
 }

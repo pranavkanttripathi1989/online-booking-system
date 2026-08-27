@@ -1,5 +1,5 @@
 import { InputType, Field, Int } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsIn, IsISO8601, IsInt, ValidateNested } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsIn, IsISO8601, IsInt, IsString, Length, ValidateNested } from 'class-validator';
 import { Type } from 'class-transformer';
 import { IntakeFieldResponseInput } from '../../intake-fields/dto/intake-field.input';
 
@@ -33,6 +33,17 @@ export class AppointmentInput {
   @ValidateNested({ each: true })
   @Type(() => IntakeFieldResponseInput)
   intake_responses?: IntakeFieldResponseInput[];
+
+  // P1-05 (BOOK-3) — client-generated, persisted across an app kill (BOOK-18)
+  // so a resubmit after a crash/reload reuses the same key rather than
+  // minting a new one. A repeat key is a no-op returning the original
+  // appointment; see appointments.service.ts's create().
+  @Field({ nullable: true }) @IsOptional() @IsString() @Length(8, 128) idempotency_key?: string;
+  // P1-05 (BOOK-2) — the token from a prior holdAppointmentSlot call for
+  // this exact clinician/start_datetime, if the wizard held one. Missing,
+  // wrong, or expired is never fatal to booking — only the EXCLUDE
+  // constraint is; a valid token just gets released on success.
+  @Field({ nullable: true }) @IsOptional() @IsString() @Length(8, 128) hold_token?: string;
 }
 
 // Matches appointments/edit.jsx's submitted shape exactly — a partial update,

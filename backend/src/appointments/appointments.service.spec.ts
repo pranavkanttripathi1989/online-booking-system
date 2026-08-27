@@ -12,6 +12,7 @@ import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { BranchOverridesService } from '../branch-overrides/branch-overrides.service';
+import { SlotHoldsService } from '../slot-holds/slot-holds.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -31,6 +32,7 @@ describe('AppointmentsService — access scoping', () => {
     clinicianAvailability: { findFirst: jest.Mock };
     resources: { count: jest.Mock };
     appointmentResources: { findFirst: jest.Mock; createMany: jest.Mock; deleteMany: jest.Mock; updateMany: jest.Mock };
+    appointmentIdempotencyKeys: { findUnique: jest.Mock; create: jest.Mock };
     $executeRawUnsafe: jest.Mock;
     $transaction: jest.Mock;
   };
@@ -41,6 +43,7 @@ describe('AppointmentsService — access scoping', () => {
   let waitlistService: { promoteNext: jest.Mock };
   let queueService: { syncFromAppointmentStatus: jest.Mock; publish: jest.Mock };
   let branchOverridesService: { getManyForPricing: jest.Mock };
+  let slotHoldsService: { holdSlot: jest.Mock; releaseSlot: jest.Mock; consumeIfOwned: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -83,6 +86,10 @@ describe('AppointmentsService — access scoping', () => {
       clinicianAvailability: { findFirst: jest.fn().mockResolvedValue(null) },
       resources: { count: jest.fn().mockResolvedValue(0) },
       appointmentResources: { findFirst: jest.fn().mockResolvedValue(null), createMany: jest.fn(), deleteMany: jest.fn(), updateMany: jest.fn() },
+      // P1-05: BOOK-3's idempotency-key no-op check/write. Defaults to "no
+      // key on file" so every pre-existing create() test in this file (none
+      // of which pass idempotency_key) is unaffected.
+      appointmentIdempotencyKeys: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() },
       $executeRawUnsafe: jest.fn(),
       $transaction: jest.fn((ops) => (typeof ops === 'function' ? ops(prisma) : Promise.all(ops))),
     };
@@ -120,6 +127,14 @@ describe('AppointmentsService — access scoping', () => {
         // case has) so every pre-existing test in this file keeps pricing
         // straight from the product/patient-category as before this slice.
         { provide: BranchOverridesService, useValue: (branchOverridesService = { getManyForPricing: jest.fn().mockResolvedValue(new Map()) }) },
+        // P1-05: holdSlot()/releaseSlot() are thin passthroughs, exercised
+        // for real in slot-holds.service.spec.ts; create()'s own use of
+        // consumeIfOwned is a no-op default here (matches every
+        // pre-existing test, none of which pass hold_token).
+        {
+          provide: SlotHoldsService,
+          useValue: (slotHoldsService = { holdSlot: jest.fn(), releaseSlot: jest.fn(), consumeIfOwned: jest.fn() }),
+        },
       ],
     }).compile();
     service = module.get(AppointmentsService);
@@ -439,6 +454,85 @@ describe('AppointmentsService — access scoping', () => {
           new Prisma.PrismaClientUnknownRequestError('connection terminated unexpectedly', { clientVersion: 'test' }),
         );
         await expect(service.create(baseInput as any, staffUser)).rejects.toThrow('connection terminated unexpectedly');
+      });
+    });
+
+    // P1-05 (BOOK-3, BOOK-2)
+    describe('idempotency key & slot hold', () => {
+      const existingAppointmentRow = {
+        id: 'appt-existing', patient_id: 'pat-1', clinician_id: 'cln-1', clinic: { client_org_id: 'org-1' },
+        patient: { id: 'pat-1', first_name: 'A', last_name: 'B', date_of_birth: new Date() },
+        clinician: { id: 'cln-1', first_name: 'X', last_name: 'Y' }, room: {}, appointment_time: new Date(), duration_minutes: 30, status: 'scheduled',
+      };
+
+      it('short-circuits to the original appointment on a repeat idempotency_key, without re-running any validation', async () => {
+        prisma.appointmentIdempotencyKeys.findUnique.mockResolvedValueOnce({
+          idempotency_key: 'key-1', appointment_id: 'appt-existing', appointment: existingAppointmentRow,
+        });
+        const result = await service.create({ ...baseInput, idempotency_key: 'key-1' } as any, staffUser);
+        expect(result.id).toBe('appt-existing');
+        expect(prisma.clinics.findUnique).not.toHaveBeenCalled();
+        expect(prisma.$transaction).not.toHaveBeenCalled();
+      });
+
+      it('writes the idempotency key row inside the same transaction as a first-time successful create', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        await service.create({ ...baseInput, idempotency_key: 'key-2' } as any, staffUser);
+        expect(prisma.appointmentIdempotencyKeys.create).toHaveBeenCalledWith({
+          data: { idempotency_key: 'key-2', appointment_id: 'appt-new' },
+        });
+      });
+
+      it('never writes a key row when none was supplied (unchanged, pre-existing behaviour)', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        await service.create(baseInput as any, staffUser);
+        expect(prisma.appointmentIdempotencyKeys.create).not.toHaveBeenCalled();
+      });
+
+      it('a genuinely concurrent duplicate key submit returns the winner\'s appointment instead of throwing', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        prisma.appointmentIdempotencyKeys.findUnique
+          .mockResolvedValueOnce(null) // pre-check: no key on file yet
+          .mockResolvedValueOnce({ idempotency_key: 'key-3', appointment_id: 'appt-existing', appointment: existingAppointmentRow }); // post-catch: the winner
+        prisma.$transaction.mockRejectedValueOnce(
+          new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' }),
+        );
+        const result = await service.create({ ...baseInput, idempotency_key: 'key-3' } as any, staffUser);
+        expect(result.id).toBe('appt-existing');
+      });
+
+      it('consumes the hold that led to a successful booking', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        await service.create({ ...baseInput, hold_token: 'hold-1' } as any, staffUser);
+        expect(slotHoldsService.consumeIfOwned).toHaveBeenCalledWith('cln-1', expect.any(String), 'hold-1');
+      });
+
+      it('never touches the hold service when no hold_token was supplied (unchanged, pre-existing behaviour)', async () => {
+        prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+        await service.create(baseInput as any, staffUser);
+        expect(slotHoldsService.consumeIfOwned).not.toHaveBeenCalled();
+      });
+    });
+
+    // Real bug caught here before it shipped: SlotHoldsService returns
+    // camelCase (holdToken/expiresAt), but SlotHoldType is snake_case
+    // (matching this dialect's own convention) — GraphQL's code-first
+    // resolver can't match a property by a different name, so returning the
+    // service's own shape unmapped surfaced live as "Cannot return null for
+    // non-nullable field SlotHoldType.hold_token" the first time this was
+    // exercised through a real HTTP round trip, not the mocked-Prisma suite.
+    describe('holdSlot / releaseSlot (resolver-facing shape)', () => {
+      it('maps SlotHoldsService\'s camelCase result to SlotHoldType\'s own snake_case fields', async () => {
+        const expiresAt = new Date();
+        slotHoldsService.holdSlot.mockResolvedValue({ holdToken: 'tok-1', expiresAt });
+        const result = await service.holdSlot('cln-1', '2026-10-15T09:00:00.000Z');
+        expect(result).toEqual({ hold_token: 'tok-1', expires_at: expiresAt });
+      });
+
+      it('releaseSlot always resolves true and passes through to SlotHoldsService', async () => {
+        const result = await service.releaseSlot('cln-1', '2026-10-15T09:00:00.000Z', 'tok-1');
+        expect(slotHoldsService.releaseSlot).toHaveBeenCalledWith('cln-1', new Date('2026-10-15T09:00:00.000Z').toISOString(), 'tok-1');
+        expect(result).toBe(true);
       });
     });
   });

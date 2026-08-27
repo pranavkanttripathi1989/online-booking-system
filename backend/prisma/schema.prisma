@@ -263,6 +263,7 @@ model Appointments {
   queue_entry         QueueEntries?
   checklist_completions ChecklistCompletions[]
   claims              Claims[]
+  idempotency_key_row AppointmentIdempotencyKeys?
 
   @@index([clinician_id, appointment_time])
   @@index([clinic_id, appointment_time])
@@ -271,6 +272,20 @@ model Appointments {
   @@index([room_id])
   @@index([product_id])
   @@index([booked_by_user_id])
+}
+
+// P1-05 — BOOK-3's client-generated idempotency key, durable (unlike the
+// slot hold below, which is Redis/TTL-only and fine to lose). A repeat
+// createAppointment/bookPatientAppointment call carrying a key already
+// recorded here is a no-op that returns the original appointment instead
+// of re-running validation or creating a second row -- covers a retried
+// request, a flaky-network resubmit, and a genuine double-tap alike.
+model AppointmentIdempotencyKeys {
+  id              String       @id @default(uuid())
+  idempotency_key String       @unique
+  appointment_id  String       @unique
+  appointment     Appointments @relation(fields: [appointment_id], references: [id], onDelete: Cascade)
+  created_at      DateTime     @default(now())
 }
 
 // APPOINTMENT_DETAIL_QUERY (frontend/src/graphql/queries.js) requests

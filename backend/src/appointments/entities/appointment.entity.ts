@@ -145,3 +145,11 @@ export class BulkRescheduleResultType {
   @Field(() => Int) rescheduled_count: number;
   @Field(() => Int) failed_count: number;
 }
+
+// P1-05 — BOOK-2's slot-hold countdown. Canonical/snake_case dialect,
+// matching this file's own convention.
+@ObjectType('SlotHoldType')
+export class SlotHoldType {
+  @Field() hold_token: string;
+  @Field() expires_at: Date;
+}

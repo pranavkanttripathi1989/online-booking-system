@@ -1,13 +1,34 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { PublicClinicianSearchInput, BookPatientAppointmentInput } from './dto/public.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
+import { SlotHoldsService } from '../slot-holds/slot-holds.service';
 
 const PAISE_TO_RUPEES = (paise?: number | null) => (paise == null ? undefined : paise / 100);
 
+// P1-05 — same constraint names as appointments.service.ts's own
+// OVERLAP_CONSTRAINT_NAMES (not shared/exported, matching this pair's
+// existing "two dialects, deliberately separate implementations" precedent).
+const OVERLAP_CONSTRAINT_NAMES = ['appointments_no_overlapping_booking', 'appointments_no_overlapping_room_booking'];
+
 @Injectable()
 export class PublicService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly slotHoldsService: SlotHoldsService,
+  ) {}
+
+  // P1-05 (BOOK-2) — camelCase args (date + startTime, not a single ISO
+  // datetime) to match this dialect's own booking/index.jsx wire shape.
+  holdSlot(clinicianId: string, date: string, startTime: string) {
+    return this.slotHoldsService.holdSlot(clinicianId, new Date(`${date}T${startTime}:00.000Z`).toISOString());
+  }
+
+  async releaseSlot(clinicianId: string, date: string, startTime: string, holdToken: string): Promise<boolean> {
+    await this.slotHoldsService.releaseSlot(clinicianId, new Date(`${date}T${startTime}:00.000Z`).toISOString(), holdToken);
+    return true;
+  }
 
   private async ratingFor(clinicianId: string) {
     const agg = await this.prisma.reviews.aggregate({
@@ -142,11 +163,21 @@ export class PublicService {
         appointment_time: { gte: dayStart, lte: dayEnd },
       },
     });
-    return rows.map((a) => ({
+    const booked = rows.map((a) => ({
       id: a.id,
       startTime: a.appointment_time,
       endTime: new Date(a.appointment_time.getTime() + a.duration_minutes * 60000),
     }));
+    // P1-05 (BOOK-2) — a slot someone else is actively holding reads as
+    // unavailable here too, the same list booking/index.jsx already
+    // disables a slot button from (existingApps.includes(slot)) — no
+    // frontend change needed to hide a held slot, only to show *why*.
+    const heldIso = await this.slotHoldsService.listHeldStartTimesForDay(clinicianId, dayStart.toISOString(), dayEnd.toISOString());
+    const held = heldIso.map((iso) => {
+      const start = new Date(iso);
+      return { id: `held:${iso}`, startTime: start, endTime: new Date(start.getTime() + 30 * 60000) };
+    });
+    return [...booked, ...held];
   }
 
   // SECURITY: getAppointment previously had no ownership check at all -- the
@@ -181,6 +212,16 @@ export class PublicService {
   }
 
   async bookPatientAppointment(input: BookPatientAppointmentInput) {
+    // P1-05 (BOOK-3) — see AppointmentsService.create()'s identical
+    // pre-check for the full reasoning; this is its public-dialect twin.
+    if (input.idempotencyKey) {
+      const existingKey = await this.prisma.appointmentIdempotencyKeys.findUnique({
+        where: { idempotency_key: input.idempotencyKey },
+      });
+      if (existingKey) {
+        return { id: existingKey.appointment_id };
+      }
+    }
     const clinician = await this.prisma.clinicians.findUnique({ where: { id: input.clinicianId } });
     if (!clinician) throw new BadRequestException('Clinician not found');
 
@@ -252,43 +293,71 @@ export class PublicService {
       : await this.prisma.rooms.findFirst({ where: { clinic_id: clinician.clinic_id, is_active: true, is_deleted: false } });
     if (!room) throw new BadRequestException('No active room available at this clinic');
 
-    const appointment = await this.prisma.$transaction(async (tx) => {
-      let tokenNo: number | undefined;
-      if (bookingMode !== 'slot' && sessionWindow) {
-        const lockKey = `${input.clinicianId}|${start.toISOString()}`;
-        await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', lockKey);
-        const bookedCount = await tx.appointments.count({
-          where: {
+    let appointment;
+    try {
+      appointment = await this.prisma.$transaction(async (tx) => {
+        let tokenNo: number | undefined;
+        if (bookingMode !== 'slot' && sessionWindow) {
+          const lockKey = `${input.clinicianId}|${start.toISOString()}`;
+          await tx.$executeRawUnsafe('SELECT pg_advisory_xact_lock(hashtextextended($1, 0))', lockKey);
+          const bookedCount = await tx.appointments.count({
+            where: {
+              clinician_id: input.clinicianId,
+              is_deleted: false,
+              status: { notIn: ['cancelled', 'no_show'] },
+              booking_mode: { not: 'slot' },
+              appointment_time: start,
+            },
+          });
+          const totalAllowed = (sessionWindow.capacity ?? 0) + sessionWindow.overbook_allowance;
+          if (bookedCount >= totalAllowed) throw new BadRequestException('This session is fully booked');
+          tokenNo = bookedCount + 1;
+        }
+        const created = await tx.appointments.create({
+          data: {
+            clinic_id: clinician.clinic_id,
+            room_id: room.id,
             clinician_id: input.clinicianId,
-            is_deleted: false,
-            status: { notIn: ['cancelled', 'no_show'] },
-            booking_mode: { not: 'slot' },
+            patient_id: patientId,
+            appointment_date: new Date(input.date),
             appointment_time: start,
+            duration_minutes: durationMinutes,
+            status: 'scheduled',
+            reason: '',
+            product_id: input.productId,
+            product_variation_id: input.variationId ?? undefined,
+            type: input.type ?? 'in_person',
+            booking_mode: bookingMode,
+            token_no: tokenNo,
           },
         });
-        const totalAllowed = (sessionWindow.capacity ?? 0) + sessionWindow.overbook_allowance;
-        if (bookedCount >= totalAllowed) throw new BadRequestException('This session is fully booked');
-        tokenNo = bookedCount + 1;
-      }
-      return tx.appointments.create({
-        data: {
-          clinic_id: clinician.clinic_id,
-          room_id: room.id,
-          clinician_id: input.clinicianId,
-          patient_id: patientId,
-          appointment_date: new Date(input.date),
-          appointment_time: start,
-          duration_minutes: durationMinutes,
-          status: 'scheduled',
-          reason: '',
-          product_id: input.productId,
-          product_variation_id: input.variationId ?? undefined,
-          type: input.type ?? 'in_person',
-          booking_mode: bookingMode,
-          token_no: tokenNo,
-        },
+        // P1-05 (BOOK-3) — see AppointmentsService.create()'s identical
+        // in-transaction write for the full reasoning.
+        if (input.idempotencyKey) {
+          await tx.appointmentIdempotencyKeys.create({
+            data: { idempotency_key: input.idempotencyKey, appointment_id: created.id },
+          });
+        }
+        return created;
       });
-    });
+    } catch (error) {
+      // P1-05 — checked for ANY transaction failure, not just a P2002 on
+      // the key's own uniqueness; see AppointmentsService.create()'s
+      // identical catch block for the full reasoning (two concurrent
+      // requests for the same new slot most often lose to the EXCLUDE
+      // constraint below, not the key insert).
+      if (input.idempotencyKey) {
+        const winner = await this.prisma.appointmentIdempotencyKeys.findUnique({ where: { idempotency_key: input.idempotencyKey } });
+        if (winner) return { id: winner.appointment_id };
+      }
+      if (error instanceof Prisma.PrismaClientUnknownRequestError && OVERLAP_CONSTRAINT_NAMES.some((name) => error.message.includes(name))) {
+        throw new BadRequestException('This time slot is no longer available');
+      }
+      throw error;
+    }
+    if (input.holdToken) {
+      await this.slotHoldsService.consumeIfOwned(input.clinicianId, start.toISOString(), input.holdToken);
+    }
     return { id: appointment.id };
   }
 

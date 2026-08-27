@@ -1,5 +1,5 @@
 import { InputType, Field } from '@nestjs/graphql';
-import { IsOptional, IsString, IsNotEmpty, IsEmail, IsIn } from 'class-validator';
+import { IsOptional, IsString, IsNotEmpty, IsEmail, IsIn, Length } from 'class-validator';
 
 @InputType('PublicClinicianSearchInput')
 export class PublicClinicianSearchInput {
@@ -36,6 +36,11 @@ export class BookPatientAppointmentInput {
   @Field({ nullable: true }) @IsOptional() @IsIn(['in_person', 'video', 'home_visit']) type?: string;
   @Field({ nullable: true }) @IsOptional() patientId?: string;
   @Field(() => PatientDetailsInput, { nullable: true }) @IsOptional() patientDetails?: PatientDetailsInput;
+  // P1-05 — see AppointmentInput's own fields of the same name/purpose in
+  // the canonical dialect; duplicated here rather than shared, matching
+  // this pair's existing "two dialects, deliberately separate" precedent.
+  @Field({ nullable: true }) @IsOptional() @IsString() @Length(8, 128) idempotencyKey?: string;
+  @Field({ nullable: true }) @IsOptional() @IsString() @Length(8, 128) holdToken?: string;
 }
 
 // PaymentTransactionInput removed (REQ004) — see public.service.ts.

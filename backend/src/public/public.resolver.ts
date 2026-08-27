@@ -7,6 +7,7 @@ import {
   PublicAppointmentSlotType,
   PublicAppointmentDetailType,
   BookedAppointmentResultType,
+  PublicSlotHoldType,
 } from './entities/public.entity';
 import { PublicClinicianSearchInput, BookPatientAppointmentInput } from './dto/public.input';
 import { Public } from '../common/decorators/public.decorator';
@@ -54,6 +55,26 @@ export class PublicResolver {
   @Mutation(() => BookedAppointmentResultType)
   bookPatientAppointment(@Args('input') input: BookPatientAppointmentInput) {
     return this.publicService.bookPatientAppointment(input);
+  }
+
+  // P1-05 (BOOK-2) — deliberately @Public(), matching this whole dialect's
+  // zero-auth browsing/booking flow (NAV-4): a slot must be holdable
+  // before the wizard's own auth-at-confirmation step.
+  @Public()
+  @Mutation(() => PublicSlotHoldType)
+  holdPublicSlot(@Args('clinicianId', { type: () => ID }) clinicianId: string, @Args('date') date: string, @Args('startTime') startTime: string) {
+    return this.publicService.holdSlot(clinicianId, date, startTime);
+  }
+
+  @Public()
+  @Mutation(() => Boolean)
+  releasePublicSlot(
+    @Args('clinicianId', { type: () => ID }) clinicianId: string,
+    @Args('date') date: string,
+    @Args('startTime') startTime: string,
+    @Args('holdToken') holdToken: string,
+  ) {
+    return this.publicService.releaseSlot(clinicianId, date, startTime, holdToken);
   }
 
   // createPaymentTransaction removed (REQ004) -- it wrote appointment_id into

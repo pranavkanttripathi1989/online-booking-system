@@ -42,7 +42,7 @@ rule). Update `Status` in the same change that ships the slice.
 | **P1-02** | Auth tokens out of `localStorage` (SEC-2) | BE+FE | **done** (`REQ145`) | — | Open security gap. Cheapest security win available |
 | **P1-03** | Frontend CI gates: prettier, size-limit, axe-core, secret scanning | FE | **done** (`REQ146`) | — | Until these run, most of `FRONTEND_RULES.md` is advisory |
 | **P1-04** | Entitlement guard (plan limits enforced) | BE+FE | **done** (`REQ147`) | — | Tiers are unmonetisable without it. Build the guard integration as its own reviewed step (`CLAUDE.md`'s standing caution on `REQ032`) |
-| **P1-05** | Server-side slot hold + booking idempotency key (BOOK-2, BOOK-3) | BE+FE | not started | — | Double bookings. The rules doc calls this the fastest way to destroy clinic trust |
+| **P1-05** | Server-side slot hold + booking idempotency key (BOOK-2, BOOK-3) | BE+FE | **done** (`REQ148`) | — | Double bookings. The rules doc calls this the fastest way to destroy clinic trust |
 | **P1-06** | Review submission + request loop | BE+FE | not started | P1-01 | Reputation flywheel has no first step. Flagged 2026-08-22, still open |
 | **P1-07** | i18n framework + English/Hindi extraction | FE | not started | P1-03 | Cost grows with every commit. `FRONTEND_RULES` §20.1 |
 | **P1-08** | ABDM M1 — ABHA create/verify, patient discovery, QR at reception | BE+FE | not started | — | **Gate.** Parallel workstream, own owner, starts day 1 |

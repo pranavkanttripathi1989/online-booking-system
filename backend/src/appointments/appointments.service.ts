@@ -16,6 +16,7 @@ import { PatientsService } from '../patients/patients.service';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
+import { SlotHoldsService } from '../slot-holds/slot-holds.service';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -61,7 +62,24 @@ export class AppointmentsService {
     private readonly intakeFieldsService: IntakeFieldsService,
     private readonly waitlistService: WaitlistService,
     private readonly branchOverridesService: BranchOverridesService,
+    private readonly slotHoldsService: SlotHoldsService,
   ) {}
+
+  // P1-05 (BOOK-2) — thin passthroughs so the resolver (and this module's
+  // own tests) don't need a second injected service just for these two calls.
+  // SlotHoldsService returns camelCase (shared with the public dialect's own
+  // camelCase-native use); SlotHoldType is this dialect's snake_case, so the
+  // mapping happens here rather than leaving the resolver to return a shape
+  // GraphQL's code-first resolver can't match field-for-field.
+  async holdSlot(clinicianId: string, startDatetime: string): Promise<{ hold_token: string; expires_at: Date }> {
+    const hold = await this.slotHoldsService.holdSlot(clinicianId, new Date(startDatetime).toISOString());
+    return { hold_token: hold.holdToken, expires_at: hold.expiresAt };
+  }
+
+  async releaseSlot(clinicianId: string, startDatetime: string, holdToken: string): Promise<boolean> {
+    await this.slotHoldsService.releaseSlot(clinicianId, new Date(startDatetime).toISOString(), holdToken);
+    return true;
+  }
 
   // REQ008/PLAN017 — notify the clinician's own login account, if linked.
   // An unlinked clinician (no UserProfiles row pointing at them yet) is
@@ -387,6 +405,20 @@ export class AppointmentsService {
   }
 
   async create(input: AppointmentInput, user: JwtPayload) {
+    // P1-05 (BOOK-3) — a repeat idempotency key short-circuits to the
+    // original appointment before any validation/lookup runs at all, so a
+    // retried request can never fail differently (e.g. the slot it already
+    // won looking "taken" to its own retry) than the request that
+    // originally succeeded.
+    if (input.idempotency_key) {
+      const existingKey = await this.prisma.appointmentIdempotencyKeys.findUnique({
+        where: { idempotency_key: input.idempotency_key },
+        include: { appointment: { include: INCLUDE } },
+      });
+      if (existingKey) {
+        return this.toGraphQL(existingKey.appointment, []);
+      }
+    }
     // REQ052 (US-BOOK-04) — fetched once with client_organization included:
     // the ownership check below only runs for an org-scoped caller, but the
     // no-show-threshold lookup further down is needed regardless of caller
@@ -557,9 +589,40 @@ export class AppointmentsService {
         await tx.appointmentStatusLogs.create({
           data: { appointment_id: appointment.id, status: initialStatus, changed_by_user_id: user.sub },
         });
+        // P1-05 (BOOK-3) — recorded in the SAME transaction as the
+        // appointment itself: if this insert fails (a genuinely concurrent
+        // duplicate submit of the same key), the whole transaction —
+        // appointment included — rolls back, so no orphan row is ever left
+        // behind for a key that didn't "win".
+        if (input.idempotency_key) {
+          await tx.appointmentIdempotencyKeys.create({
+            data: { idempotency_key: input.idempotency_key, appointment_id: appointment.id },
+          });
+        }
         return appointment;
       });
     } catch (error) {
+      // P1-05 — the losing side of a genuinely concurrent duplicate submit
+      // of the same idempotency key. Checked for ANY transaction failure,
+      // not just a P2002 on the key's own uniqueness: two concurrent
+      // requests for the exact same NEW slot racing on the SAME key most
+      // often lose to the EXCLUDE constraint below first (both requests are
+      // also, incidentally, genuinely conflicting bookings), not to the key
+      // insert — confirmed live under real concurrency. Either way, from
+      // the caller's own side this is the exact same booking request being
+      // retried, not a real conflict — return the winner's appointment, the
+      // same no-op contract as the pre-check above, rather than surfacing a
+      // confusing "slot unavailable" for a request that would have won
+      // outright had it landed a few milliseconds earlier.
+      if (input.idempotency_key) {
+        const winner = await this.prisma.appointmentIdempotencyKeys.findUnique({
+          where: { idempotency_key: input.idempotency_key },
+          include: { appointment: { include: INCLUDE } },
+        });
+        if (winner) {
+          return this.toGraphQL(winner.appointment, []);
+        }
+      }
       // Two genuinely concurrent inserts hitting overlapping GiST index
       // pages can surface as a deadlock (Postgres 40P01, "deadlock
       // detected") instead of a clean exclusion-constraint violation
@@ -578,6 +641,12 @@ export class AppointmentsService {
       throw error;
     }
 
+    // P1-05 (BOOK-2) — tidy up the hold that led to this booking, if any.
+    // Silent no-op when absent/expired/mismatched (see consumeIfOwned) —
+    // never blocks a successful booking on the hold's own state.
+    if (input.hold_token) {
+      await this.slotHoldsService.consumeIfOwned(input.clinician_id, start.toISOString(), input.hold_token);
+    }
     const result = this.toGraphQL(created, [], checkinToken?.rawToken);
     await this.notifyLinkedProfile('clinician_id', created.clinician_id, 'new_appointment', {
       title: 'New appointment booked',

@@ -2,7 +2,7 @@ import { Resolver, Query, Mutation, Subscription, Args, ID, Int } from '@nestjs/
 import { Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { AppointmentsService, APPOINTMENT_UPDATED_EVENT } from './appointments.service';
-import { AppointmentType, AppointmentPaginatedType, BulkRescheduleResultType } from './entities/appointment.entity';
+import { AppointmentType, AppointmentPaginatedType, BulkRescheduleResultType, SlotHoldType } from './entities/appointment.entity';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput, BulkRescheduleAppointmentsInput } from './dto/appointment.input';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -50,6 +50,24 @@ export class AppointmentsResolver {
   @Mutation(() => AppointmentType)
   createAppointment(@Args('input') input: AppointmentInput, @CurrentUser() user: JwtPayload) {
     return this.appointmentsService.create(input, user);
+  }
+
+  // P1-05 (BOOK-2) — same caller set as createAppointment itself; holding a
+  // slot is meaningless to anyone who couldn't go on to book it.
+  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist', 'patient')
+  @Mutation(() => SlotHoldType)
+  holdAppointmentSlot(@Args('clinician_id') clinicianId: string, @Args('start_datetime') startDatetime: string) {
+    return this.appointmentsService.holdSlot(clinicianId, startDatetime);
+  }
+
+  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist', 'patient')
+  @Mutation(() => Boolean)
+  releaseAppointmentSlot(
+    @Args('clinician_id') clinicianId: string,
+    @Args('start_datetime') startDatetime: string,
+    @Args('hold_token') holdToken: string,
+  ) {
+    return this.appointmentsService.releaseSlot(clinicianId, startDatetime, holdToken);
   }
 
   @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')

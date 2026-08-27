@@ -150,6 +150,87 @@ const BOOK_PATIENT_APPOINTMENT = gql`
   }
 `
 
+// P1-05 (BOOK-2) — reserves a slot for this browser before the patient has
+// finished the rest of the wizard. Deliberately not the correctness
+// backstop (the backend's own EXCLUDE constraint is that) — held slots
+// already come back disabled via getAppointments (BOOK-6's own "show as
+// unavailable, don't hide" pattern), so this rejecting is a genuine race
+// between two patients within the same polling window, not the common case.
+const HOLD_PUBLIC_SLOT = gql`
+  mutation HoldPublicSlot($clinicianId: ID!, $date: String!, $startTime: String!) {
+    holdPublicSlot(clinicianId: $clinicianId, date: $date, startTime: $startTime) {
+      holdToken
+      expiresAt
+    }
+  }
+`
+
+const RELEASE_PUBLIC_SLOT = gql`
+  mutation ReleasePublicSlot($clinicianId: ID!, $date: String!, $startTime: String!, $holdToken: String!) {
+    releasePublicSlot(clinicianId: $clinicianId, date: $date, startTime: $startTime, holdToken: $holdToken)
+  }
+`
+
+// P1-05 (BOOK-3, BOOK-18) — one idempotency key per in-progress booking
+// attempt, persisted so a resubmit after a crash/reload (not just a
+// same-session double-tap, which BOOK-4's own submit-disable already
+// prevents) reuses it rather than minting a second one. Cleared once a
+// booking actually succeeds (bookingComplete()) or the patient picks a
+// different slot (a genuinely new attempt earns a genuinely new key).
+const IDEMPOTENCY_KEY_STORAGE_KEY = 'medibook_booking_idempotency_key'
+
+function getOrCreateIdempotencyKey() {
+  try {
+    const existing = window.localStorage.getItem(IDEMPOTENCY_KEY_STORAGE_KEY)
+    if (existing) return existing
+    const fresh =
+      window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+    window.localStorage.setItem(IDEMPOTENCY_KEY_STORAGE_KEY, fresh)
+    return fresh
+  } catch {
+    // localStorage can throw (private-mode Safari, storage disabled) — a
+    // same-session-only key still stops a same-session double-tap via
+    // BOOK-4's own submit-disable; only cross-reload resumability is lost.
+    return window.crypto?.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2)}`
+  }
+}
+
+function clearIdempotencyKey() {
+  try {
+    window.localStorage.removeItem(IDEMPOTENCY_KEY_STORAGE_KEY)
+  } catch {
+    // Nothing to clean up if it never persisted in the first place.
+  }
+}
+
+// P1-05 (BOOK-2) — "Slot held for 9:45", ticking every second from a real
+// server-issued expiry, never a client-only guess.
+function HoldCountdown({ expiresAt, onExpire }) {
+  const [remainingMs, setRemainingMs] = useState(() => expiresAt.getTime() - Date.now())
+
+  useEffect(() => {
+    const tick = () => setRemainingMs(expiresAt.getTime() - Date.now())
+    tick()
+    const interval = setInterval(tick, 1000)
+    return () => clearInterval(interval)
+  }, [expiresAt])
+
+  useEffect(() => {
+    if (remainingMs <= 0) onExpire?.()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [remainingMs <= 0])
+
+  const totalSeconds = Math.max(0, Math.floor(remainingMs / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+
+  return (
+    <Alert severity={totalSeconds <= 60 ? 'warning' : 'info'} sx={{ mb: 2 }}>
+      Slot held for {minutes}:{String(seconds).padStart(2, '0')} — complete your booking before it's released.
+    </Alert>
+  )
+}
+
 const CREATE_RAZORPAY_ORDER = gql`
   mutation CreateRazorpayOrder($appointmentId: ID!) {
     createRazorpayOrder(appointmentId: $appointmentId) {
@@ -205,12 +286,17 @@ function CustomStepIcon(props) {
 
 const steps = ['Select Time', 'Your Details', 'Choose Service', 'Review and Pay']
 
-const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
+const PaymentForm = ({ bookingData, clinician, handleBack, price, holdToken, onBookingSuccess }) => {
   const navigate = useNavigate()
   const [loading, setLoading] = useState(false)
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [acceptedPolicy, setAcceptedPolicy] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  // P1-05 (BOOK-3, BOOK-18) — stable for this mount, and reused across a
+  // retry of this exact flow (e.g. Razorpay verification fails and the
+  // patient hits "Pay" again) so createAppointment's own idempotency
+  // no-op returns the SAME appointment rather than a duplicate.
+  const idempotencyKey = useMemo(() => getOrCreateIdempotencyKey(), [])
 
   const [bookPatientAppointment] = useMutation(BOOK_PATIENT_APPOINTMENT)
   const [createRazorpayOrder] = useMutation(CREATE_RAZORPAY_ORDER)
@@ -252,6 +338,8 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
               email: bookingData.patient.email,
               phone: bookingData.patient.phone,
             },
+            idempotencyKey,
+            holdToken: holdToken || undefined,
           },
         },
       })
@@ -304,7 +392,11 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price }) => {
         rzp.open()
       })
 
-      // Success
+      // Success — only now is this booking attempt truly done, so only now
+      // does the idempotency key (and the hold, already consumed
+      // server-side) get retired; a retry of an earlier failed step (order
+      // creation, verification) up to this point correctly reused both.
+      onBookingSuccess?.()
       navigate('/patient/appointments', { state: { bookingSuccess: true } })
     } catch (err) {
       setErrorMsg(err.message || 'Payment failed')
@@ -455,6 +547,61 @@ export default function BookingWizard() {
     product: null,
     variation: null,
   })
+
+  // P1-05 (BOOK-2) — the currently-held slot, if any. Cleared (and the hold
+  // released) whenever the patient picks a different slot, on successful
+  // booking, or on unmount.
+  const [hold, setHold] = useState(null) // { token, expiresAt: Date, clinicianId, date, startTime } | null
+  const [holdMutation] = useMutation(HOLD_PUBLIC_SLOT)
+  const [releaseMutation] = useMutation(RELEASE_PUBLIC_SLOT)
+
+  const releaseHold = (target) => {
+    if (!target) return
+    releaseMutation({
+      variables: { clinicianId: target.clinicianId, date: target.date, startTime: target.startTime, holdToken: target.token },
+    }).catch(() => {
+      // Best-effort — the TTL is the real backstop (BOOK-2's own comment
+      // above), so a failed release is never worth surfacing to the patient.
+    })
+  }
+
+  const selectSlot = async (slot) => {
+    releaseHold(hold)
+    setHold(null)
+    setBookingData((prev) => ({ ...prev, slot }))
+    try {
+      const dateStr = bookingData.date.format('YYYY-MM-DD')
+      const { data } = await holdMutation({ variables: { clinicianId, date: dateStr, startTime: slot } })
+      const result = data?.holdPublicSlot
+      if (result) {
+        setHold({ token: result.holdToken, expiresAt: new Date(result.expiresAt), clinicianId, date: dateStr, startTime: slot })
+      }
+    } catch (err) {
+      // Someone else took it in the gap between the last poll and this
+      // click — a genuine race, not a bug. The slot stays selected in the
+      // UI (harmless) but with no hold behind it; the real backstop is
+      // still the EXCLUDE constraint at booking time, so this is a
+      // heads-up, not a block.
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || "That slot was just taken — you can still try it, or pick another.", {
+        variant: 'warning',
+      })
+    }
+  }
+
+  // Release on unmount (covers navigating away within the SPA) — best
+  // effort, matching BOOK-2's own "UX, not correctness" framing; a hard
+  // tab close is caught by the server-side TTL instead, not this.
+  useEffect(() => {
+    return () => releaseHold(hold)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hold])
+
+  const handleHoldExpired = () => {
+    setHold(null)
+    setBookingData((prev) => ({ ...prev, slot: null }))
+    setActiveStep(0)
+    enqueueSnackbar('Your held slot expired — please choose another time.', { variant: 'warning' })
+  }
 
   // Pre-fill state from location.state if navigated from DoctorProfile
   useEffect(() => {
@@ -611,6 +758,12 @@ export default function BookingWizard() {
             fullWidth
             variant={joined ? 'contained' : 'outlined'}
             disabled={session.isFull}
+            // P1-05 — deliberately not holdSlot()'d: a session/hybrid window
+            // shares one time across many patients under a capacity count,
+            // not an exclusive reservation, so an exclusive hold here would
+            // wrongly serialize concurrent joins for no reason. Matches the
+            // backend's own "slot mode only" scope for both the hold and the
+            // EXCLUDE constraint it backstops.
             onClick={() => setBookingData({ ...bookingData, slot: session.startTime })}
           >
             {session.isFull ? 'Session full' : joined ? 'Session selected' : 'Join this session'}
@@ -723,7 +876,7 @@ export default function BookingWizard() {
                         fullWidth
                         variant={bookingData.slot === slot ? 'contained' : 'outlined'}
                         size="medium"
-                        onClick={() => setBookingData({ ...bookingData, slot })}
+                        onClick={() => selectSlot(slot)}
                         disabled={existingApps.includes(slot)}
                         sx={{ py: 1 }}
                       >
@@ -940,7 +1093,19 @@ export default function BookingWizard() {
 
     const price = bookingData.variation ? bookingData.variation.price : bookingData.product?.price || 0
 
-    return <PaymentForm bookingData={bookingData} clinician={clinician} handleBack={handleBack} price={price} />
+    return (
+      <PaymentForm
+        bookingData={bookingData}
+        clinician={clinician}
+        handleBack={handleBack}
+        price={price}
+        holdToken={hold?.token}
+        onBookingSuccess={() => {
+          clearIdempotencyKey()
+          setHold(null)
+        }}
+      />
+    )
   }
 
   const isNextDisabled = () => {
@@ -1016,6 +1181,11 @@ export default function BookingWizard() {
       <Grid container spacing={4}>
         {/* Main Content Area */}
         <Grid item xs={12} md={8}>
+          {/* P1-05 (BOOK-2) — visible once past the slot picker, through the
+              rest of the wizard, so the countdown stays honest right up to
+              payment. Step 0 doesn't need it: the picker itself already
+              shows the held slot selected. */}
+          {hold && activeStep > 0 && <HoldCountdown expiresAt={hold.expiresAt} onExpire={handleHoldExpired} />}
           <Box minHeight={400}>{getStepContent(activeStep)}</Box>
 
           {activeStep < 3 && (
