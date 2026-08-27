@@ -21,7 +21,7 @@ const GET_APPOINTMENT = `
 describe('No-show risk score (P1-17)', () => {
   let h: Harness;
   const actors = buildActors();
-  let createdIds: string[] = [];
+  const createdIds: string[] = [];
   let originalNoShowCount: number;
 
   beforeAll(async () => {

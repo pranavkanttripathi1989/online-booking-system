@@ -1,5 +1,6 @@
 import { Component } from 'react'
 import ErrorFallback from './ErrorFallback'
+import { reportError } from '../utils/errorReporting'
 
 /**
  * ErrorBoundary — Class-based React Error Boundary.
@@ -28,8 +29,11 @@ export default class ErrorBoundary extends Component {
   }
 
   componentDidCatch(error, info) {
-    // Future: send to error reporting service (Sentry, etc.)
     console.error('[ErrorBoundary] Caught error:', error, info)
+    // P1-18 — fire-and-forget; reportError() is a clean no-op when
+    // VITE_SENTRY_DSN is unset, and never blocks the fallback UI below
+    // on a network round-trip to a third-party service.
+    reportError(error, info)
   }
 
   reset() {

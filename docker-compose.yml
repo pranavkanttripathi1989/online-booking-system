@@ -51,6 +51,12 @@ services:
       - RAZORPAY_WEBHOOK_SECRET=${RAZORPAY_WEBHOOK_SECRET}
       - OTP_TTL_SECONDS=${OTP_TTL_SECONDS:-300}
       - OTP_MAX_ATTEMPTS=${OTP_MAX_ATTEMPTS:-3}
+      # P1-18 — observability. All three are clean no-ops unset/false,
+      # matching every other vendor integration's own convention in this
+      # compose file: no fallback URL/secret, just quietly disabled.
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - OTEL_ENABLED=${OTEL_ENABLED:-false}
+      - OTEL_EXPORTER_OTLP_ENDPOINT=${OTEL_EXPORTER_OTLP_ENDPOINT:-}
     depends_on:
       postgres:
         condition: service_healthy

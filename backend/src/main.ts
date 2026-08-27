@@ -1,3 +1,6 @@
+// P1-18 — MUST be the first import in the entry file. See tracing.ts's own
+// header comment for why require-order matters here.
+import './tracing';
 import 'reflect-metadata';
 import { NestFactory } from '@nestjs/core';
 import { NestExpressApplication } from '@nestjs/platform-express';
@@ -14,9 +17,15 @@ import helmet from 'helmet';
 import cookieParser = require('cookie-parser');
 import { AppModule } from './app.module';
 import { assertKnownNodeEnv } from './common/utils/assert-known-node-env';
+import { initSentry } from './observability/sentry';
 
 async function bootstrap() {
   assertKnownNodeEnv(process.env.NODE_ENV);
+  // P1-18 — a clean no-op when SENTRY_DSN is unset, matching every other
+  // vendor's own "unconfigured" behavior in this codebase. Called before
+  // NestFactory.create() so a crash during module construction is
+  // captured too, not just request-time errors.
+  initSentry();
 
   // rawBody: true (REQ040) -- preserves req.rawBody as a Buffer alongside
   // the normally-parsed JSON body on every request. Needed by

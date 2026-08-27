@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP214 | improvement | Observability verification (P1-18) | done | 2026-08-27 | 2026-08-27 | PLAN194 | [TP214](./improvement/TP214-platform-nfr-2026-08-27-observability-health-errors-traces-web-vitals.md) |
 | TP194 | improvement | Bounded pagination for notifications verification | approved | 2026-08-26 | 2026-08-26 | PLAN174 | [TP194](./improvement/TP194-platform-nfr-2026-08-26-notifications-bounded-pagination.md) |
 | TP193 | improvement | Bounded pagination for testResults verification | approved | 2026-08-26 | 2026-08-26 | PLAN173 | [TP193](./improvement/TP193-platform-nfr-2026-08-26-testresults-bounded-pagination.md) |
 | TP109 | improvement | Phase G+3 frontend completion verification | approved | 2026-08-25 | 2026-08-25 | PLAN082 | [TP109](./improvement/TP109-platform-nfr-2026-08-25-phase-g3-frontend-completion.md) |

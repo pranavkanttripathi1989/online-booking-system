@@ -18,6 +18,7 @@ import apolloClient from './apollo/client.js'
 import { AuthProvider } from './context/AuthContext'
 import { medicalTheme } from './theme/index.js'
 import { GlobalSnackbarProvider } from './components/shared/GlobalSnackbar'
+import { reportWebVitals } from './utils/reportWebVitals'
 import App from './App'
 
 // P1-07 — only ever suspends while actively loading a NON-default language
@@ -53,3 +54,6 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </HelmetProvider>
   </React.StrictMode>,
 )
+
+// P1-18 (PERF-5)
+reportWebVitals()

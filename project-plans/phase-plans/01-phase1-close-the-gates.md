@@ -55,7 +55,7 @@ rule). Update `Status` in the same change that ships the slice.
 | **P1-15** | WhatsApp AI agent (same brain, chat channel) | BE+FE | **blocked** (depends on P1-14) | P1-14, P1-01 | Reuses `REQ025` dispatch |
 | **P1-16** | Real telemedicine (WebRTC/vendor) + TPG drug list | BE+FE | **done** (`REQ026`) | — | Replaces the simulated stub. A stub in a demo is worse than an honest gap |
 | **P1-17** | No-show risk score → deposit / reminder / overbook policy | BE+FE | **done** (`REQ152`) | P1-01 | All three levers already shipped; this joins them |
-| **P1-18** | Observability — traces, error tracking, SLO dashboards | BE+FE | not started | — | Cannot currently answer "was it down" |
+| **P1-18** | Observability — traces, error tracking, SLO dashboards | BE+FE | **done** (`REQ153`) | — | Cannot currently answer "was it down" |
 
 **Sequencing note.** P1-08/09/10 (ABDM) is a *parallel workstream with its own
 owner*, not a queue position. It starts on day 1 and runs alongside everything
@@ -325,6 +325,67 @@ account.
 - **FE** — client error reporting with **PII/PHI scrubbing** (`SEC-5`: health
   data must never reach a third-party tool); Web Vitals reporting feeding PERF-5.
 - **Exit:** "was it down" is answerable with data, and no PHI is in the answer.
+
+**Shipped 2026-08-27** (`REQ153`/`PLAN194`/`TP214`/`TR214`) — both
+tracks. Entirely greenfield: no health endpoint, error tracking,
+tracing, or RUM existed anywhere in the codebase before this slice. A
+hand-rolled `/health` (not `@nestjs/terminus` — an unused peer-dep
+surface for two checks), `@sentry/node`/`@sentry/react` with an
+**allowlist, not blocklist** scrub (rebuilds each event from scratch
+keeping only error type + stack trace, discarding message/request/user/
+extra/contexts/breadcrumbs unconditionally — the only design that
+satisfies SEC-5's hard "never" language against a future error message
+that happens to interpolate PHI), a real `NodeSDK` OpenTelemetry
+bootstrap gated on `OTEL_ENABLED`, and `web-vitals` reporting to a new
+`POST /observability/web-vitals` with a route *pattern* only. Frontend
+Sentry is loaded via a **dynamic import**, never static — the initial
+bundle sits at 344.7/350 KB, almost no headroom against the
+`size-limit` gate, and the SDK is only needed in the rare case an error
+boundary fires.
+
+**A self-caught near-miss before shipping**: the GraphQL `formatError`
+hook's first draft reported *every* error to Sentry, including routine
+`BadRequestException`/`NotFoundException` business rejections — would
+have exhausted a real quota instantly and buried genuine incidents in
+noise. Fixed by gating on Apollo's own `INTERNAL_SERVER_ERROR`
+classification, which a recognized `HttpException` never carries.
+
+**Live-verified, not just unit-tested**: `OTEL_ENABLED=true` on a real
+container recreate produced a real exported span (`graphql.parseSchema`,
+correct `service.name`, a real `traceId`, a real duration) via the
+console exporter, confirming the first-line-import wiring (`tracing.ts`
+imported before even `'reflect-metadata'` in `main.ts`) correctly beats
+the require-order race auto-instrumentation depends on — the exact
+failure mode the file's own header comment warns is otherwise silent
+(SDK reports a clean start, zero spans ever created). Reverted to the
+default off state afterward; `/health` and the Web Vitals endpoint were
+also both live-curled successfully.
+
+**A previously-undocumented Docker gotcha found this slice**: unlike a
+plain `docker restart` (which only needs a Prisma-Client regenerate if
+`schema.prisma` changed), a container **recreate** (`docker compose up
+-d <service>`, needed here to pick up new `SENTRY_DSN`/`OTEL_ENABLED`
+env vars) resets the anonymous `/app/node_modules` volume back to the
+image's build-time state — silently discarding every package installed
+via `docker exec ... npm install` in any earlier session, not just the
+regenerated client. Hit live (632 stale-type errors, not the usual
+~24), fixed with a full `npm install && prisma generate && restart`.
+Worth folding into `CLAUDE.md`'s existing Docker-recovery documentation.
+
+**One genuine, previously-undocumented frontend test-environment
+constraint found while writing tests, not a code bug**: this repo's
+shared `babel.config.cjs` statically replaces every `import.meta`
+occurrence with a fresh, disconnected object literal at Jest transform
+time (already noted in passing in `documents.test.js`'s own comment),
+which makes a test that mutates `import.meta.env.VITE_SENTRY_DSN` at
+runtime silently ineffective — the source module never observes the
+write. This is the first slice to actually hit it while trying to drive
+a *configured* vendor code path rather than only relying on the
+always-empty fallback. Resolved by exporting the pure `scrubEvent`
+redaction function for direct unit coverage instead of trying to drive
+it through the full DSN-gated `reportError` flow. See
+`context/platform-nfr-2026-08-27-req153/manifest.md` for the full
+account.
 
 ---
 

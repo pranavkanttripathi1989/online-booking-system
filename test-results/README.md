@@ -16,7 +16,7 @@
 | scheduling-engine | 1 | 2 | 0 | 0 | 3 | 2026-08-26 | [scheduling-engine](./scheduling-engine/README.md) |
 | messaging | 1 | 5 | 0 | 0 | 6 | 2026-08-26 | [messaging](./messaging/README.md) |
 | queue-management | 1 | 5 | 0 | 0 | 6 | 2026-08-26 | [queue-management](./queue-management/README.md) |
-| platform-nfr | 0 | 8 | 11 | 0 | 19 | 2026-08-26 | [platform-nfr](./platform-nfr/README.md) |
+| platform-nfr | 0 | 9 | 11 | 0 | 20 | 2026-08-27 | [platform-nfr](./platform-nfr/README.md) |
 | appointments | 3 | 7 | 4 | 1 | 13 | 2026-08-27 | [appointments](./appointments/README.md) |
 | clinicians | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [clinicians](./clinicians/README.md) |
 | organizations | 3 | 5 | 0 | 1 | 7 | 2026-08-26 | [organizations](./organizations/README.md) |

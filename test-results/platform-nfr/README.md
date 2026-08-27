@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR214 | improvement | Observability results (P1-18) | pass | 2026-08-27 | 2026-08-27 | TP214 | [TR214](./improvement/TR214-platform-nfr-2026-08-27-observability-health-errors-traces-web-vitals.md) |
 | TR194 | improvement | Bounded pagination for notifications results | pass | 2026-08-26 | 2026-08-26 | TP194 | [TR194](./improvement/TR194-platform-nfr-2026-08-26-notifications-bounded-pagination.md) |
 | TR193 | improvement | Bounded pagination for testResults results | pass | 2026-08-26 | 2026-08-26 | TP193 | [TR193](./improvement/TR193-platform-nfr-2026-08-26-testresults-bounded-pagination.md) |
 | TR108 | improvement | Phase G+3 frontend completion results | pass | 2026-08-25 | 2026-08-25 | TP109 | [TR108](./improvement/TR108-platform-nfr-2026-08-25-phase-g3-frontend-completion.md) |

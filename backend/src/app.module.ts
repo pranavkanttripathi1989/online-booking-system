@@ -5,6 +5,7 @@ import { ApolloDriver, ApolloDriverConfig } from '@nestjs/apollo';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_GUARD, APP_INTERCEPTOR } from '@nestjs/core';
 import { join } from 'path';
+import { captureScrubbedException } from './observability/sentry';
 import { PrismaModule } from './prisma/prisma.module';
 import { RedisModule } from './redis/redis.module';
 import { AuthModule } from './auth/auth.module';
@@ -54,6 +55,7 @@ import { ScheduledReportsModule } from './scheduled-reports/scheduled-reports.mo
 import { ChecklistModule } from './checklist/checklist.module';
 import { IntakeFieldsModule } from './intake-fields/intake-fields.module';
 import { BreakGlassModule } from './break-glass/break-glass.module';
+import { ObservabilityModule } from './observability/observability.module';
 import { TelemedicineModule } from './telemedicine/telemedicine.module';
 import { PackagesModule } from './packages/packages.module';
 import { BranchOverridesModule } from './branch-overrides/branch-overrides.module';
@@ -105,6 +107,19 @@ import { PubSubModule } from './common/pubsub.module';
       // internals from GraphQL responses in production — added at the point
       // Phase 4 ships the first non-Auth resolvers, per that rule's own note.
       formatError: (formattedError) => {
+        // P1-18 — only a genuinely unexpected error (Apollo's own
+        // INTERNAL_SERVER_ERROR code, i.e. nothing in the resolver chain
+        // threw a recognized HttpException) goes to Sentry. Every
+        // expected business rejection -- BadRequestException,
+        // NotFoundException, ForbiddenException -- carries its own real
+        // code here and is deliberately NOT reported: those are normal
+        // request handling, not incidents, and forwarding all of them
+        // would both blow through a real Sentry quota instantly and
+        // drown the "was it down" signal this exists to answer in noise.
+        const extensions = formattedError.extensions as Record<string, unknown> | undefined;
+        if (extensions?.code === 'INTERNAL_SERVER_ERROR') {
+          captureScrubbedException(extensions.exception ?? new Error(formattedError.message));
+        }
         if (process.env.NODE_ENV === 'production') {
           const { extensions, ...rest } = formattedError;
           const { exception, ...safeExtensions } = (extensions ?? {}) as Record<string, unknown>;
@@ -163,6 +178,7 @@ import { PubSubModule } from './common/pubsub.module';
     ChecklistModule,
     IntakeFieldsModule,
     BreakGlassModule,
+    ObservabilityModule,
     TelemedicineModule,
     PackagesModule,
     BranchOverridesModule,

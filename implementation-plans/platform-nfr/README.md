@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN194 | improvement | Observability: health checks, error tracking, tracing, Web Vitals | done | 2026-08-27 | 2026-08-27 | REQ153 | [PLAN194](./improvement/PLAN194-platform-nfr-2026-08-27-observability-health-errors-traces-web-vitals.md) |
 | PLAN174 | improvement | Bounded pagination for notifications (F-14 residue) | done | 2026-08-26 | 2026-08-26 | REQ134 | [PLAN174](./improvement/PLAN174-platform-nfr-2026-08-26-notifications-bounded-pagination.md) |
 | PLAN173 | improvement | Bounded pagination for testResults (F-14 residue) | done | 2026-08-26 | 2026-08-26 | REQ133 | [PLAN173](./improvement/PLAN173-platform-nfr-2026-08-26-testresults-bounded-pagination.md) |
 | PLAN082 | improvement | Phase G+3 frontend completion (8 domains' UI) | done | 2026-08-25 | 2026-08-25 | REQ051 | [PLAN082](./improvement/PLAN082-platform-nfr-2026-08-25-phase-g3-frontend-completion.md) |

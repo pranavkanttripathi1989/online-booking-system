@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ153 | improvement | Observability: health checks, error tracking, tracing, Web Vitals | done | 2026-08-27 | 2026-08-27 | — | [REQ153-platform-nfr-2026-08-27-observability-health-errors-traces-web-vitals.md](./improvement/REQ153-platform-nfr-2026-08-27-observability-health-errors-traces-web-vitals.md) |
 | REQ134 | improvement | Bounded pagination for notifications (F-14 residue) | done | 2026-08-26 | 2026-08-26 | REQ035 | [REQ134-platform-nfr-2026-08-26-notifications-bounded-pagination.md](./improvement/REQ134-platform-nfr-2026-08-26-notifications-bounded-pagination.md) |
 | REQ133 | improvement | Bounded pagination for testResults (F-14 residue) | done | 2026-08-26 | 2026-08-26 | REQ035 | [REQ133-platform-nfr-2026-08-26-testresults-bounded-pagination.md](./improvement/REQ133-platform-nfr-2026-08-26-testresults-bounded-pagination.md) |
 | REQ039 | improvement | Prisma safety-net middleware: no findMany returns an unbounded collection | done | 2026-08-23 | 2026-08-23 | REQ035 | [REQ039-platform-nfr-2026-08-23-pagination-safety-net-middleware.md](./improvement/REQ039-platform-nfr-2026-08-23-pagination-safety-net-middleware.md) |
