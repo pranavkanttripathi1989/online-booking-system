@@ -246,6 +246,10 @@ model Appointments {
   checkin_token_hash       String?   @unique
   checkin_token_expires_at DateTime?
   checkin_token_used_at    DateTime?
+  // REQ026 (US-TEL-07) — "advise in-person visit" escalation from a
+  // teleconsultation. Nullable: set only on the new in-person appointment
+  // this creates, never on the originating video appointment itself.
+  escalated_from_encounter_id String?
 
   clinic              Clinics               @relation(fields: [clinic_id], references: [id])
   room                Rooms                 @relation(fields: [room_id], references: [id])
@@ -254,6 +258,7 @@ model Appointments {
   product             Products?             @relation(fields: [product_id], references: [id])
   product_variation   ProductVariations?    @relation(fields: [product_variation_id], references: [id])
   booked_by_user      UserProfiles?         @relation("AppointmentBookedBy", fields: [booked_by_user_id], references: [id])
+  escalated_from_encounter Encounters?      @relation("EscalatedFromEncounter", fields: [escalated_from_encounter_id], references: [id])
   reviews             Reviews[]
   status_logs         AppointmentStatusLogs[]
   payments            AppointmentPayments[]
@@ -272,6 +277,7 @@ model Appointments {
   @@index([room_id])
   @@index([product_id])
   @@index([booked_by_user_id])
+  @@index([escalated_from_encounter_id])
 }
 
 // P1-05 — BOOK-3's client-generated idempotency key, durable (unlike the
@@ -331,6 +337,12 @@ model Encounters {
   locked         Boolean   @default(false)
   signed_at      DateTime?
   signed_by_id   String?
+  // REQ026 (P1-16, US-TEL-05) — denormalized from Appointments.type at
+  // getOrCreateEncounter() time, the same pattern REQ017's booking_mode
+  // uses. prescriptions.service.ts's TPG guard reads this field directly
+  // rather than inferring it, per that requirement's own acceptance
+  // criterion.
+  consultation_mode String @default("in_person") // in_person|video|audio|text
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 
@@ -348,6 +360,8 @@ model Encounters {
   referrals           Referrals[]
   vitals              Vitals[]
   aiTranscriptionSessions AiTranscriptionSessions[]
+  telemedicineSession TelemedicineSessions?
+  escalatedAppointments Appointments[] @relation("EscalatedFromEncounter")
 
   @@index([client_org_id, patient_id])
   @@index([clinician_id])
@@ -874,6 +888,7 @@ model ClientOrganizations {
   notificationProviderConfigs NotificationProviderConfig[]
   aiProviderConfigs      AiProviderConfig[]
   aiTranscriptionSessions AiTranscriptionSessions[]
+  telemedicineSessions   TelemedicineSessions[]
   resources              Resources[]
   departments            Departments[]
   encounters             Encounters[]
@@ -1217,6 +1232,36 @@ model AiTranscriptionSessions {
 
   @@index([client_org_id, created_at])
   @@index([encounter_id])
+}
+
+// REQ026 (P1-16) — one real video-consultation session per encounter.
+// Fixed vendor (Daily.co, Hard Rule 9 — video is not one of the
+// admin-configurable-per-org exceptions OTP/notification channels are),
+// so unlike AiProviderConfig/NotificationProviderConfig there is no
+// per-org credential row: a single platform-wide API key from env.
+model TelemedicineSessions {
+  id                   String    @id @default(uuid())
+  client_org_id        String
+  encounter_id         String    @unique
+  room_name            String    @unique
+  room_url             String
+  status               String    @default("pending") // pending|active|ended
+  valid_from           DateTime
+  valid_to             DateTime
+  // US-TEL-03 — recording is opt-in, never default-on. Null until the
+  // clinician (the only @Auth('clinician')-gated caller of
+  // consentToRecording) explicitly consents, per call.
+  recording_consent_at DateTime?
+  recording_consent_by_user_id String?
+  recording_ref        String?
+  created_at           DateTime  @default(now())
+  updated_at           DateTime  @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  encounter           Encounters          @relation(fields: [encounter_id], references: [id])
+  recording_consent_by UserProfiles?      @relation(fields: [recording_consent_by_user_id], references: [id])
+
+  @@index([client_org_id, created_at])
 }
 
 model OrganizationSubscriptions {
@@ -1858,6 +1903,19 @@ model Drugs {
   strength       String?
   form           String?
   schedule_class String?
+  // REQ026 (US-RX-06, FR-RX-10/11) — Telemedicine Practice Guidelines
+  // list membership: 'O' (OTC, any tele mode) | 'A' (safe for first
+  // video consult or any-mode follow-up) | 'B' (follow-up only, blocked
+  // on a first teleconsultation) | 'prohibited' (NDPS/Schedule X, never
+  // teleconsult-prescribable, no override). Deliberately a SEPARATE
+  // classification from schedule_class (India's Drugs and Cosmetics Act
+  // schedule, a different regulatory dimension) — nullable and
+  // fail-closed: an unclassified drug is blocked in any tele mode until
+  // an admin explicitly reviews it against the real published TPG
+  // annexures, not guessed at from schedule_class. The one seed backfill
+  // this migration performs (OTC → 'O') is the one mapping direction
+  // that's genuinely unambiguous.
+  tpg_list       String?
   hsn            String?
   gst_rate       Float?
   manufacturer   String?
@@ -2442,6 +2500,7 @@ model UserProfiles {
   recordedVitals     Vitals[]
   submittedClaims    Claims[]
   aiTranscriptionConsents AiTranscriptionSessions[]
+  telemedicineRecordingConsents TelemedicineSessions[]
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])

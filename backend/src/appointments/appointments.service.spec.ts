@@ -22,6 +22,7 @@ describe('AppointmentsService — access scoping', () => {
   let service: AppointmentsService;
   let prisma: {
     appointments: { findMany: jest.Mock; count: jest.Mock; findUnique: jest.Mock; findFirst: jest.Mock; create: jest.Mock; update: jest.Mock };
+    encounters: { findUnique: jest.Mock };
     appointmentStatusLogs: { findMany: jest.Mock; create: jest.Mock };
     clinics: { findUnique: jest.Mock };
     clinicians: { findUnique: jest.Mock };
@@ -70,6 +71,7 @@ describe('AppointmentsService — access scoping', () => {
           clinician: { id: 'cln-1', first_name: 'X', last_name: 'Y' }, room: {}, appointment_time: new Date(), duration_minutes: 30, status: 'scheduled',
         }),
       },
+      encounters: { findUnique: jest.fn() },
       appointmentStatusLogs: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
       clinics: { findUnique: jest.fn().mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1', client_organization: { no_show_prepayment_threshold: 3 } }) },
       clinicians: { findUnique: jest.fn() },
@@ -229,6 +231,46 @@ describe('AppointmentsService — access scoping', () => {
     it('allows creating an appointment for a clinic in the caller\'s own org', async () => {
       prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
       await expect(service.create(baseInput as any, staffUser)).resolves.toBeDefined();
+    });
+
+    // REQ026 (US-TEL-07) — "advise in-person visit" escalation. Hard Rule
+    // 6: a client-supplied cross-domain id (escalated_from_encounter_id)
+    // is validated against the caller, never trusted alone.
+    describe('escalated_from_encounter_id (REQ026)', () => {
+      it('links the new appointment when the caller is that encounter\'s own treating clinician', async () => {
+        prisma.encounters.findUnique.mockResolvedValue({ id: 'enc-1', client_org_id: 'org-1', clinician_id: 'cln-1' });
+        await service.create({ ...baseInput, escalated_from_encounter_id: 'enc-1' } as any, clinicianUser);
+        expect(prisma.appointments.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ escalated_from_encounter_id: 'enc-1' }) }),
+        );
+      });
+
+      it('rejects when the caller is a different clinician than the encounter\'s own', async () => {
+        prisma.encounters.findUnique.mockResolvedValue({ id: 'enc-1', client_org_id: 'org-1', clinician_id: 'cln-other' });
+        await expect(service.create({ ...baseInput, escalated_from_encounter_id: 'enc-1' } as any, clinicianUser)).rejects.toThrow(
+          'Originating encounter not found',
+        );
+        expect(prisma.appointments.create).not.toHaveBeenCalled();
+      });
+
+      it('rejects a cross-org encounter id, same as a nonexistent one', async () => {
+        prisma.encounters.findUnique.mockResolvedValue({ id: 'enc-1', client_org_id: 'org-2', clinician_id: 'cln-1' });
+        await expect(service.create({ ...baseInput, escalated_from_encounter_id: 'enc-1' } as any, clinicianUser)).rejects.toThrow(
+          'Originating encounter not found',
+        );
+      });
+
+      it('rejects a nonexistent encounter id outright', async () => {
+        prisma.encounters.findUnique.mockResolvedValue(null);
+        await expect(service.create({ ...baseInput, escalated_from_encounter_id: 'bad-id' } as any, clinicianUser)).rejects.toThrow(
+          'Originating encounter not found',
+        );
+      });
+
+      it('never looks up an encounter at all when the field is omitted (every pre-existing booking)', async () => {
+        await service.create(baseInput as any, staffUser);
+        expect(prisma.encounters.findUnique).not.toHaveBeenCalled();
+      });
     });
 
     // REQ124 (context/open-questions.md #14) — room assignment retries the

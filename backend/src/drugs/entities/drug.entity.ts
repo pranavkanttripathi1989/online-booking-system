@@ -10,6 +10,10 @@ export class DrugType {
   @Field({ nullable: true }) strength?: string;
   @Field({ nullable: true }) form?: string;
   @Field({ nullable: true }) schedule_class?: string;
+  // REQ026 (US-RX-06) — Telemedicine Practice Guidelines list: O|A|B|prohibited.
+  // Null means unclassified — prescriptions.service.ts's TPG guard treats
+  // that as fail-closed (blocked in any tele mode), not "safe by default".
+  @Field({ nullable: true }) tpg_list?: string;
   @Field({ nullable: true }) hsn?: string;
   @Field(() => Float, { nullable: true }) gst_rate?: number;
   @Field({ nullable: true }) manufacturer?: string;

@@ -1,635 +1,435 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, gql } from '@apollo/client'
+import { useSnackbar } from 'notistack'
+import dayjs from 'dayjs'
 import {
-  Box,
+  Alert,
   AppBar,
-  Typography,
-  Stack,
-  Divider,
-  Chip,
-  IconButton,
-  Fab,
-  Badge,
-  Tabs,
-  Tab,
-  TextField,
+  Box,
   Button,
-  List,
-  ListItem,
-  ListItemText,
-  Avatar,
+  Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
+  Divider,
+  FormControlLabel,
+  Stack,
+  Switch,
+  TextField,
+  Typography,
 } from '@mui/material'
 import { createTheme, ThemeProvider } from '@mui/material/styles'
-import {
-  LocalHospital,
-  Security,
-  Mic,
-  MicOff,
-  Videocam,
-  VideocamOff,
-  ScreenShare,
-  Chat,
-  CallEnd,
-  Settings,
-  Send,
-} from '@mui/icons-material'
+import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
+import SecurityRoundedIcon from '@mui/icons-material/SecurityRounded'
+import VerifiedRoundedIcon from '@mui/icons-material/VerifiedRounded'
+import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded'
+import FiberManualRecordRoundedIcon from '@mui/icons-material/FiberManualRecordRounded'
+import { useAuth } from '../../hooks/useAuth'
+import ErrorBoundary from '../../components/ErrorBoundary'
+import { APPOINTMENT_DETAIL_QUERY, AVAILABLE_SLOTS_QUERY } from '../../graphql/queries'
 
-// --- Local Dark Theme Override ---
+// ─── Dark theme — a video call surface, not a form; matches this app's own
+//     established precedent for this one page. ───────────────────────────
 const darkTheme = createTheme({
   palette: {
     mode: 'dark',
-    primary: {
-      main: '#006D77',
-    },
-    secondary: {
-      main: '#83C5BE',
-    },
-    error: {
-      main: '#E63946',
-    },
-    background: {
-      default: '#0A1F22',
-      paper: '#0F2D33',
-    },
-    text: {
-      primary: '#FFFFFF',
-      secondary: 'rgba(255, 255, 255, 0.7)',
-    },
-  },
-  typography: {
-    fontFamily: '"Plus Jakarta Sans", "Roboto", "Helvetica", "Arial", sans-serif',
-  },
-  components: {
-    MuiTab: {
-      styleOverrides: {
-        root: {
-          textTransform: 'none',
-          fontWeight: 600,
-        },
-      },
-    },
+    primary: { main: '#006D77' },
+    secondary: { main: '#83C5BE' },
+    error: { main: '#E63946' },
+    background: { default: '#0A1F22', paper: '#0F2D33' },
+    text: { primary: '#FFFFFF', secondary: 'rgba(255, 255, 255, 0.7)' },
   },
 })
 
-// --- GraphQL ---
-const GET_APPOINTMENT = gql`
-  query GetAppointmentDetails($id: ID!) {
-    getAppointment(id: $id) {
+// ─── GraphQL (P1-16, REQ026) ────────────────────────────────────────────
+const GET_OR_CREATE_ENCOUNTER = gql`
+  mutation GetOrCreateEncounter($appointment_id: ID!) {
+    getOrCreateEncounter(appointment_id: $appointment_id) {
       id
-      startTime
-      endTime
-      type
+      patient_id
+      clinician_id
+    }
+  }
+`
+const ENCOUNTER_MODE_QUERY = gql`
+  query EncounterMode($id: ID!) {
+    encounter(id: $id) {
+      id
+      consultation_mode
+      locked
+    }
+  }
+`
+const CLINICIAN_REGISTRATION_QUERY = gql`
+  query ClinicianRegistration($id: ID!) {
+    clinician(id: $id) {
+      id
+      full_name
+      registration_number
+    }
+  }
+`
+const JOIN_SESSION = gql`
+  mutation JoinTelemedicineSession($encounter_id: ID!) {
+    joinTelemedicineSession(encounter_id: $encounter_id) {
+      id
       status
-      clinician {
-        id
-        name
-        clinicianType
-      }
-      patient {
-        id
-        firstName
-        lastName
-      }
+      valid_from
+      valid_to
+      recording_consent_at
+      room_url
+      token
+    }
+  }
+`
+const CONSENT_TO_RECORDING = gql`
+  mutation ConsentToTelemedicineRecording($encounter_id: ID!) {
+    consentToTelemedicineRecording(encounter_id: $encounter_id) {
+      success
+      recording_consent_at
+    }
+  }
+`
+const CREATE_APPOINTMENT = gql`
+  mutation CreateEscalatedAppointment($input: AppointmentInput!) {
+    createAppointment(input: $input) {
+      id
     }
   }
 `
 
-// Define an explicit mutation or placeholder logic based on instructions
-const UPDATE_APPOINTMENT_NOTES = gql`
-  mutation UpdateAppointmentNotes($id: ID!, $notes: String!) {
-    updateAppointment(id: $id, input: { notes: $notes }) {
-      id
-      status
+// US-TEL-07 — a compact, self-contained slot picker so a clinician can
+// convert a teleconsultation into a real in-person booking without
+// leaving the call, reusing the real availableSlots/createAppointment
+// path (with its own real conflict checking) rather than an unchecked
+// direct insert.
+function EscalateDialog({ open, onClose, appointment, encounterId }) {
+  const { enqueueSnackbar } = useSnackbar()
+  const [date, setDate] = useState(() => dayjs().add(1, 'day').format('YYYY-MM-DD'))
+  const [reason, setReason] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const { data, loading } = useQuery(AVAILABLE_SLOTS_QUERY, {
+    variables: { clinician_id: appointment?.clinician?.id, date, service_id: appointment?.service?.id },
+    skip: !open || !appointment?.clinician?.id,
+    fetchPolicy: 'network-only',
+  })
+  const [createAppointment] = useMutation(CREATE_APPOINTMENT)
+  const slots = (data?.availableSlots ?? []).filter((s) => s.is_available)
+
+  const handleBook = async (slot) => {
+    setSubmitting(true)
+    try {
+      await createAppointment({
+        variables: {
+          input: {
+            clinic_id: appointment.clinic.id,
+            clinician_id: appointment.clinician.id,
+            patient_id: appointment.patient.id,
+            service_id: appointment.service?.id,
+            start_datetime: slot.start_datetime,
+            type: 'in_person',
+            notes: reason || 'Escalated from teleconsultation',
+            escalated_from_encounter_id: encounterId,
+          },
+        },
+      })
+      enqueueSnackbar('In-person follow-up booked.', { variant: 'success' })
+      onClose()
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err?.message || 'Failed to book the follow-up', { variant: 'error' })
+    } finally {
+      setSubmitting(false)
     }
   }
-`
-
-// --- Helper Components ---
-function TabPanel(props) {
-  const { children, value, index, ...other } = props
 
   return (
-    <Box
-      role="tabpanel"
-      hidden={value !== index}
-      id={`panel-${index}`}
-      sx={{ flexGrow: 1, display: value === index ? 'flex' : 'none', flexDirection: 'column', overflow: 'hidden' }}
-      {...other}
-    >
-      {value === index && children}
-    </Box>
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle>Advise In-Person Visit</DialogTitle>
+      <DialogContent>
+        <DialogContentText sx={{ mb: 2 }}>
+          Books a real in-person follow-up for {appointment?.patient?.full_name}, linked back to this consultation.
+        </DialogContentText>
+        <Stack spacing={2}>
+          <TextField
+            fullWidth
+            label="Reason (optional)"
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+          />
+          <TextField
+            fullWidth
+            type="date"
+            label="Date"
+            InputLabelProps={{ shrink: true }}
+            value={date}
+            onChange={(e) => setDate(e.target.value)}
+          />
+          {loading && <CircularProgress size={24} />}
+          {!loading && slots.length === 0 && (
+            <Typography variant="body2" color="text.secondary">
+              No free slots this day — try another date.
+            </Typography>
+          )}
+          <Stack direction="row" flexWrap="wrap" gap={1}>
+            {slots.map((s) => (
+              <Button key={s.id} variant="outlined" size="small" disabled={submitting} onClick={() => handleBook(s)}>
+                {dayjs(s.start_datetime).format('h:mm A')}
+              </Button>
+            ))}
+          </Stack>
+        </Stack>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 
-export default function VideoConsultation() {
-  const { appointmentId } = useParams()
+function VideoConsultation() {
+  // App.jsx's route is /video/:id (pre-existing param name, not renamed
+  // here to avoid touching the route itself for a page-local variable).
+  const { id: appointmentId } = useParams()
   const navigate = useNavigate()
+  const { hasRole } = useAuth()
+  const { enqueueSnackbar } = useSnackbar()
+  const isClinician = hasRole('clinician')
 
-  // Media state
-  const [micOn, setMicOn] = useState(true)
-  const [cameraOn, setCameraOn] = useState(true)
-  const [callTimer, setCallTimer] = useState(0)
+  const [encounterId, setEncounterId] = useState(null)
+  const [initError, setInitError] = useState(null)
+  const [session, setSession] = useState(null)
+  const [joinError, setJoinError] = useState(null)
+  const [joining, setJoining] = useState(false)
+  const [escalateOpen, setEscalateOpen] = useState(false)
 
-  // Right panel state
-  const [activeTab, setActiveTab] = useState(0)
-  const [chatInput, setChatInput] = useState('')
-  const [messages, setMessages] = useState([
-    { id: 1, sender: 'System', text: 'Connection established. Waiting for clinician...', time: 'Now', isSystem: true },
-  ])
-  const [notes, setNotes] = useState('')
+  const [getOrCreateEncounter] = useMutation(GET_OR_CREATE_ENCOUNTER)
+  const [joinSession] = useMutation(JOIN_SESSION)
+  const [consentToRecording, { loading: consenting }] = useMutation(CONSENT_TO_RECORDING)
 
-  // Refs
-  const localVideoRef = useRef(null)
-  const remoteVideoRef = useRef(null)
-  const timerRef = useRef(null)
+  useEffect(() => {
+    let cancelled = false
+    getOrCreateEncounter({ variables: { appointment_id: appointmentId } })
+      .then(({ data }) => {
+        if (!cancelled) setEncounterId(data?.getOrCreateEncounter?.id ?? null)
+      })
+      .catch((err) => {
+        if (!cancelled) setInitError(err?.graphQLErrors?.[0]?.message || err.message)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [appointmentId, getOrCreateEncounter])
 
-  // GraphQL
-  const { data, loading, error } = useQuery(GET_APPOINTMENT, {
-    variables: { id: appointmentId || '1' }, // Using "1" as default for preview mode if no params
-    skip: !appointmentId && false, // We'll let it fetch something for dev/testing
+  const { data: modeData, loading: modeLoading } = useQuery(ENCOUNTER_MODE_QUERY, {
+    variables: { id: encounterId },
+    skip: !encounterId,
+    fetchPolicy: 'network-only',
+  })
+  const { data: apptData } = useQuery(APPOINTMENT_DETAIL_QUERY, { variables: { id: appointmentId } })
+  const appointment = apptData?.appointment
+  const { data: clinicianData } = useQuery(CLINICIAN_REGISTRATION_QUERY, {
+    variables: { id: appointment?.clinician?.id },
+    skip: !appointment?.clinician?.id,
   })
 
-  const [saveNotesMutation, { loading: savingNotes }] = useMutation(UPDATE_APPOINTMENT_NOTES)
+  const consultationMode = modeData?.encounter?.consultation_mode
+  const isVideoAppointment = consultationMode === 'video'
 
-  // --- WebRTC Media Devices Mock setup ---
-  // Note: Replace with proper Twilio/Daily.co SDK in production
-  useEffect(() => {
-    let localStream = null
-
-    const getMedia = async () => {
-      try {
-        localStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true })
-
-        if (localVideoRef.current) {
-          localVideoRef.current.srcObject = localStream
-        }
-
-        // Mock remote video by connecting local stream if we want to visually test,
-        // but normally this would be handled by WebRTC RTCPeerConnection and ontrack events.
-        // if (remoteVideoRef.current) {
-        //   remoteVideoRef.current.srcObject = localStream; // Just for visual placeholder
-        // }
-      } catch (err) {
-        console.error('Failed to acquire media devices', err)
-        // Add a system message about failure
-        setMessages((prev) => [
-          ...prev,
-          {
-            id: Date.now(),
-            sender: 'System',
-            text: `Camera/Mic error: ${err.message}. Please check permissions.`,
-            time: 'Now',
-            isSystem: true,
-          },
-        ])
-      }
-    }
-
-    getMedia()
-
-    // Call timer
-    timerRef.current = setInterval(() => {
-      setCallTimer((prev) => prev + 1)
-    }, 1000)
-
-    return () => {
-      if (localStream) {
-        localStream.getTracks().forEach((track) => track.stop())
-      }
-      if (timerRef.current) clearInterval(timerRef.current)
-    }
-  }, [])
-
-  // Format timer
-  const formatTime = (seconds) => {
-    const m = Math.floor(seconds / 60)
-      .toString()
-      .padStart(2, '0')
-    const s = (seconds % 60).toString().padStart(2, '0')
-    return `${m}:${s}`
-  }
-
-  // Handlers
-  const toggleMic = () => {
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const audioTracks = localVideoRef.current.srcObject.getAudioTracks()
-      if (audioTracks.length > 0) {
-        audioTracks[0].enabled = !micOn
-      }
-    }
-    setMicOn(!micOn)
-  }
-
-  const toggleCamera = () => {
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      const videoTracks = localVideoRef.current.srcObject.getVideoTracks()
-      if (videoTracks.length > 0) {
-        videoTracks[0].enabled = !cameraOn
-      }
-    }
-    setCameraOn(!cameraOn)
-  }
-
-  const handleEndCall = () => {
-    // Clean up streams
-    if (localVideoRef.current && localVideoRef.current.srcObject) {
-      localVideoRef.current.srcObject.getTracks().forEach((track) => track.stop())
-    }
-
-    // Navigate back to dashboard or post-call summary
-    navigate('/patient/dashboard')
-  }
-
-  const handleSendMessage = (e) => {
-    e.preventDefault()
-    if (!chatInput.trim()) return
-
-    setMessages((prev) => [...prev, { id: Date.now(), sender: 'You', text: chatInput, time: formatTime(callTimer), isSystem: false }])
-    setChatInput('')
-  }
-
-  const handleSaveNotes = async () => {
+  const attemptJoin = useCallback(async () => {
+    if (!encounterId) return
+    setJoining(true)
+    setJoinError(null)
     try {
-      if (appointmentId) {
-        await saveNotesMutation({ variables: { id: appointmentId, notes } })
-      }
-      setMessages((prev) => [...prev, { id: Date.now(), sender: 'System', text: 'Notes saved successfully.', time: 'Now', isSystem: true }])
+      const { data } = await joinSession({ variables: { encounter_id: encounterId } })
+      setSession(data?.joinTelemedicineSession ?? null)
     } catch (err) {
-      console.error(err)
+      setJoinError(err?.graphQLErrors?.[0]?.message || err?.message || 'Could not join the consultation')
+    } finally {
+      setJoining(false)
+    }
+  }, [encounterId, joinSession])
+
+  useEffect(() => {
+    if (encounterId && isVideoAppointment) attemptJoin()
+  }, [encounterId, isVideoAppointment, attemptJoin])
+
+  const handleConsent = async () => {
+    try {
+      await consentToRecording({ variables: { encounter_id: encounterId } })
+      setSession((s) => (s ? { ...s, recording_consent_at: new Date().toISOString() } : s))
+      enqueueSnackbar('Recording consent recorded. Start recording from the call controls once ready.', { variant: 'success' })
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err?.message || 'Failed to record consent', { variant: 'error' })
     }
   }
 
-  const appt = data?.getAppointment
-  const clinicianName = appt?.clinician?.name || 'Dr. Loading...'
-  const title = `Consultation with ${clinicianName}`
+  const embedUrl = useMemo(() => {
+    if (!session?.room_url || !session?.token) return null
+    return `${session.room_url}?t=${encodeURIComponent(session.token)}`
+  }, [session])
+
+  if (initError) {
+    return (
+      <Box p={3}>
+        <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(-1)}>
+          Back
+        </Button>
+        <Alert severity="error" sx={{ mt: 2 }}>
+          {initError}
+        </Alert>
+      </Box>
+    )
+  }
+
+  if (modeLoading || !modeData) {
+    return (
+      <Box p={6} display="flex" justifyContent="center">
+        <CircularProgress />
+      </Box>
+    )
+  }
+
+  if (!isVideoAppointment) {
+    return (
+      <Box p={3}>
+        <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(-1)}>
+          Back
+        </Button>
+        <Alert severity="warning" sx={{ mt: 2 }}>
+          This appointment is not a video consultation.
+        </Alert>
+      </Box>
+    )
+  }
+
+  const clinicianName = appointment?.clinician?.full_name || clinicianData?.clinician?.full_name || 'the clinician'
+  const registrationNumber = clinicianData?.clinician?.registration_number
 
   return (
     <ThemeProvider theme={darkTheme}>
-      <Box
-        sx={{
-          bgcolor: 'background.default',
-          height: '100vh',
-          display: 'flex',
-          flexDirection: 'column',
-          color: 'text.primary',
-          overflow: 'hidden',
-        }}
-      >
-        {/* APP BAR */}
+      <Box sx={{ bgcolor: 'background.default', height: '100vh', display: 'flex', flexDirection: 'column', color: 'text.primary', overflow: 'hidden' }}>
         <AppBar position="static" sx={{ bgcolor: 'background.paper', borderBottom: '1px solid #1E4A52', boxShadow: 'none' }}>
-          <Stack direction="row" alignItems="center" px={2} py={1.5} gap={2}>
+          <Stack direction="row" alignItems="center" px={2} py={1.5} gap={2} flexWrap="wrap">
+            <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(-1)} sx={{ color: 'white' }}>
+              Back
+            </Button>
             <Stack direction="row" alignItems="center" gap={1}>
-              <LocalHospital color="primary" />
+              <LocalHospitalRoundedIcon color="primary" />
               <Typography variant="body1" fontWeight={700} color="white">
                 HealthSync
               </Typography>
             </Stack>
-
             <Divider orientation="vertical" flexItem sx={{ borderColor: 'rgba(255,255,255,0.2)' }} />
-
             <Typography variant="body2" color="text.secondary" fontWeight={500}>
-              {title}
+              Consultation with {clinicianName}
             </Typography>
-
+            {/* US-TEL-04 — SEC-14: registration number visible for the
+                duration of the call, a real trust signal, not decorative. */}
+            {registrationNumber && (
+              <Chip
+                icon={<VerifiedRoundedIcon sx={{ fontSize: 16 }} />}
+                label={`Reg. No. ${registrationNumber}`}
+                size="small"
+                variant="outlined"
+                sx={{ color: 'primary.light', borderColor: 'primary.light' }}
+              />
+            )}
             <Box flexGrow={1} />
-
-            <Chip
-              icon={<Security sx={{ fontSize: 16 }} />}
-              label="Secure"
-              size="small"
-              color="primary"
-              variant="outlined"
-              sx={{ color: 'primary.main', borderColor: 'primary.main' }}
-            />
+            {session?.recording_consent_at && (
+              <Chip icon={<FiberManualRecordRoundedIcon sx={{ fontSize: 14 }} />} label="Recording consented" size="small" color="error" />
+            )}
+            <Chip icon={<SecurityRoundedIcon sx={{ fontSize: 16 }} />} label="Secure" size="small" color="primary" variant="outlined" />
           </Stack>
         </AppBar>
 
-        {/* MAIN LAYOUT */}
-        <Box flexGrow={1} display="flex" p={2} gap={2} overflow="hidden">
-          {/* VIDEO AREA */}
-          <Box
-            flexGrow={1}
-            display="flex"
-            flexDirection="column"
-            position="relative"
-            bgcolor="#000"
-            borderRadius={3}
-            overflow="hidden"
-            boxShadow="0 8px 32px rgba(0,0,0,0.5)"
-          >
-            {/* Remote Video (Main) */}
-            <video ref={remoteVideoRef} autoPlay playsInline style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-
-            {/* Placeholder if remote video isn't connected */}
-            <Box
-              position="absolute"
-              top={0}
-              left={0}
-              right={0}
-              bottom={0}
-              display="flex"
-              flexDirection="column"
-              alignItems="center"
-              justifyContent="center"
-              sx={{ opacity: 0.7, pointerEvents: 'none' }}
-            >
-              <Avatar sx={{ width: 100, height: 100, mb: 2, bgcolor: 'primary.main' }}>{clinicianName.charAt(0)}</Avatar>
-              <Typography variant="h6">{clinicianName}</Typography>
-              <Typography variant="body2">{loading ? 'Connecting...' : 'Waiting for clinician to join'}</Typography>
-            </Box>
-
-            {/* Local Video (PIP) */}
-            <Box
-              position="absolute"
-              bottom={80}
-              right={16}
-              width={{ xs: 120, md: 240 }}
-              height={{ xs: 160, md: 160 }}
-              bgcolor="#111"
-              borderRadius={2}
-              overflow="hidden"
-              border="2px solid rgba(255,255,255,0.3)"
-              boxShadow="0 4px 12px rgba(0,0,0,0.5)"
-              zIndex={10}
-            >
-              {cameraOn ? (
-                <video
-                  ref={localVideoRef}
-                  autoPlay
-                  playsInline
-                  muted
-                  style={{ width: '100%', height: '100%', objectFit: 'cover', transform: 'scaleX(-1)' }} // mirror local video
-                />
-              ) : (
-                <Box height="100%" display="flex" alignItems="center" justifyContent="center" bgcolor="#222">
-                  <Avatar sx={{ bgcolor: 'secondary.main' }}>Me</Avatar>
-                </Box>
-              )}
-            </Box>
-
-            {/* Overlay Info */}
-            <Box position="absolute" bottom={80} left={16} bgcolor="rgba(0,0,0,0.6)" borderRadius={2} px={2} py={0.5} zIndex={10}>
-              <Typography variant="body2" color="white" fontWeight={500}>
-                {clinicianName}
-              </Typography>
-            </Box>
-
-            <Box
-              position="absolute"
-              top={16}
-              left="50%"
-              sx={{ transform: 'translateX(-50%)' }}
-              bgcolor="rgba(0,0,0,0.6)"
-              borderRadius={5}
-              px={2}
-              py={0.5}
-              zIndex={10}
-            >
-              <Typography variant="caption" color="white" fontWeight={600} display="flex" alignItems="center" gap={1}>
-                <Box
-                  component="span"
-                  sx={{
-                    width: 8,
-                    height: 8,
-                    borderRadius: '50%',
-                    bgcolor: 'error.main',
-                    display: 'inline-block',
-                    animation: 'pulse 2s infinite',
-                  }}
-                />
-                {formatTime(callTimer)}
-              </Typography>
-            </Box>
-
-            {/* CONTROLS BAR */}
-            <Box
-              position="absolute"
-              bottom={0}
-              left={0}
-              right={0}
-              bgcolor="rgba(10,31,34,0.85)"
-              sx={{ backdropFilter: 'blur(10px)' }}
-              py={2}
-              display="flex"
-              justifyContent="center"
-              gap={3}
-              alignItems="center"
-              zIndex={20}
-            >
-              <IconButton
-                onClick={toggleMic}
-                sx={{
-                  bgcolor: micOn ? 'rgba(255,255,255,0.1)' : 'error.main',
-                  color: 'white',
-                  '&:hover': { bgcolor: micOn ? 'rgba(255,255,255,0.2)' : 'error.dark' },
-                  width: 56,
-                  height: 56,
-                }}
-              >
-                {micOn ? <Mic /> : <MicOff />}
-              </IconButton>
-
-              <IconButton
-                onClick={toggleCamera}
-                sx={{
-                  bgcolor: cameraOn ? 'rgba(255,255,255,0.1)' : 'error.main',
-                  color: 'white',
-                  '&:hover': { bgcolor: cameraOn ? 'rgba(255,255,255,0.2)' : 'error.dark' },
-                  width: 56,
-                  height: 56,
-                }}
-              >
-                {cameraOn ? <Videocam /> : <VideocamOff />}
-              </IconButton>
-
-              <IconButton
-                sx={{
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' },
-                  width: 48,
-                  height: 48,
-                  display: { xs: 'none', sm: 'flex' },
-                }}
-              >
-                <ScreenShare fontSize="small" />
-              </IconButton>
-
-              <Fab color="error" onClick={handleEndCall} sx={{ width: 64, height: 64, mx: 2 }}>
-                <CallEnd fontSize="large" />
-              </Fab>
-
-              <IconButton
-                onClick={() => setActiveTab(1)}
-                sx={{
-                  bgcolor: activeTab === 1 ? 'primary.main' : 'rgba(255,255,255,0.1)',
-                  color: 'white',
-                  '&:hover': { bgcolor: activeTab === 1 ? 'primary.dark' : 'rgba(255,255,255,0.2)' },
-                  width: 48,
-                  height: 48,
-                }}
-              >
-                <Badge color="error" variant="dot" invisible={activeTab === 1}>
-                  <Chat fontSize="small" />
-                </Badge>
-              </IconButton>
-
-              <IconButton
-                sx={{
-                  bgcolor: 'rgba(255,255,255,0.1)',
-                  color: 'white',
-                  '&:hover': { bgcolor: 'rgba(255,255,255,0.2)' },
-                  width: 48,
-                  height: 48,
-                  display: { xs: 'none', sm: 'flex' },
-                }}
-              >
-                <Settings fontSize="small" />
-              </IconButton>
-            </Box>
+        <Box flexGrow={1} display="flex" p={2} gap={2} overflow="auto">
+          <Box flexGrow={1} display="flex" flexDirection="column" position="relative" bgcolor="#000" borderRadius={3} overflow="hidden" minHeight={360}>
+            {joining && (
+              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" gap={2}>
+                <CircularProgress />
+                <Typography variant="body2">Connecting…</Typography>
+              </Box>
+            )}
+            {!joining && joinError && (
+              <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" gap={2} p={3}>
+                <Alert severity="error" sx={{ maxWidth: 480 }}>
+                  {joinError}
+                </Alert>
+                <Button variant="outlined" onClick={attemptJoin}>
+                  Try Again
+                </Button>
+              </Box>
+            )}
+            {!joining && !joinError && embedUrl && (
+              // A real Daily.co "Prebuilt" embed -- camera/mic controls,
+              // screen share, and network-adaptive quality all come from
+              // the vendor's own iframe, matching PRD v2 D5's "vendor SDK,
+              // not a simulated stub" decision. Never rendered without a
+              // real per-participant token.
+              <iframe
+                title="Video consultation"
+                src={embedUrl}
+                allow="camera; microphone; fullscreen; display-capture; autoplay"
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            )}
           </Box>
 
-          {/* RIGHT SIDEBAR */}
-          <Box
-            width={{ xs: 280, lg: 340 }}
-            bgcolor="#0F2D33"
-            borderRadius={3}
-            display={{ xs: 'none', md: 'flex' }}
-            flexDirection="column"
-            border="1px solid #1E4A52"
-            overflow="hidden"
-          >
-            <Tabs
-              value={activeTab}
-              onChange={(e, val) => setActiveTab(val)}
-              variant="fullWidth"
-              sx={{ borderBottom: '1px solid #1E4A52', minHeight: 48 }}
-            >
-              <Tab label="Info" sx={{ minHeight: 48 }} />
-              <Tab label="Chat" sx={{ minHeight: 48 }} />
-              <Tab label="Notes" sx={{ minHeight: 48 }} />
-            </Tabs>
-
-            {/* Tab 0: Info */}
-            <TabPanel value={activeTab} index={0} sx={{ p: 2 }}>
+          <Box width={{ xs: 0, md: 320 }} display={{ xs: 'none', md: 'flex' }} flexDirection="column" gap={2}>
+            <Box bgcolor="background.paper" borderRadius={3} border="1px solid #1E4A52" p={2}>
               <Typography variant="subtitle2" color="text.secondary" gutterBottom>
                 Consultation Details
               </Typography>
-              <Box bgcolor="rgba(0,0,0,0.2)" p={2} borderRadius={2} mb={2}>
-                <Typography variant="body2" fontWeight={600} color="primary.light">
-                  Patient
-                </Typography>
-                <Typography variant="body1" mb={1}>
-                  {appt?.patient?.firstName} {appt?.patient?.lastName}
-                </Typography>
-
-                <Typography variant="body2" fontWeight={600} color="primary.light">
-                  Clinician
-                </Typography>
-                <Typography variant="body1" mb={1}>
-                  {clinicianName}
-                </Typography>
-
-                <Typography variant="body2" fontWeight={600} color="primary.light">
-                  Status
-                </Typography>
-                <Chip label="In Progress" size="small" color="success" sx={{ mt: 0.5 }} />
-              </Box>
-              <Divider sx={{ my: 2, borderColor: 'rgba(255,255,255,0.1)' }} />
-              <Typography variant="body2" color="text.secondary">
-                Ensure you are in a quiet, well-lit environment. Connection is end-to-end encrypted.
+              <Typography variant="body2" fontWeight={600} color="primary.light">
+                Patient
               </Typography>
-            </TabPanel>
+              <Typography variant="body1" mb={1}>
+                {appointment?.patient?.full_name}
+              </Typography>
+              <Typography variant="body2" fontWeight={600} color="primary.light">
+                Clinician
+              </Typography>
+              <Typography variant="body1" mb={1}>
+                {clinicianName}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" display="block">
+                Ensure you are in a quiet, well-lit environment.
+              </Typography>
+            </Box>
 
-            {/* Tab 1: Chat */}
-            <TabPanel value={activeTab} index={1} sx={{ p: 0 }}>
-              <Box flexGrow={1} overflow="auto" p={2} display="flex" flexDirection="column" gap={1}>
-                {messages.map((msg) => (
-                  <Box key={msg.id} alignSelf={msg.isSystem ? 'center' : msg.sender === 'You' ? 'flex-end' : 'flex-start'} maxWidth="85%">
-                    {msg.isSystem ? (
-                      <Typography variant="caption" color="text.secondary" textAlign="center" display="block" my={1}>
-                        {msg.text}
-                      </Typography>
-                    ) : (
-                      <Box>
-                        <Typography variant="caption" color="text.secondary" px={1}>
-                          {msg.sender} • {msg.time}
-                        </Typography>
-                        <Box
-                          bgcolor={msg.sender === 'You' ? 'primary.main' : 'rgba(255,255,255,0.1)'}
-                          p={1.5}
-                          borderRadius={2}
-                          sx={{
-                            borderTopRightRadius: msg.sender === 'You' ? 4 : undefined,
-                            borderTopLeftRadius: msg.sender !== 'You' ? 4 : undefined,
-                          }}
-                        >
-                          <Typography variant="body2">{msg.text}</Typography>
-                        </Box>
-                      </Box>
-                    )}
-                  </Box>
-                ))}
-              </Box>
-              <Box p={2} borderTop="1px solid #1E4A52" component="form" onSubmit={handleSendMessage} display="flex" gap={1}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Type a message..."
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  variant="outlined"
-                  sx={{ '& .MuiOutlinedInput-root': { bgcolor: 'rgba(0,0,0,0.2)' } }}
+            {isClinician && (
+              <Box bgcolor="background.paper" borderRadius={3} border="1px solid #1E4A52" p={2}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Clinician Actions
+                </Typography>
+                <FormControlLabel
+                  control={<Switch checked={!!session?.recording_consent_at} disabled={!!session?.recording_consent_at || consenting} onChange={handleConsent} />}
+                  label="Patient consents to recording"
                 />
-                <IconButton color="primary" type="submit" disabled={!chatInput.trim()} sx={{ bgcolor: 'rgba(0,0,0,0.2)' }}>
-                  <Send fontSize="small" />
-                </IconButton>
+                <Button fullWidth variant="outlined" sx={{ mt: 1 }} onClick={() => setEscalateOpen(true)}>
+                  Advise In-Person Visit
+                </Button>
               </Box>
-            </TabPanel>
-
-            {/* Tab 2: Notes */}
-            <TabPanel value={activeTab} index={2} sx={{ p: 2 }}>
-              <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                Private Notes
-              </Typography>
-              <Typography variant="caption" display="block" color="text.secondary" mb={2}>
-                These notes are only visible to you and will be saved to the appointment record.
-              </Typography>
-
-              <TextField
-                multiline
-                rows={12}
-                fullWidth
-                placeholder="Type your consultation notes here..."
-                value={notes}
-                onChange={(e) => setNotes(e.target.value)}
-                sx={{
-                  mb: 2,
-                  flexGrow: 1,
-                  '& .MuiOutlinedInput-root': {
-                    bgcolor: 'rgba(0,0,0,0.2)',
-                    alignItems: 'flex-start',
-                    height: '100%',
-                  },
-                }}
-              />
-              <Button variant="contained" fullWidth onClick={handleSaveNotes} disabled={savingNotes}>
-                {savingNotes ? 'Saving...' : 'Save Notes'}
-              </Button>
-            </TabPanel>
+            )}
           </Box>
         </Box>
       </Box>
 
-      {/* Global CSS for pulsing animation on timer */}
-      <style>{`
-        @keyframes pulse {
-          0% { opacity: 1; }
-          50% { opacity: 0.3; }
-          100% { opacity: 1; }
-        }
-      `}</style>
+      {appointment && (
+        <EscalateDialog open={escalateOpen} onClose={() => setEscalateOpen(false)} appointment={appointment} encounterId={encounterId} />
+      )}
     </ThemeProvider>
+  )
+}
+
+export default function VideoConsultationPage() {
+  return (
+    <ErrorBoundary>
+      <VideoConsultation />
+    </ErrorBoundary>
   )
 }

@@ -20,9 +20,9 @@ order, front-end and back-end together.*
 ```yaml
 current_phase:  1
 current_doc:    01-phase1-close-the-gates.md
-current_slice:  P1-14            # first unstarted, unblocked slice in that doc's tracker
-last_completed: REQ151           # P1-11/P1-12/P1-13 (AI scribe, voice-to-Rx, pre-consult summary) closed 2026-08-27
-blocked_on:     P1-08/09/10      # ABDM M1/M2 — needs real NHA sandbox credentials + government certification, skipped per explicit user decision 2026-08-27
+current_slice:  P1-17            # first unstarted, unblocked slice in that doc's tracker
+last_completed: REQ026           # P1-16 (real telemedicine: vendor SDK, TPG enforcement, escalation) closed 2026-08-27
+blocked_on:     P1-08/09/10, P1-14/15   # ABDM (NHA credentials + certification) and the voice/WhatsApp AI agent (no telephony vendor or LLM provider in this codebase) — both skipped per explicit user decision, not silently dropped
 ```
 
 **This block is the source of truth for resumption.** Update it at the end of

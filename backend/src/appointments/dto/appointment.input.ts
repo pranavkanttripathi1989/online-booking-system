@@ -19,6 +19,12 @@ export class AppointmentInput {
   @Field({ nullable: true }) @IsOptional() slot_id?: string;
   @Field() @IsISO8601() start_datetime: string;
   @Field({ nullable: true }) @IsOptional() notes?: string;
+  // REQ026 (US-TEL-01) — previously write-only never-settable despite the
+  // column existing (Appointments.type, @default("in_person")) and
+  // calendar/index.jsx's own type filter and video/index.jsx already
+  // expecting one — no mutation ever let a caller actually choose it.
+  // getOrCreateEncounter() reads this back into Encounters.consultation_mode.
+  @Field({ nullable: true }) @IsOptional() @IsIn(['in_person', 'video', 'home_visit']) type?: string;
   // REQ017 US-CAL-05, slot mode only — every listed resource must also be
   // free for the requested window (in addition to the clinician and room),
   // or the booking is rejected. Ignored for session/hybrid mode bookings in
@@ -44,6 +50,12 @@ export class AppointmentInput {
   // wrong, or expired is never fatal to booking — only the EXCLUDE
   // constraint is; a valid token just gets released on success.
   @Field({ nullable: true }) @IsOptional() @IsString() @Length(8, 128) hold_token?: string;
+  // REQ026 (US-TEL-07) — set only when this booking is a "advise
+  // in-person visit" escalation from a teleconsultation encounter.
+  // appointments.service.ts's create() validates the caller is that
+  // encounter's own treating clinician before honoring it (Hard Rule 6 —
+  // a client-supplied cross-domain id is never trusted alone).
+  @Field({ nullable: true }) @IsOptional() escalated_from_encounter_id?: string;
 }
 
 // Matches appointments/edit.jsx's submitted shape exactly — a partial update,

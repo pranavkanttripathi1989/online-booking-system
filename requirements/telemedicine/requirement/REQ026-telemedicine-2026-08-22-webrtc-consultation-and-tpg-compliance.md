@@ -3,11 +3,21 @@ id: REQ026
 type: requirement
 feature: telemedicine
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-08-27
+status: done
 parent: REQ021
-related: [REQ021, REQ018]
+related: [REQ021, REQ018, PLAN192, TP212, TR212]
 ---
+
+## Status (2026-08-27)
+
+**P1-16 shipped** (`PLAN192`/`TP212`/`TR212`) — real vendor SDK (Daily.co,
+PRD v2 D5), consultation_mode denormalized from the newly-write-enabled
+`Appointments.type`, and `REQ021`'s own TPG guardrails (`US-RX-06`)
+finally built. See `PLAN192` for the full account, including what's
+deliberately deferred (real recording-storage retention, a live
+browser/microphone pass, the drug-name/list-membership accuracy
+benchmark — no labeled real corpus exists in this environment).
 
 # Real teleconsultation: WebRTC, consent, and Telemedicine Practice Guidelines compliance
 

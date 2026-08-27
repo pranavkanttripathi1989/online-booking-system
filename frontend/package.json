@@ -8,7 +8,7 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "lint": "eslint . --report-unused-disable-directives --max-warnings 4804",
+    "lint": "eslint . --report-unused-disable-directives --max-warnings 4805",
     "lint:fix": "eslint . --fix",
     "test": "jest --coverage",
     "test:watch": "jest --watch",

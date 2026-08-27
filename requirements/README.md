@@ -8,14 +8,14 @@
 | clinical-records | 1 | 6 | 0 | 1 | 6 | 2026-08-26 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 2 | 0 | 1 | 2 | 2026-08-26 | [scheduling-engine](./scheduling-engine/README.md) |
 | pharmacy | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [pharmacy](./pharmacy/README.md) |
-| prescriptions | 1 | 4 | 0 | 1 | 4 | 2026-08-26 | [prescriptions](./prescriptions/README.md) |
+| prescriptions | 1 | 4 | 0 | 1 | 4 | 2026-08-27 | [prescriptions](./prescriptions/README.md) |
 | queue-management | 1 | 5 | 0 | 1 | 5 | 2026-08-26 | [queue-management](./queue-management/README.md) |
 | appointments | 1 | 6 | 5 | 2 | 10 | 2026-08-27 | [appointments](./appointments/README.md) |
 | organizations | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [catalog-master-data](./catalog-master-data/README.md) |
 | abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |
 | compliance-dpdp | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [compliance-dpdp](./compliance-dpdp/README.md) |
-| telemedicine | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [telemedicine](./telemedicine/README.md) |
+| telemedicine | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [telemedicine](./telemedicine/README.md) |
 | patient-portal | 1 | 2 | 0 | 1 | 2 | 2026-08-26 | [patient-portal](./patient-portal/README.md) |
 | messaging | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [messaging](./messaging/README.md) |
 | analytics-reporting | 1 | 0 | 0 | 1 | 0 | 2026-08-24 | [analytics-reporting](./analytics-reporting/README.md) |

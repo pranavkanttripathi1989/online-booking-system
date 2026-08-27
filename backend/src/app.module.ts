@@ -54,6 +54,7 @@ import { ScheduledReportsModule } from './scheduled-reports/scheduled-reports.mo
 import { ChecklistModule } from './checklist/checklist.module';
 import { IntakeFieldsModule } from './intake-fields/intake-fields.module';
 import { BreakGlassModule } from './break-glass/break-glass.module';
+import { TelemedicineModule } from './telemedicine/telemedicine.module';
 import { PackagesModule } from './packages/packages.module';
 import { BranchOverridesModule } from './branch-overrides/branch-overrides.module';
 import { DocumentsModule } from './documents/documents.module';
@@ -162,6 +163,7 @@ import { PubSubModule } from './common/pubsub.module';
     ChecklistModule,
     IntakeFieldsModule,
     BreakGlassModule,
+    TelemedicineModule,
     PackagesModule,
     BranchOverridesModule,
     DocumentsModule,

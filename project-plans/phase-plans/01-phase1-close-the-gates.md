@@ -51,9 +51,9 @@ rule). Update `Status` in the same change that ships the slice.
 | **P1-11** | Ambient AI scribe → structured notes/diagnoses/vitals | BE+FE | **done** (`REQ151`) | — | Table stakes. Highest leverage in the whole plan |
 | **P1-12** | Voice-to-Rx against the real drug master | BE+FE | **done** (`REQ151`) | P1-11 | Reuses `REQ021` auto-quantity arithmetic |
 | **P1-13** | Pre-consult AI summary (patient in 5 bullets) | BE+FE | **done** (`REQ151`) | P1-11 | Small; `patientTimeline` already built |
-| **P1-14** | AI voice front-desk agent (inbound booking/reschedule/status) | BE+FE | not started | P1-05 | Needs the slot hold to be safe |
-| **P1-15** | WhatsApp AI agent (same brain, chat channel) | BE+FE | not started | P1-14, P1-01 | Reuses `REQ025` dispatch |
-| **P1-16** | Real telemedicine (WebRTC/vendor) + TPG drug list | BE+FE | not started | — | Replaces the simulated stub. A stub in a demo is worse than an honest gap |
+| **P1-14** | AI voice front-desk agent (inbound booking/reschedule/status) | BE+FE | **blocked** — needs a real inbound telephony vendor (Twilio Voice/Exotel) *and* a real LLM/conversational-AI provider, neither of which exists in this codebase; P1-11's deterministic-algorithm workaround doesn't extend to open-ended phone conversation. Skipped per explicit user decision 2026-08-27, not silently dropped | P1-05 | Needs the slot hold to be safe |
+| **P1-15** | WhatsApp AI agent (same brain, chat channel) | BE+FE | **blocked** (depends on P1-14) | P1-14, P1-01 | Reuses `REQ025` dispatch |
+| **P1-16** | Real telemedicine (WebRTC/vendor) + TPG drug list | BE+FE | **done** (`REQ026`) | — | Replaces the simulated stub. A stub in a demo is worse than an honest gap |
 | **P1-17** | No-show risk score → deposit / reminder / overbook policy | BE+FE | not started | P1-01 | All three levers already shipped; this joins them |
 | **P1-18** | Observability — traces, error tracking, SLO dashboards | BE+FE | not started | — | Cannot currently answer "was it down" |
 
@@ -260,6 +260,30 @@ slice, two jsdom/MUI-testing artifacts).
   without a compliance review.
 - **Exit:** two real devices complete a consult; a prescription issued in it is
   TPG-compliant.
+
+**Shipped 2026-08-27** (`REQ026`/`PLAN192`/`TP212`/`TR212`) — both tracks.
+Daily.co as the fixed vendor SDK (a single env-var credential, matching
+Razorpay's own convention — video is not one of Hard Rule 9's admin-
+configurable exceptions); `Encounters.consultation_mode` denormalized
+from a newly write-enabled `Appointments.type` (found and closed a real
+gap: the column and its own comment predated this slice, but no mutation
+ever let a caller set it); `REQ021`'s own `US-RX-06` TPG guard finally
+built (prohibited/unclassified fail-closed, List B blocked on a first
+consult only); "advise in-person visit" reuses the real
+`createAppointment` path, never an unchecked direct insert. **Two real,
+previously-shipped bugs found and fixed in the old `video/index.jsx`**:
+its `useParams()` destructured the wrong key against the real route
+(`/video/:id`, not `:appointmentId`) — the page never worked off a real
+navigation, silently masked by its own `|| '1'` "preview mode" fallback
+since the day it shipped — and it queried the public/patient-self-serve
+GraphQL dialect on an authenticated route instead of the canonical one
+already available. **Not done**: recording-storage retention (schema
+exists, no pipeline), a live browser/microphone/real-vendor-account pass
+(no browser-automation MCP server connected this session), and the
+drug-name/TPG-list accuracy the exit criterion names (no labeled real
+corpus in this environment — logged open, not claimed). See
+`context/telemedicine-2026-08-27-req026/manifest.md` for the full
+account.
 
 ### P1-17 — No-show risk score
 

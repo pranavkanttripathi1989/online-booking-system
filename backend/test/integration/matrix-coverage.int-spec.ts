@@ -60,6 +60,12 @@ const EXEMPT: Record<string, string> = {
   // ai-clinical.service.spec.ts's own "rejects a caller from a different
   // org" test.
   'ai-clinical': "No list query exists on this resolver to build a cross-org matrix case from (a global catalog query, two self-scoped-off-JWT queries, and single-record mutations keyed by session/patient id) — same shape as entitlements' own exemption above. Cross-org isolation is real and covered in ai-clinical.service.spec.ts's own dedicated test instead.",
+  // P1-16 (2026-08-27) — no query at all on this resolver, only two
+  // mutations keyed by encounter_id, both self/org-scoped by reusing
+  // EncountersService.encounter() (never re-deriving it) — same shape as
+  // ai-clinical's own exemption above. Covered directly in
+  // telemedicine.service.spec.ts.
+  telemedicine: "No list query exists on this resolver — two mutations keyed by encounter_id, both reusing EncountersService.encounter()'s own self/org-scoping rather than re-deriving it. Cross-org/cross-patient/cross-clinician isolation is covered in telemedicine.service.spec.ts's own dedicated tests instead.",
 };
 
 /**

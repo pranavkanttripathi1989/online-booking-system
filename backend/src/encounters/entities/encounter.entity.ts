@@ -99,6 +99,9 @@ export class EncounterType {
   @Field(() => ID) clinician_id: string;
   @Field() status: string;
   @Field() locked: boolean;
+  // REQ026 (P1-16, US-TEL-05) — denormalized from Appointments.type at
+  // creation; prescriptions.service.ts's TPG guard reads this directly.
+  @Field() consultation_mode: string;
   @Field({ nullable: true }) signed_at?: Date;
   @Field(() => ID, { nullable: true }) signed_by_id?: string;
   @Field() created_at: Date;

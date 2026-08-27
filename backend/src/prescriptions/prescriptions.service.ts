@@ -174,6 +174,55 @@ export class PrescriptionsService {
     );
   }
 
+  // REQ026 (US-RX-06, FR-RX-10/11) — Telemedicine Practice Guidelines
+  // enforcement. Applies only to a non-in_person consultation_mode; a
+  // real in-person visit is never gated by any of this.
+  //
+  // "First consultation" is a defensible engineering proxy for TPG's
+  // own concept, NOT a verified legal definition — flagged here and in
+  // REQ026's own doc for a real compliance review before this ships to
+  // a real market. A follow-up is any encounter where this same
+  // clinician has already seen this same patient before, in any mode.
+  private async isFirstConsultation(encounter: { patient_id: string; clinician_id: string; created_at: Date }): Promise<boolean> {
+    const priorCount = await this.prisma.encounters.count({
+      where: { patient_id: encounter.patient_id, clinician_id: encounter.clinician_id, created_at: { lt: encounter.created_at } },
+    });
+    return priorCount === 0;
+  }
+
+  private async assertTpgCompliant(
+    encounter: { id: string; patient_id: string; clinician_id: string; created_at: Date; consultation_mode: string },
+    items: PrescriptionItemInput[],
+  ): Promise<void> {
+    if (encounter.consultation_mode === 'in_person') return;
+
+    // US-RX-06 — mandatory diagnosis before Rx in tele mode.
+    const diagnosisCount = await this.prisma.diagnoses.count({ where: { encounter_id: encounter.id } });
+    if (diagnosisCount === 0) {
+      throw new BadRequestException('Record a diagnosis on this encounter before issuing a prescription in a teleconsultation');
+    }
+
+    const drugIds = [...new Set(items.map((i) => i.drug_id))];
+    const drugs = await this.prisma.drugs.findMany({ where: { id: { in: drugIds } } });
+    const drugById = new Map(drugs.map((d) => [d.id, d]));
+    const isFirst = await this.isFirstConsultation(encounter);
+
+    for (const item of items) {
+      const drug = drugById.get(item.drug_id);
+      const name = drug?.name ?? 'This drug';
+      const list = drug?.tpg_list ?? null;
+      if (list === 'prohibited') {
+        throw new BadRequestException(`${name} is a scheduled/NDPS drug and cannot be prescribed via any teleconsultation mode`);
+      }
+      if (list == null) {
+        throw new BadRequestException(`${name} has not been classified for teleconsultation prescribing yet — contact your admin`);
+      }
+      if (list === 'B' && isFirst) {
+        throw new BadRequestException(`${name} is a follow-up-only (List B) drug and cannot be prescribed on a first teleconsultation`);
+      }
+    }
+  }
+
   // Clinician-only: issuing a script is a clinical act, matching
   // encounters.service.ts's own signEncounter() role restriction.
   // Deliberately independent of the encounter's own locked state -- signing
@@ -192,11 +241,11 @@ export class PrescriptionsService {
       throw new ForbiddenException('You do not have access to this encounter');
     }
 
-    // Nothing on Appointments/Encounters tracks video/audio/text yet --
-    // that's REQ026 (telemedicine)'s own consultation_mode column, not
-    // built until that requirement lands. Every prescription is in_person
-    // until then; TPG mode-gating (US-RX-06) is correctly deferred with it.
-    const mode = 'in_person';
+    // REQ026 (US-RX-06) — real consultation_mode, and the TPG guard that
+    // reads it. A hard compliance blocker, no override path for the
+    // prohibited/unclassified cases.
+    const mode = encounter.consultation_mode;
+    await this.assertTpgCompliant(encounter, input.items);
 
     if (input.repeated_from_id) {
       const source = await this.loadPrescriptionForUser(input.repeated_from_id, user);

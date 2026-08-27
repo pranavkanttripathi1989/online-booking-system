@@ -149,6 +149,24 @@ describe('EncountersService', () => {
       );
     });
 
+    // REQ026 (US-TEL-05) — consultation_mode denormalization.
+    describe.each([
+      ['video', 'video'],
+      ['home_visit', 'in_person'], // physically present care, not a teleconsultation
+      ['in_person', 'in_person'],
+      [undefined, 'in_person'],
+    ])('appointment.type=%s', (appointmentType, expectedMode) => {
+      it(`stamps consultation_mode: '${expectedMode}'`, async () => {
+        prisma.appointments.findUnique.mockResolvedValue({ ...appointment, type: appointmentType });
+        prisma.encounters.findUnique.mockResolvedValue(null);
+        prisma.encounters.create.mockResolvedValue(encounterOpen);
+        await service.getOrCreateEncounter('appt-1', clinicianA);
+        expect(prisma.encounters.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ consultation_mode: expectedMode }) }),
+        );
+      });
+    });
+
     // Found live (React 18 StrictMode's double-effect invocation raced two
     // real calls, but a genuine double-click/two-tabs reaches the same
     // path): find-then-create is not atomic, so the loser's unique-

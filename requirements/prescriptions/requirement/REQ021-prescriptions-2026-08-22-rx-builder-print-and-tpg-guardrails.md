@@ -3,11 +3,27 @@ id: REQ021
 type: requirement
 feature: prescriptions
 created: 2026-08-22
-updated: 2026-08-24
+updated: 2026-08-27
 status: in-progress
 parent: REQ020
-related: [REQ020, REQ016, REQ026, REQ022, PLAN057, TP084, TR083]
+related: [REQ020, REQ016, REQ026, REQ022, PLAN057, TP084, TR083, PLAN192, TP212, TR212]
 ---
+
+## Status (2026-08-27)
+
+**`US-RX-06` (TPG drug-list enforcement) now closed**, alongside `REQ026`
+itself (`PLAN192`/`TP212`/`TR212`) — the P1-24-ago note below marking it
+"gated behind REQ026's not-yet-built consultation_mode column" is now
+stale, kept for its own historical context rather than rewritten. One
+real design deviation from this doc's own §"Data model impact": a single
+`Drugs.tpg_list` column replaced the originally-sketched separate
+`TpgDrugLists` reference table — a 1:1 classification per drug has no
+need for a join table, and the simpler column keeps `updateDrug`'s
+existing single-row-write shape unchanged. This note's own two other
+"still open" items (`US-RX-04`/`US-RX-08`, both actually closed by
+`REQ109`/`REQ129` since this note was last touched) were left as
+originally written below — see those requirements' own docs for current
+state, not this stale mention.
 
 ## Status (2026-08-24)
 

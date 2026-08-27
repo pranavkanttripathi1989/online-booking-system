@@ -25,7 +25,15 @@ describe('PrescriptionsService', () => {
   const managerB: JwtPayload = { sub: 'mgr-b', roles: ['manager'], client_org_id: 'org-b', patient_id: null, clinician_id: null } as JwtPayload;
   const selfRegisteredPatient: JwtPayload = { sub: 'u-none', roles: ['patient'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
 
-  const encounterOpen = { id: 'enc-1', client_org_id: 'org-a', appointment_id: 'appt-1', patient_id: 'pat-a', clinician_id: 'clin-a' };
+  const encounterOpen = {
+    id: 'enc-1',
+    client_org_id: 'org-a',
+    appointment_id: 'appt-1',
+    patient_id: 'pat-a',
+    clinician_id: 'clin-a',
+    created_at: new Date('2026-08-24'),
+    consultation_mode: 'in_person',
+  };
 
   const rxItem = { id: 'item-1', drug_id: 'drug-1', dose: '500mg', frequency: 'BD', route: 'oral', duration_days: 5, qty: 10, instructions: null, substitutable: true };
   const prescriptionOpen = {
@@ -37,9 +45,10 @@ describe('PrescriptionsService', () => {
   beforeEach(async () => {
     prisma = {
       prescriptions: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), update: jest.fn() },
-      encounters: { findUnique: jest.fn() },
+      encounters: { findUnique: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      diagnoses: { count: jest.fn().mockResolvedValue(1) },
       appointments: { findFirst: jest.fn() },
-      drugs: { findMany: jest.fn().mockResolvedValue([{ id: 'drug-1', name: 'Amoxicillin' }]) },
+      drugs: { findMany: jest.fn().mockResolvedValue([{ id: 'drug-1', name: 'Amoxicillin', tpg_list: 'O' }]) },
       clinicians: { findUnique: jest.fn() },
       patients: { findUnique: jest.fn() },
       clientOrganizations: { findUnique: jest.fn() },
@@ -153,6 +162,86 @@ describe('PrescriptionsService', () => {
       expect(prisma.prescriptions.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ patient_id: 'pat-a', clinician_id: 'clin-a' }) }),
       );
+    });
+  });
+
+  // REQ026 (US-RX-06, FR-RX-10/11) — Telemedicine Practice Guidelines
+  // enforcement. Only applies when consultation_mode !== 'in_person'.
+  describe('createPrescription — TPG teleconsultation drug-list enforcement', () => {
+    const teleEncounter = { ...encounterOpen, consultation_mode: 'video' };
+
+    it('blocks a prohibited (NDPS/Schedule X) drug outright, with no override', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(teleEncounter);
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-x', name: 'Alprazolam', tpg_list: 'prohibited' }]);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-x', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).rejects.toThrow(/scheduled\/NDPS/i);
+      expect(prisma.prescriptions.create).not.toHaveBeenCalled();
+    });
+
+    it('blocks an unclassified drug — fail closed, not safe by default', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(teleEncounter);
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-y', name: 'Mystery Drug', tpg_list: null }]);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-y', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).rejects.toThrow(/has not been classified/i);
+    });
+
+    it('blocks a List B (follow-up-only) drug on a first teleconsultation', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(teleEncounter);
+      prisma.encounters.count.mockResolvedValue(0); // no prior encounter -> first consultation
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-b', name: 'Isotretinoin', tpg_list: 'B' }]);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-b', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).rejects.toThrow(/follow-up-only/i);
+    });
+
+    it('allows a List B drug on a follow-up teleconsultation (a prior encounter exists)', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(teleEncounter);
+      prisma.encounters.count.mockResolvedValue(1); // a prior encounter exists -> follow-up
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-b', name: 'Isotretinoin', tpg_list: 'B' }]);
+      prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-b', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).resolves.toBeDefined();
+    });
+
+    it('allows List O/A drugs on a first teleconsultation', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(teleEncounter);
+      prisma.encounters.count.mockResolvedValue(0);
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-1', name: 'Paracetamol', tpg_list: 'O' }]);
+      prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).resolves.toBeDefined();
+    });
+
+    it('requires a diagnosis recorded before issuing in tele mode', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(teleEncounter);
+      prisma.diagnoses.count.mockResolvedValue(0);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).rejects.toThrow(/diagnosis/i);
+      expect(prisma.prescriptions.create).not.toHaveBeenCalled();
+    });
+
+    it('never runs the TPG guard for an in-person encounter, even with no diagnosis recorded', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen); // consultation_mode: 'in_person'
+      prisma.diagnoses.count.mockResolvedValue(0);
+      prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
+      await expect(
+        service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any] } as any, clinicianA),
+      ).resolves.toBeDefined();
+      expect(prisma.diagnoses.count).not.toHaveBeenCalled();
+    });
+
+    it('stamps the real consultation_mode onto the created prescription, not a hardcoded value', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(teleEncounter);
+      prisma.encounters.count.mockResolvedValue(1);
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-1', name: 'Paracetamol', tpg_list: 'O' }]);
+      prisma.prescriptions.create.mockResolvedValue(prescriptionOpen);
+      await service.createPrescription({ encounter_id: 'enc-1', items: [{ drug_id: 'drug-1', dose: '1', frequency: 'OD' } as any] } as any, clinicianA);
+      expect(prisma.prescriptions.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ mode: 'video' }) }));
     });
   });
 

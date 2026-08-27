@@ -198,6 +198,15 @@ export class EncountersService {
           appointment_id: appointmentId,
           patient_id: appointment.patient_id,
           clinician_id: appointment.clinician_id,
+          // REQ026 (US-TEL-05) — denormalized once, at creation time,
+          // matching REQ017's own booking_mode precedent. Appointments.type
+          // also carries 'home_visit' (physically present care, just not
+          // at the clinic) — that is NOT a teleconsultation mode and must
+          // not trip the TPG guard, so only 'video' maps through; anything
+          // else (including a future 'audio'/'text' appointment type) is
+          // in_person from this guard's own perspective until genuinely
+          // built and mapped here explicitly.
+          consultation_mode: appointment.type === 'video' ? 'video' : 'in_person',
         },
       });
       return this.withRelations(encounter);

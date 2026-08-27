@@ -447,6 +447,16 @@ export class AppointmentsService {
     const service = await this.prisma.products.findUnique({ where: { id: input.service_id } });
     if (!service) throw new BadRequestException('Service not found');
 
+    // REQ026 (US-TEL-07) — Hard Rule 6: a client-supplied cross-domain id
+    // is validated, not trusted. Only the encounter's own treating
+    // clinician may link a new appointment to it as an escalation.
+    if (input.escalated_from_encounter_id) {
+      const sourceEncounter = await this.prisma.encounters.findUnique({ where: { id: input.escalated_from_encounter_id } });
+      if (!sourceEncounter || !isSameOrg(user, sourceEncounter.client_org_id) || sourceEncounter.clinician_id !== (user.clinician_id ?? '__no_clinician_link__')) {
+        throw new BadRequestException('Originating encounter not found');
+      }
+    }
+
     // REQ052 (US-BOOK-06) — required intake fields must be answered before
     // the booking is accepted; the client-supplied set is never trusted
     // alone for which fields even apply.
@@ -573,6 +583,8 @@ export class AppointmentsService {
             intake_responses: intakeResponsesJson,
             checkin_token_hash: checkinToken?.tokenHash,
             checkin_token_expires_at: checkinToken?.expiresAt,
+            escalated_from_encounter_id: input.escalated_from_encounter_id,
+            type: input.type ?? 'in_person',
           },
           include: INCLUDE,
         });
