@@ -4,7 +4,7 @@ type: phase-plan
 feature: project-plans
 created: 2026-08-27
 updated: 2026-08-27
-status: not-started
+status: in-progress
 parent: PRD-v2-CareOS.md §9
 ---
 
@@ -40,7 +40,7 @@ gates. Phase 2's claim work depends on both.
 | **P2-03** | Agentic claim lifecycle — auto-code → submit → track → draft appeal | BE+FE | **done** (`REQ155`) | P2-02 | The differentiator. Claim state machine + evidence attach already built |
 | **P2-04** | Denial analytics + payer scorecards | BE+FE | **done** (`REQ156`) | P2-03 | `Claims` data model already there |
 | **P2-05** | AI-assisted migration importer (Practo / MocDoc / HealthPlix mappers) | BE+FE | **done** (`REQ157`) | P1-11 | #1 switching blocker. AI *structures* imported free-text notes — rivals can't |
-| **P2-06** | Doctor revenue-share & payouts engine | BE+FE | not started | — | Named chain-ICP need; branch overrides already built |
+| **P2-06** | Doctor revenue-share & payouts engine | BE+FE | **done** (`REQ158`) | — | Named chain-ICP need; branch overrides already built |
 | **P2-07** | Drug interaction + allergy hard-stops | BE+FE | not started | P1-12 | Safety. Allergy banner + drug master already there |
 | **P2-08** | Regional-language Rx print (i18n for documents) | BE+FE | not started | P1-07 | Rivals market 23+ languages |
 | **P2-09** | i18n: 3 more regional languages | FE | not started | P1-07 | Prioritise by where clinics actually are |
@@ -170,6 +170,39 @@ earlier this session).
   statement export (`SURF-8`: CSV export non-negotiable). `SURF-14`: persistent
   branch scope indicator.
 - **Exit:** a real month closes and produces per-doctor statements.
+
+**Shipped 2026-08-27** (`REQ158`/`PLAN199`/`TP219`/`TR219`, new feature
+slug `revenue-share`) — both tracks. A real scope correction made before
+any code was written: this bullet's own "per-branch" framing assumes a
+clinician can have different rates at different branches
+simultaneously, but `Clinicians.clinic_id` is a single scalar field, not
+a many-to-many relation (confirmed via a full-schema grep — no
+clinician↔clinic join table exists). Reinterpreted as a rate-resolution
+hierarchy instead, mirroring `resolveServicePrice()`'s own
+most-specific-wins cascade (`common/pricing/resolve-price.ts`,
+REQ055/REQ100): a clinician-level rule beats a clinic-level rule beats
+the org-level default. Two new models (`RevenueShareRules`, `Payouts`);
+`computeMonthlyPayouts()` sums succeeded `AppointmentPayments` per
+clinician for the given clinic/month and never overwrites an
+already-`approved` payout on recomputation (US-REV-03's own invariant).
+Frontend ships a Clinic-scoped (`SURF-14`) manager page with a share-
+rules editor, a monthly payout run, per-row Approve, and a CSV statement
+export (`SURF-8`). Full verification: backend unit 1989/1991 (2
+pre-existing, unrelated `queue.service.spec.ts` failures — a midnight-
+IST timing edge in a file this slice never touched), integration 9/9
+suites / 414/414 tests (a new, honest tenancy-matrix `EXEMPT` entry —
+unlike prior exemptions, this domain does have a real id-keyed shape a
+matrix case could exercise, deferred to `setup/domain-cases.ts` for a
+future slice since that file was concurrently owned by other in-flight
+work this session), frontend 4/4 new tests, full frontend suite
+279/284 (2 pre-existing flaky suites, neither touched by this slice).
+See `context/revenue-share-2026-08-27-req158/manifest.md` for the full
+account, including an unrelated live `web-vitals` container issue found
+and fixed mid-slice.
+
+This closes out P2-03/P2-05/P2-06, the three slices this document names
+as "carrying the phase." Every other unblocked Phase 2 row (`P2-07`
+onward) remains not started; `P2-01` stays blocked on `P1-10`.
 
 ---
 
