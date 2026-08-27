@@ -6,11 +6,11 @@ import { ROLES_KEY } from '../common/decorators/roles.decorator';
 
 describe('ReviewsResolver', () => {
   let resolver: ReviewsResolver;
-  let service: { findAll: jest.Mock; respondToReview: jest.Mock; remove: jest.Mock };
+  let service: { findAll: jest.Mock; respondToReview: jest.Mock; remove: jest.Mock; create: jest.Mock };
   const reflector = new Reflector();
 
   beforeEach(async () => {
-    service = { findAll: jest.fn(), respondToReview: jest.fn(), remove: jest.fn() };
+    service = { findAll: jest.fn(), respondToReview: jest.fn(), remove: jest.fn(), create: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [ReviewsResolver, { provide: ReviewsService, useValue: service }],
     }).compile();
@@ -24,6 +24,12 @@ describe('ReviewsResolver', () => {
       ['deleteReview', ReviewsResolver.prototype.deleteReview],
     ])('%s is gated to admin/super_admin/manager', (_name, handler) => {
       expect(reflector.get(ROLES_KEY, handler)).toEqual(['admin', 'super_admin', 'manager']);
+    });
+
+    // P1-06 — deliberately NOT admin/manager: this is the caller submitting
+    // their own review, not staff moderating one.
+    it('submitReview is gated to patient only', () => {
+      expect(reflector.get(ROLES_KEY, ReviewsResolver.prototype.submitReview)).toEqual(['patient']);
     });
   });
 
@@ -48,6 +54,14 @@ describe('ReviewsResolver', () => {
       service.remove.mockResolvedValue({ success: true });
       await resolver.deleteReview('rev-1', user);
       expect(service.remove).toHaveBeenCalledWith('rev-1', user);
+    });
+
+    it('submitReview forwards input and user', async () => {
+      const user = { patient_id: 'pat-1' } as any;
+      const input = { appointment_id: 'appt-1', stars: 5, comment: 'Great' } as any;
+      service.create.mockResolvedValue({ success: true });
+      await resolver.submitReview(input, user);
+      expect(service.create).toHaveBeenCalledWith(input, user);
     });
   });
 });

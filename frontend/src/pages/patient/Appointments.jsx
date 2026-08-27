@@ -23,6 +23,7 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Rating,
 } from '@mui/material'
 import { StatusChip, EmptyState, AppointmentsListSkeleton } from '../../components/shared'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
@@ -37,12 +38,54 @@ import EventRepeatIcon from '@mui/icons-material/EventRepeat'
 import ArrowUpwardIcon from '@mui/icons-material/ArrowUpward'
 import ArrowDownwardIcon from '@mui/icons-material/ArrowDownward'
 import InfoOutlinedIcon from '@mui/icons-material/InfoOutlined'
+import StarIcon from '@mui/icons-material/Star'
+import StarBorderIcon from '@mui/icons-material/StarBorder'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, gql } from '@apollo/client'
 import dayjs from 'dayjs'
-import { APPOINTMENTS_QUERY } from '../../graphql/queries'
+import { APPOINTMENT_FIELDS } from '../../graphql/queries'
 import { CANCEL_APPOINTMENT_MUTATION, UPDATE_APPOINTMENT_MUTATION } from '../../graphql/mutations'
+
+// P1-06 — has_review is deliberately NOT added to the shared AppointmentFields
+// fragment (every consumer of APPOINTMENTS_QUERY would then pay for it, most
+// of them with no use for it) — a local query composing the same fragment
+// plus this one extra field, matching ARCH-15/Hard Rule 7's "match the
+// contract, don't invent one" while keeping the shared fragment lean.
+const MY_APPOINTMENTS_QUERY = gql`
+  query Appointments($filters: AppointmentFilters, $first: Int = 20, $page: Int) {
+    appointments(filters: $filters, first: $first, page: $page) {
+      data {
+        ...AppointmentFields
+        has_review
+      }
+      paginatorInfo {
+        count
+        currentPage
+        firstItem
+        hasMorePages
+        lastItem
+        lastPage
+        perPage
+        total
+      }
+    }
+  }
+  ${APPOINTMENT_FIELDS}
+`
+
+const SUBMIT_REVIEW_MUTATION = gql`
+  mutation SubmitReview($input: CreateReviewInput!) {
+    submitReview(input: $input) {
+      success
+      review {
+        id
+        stars
+        comment
+      }
+    }
+  }
+`
 
 // REQ106 — self-scoped via the JWT's own patient_id (see waitlist.service.ts's
 // own comment on myWaitlistEntries); never a client-supplied patient id.
@@ -93,6 +136,10 @@ function toCardShape(a) {
     // TBD"), not a zero.
     price: a.service?.price ?? null,
     status: a.status,
+    // P1-06 — explicit boolean coalesce, not truthiness: has_review is a
+    // real server-computed value, and BASE-3(d) treats `false` as
+    // meaningfully different from "field wasn't selected".
+    hasReview: a.has_review ?? false,
     initials: clinicianName
       .split(' ')
       .filter(Boolean)
@@ -107,7 +154,7 @@ function toCardShape(a) {
 // SUG-PTAPPT-005: Price null guard
 // SUG-PTAPPT-011 / SUG-PTDASH-011: Reschedule handler
 // SUG-PTAPPT-012: onViewDetails opens the detail drawer/dialog
-function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt, onReschedule, onViewDetails, highlighted }) {
+function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt, onReschedule, onViewDetails, onReview, highlighted }) {
   const isUpcoming = ['scheduled', 'confirmed'].includes(appt.status)
   const borderColor =
     appt.status === 'confirmed' ? '#2DC653' : appt.status === 'scheduled' ? '#006D77' : appt.status === 'cancelled' ? '#E63946' : '#D0E8EA'
@@ -193,6 +240,18 @@ function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt, onReschedule,
                 Receipt
               </Button>
             )}
+            {/* P1-06 — a submitted review has nothing left to do, so it's a
+                status chip, not a disabled button (UI-11 exists to prevent
+                a dead disabled button with no explanation; this isn't
+                that — there is genuinely no further action here). */}
+            {appt.status === 'completed' &&
+              (appt.hasReview ? (
+                <Chip icon={<StarIcon fontSize="small" />} label="Review submitted" size="small" color="success" variant="outlined" />
+              ) : (
+                <Button variant="outlined" size="small" startIcon={<StarBorderIcon />} onClick={() => onReview(appt)}>
+                  Leave a Review
+                </Button>
+              ))}
             {/* SUG-PTAPPT-011 / SUG-PTDASH-011: Reschedule button for upcoming appointments */}
             {isUpcoming && (
               <Button
@@ -266,7 +325,7 @@ export default function PatientAppointments() {
   // to their own patient_id from the JWT, so this returns only this patient's
   // records without the page passing an id (and without being able to ask for
   // anyone else's).
-  const { data, loading, error, refetch } = useQuery(APPOINTMENTS_QUERY, {
+  const { data, loading, error, refetch } = useQuery(MY_APPOINTMENTS_QUERY, {
     variables: { first: 100, page: 1 },
     fetchPolicy: 'cache-and-network',
   })
@@ -285,6 +344,12 @@ export default function PatientAppointments() {
 
   // SUG-PTAPPT-012: Appointment detail dialog state
   const [detailAppt, setDetailAppt] = useState(null)
+
+  // P1-06: review submission dialog state
+  const [reviewAppt, setReviewAppt] = useState(null)
+  const [reviewStars, setReviewStars] = useState(0)
+  const [reviewComment, setReviewComment] = useState('')
+  const [submitReview, { loading: submittingReview }] = useMutation(SUBMIT_REVIEW_MUTATION)
 
   // SUG-PTDASH-011: /patient/appointments?reschedule=:id opens the reschedule dialog for that appointment
   useEffect(() => {
@@ -310,6 +375,45 @@ export default function PatientAppointments() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  // P1-06: /patient/appointments?review=:id (the post-visit notification's
+  // own action_url) opens the review dialog for that appointment directly.
+  useEffect(() => {
+    const reviewId = searchParams.get('review')
+    if (reviewId) {
+      const target = appointments.find((a) => String(a.id) === String(reviewId))
+      if (target && !target.hasReview) {
+        setTab(1)
+        setReviewAppt(target)
+        setHighlightId(target.id)
+      }
+      setSearchParams(
+        (prev) => {
+          const p = new URLSearchParams(prev)
+          p.delete('review')
+          return p
+        },
+        { replace: true },
+      )
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleSubmitReview = async () => {
+    if (!reviewAppt || reviewStars < 1) return
+    try {
+      await submitReview({
+        variables: { input: { appointment_id: reviewAppt.id, stars: reviewStars, comment: reviewComment } },
+      })
+      enqueueSnackbar('Thanks for your feedback!', { variant: 'success' })
+      setReviewAppt(null)
+      setReviewStars(0)
+      setReviewComment('')
+      await refetch() // DATA-9 — has_review must reflect the just-submitted review
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Could not submit your review', { variant: 'error' })
+    }
+  }
 
   const upcoming = appointments.filter((a) => ['scheduled', 'confirmed'].includes(a.status))
   const past = appointments.filter((a) => ['completed', 'cancelled'].includes(a.status))
@@ -526,6 +630,7 @@ export default function PatientAppointments() {
                     setRescheduleTime(a.time)
                   }} // SUG-PTAPPT-011
                   onViewDetails={(a) => setDetailAppt(a)} // SUG-PTAPPT-012
+                  onReview={(a) => setReviewAppt(a)} // P1-06
                   highlighted={highlightId === appt.id}
                 />
               ))}
@@ -613,6 +718,75 @@ export default function PatientAppointments() {
             sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
           >
             Confirm Reschedule
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* P1-06 — Review Submission Dialog */}
+      <Dialog
+        open={Boolean(reviewAppt)}
+        onClose={() => {
+          setReviewAppt(null)
+          setReviewStars(0)
+          setReviewComment('')
+          setHighlightId(null)
+        }}
+        maxWidth="xs"
+        fullWidth
+        PaperProps={{ sx: { borderRadius: 3 } }}
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>How was your visit?</DialogTitle>
+        <DialogContent>
+          {reviewAppt && (
+            <>
+              <Typography variant="body2" color="text.secondary" gutterBottom>
+                {reviewAppt.doctor} · {reviewAppt.date}
+              </Typography>
+              <Stack alignItems="center" sx={{ my: 2 }}>
+                <Rating
+                  size="large"
+                  value={reviewStars}
+                  onChange={(_e, value) => setReviewStars(value || 0)}
+                  aria-label="Rate your visit out of 5 stars"
+                />
+              </Stack>
+              <TextField
+                fullWidth
+                multiline
+                minRows={3}
+                label="Tell us about your visit"
+                value={reviewComment}
+                onChange={(e) => setReviewComment(e.target.value)}
+                inputProps={{ maxLength: 1000 }}
+              />
+              {/* UI-11 — never a dead disabled button with no explanation */}
+              {(reviewStars < 1 || !reviewComment.trim()) && (
+                <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
+                  {reviewStars < 1 ? 'Select a star rating to continue.' : 'Add a few words about your visit to continue.'}
+                </Typography>
+              )}
+            </>
+          )}
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button
+            onClick={() => {
+              setReviewAppt(null)
+              setReviewStars(0)
+              setReviewComment('')
+              setHighlightId(null)
+            }}
+            sx={{ textTransform: 'none' }}
+          >
+            Cancel
+          </Button>
+          <Button
+            variant="contained"
+            disabled={reviewStars < 1 || !reviewComment.trim() || submittingReview}
+            onClick={handleSubmitReview}
+            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+          >
+            Submit Review
           </Button>
         </DialogActions>
       </Dialog>

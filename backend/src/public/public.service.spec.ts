@@ -344,3 +344,47 @@ describe('PublicService — idempotency key & slot hold (P1-05)', () => {
     });
   });
 });
+
+// P1-06 — getClinician() (the single-profile query backing
+// doctor-profile.jsx) never carried rating/reviews at all before this
+// slice, unlike its sibling getClinicians() listing query.
+describe('PublicService — getClinician rating (P1-06)', () => {
+  let service: PublicService;
+  let prisma: {
+    clinicians: { findUnique: jest.Mock };
+    reviews: { aggregate: jest.Mock };
+  };
+
+  const clinicianRow = {
+    id: 'cln-1', first_name: 'A', last_name: 'B', clinician_type: 'GP', bio: null, is_deleted: false,
+    clinic: null, clinicianLanguages: [], clinicianServices: [],
+  };
+
+  beforeEach(async () => {
+    prisma = {
+      clinicians: { findUnique: jest.fn().mockResolvedValue(clinicianRow) },
+      reviews: { aggregate: jest.fn().mockResolvedValue({ _avg: { stars: 4.2 }, _count: { stars: 7 } }) },
+    };
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        PublicService,
+        { provide: PrismaService, useValue: prisma },
+        { provide: SlotHoldsService, useValue: { holdSlot: jest.fn(), releaseSlot: jest.fn(), consumeIfOwned: jest.fn(), listHeldStartTimesForDay: jest.fn() } },
+      ],
+    }).compile();
+    service = module.get(PublicService);
+  });
+
+  it('includes the real rating/review count from the same aggregate the listing query uses', async () => {
+    const result = await service.getClinician('cln-1');
+    expect(result.rating).toBe(4.2);
+    expect(result.reviews).toBe(7);
+  });
+
+  it('a clinician with zero reviews gets {rating: undefined, reviews: 0}, not a crash', async () => {
+    prisma.reviews.aggregate.mockResolvedValue({ _avg: { stars: null }, _count: { stars: 0 } });
+    const result = await service.getClinician('cln-1');
+    expect(result.rating).toBeUndefined();
+    expect(result.reviews).toBe(0);
+  });
+});

@@ -17,6 +17,8 @@ const GET_CLINICIAN_AND_PRODUCTS_SHAPE = {
     id: DOCTOR_ID,
     name: 'Sarah Mitchell',
     clinicianType: 'General Physician',
+    rating: null,
+    reviews: 0,
     clinic: { id: 'clinic-1', name: 'MG Road Clinic' },
   },
   getClinicianAvailability: [
@@ -60,6 +62,8 @@ function buildMocks({ availability = GET_CLINICIAN_AND_PRODUCTS_SHAPE.getClinici
         id
         name
         clinicianType
+        rating
+        reviews
         clinic {
           id
           name

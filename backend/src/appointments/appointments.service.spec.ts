@@ -859,6 +859,42 @@ describe('AppointmentsService — access scoping', () => {
     });
   });
 
+  // P1-06 — the post-visit review nudge.
+  describe('transitionStatus — completed dispatches a new_review notification', () => {
+    it("notifies the patient's linked profile with new_review on an actual completion", async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      prisma.userProfiles.findFirst.mockResolvedValue({ id: 'user-profile-1' });
+      await service.complete('appt-1', staffUser);
+      expect(prisma.userProfiles.findFirst).toHaveBeenCalledWith({ where: { patient_id: 'pat-1', is_deleted: false } });
+      expect(notificationTrigger.dispatch).toHaveBeenCalledWith(
+        'user-profile-1',
+        'new_review',
+        expect.objectContaining({ action_url: expect.stringContaining('appt-1') }),
+      );
+    });
+
+    it('never fires on a transition other than completing (e.g. cancel)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      prisma.userProfiles.findFirst.mockResolvedValue({ id: 'user-profile-1' });
+      await service.cancel('appt-1', 'patient request', staffUser);
+      expect(notificationTrigger.dispatch).not.toHaveBeenCalledWith('user-profile-1', 'new_review', expect.anything());
+    });
+
+    it('never fires when the appointment was already completed (no-op re-transition)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...baseAppointmentRow, status: 'completed' });
+      prisma.userProfiles.findFirst.mockResolvedValue({ id: 'user-profile-1' });
+      await service.complete('appt-1', staffUser);
+      expect(notificationTrigger.dispatch).not.toHaveBeenCalledWith(expect.anything(), 'new_review', expect.anything());
+    });
+
+    it('is silently a no-op for a patient with no linked login account (unlinked, matches every other notify path)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(baseAppointmentRow);
+      prisma.userProfiles.findFirst.mockResolvedValue(null);
+      await expect(service.complete('appt-1', staffUser)).resolves.toBeDefined();
+      expect(notificationTrigger.dispatch).not.toHaveBeenCalled();
+    });
+  });
+
   // REQ106
   describe('transitionStatus — promotes the next waitlist entry on cancel/no_show', () => {
     it('calls waitlistService.promoteNext with the right clinician and UTC-midnight date on cancel', async () => {

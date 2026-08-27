@@ -2,6 +2,37 @@
 
 Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the question, why it's genuinely ambiguous (not just unimplemented), and current status.
 
+## 19. Patient reviews for named doctors are now live end-to-end — `SEC-13`'s counsel sign-off has not happened
+
+**Status:** Open, raised 2026-08-27 while building `P1-06` (server-side
+review submission — `REQ148`).
+
+`FRONTEND_RULES.md` `SEC-13` states plainly: "Patient reviews for named
+doctors carry advertising-regulation risk in India — get sign-off before
+shipping a review feature." This slice built the real thing: a patient
+can submit a star rating + free-text comment for a specific, named
+clinician after a completed visit, and it renders publicly on that
+clinician's profile (`doctor-profile.jsx`) and in the public booking
+wizard (`booking/index.jsx`) — no gate of any kind stands between
+submission and public display beyond the existing admin moderation tools
+(`respondToReview`/`deleteReview`, pre-existing, unchanged).
+
+This is not a technical ambiguity — the feature is fully built, tested
+(backend unit + integration, frontend unit + a11y), and works correctly.
+It is flagged here because `SEC-13` is explicit that this class of
+feature needs a legal/regulatory review specific to Indian medical-
+advertising rules (the same category of concern as `SEC-14`'s
+teleconsultation compliance gate) **before** it reaches real patients in
+production, and that review has not happened in this session — building
+it was the requested `P1-06` slice; getting counsel sign-off is a
+separate, human action this session cannot perform.
+
+**Decision needed from the user:** commission the regulatory review
+`SEC-13` calls for before this ships to real users, or confirm it's
+already been done/isn't required for this product's specific launch
+posture. Not blocking further engineering work — logged so it isn't
+silently forgotten before a real launch.
+
 ## 18. Retention-purge enforcement for `messages` — whose retention clock governs a shared, cross-participant thread?
 
 **Status:** Open, raised 2026-08-26 while scoping `REQ143` (picking up
@@ -418,6 +449,21 @@ counterpart anywhere in the schema and were dropped rather than faked:
 `ReviewFilterInput` plus a real join is the smallest of the three), or whether the detail page should stay
 without them — the current fix (drop them silently rather than fake them) is a safe default either way, not a
 placeholder waiting on this decision.
+
+**2026-08-27 note (P1-06):** `rating`/`reviews` are now real and wired —
+but on the *public/patient-self-serve* dialect only
+(`PublicService.getClinician()`/`getClinicians()`, backing
+`doctor-profile.jsx`/`booking/index.jsx`), reusing the existing
+`ratingFor()`/`ratingsFor()` aggregate helpers. This does **not** resolve
+this question: `pages/clinicians/detail.jsx` (the staff-facing admin/
+manager page this question is actually about) still uses the separate
+canonical dialect's `CLINICIAN_DETAIL_QUERY`, which still has no
+rating/review fields, and `ReviewFilterInput` still has no `clinician_id`
+filter. If the user does want this closed, the aggregate logic to reuse
+now exists in two places (`ratingFor()` for the public dialect,
+`ReviewsService.findAll()`'s own `clinician_id` scoping isn't quite the
+same shape) — wiring `ClinicianType.rating`/`reviews` would be a small,
+additive follow-up, not a re-derivation.
 
 ---
 

@@ -18,6 +18,7 @@ import {
   Alert,
   Divider,
   Skeleton,
+  Rating,
 } from '@mui/material'
 import { CalendarMonth, Videocam, LocationOn, VerifiedUser, LocalHospital, School, MedicalServices } from '@mui/icons-material'
 import { Timeline, TimelineItem, TimelineSeparator, TimelineConnector, TimelineContent, TimelineDot } from '@mui/lab'
@@ -36,6 +37,8 @@ const GET_CLINICIAN_PROFILE = gql`
       email
       clinicianType
       bio
+      rating
+      reviews
       clinic {
         id
         name
@@ -241,6 +244,17 @@ export default function DoctorProfile() {
                 Verified Practitioner
               </Typography>
             </Stack>
+            {/* P1-06 — this profile page never showed rating/reviews at all
+                before this slice (only the search-listing page did).
+                Absent, not a fake "0.0", when nobody has reviewed yet. */}
+            {clinician.reviews > 0 && (
+              <Stack direction="row" gap={1} mt={0.5} alignItems="center">
+                <Rating value={clinician.rating ?? 0} precision={0.1} readOnly size="small" aria-label={`Rated ${clinician.rating} out of 5 stars`} />
+                <Typography variant="body2" color="text.secondary">
+                  {clinician.rating?.toFixed(1)} ({clinician.reviews} review{clinician.reviews === 1 ? '' : 's'})
+                </Typography>
+              </Stack>
+            )}
             <Divider sx={{ my: 1.5 }} />
             <Stack direction="row" flexWrap="wrap" gap={0.75}>
               {clinician.languages?.map((lang, index) => (

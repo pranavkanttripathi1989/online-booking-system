@@ -111,6 +111,7 @@ export class PublicService {
       },
     });
     if (!c || c.is_deleted) throw new NotFoundException('Clinician not found');
+    const { rating, reviews } = await this.ratingFor(c.id);
     return {
       id: c.id,
       name: `${c.first_name} ${c.last_name}`,
@@ -126,6 +127,8 @@ export class PublicService {
         price: PAISE_TO_RUPEES(cs.product.price),
       })),
       education: [],
+      rating,
+      reviews,
     };
   }
 

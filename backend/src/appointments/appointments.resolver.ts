@@ -1,4 +1,4 @@
-import { Resolver, Query, Mutation, Subscription, Args, ID, Int } from '@nestjs/graphql';
+import { Resolver, Query, Mutation, Subscription, Args, ID, Int, ResolveField, Parent } from '@nestjs/graphql';
 import { Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { AppointmentsService, APPOINTMENT_UPDATED_EVENT } from './appointments.service';
@@ -10,13 +10,23 @@ import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { PUB_SUB } from '../common/pubsub.provider';
 import { Public } from '../common/decorators/public.decorator';
+import { ReviewsService } from '../reviews/reviews.service';
 
 @Resolver(() => AppointmentType)
 export class AppointmentsResolver {
   constructor(
     private readonly appointmentsService: AppointmentsService,
     @Inject(PUB_SUB) private readonly pubSub: PubSub,
+    private readonly reviewsService: ReviewsService,
   ) {}
+
+  // P1-06 — only computed when a query actually selects it (GraphQL's own
+  // resolve-field laziness); backs patient/Appointments.jsx's "Leave a
+  // Review" vs. "Review submitted" state without a separate round trip.
+  @ResolveField(() => Boolean)
+  has_review(@Parent() appointment: AppointmentType) {
+    return this.reviewsService.hasReviewForAppointment(appointment.id);
+  }
 
   // Matches graphql/subscriptions.js's APPOINTMENT_UPDATED_SUBSCRIPTION(clinician_id: ID)
   // exactly, consumed live by calendar/index.jsx's client.cache.modify patch.

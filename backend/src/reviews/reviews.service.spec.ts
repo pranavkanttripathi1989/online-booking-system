@@ -1,14 +1,18 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { BadRequestException, ConflictException, NotFoundException } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { ReviewsService } from './reviews.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { PatientsService } from '../patients/patients.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 describe('ReviewsService', () => {
   let service: ReviewsService;
   let prisma: {
-    reviews: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+    reviews: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock; create: jest.Mock };
+    appointments: { findUnique: jest.Mock };
   };
+  let patientsService: { ownAndDependantPatientIds: jest.Mock };
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const platformUser: JwtPayload = { sub: 'u2', roles: ['admin'], client_org_id: null, patient_id: null, clinician_id: null } as JwtPayload;
@@ -27,9 +31,19 @@ describe('ReviewsService', () => {
   const otherOrgReview = { ...scopedReview, id: 'rev-b1', clinic: { id: 'clinic-b', client_org_id: 'org-b' } };
 
   beforeEach(async () => {
-    prisma = { reviews: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() } };
+    prisma = {
+      reviews: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), create: jest.fn() },
+      appointments: { findUnique: jest.fn() },
+    };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [ReviewsService, { provide: PrismaService, useValue: prisma }],
+      providers: [
+        ReviewsService,
+        { provide: PrismaService, useValue: prisma },
+        // P1-06: create() self-scopes via ownAndDependantPatientIds() —
+        // defaults to allowing 'pat-1' (every new create() test below uses
+        // that id), exercised for real in patients.service.spec.ts.
+        { provide: PatientsService, useValue: (patientsService = { ownAndDependantPatientIds: jest.fn().mockResolvedValue(['pat-1']) }) },
+      ],
     }).compile();
     service = module.get(ReviewsService);
   });
@@ -143,6 +157,80 @@ describe('ReviewsService', () => {
       const result = await service.remove('rev-a1', orgAUser);
       expect(prisma.reviews.update).toHaveBeenCalledWith({ where: { id: 'rev-a1' }, data: { is_deleted: true } });
       expect(result).toEqual({ success: true });
+    });
+  });
+
+  // P1-06
+  describe('create — patient submission', () => {
+    const patientUser: JwtPayload = { sub: 'u-3', roles: ['patient'], client_org_id: 'org-a', patient_id: 'pat-1' } as JwtPayload;
+    const completedAppointment = {
+      id: 'appt-1', is_deleted: false, patient_id: 'pat-1', clinician_id: 'cln-1', clinic_id: 'clinic-a', status: 'completed',
+    };
+    const input = { appointment_id: 'appt-1', stars: 5, comment: 'Great visit' };
+
+    it('rejects when the appointment does not exist', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(null);
+      await expect(service.create(input as any, patientUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it("rejects a caller reviewing an appointment that isn't their own or a dependant's (Hard Rule 6)", async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...completedAppointment, patient_id: 'someone-elses-patient-id' });
+      await expect(service.create(input as any, patientUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it("allows a genuine dependant's completed appointment", async () => {
+      patientsService.ownAndDependantPatientIds.mockResolvedValue(['pat-1', 'pat-dependant']);
+      prisma.appointments.findUnique.mockResolvedValue({ ...completedAppointment, patient_id: 'pat-dependant' });
+      prisma.reviews.findUnique.mockResolvedValue(null);
+      prisma.reviews.create.mockResolvedValue({
+        id: 'rev-new', stars: 5, comment: 'Great visit', response: null, created_at: new Date(),
+        patient: { first_name: 'A', last_name: 'B' }, clinician: { first_name: 'Dr', last_name: 'Rao' },
+      });
+      await expect(service.create(input as any, patientUser)).resolves.toEqual(expect.objectContaining({ success: true }));
+    });
+
+    it('rejects a not-yet-completed appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ ...completedAppointment, status: 'scheduled' });
+      await expect(service.create(input as any, patientUser)).rejects.toThrow(BadRequestException);
+    });
+
+    it('rejects (pre-check) when a review already exists for this appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(completedAppointment);
+      prisma.reviews.findUnique.mockResolvedValue({ id: 'rev-existing' });
+      await expect(service.create(input as any, patientUser)).rejects.toThrow(ConflictException);
+      expect(prisma.reviews.create).not.toHaveBeenCalled();
+    });
+
+    it('maps a genuinely concurrent duplicate submission (P2002 past the pre-check) to the same clean conflict error', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(completedAppointment);
+      prisma.reviews.findUnique.mockResolvedValue(null);
+      prisma.reviews.create.mockRejectedValue(new Prisma.PrismaClientKnownRequestError('Unique constraint failed', { code: 'P2002', clientVersion: 'test' }));
+      await expect(service.create(input as any, patientUser)).rejects.toThrow(ConflictException);
+    });
+
+    it('derives clinician_id/clinic_id from the appointment, never from client input (Hard Rule 6)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(completedAppointment);
+      prisma.reviews.findUnique.mockResolvedValue(null);
+      prisma.reviews.create.mockResolvedValue({
+        id: 'rev-new', stars: 5, comment: 'Great visit', response: null, created_at: new Date(),
+        patient: { first_name: 'A', last_name: 'B' }, clinician: { first_name: 'Dr', last_name: 'Rao' },
+      });
+      await service.create({ ...input, clinician_id: 'attacker-supplied', clinic_id: 'attacker-supplied' } as any, patientUser);
+      expect(prisma.reviews.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ clinician_id: 'cln-1', clinic_id: 'clinic-a' }) }),
+      );
+    });
+  });
+
+  describe('hasReviewForAppointment', () => {
+    it('returns true when a review row exists, regardless of is_deleted', async () => {
+      prisma.reviews.findUnique.mockResolvedValue({ id: 'rev-1' });
+      await expect(service.hasReviewForAppointment('appt-1')).resolves.toBe(true);
+    });
+
+    it('returns false when none exists', async () => {
+      prisma.reviews.findUnique.mockResolvedValue(null);
+      await expect(service.hasReviewForAppointment('appt-1')).resolves.toBe(false);
     });
   });
 });

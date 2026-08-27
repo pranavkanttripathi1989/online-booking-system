@@ -1548,10 +1548,10 @@ model Reviews {
   clinician   Clinicians?  @relation(fields: [clinician_id], references: [id])
   clinic      Clinics?     @relation(fields: [clinic_id], references: [id])
 
+  @@unique([appointment_id]) // P1-06 — one review per appointment; supersedes the plain index this replaces
   @@index([clinic_id, is_deleted])
   @@index([clinician_id])
   @@index([patient_id])
-  @@index([appointment_id])
 }
 
 model MessageThreads {

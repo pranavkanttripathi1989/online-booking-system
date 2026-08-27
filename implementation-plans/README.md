@@ -21,6 +21,7 @@
 | test-coverage-audit | 4 | 4 | 0 | 0 | 8 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | communications-policies | 2 | 2 | 0 | 0 | 4 | 2026-08-21 | [communications-policies](./communications-policies/README.md) |
 | dashboard | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [dashboard](./dashboard/README.md) |
+| reviews | 0 | 1 | 0 | 0 | 1 | 2026-08-27 | [reviews](./reviews/README.md) |
 | notifications | 2 | 2 | 0 | 0 | 4 | 2026-08-27 | [notifications](./notifications/README.md) |
 | organization-branding | 1 | 3 | 0 | 0 | 4 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |

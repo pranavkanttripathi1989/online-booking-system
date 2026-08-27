@@ -26,6 +26,7 @@ import {
   FormControl,
   InputLabel,
   Divider,
+  Rating,
 } from '@mui/material'
 import { CheckCircle, RadioButtonChecked, RadioButtonUnchecked, Payment, LocalHospital, Videocam } from '@mui/icons-material'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
@@ -61,6 +62,8 @@ const GET_CLINICIAN_AND_PRODUCTS = gql`
       id
       name
       clinicianType
+      rating
+      reviews
       clinic {
         id
         name
@@ -829,6 +832,15 @@ export default function BookingWizard() {
             <Typography variant="body2" color="text.secondary">
               {clinician.clinicianType || 'Doctor'}
             </Typography>
+            {/* P1-06 — absent, not a fake "0.0", when nobody has reviewed yet */}
+            {clinician.reviews > 0 && (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.25 }}>
+                <Rating value={clinician.rating ?? 0} precision={0.1} readOnly size="small" aria-label={`Rated ${clinician.rating} out of 5 stars`} />
+                <Typography variant="caption" color="text.secondary">
+                  ({clinician.reviews})
+                </Typography>
+              </Box>
+            )}
           </Box>
         </Paper>
 

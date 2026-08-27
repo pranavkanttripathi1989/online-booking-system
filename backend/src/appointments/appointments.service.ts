@@ -706,6 +706,19 @@ export class AppointmentsService {
     if (status === 'cancelled' && appointment.status !== 'cancelled') {
       await this.notifyCancellation(result);
     }
+    // P1-06 — the post-visit review nudge. Reuses new_review, an event type
+    // already reserved and defaulted (notification-trigger.service.ts's own
+    // DEFAULTS + notification-preferences' DTO) specifically for this,
+    // deliberately left unwired until ReviewsService had a creation path to
+    // link to (see that file's own comment) -- this is that link.
+    if (status === 'completed' && appointment.status !== 'completed') {
+      await this.notifyLinkedProfile('patient_id', result.patient.id, 'new_review', {
+        title: 'How was your visit?',
+        message: `Tell us about your visit with ${result.clinician.full_name} — your feedback helps other patients choose the right doctor.`,
+        type: 'appointment',
+        action_url: `/patient/appointments?review=${id}`,
+      });
+    }
     // REQ106 — a cancelled/no_show appointment frees a slot on this
     // clinician's date; notify the earliest waiting waitlist entry (if
     // any) for it. Not inside the $transaction above — this is the same

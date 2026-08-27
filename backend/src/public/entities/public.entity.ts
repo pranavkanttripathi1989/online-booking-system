@@ -65,6 +65,12 @@ export class PublicClinicianType {
   @Field(() => [PublicLanguageType]) languages: PublicLanguageType[];
   @Field(() => [PublicProductType]) products: PublicProductType[];
   @Field(() => [PublicEducationType]) education: PublicEducationType[];
+  // P1-06 — this single-profile type never carried rating/reviews at all
+  // (only PublicClinicianSummaryType, the search-listing type, did), so the
+  // doctor-profile page has never been able to show either. Same
+  // ratingFor() helper the listing type already uses.
+  @Field(() => Float, { nullable: true }) rating?: number;
+  @Field(() => Int) reviews: number;
 }
 
 // public/landing.jsx's search/discovery result — comment in that file names

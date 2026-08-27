@@ -21,6 +21,7 @@ export type ActorName =
   | 'staffA'
   | 'patientA'
   | 'managerB'
+  | 'patientB'
   | 'patientNoOrg'
   | 'anonymous';
 
@@ -99,6 +100,16 @@ export function buildActors(): Record<ActorName, Actor> {
       'managerB',
       'manager (org B)',
       { sub: IDS.userManagerB, roles: ['manager'], client_org_id: IDS.orgB },
+      { org: IDS.orgB },
+    ),
+    // P1-06 — no seeded UserProfiles row exists for patient B (only patientA
+    // has one); the sub value never needs to resolve to a real row for
+    // anything this actor exercises (self-scoping reads patient_id straight
+    // from the JWT claim, matching every other patient-role check).
+    patientB: actor(
+      'patientB',
+      'patient (org B)',
+      { sub: '00000000-0000-4000-8000-000000000b09', roles: ['patient'], client_org_id: IDS.orgB, patient_id: IDS.patientB },
       { org: IDS.orgB },
     ),
     // The one that matters. Anyone on the public internet can mint this in one
