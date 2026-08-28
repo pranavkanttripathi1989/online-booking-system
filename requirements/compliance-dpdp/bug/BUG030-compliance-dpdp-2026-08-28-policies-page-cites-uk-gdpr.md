@@ -9,7 +9,7 @@ parent: null
 related: []
 ---
 
-# BUG030 — `/admin/policies` GDPR & Compliance tab cites UK law, not India's DPDP Act
+# BUG030 — GDPR (not DPDP) referenced in the admin Policies tab and the public login page
 
 ## Source
 
@@ -40,13 +40,22 @@ For an India-market healthcare product, this is not a copy-editing
 nicety — it is a live, admin-facing statement about which law the
 product claims to comply with, and it names the wrong one.
 
+**Same class, a second file, public-facing this time**:
+`frontend/src/pages/auth/login.jsx` line 657 — the login page's own
+marketing bullet list reads `'Secure and private — GDPR compliant'`,
+confirmed live on the real `/login` page every visitor sees before
+signing in, logged-out or not.
+
 ## Acceptance criteria
 
-- The tab's own compliance statement, retention-period description, and
-  named articles reference India's DPDP Act 2023 (matching the
-  terminology `/admin/rights-requests` already uses correctly), not UK
-  GDPR/the Data Protection Act 2018.
+- The Policies tab's own compliance statement, retention-period
+  description, and named articles reference India's DPDP Act 2023
+  (matching the terminology `/admin/rights-requests` already uses
+  correctly), not UK GDPR/the Data Protection Act 2018.
 - Any DPDP-specific right (e.g. erasure/correction) is cited by its real
   DPDP section, not a carried-over GDPR article number — needs a
   product/legal decision on the exact citation if not already settled
   elsewhere in this codebase's own DPDP work.
+- The login page's marketing bullet references DPDP compliance (or a
+  neutral "secure and private" claim with no specific wrong-jurisdiction
+  law named), not GDPR.

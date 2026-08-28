@@ -19,4 +19,7 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| BUG036 | bug | `/manager/clinics`: Rooms/Clinicians/Today's Bookings hardcoded to 0 | open | 2026-08-28 | 2026-08-28 | — | [BUG036-catalog-master-data-2026-08-28-manager-clinics-stats-stuck-at-zero.md](./bug/BUG036-catalog-master-data-2026-08-28-manager-clinics-stats-stuck-at-zero.md) |
+| BUG037 | bug | `/manager/rooms`: every real room renders "Room Room 3A", room type never resolves | open | 2026-08-28 | 2026-08-28 | — | [BUG037-catalog-master-data-2026-08-28-manager-rooms-double-room-prefix-and-null-type-name.md](./bug/BUG037-catalog-master-data-2026-08-28-manager-rooms-double-room-prefix-and-null-type-name.md) |
