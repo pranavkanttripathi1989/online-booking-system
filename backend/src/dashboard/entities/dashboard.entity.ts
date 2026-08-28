@@ -79,15 +79,17 @@ export class DashboardBookingsByServiceType {
 @ObjectType('Dashboard')
 export class DashboardType {
   @Field(() => Int) total_appointments_today: number;
-  @Field(() => Float) total_appointments_today_change: number;
+  // BUG042 -- nullable, same fix as BUG035's analytics.service.ts sibling:
+  // no real prior-period baseline means no real percent change to report.
+  @Field(() => Float, { nullable: true }) total_appointments_today_change?: number;
   @Field(() => Int) total_appointments_week: number;
   @Field(() => Int) total_appointments_month: number;
   @Field(() => Int) total_clinicians: number;
-  @Field(() => Float) total_clinicians_change: number;
+  @Field(() => Float, { nullable: true }) total_clinicians_change?: number;
   @Field(() => Int) total_patients: number;
-  @Field(() => Float) total_patients_change: number;
+  @Field(() => Float, { nullable: true }) total_patients_change?: number;
   @Field(() => Float) total_revenue_month: number;
-  @Field(() => Float) total_revenue_month_change: number;
+  @Field(() => Float, { nullable: true }) total_revenue_month_change?: number;
   @Field(() => Float) no_show_rate: number;
   @Field(() => [DashboardUpcomingAppointmentType]) upcoming_appointments: DashboardUpcomingAppointmentType[];
   @Field(() => [DashboardClinicianUtilisationType]) utilisation_by_clinician: DashboardClinicianUtilisationType[];

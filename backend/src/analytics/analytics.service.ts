@@ -81,8 +81,13 @@ export class AnalyticsService {
     return { total, revenue, activePatients, cancellationRate, completionRateProxy, bookedMinutes };
   }
 
-  private pctChange(current: number, previous: number) {
-    if (!previous) return current ? 100 : 0;
+  // BUG035 -- a prior period with no recorded activity (previous falsy) has
+  // no real percent change to report; this used to fabricate a flat 100 (or
+  // 0) regardless of current's real magnitude, so every KPI converged on the
+  // identical, misleading badge the moment historical data was thin. null
+  // means "nothing to compare against", not "unchanged" or "doubled".
+  private pctChange(current: number, previous: number): number | null {
+    if (!previous) return null;
     return ((current - previous) / previous) * 100;
   }
 

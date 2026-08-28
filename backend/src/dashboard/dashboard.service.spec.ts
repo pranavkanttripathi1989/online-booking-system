@@ -115,6 +115,17 @@ describe('DashboardService', () => {
       expect(result.total_revenue_month_change).toBeCloseTo(50, 5); // (750-500)/500 * 100
     });
 
+    it('reports a null trend, not a fabricated 100, when there is no prior-period revenue (BUG042)', async () => {
+      prisma.appointmentPayments.findMany
+        .mockResolvedValueOnce([{ amount: 50000 }]) // this month: ₹500
+        .mockResolvedValueOnce([]); // last month: nothing
+
+      const result = await service.getDashboard(tenantUser);
+
+      expect(result.total_revenue_month).toBe(500);
+      expect(result.total_revenue_month_change).toBeNull();
+    });
+
     it('computes no_show_rate as no_show / (completed + no_show), 0 when nothing in the window', async () => {
       prisma.appointments.findMany.mockImplementation((args: any) => {
         if (args.where?.status?.in?.includes('no_show')) {

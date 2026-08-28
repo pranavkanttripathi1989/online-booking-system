@@ -74,7 +74,10 @@ function Kpi({ label, value, sub, color, icon, loading }) {
   )
 }
 
-const pctLabel = (n) => `${n >= 0 ? '+' : ''}${Number(n ?? 0).toFixed(0)}% vs yesterday`
+// BUG042 -- null means "no prior-period baseline", not "0% change". Coercing
+// it to 0 would render a fabricated "unchanged" claim, the same defect class
+// as the flat-100% trend bug this null replaced.
+const pctLabel = (n) => (n == null ? '' : `${n >= 0 ? '+' : ''}${Number(n).toFixed(1)}% vs yesterday`)
 
 export default function StaffDashboard() {
   const navigate = useNavigate()
@@ -143,7 +146,7 @@ export default function StaffDashboard() {
             color="info.main"
             icon={<PersonIcon />}
             value={d?.total_patients ?? 0}
-            sub={d ? `${Number(d.total_patients_change ?? 0).toFixed(0)}% vs last month` : ''}
+            sub={d && d.total_patients_change != null ? `${Number(d.total_patients_change).toFixed(1)}% vs last month` : ''}
           />
         </Grid>
         <Grid item xs={6} md={3}>

@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| analytics-reporting-2026-08-28-flat-100-percent-trend-fix | analytics-reporting | 2026-08-28 | BUG035, BUG042, PLAN206, TP226, TR226 | done | [manifest.md](./analytics-reporting-2026-08-28-flat-100-percent-trend-fix/manifest.md) |
 | platform-nfr-2026-08-28-dpdp-percent-room-fixes | platform-nfr | 2026-08-28 | BUG030, BUG034, BUG037, PLAN205, TP225, TR225 | done | [manifest.md](./platform-nfr-2026-08-28-dpdp-percent-room-fixes/manifest.md) |
 | security-2026-08-28-page-scoped-stat-fixes | security | 2026-08-28 | BUG029, BUG036, BUG038, PLAN204, TP224, TR224 | done | [manifest.md](./security-2026-08-28-page-scoped-stat-fixes/manifest.md) |
 | frontend-platform-2026-08-28-route-guard-fixes | frontend-platform | 2026-08-28 | BUG039, BUG046, PLAN203, TP223, TR223 | done | [manifest.md](./frontend-platform-2026-08-28-route-guard-fixes/manifest.md) |

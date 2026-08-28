@@ -15,4 +15,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN206 | bug | Flat-100%-trend fix | done | 2026-08-28 | 2026-08-28 | — | [PLAN206-analytics-reporting-2026-08-28-flat-100-percent-trend-fix.md](./bug/PLAN206-analytics-reporting-2026-08-28-flat-100-percent-trend-fix.md) |

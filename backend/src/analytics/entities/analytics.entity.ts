@@ -1,12 +1,15 @@
 import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 
+// BUG035 -- nullable: a metric with no real prior-period baseline to compare
+// against has no meaningful percent change (0 -> 12 is not "100%", it's
+// undefined) and must not render one. null means "no trend to show", not 0.
 @ObjectType('AppointmentStatsTrends')
 export class AppointmentStatsTrendsType {
-  @Field(() => Float) totalAppointments: number;
-  @Field(() => Float) revenue: number;
-  @Field(() => Float) activePatients: number;
-  @Field(() => Float) utilization: number;
-  @Field(() => Float) cancellationRate: number;
+  @Field(() => Float, { nullable: true }) totalAppointments?: number;
+  @Field(() => Float, { nullable: true }) revenue?: number;
+  @Field(() => Float, { nullable: true }) activePatients?: number;
+  @Field(() => Float, { nullable: true }) utilization?: number;
+  @Field(() => Float, { nullable: true }) cancellationRate?: number;
 }
 
 @ObjectType('AppointmentTimeSeriesPoint')

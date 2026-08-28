@@ -21,7 +21,7 @@
 | telemedicine | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [telemedicine](./telemedicine/README.md) |
 | patient-portal | 1 | 2 | 1 | 2 | 2 | 2026-08-28 | [patient-portal](./patient-portal/README.md) |
 | messaging | 2 | 5 | 1 | 2 | 6 | 2026-08-28 | [messaging](./messaging/README.md) |
-| analytics-reporting | 1 | 1 | 2 | 2 | 2 | 2026-08-28 | [analytics-reporting](./analytics-reporting/README.md) |
+| analytics-reporting | 1 | 1 | 2 | 1 | 3 | 2026-08-28 | [analytics-reporting](./analytics-reporting/README.md) |
 | platform-integrations | 1 | 4 | 0 | 1 | 4 | 2026-08-26 | [platform-integrations](./platform-integrations/README.md) |
 | subscription-plan-engine | 1 | 1 | 1 | 1 | 2 | 2026-08-28 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [platform-billing](./platform-billing/README.md) |
@@ -31,7 +31,7 @@
 | patient-payments | 3 | 3 | 0 | 1 | 5 | 2026-08-26 | [patient-payments](./patient-payments/README.md) |
 | communications-policies | 1 | 2 | 0 | 0 | 3 | 2026-08-22 | [communications-policies](./communications-policies/README.md) |
 | test-coverage-audit | 1 | 4 | 0 | 0 | 5 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
-| dashboard | 1 | 0 | 1 | 1 | 1 | 2026-08-28 | [dashboard](./dashboard/README.md) |
+| dashboard | 1 | 0 | 1 | 0 | 2 | 2026-08-28 | [dashboard](./dashboard/README.md) |
 | reviews | 0 | 1 | 0 | 0 | 1 | 2026-08-27 | [reviews](./reviews/README.md) |
 | organization-branding | 1 | 3 | 0 | 0 | 4 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |

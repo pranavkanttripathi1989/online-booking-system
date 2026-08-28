@@ -15,4 +15,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP226 | bug | Flat-100%-trend fix verification | approved | 2026-08-28 | 2026-08-28 | PLAN206 | [TP226-analytics-reporting-2026-08-28-flat-100-percent-trend-fix.md](./bug/TP226-analytics-reporting-2026-08-28-flat-100-percent-trend-fix.md) |

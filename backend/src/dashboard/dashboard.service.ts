@@ -15,8 +15,12 @@ const startOfDay = (d: Date) => {
 
 const isoDate = (d: Date) => startOfDay(d).toISOString().slice(0, 10);
 
-const pctChange = (current: number, previous: number) => {
-  if (!previous) return current ? 100 : 0;
+// BUG042 -- same fix as analytics.service.ts's own pctChange (BUG035): a
+// prior period with no recorded activity has no real percent change to
+// report. null means "nothing to compare against", not a fabricated flat
+// 100/0 regardless of current's real magnitude.
+const pctChange = (current: number, previous: number): number | null => {
+  if (!previous) return null;
   return ((current - previous) / previous) * 100;
 };
 

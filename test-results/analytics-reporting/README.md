@@ -15,4 +15,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR226 | bug | Flat-100%-trend fix results | pass | 2026-08-28 | 2026-08-28 | TP226 | [TR226-analytics-reporting-2026-08-28-flat-100-percent-trend-fix.md](./bug/TR226-analytics-reporting-2026-08-28-flat-100-percent-trend-fix.md) |

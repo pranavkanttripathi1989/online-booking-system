@@ -10,7 +10,9 @@ import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
  *   value   {string|number} — Main metric value (e.g. "1,284" or "$142.5k")
  *   icon    {ReactElement}  — MUI Icon element (e.g. <EventNote />)
  *   color   {string}   — Accent hex color for icon background
- *   trend   {number}   — Optional: percentage change (positive = up, negative = down)
+ *   trend   {number}   — Optional: percentage change (positive = up, negative = down).
+ *                        null/undefined means "no prior-period baseline to compare
+ *                        against" (BUG035/BUG042) — renders no badge, not a fabricated 0%.
  *   subtitle {string}  — Optional: secondary line below value
  */
 export default function StitchKpiCard({ title, value, icon, color = '#006D77', trend, subtitle }) {
@@ -51,12 +53,13 @@ export default function StitchKpiCard({ title, value, icon, color = '#006D77', t
           {React.cloneElement(icon, { sx: { color, fontSize: 22 } })}
         </Box>
 
-        {/* Trend badge */}
-        {trend !== undefined && (
+        {/* Trend badge — BUG035/BUG042: null/undefined means no real baseline,
+            not a 0%/100% change to fabricate. */}
+        {trend !== undefined && trend !== null && (
           <Stack direction="row" alignItems="center" gap={0.3}>
             <TrendIcon sx={{ color: trendColor, fontSize: 14 }} />
             <Typography variant="caption" sx={{ color: trendColor, fontWeight: 700 }}>
-              {Math.abs(trend)}%
+              {Math.abs(trend).toFixed(1)}%
             </Typography>
           </Stack>
         )}

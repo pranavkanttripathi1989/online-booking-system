@@ -112,8 +112,10 @@ describe('AnalyticsService', () => {
       expect(stats.utilization).toBe(50); // 2 of 4 completed
       expect(stats.topClinicians).toHaveLength(2);
       expect(stats.revenueByClinic).toEqual([{ name: 'MG Road Clinic', revenue: 800 }]);
-      // no previous-period data => trend reported as a flat 100% increase from zero
-      expect(stats.trends.totalAppointments).toBe(100);
+      // BUG035 -- no previous-period data means no real percent change to
+      // report, not a fabricated flat 100. This test used to assert 100,
+      // pinning the bug in place.
+      expect(stats.trends.totalAppointments).toBeNull();
     });
 
     it('reports zeroed stats without dividing by zero when there are no appointments in range', async () => {
@@ -122,7 +124,8 @@ describe('AnalyticsService', () => {
       expect(stats.totalAppointments).toBe(0);
       expect(stats.cancellationRate).toBe(0);
       expect(stats.utilization).toBe(0);
-      expect(stats.trends.totalAppointments).toBe(0);
+      // BUG035 -- zero and zero: no baseline to compare against either.
+      expect(stats.trends.totalAppointments).toBeNull();
     });
 
     it('buckets timeSeriesData by day across the requested range', async () => {

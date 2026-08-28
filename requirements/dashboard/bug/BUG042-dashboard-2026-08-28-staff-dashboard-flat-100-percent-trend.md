@@ -4,10 +4,36 @@ type: bug
 feature: dashboard
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: [BUG035]
 ---
+
+## Resolution (2026-08-28, `PLAN206`)
+
+Fixed identically to `BUG035`: `dashboard.service.ts`'s own `pctChange`
+now returns `null` instead of a fabricated `100`/`0`; its 4
+`DashboardType` fields made nullable. **Not** extracted into one shared
+cross-service helper as this doc's own acceptance criteria suggested —
+the function is 3 lines, and adding a shared-module dependency between
+`analytics` and `dashboard` (provider injection, an extra export
+surface) for a one-line duplicate felt like more real cost than the
+duplication itself; both copies now carry a comment cross-referencing
+the other so a future fix to one doesn't miss its twin.
+
+Frontend: `staff/Dashboard.jsx`'s own `pctLabel` helper and its inline
+`total_patients_change` formatting both updated to render an empty
+string when the value is `null`, instead of coercing it to `0` and
+showing a fabricated "0% vs yesterday/last month".
+`dashboard/index.jsx`'s own `KpiCard` component needed **no** change —
+it was already written defensively (`trend != null`), just never
+actually received a real `null` before now.
+
+1 new backend test (`dashboard.service.spec.ts`, asserting `null` on no
+prior-period revenue). Live-verified as `admin@medibook.dev`:
+`/staff/dashboard`'s "Today's Appointments" and "Total Patients" cards
+now show no sub-label at all, not "+100% vs yesterday"/"100% vs last
+month". See `TR226`.
 
 # BUG042 — Staff/Admin Dashboard KPIs show a flat, misleading "100%" trend when the prior period has no data
 
