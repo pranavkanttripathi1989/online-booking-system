@@ -18,6 +18,7 @@ import {
   MenuItem,
   CircularProgress,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import EditIcon from '@mui/icons-material/Edit'
 import SaveIcon from '@mui/icons-material/Save'
 import CancelIcon from '@mui/icons-material/Cancel'
@@ -311,14 +312,14 @@ export default function PatientProfile() {
         {/* Left — avatar card */}
         <Grid item xs={12} md={3}>
           <Card sx={{ textAlign: 'center', p: 3 }}>
-            <Avatar sx={{ width: 80, height: 80, bgcolor: '#006D77', fontSize: '1.8rem', fontWeight: 800, mx: 'auto', mb: 2 }}>
+            <Avatar sx={{ width: 80, height: 80, bgcolor: 'primary.main', fontSize: '1.8rem', fontWeight: 800, mx: 'auto', mb: 2 }}>
               {initials}
             </Avatar>
             <Typography fontWeight={700}>{displayName}</Typography>
             <Typography variant="body2" color="text.secondary">
               {profile.email}
             </Typography>
-            <Chip label="Patient" sx={{ mt: 1, bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }} />
+            <Chip label="Patient" sx={{ mt: 1, bgcolor: (t) => alpha(t.palette.primary.main, 0.08), color: 'primary.main', fontWeight: 700 }} />
             <Divider sx={{ my: 2 }} />
             <Stack spacing={0.75} sx={{ textAlign: 'left' }}>
               {[
@@ -378,7 +379,7 @@ export default function PatientProfile() {
             <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2.5 }}>
-                  <MedicalServicesIcon sx={{ color: '#006D77', fontSize: 20 }} />
+                  <MedicalServicesIcon sx={{ color: 'primary.main', fontSize: 20 }} />
                   <Typography variant="h5" fontWeight={700}>
                     Medical Notes
                   </Typography>
@@ -405,7 +406,7 @@ export default function PatientProfile() {
             <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                  <NotificationsIcon sx={{ color: '#006D77', fontSize: 20 }} />
+                  <NotificationsIcon sx={{ color: 'primary.main', fontSize: 20 }} />
                   <Typography variant="h5" fontWeight={700}>
                     Notification Preferences
                   </Typography>

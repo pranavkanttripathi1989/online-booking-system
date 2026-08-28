@@ -21,13 +21,13 @@ import {
   Rating,
 } from '@mui/material'
 import { CalendarMonth, Videocam, LocationOn, VerifiedUser, LocalHospital, School, MedicalServices } from '@mui/icons-material'
+import { alpha } from '@mui/material/styles'
 import { Timeline, TimelineItem, TimelineSeparator, TimelineConnector, TimelineContent, TimelineDot } from '@mui/lab'
 import { DateCalendar } from '@mui/x-date-pickers/DateCalendar'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 import dayjs from 'dayjs'
 
-const BRAND = '#006D77'
 
 const GET_CLINICIAN_PROFILE = gql`
   query GetClinicianProfile($id: ID!) {
@@ -162,7 +162,8 @@ export default function DoctorProfile() {
   if (loading && !data?.getClinician) {
     return (
       <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
-        <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid #E2E8F0', mb: 3 }}>
+        <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid',
+        borderColor: 'divider', mb: 3 }}>
           <Stack direction="row" gap={3} alignItems="center">
             <Skeleton variant="circular" width={120} height={120} />
             <Box flex={1}>
@@ -208,7 +209,8 @@ export default function DoctorProfile() {
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
       {/* DOCTOR HEADER CARD — Stitch style */}
-      <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid #E2E8F0', mb: 3 }}>
+      <Paper elevation={0} sx={{ p: 4, borderRadius: 3, border: '1px solid',
+        borderColor: 'divider', mb: 3 }}>
         <Grid container spacing={3} alignItems="center">
           <Grid item xs={12} md="auto">
             <Box sx={{ position: 'relative', width: 120, height: 120 }}>
@@ -217,8 +219,8 @@ export default function DoctorProfile() {
                 sx={{
                   width: 120,
                   height: 120,
-                  border: `3px solid ${BRAND}`,
-                  boxShadow: `0 0 0 6px ${BRAND}18`,
+                  border: (t) => `3px solid ${t.palette.primary.main}`,
+                  boxShadow: (t) => `0 0 0 6px ${alpha(t.palette.primary.main, 0.09)}`,
                 }}
               />
             </Box>
@@ -230,17 +232,17 @@ export default function DoctorProfile() {
             <Chip
               label={clinician.clinicianType || 'Doctor'}
               size="small"
-              sx={{ bgcolor: `${BRAND}15`, color: BRAND, fontWeight: 700, fontSize: '0.75rem', height: 24, borderRadius: '6px', mt: 0.75 }}
+              sx={{ bgcolor: (t) => alpha(t.palette.primary.main, 0.08), color: 'primary.main', fontWeight: 700, fontSize: '0.75rem', height: 24, borderRadius: '6px', mt: 0.75 }}
             />
             <Stack direction="row" gap={1} mt={1.25} alignItems="center">
-              <LocationOn fontSize="small" sx={{ color: '#94A3B8' }} />
+              <LocationOn fontSize="small" sx={{ color: 'text.disabled' }} />
               <Typography variant="body2" color="text.secondary">
                 {clinician.clinic?.address || clinician.clinic?.name || 'Location'}
               </Typography>
             </Stack>
             <Stack direction="row" gap={1} mt={0.5} alignItems="center">
-              <VerifiedUser fontSize="small" sx={{ color: '#10B981' }} />
-              <Typography variant="body2" sx={{ color: '#10B981', fontWeight: 600 }}>
+              <VerifiedUser fontSize="small" sx={{ color: 'success.main' }} />
+              <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 600 }}>
                 Verified Practitioner
               </Typography>
             </Stack>
@@ -262,7 +264,7 @@ export default function DoctorProfile() {
                   key={index}
                   label={lang.name}
                   size="small"
-                  sx={{ bgcolor: '#F1F5F9', color: 'text.secondary', fontWeight: 600, fontSize: '0.7rem', height: 22, borderRadius: '6px' }}
+                  sx={{ bgcolor: 'action.hover', color: 'text.secondary', fontWeight: 600, fontSize: '0.7rem', height: 22, borderRadius: '6px' }}
                 />
               ))}
             </Stack>
@@ -273,8 +275,8 @@ export default function DoctorProfile() {
               size="large"
               startIcon={<CalendarMonth />}
               sx={{
-                bgcolor: BRAND,
-                '&:hover': { bgcolor: '#005B64' },
+                bgcolor: 'primary.main',
+                '&:hover': { bgcolor: 'primary.dark' },
                 borderRadius: 2,
                 fontWeight: 700,
                 mb: 1.5,
@@ -289,9 +291,9 @@ export default function DoctorProfile() {
               size="large"
               startIcon={<Videocam />}
               sx={{
-                borderColor: BRAND,
-                color: BRAND,
-                '&:hover': { bgcolor: `${BRAND}08` },
+                borderColor: 'primary.main',
+                color: 'primary.main',
+                '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.03) },
                 borderRadius: 2,
                 fontWeight: 600,
                 width: '100%',
@@ -306,11 +308,12 @@ export default function DoctorProfile() {
       <Grid container spacing={3}>
         <Grid item xs={12} md={7}>
           {/* About — Stitch section title pattern */}
-          <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, mb: 3 }}>
+          <Card elevation={0} sx={{ border: '1px solid',
+        borderColor: 'divider', borderRadius: 3, mb: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" alignItems="center" gap={1} mb={1.5}>
-                <MedicalServices sx={{ color: BRAND, fontSize: 18 }} />
-                <Typography variant="overline" fontWeight={800} color={BRAND} letterSpacing={1}>
+                <MedicalServices sx={{ color: 'primary.main', fontSize: 18 }} />
+                <Typography variant="overline" fontWeight={800} color="primary.main" letterSpacing={1}>
                   About
                 </Typography>
               </Stack>
@@ -321,11 +324,12 @@ export default function DoctorProfile() {
           </Card>
 
           {/* Services */}
-          <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, mb: 3 }}>
+          <Card elevation={0} sx={{ border: '1px solid',
+        borderColor: 'divider', borderRadius: 3, mb: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" alignItems="center" gap={1} mb={2}>
-                <LocalHospital sx={{ color: BRAND, fontSize: 18 }} />
-                <Typography variant="overline" fontWeight={800} color={BRAND} letterSpacing={1}>
+                <LocalHospital sx={{ color: 'primary.main', fontSize: 18 }} />
+                <Typography variant="overline" fontWeight={800} color="primary.main" letterSpacing={1}>
                   Services
                 </Typography>
               </Stack>
@@ -336,13 +340,13 @@ export default function DoctorProfile() {
                     label={product.name}
                     size="small"
                     sx={{
-                      bgcolor: `${BRAND}10`,
-                      color: BRAND,
+                      bgcolor: (t) => alpha(t.palette.primary.main, 0.06),
+                      color: 'primary.main',
                       fontWeight: 600,
                       fontSize: '0.75rem',
                       height: 26,
                       borderRadius: 1.5,
-                      border: `1px solid ${BRAND}30`,
+                      border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.19)}`,
                     }}
                   />
                 ))}
@@ -351,11 +355,12 @@ export default function DoctorProfile() {
           </Card>
 
           {/* Education */}
-          <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3 }}>
+          <Card elevation={0} sx={{ border: '1px solid',
+        borderColor: 'divider', borderRadius: 3 }}>
             <CardContent sx={{ p: 3 }}>
               <Stack direction="row" alignItems="center" gap={1} mb={2}>
-                <School sx={{ color: BRAND, fontSize: 18 }} />
-                <Typography variant="overline" fontWeight={800} color={BRAND} letterSpacing={1}>
+                <School sx={{ color: 'primary.main', fontSize: 18 }} />
+                <Typography variant="overline" fontWeight={800} color="primary.main" letterSpacing={1}>
                   Education & Experience
                 </Typography>
               </Stack>
@@ -427,10 +432,13 @@ export default function DoctorProfile() {
                             borderRadius: 1.5,
                             fontWeight: 600,
                             fontSize: '0.78rem',
-                            bgcolor: isSelected ? BRAND : 'transparent',
-                            borderColor: isSelected ? BRAND : '#E2E8F0',
-                            color: isSelected ? 'white' : 'text.primary',
-                            '&:hover': { bgcolor: isSelected ? '#005B64' : `${BRAND}08`, borderColor: BRAND },
+                            bgcolor: isSelected ? 'primary.main' : 'transparent',
+                            borderColor: isSelected ? 'primary.main' : 'divider',
+                            color: isSelected ? 'primary.contrastText' : 'text.primary',
+                            '&:hover': {
+                              bgcolor: isSelected ? 'primary.dark' : (t) => alpha(t.palette.primary.main, 0.03),
+                              borderColor: 'primary.main',
+                            },
                           }}
                         >
                           {slot}
@@ -446,14 +454,21 @@ export default function DoctorProfile() {
               </Box>
 
               {selectedSlot && (
-                <Box sx={{ bgcolor: `${BRAND}0A`, border: `1px solid ${BRAND}30`, borderRadius: 2, p: 2 }}>
-                  <Typography variant="body2" color={BRAND} gutterBottom fontWeight={600}>
+                <Box
+                  sx={{
+                    bgcolor: (t) => alpha(t.palette.primary.main, 0.04),
+                    border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.19)}`,
+                    borderRadius: 2,
+                    p: 2,
+                  }}
+                >
+                  <Typography variant="body2" color="primary.main" gutterBottom fontWeight={600}>
                     {selectedDate.format('DD/MM/YYYY')} at {selectedSlot} — {appointmentType === 'inperson' ? 'In-Person' : 'Video'}
                   </Typography>
                   <Button
                     variant="contained"
                     fullWidth
-                    sx={{ mt: 1, bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700, py: 1.25 }}
+                    sx={{ mt: 1, bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' }, borderRadius: 2, fontWeight: 700, py: 1.25 }}
                     onClick={navigateToBooking}
                   >
                     Continue to Book

@@ -31,6 +31,7 @@ import {
   InputAdornment,
   Alert,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import SearchIcon from '@mui/icons-material/Search'
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
@@ -142,7 +143,7 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
             sx={{
               width: 64,
               height: 64,
-              bgcolor: '#006D77',
+              bgcolor: 'primary.main',
               fontSize: '1.1rem',
               fontWeight: 800,
             }}
@@ -154,7 +155,7 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
               <Typography variant="h6" fontWeight={700} noWrap>
                 {doctor.name}
               </Typography>
-              {doctor.verified && <VerifiedIcon sx={{ fontSize: 16, color: '#3A86FF' }} />}
+              {doctor.verified && <VerifiedIcon sx={{ fontSize: 16, color: 'info.main' }} />}
             </Stack>
             <Stack direction="row" spacing={0.75} flexWrap="wrap" gap={0.5} sx={{ mt: 0.5 }}>
               <Chip label={doctor.specialty} size="small" color="primary" variant="outlined" />
@@ -163,7 +164,7 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
                   icon={<VideocamIcon sx={{ fontSize: 14 }} />}
                   label="Video"
                   size="small"
-                  sx={{ bgcolor: '#EDE9FE', color: '#7C3AED', fontWeight: 700 }}
+                  sx={{ bgcolor: (t) => alpha(t.palette.secondary.main, 0.14), color: 'secondary.dark', fontWeight: 700 }}
                 />
               )}
             </Stack>
@@ -181,14 +182,14 @@ function DoctorResultCard({ doctor, onViewProfile, onBook }) {
               precision={0.1}
               size="small"
               readOnly
-              icon={<StarIcon fontSize="inherit" sx={{ color: '#FFB703' }} />}
+              icon={<StarIcon fontSize="inherit" sx={{ color: 'warning.main' }} />}
               emptyIcon={<StarIcon fontSize="inherit" />}
             />
             <Typography variant="caption" color="text.secondary">
               {doctor.rating} ({doctor.reviews})
             </Typography>
           </Stack>
-          <Typography variant="h6" fontWeight={800} sx={{ color: '#006D77' }}>
+          <Typography variant="h6" fontWeight={800} sx={{ color: 'primary.main' }}>
             ₹{doctor.price}
           </Typography>
         </Stack>
@@ -264,6 +265,12 @@ export default function Landing() {
   return (
     <Box>
       {/* ═══════ HERO SECTION ═══════════════════════════════════════════════ */}
+      {/* BUG047 Phase 2 -- deliberate literal exception: a fixed marketing-hero
+          gradient, independent of the app's own light/dark mode, matching
+          login.jsx's BrandPanel and PublicLayout's footer convention. Content
+          rendered on top of it (white text, the specialty chip row) stays
+          literal for the same reason; the search Paper card and results below
+          it are real theme-aware surfaces and are tokenised. */}
       <Box
         sx={{
           background: 'linear-gradient(160deg, #004D55 0%, #006D77 50%, #0A9396 100%)',
@@ -297,7 +304,7 @@ export default function Landing() {
                       startAdornment: (
                         <>
                           <InputAdornment position="start">
-                            <LocalHospitalIcon sx={{ fontSize: 18, color: '#006D77' }} />
+                            <LocalHospitalIcon sx={{ fontSize: 18, color: 'primary.main' }} />
                           </InputAdornment>
                           {params.InputProps.startAdornment}
                         </>
@@ -316,7 +323,7 @@ export default function Landing() {
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <LocationOnIcon sx={{ fontSize: 18, color: '#006D77' }} />
+                      <LocationOnIcon sx={{ fontSize: 18, color: 'primary.main' }} />
                     </InputAdornment>
                   ),
                 }}
@@ -377,7 +384,7 @@ export default function Landing() {
               }}
             >
               <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 2 }}>
-                <TuneIcon sx={{ color: '#006D77', fontSize: 20 }} />
+                <TuneIcon sx={{ color: 'primary.main', fontSize: 20 }} />
                 <Typography variant="subtitle2" fontWeight={700}>
                   Filters
                 </Typography>
@@ -396,7 +403,7 @@ export default function Landing() {
                         checked={selectedTypes.includes(ct.name)}
                         onChange={() => toggleType(ct.name)}
                         size="small"
-                        sx={{ '&.Mui-checked': { color: '#006D77' } }}
+                        sx={{ '&.Mui-checked': { color: 'primary.main' } }}
                       />
                     }
                     label={<Typography variant="body2">{ct.name}</Typography>}
@@ -434,7 +441,7 @@ export default function Landing() {
                 step={5}
                 valueLabelDisplay="auto"
                 valueLabelFormat={(v) => `₹${v}`}
-                sx={{ color: '#006D77' }}
+                sx={{ color: 'primary.main' }}
               />
               <Stack direction="row" justifyContent="space-between">
                 <Typography variant="caption">₹{priceRange[0]}</Typography>
@@ -510,7 +517,7 @@ export default function Landing() {
 
             {!loading && !error && results.length === 0 && (
               <Paper sx={{ p: 6, textAlign: 'center', borderRadius: 3, mt: 2 }}>
-                <SearchIcon sx={{ fontSize: 48, color: '#D0E8EA', mb: 2 }} />
+                <SearchIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 2 }} />
                 <Typography variant="h5" fontWeight={700}>
                   No doctors match your criteria
                 </Typography>

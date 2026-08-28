@@ -26,6 +26,7 @@ import {
   Rating,
 } from '@mui/material'
 import { StatusChip, EmptyState, AppointmentsListSkeleton } from '../../components/shared'
+import { alpha, useTheme } from '@mui/material/styles'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
@@ -155,9 +156,16 @@ function toCardShape(a) {
 // SUG-PTAPPT-011 / SUG-PTDASH-011: Reschedule handler
 // SUG-PTAPPT-012: onViewDetails opens the detail drawer/dialog
 function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt, onReschedule, onViewDetails, onReview, highlighted }) {
+  const theme = useTheme()
   const isUpcoming = ['scheduled', 'confirmed'].includes(appt.status)
   const borderColor =
-    appt.status === 'confirmed' ? '#2DC653' : appt.status === 'scheduled' ? '#006D77' : appt.status === 'cancelled' ? '#E63946' : '#D0E8EA'
+    appt.status === 'confirmed'
+      ? theme.palette.success.main
+      : appt.status === 'scheduled'
+        ? theme.palette.primary.main
+        : appt.status === 'cancelled'
+          ? theme.palette.error.main
+          : theme.palette.divider
 
   return (
     <Paper
@@ -168,12 +176,14 @@ function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt, onReschedule,
         borderLeft: `4px solid ${borderColor}`,
         borderRadius: 2,
         cursor: 'pointer',
-        ...(highlighted ? { boxShadow: '0 0 0 2px #006D77', bgcolor: '#F0FBFB' } : {}),
+        ...(highlighted
+          ? { boxShadow: (t) => `0 0 0 2px ${t.palette.primary.main}`, bgcolor: (t) => alpha(t.palette.primary.main, 0.06) }
+          : {}),
       }}
     >
       <Grid container spacing={2} alignItems="center">
         <Grid item>
-          <Avatar sx={{ width: 44, height: 44, bgcolor: '#006D77', fontWeight: 800 }}>{appt.initials}</Avatar>
+          <Avatar sx={{ width: 44, height: 44, bgcolor: 'primary.main', fontWeight: 800 }}>{appt.initials}</Avatar>
         </Grid>
         <Grid item xs>
           <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ sm: 'center' }}>
@@ -188,7 +198,7 @@ function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt, onReschedule,
                 label={appt.type === 'video' ? 'Video' : appt.clinic}
                 size="small"
                 variant="outlined"
-                sx={{ mt: 0.25, color: appt.type === 'video' ? '#7C3AED' : undefined }}
+                sx={{ mt: 0.25, color: appt.type === 'video' ? 'secondary.dark' : undefined }}
               />
             </Box>
             <StatusChip status={appt.status} />
@@ -223,7 +233,7 @@ function AppointmentCard({ appt, onCancel, onJoinVideo, onReceipt, onReschedule,
                 size="small"
                 startIcon={<VideocamIcon />}
                 onClick={() => onJoinVideo(appt.id)}
-                sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' }, whiteSpace: 'nowrap' }}
+                sx={{ bgcolor: 'secondary.main', '&:hover': { bgcolor: 'secondary.dark' }, whiteSpace: 'nowrap' }}
               >
                 Join Call
               </Button>
@@ -806,7 +816,7 @@ export default function PatientAppointments() {
           {detailAppt && (
             <Stack spacing={1.5}>
               <Stack direction="row" spacing={1.5} alignItems="center">
-                <Avatar sx={{ bgcolor: '#006D77', fontWeight: 800 }}>{detailAppt.initials}</Avatar>
+                <Avatar sx={{ bgcolor: 'primary.main', fontWeight: 800 }}>{detailAppt.initials}</Avatar>
                 <Box>
                   <Typography fontWeight={700}>{detailAppt.doctor}</Typography>
                   <Typography variant="body2" color="text.secondary">

@@ -1220,7 +1220,7 @@ export default function BookingWizard() {
         {/* Right Sidebar - Sticky Summary */}
         <Grid item xs={12} md={4} sx={{ display: { xs: 'none', md: 'block' } }}>
           <Box position="sticky" top={100}>
-            <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'divider', borderRadius: 4, bgcolor: '#f8fafc' }}>
+            <Paper elevation={0} sx={{ p: 4, border: '1px solid', borderColor: 'divider', borderRadius: 4, bgcolor: 'background.default' }}>
               <Typography variant="h6" gutterBottom fontWeight={800}>
                 Booking Summary
               </Typography>

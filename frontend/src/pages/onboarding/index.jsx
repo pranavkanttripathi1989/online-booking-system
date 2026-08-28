@@ -32,6 +32,7 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import BusinessIcon from '@mui/icons-material/Business'
 
@@ -169,9 +170,9 @@ export default function OnboardingWizard() {
   }
 
   return (
-    <Box sx={{ py: { xs: 4, sm: 6 }, bgcolor: '#F0F7F8', minHeight: '100%' }}>
+    <Box sx={{ py: { xs: 4, sm: 6 }, bgcolor: 'background.default', minHeight: '100%' }}>
       <Container maxWidth="sm">
-        <Typography variant="h4" fontWeight={800} textAlign="center" sx={{ color: '#202124', mb: 0.5 }}>
+        <Typography variant="h4" fontWeight={800} textAlign="center" sx={{ color: 'text.primary', mb: 0.5 }}>
           Set up your practice on HealthSync
         </Typography>
         <Typography variant="body2" color="text.secondary" textAlign="center" sx={{ mb: 4 }}>
@@ -186,7 +187,7 @@ export default function OnboardingWizard() {
           ))}
         </Stepper>
 
-        <Paper sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 3, border: '1px solid #E8EAED' }}>
+        <Paper sx={{ p: { xs: 2.5, sm: 4 }, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
           {error && (
             <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
               {error}
@@ -251,7 +252,7 @@ export default function OnboardingWizard() {
                         sx={{
                           borderRadius: 2,
                           cursor: 'pointer',
-                          borderColor: selectedPlanId === plan.id ? '#006D77' : '#E8EAED',
+                          borderColor: selectedPlanId === plan.id ? 'primary.main' : 'divider',
                           borderWidth: selectedPlanId === plan.id ? 2 : 1,
                         }}
                       >
@@ -260,7 +261,7 @@ export default function OnboardingWizard() {
                           <Box sx={{ flex: 1 }}>
                             <Stack direction="row" justifyContent="space-between" alignItems="center">
                               <Typography fontWeight={700}>{plan.name}</Typography>
-                              <Typography fontWeight={800} sx={{ color: '#006D77' }}>
+                              <Typography fontWeight={800} sx={{ color: 'primary.main' }}>
                                 {formatINR(plan.priceMonthly)}
                                 {!!plan.priceMonthly && (
                                   <Typography component="span" variant="caption" color="text.secondary">
@@ -273,7 +274,7 @@ export default function OnboardingWizard() {
                               {plan.features.slice(0, 3).map((f) => (
                                 <ListItem key={f} disableGutters sx={{ py: 0.25 }}>
                                   <ListItemIcon sx={{ minWidth: 26 }}>
-                                    <CheckCircleIcon sx={{ fontSize: 16, color: '#2DC653' }} />
+                                    <CheckCircleIcon sx={{ fontSize: 16, color: 'success.main' }} />
                                   </ListItemIcon>
                                   <ListItemText primaryTypographyProps={{ variant: 'body2', color: 'text.secondary' }} primary={f} />
                                 </ListItem>
@@ -326,13 +327,13 @@ export default function OnboardingWizard() {
                   width: 64,
                   height: 64,
                   borderRadius: '50%',
-                  bgcolor: '#D1FAE5',
+                  bgcolor: (t) => alpha(t.palette.success.main, t.palette.mode === 'dark' ? 0.2 : 0.14),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <BusinessIcon sx={{ fontSize: 32, color: '#065F46' }} />
+                <BusinessIcon sx={{ fontSize: 32, color: (t) => (t.palette.mode === 'dark' ? t.palette.success.light : t.palette.success.dark) }} />
               </Box>
               <Typography variant="h6" fontWeight={700}>
                 You're all set, {orgDetails.ownerName}!

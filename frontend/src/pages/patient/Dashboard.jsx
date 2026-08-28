@@ -40,6 +40,7 @@ import {
 import dayjs from 'dayjs'
 import relativeTime from 'dayjs/plugin/relativeTime'
 import { useAuth } from '../../hooks/useAuth'
+import { useTheme } from '@mui/material/styles'
 
 // Initialize the plugin for relative time formatting
 dayjs.extend(relativeTime)
@@ -175,6 +176,7 @@ function getGreeting() {
 export default function PatientDashboard() {
   const { user } = useAuth()
   const navigate = useNavigate()
+  const theme = useTheme()
 
   // SUG-PTDASH-003: Cancel dialog state
   const [cancelId, setCancelId] = useState(null)
@@ -362,16 +364,16 @@ export default function PatientDashboard() {
 
       <Grid container spacing={2} mb={4}>
         <Grid item xs={6} sm={3}>
-          <DataCard title="Total Visits" value={kpis.total} icon={<CalendarMonth />} color="#3A86FF" />
+          <DataCard title="Total Visits" value={kpis.total} icon={<CalendarMonth />} color={theme.palette.info.main} />
         </Grid>
         <Grid item xs={6} sm={3}>
-          <DataCard title="Completed" value={kpis.completed} icon={<CheckCircle />} color="#2DC653" />
+          <DataCard title="Completed" value={kpis.completed} icon={<CheckCircle />} color={theme.palette.success.main} />
         </Grid>
         <Grid item xs={6} sm={3}>
-          <DataCard title="Upcoming" value={kpis.upcoming} icon={<AccessTime />} color="#006D77" />
+          <DataCard title="Upcoming" value={kpis.upcoming} icon={<AccessTime />} color={theme.palette.primary.main} />
         </Grid>
         <Grid item xs={6} sm={3}>
-          <DataCard title="Cancelled" value={kpis.cancelled} icon={<Cancel />} color="#E63946" />
+          <DataCard title="Cancelled" value={kpis.cancelled} icon={<Cancel />} color={theme.palette.error.main} />
         </Grid>
       </Grid>
 
@@ -399,7 +401,12 @@ export default function PatientDashboard() {
           ) : (
             upcomingAppointments.map((appt) => {
               const startDateTime = dayjs(appt.startTime)
-              const statusColor = appt.status === 'scheduled' ? '#006D77' : appt.status === 'completed' ? '#2DC653' : '#E63946'
+              const statusColor =
+                appt.status === 'scheduled'
+                  ? theme.palette.primary.main
+                  : appt.status === 'completed'
+                    ? theme.palette.success.main
+                    : theme.palette.error.main
 
               return (
                 <Card

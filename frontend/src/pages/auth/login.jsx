@@ -32,6 +32,7 @@ import {
   Chip,
 } from '@mui/material'
 import WarningAmberRoundedIcon from '@mui/icons-material/WarningAmberRounded'
+import { alpha, useTheme } from '@mui/material/styles'
 import { useMutation } from '@apollo/client'
 import { LOGIN_MUTATION, VERIFY_TOTP_LOGIN_MUTATION, REQUEST_OTP_MUTATION, VERIFY_OTP_MUTATION } from '../../graphql/mutations'
 import ShieldOutlinedIcon from '@mui/icons-material/ShieldOutlined'
@@ -112,12 +113,17 @@ function getPasswordStrength(pw) {
   ]
   const score = rules.filter((r) => r.met).length
   const strength = score === 0 ? '' : score <= 1 ? 'Weak' : score <= 2 ? 'Fair' : score === 3 ? 'Good' : 'Strong'
-  const color = { Weak: '#D93025', Fair: '#F9AB00', Good: '#1A73E8', Strong: '#0F9D58' }[strength] || '#E8EAED'
-  return { rules, score, strength, color }
+  return { rules, score, strength }
 }
 
+// BUG047 Phase 2 -- strength tone is a semantic theme colour, not hand-picked hex.
+const STRENGTH_TONE = { Weak: 'error', Fair: 'warning', Good: 'info', Strong: 'success' }
+
 function PasswordStrengthMeter({ password }) {
-  const { rules, score, strength, color } = getPasswordStrength(password)
+  const theme = useTheme()
+  const { rules, score, strength } = getPasswordStrength(password)
+  const tone = STRENGTH_TONE[strength]
+  const color = tone ? theme.palette[tone].main : theme.palette.divider
   if (!password) return null
   return (
     <Box mt={0.5}>
@@ -128,7 +134,7 @@ function PasswordStrengthMeter({ password }) {
           height: 4,
           borderRadius: 2,
           mb: 1,
-          bgcolor: '#E8EAED',
+          bgcolor: 'divider',
           '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 2, transition: 'all 0.3s' },
         }}
       />
@@ -136,11 +142,11 @@ function PasswordStrengthMeter({ password }) {
         {rules.map((r) => (
           <Stack key={r.key} direction="row" spacing={0.75} alignItems="center">
             {r.met ? (
-              <CheckCircleOutlineIcon sx={{ fontSize: '0.8rem', color: '#0F9D58', flexShrink: 0 }} />
+              <CheckCircleOutlineIcon sx={{ fontSize: '0.8rem', color: 'success.main', flexShrink: 0 }} />
             ) : (
-              <RadioButtonUncheckedIcon sx={{ fontSize: '0.8rem', color: '#DADCE0', flexShrink: 0 }} />
+              <RadioButtonUncheckedIcon sx={{ fontSize: '0.8rem', color: 'divider', flexShrink: 0 }} />
             )}
-            <Typography variant="caption" sx={{ color: r.met ? '#0F9D58' : '#9AA0A6', lineHeight: 1.4 }}>
+            <Typography variant="caption" sx={{ color: r.met ? 'success.main' : 'text.disabled', lineHeight: 1.4 }}>
               {r.label}
             </Typography>
           </Stack>
@@ -187,13 +193,13 @@ function OtpInputBoxes({ value, onChange, disabled }) {
           letterSpacing: '0.6em',
           fontFamily: 'monospace',
           py: 1.5,
-          color: '#006D77',
+          color: 'primary.main',
         },
         '& .MuiOutlinedInput-root': {
           borderRadius: 2,
           '& fieldset': { borderWidth: 2 },
-          '&.Mui-focused fieldset': { borderColor: '#006D77', boxShadow: '0 0 0 3px rgba(0,109,119,0.15)' },
-          bgcolor: value ? 'rgba(0,109,119,0.05)' : undefined,
+          '&.Mui-focused fieldset': { borderColor: 'primary.main', boxShadow: (t) => `0 0 0 3px ${alpha(t.palette.primary.main, 0.15)}` },
+          bgcolor: value ? (t) => alpha(t.palette.primary.main, 0.05) : undefined,
         },
       }}
     />
@@ -281,14 +287,14 @@ function OtpLoginMode({ onBack, rememberMe }) {
           component="button"
           type="button"
           onClick={onBack}
-          sx={{ color: '#006D77', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}
+          sx={{ color: 'primary.main', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}
         >
           ← Back to password
         </Link>
         <Chip
           label="Passwordless"
           size="small"
-          sx={{ bgcolor: 'rgba(0,109,119,0.10)', color: '#006D77', fontWeight: 700, fontSize: '0.65rem', height: 20 }}
+          sx={{ bgcolor: (t) => alpha(t.palette.primary.main, 0.10), color: 'primary.main', fontWeight: 700, fontSize: '0.65rem', height: 20 }}
         />
       </Box>
 
@@ -307,7 +313,7 @@ function OtpLoginMode({ onBack, rememberMe }) {
         <Alert
           severity="info"
           icon={false}
-          sx={{ bgcolor: 'rgba(0,109,119,0.06)', color: '#006D77', border: '1px solid rgba(0,109,119,0.20)', py: 0.5 }}
+          sx={{ bgcolor: (t) => alpha(t.palette.primary.main, 0.06), color: 'primary.main', border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.20)}`, py: 0.5 }}
         >
           🔑 {hint}
         </Alert>
@@ -438,14 +444,14 @@ function MobileSignupMode({ onBack }) {
   if (success) {
     return (
       <Box sx={{ textAlign: 'center', py: 3 }}>
-        <CheckCircleIcon sx={{ fontSize: 52, color: '#2DC653', mb: 1 }} />
+        <CheckCircleIcon sx={{ fontSize: 52, color: 'success.main', mb: 1 }} />
         <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>
           Mobile Account Ready!
         </Typography>
         <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
           Sign in anytime with your mobile number <strong>{phone}</strong> and an OTP.
         </Typography>
-        <Button variant="outlined" onClick={onBack} sx={{ color: '#006D77', borderColor: '#006D77' }}>
+        <Button variant="outlined" onClick={onBack} sx={{ color: 'primary.main', borderColor: 'primary.main' }}>
           Sign In Now
         </Button>
       </Box>
@@ -456,13 +462,13 @@ function MobileSignupMode({ onBack }) {
     <Stack spacing={2}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-        <Link component="button" type="button" onClick={onBack} sx={{ color: '#006D77', fontWeight: 600, fontSize: '0.8rem' }}>
+        <Link component="button" type="button" onClick={onBack} sx={{ color: 'primary.main', fontWeight: 600, fontSize: '0.8rem' }}>
           ← Back to email signup
         </Link>
         <Chip
           label="Mobile"
           size="small"
-          sx={{ bgcolor: 'rgba(0,109,119,0.10)', color: '#006D77', fontWeight: 700, fontSize: '0.65rem', height: 20 }}
+          sx={{ bgcolor: (t) => alpha(t.palette.primary.main, 0.10), color: 'primary.main', fontWeight: 700, fontSize: '0.65rem', height: 20 }}
         />
       </Box>
 
@@ -483,22 +489,22 @@ function MobileSignupMode({ onBack }) {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    bgcolor: done ? '#0F9D58' : active ? '#006D77' : '#E8EAED',
+                    bgcolor: done ? 'success.main' : active ? 'primary.main' : 'divider',
                     fontSize: '0.65rem',
                     fontWeight: 800,
-                    color: done || active ? '#fff' : '#9AA0A6',
+                    color: done || active ? 'common.white' : 'text.disabled',
                   }}
                 >
                   {done ? '✓' : i + 1}
                 </Box>
                 <Typography
                   variant="caption"
-                  sx={{ fontSize: '0.6rem', color: active ? '#006D77' : '#9AA0A6', fontWeight: active ? 700 : 400 }}
+                  sx={{ fontSize: '0.6rem', color: active ? 'primary.main' : 'text.disabled', fontWeight: active ? 700 : 400 }}
                 >
                   {label}
                 </Typography>
               </Box>
-              {i < 2 && <Box sx={{ flex: 1, height: 2, bgcolor: done ? '#0F9D58' : '#E8EAED', borderRadius: 1, mb: 2 }} />}
+              {i < 2 && <Box sx={{ flex: 1, height: 2, bgcolor: done ? 'success.main' : 'divider', borderRadius: 1, mb: 2 }} />}
             </React.Fragment>
           )
         })}
@@ -513,7 +519,7 @@ function MobileSignupMode({ onBack }) {
         <Alert
           severity="info"
           icon={false}
-          sx={{ bgcolor: 'rgba(0,109,119,0.06)', color: '#006D77', border: '1px solid rgba(0,109,119,0.20)', py: 0.5 }}
+          sx={{ bgcolor: (t) => alpha(t.palette.primary.main, 0.06), color: 'primary.main', border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.20)}`, py: 0.5 }}
         >
           🔑 {hint}
         </Alert>
@@ -612,6 +618,9 @@ function MobileSignupMode({ onBack }) {
 }
 
 // ─── Left brand panel ─────────────────────────────────────────────────────────
+// BUG047 Phase 2 -- deliberate literal exception: a marketing/brand showcase
+// panel with its own fixed teal gradient, independent of the app's own
+// light/dark mode -- the same convention as PublicLayout's marketing footer.
 function BrandPanel() {
   return (
     <Box
@@ -713,13 +722,13 @@ function TotpChallengeStep({ challengeToken, rememberMe, onBack }) {
             component="button"
             type="button"
             onClick={onBack}
-            sx={{ color: '#006D77', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}
+            sx={{ color: 'primary.main', fontWeight: 600, fontSize: '0.8rem', display: 'flex', alignItems: 'center', gap: 0.5 }}
           >
             ← Back to sign in
           </Link>
         </Box>
         <Stack direction="row" spacing={1} alignItems="center">
-          <ShieldOutlinedIcon sx={{ color: '#006D77' }} />
+          <ShieldOutlinedIcon sx={{ color: 'primary.main' }} />
           <Typography variant="subtitle1" fontWeight={700}>
             Two-factor authentication
           </Typography>
@@ -921,8 +930,8 @@ function SignInTab({ onForgot }) {
           />
           {capsLock && (
             <Stack direction="row" alignItems="center" spacing={0.5} mt={0.5}>
-              <WarningAmberRoundedIcon sx={{ fontSize: '0.9rem', color: '#F9AB00' }} />
-              <Typography variant="caption" sx={{ color: '#F9AB00', fontWeight: 600 }}>
+              <WarningAmberRoundedIcon sx={{ fontSize: '0.9rem', color: 'warning.main' }} />
+              <Typography variant="caption" sx={{ color: 'warning.main', fontWeight: 600 }}>
                 Caps Lock is on
               </Typography>
             </Stack>
@@ -938,17 +947,17 @@ function SignInTab({ onForgot }) {
                   size="small"
                   checked={rememberMe}
                   onChange={(e) => setRememberMe(e.target.checked)}
-                  sx={{ color: '#006D77', '&.Mui-checked': { color: '#006D77' } }}
+                  sx={{ color: 'primary.main', '&.Mui-checked': { color: 'primary.main' } }}
                 />
               }
               label={
-                <Typography variant="body2" sx={{ color: '#5F6368' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   Remember me
                 </Typography>
               }
             />
           </Tooltip>
-          <Link component="button" type="button" variant="body2" onClick={onForgot} sx={{ color: '#006D77', fontWeight: 600 }}>
+          <Link component="button" type="button" variant="body2" onClick={onForgot} sx={{ color: 'primary.main', fontWeight: 600 }}>
             Forgot password?
           </Link>
         </Box>
@@ -971,7 +980,7 @@ function SignInTab({ onForgot }) {
             type="button"
             onClick={() => setOtpMode(true)}
             variant="body2"
-            sx={{ color: '#006D77', fontWeight: 600, fontSize: '0.82rem' }}
+            sx={{ color: 'primary.main', fontWeight: 600, fontSize: '0.82rem' }}
           >
             Sign in with OTP instead →
           </Link>
@@ -1056,7 +1065,7 @@ function RegisterTab() {
   if (success) {
     return (
       <Box sx={{ textAlign: 'center', py: 3 }}>
-        <CheckCircleIcon sx={{ fontSize: 52, color: '#2DC653', mb: 1 }} />
+        <CheckCircleIcon sx={{ fontSize: 52, color: 'success.main', mb: 1 }} />
         <Typography variant="h5" fontWeight={700} sx={{ mb: 1 }}>
           Account Created!
         </Typography>
@@ -1188,18 +1197,18 @@ function RegisterTab() {
               size="small"
               checked={agreedTos}
               onChange={(e) => setAgreedTos(e.target.checked)}
-              sx={{ color: '#006D77', '&.Mui-checked': { color: '#006D77' } }}
+              sx={{ color: 'primary.main', '&.Mui-checked': { color: 'primary.main' } }}
               inputProps={{ 'aria-label': 'Agree to Terms and Conditions' }}
             />
           }
           label={
-            <Typography variant="body2" sx={{ color: '#5F6368' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               I agree to the{' '}
-              <Link href="#" target="_blank" rel="noopener" sx={{ color: '#006D77', fontWeight: 600 }}>
+              <Link href="#" target="_blank" rel="noopener" sx={{ color: 'primary.main', fontWeight: 600 }}>
                 Terms of Service
               </Link>{' '}
               and{' '}
-              <Link href="#" target="_blank" rel="noopener" sx={{ color: '#006D77', fontWeight: 600 }}>
+              <Link href="#" target="_blank" rel="noopener" sx={{ color: 'primary.main', fontWeight: 600 }}>
                 Privacy Policy
               </Link>
             </Typography>
@@ -1224,9 +1233,9 @@ function RegisterTab() {
           onClick={() => setMobileMode(true)}
           sx={{
             fontWeight: 600,
-            color: '#006D77',
-            borderColor: '#006D77',
-            '&:hover': { bgcolor: 'rgba(0,109,119,0.06)', borderColor: '#004D55' },
+            color: 'primary.main',
+            borderColor: 'primary.main',
+            '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.06), borderColor: 'primary.dark' },
           }}
         >
           Sign up with mobile number
@@ -1295,7 +1304,7 @@ function ForgotPasswordTab() {
 
     return (
       <Box sx={{ textAlign: 'center', py: 2 }}>
-        <CheckCircleIcon sx={{ fontSize: 48, color: '#2DC653', mb: 1 }} />
+        <CheckCircleIcon sx={{ fontSize: 48, color: 'success.main', mb: 1 }} />
         <Typography variant="h5" fontWeight={700}>
           Check your inbox
         </Typography>
@@ -1315,9 +1324,9 @@ function ForgotPasswordTab() {
             sx={{
               mt: 1.5,
               textTransform: 'none',
-              borderColor: '#006D77',
-              color: '#006D77',
-              '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' },
+              borderColor: 'primary.main',
+              color: 'primary.main',
+              '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.06) },
             }}
           >
             {providerLink.label}
@@ -1420,13 +1429,14 @@ export default function Login() {
           alignItems: 'center',
           justifyContent: 'center',
           p: { xs: 2, sm: 4, md: 6 },
-          bgcolor: '#F0F7F8',
+          bgcolor: 'background.default',
         }}
       >
         <Paper
           elevation={0}
           sx={{
-            border: '1px solid #D0E8EA',
+            border: '1px solid',
+            borderColor: 'divider',
             borderRadius: 3,
             p: { xs: 3, sm: 4 },
             width: '100%',
@@ -1452,13 +1462,13 @@ export default function Login() {
                   width: 36,
                   height: 36,
                   borderRadius: '50%',
-                  bgcolor: '#006D77',
+                  bgcolor: 'primary.main',
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <LocalHospitalIcon sx={{ color: '#fff', fontSize: 18 }} />
+                <LocalHospitalIcon sx={{ color: 'primary.contrastText', fontSize: 18 }} />
               </Box>
               <Typography variant="h5" fontWeight={800} sx={{ color: 'primary.main' }}>
                 HealthSync
@@ -1469,7 +1479,7 @@ export default function Login() {
             <Tabs
               value={activeTab}
               onChange={(_, v) => setActiveTab(v)}
-              sx={{ borderBottom: '1px solid #D0E8EA', mb: -1 }}
+              sx={{ borderBottom: '1px solid', borderColor: 'divider', mb: -1 }}
               aria-label="Authentication options"
             >
               <Tab label="Sign In" id="auth-tab-0" aria-controls="auth-panel-0" />

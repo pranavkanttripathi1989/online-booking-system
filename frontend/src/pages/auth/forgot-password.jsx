@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 import { Link as RouterLink } from 'react-router-dom'
 import { useMutation, gql } from '@apollo/client'
 import { Box, Button, TextField, Typography, Alert, CircularProgress } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { Helmet } from 'react-helmet-async'
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
 import EmailIcon from '@mui/icons-material/Email'
@@ -54,6 +55,8 @@ export default function ForgotPasswordPage() {
           justifyContent: 'center',
           alignItems: 'center',
           width: '50%',
+          // BUG047 Phase 2 -- deliberate literal exception: fixed brand-panel
+          // gradient, independent of app theme mode (same convention as login.jsx).
           background: 'linear-gradient(160deg, #003B42 0%, #006D77 55%, #0A9396 100%)',
           px: 6,
           py: 8,
@@ -89,14 +92,14 @@ export default function ForgotPasswordPage() {
           justifyContent: 'center',
           px: { xs: 2, sm: 4, md: 6 },
           py: 6,
-          bgcolor: '#F0F7F8',
+          bgcolor: 'background.default',
         }}
       >
         <Box sx={{ width: '100%', maxWidth: 400 }}>
           {/* Mobile logo */}
           <Box sx={{ display: { xs: 'flex', md: 'none' }, mb: 3, alignItems: 'center', gap: 1 }}>
-            <MedicalServicesIcon sx={{ color: '#006D77', fontSize: '1.6rem' }} />
-            <Typography variant="h5" fontWeight={800} sx={{ color: '#006D77' }}>
+            <MedicalServicesIcon sx={{ color: 'primary.main', fontSize: '1.6rem' }} />
+            <Typography variant="h5" fontWeight={800} sx={{ color: 'primary.main' }}>
               HealthSync
             </Typography>
           </Box>
@@ -147,7 +150,7 @@ export default function ForgotPasswordPage() {
                   width: 72,
                   height: 72,
                   borderRadius: '50%',
-                  bgcolor: '#D1FAE5',
+                  bgcolor: (t) => alpha(t.palette.success.main, t.palette.mode === 'dark' ? 0.2 : 0.14),
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -155,7 +158,7 @@ export default function ForgotPasswordPage() {
                   mb: 2.5,
                 }}
               >
-                <CheckCircleIcon sx={{ fontSize: 40, color: '#2DC653' }} />
+                <CheckCircleIcon sx={{ fontSize: 40, color: 'success.main' }} />
               </Box>
               <Typography variant="h3" fontWeight={800} sx={{ mb: 1 }}>
                 Check your inbox
@@ -171,7 +174,7 @@ export default function ForgotPasswordPage() {
                 <Box
                   component="span"
                   onClick={() => setSent(false)}
-                  sx={{ color: '#006D77', cursor: 'pointer', textDecoration: 'underline' }}
+                  sx={{ color: 'primary.main', cursor: 'pointer', textDecoration: 'underline' }}
                 >
                   try again
                 </Box>
