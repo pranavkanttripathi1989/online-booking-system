@@ -17,4 +17,4 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| BUG045 | bug | `/patient/dashboard`'s query targets nonexistent schema fields — guaranteed 400 | open | 2026-08-28 | 2026-08-28 | — | [BUG045-patient-portal-2026-08-28-patient-dashboard-guaranteed-invalid-query.md](./bug/BUG045-patient-portal-2026-08-28-patient-dashboard-guaranteed-invalid-query.md) |
+| BUG045 | bug | `/patient/dashboard`'s query targets nonexistent schema fields — guaranteed 400 | done | 2026-08-28 | 2026-08-28 | — | [BUG045-patient-portal-2026-08-28-patient-dashboard-guaranteed-invalid-query.md](./bug/BUG045-patient-portal-2026-08-28-patient-dashboard-guaranteed-invalid-query.md) |

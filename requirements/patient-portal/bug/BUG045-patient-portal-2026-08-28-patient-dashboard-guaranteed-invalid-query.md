@@ -4,10 +4,46 @@ type: bug
 feature: patient-portal
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN209`)
+
+Rebuilt `GET_PATIENT_DASHBOARD_DATA` onto the real, schema-valid
+`appointments(first: 100)` and `notifications(first: 5)` queries — the
+same self-scoped `appointments()` primitive `clinician/Dashboard.jsx`
+uses since `BUG021`, confirmed to also self-scope a `'patient'`-role
+caller to their own `patient_id` (`appointments.service.ts` line 242).
+
+The real response is mapped into the internal shape the page's own
+extensive render code already expected (`startTime`/`duration`/
+`clinician.name`/`clinicianType`), so no JSX changed — only the query
+and the data-shaping above it. No dedicated backend KPI aggregate
+exists for this caller; `total`/`completed`/`cancelled`/`upcoming` are
+derived client-side from the same real list, matching
+`staff/Dashboard.jsx`'s own precedent for a KPI it also has no backend
+aggregate for. The "Upcoming Appointments" preview is further filtered
+to genuinely future, non-cancelled appointments, sorted soonest-first,
+capped to 5 — the KPI's own "Upcoming" count is taken from the full
+list, not the capped preview, so it reads as a real total.
+
+Mock fallback (`MOCK_UPCOMING`/`MOCK_NOTIFICATIONS`/`MOCK_KPIS`) is
+retained, now correctly gated on `realAppointments == null` (a genuine
+query error) rather than firing on every request as before.
+
+Live-verified as `patient@medibook.dev`: the "Could not load live
+dashboard data" banner and every fabricated "Dr. Sarah Johnson"/"Dr.
+Marcus Osei" mock entry are gone. The page now shows the real, honest,
+self-scoped empty state (0 Total Visits/Completed/Upcoming/Cancelled,
+"You have no upcoming appointments", "No recent doctors found") — this
+demo account has `patient_id: null` (documented, pre-existing, unlinked
+state), so an empty result is the correct real answer, not a bug.
+Confirmed via the network tab: every request on this page now returns
+200 with no `GRAPHQL_VALIDATION_FAILED` errors, where before every
+single request failed with exactly the three errors this bug
+originally captured. See `TR229`.
 
 # BUG045 — `/patient/dashboard`'s own data query targets fields that don't exist on the schema — guaranteed 400 on every request, masked by a mock fallback
 

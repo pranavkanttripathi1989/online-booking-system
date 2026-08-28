@@ -19,7 +19,7 @@
 | abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |
 | compliance-dpdp | 1 | 3 | 1 | 1 | 4 | 2026-08-28 | [compliance-dpdp](./compliance-dpdp/README.md) |
 | telemedicine | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [telemedicine](./telemedicine/README.md) |
-| patient-portal | 1 | 2 | 1 | 2 | 2 | 2026-08-28 | [patient-portal](./patient-portal/README.md) |
+| patient-portal | 1 | 2 | 1 | 1 | 3 | 2026-08-28 | [patient-portal](./patient-portal/README.md) |
 | messaging | 2 | 5 | 1 | 1 | 7 | 2026-08-28 | [messaging](./messaging/README.md) |
 | analytics-reporting | 1 | 1 | 2 | 1 | 3 | 2026-08-28 | [analytics-reporting](./analytics-reporting/README.md) |
 | platform-integrations | 1 | 4 | 0 | 1 | 4 | 2026-08-26 | [platform-integrations](./platform-integrations/README.md) |

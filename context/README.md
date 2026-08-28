@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| patient-portal-2026-08-28-dashboard-fix | patient-portal | 2026-08-28 | BUG045, PLAN209, TP229, TR229 | done | [manifest.md](./patient-portal-2026-08-28-dashboard-fix/manifest.md) |
 | frontend-platform-2026-08-28-messages-badge-patients-mock-fix | frontend-platform | 2026-08-28 | BUG041, BUG043, PLAN208, TP228, TR228 | done | [manifest.md](./frontend-platform-2026-08-28-messages-badge-patients-mock-fix/manifest.md) |
 | platform-nfr-2026-08-28-a11y-plans-permission-fix | platform-nfr | 2026-08-28 | BUG031, BUG033, PLAN207, TP227, TR227 | done | [manifest.md](./platform-nfr-2026-08-28-a11y-plans-permission-fix/manifest.md) |
 | analytics-reporting-2026-08-28-flat-100-percent-trend-fix | analytics-reporting | 2026-08-28 | BUG035, BUG042, PLAN206, TP226, TR226 | done | [manifest.md](./analytics-reporting-2026-08-28-flat-100-percent-trend-fix/manifest.md) |

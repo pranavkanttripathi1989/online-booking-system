@@ -13,4 +13,6 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN209 | bug | Patient dashboard invalid-query fix | done | 2026-08-28 | 2026-08-28 | — | [PLAN209-patient-portal-2026-08-28-patient-dashboard-invalid-query-fix.md](./bug/PLAN209-patient-portal-2026-08-28-patient-dashboard-invalid-query-fix.md) |

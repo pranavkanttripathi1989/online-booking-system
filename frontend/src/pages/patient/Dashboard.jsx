@@ -46,33 +46,44 @@ dayjs.extend(relativeTime)
 
 // --- GraphQL Queries ---
 
+// BUG045 -- this query used to target getPatientAppointments/getNotifications/
+// getPatientKpis, none of which exist on the schema -- a guaranteed
+// GRAPHQL_VALIDATION_FAILED 400 on every request, masked by a mock fallback.
+// Rebuilt onto the real, already-authenticated appointments(...) query
+// (self-scoped to the caller's own patient_id server-side, the same
+// primitive clinician/Dashboard.jsx uses since BUG021) and the real
+// notifications(...) query (confirmed live returning real data for this
+// caller). No dedicated KPI aggregate exists on the backend for this caller
+// shape -- total/completed/upcoming/cancelled are derived client-side from
+// the same appointments list, matching staff/Dashboard.jsx's own precedent
+// for a KPI it also has no backend aggregate for.
 const GET_PATIENT_DASHBOARD_DATA = gql`
-  query GetPatientDashboardData($userId: ID!) {
-    getPatientAppointments(patientId: $userId, status: "scheduled") {
-      id
-      startTime
-      endTime
-      status
-      type
-      duration
-      clinician {
+  query GetPatientDashboardData {
+    appointments(first: 100) {
+      data {
         id
-        name
-        clinicianType
+        start_datetime
+        end_datetime
+        duration_minutes
+        status
+        type
+        clinician {
+          id
+          full_name
+          clinician_type {
+            name
+          }
+        }
       }
     }
-    getNotifications(userId: $userId, limit: 5) {
-      id
-      title
-      message
-      type
-      createdAt
-    }
-    getPatientKpis(patientId: $userId) {
-      total
-      completed
-      upcoming
-      cancelled
+    notifications(first: 5) {
+      data {
+        id
+        title
+        message
+        type
+        created_at
+      }
     }
   }
 `
@@ -171,17 +182,67 @@ export default function PatientDashboard() {
   const [cancelledIds, setCancelledIds] = useState(() => new Set())
 
   const { data, loading, error } = useQuery(GET_PATIENT_DASHBOARD_DATA, {
-    variables: { userId: user?.id },
     skip: !user?.id,
   })
 
   if (!user) return <Alert severity="warning">Please log in to view your dashboard.</Alert>
 
-  // SUG-PTDASH-004: Mock fallbacks when backend offline
+  // BUG045 -- maps the real appointments()/notifications() shape into the
+  // internal shape this page's own render code already expects
+  // (startTime/duration/clinician.name/clinicianType), so the extensive
+  // JSX below needed no further changes. Falls back to mock only when the
+  // real field is genuinely absent (a real error) -- a real empty array is
+  // left as an empty array, never treated as "no data".
+  const realAppointments = data?.appointments?.data
+  const realNotifications = data?.notifications?.data
+  const isMockAppointments = realAppointments == null
+
+  const allAppointments = isMockAppointments
+    ? MOCK_UPCOMING
+    : realAppointments.map((a) => ({
+        id: a.id,
+        startTime: a.start_datetime,
+        endTime: a.end_datetime,
+        status: a.status,
+        type: a.type,
+        duration: a.duration_minutes,
+        clinician: a.clinician
+          ? { id: a.clinician.id, name: a.clinician.full_name, clinicianType: a.clinician.clinician_type?.name }
+          : null,
+      }))
+
+  // The "Upcoming Appointments" preview: genuinely in the future, not
+  // cancelled, soonest first, capped to a short preview (the mock's own
+  // shape already implied "a few", not "every appointment ever booked").
+  // Mock data has no real dates to filter against, so it's shown as-is.
+  const upcomingAppointmentsSource = isMockAppointments
+    ? allAppointments
+    : allAppointments
+        .filter((a) => a.status !== 'cancelled' && a.status !== 'completed' && dayjs(a.startTime).isAfter(dayjs()))
+        .sort((a, b) => dayjs(a.startTime).diff(dayjs(b.startTime)))
+        .slice(0, 5)
   // SUG-PTDASH-012: filter out optimistically-cancelled appointments
-  const upcomingAppointments = (data?.getPatientAppointments || MOCK_UPCOMING).filter((a) => !cancelledIds.has(a.id))
-  const notifications = data?.getNotifications || MOCK_NOTIFICATIONS
-  const kpis = data?.getPatientKpis || { ...MOCK_KPIS, upcoming: upcomingAppointments.length }
+  const upcomingAppointments = upcomingAppointmentsSource.filter((a) => !cancelledIds.has(a.id))
+
+  const notifications =
+    realNotifications == null
+      ? MOCK_NOTIFICATIONS
+      : realNotifications.map((n) => ({ id: n.id, title: n.title, message: n.message, type: n.type, createdAt: n.created_at }))
+
+  // No backend KPI aggregate exists for this caller shape -- derived
+  // client-side from the same real list, matching staff/Dashboard.jsx's own
+  // precedent for a KPI it also has no backend aggregate for. Counted from
+  // the full list, not the capped preview, so "Upcoming" reads as a real
+  // total rather than however many happen to fit in the preview.
+  const kpis = isMockAppointments
+    ? { ...MOCK_KPIS, upcoming: upcomingAppointments.length }
+    : {
+        total: allAppointments.length,
+        completed: allAppointments.filter((a) => a.status === 'completed').length,
+        cancelled: allAppointments.filter((a) => a.status === 'cancelled').length,
+        upcoming: allAppointments.filter((a) => a.status !== 'cancelled' && a.status !== 'completed' && dayjs(a.startTime).isAfter(dayjs()))
+          .length,
+      }
 
   // Guard: safe clinician extraction (E1: null clinician.id)
   const uniqueClinicians = Array.from(

@@ -13,4 +13,6 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR229 | bug | Patient dashboard invalid-query fix results | pass | 2026-08-28 | 2026-08-28 | TP229 | [TR229-patient-portal-2026-08-28-patient-dashboard-invalid-query-fix.md](./bug/TR229-patient-portal-2026-08-28-patient-dashboard-invalid-query-fix.md) |
