@@ -14,5 +14,7 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR231 | bug | "Clinic" and "Appearance" tabs — real wiring results | pass | 2026-08-28 | 2026-08-29 | TP231 | [TR231-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md](./bug/TR231-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md) |
 

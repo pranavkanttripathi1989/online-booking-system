@@ -14,5 +14,5 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| BUG044 | bug | "Clinic" and "Appearance" settings tabs are fabricated; Save persists nothing | open | 2026-08-28 | 2026-08-28 | — | [BUG044-settings-2026-08-28-clinic-tab-entirely-fabricated-no-real-wiring.md](./bug/BUG044-settings-2026-08-28-clinic-tab-entirely-fabricated-no-real-wiring.md) |
+| BUG044 | bug | "Clinic" and "Appearance" settings tabs are fabricated; Save persists nothing | done | 2026-08-28 | 2026-08-29 | — | [BUG044-settings-2026-08-28-clinic-tab-entirely-fabricated-no-real-wiring.md](./bug/BUG044-settings-2026-08-28-clinic-tab-entirely-fabricated-no-real-wiring.md) |
 

@@ -3,10 +3,10 @@ id: BUG044
 type: bug
 feature: settings
 created: 2026-08-28
-updated: 2026-08-28
-status: open
+updated: 2026-08-29
+status: done
 parent: null
-related: []
+related: [PLAN211, TP231, TR231]
 ---
 
 # BUG044 — Settings' "Clinic" tab is 100% fabricated: hardcoded US/USD placeholder data, and "Save" does nothing real
@@ -107,3 +107,12 @@ never finished.
 - The "Clinic" (and any other org-admin-scoped) tab is gated to the
   roles that actually manage clinic-level settings — not shown at all
   to `'patient'` or `'clinician'` accounts.
+
+## Resolution
+
+See `PLAN211`/`TP231`/`TR231`. Both tabs now real; the "Clinic" `<Tab>`
+itself is now conditionally rendered, not just its content. Verifying the
+Appearance fix live surfaced a second, larger, pre-existing bug (the
+Theme radio's toggle did nothing anywhere in the app) — filed and fixed
+separately as `BUG047`, since it turned out to be an app-wide theme-
+architecture problem, not scoped to this page.

@@ -18,9 +18,20 @@ metadata:
 ## 1. A real theme already exists — the problem is that most files ignore it
 
 This is important framing: this is **not** "the project has no design system".
-`frontend/src/theme/theme.js` defines a named `COLORS` palette wired into
-`primary` / `secondary` / `success` / `warning` / `error` / `text`, plus a
-complete `h1`–`overline` typography scale.
+`frontend/src/theme/index.js` exports `createAppTheme(mode)` — the single
+theme factory, producing both the light and dark palettes, wired into `main.jsx`
+via `context/ThemeContext.jsx`'s `ThemeModeProvider`. It defines `primary` /
+`secondary` / `success` / `warning` / `error` / `text`, plus a complete
+`h1`–`overline` typography scale, for both modes.
+
+**Until 2026-08-29 there were three competing theme files** — the one now
+described above, a second unused Google-blue palette (`theme/theme.js`, now
+deleted), and a third, fully-built light/dark `ThemeModeProvider` that was
+never actually connected to the app root, so its own header toggle button
+visibly flipped state and changed nothing. All three are now one file and one
+provider. If you ever find yourself about to write a second `createTheme(...)`
+call anywhere outside `theme/index.js`, stop — that is exactly how this
+happened the first time.
 
 Measured reality: **87 of 122 files in `pages/` + `components/` write hex
 literals anyway.** `#006D77` appears **264 times**. `#1A73E8` 101 times,
@@ -85,12 +96,51 @@ variant rather than inventing a `fontSize`.
 
 Any `fontSize` below `0.875rem` needs a comment justifying it.
 
-## 5. Dark mode
+## 5. Dark mode — real and app-wide as of 2026-08-29
 
-`ThemeContext.jsx` drives a light/dark toggle. A hardcoded hex is invisible to
-it — a literal `#202124` text colour stays near-black on a dark background.
-This is a second, independent reason tokens matter: **every hex literal is also
-a dark-mode bug.** Verify both modes on any screen you touch.
+`context/ThemeContext.jsx`'s `ThemeModeProvider` drives a real light/dark/system
+toggle, read via `useThemeMode()` and wired at the app root in `main.jsx`. Every
+toggle in the app (the `AppShell` header button, Settings → Appearance's Theme
+radio group) reads and writes this **one** shared context — never local
+`useState` — see FRONTEND_RULES.md UI-8 for why that specific mistake shipped
+once already.
+
+A hardcoded hex is invisible to it in **both** directions, and both matter
+equally — this was under-stated before and is worth repeating: **background
+literals AND text-colour literals are the same bug.** A literal
+`bgcolor: '#FFFFFF'` renders as a stray white card on a dark screen; a literal
+`color: '#202124'` renders as near-invisible dark text once its container
+correctly goes dark, even if the container's own background did switch. Fixing
+only one of the pair still looks broken — always convert both together:
+
+```jsx
+// Wrong — the card will flip to a dark background but the text won't,
+// or vice versa; check both on any component you touch
+<Card sx={{ bgcolor: '#FFFFFF' }}>
+  <Typography sx={{ color: '#202124' }}>…</Typography>
+</Card>
+
+// Right — card and text both resolve against the active palette
+<Card sx={{ bgcolor: 'background.paper' }}>
+  <Typography sx={{ color: 'text.primary' }}>…</Typography>
+</Card>
+```
+
+`#202124`/`#5F6368` are this codebase's own `text.primary`/`text.secondary`
+values by convention (see `theme/index.js`) — when you see either literal,
+it is always safe to replace with the matching token, not just in principle
+but in this specific codebase's own numbers. Verify both modes on any screen
+you touch — the fastest check is the `AppShell` header's "Dark mode" button,
+not a separate dev toggle.
+
+**Known remaining gap**: only `layouts/AppShell.jsx`'s chrome (top bar, search,
+account menu, bottom nav), `pages/dashboard/index.jsx`'s header card, and
+`components/Dashboard/KpiCard.jsx` were swept when dark mode shipped. The rest
+of `pages/`/`components/` (the full UI-2 backlog, ~1,900 warnings) still
+renders wrong in dark mode until each file's own literals are converted —
+expect a stray white card or invisible text on most pages today, and treat
+finding one as an invitation to fix that file's colours while you're in it,
+not a surprise.
 
 ## 6. Established visual conventions
 
@@ -116,4 +166,6 @@ before linting anything. Use `npx eslint <path>` directly until fixed.
 - [ ] Verified in **both** light and dark mode.
 - [ ] Reused `StatusChip` / `RoleBadge` etc. rather than re-deriving status colours.
 - [ ] Spacing on the 8 px scale.
-- [ ] If a token was missing, it was added to `theme.js` — not inlined.
+- [ ] If a token was missing, it was added to `theme/index.js`'s `createAppTheme` — not inlined.
+- [ ] Any light/dark toggle reads/writes `useThemeMode()` — never local `useState`.
+- [ ] Both `bgcolor`/`color` literals converted together, not just one of the pair.

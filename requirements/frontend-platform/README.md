@@ -18,4 +18,5 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG047 | bug | Dark mode toggle does nothing; three competing theme definitions coexist | done | 2026-08-29 | 2026-08-29 | — | [BUG047-frontend-platform-2026-08-29-dark-mode-toggle-does-nothing-three-competing-themes.md](./bug/BUG047-frontend-platform-2026-08-29-dark-mode-toggle-does-nothing-three-competing-themes.md) |
 | BUG032 | bug | Admin Console's own quick-nav sidebar omits 4 real admin pages | done | 2026-08-28 | 2026-08-28 | — | [BUG032-frontend-platform-2026-08-28-admin-console-nav-missing-pages.md](./bug/BUG032-frontend-platform-2026-08-28-admin-console-nav-missing-pages.md) |

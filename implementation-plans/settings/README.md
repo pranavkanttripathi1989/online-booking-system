@@ -13,5 +13,7 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN211 | bug | "Clinic" and "Appearance" tabs — real wiring | done | 2026-08-28 | 2026-08-29 | — | [PLAN211-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md](./bug/PLAN211-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md) |
 

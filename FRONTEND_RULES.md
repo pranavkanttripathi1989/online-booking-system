@@ -60,7 +60,7 @@ Operating assumptions the rules derive from. Validate against real analytics wit
   - **(c)** ESLint runs with zero errors and a warning ratchet that only ever decreases — see **CI-2**.
   - **(d)** No implicit truthiness on values that can legitimately be `0` or `''`. Compare explicitly (`x != null`, `x !== ''`). This is the most common real bug class JS gives you that TS would have caught.
   - **(e)** Optional chaining and nullish coalescing (`?.`, `??`) are the default for any value crossing a boundary. `a || b` on a numeric or string field is a bug when `0`/`''` is valid.
-- **BASE-4** — No jQuery, no Bootstrap, no second UI kit, no second CSS framework, no second date library, no second HTTP/GraphQL client, no second state library. **One of each thing, forever.** Current canonical choices: **MUI v5** (UI), **Apollo Client** (server state), **dayjs** (dates), **zod** (validation), **react-hook-form** (forms), **notistack** (toasts). Adding a dependency in any of these categories requires an ADR in `/docs/adr/`.
+- **BASE-4** — No jQuery, no Bootstrap, no second UI kit, no second CSS framework, no second date library, no second HTTP/GraphQL client, no second state library. **One of each thing, forever.** Current canonical choices: **MUI v5** (UI), **Apollo Client** (server state), **dayjs** (dates), **zod** (validation), **react-hook-form** (forms), **notistack** (toasts), **TipTap** (rich text editing — see FORM-20). Adding a dependency in any of these categories requires an ADR in `/docs/adr/`.
 - **BASE-5** — Any new dependency over **15 KB gzipped** requires written approval in the PR. Check with `npx bundle-phobia` or `size-limit` before adding.
 - **BASE-6** — Lock the package manager and Node version (`.nvmrc`, `packageManager` field). Committed `package-lock.json`. CI installs with `npm ci` (frozen lockfile). No exceptions.
 - **BASE-7** — Browserslist target MUST be pinned in `package.json` and MUST include the oldest Android WebView supported. Decide that floor, write it here, test on it. Do not let Vite's defaults decide the support matrix.
@@ -102,14 +102,14 @@ Enforced numbers, not aspirations. Wire into CI while they're easy to hit.
 
 ## 4. DESIGN SYSTEM & MUI RULES
 
-- **UI-1** — **One theme file is the single source of truth** (`src/theme/`). All colours, spacing, radii, shadows, typography and breakpoints live in the MUI theme. Anything not in the theme does not exist.
+- **UI-1** — **One theme file is the single source of truth** (`src/theme/index.js`, exporting `createAppTheme(mode)`). All colours, spacing, radii, shadows, typography and breakpoints live in the MUI theme. Anything not in the theme does not exist. **Do not create a second theme file "for one page" or "for a new palette idea."** This codebase shipped three competing theme definitions at once before this rule was written down — one wired into the app, one entirely dead, one built correctly (light/dark palettes, a real `useThemeMode()` hook) but never connected to `main.jsx` — and nobody noticed until a user reported the dark-mode toggle doing nothing. If a page needs a different look, add a variant inside the one theme file; never `createTheme()` a second time anywhere else in the codebase — grep for `createTheme(` before adding one; if it already appears outside `src/theme/index.js`, that's the bug.
 - **UI-2** — **NEVER hardcode a colour.** No hex codes, no `rgb()`, no named colours in any file under `src/pages/`, `src/components/`, `src/layouts/`. Theme tokens only. Enforced by the `no-hardcoded-colors` ESLint rule. *(Standing debt: see §22.)*
 - **UI-3** — **NEVER hardcode spacing in pixels.** Use the theme spacing scale (`theme.spacing(n)` / `sx={{ p: 2 }}`) on an 8px base. Only permitted raw pixels: hairline borders (1px) and explicitly-specified icon sizes.
 - **UI-4** — Typography: a **fixed, closed set** of variants in the theme. No `fontSize` overrides in components. Need a new size? Add a named variant with a stated purpose.
 - **UI-5** — Styling order of preference: (1) theme `components` overrides for anything global, (2) `sx` for one-off layout, (3) `styled()` for a reusable variant. **Never** inline `style={{}}`, never a global CSS file, never `!important`. Zero exceptions on `!important`.
 - **UI-6** — If a UI pattern appears **three times**, extract it into `src/components/`. Copy-paste twice is fine; three times is a bug.
 - **UI-7** — Wrap MUI primitives in thin local components (`<AppButton>`, `<AppTextField>`) for anything used more than a few times. Product code imports the wrapper, so MUI can be restyled or replaced without touching hundreds of files.
-- **UI-8** — Dark mode MUST be architecturally supported (semantic tokens — `surface`, `onSurface`, `danger` — never `grey300`). Shipping dark mode is optional; making it impossible later is not.
+- **UI-8** — **Dark mode is shipped, real, and app-wide as of 2026-08-29** (`context/ThemeContext.jsx`'s `ThemeModeProvider`/`useThemeMode()`, wired at the app root in `main.jsx`) — this rule now means *stay* correct, not just *stay possible*. Every light/dark toggle in the app MUST read and write the shared `useThemeMode()` context — **never local component state** (`useState(false)` for a "dark mode" flag is the exact bug that shipped: a header button that visibly toggled but changed nothing, sitting next to a Settings page with its own second, equally disconnected toggle). Every new component MUST use semantic palette tokens (`bgcolor: 'background.paper'`, `color: 'text.primary'`/`'text.secondary'`, `borderColor: 'divider'`) so it renders correctly in both modes automatically — a literal `bgcolor: '#FFFFFF'`/`color: '#202124'` is invisible in light mode (matches the light palette by coincidence) and renders as a broken white card or unreadable text the moment a user switches to dark. This was found live on the dashboard's own greeting banner and its shared `KpiCard` component — both fixed, but **the sweep of the rest of the app is not done**; see the UI-2 debt entry in §22, which is now this rule's blocker too.
 - **UI-9** — Icons come from exactly **one** set (`@mui/icons-material`). Mixing sets is a review failure.
 - **UI-10** — Every interactive element MUST have all of: default, hover, **focus-visible**, active, disabled, loading. A button with no loading state is an incomplete button.
 - **UI-11** — **Never disable a submit button without telling the user why.** Either keep it enabled and validate on tap, or show inline text explaining what's missing. A dead grey button is a dead end.
@@ -241,6 +241,7 @@ Forms use **react-hook-form + zod** (`zodResolver`). That pairing is the canonic
 - **FORM-17** — Every form works end-to-end with keyboard alone, in logical tab order.
 - **FORM-18** — Currency is always **₹ with Indian digit grouping** (₹1,50,000 — not ₹150,000) via a shared formatter. Money is **paise (integer)** over the wire, converted to rupees only at the display boundary. Never format currency by hand in a component.
 - **FORM-19** — **Every zod-validated form MUST have a test asserting at least one validation failure path.** Without compile-time types (BASE-3), an untested schema is the easiest place for a silent contract break. A form whose schema is never exercised by a test is incomplete.
+- **FORM-20** — **A plain `<textarea>`/MUI `TextField multiline` MUST NOT be used for content that is later displayed as formatted text to the same or another user** — clinical/encounter notes, prescription instructions, messages, bios, policy/template bodies, review text. Use a rich text editor instead (canonical: **TipTap**, per BASE-4 — do not add a second editor library). A plain multiline field remains correct for genuinely unformatted data that merely wraps onto multiple lines — addresses, short comments with no reader-facing formatting, search boxes. Load the editor via `React.lazy`/`Suspense` (PERF-12) — it is a heavy widget, never part of the initial bundle. *(Standing gap as of 2026-08-29 — no rich text editor exists in this codebase yet and all 58 current `multiline` fields are plain; see §22. New reader-facing free-text fields comply from today; retrofitting existing fields is its own future slice, not blocked on this rule.)*
 
 ---
 
@@ -463,6 +464,7 @@ A ticket is not done until **every** applicable box is true. Paste into the PR t
 [ ] Errors are human-readable; no codes or raw messages surfaced
 [ ] Mutations are idempotent; double-tap cannot double-submit
 [ ] zod form schemas have a failure-path test — FORM-19
+[ ] Reader-facing free-text fields use a rich text editor, not a plain textarea — FORM-20
 [ ] Bundle budget still green
 [ ] No PII or health data in logs, URLs, or analytics
 [ ] Unit + e2e tests written
@@ -516,7 +518,7 @@ Honest register of where the codebase does not comply, measured 27 Aug 2026. A r
 | Rule | Measured state | Status |
 |---|---|---|
 | **BASE-3** (TypeScript) | 170 `.jsx`, 0 `.ts` | **Waived permanently — deliberate stack decision.** Compensating controls BASE-3(a–e), BASE-10, ARCH-7 are mandatory in exchange |
-| **UI-2** (no hardcoded colour) | **1,906** lint warnings | Ratcheted debt. Rule enforced for new code; existing swept incrementally. Ratchet may only decrease |
+| **UI-2** (no hardcoded colour) | **1,906** lint warnings | Ratcheted debt. Rule enforced for new code; existing swept incrementally. Ratchet may only decrease. **As of 2026-08-29 this is also UI-8's blocker** — every one of these warnings is a spot that will render wrong (wrong background, unreadable text) in dark mode, not just an off-brand colour in light mode. `layouts/AppShell.jsx` (app chrome), `pages/dashboard/index.jsx`, `pages/settings/index.jsx`, and `components/Dashboard/KpiCard.jsx` were swept as part of shipping dark mode; the rest of `pages/`/`components/` were not — expect visibly broken cards/text on any unswept page in dark mode until its own hardcoded colours are converted to tokens |
 | **UI-14** (≤250 line component) | **68 files** over 250 lines; largest 1,641 (`settings/index.jsx`) | Accepted debt. New components comply; touched files should shrink |
 | **SEC-2** (no token in localStorage) | **Closed 2026-08-27, P1-02/REQ145.** Tokens live in httpOnly cookies; only a non-sensitive session marker + cached user object remain in web storage | — |
 | **I18N-1…10** | No i18n layer at all | Not started. Cost grows with every commit — see §20.1 |
@@ -528,6 +530,7 @@ Honest register of where the codebase does not comply, measured 27 Aug 2026. A r
 | **CI-7** (`axe-core`) | **Partially wired 2026-08-27 (P1-03)** — 3 real page suites (booking wizard, admin/Communications, reset-password), not the full tree | Extend to more pages incrementally; each pass so far has found real bugs (2/3 suites did, this slice) |
 | **CI-9** (e2e in CI) | 45 specs exist, deliberately not gated — shared dev DB, leaves residue | Blocked on test-data isolation |
 | **A11Y-1** (`axe-core` zero violations, full tree) | 3 of ~90 page suites covered | Same gap as CI-7 above, from the rule side |
+| **FORM-20** (rich text editor for reader-facing free text) | No rich text editor library in the codebase; all 58 `multiline` fields are plain `TextField` | New as of 2026-08-29. Applies to new fields from today; existing reader-facing fields (encounter notes, prescription instructions, messages, email templates) retrofit incrementally, own future slice |
 
 ---
 

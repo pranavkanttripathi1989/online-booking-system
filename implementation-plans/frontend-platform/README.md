@@ -18,6 +18,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN212 | bug | Unify the theme, ship real app-wide dark mode | done | 2026-08-29 | 2026-08-29 | — | [PLAN212-frontend-platform-2026-08-29-unify-theme-real-dark-mode.md](./bug/PLAN212-frontend-platform-2026-08-29-unify-theme-real-dark-mode.md) |
 | PLAN210 | bug | Admin console quick-nav: 4 missing pages + tab-highlight sync | done | 2026-08-28 | 2026-08-28 | — | [PLAN210-frontend-platform-2026-08-28-admin-console-nav-fix.md](./bug/PLAN210-frontend-platform-2026-08-28-admin-console-nav-fix.md) |
 | PLAN208 | bug | Sidebar Messages badge and patients mock-fallback fixes | done | 2026-08-28 | 2026-08-28 | — | [PLAN208-frontend-platform-2026-08-28-messages-badge-and-patients-mock-fallback-fixes.md](./bug/PLAN208-frontend-platform-2026-08-28-messages-badge-and-patients-mock-fallback-fixes.md) |
 | PLAN203 | bug | Route-guard corrections: /queue, /appointments, /calendar | done | 2026-08-28 | 2026-08-28 | — | [PLAN203-frontend-platform-2026-08-28-route-guard-corrections-queue-appointments-calendar.md](./bug/PLAN203-frontend-platform-2026-08-28-route-guard-corrections-queue-appointments-calendar.md) |

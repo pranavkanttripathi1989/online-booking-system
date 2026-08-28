@@ -35,13 +35,13 @@
 | reviews | 0 | 1 | 0 | 0 | 1 | 2026-08-27 | [reviews](./reviews/README.md) |
 | organization-branding | 1 | 3 | 0 | 0 | 4 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
-| settings | 1 | 0 | 1 | 1 | 1 | 2026-08-28 | [settings](./settings/README.md) |
+| settings | 1 | 0 | 1 | 0 | 2 | 2026-08-29 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | semble-competitive-gap | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [semble-competitive-gap](./semble-competitive-gap/README.md) |
 | patients | 0 | 0 | 5 | 0 | 5 | 2026-08-28 | [patients](./patients/README.md) |
 | test-results | 0 | 0 | 1 | 0 | 1 | 2026-08-26 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
-| frontend-platform | 0 | 5 | 1 | 0 | 6 | 2026-08-28 | [frontend-platform](./frontend-platform/README.md) |
+| frontend-platform | 0 | 5 | 2 | 0 | 7 | 2026-08-29 | [frontend-platform](./frontend-platform/README.md) |
 
 ## PRD-derived requirements (2026-08-22)
 

@@ -14,5 +14,7 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TP231 | bug | "Clinic" and "Appearance" tabs — real wiring verification | approved | 2026-08-28 | 2026-08-29 | PLAN211 | [TP231-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md](./bug/TP231-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md) |
 
