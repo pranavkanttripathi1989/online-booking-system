@@ -74,4 +74,25 @@ failing suites individually (`settings/index`, `admin/Communications`,
 cleanly once the host settled, confirming the earlier failures were host
 contention, not a regression from this session's changes.
 
-`BUG047` (Part 2) marked `done`.
+## Part 3 — Phase 2 of the colour sweep (patient/guest, mobile-first)
+
+Executed 2026-08-29, same session, continuing on a bare "continue" after
+Part 2 shipped.
+
+| # | Case | Result |
+|---|---|---|
+| 24 | Lint on all 9 Phase 2 files | Pass — 0 new errors |
+| 25 | Project-wide colour-warning count | Pass — 1,447 → 1,330 |
+| 26 | `login.jsx`'s deleted `BRAND` constant | Pass — one real bug found and fixed mid-sweep: deleting it broke ~12 usages a hex-literal-only grep never surfaced (they referenced the variable, not a literal); caught immediately by lint's undefined-variable errors, not shipped |
+| 27 | Existing dedicated tests | Pass — `patient/Appointments.test.jsx` 5/5, `auth/reset-password.test.jsx` 6/6, `booking/index.test.jsx` and `patient/Family.test.jsx` both green |
+| 28 | Login page, dark mode | Pass — screenshot-confirmed: brand panel (fixed gradient) unchanged, form panel/tabs/inputs correctly dark |
+| 29 | Public landing page, dark mode | Pass — screenshot-confirmed at both the hero/search-card level and scrolled to the filters sidebar + doctor-result cards; the "Video" chip's secondary-tone colouring renders legibly |
+| 30 | `npm run build` | Pass — succeeded, 1m6s |
+
+7/7 pass. One unrelated, pre-existing failure surfaced in a combined test
+run (`patients/detail.test.jsx`, timeout) — confirmed via `git status`
+that zero changes touch that file; matches this codebase's own
+already-documented pre-existing flaky-suite list.
+
+`BUG047` (Part 3 / Phase 2) marked `done`. Phase 3 (clinician tablet-first)
+remains open, tracked in `FRONTEND_RULES.md` §22.

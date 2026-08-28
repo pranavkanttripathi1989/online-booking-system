@@ -222,16 +222,63 @@ both modes), the appointments list (confirming `StatusChip`'s real MUI
 (the mobile-first tier) in dark mode — see the live-verification note
 above for the backend round-trip check.
 
-### Phase 2-4 (backlog, sequenced, not started)
+### Part 3 (same day) — Phase 2 of the colour sweep (patient/guest, mobile-first)
+
+Continuation of the phased plan above, picked up on a bare "continue" —
+swept `auth/`, `public/`, `patient/`, `onboarding/`, and `booking/` (9
+files): `login.jsx` (57→3), `landing.jsx` (15→3), `patient/Appointments.jsx`
+(10→0), `public/doctor-profile.jsx` (9→0), `auth/forgot-password.jsx` (8→2),
+`onboarding/index.jsx` (8→0), `auth/reset-password.jsx` (7→2),
+`patient/Dashboard.jsx` (7→0), `patient/Profile.jsx` (5→0),
+`booking/index.jsx` (1→0). Project-wide count: 1,447 → 1,330.
+
+Same conversion pattern as Phase 1, plus two new recurring shapes:
+
+- **Per-status/per-role hex maps duplicated in page files**, not just
+  shared components: `login.jsx`'s password-strength colour map,
+  `patient/Appointments.jsx`'s appointment-border-colour map,
+  `patient/Dashboard.jsx`'s KPI-card and status-dot colours — all
+  converted to theme-derived tones (`theme.palette.success/error/
+  warning/info.main`, or the shared `appointmentStatus` extension from
+  Phase 1) rather than re-inventing hex per file.
+- **Deliberate literal exceptions, a new category**: fixed marketing/brand
+  panels on guest-facing pages (`login.jsx`'s `BrandPanel`, `public/
+  landing.jsx`'s hero section, `forgot-password.jsx`/`reset-password.jsx`'s
+  matching left panel) — a teal gradient with white text, independent of
+  the app's own light/dark toggle, the same convention as `PublicLayout`'s
+  footer from Phase 1. Each documented inline.
+
+**One real bug found while sweeping, not colour-related**: deleting
+`doctor-profile.jsx`'s `const BRAND = '#006D77'` broke roughly a dozen
+usages an initial `grep` for literal hex strings never surfaced, because
+they referenced the variable (`BRAND`, `` `${BRAND}08` ``), not a literal
+— caught immediately by re-running lint (undefined-variable errors), not
+silently shipped. Grepping for the constant's own name, not just for hex
+literals, before deleting any such module-level colour constant is now
+recorded in `FRONTEND_RULES.md` §22 as a specific gotcha for whoever
+picks up Phase 3/4.
+
+**Testing**: `npx eslint` clean (0 new errors) across all 9 files. Existing
+dedicated tests re-run and passing: `patient/Appointments.test.jsx` (5/5),
+`patient/Family.test.jsx`, `auth/reset-password.test.jsx` (6/6),
+`booking/index.test.jsx`. A `patients/detail.test.jsx` failure surfaced in
+a combined run is the same pre-existing, unrelated flaky suite this
+codebase's own history already documents — confirmed by `git status`
+showing zero changes to that file. `npm run build` succeeds. Live-verified
+via Chrome DevTools MCP: the login page's two-column layout in dark mode
+(brand panel unchanged, form panel/tabs/inputs correctly dark), and the
+public landing page in dark mode (header bar, hero search card, filters
+sidebar, and doctor-result cards all render correctly with no stray white
+surfaces).
+
+### Phase 3-4 (backlog, sequenced, not started)
 
 Recorded in `FRONTEND_RULES.md` §22's `UI-2` entry with the exact
-per-directory counts: **Phase 2** — guest/patient mobile-first tier
-(`auth/`, `public/`, `patient/`, `onboarding/`, `booking/`, ~150 warnings) —
-highest product priority per `FRONTEND_RULES.md` §5's own tiering table.
-**Phase 3** — clinician tablet-first tier (`clinician/`, `calendar/`,
-`appointments/`, ~420). **Phase 4** — staff/manager/admin desktop-dense
-(`staff/`, `finances/`, `manager/`, `admin/`, `patients/`, `analytics/`,
-`clinicians/`, `messages/`, `reviews/`, `settings/` remainder, ~660) —
-largest volume, lowest per-screen risk. A future session should re-measure
-the warning count before trusting any number written here, then pick up
-the next incomplete phase in order.
+per-directory counts. **Phase 3** — clinician tablet-first tier
+(`clinician/`, `calendar/`, `appointments/`, ~420 warnings) — next-highest
+priority per `FRONTEND_RULES.md` §5's own tiering table. **Phase 4** —
+staff/manager/admin desktop-dense (`staff/`, `finances/`, `manager/`,
+`admin/`, `patients/`, `analytics/`, `clinicians/`, `messages/`,
+`reviews/`, `settings/` remainder, ~660) — largest volume, lowest
+per-screen risk. A future session should re-measure the warning count
+before trusting any number written here, then pick up Phase 3 next.

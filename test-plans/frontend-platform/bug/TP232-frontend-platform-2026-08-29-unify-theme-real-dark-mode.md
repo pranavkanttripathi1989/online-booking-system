@@ -41,3 +41,15 @@ related: [BUG047, BUG044]
 | 21 | Patient dashboard at 360px viewport, dark mode | Greeting card, stat tiles, and bottom nav all render with dark-correct surfaces — no stray white |
 | 22 | Appointments list, any role | `StatusChip` chips render via MUI's real `color` prop (unaffected, already token-correct) |
 | 23 | `npm run build` (Phase 1 state) | Succeeds |
+
+## Part 3 — Phase 2 of the colour sweep (patient/guest, mobile-first)
+
+| # | Case | Expected |
+|---|---|---|
+| 24 | `npx eslint` on all 9 Phase 2 files | 0 new errors |
+| 25 | Project-wide colour-warning count | Decreases further from the Phase 1 result |
+| 26 | `login.jsx` no longer references a deleted `BRAND`/`TEAL`-style constant anywhere | Lint reports no undefined-variable errors |
+| 27 | `patient/Appointments.test.jsx`, `auth/reset-password.test.jsx`, `booking/index.test.jsx`, `patient/Family.test.jsx` | All pass |
+| 28 | Login page, dark mode | Brand panel (left) unchanged; form panel/tabs/inputs (right) render with dark surfaces |
+| 29 | Public landing page, dark mode | Header bar, hero search card, filters sidebar, and doctor-result cards all render correctly, no stray white |
+| 30 | `npm run build` | Succeeds |

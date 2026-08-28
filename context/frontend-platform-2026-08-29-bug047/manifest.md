@@ -75,3 +75,26 @@ proper plan" — executed via `EnterPlanMode`/`ExitPlanMode` given the scope.
   for load to settle rather than by retrying — see `TR232`'s own account.
 
 See `PLAN212`/`TP232`/`TR232`'s own "Part 2" sections for the full detail.
+
+## Part 3, same session (bare "continue") — Phase 2 of the colour sweep
+
+Picked up the plan's own explicit backlog: swept `auth/`, `public/`,
+`patient/`, `onboarding/`, `booking/` (9 files) — project-wide colour
+warnings 1,447 → 1,330. Same conversion pattern as Phase 1, plus two new
+recurring shapes: per-status/per-role hex maps duplicated in page files
+(not just shared components), and deliberate literal exceptions for
+guest-facing marketing/brand panels (login's `BrandPanel`, the public
+landing hero, the forgot/reset-password left panel) — a fixed gradient
+independent of the app's own theme toggle, matching `PublicLayout`'s
+footer precedent from Phase 1.
+
+One real bug found mid-sweep: deleting `doctor-profile.jsx`'s `BRAND`
+constant broke ~12 usages a hex-literal-only grep never caught (they
+referenced the variable, not a literal) — caught immediately by lint,
+fixed in the same pass. Recorded as a specific gotcha in `FRONTEND_RULES.md`
+§22 for whoever picks up Phase 3/4: grep a colour constant's own name, not
+just literal hex, before deleting it.
+
+Live-verified in dark mode: the login page's two-column layout, and the
+public landing page (header, hero search card, filters sidebar, doctor-
+result cards). Phase 3 (clinician tablet-first tier) is next, not started.
