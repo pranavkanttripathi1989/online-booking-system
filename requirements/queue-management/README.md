@@ -18,4 +18,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| BUG039 | bug | Clinician/staff/receptionist's own "Live Queue" nav item leads to a 403 | open | 2026-08-28 | 2026-08-28 | — | [BUG039-queue-management-2026-08-28-clinician-staff-receptionist-nav-to-queue-403s.md](./bug/BUG039-queue-management-2026-08-28-clinician-staff-receptionist-nav-to-queue-403s.md) |

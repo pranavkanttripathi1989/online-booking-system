@@ -12,7 +12,7 @@
 | scheduling-engine | 1 | 2 | 0 | 1 | 2 | 2026-08-26 | [scheduling-engine](./scheduling-engine/README.md) |
 | pharmacy | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 5 | 0 | 1 | 5 | 2026-08-27 | [prescriptions](./prescriptions/README.md) |
-| queue-management | 1 | 5 | 0 | 1 | 5 | 2026-08-26 | [queue-management](./queue-management/README.md) |
+| queue-management | 1 | 5 | 1 | 2 | 5 | 2026-08-28 | [queue-management](./queue-management/README.md) |
 | appointments | 1 | 7 | 5 | 2 | 11 | 2026-08-27 | [appointments](./appointments/README.md) |
 | organizations | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 5 | 2 | 3 | 6 | 2026-08-28 | [catalog-master-data](./catalog-master-data/README.md) |
@@ -38,7 +38,7 @@
 | settings | 1 | 0 | 0 | 0 | 1 | 2026-08-21 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | semble-competitive-gap | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [semble-competitive-gap](./semble-competitive-gap/README.md) |
-| patients | 0 | 0 | 2 | 0 | 2 | 2026-08-26 | [patients](./patients/README.md) |
+| patients | 0 | 0 | 3 | 1 | 2 | 2026-08-28 | [patients](./patients/README.md) |
 | test-results | 0 | 0 | 1 | 0 | 1 | 2026-08-26 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
 | frontend-platform | 0 | 5 | 1 | 1 | 5 | 2026-08-28 | [frontend-platform](./frontend-platform/README.md) |
