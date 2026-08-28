@@ -22,7 +22,9 @@ import OpenInDrawerIcon from '@mui/icons-material/OpenInNew'
 import { TOGGLE_CLINICIAN_ACTIVE_MUTATION } from '../../graphql/mutations'
 
 // ─── Avatar colour derived from name ─────────────────────────────────────────
-// Teal-family palette matching app brand (#006D77)
+// Deliberate literal exception (medibook-design-system skill's own carve-out):
+// a fixed, curated set of teal-family hues so each clinician gets a stable,
+// distinguishable avatar colour independent of theme mode.
 const NAME_COLOURS = ['#006D77', '#0E9F9F', '#14B8A6', '#0D9488', '#0F766E', '#1CBFBF', '#2D8A8A', '#047857']
 function nameColour(name = '') {
   let h = 0
@@ -67,7 +69,7 @@ function AvailabilityHeatmap({ templates = [] }) {
                 width: 22,
                 height: 22,
                 borderRadius: 1,
-                bgcolor: activeDays.has(idx) ? 'success.main' : '#F1F3F4',
+                bgcolor: activeDays.has(idx) ? 'success.main' : 'action.selected',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
@@ -75,7 +77,7 @@ function AvailabilityHeatmap({ templates = [] }) {
                 '&:hover': { transform: 'scale(1.2)' },
               }}
             >
-              <Typography variant="caption" sx={{ fontSize: 8, color: activeDays.has(idx) ? 'common.white' : '#9AA0A6', fontWeight: 700 }}>
+              <Typography variant="caption" sx={{ fontSize: 8, color: activeDays.has(idx) ? 'common.white' : 'text.disabled', fontWeight: 700 }}>
                 {label[0]}
               </Typography>
             </Box>
@@ -107,7 +109,7 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
         display: 'flex',
         flexDirection: 'column',
         border: '1px solid',
-        borderColor: clinician.is_active ? 'divider' : '#F5C6C2',
+        borderColor: clinician.is_active ? 'divider' : 'error.light',
         borderRadius: 3,
         transition: 'all 0.25s ease',
         '&:hover': {
@@ -144,7 +146,7 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
                 label={clinician.clinician_type.name}
                 size="small"
                 sx={{
-                  bgcolor: 'primary.50',
+                  bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
                   color: 'primary.dark',
                   border: `1px solid ${theme.palette.info.light}`,
                   borderRadius: '8px',
@@ -157,7 +159,7 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
             )}
           </Box>
           {!clinician.is_active && (
-            <Chip label="Inactive" size="small" sx={{ fontSize: 10, height: 18, bgcolor: '#FCE8E6', color: '#A50E0E' }} />
+            <Chip label="Inactive" size="small" sx={{ fontSize: 10, height: 18, bgcolor: (t) => alpha(t.palette.error.main, 0.14), color: 'error.dark' }} />
           )}
         </Stack>
 
@@ -236,7 +238,7 @@ export default function ClinicianCard({ clinician, isAdmin, onViewProfile }) {
             color: 'primary.main',
             fontWeight: 700,
             borderRadius: 2,
-            '&:hover': { bgcolor: 'primary.50', borderColor: 'primary.main' },
+            '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.1), borderColor: 'primary.main' },
           }}
         >
           View Profile

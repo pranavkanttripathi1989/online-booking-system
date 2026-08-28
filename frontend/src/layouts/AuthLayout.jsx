@@ -13,11 +13,11 @@ export default function AuthLayout() {
         minHeight: '100vh',
         display: 'flex',
         flexDirection: 'column',
-        bgcolor: '#F0F7F8',
+        bgcolor: 'background.default',
       }}
     >
       {/* Minimal nav strip */}
-      <Box component="header" sx={{ bgcolor: '#fff', borderBottom: '1px solid #D0E8EA', py: 1.5, px: 3 }}>
+      <Box component="header" sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', py: 1.5, px: 3 }}>
         <Stack
           direction="row"
           alignItems="center"
@@ -31,15 +31,15 @@ export default function AuthLayout() {
               width: 30,
               height: 30,
               borderRadius: '50%',
-              bgcolor: '#006D77',
+              bgcolor: 'primary.main',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <MedicalServicesIcon sx={{ color: '#fff', fontSize: 15 }} />
+            <MedicalServicesIcon sx={{ color: 'primary.contrastText', fontSize: 15 }} />
           </Box>
-          <Typography fontWeight={800} sx={{ color: '#006D77', fontSize: '1rem' }}>
+          <Typography fontWeight={800} sx={{ color: 'primary.main', fontSize: '1rem' }}>
             HealthSync
           </Typography>
         </Stack>
@@ -51,14 +51,14 @@ export default function AuthLayout() {
       </Box>
 
       {/* Minimal footer */}
-      <Box component="footer" sx={{ py: 2, textAlign: 'center', borderTop: '1px solid #D0E8EA' }}>
+      <Box component="footer" sx={{ py: 2, textAlign: 'center', borderTop: '1px solid', borderColor: 'divider' }}>
         <Typography variant="caption" color="text.secondary">
           © 2026 HealthSync Ltd · &nbsp;
-          <Box component="span" sx={{ cursor: 'pointer', '&:hover': { color: '#006D77' } }}>
+          <Box component="span" sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}>
             Privacy Policy
           </Box>
           &nbsp;·&nbsp;
-          <Box component="span" sx={{ cursor: 'pointer', '&:hover': { color: '#006D77' } }}>
+          <Box component="span" sx={{ cursor: 'pointer', '&:hover': { color: 'primary.main' } }}>
             Terms of Service
           </Box>
         </Typography>

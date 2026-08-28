@@ -10,15 +10,9 @@ import EventTooltip from './EventTooltip'
 import { useState } from 'react'
 import './CalendarView.css'
 
-// ─── Status → background colour (Google Material 3) ──────────────────────────
-const STATUS_BG = {
-  pending: '#F9AB00', // Amber
-  confirmed: '#0F9D58', // Green
-  cancelled: '#D93025', // Red
-  completed: '#006D77', // Teal (theme primary)
-  no_show: '#80868B', // Gray
-  rescheduled: '#9334E6', // Purple
-}
+// BUG047 Phase 1 -- status colour now comes from theme.palette.appointmentStatus
+// (theme/index.js)'s own `.dot` (a solid, saturated tone), the one shared
+// source, instead of this file's own hex map.
 
 // ─── Rich Event Content Renderer ─────────────────────────────────────────────
 function EventContent({ eventInfo }) {
@@ -50,7 +44,10 @@ function EventContent({ eventInfo }) {
         width: '100%',
       }}
     >
-      {/* Patient name — always shown */}
+      {/* Patient name — always shown. Deliberate literal exception: this text
+          sits on an arbitrary saturated event background colour (theme.palette
+          .appointmentStatus[...].dot, applied via eventDidMount below), not a
+          theme surface -- it must stay white in both light and dark app mode. */}
       <Box
         component="span"
         sx={{
@@ -204,11 +201,11 @@ export default function CalendarView({ calendarRef, events, onEventClick, onSlot
         selectMirror
         dayMaxEvents={3}
         events={events}
-        eventBackgroundColor="#006D77"
+        eventBackgroundColor={theme.palette.primary.main}
         eventBorderColor="transparent"
         eventDidMount={(info) => {
           // Apply per-event status colour
-          const bg = STATUS_BG[info.event.extendedProps?.status]
+          const bg = theme.palette.appointmentStatus[info.event.extendedProps?.status]?.dot
           if (bg) {
             info.el.style.backgroundColor = bg
             info.el.style.borderColor = bg

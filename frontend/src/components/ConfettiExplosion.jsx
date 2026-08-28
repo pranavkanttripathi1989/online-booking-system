@@ -12,6 +12,10 @@ export default function ConfettiExplosion() {
     const container = containerRef.current
     if (!container) return
 
+    // Deliberate literal exception (medibook-design-system skill's own
+    // carve-out): a celebratory multi-colour confetti burst is meant to be
+    // vibrant and varied, not brand/theme-consistent -- a themed palette
+    // would defeat the purpose of this transient decorative effect.
     const COLORS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6']
     const COUNT = 80
 

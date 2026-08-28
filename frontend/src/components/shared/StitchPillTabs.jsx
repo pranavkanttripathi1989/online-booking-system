@@ -10,15 +10,13 @@ import { Box, Button, Stack } from '@mui/material'
  *   onChange {fn}      — (newIndex) => void
  */
 
-const BRAND = '#006D77'
-
 export default function StitchPillTabs({ tabs = [], value = 0, onChange }) {
   return (
     <Box
       sx={{
         display: 'flex',
         gap: 0.75,
-        bgcolor: 'rgba(0,0,0,0.045)',
+        bgcolor: 'action.hover',
         p: 0.75,
         borderRadius: 2,
         width: 'fit-content',
@@ -39,12 +37,12 @@ export default function StitchPillTabs({ tabs = [], value = 0, onChange }) {
               fontSize: '0.84rem',
               minWidth: 0,
               textTransform: 'none',
-              bgcolor: isActive ? 'white' : 'transparent',
-              color: isActive ? BRAND : 'text.secondary',
+              bgcolor: isActive ? 'background.paper' : 'transparent',
+              color: isActive ? 'primary.main' : 'text.secondary',
               boxShadow: isActive ? '0 1px 4px rgba(0,0,0,0.10)' : 'none',
               transition: 'all 0.18s ease',
               '&:hover': {
-                bgcolor: isActive ? 'white' : 'rgba(0,0,0,0.04)',
+                bgcolor: isActive ? 'background.paper' : 'action.selected',
               },
             }}
           >

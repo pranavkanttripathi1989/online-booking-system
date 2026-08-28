@@ -39,21 +39,22 @@ function CustomTooltip({ active, payload, label }) {
         p: 2,
         borderRadius: 3,
         minWidth: 170,
-        border: '1px solid #E8EAED',
+        border: '1px solid',
+        borderColor: 'divider',
         boxShadow: '0 4px 20px rgba(32,33,36,0.18)',
-        bgcolor: '#FFFFFF',
+        bgcolor: 'background.paper',
       }}
     >
-      <Typography variant="caption" fontWeight={700} display="block" mb={0.75} sx={{ color: '#202124' }}>
+      <Typography variant="caption" fontWeight={700} display="block" mb={0.75} sx={{ color: 'text.primary' }}>
         {displayLabel}
       </Typography>
       {payload.map((entry) => (
         <Box key={entry.name} display="flex" alignItems="center" gap={1} mb={0.25}>
           <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: entry.color, flexShrink: 0 }} />
-          <Typography variant="caption" sx={{ color: '#5F6368', textTransform: 'capitalize' }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', textTransform: 'capitalize' }}>
             {entry.name === 'confirmed_count' ? 'Confirmed' : entry.name === 'cancelled_count' ? 'Cancelled' : entry.name}:
           </Typography>
-          <Typography variant="caption" fontWeight={700} sx={{ color: '#202124' }}>
+          <Typography variant="caption" fontWeight={700} sx={{ color: 'text.primary' }}>
             {entry.value}
           </Typography>
         </Box>
@@ -91,7 +92,7 @@ export default function AppointmentVolumeChart({ data }) {
     return idx % step === 0 ? dayjs(val).format('DD MMM') : ''
   }
 
-  const TICK_STYLE = { fontSize: isMobile ? 10 : 11, fill: '#9AA0A6', fontFamily: 'Plus Jakarta Sans' }
+  const TICK_STYLE = { fontSize: isMobile ? 10 : 11, fill: theme.palette.text.disabled, fontFamily: 'Plus Jakarta Sans' }
 
   // NEW-DASH-011: empty-state guard
   const isEmpty = chartData.length === 0
@@ -100,7 +101,7 @@ export default function AppointmentVolumeChart({ data }) {
     <Box>
       {/* Header row with period pills — BUG-DASH-001 fix: onClick → setChartRange */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#202124', fontSize: { xs: '0.875rem', md: '0.9375rem' } }}>
+        <Typography variant="subtitle1" fontWeight={700} sx={{ color: 'text.primary', fontSize: { xs: '0.875rem', md: '0.9375rem' } }}>
           {chartTitle}
         </Typography>
         <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 0.5 }}>
@@ -115,14 +116,15 @@ export default function AppointmentVolumeChart({ data }) {
                   py: 0.4,
                   borderRadius: 2,
                   cursor: 'pointer',
-                  bgcolor: isActive ? '#E8F0FE' : '#F8F9FA',
-                  color: isActive ? '#1A73E8' : '#5F6368',
-                  border: '1px solid ' + (isActive ? '#AECBFA' : '#E8EAED'),
+                  bgcolor: isActive ? 'action.selected' : 'action.hover',
+                  color: isActive ? 'primary.main' : 'text.secondary',
+                  border: '1px solid',
+                  borderColor: isActive ? 'primary.main' : 'divider',
                   fontSize: '0.72rem',
                   fontWeight: 700,
                   transition: 'all 0.15s ease',
                   userSelect: 'none',
-                  '&:hover': { bgcolor: '#E8F0FE', color: '#1A73E8' },
+                  '&:hover': { bgcolor: 'action.selected', color: 'primary.main' },
                 }}
               >
                 {label}
@@ -143,16 +145,16 @@ export default function AppointmentVolumeChart({ data }) {
         /* SUG-DASH-005: Stacked BarChart (was LineChart) */
         <ResponsiveContainer width="100%" height={isMobile ? 200 : 260}>
           <BarChart data={chartData} margin={{ top: 4, right: 16, bottom: 0, left: -10 }}>
-            <CartesianGrid strokeDasharray="4 4" stroke="#E8EAED" vertical={false} />
+            <CartesianGrid strokeDasharray="4 4" stroke={theme.palette.divider} vertical={false} />
             <XAxis dataKey="date" tickFormatter={tickFormatter} tick={TICK_STYLE} axisLine={false} tickLine={false} />
             <YAxis allowDecimals={false} tick={TICK_STYLE} axisLine={false} tickLine={false} />
             <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(32,33,36,0.04)' }} />
             <Legend
               formatter={(val) => (val === 'confirmed_count' ? 'Confirmed' : 'Cancelled')}
-              wrapperStyle={{ fontSize: 12, fontFamily: 'Plus Jakarta Sans', color: '#5F6368', paddingTop: 8 }}
+              wrapperStyle={{ fontSize: 12, fontFamily: 'Plus Jakarta Sans', color: theme.palette.text.secondary, paddingTop: 8 }}
             />
-            <Bar dataKey="confirmed_count" name="confirmed_count" fill="#1A73E8" radius={[4, 4, 0, 0]} stackId="a" />
-            <Bar dataKey="cancelled_count" name="cancelled_count" fill="#D93025" radius={[4, 4, 0, 0]} stackId="a" />
+            <Bar dataKey="confirmed_count" name="confirmed_count" fill={theme.palette.primary.main} radius={[4, 4, 0, 0]} stackId="a" />
+            <Bar dataKey="cancelled_count" name="cancelled_count" fill={theme.palette.error.main} radius={[4, 4, 0, 0]} stackId="a" />
           </BarChart>
         </ResponsiveContainer>
       )}

@@ -1,48 +1,65 @@
 import React from 'react'
 import { Chip } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 
 /**
  * StitchStatusChip — Soft-background pill chip matching Stitch design.
  *
  * Props:
  *   label      {string} — Text to show
- *   statusType {string} — One of the STATUS_CONFIG keys below
+ *   statusType {string} — One of the STATUS_TONE keys below
  *   size       {string} — 'small' (default) | 'medium'
  */
 
-const STATUS_CONFIG = {
+// BUG047 Phase 1 -- every status maps to one of the theme's own semantic
+// palette groups (or 'neutral') instead of a hand-picked hex pair, so the
+// chip re-balances correctly in dark mode (see buildToneColors below).
+const STATUS_TONE = {
   // Appointment statuses
-  scheduled: { bg: '#DBEAFE', color: '#1E40AF' },
-  confirmed: { bg: '#DBEAFE', color: '#1E40AF' },
-  completed: { bg: '#D1FAE5', color: '#065F46' },
-  cancelled: { bg: '#FEE2E2', color: '#B91C1C' },
-  pending: { bg: '#FEF3C7', color: '#92400E' },
-  no_show: { bg: '#F1F5F9', color: '#475569' },
+  scheduled: 'info',
+  confirmed: 'info',
+  completed: 'success',
+  cancelled: 'error',
+  pending: 'warning',
+  no_show: 'neutral',
 
   // User roles
-  system_admin: { bg: '#FEE2E2', color: '#B91C1C' },
-  clinic_manager: { bg: '#EDE9FE', color: '#6D28D9' },
-  clinician: { bg: '#D1FAE5', color: '#065F46' },
-  receptionist: { bg: '#DBEAFE', color: '#1E40AF' },
-  patient: { bg: '#FEF3C7', color: '#92400E' },
+  system_admin: 'error',
+  clinic_manager: 'secondary',
+  clinician: 'success',
+  receptionist: 'info',
+  patient: 'warning',
 
   // Generic
-  active: { bg: '#D1FAE5', color: '#065F46' },
-  inactive: { bg: '#F1F5F9', color: '#94A3B8' },
-  verified: { bg: '#D1FAE5', color: '#065F46' },
-  new: { bg: '#EDE9FE', color: '#6D28D9' },
+  active: 'success',
+  inactive: 'neutral',
+  verified: 'success',
+  new: 'secondary',
 
   // Payments
-  paid: { bg: '#D1FAE5', color: '#065F46' },
-  refunded: { bg: '#FEF3C7', color: '#92400E' },
-  failed: { bg: '#FEE2E2', color: '#B91C1C' },
+  paid: 'success',
+  refunded: 'warning',
+  failed: 'error',
 
-  // Fallback
-  default: { bg: '#F1F5F9', color: '#475569' },
+  default: 'neutral',
+}
+
+function buildToneColors(theme, tone) {
+  if (tone === 'neutral') {
+    return { bg: theme.palette.action.selected, color: theme.palette.text.secondary }
+  }
+  const group = theme.palette[tone]
+  const isDark = theme.palette.mode === 'dark'
+  return {
+    bg: alpha(group.main, isDark ? 0.22 : 0.14),
+    color: isDark ? group.light : group.dark,
+  }
 }
 
 export default function StitchStatusChip({ label, statusType = 'default', size = 'small', sx = {} }) {
-  const config = STATUS_CONFIG[statusType?.toLowerCase()] || STATUS_CONFIG.default
+  const theme = useTheme()
+  const tone = STATUS_TONE[statusType?.toLowerCase()] ?? STATUS_TONE.default
+  const config = buildToneColors(theme, tone)
 
   return (
     <Chip

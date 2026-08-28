@@ -79,10 +79,10 @@ const MARK_ALL_READ = gql`
 `
 
 const ICONS = {
-  appointment: <EventNoteRoundedIcon sx={{ color: '#1A73E8', fontSize: 18 }} />,
-  payment: <CreditCardRoundedIcon sx={{ color: '#0F9D58', fontSize: 18 }} />,
-  alert: <ErrorRoundedIcon sx={{ color: '#D93025', fontSize: 18 }} />,
-  system: <AnnouncementRoundedIcon sx={{ color: '#9334E6', fontSize: 18 }} />,
+  appointment: <EventNoteRoundedIcon sx={{ color: 'primary.main', fontSize: 18 }} />,
+  payment: <CreditCardRoundedIcon sx={{ color: 'success.main', fontSize: 18 }} />,
+  alert: <ErrorRoundedIcon sx={{ color: 'error.main', fontSize: 18 }} />,
+  system: <AnnouncementRoundedIcon sx={{ color: 'secondary.main', fontSize: 18 }} />,
 }
 
 const timeAgo = (dateStr) => {
@@ -150,7 +150,7 @@ export default function NotificationBell() {
           direction="row"
           justifyContent="space-between"
           alignItems="center"
-          sx={{ px: 2, py: 1.5, borderBottom: '1px solid #D0E8EA' }}
+          sx={{ px: 2, py: 1.5, borderBottom: '1px solid', borderColor: 'divider' }}
         >
           <Stack direction="row" alignItems="center" spacing={1}>
             <Typography fontWeight={700}>Notifications</Typography>
@@ -173,8 +173,8 @@ export default function NotificationBell() {
                 sx={{
                   py: 1.5,
                   cursor: 'pointer',
-                  bgcolor: notif.unread ? '#F0F7F8' : 'transparent',
-                  '&:hover': { bgcolor: '#E8F8F9' },
+                  bgcolor: notif.unread ? 'action.selected' : 'transparent',
+                  '&:hover': { bgcolor: 'action.hover' },
                   transition: 'background 0.15s',
                 }}
               >
@@ -184,13 +184,13 @@ export default function NotificationBell() {
                       width: 32,
                       height: 32,
                       borderRadius: '50%',
-                      bgcolor: '#F0F7F8',
+                      bgcolor: 'action.selected',
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'center',
                     }}
                   >
-                    {ICONS[notif.type] || <AnnouncementRoundedIcon sx={{ color: '#6B7280', fontSize: 18 }} />}
+                    {ICONS[notif.type] || <AnnouncementRoundedIcon sx={{ color: 'text.disabled', fontSize: 18 }} />}
                   </Box>
                 </ListItemIcon>
                 <ListItemText
@@ -199,7 +199,7 @@ export default function NotificationBell() {
                       <Typography variant="body2" fontWeight={notif.unread ? 700 : 500}>
                         {notif.title}
                       </Typography>
-                      {notif.unread && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#006D77', flexShrink: 0, ml: 1 }} />}
+                      {notif.unread && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: 'primary.main', flexShrink: 0, ml: 1 }} />}
                     </Stack>
                   }
                   secondary={
@@ -208,20 +208,20 @@ export default function NotificationBell() {
                         {notif.body}
                       </Typography>
                       <br />
-                      <Typography variant="caption" sx={{ color: '#83C5BE', fontWeight: 600 }}>
+                      <Typography variant="caption" sx={{ color: 'primary.light', fontWeight: 600 }}>
                         {notif.time}
                       </Typography>
                     </>
                   }
                 />
               </ListItem>
-              {i < list.length - 1 && <Divider component="li" sx={{ borderColor: '#F0F7F8' }} />}
+              {i < list.length - 1 && <Divider component="li" sx={{ borderColor: 'divider' }} />}
             </React.Fragment>
           ))}
         </List>
 
         {/* Footer */}
-        <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #D0E8EA', textAlign: 'center' }}>
+        <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderColor: 'divider', textAlign: 'center' }}>
           <Button
             size="small"
             fullWidth

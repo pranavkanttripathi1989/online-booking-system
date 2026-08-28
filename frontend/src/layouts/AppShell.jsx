@@ -42,6 +42,7 @@ import {
   Snackbar,
   Alert,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 
 // ─── Icons ────────────────────────────────────────────────────────────────────
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
@@ -183,8 +184,17 @@ const SEARCH_DATA = [
   { type: 'page', label: 'Analytics', sub: 'Reports and charts', path: '/analytics', Icon: BarChartIcon },
   { type: 'page', label: 'Settings', sub: 'Profile, security, appearance', path: '/settings', Icon: SettingsIcon },
 ]
-const TYPE_COLOR = { patient: '#0F9D58', clinician: '#9334E6', appointment: TEAL, page: '#80868B' }
-const TYPE_BG = { patient: '#E6F4EA', clinician: '#F3E8FD', appointment: 'rgba(0,109,119,0.10)', page: '#F1F3F4' }
+// BUG047 Phase 1 -- search-result category colour derives from the theme's
+// own semantic palette instead of a hand-picked hex map, so it re-balances
+// correctly in dark mode.
+const TYPE_TONE = { patient: 'success', clinician: 'secondary', appointment: 'primary', page: null }
+function typeStyle(theme, type) {
+  const tone = TYPE_TONE[type]
+  if (!tone) return { bg: theme.palette.action.selected, color: theme.palette.text.secondary }
+  const group = theme.palette[tone]
+  const isDark = theme.palette.mode === 'dark'
+  return { bg: alpha(group.main, isDark ? 0.22 : 0.14), color: isDark ? group.light : group.dark }
+}
 
 // ─── Nav config — filtered by role ────────────────────────────────────────────
 const NAV_CONFIG = [
@@ -284,18 +294,26 @@ const BOTTOM_NAV = [
   { label: 'Menu', path: null, icon: <MenuIcon /> },
 ]
 
-const ROLE_COLORS = {
-  admin: { bg: '#006D77', label: 'Admin' },
-  super_admin: { bg: '#7C3AED', label: 'Super Admin' },
-  manager: { bg: '#3A86FF', label: 'Manager' },
-  clinician: { bg: '#2DC653', label: 'Clinician' },
+// BUG047 Phase 1 -- role accent colour derives from the theme's own semantic
+// palette (roleAccent below), not a hand-picked hex map, so it re-balances
+// correctly in dark mode. Labels stay here; 'bg' no longer does.
+const ROLE_LABELS = {
+  admin: 'Admin',
+  super_admin: 'Super Admin',
+  manager: 'Manager',
+  clinician: 'Clinician',
   // 'staff' is the real seeded role name — RolesGuard never sees
   // 'receptionist' (see NAV_CONFIG's own comment on the same dead name a
   // few lines below). Keying this map by the dead name meant every real
-  // staff/receptionist account fell through to the ROLE_COLORS.patient
+  // staff/receptionist account fell through to the ROLE_LABELS.patient
   // fallback and showed a "Patient" badge in the sidebar/topbar.
-  staff: { bg: '#F9AB00', label: 'Staff' },
-  patient: { bg: '#80868B', label: 'Patient' },
+  staff: 'Staff',
+  patient: 'Patient',
+}
+const ROLE_TONE = { admin: 'primary', super_admin: 'secondary', manager: 'info', clinician: 'success', staff: 'warning', patient: null }
+function roleAccent(theme, role) {
+  const tone = ROLE_TONE[role]
+  return tone ? theme.palette[tone].main : theme.palette.text.secondary
 }
 
 function filterNav(items, userRoles) {
@@ -305,6 +323,7 @@ function filterNav(items, userRoles) {
 
 // ─── Inline Search Dropdown ────────────────────────────────────────────────────
 function SearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
+  const theme = useTheme()
   const results =
     query.length >= 1
       ? SEARCH_DATA.filter(
@@ -332,7 +351,8 @@ function SearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
         right: 0,
         zIndex: 2000,
         borderRadius: 2.5,
-        border: '1px solid #E8EAED',
+        border: '1px solid',
+        borderColor: 'divider',
         boxShadow: '0 8px 32px rgba(32,33,36,0.18)',
         overflow: 'hidden',
       }}
@@ -342,7 +362,7 @@ function SearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
           <Box sx={{ px: 2, pt: 1.25, pb: 0.25 }}>
             <Typography
               variant="caption"
-              sx={{ color: '#9AA0A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '0.64rem' }}
+              sx={{ color: 'text.disabled', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', fontSize: '0.64rem' }}
             >
               {type === 'page' ? 'Quick links' : type + 's'}
             </Typography>
@@ -362,36 +382,36 @@ function SearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
                     px: 2,
                     py: 0.8,
                     cursor: 'pointer',
-                    bgcolor: isActive ? 'rgba(0,109,119,0.07)' : 'transparent',
-                    '&:hover': { bgcolor: 'rgba(0,109,119,0.04)' },
+                    bgcolor: isActive ? 'action.selected' : 'transparent',
+                    '&:hover': { bgcolor: 'action.hover' },
                     transition: 'background 0.1s',
                   }}
                 >
                   <ListItemAvatar sx={{ minWidth: 36 }}>
-                    <Avatar sx={{ width: 28, height: 28, bgcolor: TYPE_BG[type], borderRadius: 1.5 }}>
-                      <item.Icon sx={{ fontSize: '0.85rem', color: TYPE_COLOR[type] }} />
+                    <Avatar sx={{ width: 28, height: 28, bgcolor: typeStyle(theme, type).bg, borderRadius: 1.5 }}>
+                      <item.Icon sx={{ fontSize: '0.85rem', color: typeStyle(theme, type).color }} />
                     </Avatar>
                   </ListItemAvatar>
                   <ListItemText
                     primary={
-                      <Typography variant="body2" fontWeight={700} sx={{ color: '#202124', lineHeight: 1.2 }}>
+                      <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary', lineHeight: 1.2 }}>
                         {item.label}
                       </Typography>
                     }
                     secondary={
-                      <Typography variant="caption" sx={{ color: '#9AA0A6' }}>
+                      <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                         {item.sub}
                       </Typography>
                     }
                   />
-                  {isActive && <KeyboardReturnRoundedIcon sx={{ fontSize: '0.85rem', color: '#9AA0A6', flexShrink: 0 }} />}
+                  {isActive && <KeyboardReturnRoundedIcon sx={{ fontSize: '0.85rem', color: 'text.disabled', flexShrink: 0 }} />}
                 </ListItem>
               )
             })}
           </List>
         </Box>
       ))}
-      <Box sx={{ px: 2, py: 0.9, borderTop: '1px solid #F1F3F4', bgcolor: '#FAFAFA', display: 'flex', gap: 2 }}>
+      <Box sx={{ px: 2, py: 0.9, borderTop: '1px solid', borderColor: 'divider', bgcolor: 'action.hover', display: 'flex', gap: 2 }}>
         {[
           ['↑↓', 'navigate'],
           ['↵', 'open'],
@@ -406,12 +426,13 @@ function SearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
                 fontWeight: 800,
                 fontSize: '0.65rem',
                 height: 18,
-                bgcolor: '#fff',
-                border: '1px solid #E8EAED',
+                bgcolor: 'background.paper',
+                border: '1px solid',
+                borderColor: 'divider',
                 '& .MuiChip-label': { px: 0.6 },
               }}
             />
-            <Typography variant="caption" sx={{ color: '#9AA0A6', fontSize: '0.68rem' }}>
+            <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.68rem' }}>
               {lbl}
             </Typography>
           </Box>
@@ -422,6 +443,12 @@ function SearchDropdown({ query, onSelect, activeIdx, setActiveIdx }) {
 }
 
 // ─── Drawer/Sidebar Content ────────────────────────────────────────────────────
+// BUG047 Phase 1 -- deliberate literal exception, not a gap: this sidebar
+// (and TopNavBar below, its horizontal-layout counterpart) is permanently
+// dark chrome by design, independent of the app's own light/dark mode --
+// a common dashboard pattern. Its bgcolor/white text/TEAL-tinted active
+// state are intentionally NOT theme-mode-derived; only roleAccent() (which
+// IS theme-aware, for recognisable role colour) crosses that boundary.
 function DrawerContent({
   user,
   navItems,
@@ -434,9 +461,10 @@ function DrawerContent({
   branding,
   onClose,
 }) {
+  const theme = useTheme()
   const userRoles = user?.roles?.map((r) => r.name) || ['patient']
   const role = userRoles[0]
-  const roleCfg = ROLE_COLORS[role] || ROLE_COLORS.patient
+  const roleCfg = { label: ROLE_LABELS[role] ?? ROLE_LABELS.patient, bg: roleAccent(theme, role) }
   const isAdmin = userRoles.some((r) => ['admin', 'super_admin'].includes(r))
   const isManager = userRoles.some((r) => ['admin', 'super_admin', 'manager'].includes(r))
 
@@ -545,7 +573,7 @@ function DrawerContent({
                 height: 17,
                 fontSize: '0.6rem',
                 fontWeight: 700,
-                bgcolor: roleCfg.bg + '33',
+                bgcolor: (t) => alpha(roleCfg.bg, 0.2),
                 color: '#fff',
                 border: 'none',
                 '& .MuiChip-label': { px: 0.8 },
@@ -1042,7 +1070,7 @@ export default function AppShell() {
 
   const userRoles = user?.roles?.map((r) => r.name) || ['patient']
   const role = userRoles[0]
-  const roleCfg = ROLE_COLORS[role] || ROLE_COLORS.patient
+  const roleCfg = { label: ROLE_LABELS[role] ?? ROLE_LABELS.patient, bg: roleAccent(theme, role) }
   const rawNavItems = filterNav(NAV_CONFIG, userRoles)
   // BUG-MSG-001: inject live unread count into Messages nav badge
   const navItems = rawNavItems.map((item) => (item.path === '/messages' ? { ...item, badge: msgUnreadCount } : item))
@@ -1257,7 +1285,7 @@ export default function AppShell() {
                 <IconButton
                   edge="start"
                   onClick={() => setMobileOpen(true)}
-                  sx={{ color: '#5F6368', '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
+                  sx={{ color: 'text.secondary', '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.06) } }}
                 >
                   <MenuIcon />
                 </IconButton>
@@ -1270,10 +1298,10 @@ export default function AppShell() {
                   onClick={toggleLayout}
                   sx={{
                     display: { xs: 'none', md: 'flex' },
-                    color: '#9AA0A6',
+                    color: 'text.disabled',
                     borderRadius: 1.5,
                     p: 0.7,
-                    '&:hover': { bgcolor: 'rgba(0,109,119,0.08)', color: TEAL },
+                    '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08), color: 'primary.main' },
                     transition: 'all 0.18s ease',
                   }}
                 >
@@ -1287,7 +1315,7 @@ export default function AppShell() {
                 fontWeight={700}
                 noWrap
                 sx={{
-                  color: '#202124',
+                  color: 'text.primary',
                   fontSize: { xs: '0.95rem', sm: '1.0rem', md: '1.05rem' },
                   letterSpacing: '-0.2px',
                 }}
@@ -1377,7 +1405,7 @@ export default function AppShell() {
                     py: 0.75,
                   }}
                 >
-                  <SearchRoundedIcon sx={{ color: TEAL, fontSize: '1rem', flexShrink: 0 }} />
+                  <SearchRoundedIcon sx={{ color: 'primary.main', fontSize: '1rem', flexShrink: 0 }} />
                   <InputBase
                     inputRef={searchInputRef}
                     value={searchQuery}
@@ -1388,10 +1416,10 @@ export default function AppShell() {
                     onKeyDown={handleSearchKey}
                     placeholder="Search patients, clinicians, appointments…"
                     fullWidth
-                    sx={{ fontSize: '0.875rem', fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 600, color: '#202124' }}
+                    sx={{ fontSize: '0.875rem', fontFamily: '"Plus Jakarta Sans", sans-serif', fontWeight: 600, color: 'text.primary' }}
                   />
                   {searchQuery && (
-                    <IconButton size="small" onClick={() => setSearchQuery('')} sx={{ color: '#9AA0A6', p: 0.25 }}>
+                    <IconButton size="small" onClick={() => setSearchQuery('')} sx={{ color: 'text.disabled', p: 0.25 }}>
                       <CloseRoundedIcon sx={{ fontSize: '0.9rem' }} />
                     </IconButton>
                   )}
@@ -1401,7 +1429,7 @@ export default function AppShell() {
                       setInlineOpen(false)
                       setSearchQuery('')
                     }}
-                    sx={{ color: '#9AA0A6', p: 0.25 }}
+                    sx={{ color: 'text.disabled', p: 0.25 }}
                   >
                     <CloseRoundedIcon sx={{ fontSize: '1rem' }} />
                   </IconButton>
@@ -1424,7 +1452,7 @@ export default function AppShell() {
                 <IconButton
                   size="small"
                   onClick={() => setInlineOpen(true)}
-                  sx={{ display: { sm: 'none' }, color: '#5F6368', '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
+                  sx={{ display: { sm: 'none' }, color: 'text.secondary', '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.06) } }}
                 >
                   <SearchRoundedIcon fontSize="small" />
                 </IconButton>
@@ -1437,11 +1465,11 @@ export default function AppShell() {
                   onClick={() => navigate('/appointments/new')}
                   sx={{
                     display: { xs: 'none', sm: 'flex' },
-                    color: '#fff',
-                    bgcolor: TEAL,
+                    color: 'primary.contrastText',
+                    bgcolor: 'primary.main',
                     borderRadius: 1.5,
                     p: 0.7,
-                    '&:hover': { bgcolor: '#005A62', boxShadow: `0 4px 12px rgba(0,109,119,0.30)` },
+                    '&:hover': { bgcolor: 'primary.dark', boxShadow: `0 4px 12px rgba(0,109,119,0.30)` },
                     transition: 'all 0.18s ease',
                   }}
                 >
@@ -1455,8 +1483,8 @@ export default function AppShell() {
                   size="small"
                   onClick={() => setThemeMode(darkMode ? 'light' : 'dark')}
                   sx={{
-                    color: '#5F6368',
-                    '&:hover': { bgcolor: 'rgba(0,109,119,0.06)', color: darkMode ? '#F9AB00' : TEAL },
+                    color: 'text.secondary',
+                    '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.06), color: darkMode ? 'warning.main' : 'primary.main' },
                     transition: 'all 0.2s',
                   }}
                 >
@@ -1467,7 +1495,7 @@ export default function AppShell() {
               {/* Notifications */}
               <NotificationBell />
 
-              <Box sx={{ width: 1, height: 22, bgcolor: '#E8EAED', mx: 0.5 }} />
+              <Box sx={{ width: 1, height: 22, bgcolor: 'divider', mx: 0.5 }} />
 
               {/* User avatar */}
               <Tooltip title={displayName}>
@@ -1477,7 +1505,7 @@ export default function AppShell() {
                       sx={{
                         width: 34,
                         height: 34,
-                        background: `linear-gradient(135deg, ${TEAL_LIGHT} 0%, ${TEAL} 100%)`,
+                        background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
                         fontSize: '0.78rem',
                         fontWeight: 700,
                         boxShadow: `0 2px 8px rgba(0,109,119,0.35)`,
@@ -1495,8 +1523,9 @@ export default function AppShell() {
                         width: 9,
                         height: 9,
                         borderRadius: '50%',
-                        bgcolor: '#0F9D58',
-                        border: '2px solid #FFFFFF',
+                        bgcolor: 'success.main',
+                        border: '2px solid',
+                        borderColor: 'background.paper',
                       }}
                     />
                   </Box>
@@ -1548,7 +1577,7 @@ export default function AppShell() {
             sx={{
               width: 40,
               height: 40,
-              background: `linear-gradient(135deg, ${TEAL_LIGHT} 0%, ${TEAL} 100%)`,
+              background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
               fontSize: '0.9rem',
               fontWeight: 700,
             }}
@@ -1556,7 +1585,7 @@ export default function AppShell() {
             {initials}
           </Avatar>
           <Box sx={{ minWidth: 0 }}>
-            <Typography variant="body2" fontWeight={700} noWrap sx={{ color: '#202124' }}>
+            <Typography variant="body2" fontWeight={700} noWrap sx={{ color: 'text.primary' }}>
               {displayName}
             </Typography>
             <Chip
@@ -1567,14 +1596,14 @@ export default function AppShell() {
                 height: 17,
                 fontSize: '0.62rem',
                 fontWeight: 700,
-                bgcolor: roleCfg.bg + '22',
+                bgcolor: (t) => alpha(roleCfg.bg, 0.16),
                 color: roleCfg.bg,
                 '& .MuiChip-label': { px: 0.8 },
               }}
             />
           </Box>
         </Box>
-        <Divider sx={{ borderColor: '#E8EAED' }} />
+        <Divider sx={{ borderColor: 'divider' }} />
         <Box sx={{ p: 1 }}>
           <MenuItem
             onClick={() => {
@@ -1584,7 +1613,7 @@ export default function AppShell() {
             sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
           >
             <ListItemIcon>
-              <AccountCircleIcon fontSize="small" sx={{ color: '#5F6368' }} />
+              <AccountCircleIcon fontSize="small" sx={{ color: 'text.secondary' }} />
             </ListItemIcon>
             <Typography variant="body2" fontWeight={600}>
               My Profile
@@ -1598,7 +1627,7 @@ export default function AppShell() {
             sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
           >
             <ListItemIcon>
-              <SettingsIcon fontSize="small" sx={{ color: '#5F6368' }} />
+              <SettingsIcon fontSize="small" sx={{ color: 'text.secondary' }} />
             </ListItemIcon>
             <Typography variant="body2" fontWeight={600}>
               Settings
@@ -1617,14 +1646,14 @@ export default function AppShell() {
             </Typography>
           </MenuItem>
         </Box>
-        <Divider sx={{ borderColor: '#E8EAED' }} />
+        <Divider sx={{ borderColor: 'divider' }} />
         <Box sx={{ p: 1 }}>
           <MenuItem
             onClick={signOut}
-            sx={{ borderRadius: 2, py: 1, px: 1.5, color: '#D93025', '&:hover': { bgcolor: 'rgba(217,48,37,0.06)' } }}
+            sx={{ borderRadius: 2, py: 1, px: 1.5, color: 'error.main', '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.06) } }}
           >
             <ListItemIcon>
-              <LogoutIcon fontSize="small" sx={{ color: '#D93025' }} />
+              <LogoutIcon fontSize="small" sx={{ color: 'error.main' }} />
             </ListItemIcon>
             <Typography variant="body2" fontWeight={700}>
               Sign Out
@@ -1729,8 +1758,8 @@ export default function AppShell() {
             bgcolor: 'background.paper',
             '& .MuiBottomNavigationAction-root': {
               minWidth: 0,
-              color: '#5A7184',
-              '&.Mui-selected': { color: TEAL },
+              color: 'text.secondary',
+              '&.Mui-selected': { color: 'primary.main' },
             },
           }}
           showLabels

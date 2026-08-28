@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Paper, Stack, Typography } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
 
 /**
@@ -15,9 +16,21 @@ import { TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
  *                        against" (BUG035/BUG042) — renders no badge, not a fabricated 0%.
  *   subtitle {string}  — Optional: secondary line below value
  */
-export default function StitchKpiCard({ title, value, icon, color = '#006D77', trend, subtitle }) {
+export default function StitchKpiCard({ title, value, icon, color, trend, subtitle }) {
+  const theme = useTheme()
+  const resolvedColor = color ?? theme.palette.primary.main
+  const isDark = theme.palette.mode === 'dark'
   const TrendIcon = trend > 0 ? TrendingUp : trend < 0 ? TrendingDown : TrendingFlat
-  const trendColor = trend > 0 ? '#10B981' : trend < 0 ? '#EF4444' : '#94A3B8'
+  const trendColor =
+    trend > 0
+      ? isDark
+        ? theme.palette.success.light
+        : theme.palette.success.dark
+      : trend < 0
+        ? isDark
+          ? theme.palette.error.light
+          : theme.palette.error.dark
+        : theme.palette.text.secondary
 
   return (
     <Paper
@@ -25,9 +38,9 @@ export default function StitchKpiCard({ title, value, icon, color = '#006D77', t
       sx={{
         p: 2.5,
         border: '1px solid',
-        borderColor: '#E2E8F0',
+        borderColor: 'divider',
         borderRadius: 3,
-        bgcolor: 'white',
+        bgcolor: 'background.paper',
         flex: 1,
         minWidth: 160,
         transition: 'all 0.2s ease',
@@ -43,14 +56,14 @@ export default function StitchKpiCard({ title, value, icon, color = '#006D77', t
           sx={{
             width: 44,
             height: 44,
-            bgcolor: `${color}1A`,
+            bgcolor: alpha(resolvedColor, 0.1),
             borderRadius: 2,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          {React.cloneElement(icon, { sx: { color, fontSize: 22 } })}
+          {React.cloneElement(icon, { sx: { color: resolvedColor, fontSize: 22 } })}
         </Box>
 
         {/* Trend badge — BUG035/BUG042: null/undefined means no real baseline,

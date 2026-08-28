@@ -17,6 +17,7 @@ import {
   Typography,
 } from '@mui/material'
 import { DataGrid } from '@mui/x-data-grid'
+import { alpha } from '@mui/material/styles'
 import CloseIcon from '@mui/icons-material/Close'
 import TranslateIcon from '@mui/icons-material/Translate'
 import EmailIcon from '@mui/icons-material/Email'
@@ -25,6 +26,9 @@ import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
 import { CLINICIAN_DETAIL_QUERY } from '../../graphql/queries'
 
 // ─── Avatar helpers ───────────────────────────────────────────────────────────
+// Deliberate literal exception (medibook-design-system skill's own carve-out):
+// a fixed, curated set of hues for a stable per-clinician avatar colour,
+// independent of theme mode.
 const NAME_COLOURS = ['#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#3b82f6', '#ef4444', '#14b8a6']
 function nameColour(name = '') {
   let h = 0
@@ -121,7 +125,7 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
       <Box
         sx={{
           p: 3,
-          background: 'linear-gradient(135deg, rgba(99,102,241,0.14) 0%, rgba(139,92,246,0.07) 100%)',
+          background: (t) => `linear-gradient(135deg, ${alpha(t.palette.primary.main, 0.14)} 0%, ${alpha(t.palette.secondary.main, 0.07)} 100%)`,
           borderBottom: '1px solid',
           borderColor: 'divider',
           flexShrink: 0,
@@ -290,7 +294,7 @@ export default function ClinicianProfileDrawer({ open, clinician, onClose }) {
                 </Box>
               ),
             }}
-            sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'rgba(0,0,0,0.02)' } }}
+            sx={{ border: 'none', '& .MuiDataGrid-columnHeaders': { background: 'action.hover' } }}
           />
         </TabPanel>
 

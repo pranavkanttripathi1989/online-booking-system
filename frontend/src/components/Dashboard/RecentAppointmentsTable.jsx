@@ -20,6 +20,11 @@ import { useNavigate } from 'react-router-dom'
 import dayjs from 'dayjs'
 
 // ─── Helpers ────────────────────────────────────────────────────────────────────
+// Deliberate literal exception (medibook-design-system skill's own stated
+// carve-out): a fixed, curated set of distinguishable avatar-identity hues,
+// always used as `alpha(color, 0.15)` backgrounds -- the transparency blends
+// with whichever theme background is active, so this reads fine in both modes
+// without needing its own light/dark variant.
 const AVATAR_PALETTE = ['#1A73E8', '#0F9D58', '#9334E6', '#FA7B17', '#D93025', '#009688', '#F9AB00', '#EA4335']
 const avatarColor = (name) => AVATAR_PALETTE[(name?.charCodeAt(0) ?? 0) % AVATAR_PALETTE.length]
 const initials = (name) =>
@@ -30,21 +35,25 @@ const initials = (name) =>
     .join('')
     .toUpperCase()
 
-// ─── Google status chip config ─────────────────────────────────────────────────
-const STATUS_CONFIG = {
-  confirmed: { label: 'Confirmed', bg: '#E6F4EA', text: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
-  pending: { label: 'Pending', bg: '#FEF7E0', text: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
-  cancelled: { label: 'Cancelled', bg: '#FCE8E6', text: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
-  no_show: { label: 'No Show', bg: '#F8F9FA', text: '#3C4043', border: '#E8EAED', dot: '#80868B' },
-  completed: { label: 'Completed', bg: '#E8F0FE', text: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
-  rescheduled: { label: 'Rescheduled', bg: '#F3E8FD', text: '#6E2DB8', border: '#D7AEFA', dot: '#9334E6' },
+// BUG047 Phase 1 -- status colour now comes from theme.palette.appointmentStatus
+// (theme/index.js), the one shared source, so it re-balances correctly in
+// dark mode instead of this file hand-picking its own light-only pastel hex.
+const STATUS_LABELS = {
+  confirmed: 'Confirmed',
+  pending: 'Pending',
+  cancelled: 'Cancelled',
+  no_show: 'No Show',
+  completed: 'Completed',
+  rescheduled: 'Rescheduled',
 }
 
 function StatusBadge({ status }) {
-  const cfg = STATUS_CONFIG[status] ?? { label: status, bg: '#F8F9FA', text: '#3C4043', border: '#E8EAED', dot: '#80868B' }
+  const theme = useTheme()
+  const cfg = theme.palette.appointmentStatus[status] ?? theme.palette.appointmentStatus.no_show
+  const label = STATUS_LABELS[status] ?? status
   return (
     <Chip
-      label={cfg.label}
+      label={label}
       size="small"
       sx={{
         bgcolor: cfg.bg,
@@ -79,14 +88,14 @@ export default function RecentAppointmentsTable({ appointments }) {
     <Box>
       {/* Header with View all link */}
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-        <Typography variant="subtitle1" fontWeight={700} sx={{ color: '#202124' }}>
+        <Typography variant="subtitle1" fontWeight={700} sx={{ color: 'text.primary' }}>
           Upcoming Appointments
         </Typography>
         <Button
           variant="text"
           size="small"
           onClick={() => navigate('/appointments')}
-          sx={{ color: '#1A73E8', fontWeight: 700, fontSize: '0.8rem', '&:hover': { bgcolor: '#E8F0FE' } }}
+          sx={{ color: 'primary.main', fontWeight: 700, fontSize: '0.8rem', '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08) } }}
         >
           View all →
         </Button>
@@ -105,7 +114,7 @@ export default function RecentAppointmentsTable({ appointments }) {
                   sx={{
                     fontWeight: 700,
                     fontSize: '0.7rem',
-                    color: '#9AA0A6',
+                    color: 'text.disabled',
                     py: 1.25,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
@@ -117,7 +126,7 @@ export default function RecentAppointmentsTable({ appointments }) {
                   sx={{
                     fontWeight: 700,
                     fontSize: '0.7rem',
-                    color: '#9AA0A6',
+                    color: 'text.disabled',
                     py: 1.25,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
@@ -130,7 +139,7 @@ export default function RecentAppointmentsTable({ appointments }) {
                   sx={{
                     fontWeight: 700,
                     fontSize: '0.7rem',
-                    color: '#9AA0A6',
+                    color: 'text.disabled',
                     py: 1.25,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
@@ -143,7 +152,7 @@ export default function RecentAppointmentsTable({ appointments }) {
                   sx={{
                     fontWeight: 700,
                     fontSize: '0.7rem',
-                    color: '#9AA0A6',
+                    color: 'text.disabled',
                     py: 1.25,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
@@ -155,7 +164,7 @@ export default function RecentAppointmentsTable({ appointments }) {
                   sx={{
                     fontWeight: 700,
                     fontSize: '0.7rem',
-                    color: '#9AA0A6',
+                    color: 'text.disabled',
                     py: 1.25,
                     textTransform: 'uppercase',
                     letterSpacing: '0.08em',
@@ -190,22 +199,22 @@ export default function RecentAppointmentsTable({ appointments }) {
                       >
                         {initials(appt.patient?.full_name)}
                       </Avatar>
-                      <Typography variant="body2" fontWeight={600} sx={{ color: '#202124' }}>
+                      <Typography variant="body2" fontWeight={600} sx={{ color: 'text.primary' }}>
                         {appt.patient?.full_name ?? '—'}
                       </Typography>
                     </Box>
                   </TableCell>
 
                   {/* Clinician — hidden on mobile */}
-                  <TableCell sx={{ color: '#5F6368', display: { xs: 'none', md: 'table-cell' } }}>
+                  <TableCell sx={{ color: 'text.secondary', display: { xs: 'none', md: 'table-cell' } }}>
                     {appt.clinician?.full_name ?? '—'}
                   </TableCell>
 
                   {/* Service — hidden on xs */}
-                  <TableCell sx={{ color: '#5F6368', display: { xs: 'none', sm: 'table-cell' } }}>{appt.service?.name ?? '—'}</TableCell>
+                  <TableCell sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'table-cell' } }}>{appt.service?.name ?? '—'}</TableCell>
 
                   {/* Date — short on mobile */}
-                  <TableCell sx={{ color: '#5F6368', whiteSpace: 'nowrap' }}>
+                  <TableCell sx={{ color: 'text.secondary', whiteSpace: 'nowrap' }}>
                     {dayjs(appt.start_datetime).format(isMobile ? 'D MMM' : 'D MMM, h:mm A')}
                   </TableCell>
 
@@ -219,7 +228,7 @@ export default function RecentAppointmentsTable({ appointments }) {
                       <IconButton
                         size="small"
                         onClick={() => navigate(`/appointments/${appt.id}`)}
-                        sx={{ color: '#1A73E8', '&:hover': { bgcolor: '#E8F0FE' } }}
+                        sx={{ color: 'primary.main', '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08) } }}
                       >
                         <OpenInNewIcon fontSize="small" />
                       </IconButton>

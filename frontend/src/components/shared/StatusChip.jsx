@@ -1,5 +1,6 @@
 import React from 'react'
 import { Chip } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 
 const STATUS_CONFIG = {
   scheduled: { label: 'Scheduled', color: 'info' },
@@ -32,7 +33,15 @@ export default function StatusChip({ status, size = 'small' }) {
       label={config.label}
       color={config.color}
       variant="outlined"
-      sx={isBlocked ? { bgcolor: '#EDE9FE', color: '#4C1D95', borderColor: '#C4B5FD' } : undefined}
+      sx={
+        isBlocked
+          ? {
+              bgcolor: (t) => alpha(t.palette.secondary.main, 0.14),
+              color: 'secondary.dark',
+              borderColor: (t) => alpha(t.palette.secondary.main, 0.4),
+            }
+          : undefined
+      }
     />
   )
 }

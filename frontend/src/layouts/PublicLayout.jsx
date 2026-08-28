@@ -47,7 +47,7 @@ export default function PublicLayout() {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', minHeight: '100vh' }}>
       {/* ── Top Navigation ──────────────────────────────────────────────────── */}
-      <AppBar position="sticky" elevation={0} sx={{ bgcolor: '#fff', borderBottom: '1px solid #D0E8EA', color: 'text.primary' }}>
+      <AppBar position="sticky" elevation={0} sx={{ bgcolor: 'background.paper', borderBottom: '1px solid', borderColor: 'divider', color: 'text.primary' }}>
         <Toolbar sx={{ gap: 2 }}>
           {/* Logo */}
           <Stack
@@ -63,15 +63,15 @@ export default function PublicLayout() {
                 width: 32,
                 height: 32,
                 borderRadius: '50%',
-                bgcolor: '#006D77',
+                bgcolor: 'primary.main',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
               }}
             >
-              <MedicalServicesIcon sx={{ color: '#fff', fontSize: 16 }} />
+              <MedicalServicesIcon sx={{ color: 'primary.contrastText', fontSize: 16 }} />
             </Box>
-            <Typography fontWeight={800} sx={{ color: '#006D77', fontSize: '1.1rem' }}>
+            <Typography fontWeight={800} sx={{ color: 'primary.main', fontSize: '1.1rem' }}>
               {t('layout.brand')}
             </Typography>
           </Stack>
@@ -84,7 +84,7 @@ export default function PublicLayout() {
                   key={link.label}
                   component="a"
                   href={link.href}
-                  sx={{ color: 'text.secondary', fontWeight: 600, '&:hover': { color: '#006D77' } }}
+                  sx={{ color: 'text.secondary', fontWeight: 600, '&:hover': { color: 'primary.main' } }}
                 >
                   {link.label}
                 </Button>
@@ -154,6 +154,10 @@ export default function PublicLayout() {
 
       {/* ── Footer ──────────────────────────────────────────────────────────── */}
       <Box component="footer" sx={{ bgcolor: '#003B42', color: '#fff', py: 5, mt: 'auto' }}>
+        {/* BUG047 Phase 1 -- deliberate literal exception: a marketing footer
+            with its own fixed dark band, independent of the app's light/dark
+            mode, is a common convention -- not the same surface as the app
+            content the theme toggle governs. */}
         <Container maxWidth="lg">
           <Stack direction={{ xs: 'column', md: 'row' }} spacing={{ xs: 4, md: 8 }}>
             {/* Brand */}

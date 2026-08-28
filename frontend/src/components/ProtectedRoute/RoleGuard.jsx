@@ -1,5 +1,6 @@
 import { Outlet, useLocation } from 'react-router-dom'
 import { Box, Typography, Button, Chip, Stack } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { LockOutlined, ArrowBack, EmailOutlined } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
 
@@ -10,8 +11,10 @@ import { useAuth } from '../../context/AuthContext'
 export function Forbidden403() {
   const { user } = useAuth()
   const location = useLocation()
+  const theme = useTheme()
   const roleNames = user?.roles?.map((r) => r.name).join(', ') ?? 'unknown'
   const attempted = location?.pathname ?? 'this page'
+  const isDark = theme.palette.mode === 'dark'
 
   return (
     <Box
@@ -22,7 +25,7 @@ export function Forbidden403() {
       minHeight="100vh"
       textAlign="center"
       p={{ xs: 3, sm: 4 }}
-      bgcolor="#F8F9FA"
+      bgcolor="background.default"
     >
       {/* Red lock circle */}
       <Box
@@ -30,15 +33,16 @@ export function Forbidden403() {
           width: 100,
           height: 100,
           borderRadius: '50%',
-          bgcolor: '#FCE8E6',
-          border: '2px solid #F5C6C2',
+          bgcolor: alpha(theme.palette.error.main, isDark ? 0.2 : 0.12),
+          border: '2px solid',
+          borderColor: alpha(theme.palette.error.main, isDark ? 0.4 : 0.28),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           mb: 3,
         }}
       >
-        <LockOutlined sx={{ fontSize: 50, color: '#D93025' }} />
+        <LockOutlined sx={{ fontSize: 50, color: 'error.main' }} />
       </Box>
 
       {/* 403 gradient text */}
@@ -50,7 +54,7 @@ export function Forbidden403() {
           lineHeight: 1,
           mb: 2,
           letterSpacing: '-4px',
-          background: 'linear-gradient(135deg, #D93025 30%, #EA4335 100%)',
+          background: `linear-gradient(135deg, ${theme.palette.error.main} 30%, ${theme.palette.error.light} 100%)`,
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
         }}
@@ -58,7 +62,7 @@ export function Forbidden403() {
         403
       </Typography>
 
-      <Typography variant="h5" fontWeight={700} sx={{ color: '#202124' }} mb={1}>
+      <Typography variant="h5" fontWeight={700} sx={{ color: 'text.primary' }} mb={1}>
         Access Forbidden
       </Typography>
 
@@ -71,16 +75,22 @@ export function Forbidden403() {
           <Chip
             label={roleNames}
             size="small"
-            sx={{ fontWeight: 700, bgcolor: '#F1F3F4', color: '#3C4043', textTransform: 'capitalize' }}
+            sx={{ fontWeight: 700, bgcolor: 'action.selected', color: 'text.primary', textTransform: 'capitalize' }}
           />
         </Stack>
       )}
 
-      <Typography variant="body1" sx={{ color: '#5F6368', maxWidth: 420 }} mb={0.75}>
+      <Typography variant="body1" sx={{ color: 'text.secondary', maxWidth: 420 }} mb={0.75}>
         Your role <strong>({roleNames})</strong> does not have access to{' '}
-        <code style={{ background: '#F1F3F4', padding: '1px 6px', borderRadius: 4 }}>{attempted}</code>.
+        <Box
+          component="code"
+          sx={{ bgcolor: 'action.selected', color: 'text.primary', padding: '1px 6px', borderRadius: '4px' }}
+        >
+          {attempted}
+        </Box>
+        .
       </Typography>
-      <Typography variant="body2" sx={{ color: '#80868B', maxWidth: 380 }} mb={4}>
+      <Typography variant="body2" sx={{ color: 'text.disabled', maxWidth: 380 }} mb={4}>
         Contact your administrator if you believe this is a mistake.
       </Typography>
 
@@ -93,9 +103,9 @@ export function Forbidden403() {
             borderRadius: 2,
             textTransform: 'none',
             fontWeight: 700,
-            borderColor: '#D93025',
-            color: '#D93025',
-            '&:hover': { bgcolor: '#FCE8E6', borderColor: '#D93025' },
+            borderColor: 'error.main',
+            color: 'error.main',
+            '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.08), borderColor: 'error.main' },
           }}
         >
           Go Back
@@ -109,9 +119,9 @@ export function Forbidden403() {
             borderRadius: 2,
             textTransform: 'none',
             fontWeight: 700,
-            borderColor: '#1A73E8',
-            color: '#1A73E8',
-            '&:hover': { bgcolor: 'rgba(26,115,232,0.06)' },
+            borderColor: 'primary.main',
+            color: 'primary.main',
+            '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08) },
           }}
         >
           Request Access

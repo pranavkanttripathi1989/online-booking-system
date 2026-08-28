@@ -1,4 +1,4 @@
-import { createTheme } from '@mui/material/styles'
+import { createTheme, alpha } from '@mui/material/styles'
 
 // BUG047 -- single source of truth for the app's palette, light AND dark.
 // Previously this file only ever built a light theme, and a second,
@@ -34,6 +34,31 @@ const DARK = {
   divider: '#2A3D46',
 }
 
+// Phase 1 (BUG047 follow-up) -- appointment/booking status is a recurring
+// semantic-colour need across many components (RecentAppointmentsTable,
+// StitchStatusChip, StatusChip, and further phases' calendar/appointments
+// pages). Rather than each file hand-picking its own hex per status (which
+// is exactly how a light-mode-only pastel chip shipped, unreadably bright
+// on a dark background), this is the one shared source: consume via
+// `theme.palette.appointmentStatus.<status>`, never a per-file STATUS_CONFIG
+// hex map.
+function buildStatusPalette(p, mode) {
+  const tone = (main, lightText, darkText) => ({
+    bg: mode === 'dark' ? alpha(main, 0.18) : alpha(main, 0.12),
+    text: mode === 'dark' ? lightText : darkText,
+    border: mode === 'dark' ? alpha(main, 0.4) : alpha(main, 0.3),
+    dot: main,
+  })
+  return {
+    confirmed: tone(p.success.main, p.success.light, p.success.dark),
+    pending: tone(p.warning.main, p.warning.light, p.warning.dark),
+    cancelled: tone(p.error.main, p.error.light, p.error.dark),
+    completed: tone(p.info.main, p.info.light, p.info.dark),
+    rescheduled: tone(p.secondary.main, p.secondary.light, p.secondary.dark),
+    no_show: tone(p.text.secondary, p.text.secondary, p.text.secondary),
+  }
+}
+
 export function createAppTheme(mode = 'light') {
   const p = mode === 'dark' ? DARK : LIGHT
   const tableHeadBg = mode === 'dark' ? '#1C2A34' : '#E8F8F9'
@@ -42,7 +67,7 @@ export function createAppTheme(mode = 'light') {
   const sidebarSelectedBg = mode === 'dark' ? p.primary.dark : '#006D77'
 
   return createTheme({
-    palette: { mode, ...p },
+    palette: { mode, ...p, appointmentStatus: buildStatusPalette(p, mode) },
     typography: {
       fontFamily: "'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif",
       h1: { fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.5px' },

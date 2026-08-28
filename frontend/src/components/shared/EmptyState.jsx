@@ -1,5 +1,6 @@
 import React from 'react'
 import { Box, Typography, Button } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import InboxIcon from '@mui/icons-material/Inbox'
 
 export default function EmptyState({
@@ -28,14 +29,14 @@ export default function EmptyState({
           width: 72,
           height: 72,
           borderRadius: '50%',
-          bgcolor: '#E8F8F9',
+          bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           mb: 2,
         }}
       >
-        <Icon sx={{ fontSize: 36, color: '#83C5BE' }} />
+        <Icon sx={{ fontSize: 36, color: 'primary.light' }} />
       </Box>
       <Typography variant="h5" fontWeight={600} color="text.primary" gutterBottom>
         {title}

@@ -17,7 +17,6 @@ import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
 import GavelIcon from '@mui/icons-material/Gavel'
 
-const BRAND = '#006D77'
 const SIDEBAR_WIDTH = 224
 
 // BUG032 -- this used to omit 4 real, working /admin/* routes entirely
@@ -91,7 +90,7 @@ export default function AdminLayout() {
 
       {NAV_SECTIONS.map((section, si) => (
         <Box key={section.label}>
-          {si > 0 && <Divider sx={{ my: 1, borderColor: '#E2E8F0' }} />}
+          {si > 0 && <Divider sx={{ my: 1, borderColor: 'divider' }} />}
           <Typography
             variant="caption"
             sx={{
@@ -127,8 +126,8 @@ export default function AdminLayout() {
                     '&:hover': { bgcolor: active ? `${BRAND}20` : 'rgba(0,0,0,0.04)' },
                   }}
                 >
-                  <ListItemIcon sx={{ minWidth: 32, color: active ? BRAND : '#94A3B8' }}>
-                    {item.icon.type ? <item.icon.type sx={{ fontSize: 18, color: active ? BRAND : '#94A3B8' }} /> : item.icon}
+                  <ListItemIcon sx={{ minWidth: 32, color: active ? 'primary.main' : 'text.disabled' }}>
+                    {item.icon.type ? <item.icon.type sx={{ fontSize: 18, color: active ? 'primary.main' : 'text.disabled' }} /> : item.icon}
                   </ListItemIcon>
                   <ListItemText
                     primary={item.label}
@@ -157,7 +156,7 @@ export default function AdminLayout() {
         direction="row"
         alignItems="center"
         spacing={1}
-        sx={{ display: { xs: 'flex', md: 'none' }, px: 2, py: 1, borderBottom: '1px solid #E2E8F0', bgcolor: '#F8FAFC' }}
+        sx={{ display: { xs: 'flex', md: 'none' }, px: 2, py: 1, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'background.default' }}
       >
         <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open admin console menu" size="small">
           <MenuRoundedIcon />
@@ -175,7 +174,7 @@ export default function AdminLayout() {
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { width: 260, bgcolor: '#F8FAFC', pt: 1, pb: 2 },
+          '& .MuiDrawer-paper': { width: 260, bgcolor: 'background.default', pt: 1, pb: 2 },
         }}
       >
         {navContent(() => setMobileNavOpen(false))}
@@ -192,7 +191,7 @@ export default function AdminLayout() {
             width: SIDEBAR_WIDTH,
             position: 'relative',
             height: '100%',
-            bgcolor: '#F8FAFC',
+            bgcolor: 'background.default',
             borderRight: '1px solid #E2E8F0',
             boxShadow: 'none',
             pt: 1,

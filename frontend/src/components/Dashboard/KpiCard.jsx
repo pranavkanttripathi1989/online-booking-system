@@ -1,4 +1,5 @@
-import { Box, Card, CardContent, Typography, alpha, Skeleton } from '@mui/material'
+import { Box, Card, CardContent, Typography, Skeleton } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import TrendingUpIcon from '@mui/icons-material/TrendingUp'
 import TrendingDownIcon from '@mui/icons-material/TrendingDown'
 import RemoveIcon from '@mui/icons-material/Remove'
@@ -6,14 +7,19 @@ import RemoveIcon from '@mui/icons-material/Remove'
 /**
  * KpiCard — Google Material 3 colors + progress bar + responsive
  */
-export default function KpiCard({ icon: Icon, label, value, trend, color = '#1A73E8', loading = false, prefix = '' }) {
+export default function KpiCard({ icon: Icon, label, value, trend, color, loading = false, prefix = '' }) {
+  const theme = useTheme()
+  const resolvedColor = color ?? theme.palette.primary.main
   const isUp = typeof trend === 'number' ? trend > 0 : null
   const isFlat = typeof trend === 'number' && trend === 0
+  const isDark = theme.palette.mode === 'dark'
 
-  // Google semantic trend colors
-  const trendColor = isFlat ? '#5F6368' : isUp ? '#137333' : '#A50E0E'
-  const trendBg = isFlat ? '#F8F9FA' : isUp ? '#E6F4EA' : '#FCE8E6'
-  const trendBorder = isFlat ? '#E8EAED' : isUp ? '#CEEAD6' : '#F5C6C2'
+  // BUG047 Phase 1 -- trend up/down/flat is a semantic tone (success/error/
+  // neutral), derived from the theme instead of hand-picked hex.
+  const trendGroup = isFlat ? null : isUp ? theme.palette.success : theme.palette.error
+  const trendColor = isFlat ? theme.palette.text.secondary : isDark ? trendGroup.light : trendGroup.dark
+  const trendBg = isFlat ? theme.palette.action.selected : alpha(trendGroup.main, isDark ? 0.2 : 0.12)
+  const trendBorder = isFlat ? theme.palette.divider : alpha(trendGroup.main, isDark ? 0.4 : 0.28)
 
   return (
     <Card
@@ -45,11 +51,11 @@ export default function KpiCard({ icon: Icon, label, value, trend, color = '#1A7
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              bgcolor: alpha(color, 0.1),
-              border: `1.5px solid ${alpha(color, 0.2)}`,
+              bgcolor: alpha(resolvedColor, 0.1),
+              border: `1.5px solid ${alpha(resolvedColor, 0.2)}`,
             }}
           >
-            {Icon && <Icon sx={{ color, fontSize: { xs: 22, md: 26 } }} />}
+            {Icon && <Icon sx={{ color: resolvedColor, fontSize: { xs: 22, md: 26 } }} />}
           </Box>
 
           {/* Trend badge */}
@@ -115,12 +121,12 @@ export default function KpiCard({ icon: Icon, label, value, trend, color = '#1A7
 
             {/* Google-style progress bar */}
             {trend != null && (
-              <Box sx={{ mt: { xs: 1.5, md: 2 }, height: 3, borderRadius: 2, bgcolor: alpha(color, 0.12) }}>
+              <Box sx={{ mt: { xs: 1.5, md: 2 }, height: 3, borderRadius: 2, bgcolor: alpha(resolvedColor, 0.12) }}>
                 <Box
                   sx={{
                     height: '100%',
                     borderRadius: 2,
-                    bgcolor: color,
+                    bgcolor: resolvedColor,
                     width: `${Math.min(Math.abs(trend ?? 50), 100)}%`,
                     transition: 'width 1.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   }}

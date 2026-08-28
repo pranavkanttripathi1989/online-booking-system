@@ -1,7 +1,10 @@
 import { PieChart, Pie, Cell, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Box, Typography, Paper, useTheme, useMediaQuery, alpha } from '@mui/material'
 
-// ─── Google 8-ramp chart colors ──────────────────────────────────────────────
+// Deliberate literal exception -- a fixed multi-series chart palette (each
+// slice needs a distinct, stable hue independent of theme mode; a translucent
+// alpha() overlay is used everywhere this is consumed, same rationale as the
+// avatar-palette exception elsewhere in this codebase).
 const COLOURS = ['#4285F4', '#0F9D58', '#F9AB00', '#D93025', '#9334E6', '#FA7B17', '#009688', '#EA4335']
 
 // ─── Mock data ─────────────────────────────────────────────────────────────────
@@ -24,18 +27,19 @@ function CustomTooltip({ active, payload }) {
         p: 2,
         borderRadius: 3,
         minWidth: 160,
-        border: '1px solid #E8EAED',
+        border: '1px solid',
+        borderColor: 'divider',
         boxShadow: '0 4px 20px rgba(32,33,36,0.18)',
-        bgcolor: '#FFFFFF',
+        bgcolor: 'background.paper',
       }}
     >
-      <Typography variant="caption" fontWeight={700} display="block" mb={0.5} sx={{ color: '#202124' }}>
+      <Typography variant="caption" fontWeight={700} display="block" mb={0.5} sx={{ color: 'text.primary' }}>
         {name}
       </Typography>
-      <Typography variant="caption" sx={{ color: '#5F6368' }}>
+      <Typography variant="caption" sx={{ color: 'text.secondary' }}>
         Bookings:{' '}
       </Typography>
-      <Typography variant="caption" fontWeight={700} sx={{ color: '#202124' }}>
+      <Typography variant="caption" fontWeight={700} sx={{ color: 'text.primary' }}>
         {value}
       </Typography>
     </Paper>
@@ -50,7 +54,7 @@ function CustomLegend({ payload, isMobile }) {
       {items?.map((entry, idx) => (
         <Box key={idx} display="flex" alignItems="center" gap={1}>
           <Box sx={{ width: 10, height: 10, borderRadius: '50%', backgroundColor: entry.color, flexShrink: 0 }} />
-          <Typography variant="caption" sx={{ color: '#5F6368' }} noWrap sx2={{ maxWidth: 130 }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', maxWidth: 130 }} noWrap>
             {entry.value}
           </Typography>
           <Typography
@@ -84,7 +88,7 @@ export default function ServicePieChart({ data }) {
 
   return (
     <Box>
-      <Typography variant="subtitle1" fontWeight={700} mb={2} sx={{ color: '#202124', fontSize: { xs: '0.875rem', md: '0.9375rem' } }}>
+      <Typography variant="subtitle1" fontWeight={700} mb={2} sx={{ color: 'text.primary', fontSize: { xs: '0.875rem', md: '0.9375rem' } }}>
         Bookings by Service
       </Typography>
       <ResponsiveContainer width="100%" height={isMobile ? 240 : 260}>
@@ -114,7 +118,7 @@ export default function ServicePieChart({ data }) {
             y="46%"
             textAnchor="middle"
             dominantBaseline="middle"
-            style={{ fontSize: 20, fontWeight: 800, fill: '#202124', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            style={{ fontSize: 20, fontWeight: 800, fill: theme.palette.text.primary, fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             {total}
           </text>
@@ -122,7 +126,7 @@ export default function ServicePieChart({ data }) {
             x={isMobile ? '50%' : '38%'}
             y="60%"
             textAnchor="middle"
-            style={{ fontSize: 11, fill: '#9AA0A6', fontFamily: "'Plus Jakarta Sans', sans-serif" }}
+            style={{ fontSize: 11, fill: theme.palette.text.disabled, fontFamily: "'Plus Jakarta Sans', sans-serif" }}
           >
             Total
           </text>
