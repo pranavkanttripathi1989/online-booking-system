@@ -133,14 +133,33 @@ but in this specific codebase's own numbers. Verify both modes on any screen
 you touch — the fastest check is the `AppShell` header's "Dark mode" button,
 not a separate dev toggle.
 
-**Known remaining gap**: only `layouts/AppShell.jsx`'s chrome (top bar, search,
-account menu, bottom nav), `pages/dashboard/index.jsx`'s header card, and
-`components/Dashboard/KpiCard.jsx` were swept when dark mode shipped. The rest
-of `pages/`/`components/` (the full UI-2 backlog, ~1,900 warnings) still
-renders wrong in dark mode until each file's own literals are converted —
-expect a stray white card or invisible text on most pages today, and treat
-finding one as an invitation to fix that file's colours while you're in it,
-not a surprise.
+**It's not just background+text.** A component isn't dark-mode-complete
+until every one of these resolves from the palette — see
+`FRONTEND_RULES.md` UI-8 for the full list with examples: background,
+border (`divider`), text (both `text.primary` and `text.secondary`),
+shadow (the theme's own `shadows[]`, not a hand-rolled `rgba(32,33,36,...)`
+tuned for white), gradients (built from `palette.primary.*`, never a frozen
+two-hex string), input border/hover/focus colours, sidebar/nav
+selected-state colours, and icon-pill tint colours. Fixing only background
+and text while leaving a light-tuned shadow or gradient still looks
+noticeably wrong in dark mode.
+
+**Backend-synced as of 2026-08-29**: the preference itself is no longer
+purely a browser thing. `UserProfiles.theme_mode` (via `myProfile`/
+`updateMyProfile`) is the cross-device source of truth once a session is
+authenticated; `localStorage['medibook_appearance_prefs']` stays the
+instant-apply/offline copy and the only source for logged-out sessions.
+`context/ThemeContext.jsx`'s `ThemeModeProvider` owns both — don't add a
+second place that reads or writes either.
+
+**Known remaining gap, phased** (see `FRONTEND_RULES.md` §22's `UI-2` entry
+for the exact per-directory counts and phase order): Phase 1
+(`components/` + `layouts/` remainder — shared, all roles) is done. Phases
+2–4 (patient/public mobile-first, clinician tablet-first, staff/admin/
+manager desktop-dense) are an explicit, sequenced backlog, not silently
+deferred — pick up the next incomplete phase in order rather than fixing
+files at random, and re-measure the warning count before trusting any
+number written here.
 
 ## 6. Established visual conventions
 

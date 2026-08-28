@@ -48,3 +48,30 @@ text-color literals are the same bug and must be fixed together.
   `UI-8`/§22 updates for this bug.
 - `.claude/skills/medibook-design-system/SKILL.md` — corrected to the new
   single-theme reality.
+
+## Part 2, same day — backend sync + Phase 1 colour sweep
+
+Two direct follow-up requests from the user after the first pass shipped:
+sync the preference to the backend (cross-device), and add a comprehensive
+hard rule plus an actual sweep of shared components/layouts, framed as "a
+proper plan" — executed via `EnterPlanMode`/`ExitPlanMode` given the scope.
+
+- Backend: `UserProfiles.theme_mode`, wired through the existing
+  `myProfile`/`updateMyProfile` pair (no new resolver). `ThemeModeContext`
+  now writes-through best-effort when authenticated and hydrates a fresh
+  device from the synced value. Live-verified end-to-end (real DB write,
+  real cross-device hydration), not just unit-tested.
+- A new shared `theme.palette.appointmentStatus` extension (light+dark
+  `{bg,text,border,dot}` per status) replaced five separate per-file
+  status-colour hex maps — the actual fix for the recurring "status chip"
+  pattern, not five individual patches.
+- Phase 1 of the phased sweep (`components/` + `layouts/`, the two
+  directories every role renders through) completed: project-wide
+  hardcoded-colour warnings 1,741 → 1,447. Phases 2-4 (patient/public,
+  clinician, staff/admin/manager) recorded as an explicit, sequenced
+  backlog in `FRONTEND_RULES.md` §22, not started.
+- A genuine host-level event (machine reboot mid-session, load average
+  183+) caused transient full-suite test flakiness, resolved by waiting
+  for load to settle rather than by retrying — see `TR232`'s own account.
+
+See `PLAN212`/`TP232`/`TR232`'s own "Part 2" sections for the full detail.
