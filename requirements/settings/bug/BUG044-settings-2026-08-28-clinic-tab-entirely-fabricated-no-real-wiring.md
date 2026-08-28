@@ -63,7 +63,20 @@ module) that this tab could be wired to, or whether this needs new
 backend scope — that's for whoever picks this up to determine before
 fixing.
 
-**The "Appearance" tab has the identical defect, same root cause.** Its
+**The "Clinic" tab is also shown to every role, including `'patient'`
+— confirmed live logged in as `patient@medibook.dev`.** `settings/
+index.jsx` has zero role-based tab filtering anywhere in the file (no
+`roles.includes(...)` gate on the tab list) — every account sees the
+identical seven tabs (Profile, Account & Security, Notifications,
+Appearance, Clinic, Integrations, Privacy, ...). A "Clinic Information"
+editing tab (name/phone/email/address/currency/slot-duration) makes no
+sense on a patient or clinician account at all, independent of the
+fabricated-data problem above — this is a second, distinct gap
+(missing role gating on the tab set itself), not just wrong content in
+a tab shown to the right audience.
+
+**The "Appearance" tab has the identical fabricated-data defect, same
+root cause.** Its
 "Save Appearance" button (line 2064) also calls the bare `handleSave`
 directly with no mutation — `onClick={() => handleSave('Appearance
 settings')}`. Its accent-color picker (`const [accent, setAccent] =
@@ -91,3 +104,6 @@ never finished.
 - "Appearance" tab's accent-color selection persists (server-side or at
   minimum `localStorage`) and "Save Appearance" only confirms success
   once that persistence actually happens.
+- The "Clinic" (and any other org-admin-scoped) tab is gated to the
+  roles that actually manage clinic-level settings — not shown at all
+  to `'patient'` or `'clinician'` accounts.
