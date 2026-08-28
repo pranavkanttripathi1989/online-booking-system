@@ -490,8 +490,12 @@ function ManagerRooms() {
                   </Stack>
 
                   {/* SUG-RM-002 FIX: noWrap + ellipsis prevents long room numbers overflowing card */}
+                  {/* BUG037 -- room_number already holds the full display string
+                      ("Room 3A"), confirmed live and matching the edit form's own
+                      "Room Number" field, which round-trips it verbatim. A
+                      hardcoded "Room " prefix here doubled it. */}
                   <Typography variant="h6" fontWeight={700} noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                    Room {room.room_number}
+                    {room.room_number}
                   </Typography>
                   <Typography variant="body2" color="text.secondary">
                     {room.roomTypeName || room.room_type}

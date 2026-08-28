@@ -4,10 +4,35 @@ type: bug
 feature: catalog-master-data
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN205`)
+
+**Double prefix**: dropped the hardcoded `Room {room.room_number}` in
+favor of `{room.room_number}` — confirmed `room_number` already holds
+the full display string, and the edit form's own "Room Number" field
+round-trips it verbatim, so a separate prefix was never correct once
+real data (vs. the page's own bare-number mock assumption) reached it.
+
+**`roomTypeName` null**: root-caused via a direct DB check, not
+guessed — the two real seeded Rooms rows stored the literal string
+`'consultation'` in `room_type`, not a real `room_types.id` (confirmed
+the real create/edit form's own `Select` correctly sends `t.id`
+already, so this was pre-existing corrupted data, not a live-reachable
+code bug). `rooms.service.ts#resolveTypeNames()`'s id-based lookup was
+already correct and needed no code change. Fixed with a one-time
+backfill migration (`20260829000000_fix_room_type_backfill`) —
+narrowly scoped to the exact known-corrupted value, matching this
+org's own single real `room_types` row ("Consultation Room") — applied
+via `prisma migrate deploy`, this codebase's own sanctioned path for a
+controlled, reviewable data correction (not an ad-hoc live `UPDATE`).
+
+Live-verified as `admin@medibook.dev`: both real rooms now show "Room
+3A"/"Room 5B" (once, not doubled) and "Consultation Room" (resolved,
+not the raw `consultation` code). See `TR225`.
 
 # BUG037 — `/manager/rooms`: every real room renders "Room Room 3A", and its room type never resolves to a name
 

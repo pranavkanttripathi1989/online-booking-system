@@ -4,10 +4,29 @@ type: bug
 feature: compliance-dpdp
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN205`)
+
+Every UK GDPR/Data Protection Act 2018 reference in `admin/Policies.jsx`
+replaced with India's DPDP Act 2023 — the tab label ("DPDP &
+Compliance"), the page subtitle, the retention-period description, the
+main compliance banner, and the "Right to Erasure" card. Two specific
+article citations (`GDPR Art.20` on data export, `GDPR Art.17` on
+erasure) were dropped rather than replaced with a guessed DPDP section
+number — the bug's own acceptance criteria flagged this needs a real
+legal decision, not an invented citation; a code comment marks both
+spots ⚖️-style for counsel review before launch, matching this file's
+own compliance-sensitive nature. `auth/login.jsx`'s marketing bullet
+("GDPR compliant" → "DPDP compliant") fixed the same way.
+
+Live-verified as `admin@medibook.dev`: the Policies page subtitle,
+tab label, and every visible compliance statement now read DPDP
+throughout; the login page's own feature list reads "Secure and
+private — DPDP compliant". See `TR225`.
 
 # BUG030 — GDPR (not DPDP) referenced in the admin Policies tab and the public login page
 

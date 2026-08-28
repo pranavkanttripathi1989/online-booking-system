@@ -189,7 +189,11 @@ const POLICIES = [
     label: 'Data Retention Period',
     value: '7',
     unit: 'years',
-    description: 'Patient records are retained for this period per UK GDPR requirements.',
+    // BUG030 -- this product is built for the Indian market (CLAUDE.md's own
+    // India-specific decisions section); the retention basis is India's DPDP
+    // Act 2023, not UK GDPR. Verify the exact retention period against legal
+    // counsel before launch, per this file's own compliance-sensitive nature.
+    description: "Patient records are retained for this period per India's DPDP Act 2023 requirements.",
   },
 ]
 
@@ -405,7 +409,7 @@ export default function AdminPolicies() {
             Policies &amp; Compliance
           </Typography>
           <Typography variant="body2" color="text.secondary">
-            Booking rules, security settings, and GDPR compliance
+            Booking rules, security settings, and DPDP compliance
           </Typography>
         </Box>
         <Button variant="contained" startIcon={<SaveIcon />} disabled={savingPolicies} onClick={saveAll}>
@@ -427,7 +431,7 @@ export default function AdminPolicies() {
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 3, borderBottom: '1px solid #D0E8EA' }}>
         <Tab label="Booking Policies" />
         <Tab label="Security &amp; Privacy" />
-        <Tab label="GDPR &amp; Compliance" />
+        <Tab label="DPDP &amp; Compliance" />
         <Tab label="Cancellation Rules" />
       </Tabs>
 
@@ -540,7 +544,7 @@ export default function AdminPolicies() {
                       Allow patient data export
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      Allows patients to download their personal data (GDPR Art.20) from their own account.
+                      Allows patients to download their personal data from their own account.
                     </Typography>
                   </Box>
                   <Switch disabled={loadingSecurity} checked={dataExportEnabled} onChange={(e) => setDataExportEnabled(e.target.checked)} />
@@ -596,11 +600,15 @@ export default function AdminPolicies() {
         </Stack>
       )}
 
-      {/* GDPR */}
+      {/* DPDP -- BUG030: this tab used to cite UK GDPR / the Data Protection
+          Act 2018, wrong jurisdiction for an India-market product. Verify
+          the exact statement and any cited section against legal counsel
+          before launch, per this file's own compliance-sensitive nature. */}
       {tab === 2 && (
         <Stack spacing={3} sx={{ maxWidth: 680 }}>
           <Alert severity="info" icon={<PrivacyTipIcon />}>
-            HealthSync is configured to process personal data in accordance with UK GDPR and the Data Protection Act 2018.
+            HealthSync is configured to process personal data in accordance with India's Digital Personal Data
+            Protection Act, 2023 (DPDP Act).
           </Alert>
 
           {[
@@ -613,7 +621,7 @@ export default function AdminPolicies() {
             { icon: <PrivacyTipIcon />, title: 'Privacy Policy Version', desc: 'v3.2 · Last updated 1 Mar 2026', action: 'Update' },
             {
               icon: <ScheduleIcon />,
-              title: 'Right to Erasure (GDPR Art.17)',
+              title: 'Right to Erasure',
               desc: 'Manual review required within 30 days',
               action: 'View Requests',
             },

@@ -654,7 +654,9 @@ function BrandPanel() {
       <Stack spacing={2.5} sx={{ width: '100%', maxWidth: 280 }}>
         {[
           'Book any specialist instantly',
-          'Secure and private — GDPR compliant',
+          // BUG030 -- India-market product; was 'GDPR compliant', the wrong
+          // jurisdiction's law named on the first page every visitor sees.
+          'Secure and private — DPDP compliant',
           'In-person or video consultations',
           'Automated reminders & follow-ups',
         ].map((text) => (

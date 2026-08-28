@@ -103,3 +103,10 @@ export const formatRelativeTime = (value) => {
 // zero-importer dead files.
 export const formatCurrency = (amount, currency = 'INR') =>
   new Intl.NumberFormat('en-IN', { style: 'currency', currency }).format(amount ?? 0)
+
+// BUG034 -- a raw division result (e.g. cancellationRate = cancelled/total*100)
+// rendered as `${value}%` with no rounding produced live strings like
+// "2.9629629629629632%". Round at the display boundary, not at the source --
+// matching this file's own formatCurrency convention (money isn't
+// pre-formatted before it reaches here either).
+export const formatPercent = (value, decimals = 1) => `${Number(value ?? 0).toFixed(decimals)}%`

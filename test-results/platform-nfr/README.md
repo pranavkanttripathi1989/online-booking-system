@@ -22,6 +22,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR225 | bug | DPDP citation, percent formatting, and room-display fixes results | pass | 2026-08-28 | 2026-08-28 | TP225 | [TR225](./bug/TR225-platform-nfr-2026-08-28-dpdp-citation-percent-formatting-room-display-fixes.md) |
 | TR069 | bug | Isolated e2e stack results | pass | 2026-08-23 | 2026-08-23 | TP070 | [TR069](./bug/TR069-platform-nfr-2026-08-23-isolated-e2e-stack-verification.md) |
 | TR067 | bug | Booking-concurrency exclusion constraint results | pass | 2026-08-23 | 2026-08-23 | TP068 | [TR067](./bug/TR067-platform-nfr-2026-08-23-booking-concurrency-exclusion-constraint-verification.md) |
 | TR063 | bug | Wire patient/Profile.jsx and auth/forgot-password.jsx results | pass | 2026-08-23 | 2026-08-23 | TP064 | [TR063](./bug/TR063-platform-nfr-2026-08-23-wire-patient-profile-and-forgot-password-verification.md) |

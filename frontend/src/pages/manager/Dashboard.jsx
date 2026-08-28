@@ -47,6 +47,7 @@ import {
   Bar,
 } from 'recharts'
 import { useAuth } from '../../hooks/useAuth'
+import { formatPercent } from '../../utils/dateTime'
 import StitchKpiCard from '../../components/shared/StitchKpiCard'
 import StitchStatusChip from '../../components/shared/StitchStatusChip'
 import ErrorBoundary from '../../components/ErrorBoundary'
@@ -331,14 +332,14 @@ function ManagerDashboardInner() {
         />
         <StitchKpiCard
           title="Clinician Utilization"
-          value={loading ? '...' : `${stats.utilization}%`}
+          value={loading ? '...' : formatPercent(stats.utilization)}
           icon={<Speed />}
           color="#7C3AED"
           trend={stats.trends.utilization}
         />
         <StitchKpiCard
           title="Cancellation Rate"
-          value={loading ? '...' : `${stats.cancellationRate}%`}
+          value={loading ? '...' : formatPercent(stats.cancellationRate)}
           icon={<Cancel />}
           color="#EF4444"
           trend={stats.trends.cancellationRate}

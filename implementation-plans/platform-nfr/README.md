@@ -22,6 +22,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN205 | bug | DPDP citation, percent formatting, and room-display fixes | done | 2026-08-28 | 2026-08-28 | — | [PLAN205](./bug/PLAN205-platform-nfr-2026-08-28-dpdp-citation-percent-formatting-room-display-fixes.md) |
 | PLAN043 | bug | Isolated e2e stack (docker-compose e2e profile, seed-e2e.ts, playwright wiring) | done | 2026-08-23 | 2026-08-23 | BUG018 | [PLAN043](./bug/PLAN043-platform-nfr-2026-08-23-isolated-e2e-stack.md) |
 | PLAN041 | bug | Exclusion constraint for booking concurrency | done | 2026-08-23 | 2026-08-23 | BUG017 | [PLAN041](./bug/PLAN041-platform-nfr-2026-08-23-booking-concurrency-exclusion-constraint.md) |
 | PLAN037 | bug | Wire patient/Profile.jsx and auth/forgot-password.jsx | done | 2026-08-23 | 2026-08-23 | BUG016 | [PLAN037](./bug/PLAN037-platform-nfr-2026-08-23-wire-patient-profile-and-forgot-password.md) |

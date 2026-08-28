@@ -16,5 +16,5 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| BUG034 | bug | Manager Dashboard renders raw, unrounded floating-point percentages | open | 2026-08-28 | 2026-08-28 | — | [BUG034-analytics-reporting-2026-08-28-manager-dashboard-unrounded-percentages.md](./bug/BUG034-analytics-reporting-2026-08-28-manager-dashboard-unrounded-percentages.md) |
+| BUG034 | bug | Manager Dashboard renders raw, unrounded floating-point percentages | done | 2026-08-28 | 2026-08-28 | — | [BUG034-analytics-reporting-2026-08-28-manager-dashboard-unrounded-percentages.md](./bug/BUG034-analytics-reporting-2026-08-28-manager-dashboard-unrounded-percentages.md) |
 | BUG035 | bug | Every Manager Dashboard KPI shows a flat, misleading "100%" trend on a zero baseline | open | 2026-08-28 | 2026-08-28 | — | [BUG035-analytics-reporting-2026-08-28-dashboard-trend-flat-100-percent-on-zero-baseline.md](./bug/BUG035-analytics-reporting-2026-08-28-dashboard-trend-flat-100-percent-on-zero-baseline.md) |

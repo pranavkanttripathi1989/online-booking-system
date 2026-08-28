@@ -4,10 +4,23 @@ type: bug
 feature: analytics-reporting
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN205`)
+
+New shared `formatPercent(value, decimals = 1)` helper in
+`utils/dateTime.js`, alongside its existing `formatCurrency` — rounds
+and formats at the display boundary, matching this file's own money
+convention (not pre-formatted at the source). Wired into
+`manager/Dashboard.jsx`'s "Clinician Utilization" and "Cancellation
+Rate" KPI cards, replacing the raw `${value}%` template literals. 3 new
+unit tests. Live-verified as `admin@medibook.dev`: "2.9629629629629632%"
+→ "2.6%", "66.666666666666666%" → "66.7%" (values shifted slightly
+between checks since they're computed from live, changing appointment
+data — the rounding itself is confirmed correct). See `TR225`.
 
 # BUG034 — Manager Dashboard renders raw, unrounded floating-point percentages
 

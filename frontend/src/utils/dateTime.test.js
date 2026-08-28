@@ -11,6 +11,7 @@ import {
   formatTimeRange,
   formatRelativeTime,
   formatCurrency,
+  formatPercent,
 } from './dateTime'
 
 // A fixed, zone-less local timestamp so every formatter test is deterministic
@@ -161,5 +162,20 @@ describe('formatCurrency', () => {
   })
   it('honours an explicit currency code', () => {
     expect(formatCurrency(500, 'USD')).toBe('$500.00')
+  })
+})
+
+describe('formatPercent (BUG034)', () => {
+  it('rounds a long raw division result to 1 decimal by default', () => {
+    expect(formatPercent(2.9629629629629632)).toBe('3.0%')
+    expect(formatPercent(66.666666666666666)).toBe('66.7%')
+  })
+  it('honours an explicit decimal count', () => {
+    expect(formatPercent(66.666666666666666, 2)).toBe('66.67%')
+    expect(formatPercent(50, 0)).toBe('50%')
+  })
+  it('defaults a missing value to zero', () => {
+    expect(formatPercent(undefined)).toBe('0.0%')
+    expect(formatPercent(null)).toBe('0.0%')
   })
 })
