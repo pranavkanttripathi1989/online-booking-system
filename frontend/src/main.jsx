@@ -10,13 +10,13 @@ import { ApolloProvider } from '@apollo/client'
 import { BrowserRouter } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { SnackbarProvider } from 'notistack'
-import { ThemeProvider, CssBaseline, Box, CircularProgress } from '@mui/material'
+import { Box, CircularProgress } from '@mui/material'
 import { LocalizationProvider } from '@mui/x-date-pickers'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
 
 import apolloClient from './apollo/client.js'
 import { AuthProvider } from './context/AuthContext'
-import { medicalTheme } from './theme/index.js'
+import { ThemeModeProvider } from './context/ThemeContext'
 import { GlobalSnackbarProvider } from './components/shared/GlobalSnackbar'
 import { reportWebVitals } from './utils/reportWebVitals'
 import App from './App'
@@ -35,8 +35,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     <HelmetProvider>
       <ApolloProvider client={apolloClient}>
         <BrowserRouter>
-          <ThemeProvider theme={medicalTheme}>
-            <CssBaseline />
+          <ThemeModeProvider>
             <LocalizationProvider dateAdapter={AdapterDayjs}>
               <AuthProvider>
                 <SnackbarProvider maxSnack={3} anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}>
@@ -48,7 +47,7 @@ ReactDOM.createRoot(document.getElementById('root')).render(
                 </SnackbarProvider>
               </AuthProvider>
             </LocalizationProvider>
-          </ThemeProvider>
+          </ThemeModeProvider>
         </BrowserRouter>
       </ApolloProvider>
     </HelmetProvider>

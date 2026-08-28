@@ -54,12 +54,27 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import { useAuth } from '../../context/AuthContext'
+import { useThemeMode } from '../../context/ThemeContext'
 
 function TabPanel({ value, index, children }) {
   return value === index ? <Box>{children}</Box> : null
 }
 
 const ACCENT_COLORS = ['#1A73E8', '#0F9D58', '#9334E6', '#D93025', '#F9AB00', '#0891B2', '#5F6368']
+
+// BUG044 -- Appearance prefs have no server-side model; per-device localStorage
+// is the documented minimum bar (the bug's own acceptance criteria).
+const APPEARANCE_STORAGE_KEY = 'medibook_appearance_prefs'
+// themeMode is intentionally NOT here -- it's owned by ThemeModeContext (context/ThemeContext.jsx).
+const DEFAULT_APPEARANCE = { fontSize: 2, accent: '#1565C7', compact: false, rtl: false }
+function loadAppearancePrefs() {
+  try {
+    const raw = window.localStorage.getItem(APPEARANCE_STORAGE_KEY)
+    return raw ? { ...DEFAULT_APPEARANCE, ...JSON.parse(raw) } : DEFAULT_APPEARANCE
+  } catch {
+    return DEFAULT_APPEARANCE
+  }
+}
 
 // ─── Notification rows — event_type must match backend/src/notification-preferences
 // (NOTIFICATION_EVENT_TYPES / DEFAULTS) exactly; label is display-only ─────────
@@ -255,6 +270,44 @@ const GET_ORG_BRANDING = gql`
       logo_url
       primary_color
       secondary_color
+    }
+  }
+`
+// BUG044 -- the "Clinic Information" section above Branding used to be 100%
+// hardcoded (a US phone format, USD as a selectable currency, a generic
+// "MediCare Clinic" placeholder), with a Save button that never called any
+// mutation. Wired to the real clinics()/updateClinic() operations, matching
+// the canonical CLINICS_QUERY/UPDATE_CLINIC_MUTATION field selection exactly
+// (Hard Rule 7). Scoped to the org's primary clinic (is_primary: true),
+// matching REQ041's own established "head office" convention -- a
+// multi-branch org manages its other locations at /manager/clinics, the
+// existing full clinic-management page this was never meant to duplicate.
+const GET_CLINICS_FOR_SETTINGS = gql`
+  query ClinicsForSettings {
+    clinics {
+      id
+      name
+      address
+      city
+      postcode
+      timezone
+      phone
+      email
+      is_primary
+    }
+  }
+`
+const UPDATE_CLINIC_FOR_SETTINGS = gql`
+  mutation UpdateClinicForSettings($id: ID!, $input: ClinicInput!) {
+    updateClinic(id: $id, input: $input) {
+      id
+      name
+      address
+      city
+      postcode
+      timezone
+      phone
+      email
     }
   }
 `
@@ -617,6 +670,72 @@ export default function SettingsPage() {
     loadBranding()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // BUG044 — Clinic Information section (see GET_CLINICS_FOR_SETTINGS above)
+  const canManageClinic = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
+  const [clinicId, setClinicId] = useState(null)
+  const [clinicForm, setClinicForm] = useState({ name: '', phone: '', email: '', address: '', city: '', postcode: '', timezone: 'Asia/Kolkata' })
+  const [clinicLoaded, setClinicLoaded] = useState(false)
+  const [hasClinicToManage, setHasClinicToManage] = useState(false)
+  const [clinicError, setClinicError] = useState(null)
+  const [savingClinic, setSavingClinic] = useState(false)
+  const setClinicField = (field) => (e) => setClinicForm((prev) => ({ ...prev, [field]: e.target.value }))
+
+  const loadClinic = async () => {
+    if (!canManageClinic) {
+      setClinicLoaded(true)
+      return
+    }
+    try {
+      const { data } = await client.query({ query: GET_CLINICS_FOR_SETTINGS, fetchPolicy: 'network-only' })
+      const primary = (data?.clinics ?? []).find((c) => c.is_primary) ?? data?.clinics?.[0]
+      setHasClinicToManage(!!primary)
+      if (primary) {
+        setClinicId(primary.id)
+        setClinicForm({
+          name: primary.name ?? '',
+          phone: primary.phone ?? '',
+          email: primary.email ?? '',
+          address: primary.address ?? '',
+          city: primary.city ?? '',
+          postcode: primary.postcode ?? '',
+          timezone: primary.timezone ?? 'Asia/Kolkata',
+        })
+      }
+    } catch (err) {
+      setClinicError(err.message)
+    } finally {
+      setClinicLoaded(true)
+    }
+  }
+  useEffect(() => {
+    loadClinic()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
+
+  const handleSaveClinic = async () => {
+    setClinicError(null)
+    setSavingClinic(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: UPDATE_CLINIC_FOR_SETTINGS,
+        variables: { id: clinicId, input: clinicForm },
+      })
+      if (!data?.updateClinic) throw new Error('Failed to save clinic settings')
+      handleSave('Clinic settings')
+    } catch (err) {
+      setClinicError(err?.graphQLErrors?.[0]?.message || err.message)
+    } finally {
+      setSavingClinic(false)
+    }
+  }
+
+  // BUG044 -- a stale deep link (e.g. login.jsx's own `state: {tab}` pattern)
+  // could otherwise land a non-managing caller on the now-hidden Clinic tab.
+  useEffect(() => {
+    if (tab === 4 && !canManageClinic) setTab(0)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, canManageClinic])
+
   // ── REQ018/REQ030/REQ015 — Integrations tab ──────────────────────────────
   const [widgetConfigs, setWidgetConfigs] = useState([])
   const [webhookEndpoints, setWebhookEndpoints] = useState([])
@@ -932,13 +1051,32 @@ export default function SettingsPage() {
     }
   }
 
-  // Appearance state
-  const [fontSize, setFontSize] = useState(2) // 0=sm, 1=md, 2=lg, 3=xl
-  const [accent, setAccent] = useState('#1565C7')
-  const [themeMode, setThemeMode] = useState('light')
-  const [compact, setCompact] = useState(false)
-  const [rtl, setRtl] = useState(false)
+  // Appearance state -- hydrated from localStorage (BUG044); see
+  // loadAppearancePrefs/APPEARANCE_STORAGE_KEY above.
+  const [appearancePrefs] = useState(loadAppearancePrefs)
+  const [fontSize, setFontSize] = useState(appearancePrefs.fontSize) // 0=sm, 1=md, 2=lg, 3=xl
+  const [accent, setAccent] = useState(appearancePrefs.accent)
+  // BUG047 -- theme mode lives in the single shared ThemeModeContext (applies
+  // immediately and persists on its own), not local component state.
+  const { mode: themeMode, setMode: setThemeMode } = useThemeMode()
+  const [compact, setCompact] = useState(appearancePrefs.compact)
+  const [rtl, setRtl] = useState(appearancePrefs.rtl)
   const [language, setLanguage] = useState('en')
+  const [appearanceError, setAppearanceError] = useState(null)
+
+  useEffect(() => {
+    document.documentElement.dir = rtl ? 'rtl' : 'ltr'
+  }, [rtl])
+
+  const handleSaveAppearance = () => {
+    setAppearanceError(null)
+    try {
+      window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({ fontSize, accent, compact, rtl }))
+      handleSave('Appearance settings')
+    } catch {
+      setAppearanceError('Could not save your appearance preferences on this device. Check your browser storage settings and try again.')
+    }
+  }
 
   // SUG-SET-010: Per-tab contextual success messages
   const handleSave = (context = 'Changes') => {
@@ -1270,10 +1408,10 @@ export default function SettingsPage() {
       </Helmet>
 
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" fontWeight={800} sx={{ color: '#202124', fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>
+        <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary', fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>
           Settings
         </Typography>
-        <Typography variant="body2" sx={{ color: '#5F6368' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           Manage your account, notifications, and preferences
         </Typography>
       </Box>
@@ -1300,13 +1438,18 @@ export default function SettingsPage() {
             '& .MuiTabs-indicator': { bgcolor: '#1A73E8', height: 3, borderRadius: 1.5 },
           }}
         >
-          <Tab icon={<EditRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Profile" />
-          <Tab icon={<LockRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Account & Security" />
-          <Tab icon={<NotificationsRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Notifications" />
-          <Tab icon={<PaletteRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Appearance" />
-          <Tab icon={<BusinessRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Clinic" />
-          <Tab icon={<DevicesRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Integrations" />
-          <Tab icon={<SecurityRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Privacy" />
+          <Tab value={0} icon={<EditRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Profile" />
+          <Tab value={1} icon={<LockRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Account & Security" />
+          <Tab value={2} icon={<NotificationsRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Notifications" />
+          <Tab value={3} icon={<PaletteRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Appearance" />
+          {/* BUG044 -- clinic-level settings only make sense for a caller who
+              actually manages clinic settings; hidden entirely (not merely
+              disabled) for patient/clinician accounts, per SURF-20. */}
+          {canManageClinic && (
+            <Tab value={4} icon={<BusinessRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Clinic" />
+          )}
+          <Tab value={5} icon={<DevicesRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Integrations" />
+          <Tab value={6} icon={<SecurityRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Privacy" />
         </Tabs>
 
         <Box sx={{ p: { xs: 2.5, sm: 4 } }}>
@@ -1875,7 +2018,7 @@ export default function SettingsPage() {
               <Typography variant="subtitle2" fontWeight={800} sx={{ mb: 0.5 }}>
                 Quiet Hours
               </Typography>
-              <Typography variant="body2" sx={{ color: '#5F6368', mb: 2 }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
                 No WhatsApp/SMS notifications will be sent during this window, except for genuinely time-critical events like an imminent
                 appointment reminder.
               </Typography>
@@ -1934,10 +2077,18 @@ export default function SettingsPage() {
           {/* ── Appearance ───────────────────────────────────────────────── */}
           <TabPanel value={tab} index={3}>
             <Stack spacing={4} sx={{ maxWidth: 560 }}>
+              {appearanceError && (
+                <Alert severity="error" sx={{ borderRadius: 2 }} onClose={() => setAppearanceError(null)}>
+                  {appearanceError}
+                </Alert>
+              )}
               {/* Theme */}
               <Box>
-                <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1.5 }}>
+                <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 0.5 }}>
                   Theme
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
+                  Applies immediately across the app — no need to hit Save.
                 </Typography>
                 <FormControl component="fieldset">
                   <RadioGroup row value={themeMode} onChange={(e) => setThemeMode(e.target.value)}>
@@ -2061,7 +2212,7 @@ export default function SettingsPage() {
               <Button
                 variant="contained"
                 startIcon={<SaveRoundedIcon />}
-                onClick={() => handleSave('Appearance settings')}
+                onClick={handleSaveAppearance}
                 sx={{
                   borderRadius: 2.5,
                   textTransform: 'none',
@@ -2084,81 +2235,130 @@ export default function SettingsPage() {
                   Clinic Information
                 </Typography>
               </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Clinic Name"
-                  defaultValue="MediCare Clinic"
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Contact Phone"
-                  defaultValue="+1 555-100-0000"
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Contact Email"
-                  defaultValue="admin@medicareclinic.com"
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth select label="Timezone" defaultValue="IST" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
-                  {['UTC', 'IST', 'EST', 'PST', 'CET', 'GST'].map((tz) => (
-                    <MenuItem key={tz} value={tz}>
-                      {tz}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12}>
-                <TextField
-                  fullWidth
-                  label="Address"
-                  defaultValue="123 Health Avenue, Medical District, MH 400001"
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField fullWidth select label="Currency" defaultValue="USD" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
-                  {['USD', 'EUR', 'GBP', 'INR', 'AED'].map((c) => (
-                    <MenuItem key={c} value={c}>
-                      {c}
-                    </MenuItem>
-                  ))}
-                </TextField>
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  fullWidth
-                  label="Default Slot Duration (min)"
-                  defaultValue="30"
-                  type="number"
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-                />
-              </Grid>
-              <Grid item xs={12}>
-                <Button
-                  variant="contained"
-                  startIcon={<SaveRoundedIcon />}
-                  onClick={() => handleSave('Clinic settings')}
-                  sx={{
-                    borderRadius: 2.5,
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-                    '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
-                  }}
-                >
-                  Save Clinic Settings
-                </Button>
-              </Grid>
+              {/* BUG044 -- not shown at all (not disabled) to a caller who
+                  isn't manager/admin/super_admin, matching SURF-20. */}
+              {!canManageClinic && (
+                <Grid item xs={12}>
+                  <Alert severity="info" sx={{ borderRadius: 2 }}>
+                    Clinic information is managed by your organisation's admins and managers.
+                  </Alert>
+                </Grid>
+              )}
+              {canManageClinic && clinicError && (
+                <Grid item xs={12}>
+                  <Alert severity="error" sx={{ borderRadius: 2 }} onClose={() => setClinicError(null)}>
+                    {clinicError}
+                  </Alert>
+                </Grid>
+              )}
+              {canManageClinic && clinicLoaded && !hasClinicToManage && (
+                <Grid item xs={12}>
+                  <Alert severity="info" sx={{ borderRadius: 2 }}>
+                    No clinic found for your organisation yet — add one from Clinics first.
+                  </Alert>
+                </Grid>
+              )}
+              {canManageClinic && hasClinicToManage && (
+                <>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Clinic Name"
+                      value={clinicForm.name}
+                      onChange={setClinicField('name')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Contact Phone"
+                      value={clinicForm.phone}
+                      onChange={setClinicField('phone')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Contact Email"
+                      value={clinicForm.email}
+                      onChange={setClinicField('email')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      select
+                      label="Timezone"
+                      value={clinicForm.timezone}
+                      onChange={setClinicField('timezone')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    >
+                      {[
+                        'Asia/Kolkata',
+                        'Asia/Dubai',
+                        'Asia/Karachi',
+                        'Europe/London',
+                        'Europe/Paris',
+                        'Europe/Berlin',
+                        'America/New_York',
+                        'America/Los_Angeles',
+                        'Australia/Sydney',
+                      ].map((tz) => (
+                        <MenuItem key={tz} value={tz}>
+                          {tz}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Address"
+                      value={clinicForm.address}
+                      onChange={setClinicField('address')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="City"
+                      value={clinicForm.city}
+                      onChange={setClinicField('city')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="PIN Code"
+                      value={clinicForm.postcode}
+                      onChange={setClinicField('postcode')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <Button
+                      variant="contained"
+                      disabled={savingClinic}
+                      startIcon={<SaveRoundedIcon />}
+                      onClick={handleSaveClinic}
+                      sx={{
+                        borderRadius: 2.5,
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
+                        '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
+                      }}
+                    >
+                      {savingClinic ? 'Saving…' : 'Save Clinic Settings'}
+                    </Button>
+                  </Grid>
+                </>
+              )}
 
               {/* ── Organization Branding (REQ002/PLAN022, real backend) ── */}
               <Grid item xs={12}>
@@ -2834,7 +3034,7 @@ export default function SettingsPage() {
           Deactivate Account?
         </DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ color: '#5F6368' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Deactivating your account will immediately revoke all access and cannot be undone. Are you sure you want to continue?
           </Typography>
         </DialogContent>

@@ -20,8 +20,9 @@ export default function KpiCard({ icon: Icon, label, value, trend, color = '#1A7
       sx={{
         height: '100%',
         borderRadius: { xs: 2.5, md: 3 },
-        bgcolor: '#FFFFFF',
-        border: '1px solid #E8EAED',
+        bgcolor: 'background.paper',
+        border: '1px solid',
+        borderColor: 'divider',
         boxShadow: '0 1px 2px rgba(32,33,36,0.08), 0 2px 6px rgba(32,33,36,0.04)',
         transition: 'transform 0.20s ease, box-shadow 0.20s ease',
         '&:hover': {
@@ -90,7 +91,7 @@ export default function KpiCard({ icon: Icon, label, value, trend, color = '#1A7
             <Typography
               fontWeight={800}
               sx={{
-                color: '#202124',
+                color: 'text.primary',
                 letterSpacing: '-0.5px',
                 lineHeight: 1.1,
                 mb: 0.5,
@@ -104,7 +105,7 @@ export default function KpiCard({ icon: Icon, label, value, trend, color = '#1A7
               variant="body2"
               noWrap
               sx={{
-                color: '#5F6368',
+                color: 'text.secondary',
                 fontWeight: 500,
                 fontSize: { xs: '0.72rem', sm: '0.8125rem' },
               }}

@@ -188,16 +188,16 @@ function baseMocks({ widgetConfigs = [] } = {}) {
   ]
 }
 
-function renderPage(mocks) {
+function renderPage(mocks, { hasRole = () => true, initialTab = 5 } = {}) {
   useAuth.mockReturnValue({
     user: { id: 'u-1', name: 'Sarah', email: 'sarah@medibook.dev', roles: [{ name: 'admin' }] },
     updateUser: jest.fn(),
     logout: jest.fn(),
-    hasRole: () => true,
+    hasRole,
   })
   return render(
     <HelmetProvider>
-      <MemoryRouter initialEntries={[{ pathname: '/settings', state: { tab: 5 } }]}>
+      <MemoryRouter initialEntries={[{ pathname: '/settings', state: { tab: initialTab } }]}>
         <SnackbarProvider>
           <MockedProvider mocks={mocks}>
             <SettingsPage />
@@ -366,5 +366,43 @@ describe('settings/index.jsx — booking widget Embed Code (REQ105)', () => {
     const snippetField = within(dialog).getByLabelText('Embed snippet')
     expect(snippetField.value).toContain('doctor=clin-1')
     expect(snippetField.value).toContain('widget=abc123')
+  })
+})
+
+describe('settings/index.jsx — Clinic tab role gating (BUG044)', () => {
+  it('hides the Clinic tab entirely for a caller who cannot manage clinic settings', async () => {
+    renderPage(baseMocks(), { hasRole: () => false, initialTab: 0 })
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Profile/i })).toBeInTheDocument())
+    expect(screen.queryByRole('tab', { name: /^Clinic$/i })).not.toBeInTheDocument()
+  })
+
+  it('redirects off a stale deep link into the hidden Clinic tab instead of rendering an invalid tab value', async () => {
+    renderPage(baseMocks(), { hasRole: () => false, initialTab: 4 })
+    await waitFor(() => expect(screen.getByRole('tab', { name: /Profile/i, selected: true })).toBeInTheDocument())
+  })
+})
+
+describe('settings/index.jsx — Appearance persistence (BUG044)', () => {
+  beforeEach(() => window.localStorage.clear())
+
+  it('persists appearance preferences to localStorage and confirms success only after the write', async () => {
+    renderPage(baseMocks(), { initialTab: 3 })
+    await waitFor(() => expect(screen.getByText('Accent Color')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Save Appearance' }))
+
+    await waitFor(() => expect(screen.getByText('Appearance settings saved successfully!')).toBeInTheDocument())
+    const stored = JSON.parse(window.localStorage.getItem('medibook_appearance_prefs'))
+    // themeMode is intentionally absent -- BUG047 moved it to ThemeModeContext,
+    // which persists it independently the instant the Theme radio is clicked.
+    expect(stored).toMatchObject({ fontSize: 2, accent: '#1565C7', compact: false, rtl: false })
+  })
+
+  it('reloads a previously saved font size instead of always defaulting to XL', async () => {
+    window.localStorage.setItem('medibook_appearance_prefs', JSON.stringify({ fontSize: 0 }))
+    renderPage(baseMocks(), { initialTab: 3 })
+    await waitFor(() => expect(screen.getByText('Accent Color')).toBeInTheDocument())
+    const slider = screen.getByRole('slider')
+    expect(slider).toHaveAttribute('aria-valuenow', '0')
   })
 })

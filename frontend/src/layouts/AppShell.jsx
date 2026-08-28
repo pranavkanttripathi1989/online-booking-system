@@ -100,6 +100,7 @@ import StarRoundedIcon from '@mui/icons-material/StarRounded'
 import PolicyRoundedIcon from '@mui/icons-material/PolicyRounded'
 
 import { useAuth } from '../context/AuthContext'
+import { useThemeMode } from '../context/ThemeContext'
 import NotificationBell from '../components/shared/NotificationBell'
 import { useInactivityLogout } from '../hooks/useInactivityLogout'
 
@@ -1011,7 +1012,10 @@ export default function AppShell() {
   const [expandedManager, setExpandedManager] = useState(false)
   const [anchorEl, setAnchorEl] = useState(null)
   const [scrolled, setScrolled] = useState(false)
-  const [darkMode, setDarkMode] = useState(false)
+  // BUG047 -- was local-only state that never actually applied a theme;
+  // now the single shared context every dark-mode control reads/writes.
+  const { resolvedMode, setMode: setThemeMode } = useThemeMode()
+  const darkMode = resolvedMode === 'dark'
   // SUG-AUTH-003: inactivity auto-logout warning
   const [warnSeconds, setWarnSeconds] = useState(null)
   // BUG043 -- real unread-thread count, not MockStore. Counts threads with
@@ -1222,9 +1226,10 @@ export default function AppShell() {
           sx={{
             zIndex: theme.zIndex.drawer + 1,
             top: bannerOffset,
-            bgcolor: '#fff',
+            bgcolor: 'background.paper',
             color: 'text.primary',
-            borderBottom: '1px solid #E8EAED',
+            borderBottom: '1px solid',
+            borderBottomColor: 'divider',
             boxShadow: scrolled ? '0 2px 12px rgba(32,33,36,0.12)' : 'none',
             transition: 'box-shadow 0.2s ease',
             ml: isMobile ? 0 : `${DRAWER_WIDTH}px`,
@@ -1322,21 +1327,22 @@ export default function AppShell() {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1,
-                    bgcolor: '#F8F9FA',
-                    border: '1.5px solid #E8EAED',
+                    bgcolor: 'action.hover',
+                    border: '1.5px solid',
+                    borderColor: 'divider',
                     borderRadius: '24px',
                     px: 1.5,
                     py: 0.75,
                     cursor: 'pointer',
                     width: '100%',
                     transition: 'all 0.18s ease',
-                    '&:hover': { borderColor: TEAL, boxShadow: `0 0 0 3px rgba(0,109,119,0.10)`, bgcolor: '#F1F3F4' },
+                    '&:hover': { borderColor: TEAL, boxShadow: `0 0 0 3px rgba(0,109,119,0.10)`, bgcolor: 'action.selected' },
                   }}
                 >
-                  <SearchRoundedIcon sx={{ color: '#9AA0A6', fontSize: '1rem', flexShrink: 0 }} />
+                  <SearchRoundedIcon sx={{ color: 'text.disabled', fontSize: '1rem', flexShrink: 0 }} />
                   <Typography
                     variant="body2"
-                    sx={{ color: '#9AA0A6', flex: 1, fontSize: '0.85rem', fontFamily: '"Plus Jakarta Sans", sans-serif' }}
+                    sx={{ color: 'text.disabled', flex: 1, fontSize: '0.85rem', fontFamily: '"Plus Jakarta Sans", sans-serif' }}
                   >
                     Search…
                   </Typography>
@@ -1348,9 +1354,10 @@ export default function AppShell() {
                       fontFamily: 'monospace',
                       fontWeight: 800,
                       fontSize: '0.65rem',
-                      bgcolor: '#F1F3F4',
-                      border: '1px solid #E8EAED',
-                      color: '#9AA0A6',
+                      bgcolor: 'action.selected',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      color: 'text.disabled',
                       '& .MuiChip-label': { px: 0.75 },
                     }}
                   />
@@ -1362,7 +1369,7 @@ export default function AppShell() {
                     alignItems: 'center',
                     gap: 1,
                     width: '100%',
-                    bgcolor: '#fff',
+                    bgcolor: 'background.paper',
                     borderRadius: '12px',
                     border: `2px solid ${TEAL}`,
                     boxShadow: `0 0 0 4px rgba(0,109,119,0.10)`,
@@ -1446,7 +1453,7 @@ export default function AppShell() {
               <Tooltip title={darkMode ? 'Light mode' : 'Dark mode'}>
                 <IconButton
                   size="small"
-                  onClick={() => setDarkMode((v) => !v)}
+                  onClick={() => setThemeMode(darkMode ? 'light' : 'dark')}
                   sx={{
                     color: '#5F6368',
                     '&:hover': { bgcolor: 'rgba(0,109,119,0.06)', color: darkMode ? '#F9AB00' : TEAL },
@@ -1527,9 +1534,10 @@ export default function AppShell() {
               mt: 1,
               minWidth: 230,
               borderRadius: 2.5,
-              border: '1px solid #E8EAED',
+              border: '1px solid',
+              borderColor: 'divider',
               boxShadow: '0 8px 32px rgba(32,33,36,0.18)',
-              bgcolor: '#fff',
+              bgcolor: 'background.paper',
               backgroundImage: 'none',
             },
           },
@@ -1716,8 +1724,9 @@ export default function AppShell() {
             left: 0,
             right: 0,
             zIndex: theme.zIndex.drawer + 2,
-            borderTop: '1px solid #D0E8EA',
-            bgcolor: '#fff',
+            borderTop: '1px solid',
+            borderTopColor: 'divider',
+            bgcolor: 'background.paper',
             '& .MuiBottomNavigationAction-root': {
               minWidth: 0,
               color: '#5A7184',

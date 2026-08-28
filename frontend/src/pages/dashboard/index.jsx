@@ -227,9 +227,10 @@ export default function DashboardPage() {
           gap: 2,
           mb: 3.5,
           p: { xs: '14px 16px', sm: '16px 20px', md: '20px 24px' },
-          bgcolor: '#FFFFFF',
+          bgcolor: 'background.paper',
           borderRadius: 3,
-          border: '1px solid #E8EAED',
+          border: '1px solid',
+          borderColor: 'divider',
           boxShadow: '0 1px 2px rgba(32,33,36,0.06)',
         }}
       >
@@ -237,11 +238,11 @@ export default function DashboardPage() {
           <Typography
             variant="h5"
             fontWeight={700}
-            sx={{ color: '#202124', mb: 0.25, fontSize: { xs: '1rem', sm: '1.05rem', md: '1.125rem' } }}
+            sx={{ color: 'text.primary', mb: 0.25, fontSize: { xs: '1rem', sm: '1.05rem', md: '1.125rem' } }}
           >
             {getGreeting()}, {firstName}! 👋
           </Typography>
-          <Typography variant="body2" sx={{ color: '#5F6368', display: { xs: 'none', sm: 'block' } }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', display: { xs: 'none', sm: 'block' } }}>
             {formatDate()}
           </Typography>
         </Box>
