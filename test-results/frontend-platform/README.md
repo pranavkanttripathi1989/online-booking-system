@@ -18,5 +18,6 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR230 | bug | Admin console quick-nav fix results | pass | 2026-08-28 | 2026-08-28 | TP230 | [TR230-frontend-platform-2026-08-28-admin-console-nav-fix.md](./bug/TR230-frontend-platform-2026-08-28-admin-console-nav-fix.md) |
 | TR228 | bug | Sidebar Messages badge and patients mock-fallback fixes results | pass | 2026-08-28 | 2026-08-28 | TP228 | [TR228-frontend-platform-2026-08-28-messages-badge-and-patients-mock-fallback-fixes.md](./bug/TR228-frontend-platform-2026-08-28-messages-badge-and-patients-mock-fallback-fixes.md) |
 | TR223 | bug | Route-guard corrections results | pass | 2026-08-28 | 2026-08-28 | TP223 | [TR223-frontend-platform-2026-08-28-route-guard-corrections-queue-appointments-calendar.md](./bug/TR223-frontend-platform-2026-08-28-route-guard-corrections-queue-appointments-calendar.md) |

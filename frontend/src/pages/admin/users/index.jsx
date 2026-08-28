@@ -253,7 +253,7 @@ function StatCard({ icon, value, label, color }) {
 // --- Main Component ---
 export default function AdminUsers() {
   const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
+  const [searchParams, setSearchParams] = useSearchParams()
   const { enqueueSnackbar } = useSnackbar()
   const { user: currentUser, startImpersonating } = useAuth()
 
@@ -434,7 +434,16 @@ export default function AdminUsers() {
         ].map((tab, i) => (
           <Button
             key={i}
-            onClick={() => setAdminTab(i)}
+            onClick={() => {
+              setAdminTab(i)
+              // BUG032 -- adminTab was pure local state with no URL sync, so
+              // AdminLayout.jsx's own sidebar "Audit Log" (/admin/users?tab=2)
+              // quick-nav link could never track a live in-page tab switch --
+              // the URL simply never changed. Keep ?tab= in sync so the
+              // sidebar highlight (and a shared/bookmarked link) reflects the
+              // real open tab.
+              setSearchParams(i === 0 ? {} : { tab: String(i) }, { replace: true })
+            }}
             startIcon={tab.icon}
             sx={{
               borderRadius: 1.5,

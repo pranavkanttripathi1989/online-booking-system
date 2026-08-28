@@ -12,10 +12,18 @@ import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
 import LanguageIcon from '@mui/icons-material/Language'
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'
 import HistoryIcon from '@mui/icons-material/History'
+import CategoryIcon from '@mui/icons-material/Category'
+import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
+import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
+import GavelIcon from '@mui/icons-material/Gavel'
 
 const BRAND = '#006D77'
 const SIDEBAR_WIDTH = 224
 
+// BUG032 -- this used to omit 4 real, working /admin/* routes entirely
+// (Departments, Plans, Insurance Payers, Rights Requests), reachable only
+// via the main AppShell sidebar's own collapsible "Admin" section -- a real
+// navigational dead end for anyone who lands on an /admin/* page first.
 const NAV_SECTIONS = [
   {
     label: 'Users & Access',
@@ -23,12 +31,15 @@ const NAV_SECTIONS = [
       { label: 'Users & RBAC', icon: <PeopleAltIcon />, path: '/admin/users' },
       { label: 'Roles', icon: <AdminPanelSettingsIcon />, path: '/admin/roles' },
       { label: 'Audit Log', icon: <HistoryIcon />, path: '/admin/users?tab=2' },
+      { label: 'Rights Requests', icon: <GavelIcon />, path: '/admin/rights-requests' },
     ],
   },
   {
     label: 'System',
     items: [
       { label: 'Organizations', icon: <BusinessIcon />, path: '/admin/organizations' },
+      { label: 'Plans', icon: <WorkspacePremiumIcon />, path: '/admin/plans' },
+      { label: 'Insurance Payers', icon: <LocalHospitalIcon />, path: '/admin/payers' },
       { label: 'Policies', icon: <PolicyIcon />, path: '/admin/policies' },
       { label: 'Communications', icon: <ChatIcon />, path: '/admin/communications' },
       { label: 'Email Templates', icon: <EmailIcon />, path: '/admin/email-templates' },
@@ -37,6 +48,7 @@ const NAV_SECTIONS = [
   {
     label: 'Reference Data',
     items: [
+      { label: 'Departments', icon: <CategoryIcon />, path: '/admin/departments' },
       { label: 'Clinician Types', icon: <MedicalServicesIcon />, path: '/admin/clinician-types' },
       { label: 'Room Types', icon: <MeetingRoomIcon />, path: '/admin/room-types' },
       { label: 'Languages', icon: <LanguageIcon />, path: '/admin/languages' },
@@ -49,9 +61,21 @@ export default function AdminLayout() {
   const navigate = useNavigate()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
 
+  // BUG032 -- this used to strip the query string entirely and compare only
+  // the pathname, so "Users & RBAC" (/admin/users) and "Audit Log"
+  // (/admin/users?tab=2) were both "active" on every /admin/users URL
+  // regardless of which in-page tab was actually open. An item whose own
+  // configured path carries a `?tab=` now also requires the real, current
+  // `?tab=` to match; an item with no query string in its own path (the
+  // common case) still matches on pathname alone.
   const isActive = (path) => {
-    const base = path.split('?')[0]
-    return location.pathname === base || location.pathname.startsWith(base + '/')
+    const [base, itemQuery] = path.split('?')
+    const pathMatches = location.pathname === base || location.pathname.startsWith(base + '/')
+    if (!pathMatches) return false
+    if (!itemQuery) return true
+    const itemTab = new URLSearchParams(itemQuery).get('tab')
+    const currentTab = new URLSearchParams(location.search).get('tab')
+    return itemTab === currentTab
   }
 
   const navContent = (onNavigate) => (
