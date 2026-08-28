@@ -4,10 +4,23 @@ type: bug
 feature: messaging
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN208`)
+
+Replaced `AppShell.jsx`'s `MockStore`-sourced `msgUnreadCount`
+state/subscription with a real, lightweight `useQuery` against the same
+`threads` resolver `messages/index.jsx` already uses, trimmed to just
+`{id, unread_count}` (no participants/last_message/etc. — not needed
+for a badge count). Polls every 30s, matching `DATA-12`'s polling-cap
+convention. Removed the now-unused `import * as MockStore` entirely.
+
+Live-verified as `admin@medibook.dev`: the sidebar now reads "Messages
+1" (one real thread with `unread_count > 0`), not the fabricated,
+account-independent "Messages 3".
 
 # BUG043 — The sidebar "Messages" unread badge is fabricated from `MockStore`, unconditionally, for every account
 

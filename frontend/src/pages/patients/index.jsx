@@ -459,8 +459,12 @@ export default function PatientsPage() {
   const apiPatients = data?.patients?.data ?? []
   const apiTotal = data?.patients?.paginatorInfo?.total ?? 0
 
-  // Fall back to mock if backend unavailable
-  const useMock = apiPatients.length === 0 && !loading
+  // BUG041 -- gated on a genuine query `error` only, matching the
+  // appointments/index.jsx and calendar/index.jsx precedent. The previous
+  // `apiPatients.length === 0 && !loading` condition fell back to mock
+  // patients on ANY real empty result too -- a legitimately empty org, or a
+  // search/filter that legitimately matches nothing, not just a real outage.
+  const useMock = !!error
   const allPatients = useMock ? mockPatients : apiPatients
   const total = useMock ? mockPatients.filter((p) => showArchived || !p.archived).length : apiTotal
 

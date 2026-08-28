@@ -4,10 +4,32 @@ type: bug
 feature: patients
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: [BUG040]
 ---
+
+## Resolution (2026-08-28, `PLAN208`)
+
+`useMock` changed from `apiPatients.length === 0 && !loading` to `!!error`
+— matching the established `appointments/index.jsx`/`calendar/index.jsx`
+fix precedent exactly. The page already had a real, contextual empty
+state (`No patients match "..."` / `No patients starting with "..."` /
+`No patients found`) that simply never rendered before, since the mock
+fallback always intercepted a genuine empty result first. The
+merge-duplicates real-vs-mock branch (`handleConfirmMerge`) needed no
+separate change — it already reads the same `useMock` flag.
+
+Not touched, a separate pre-existing gap: for real data, the
+gender/archived/letter filters are client-side-only in mock mode —
+`PATIENTS_QUERY` has no server-side args for them at all, so they
+already had no effect on real results before this fix either. Out of
+this bug's scope; logged here for whoever picks that up next.
+
+Live-verified as `admin@medibook.dev`: real data still shows correctly
+("137 patients"); searching for a string matching nothing now shows the
+real `No patients match "..."` empty state, not the fabricated "Alice
+Johnson"/"Bob Smith" mock list.
 
 # BUG041 — `/patients` falls back to hardcoded mock patients on any genuine empty result, not just a real query error
 

@@ -102,7 +102,6 @@ import PolicyRoundedIcon from '@mui/icons-material/PolicyRounded'
 import { useAuth } from '../context/AuthContext'
 import NotificationBell from '../components/shared/NotificationBell'
 import { useInactivityLogout } from '../hooks/useInactivityLogout'
-import * as MockStore from '../mocks/store'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DRAWER_WIDTH = 260
@@ -120,6 +119,19 @@ const GET_MY_ORG_BRANDING = gql`
       logo_url
       primary_color
       secondary_color
+    }
+  }
+`
+// BUG043 -- the sidebar "Messages" badge used to be sourced entirely from
+// MockStore, unconditionally, for every account -- not a fallback, there was
+// no real-data path at all. This is the same real threads() resolver
+// messages/index.jsx already uses, trimmed to just the field this badge
+// needs (no participants/last_message/etc.).
+const GET_THREADS_FOR_SHELL = gql`
+  query ThreadsForShellBadge {
+    threads {
+      id
+      unread_count
     }
   }
 `
@@ -1002,10 +1014,10 @@ export default function AppShell() {
   const [darkMode, setDarkMode] = useState(false)
   // SUG-AUTH-003: inactivity auto-logout warning
   const [warnSeconds, setWarnSeconds] = useState(null)
-  // BUG-MSG-001: live unread badge from MockStore
-  const [msgUnreadCount, setMsgUnreadCount] = useState(
-    () => MockStore.getStore().message_threads.filter((t) => (t.unread_count ?? 0) > 0).length,
-  )
+  // BUG043 -- real unread-thread count, not MockStore. Counts threads with
+  // at least one unread message, matching the badge's own prior semantics.
+  const { data: threadsForBadge } = useQuery(GET_THREADS_FOR_SHELL, { errorPolicy: 'ignore', pollInterval: 30000 })
+  const msgUnreadCount = (threadsForBadge?.threads ?? []).filter((t) => (t.unread_count ?? 0) > 0).length
 
   // Nav layout toggle (persisted)
   const [navLayout, setNavLayout] = useState(() => {
@@ -1059,14 +1071,6 @@ export default function AppShell() {
         localStorage.setItem('hs_nav_layout', next)
       } catch {}
       return next
-    })
-  }, [])
-
-  // BUG-MSG-001: subscribe to MockStore for live Messages unread badge
-  useEffect(() => {
-    return MockStore.subscribe(() => {
-      const count = MockStore.getStore().message_threads.filter((t) => (t.unread_count ?? 0) > 0).length
-      setMsgUnreadCount(count)
     })
   }, [])
 

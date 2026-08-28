@@ -21,4 +21,4 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| BUG043 | bug | Sidebar "Messages" unread badge is fabricated from `MockStore` | open | 2026-08-28 | 2026-08-28 | — | [BUG043-messaging-2026-08-28-sidebar-unread-badge-is-pure-mock-data.md](./bug/BUG043-messaging-2026-08-28-sidebar-unread-badge-is-pure-mock-data.md) |
+| BUG043 | bug | Sidebar "Messages" unread badge is fabricated from `MockStore` | done | 2026-08-28 | 2026-08-28 | — | [BUG043-messaging-2026-08-28-sidebar-unread-badge-is-pure-mock-data.md](./bug/BUG043-messaging-2026-08-28-sidebar-unread-badge-is-pure-mock-data.md) |

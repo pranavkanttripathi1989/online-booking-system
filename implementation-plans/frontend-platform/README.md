@@ -18,4 +18,5 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN208 | bug | Sidebar Messages badge and patients mock-fallback fixes | done | 2026-08-28 | 2026-08-28 | — | [PLAN208-frontend-platform-2026-08-28-messages-badge-and-patients-mock-fallback-fixes.md](./bug/PLAN208-frontend-platform-2026-08-28-messages-badge-and-patients-mock-fallback-fixes.md) |
 | PLAN203 | bug | Route-guard corrections: /queue, /appointments, /calendar | done | 2026-08-28 | 2026-08-28 | — | [PLAN203-frontend-platform-2026-08-28-route-guard-corrections-queue-appointments-calendar.md](./bug/PLAN203-frontend-platform-2026-08-28-route-guard-corrections-queue-appointments-calendar.md) |
