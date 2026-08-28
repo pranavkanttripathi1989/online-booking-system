@@ -21,6 +21,7 @@ import AddIcon from '@mui/icons-material/Add'
 import HistoryIcon from '@mui/icons-material/History'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
+import { useAuth } from '../../hooks/useAuth'
 
 // REQ032 (US-PLAN-01/02) — real backend from day one (super_admin-only,
 // platform-level plan catalog), same "no mock fallback" convention as
@@ -103,6 +104,12 @@ const defaultForm = () => ({
 
 export default function AdminPlans() {
   const client = useApolloClient()
+  const { hasRole } = useAuth()
+  // BUG033 -- this whole page is one role's job (matches /admin/payers'
+  // own precedent for the identical scenario); hide the write action for
+  // any other caller rather than let them fill out a form that can only
+  // fail on submit.
+  const canManagePlans = hasRole('super_admin')
   const [plans, setPlans] = useState([])
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
@@ -119,7 +126,17 @@ export default function AdminPlans() {
     setLoading(true)
     setLoadError(null)
     try {
-      const { data } = await client.query({ query: GET_PLANS, fetchPolicy: 'network-only' })
+      // BUG033 -- client.js sets errorPolicy: 'all' as the global default, so
+      // a GraphQL error never rejects this call; it resolves with
+      // {data: null, errors: [...]}. The try/catch below only catches a real
+      // network failure -- a permission/validation error must be read from
+      // the result's own `errors`, or insufficientPermission below can never
+      // fire.
+      const { data, errors } = await client.query({ query: GET_PLANS, fetchPolicy: 'network-only' })
+      if (errors?.length) {
+        setLoadError(errors[0].message)
+        return
+      }
       setPlans(data?.plans ?? [])
     } catch (err) {
       setLoadError(err.message)
@@ -220,16 +237,18 @@ export default function AdminPlans() {
             Platform-wide plan catalog — super_admin only
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            reset()
-            setShowForm((p) => !p)
-          }}
-        >
-          New Plan
-        </Button>
+        {canManagePlans && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              reset()
+              setShowForm((p) => !p)
+            }}
+          >
+            New Plan
+          </Button>
+        )}
       </Stack>
 
       {insufficientPermission && (
@@ -443,23 +462,32 @@ export default function AdminPlans() {
                     <Chip size="small" label={plan.is_active ? 'Active' : 'Inactive'} color={plan.is_active ? 'success' : 'default'} />
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
-                    <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="New version">
-                        <IconButton size="small" onClick={() => openNewVersionForm(plan)}>
-                          <AddIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title={plan.is_active ? 'Deactivate' : 'Activate'}>
-                        <Switch
-                          size="small"
-                          checked={plan.is_active}
-                          onChange={() => {
-                            setTogglingId(plan.id)
-                            setConfirmOpen(true)
-                          }}
-                        />
-                      </Tooltip>
-                    </Stack>
+                    {/* BUG033 -- per-row write actions hidden, not just left to
+                        fail on submit, for a caller who isn't super_admin. */}
+                    {canManagePlans ? (
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="New version">
+                          <IconButton size="small" aria-label={`New version for ${plan.name}`} onClick={() => openNewVersionForm(plan)}>
+                            <AddIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title={plan.is_active ? 'Deactivate' : 'Activate'}>
+                          <Switch
+                            size="small"
+                            checked={plan.is_active}
+                            inputProps={{ 'aria-label': `${plan.is_active ? 'Deactivate' : 'Activate'} ${plan.name}` }}
+                            onChange={() => {
+                              setTogglingId(plan.id)
+                              setConfirmOpen(true)
+                            }}
+                          />
+                        </Tooltip>
+                      </Stack>
+                    ) : (
+                      <Typography variant="body2" color="text.disabled">
+                        —
+                      </Typography>
+                    )}
                   </Box>
                 </Box>
               ))}

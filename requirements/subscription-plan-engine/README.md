@@ -16,4 +16,4 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| BUG033 | bug | `/admin/plans` silently swallows its own real permission error, shows an empty usable page instead | open | 2026-08-28 | 2026-08-28 | — | [BUG033-subscription-plan-engine-2026-08-28-plans-page-swallows-permission-error.md](./bug/BUG033-subscription-plan-engine-2026-08-28-plans-page-swallows-permission-error.md) |
+| BUG033 | bug | `/admin/plans` silently swallows its own real permission error, shows an empty usable page instead | done | 2026-08-28 | 2026-08-28 | — | [BUG033-subscription-plan-engine-2026-08-28-plans-page-swallows-permission-error.md](./bug/BUG033-subscription-plan-engine-2026-08-28-plans-page-swallows-permission-error.md) |

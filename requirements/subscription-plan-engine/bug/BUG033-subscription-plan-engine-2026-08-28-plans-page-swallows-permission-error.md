@@ -4,10 +4,30 @@ type: bug
 feature: subscription-plan-engine
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN207`)
+
+`load()` now destructures `{data, errors}` from `client.query(...)` and
+checks `errors?.length` explicitly before falling through to
+`setPlans(data?.plans ?? [])` — the `try/catch` stays only for a
+genuine network failure, which it can actually catch. Both the
+top-level "New Plan" button and each row's own write actions
+(New-version, Activate/Deactivate) are now hidden entirely (not
+disabled) for a caller without `hasRole('super_admin')`, matching
+`/admin/payers`'s own precedent for the identical "whole page is one
+role's job" scenario. The wider "audit other pages for the same
+dead-error-path shape" follow-up this doc's own acceptance criteria
+flagged was **not** done in this pass — logged as still open, not
+silently dropped.
+
+Live-verified as `admin@medibook.dev` (not `super_admin`): the real
+permission alert now renders ("Your account doesn't have `super_admin`
+access..."), and the "New Plan" button is gone entirely — no more
+filling out a full form that can only fail on submit. See `TR227`.
 
 # BUG033 — `/admin/plans` silently swallows its own real permission error and shows an empty, fully-usable page instead
 

@@ -4,10 +4,29 @@ type: bug
 feature: platform-nfr
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN207`)
+
+Every icon-only button listed added a real `aria-label` naming the
+action and its target (e.g. `` `Edit ${item.name}` ``), matching
+`Roles.jsx`'s own already-correct pattern — across all 8 files:
+`Communications.jsx`, `EmailTemplates.jsx` (plus its own close-preview
+button, not originally listed but the same pattern), `ClinicianTypes.jsx`,
+`Departments.jsx`, `Languages.jsx` (including the disabled-delete case,
+labeled with the real reason), `Plans.jsx` (its `Switch` labeled via
+`inputProps={{'aria-label': ...}}`, matching `A11Y-12`'s documented MUI
+convention, not a plain `aria-label` prop), `RoomTypes.jsx`, and
+`Organizations.jsx`'s two remaining gapped buttons.
+
+Live-verified via Chrome DevTools MCP a11y snapshot on 2 of the 8 pages
+(`Communications`, `Languages`) — every button now reports a real,
+specific accessible name (e.g. "Edit English", "Cannot delete Hindi —
+it's the default language"), not a bare unnamed `button` node. See
+`TR227`.
 
 # BUG031 — Icon-only action buttons with no accessible name across 9 admin pages (A11Y-5)
 

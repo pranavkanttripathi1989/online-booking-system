@@ -330,6 +330,7 @@ export default function AdminLanguages() {
                       <Tooltip title="Edit">
                         <IconButton
                           size="small"
+                          aria-label={`Edit ${item.name}`}
                           onClick={() => {
                             setEditItem(item)
                             setForm({ name: item.name, code: item.code, is_active: item.is_active, is_default: item.is_default })
@@ -344,6 +345,7 @@ export default function AdminLanguages() {
                           <IconButton
                             size="small"
                             color="error"
+                            aria-label={canDelete(item) ? `Delete ${item.name}` : `Cannot delete ${item.name} — it's the default language`}
                             disabled={!canDelete(item)}
                             onClick={() => {
                               setDeletingId(item.id)

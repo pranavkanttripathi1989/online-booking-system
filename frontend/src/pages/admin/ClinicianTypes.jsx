@@ -302,6 +302,7 @@ export default function AdminClinicianTypes() {
                       <Tooltip title="Edit">
                         <IconButton
                           size="small"
+                          aria-label={`Edit ${item.name}`}
                           onClick={() => {
                             setEditItem(item)
                             setForm({ name: item.name, description: item.description || '', is_active: item.is_active })
@@ -315,6 +316,7 @@ export default function AdminClinicianTypes() {
                         <IconButton
                           size="small"
                           color="error"
+                          aria-label={`Delete ${item.name}`}
                           onClick={() => {
                             setDeletingId(item.id)
                             setConfirmOpen(true)

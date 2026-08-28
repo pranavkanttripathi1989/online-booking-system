@@ -241,12 +241,12 @@ export default function AdminEmailTemplates() {
                   </Box>
                   <Stack direction="row" spacing={0.5}>
                     <Tooltip title="Preview">
-                      <IconButton size="small" onClick={() => setPreviewItem(t)}>
+                      <IconButton size="small" aria-label={`Preview ${t.name || TYPE_LABELS[t.type] || t.type}`} onClick={() => setPreviewItem(t)}>
                         <PreviewIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Edit">
-                      <IconButton size="small" onClick={() => openEdit(t)}>
+                      <IconButton size="small" aria-label={`Edit ${t.name || TYPE_LABELS[t.type] || t.type}`} onClick={() => openEdit(t)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
@@ -326,7 +326,7 @@ export default function AdminEmailTemplates() {
       <Dialog open={!!previewItem} onClose={() => setPreviewItem(null)} maxWidth="md" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           Preview: {previewItem?.name || previewItem?.type}
-          <IconButton size="small" onClick={() => setPreviewItem(null)}>
+          <IconButton size="small" aria-label="Close preview" onClick={() => setPreviewItem(null)}>
             <CloseIcon />
           </IconButton>
         </DialogTitle>

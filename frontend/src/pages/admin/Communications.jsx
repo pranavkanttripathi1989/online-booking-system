@@ -529,10 +529,18 @@ export default function AdminCommunications() {
                       </Typography>
                     </Box>
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <IconButton size="small" onClick={() => setPreviewTemplate(t)}>
+                      <IconButton
+                        size="small"
+                        aria-label={`Preview ${t.name || TEMPLATE_TYPE_LABELS[t.type] || t.type}`}
+                        onClick={() => setPreviewTemplate(t)}
+                      >
                         <PreviewIcon fontSize="small" />
                       </IconButton>
-                      <IconButton size="small" onClick={() => navigate('/admin/email-templates')}>
+                      <IconButton
+                        size="small"
+                        aria-label={`Edit ${t.name || TEMPLATE_TYPE_LABELS[t.type] || t.type}`}
+                        onClick={() => navigate('/admin/email-templates')}
+                      >
                         <EditIcon fontSize="small" />
                       </IconButton>
                       <FormControlLabel

@@ -319,6 +319,7 @@ export default function AdminDepartments() {
                       <Tooltip title="Edit">
                         <IconButton
                           size="small"
+                          aria-label={`Edit ${item.name}`}
                           onClick={() => {
                             setEditItem(item)
                             setForm({ name: item.name, clinic_id: item.clinic?.id ?? '' })
@@ -332,6 +333,7 @@ export default function AdminDepartments() {
                         <IconButton
                           size="small"
                           color="error"
+                          aria-label={`Delete ${item.name}`}
                           onClick={() => {
                             setDeletingId(item.id)
                             setConfirmOpen(true)

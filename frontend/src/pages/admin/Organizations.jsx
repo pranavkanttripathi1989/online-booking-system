@@ -527,12 +527,13 @@ export default function AdminOrganizations() {
                       >
                         <WorkspacePremiumIcon fontSize="small" color={org.plan_name ? 'primary' : 'action'} />
                       </IconButton>
-                      <IconButton size="small" onClick={() => openEdit(org)}>
+                      <IconButton size="small" aria-label={`Edit ${org.name}`} onClick={() => openEdit(org)}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                       <IconButton
                         size="small"
                         color="error"
+                        aria-label={`Delete ${org.name}`}
                         onClick={() => {
                           setDeletingId(org.id)
                           setConfirmOpen(true)

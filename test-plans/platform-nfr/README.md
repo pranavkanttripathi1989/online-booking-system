@@ -22,6 +22,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP227 | bug | Admin icon-button accessible names, Plans permission fix verification | approved | 2026-08-28 | 2026-08-28 | PLAN207 | [TP227](./bug/TP227-platform-nfr-2026-08-28-a11y-icon-labels-and-plans-permission-fix.md) |
 | TP225 | bug | DPDP citation, percent formatting, and room-display fixes verification | approved | 2026-08-28 | 2026-08-28 | PLAN205 | [TP225](./bug/TP225-platform-nfr-2026-08-28-dpdp-citation-percent-formatting-room-display-fixes.md) |
 | TP070 | bug | Isolated e2e stack verification | approved | 2026-08-23 | 2026-08-23 | BUG018 | [TP070](./bug/TP070-platform-nfr-2026-08-23-isolated-e2e-stack-verification.md) |
 | TP068 | bug | Booking-concurrency exclusion constraint verification | approved | 2026-08-23 | 2026-08-23 | BUG017 | [TP068](./bug/TP068-platform-nfr-2026-08-23-booking-concurrency-exclusion-constraint-verification.md) |
