@@ -150,6 +150,28 @@ describe('AccountService', () => {
       expect(call.data.date_of_birth).toBeUndefined();
       expect(call.data.address_structured).toBeUndefined();
     });
+
+    // BUG047 follow-up — theme_mode round-trip
+    it('persists theme_mode and returns it round-tripped', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(profileRow());
+      prisma.userProfiles.update.mockResolvedValue(profileRow({ theme_mode: 'dark' }));
+
+      const result = await service.updateMyProfile({ theme_mode: 'dark' } as any, user);
+
+      expect(result.success).toBe(true);
+      expect(prisma.userProfiles.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ theme_mode: 'dark' }) }),
+      );
+      expect(result.profile?.theme_mode).toBe('dark');
+    });
+
+    it('myProfile returns theme_mode undefined (not null) when never set, matching every other optional profile field', async () => {
+      prisma.userProfiles.findUnique.mockResolvedValueOnce(profileRow({ theme_mode: null }));
+
+      const profile = await service.myProfile(user);
+
+      expect(profile?.theme_mode).toBeUndefined();
+    });
   });
 
   describe('setMyAvatarUrl', () => {

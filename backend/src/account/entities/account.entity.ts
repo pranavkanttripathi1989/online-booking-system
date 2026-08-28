@@ -18,6 +18,9 @@ export class MyProfileType {
   // PLAN016 Slice C — the Settings page needs this to render "Enable" vs
   // "Disable 2FA" correctly; no other query exposes it.
   @Field() totp_enabled: boolean;
+  // BUG047 follow-up — the caller's synced light/dark/system preference.
+  // Null until the caller has ever saved one from a real device.
+  @Field({ nullable: true }) theme_mode?: string;
 }
 
 @ObjectType('MyProfileUserError')

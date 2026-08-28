@@ -51,6 +51,7 @@ export class AccountService {
       avatar_url: row.avatar_url ?? undefined,
       address: row.address_structured ?? undefined,
       totp_enabled: row.totp_enabled ?? false,
+      theme_mode: row.theme_mode ?? undefined,
     };
   }
 
@@ -93,6 +94,7 @@ export class AccountService {
                 : new Date(input.date_of_birth),
           gender: input.gender,
           address_structured: input.address === undefined ? undefined : (input.address as any),
+          theme_mode: input.theme_mode,
         },
       });
       return { success: true, userErrors: [], profile: this.toProfile(row) };

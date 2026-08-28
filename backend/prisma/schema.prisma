@@ -2491,6 +2491,14 @@ model UserProfiles {
   bio           String?
   address_structured Json?
 
+  // BUG047 follow-up -- the caller's own light/dark/system preference,
+  // synced across devices. `context/ThemeContext.jsx` still keeps a
+  // localStorage copy for instant apply and logged-out/offline use; this
+  // column is the cross-device source of truth once a session is
+  // authenticated. Validated at the DTO layer (IsIn), not a DB enum, to
+  // match every other free-text-ish preference column on this model.
+  theme_mode String?
+
   // PLAN016 Slice C — real TOTP 2FA. Secret and backup codes are always
   // encrypted/hashed at rest, never stored or returned in plaintext.
   totp_secret_encrypted String?

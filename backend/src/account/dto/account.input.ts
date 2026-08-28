@@ -39,6 +39,13 @@ export class UpdateMyProfileInput {
   @IsIn(['male', 'female', 'other', 'prefer_not_to_say'])
   gender?: string;
   @Field(() => MyAddressInput, { nullable: true }) @IsOptional() address?: MyAddressInput;
+  // BUG047 follow-up — synced across the caller's devices; localStorage
+  // remains the instant-apply/offline copy, this is the cross-device source
+  // of truth once authenticated.
+  @Field({ nullable: true })
+  @IsOptional()
+  @IsIn(['light', 'dark', 'system'])
+  theme_mode?: string;
 }
 
 // Same complexity rule as RegisterInput (backend/src/auth/dto/register.input.ts)
