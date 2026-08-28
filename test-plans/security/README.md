@@ -21,6 +21,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP224 | bug | Page-scoped stat shown as total fixes verification | approved | 2026-08-28 | 2026-08-28 | PLAN204 | [TP224-security-2026-08-28-page-scoped-stat-shown-as-total-fixes.md](./bug/TP224-security-2026-08-28-page-scoped-stat-shown-as-total-fixes.md) |
 | TP130 | bug | Role/permission mutation guards | approved | 2026-08-26 | 2026-08-26 | PLAN103 | [TP130-security-2026-08-26-role-permission-mutation-guards.md](./bug/TP130-security-2026-08-26-role-permission-mutation-guards.md) |
 | TP111 | bug | Test plan for the new reset-password page | approved | 2026-08-25 | 2026-08-25 | PLAN084 | [TP111-security-2026-08-25-add-reset-password-page.md](./bug/TP111-security-2026-08-25-add-reset-password-page.md) |
 

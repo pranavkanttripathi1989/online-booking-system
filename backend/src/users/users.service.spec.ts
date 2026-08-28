@@ -11,11 +11,11 @@ jest.mock('bcrypt', () => ({ hash: jest.fn().mockResolvedValue('hashed-password'
 describe('UsersService', () => {
   let service: UsersService;
   let prisma: {
-    userProfiles: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
+    userProfiles: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock; count: jest.Mock };
     userRoles: { findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     permissions: { findMany: jest.Mock; count: jest.Mock };
     rolePermissions: { findMany: jest.Mock; deleteMany: jest.Mock; createMany: jest.Mock };
-    auditLogs: { findMany: jest.Mock };
+    auditLogs: { findMany: jest.Mock; count: jest.Mock };
     users: { create: jest.Mock };
     $transaction: jest.Mock;
   };
@@ -52,11 +52,11 @@ describe('UsersService', () => {
       userRoles: { create: jest.fn(), update: jest.fn() },
     };
     prisma = {
-      userProfiles: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
+      userProfiles: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn(), count: jest.fn() },
       userRoles: { findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       permissions: { findMany: jest.fn(), count: jest.fn() },
       rolePermissions: { findMany: jest.fn(), deleteMany: jest.fn(), createMany: jest.fn() },
-      auditLogs: { findMany: jest.fn() },
+      auditLogs: { findMany: jest.fn(), count: jest.fn() },
       users: { create: jest.fn() },
       $transaction: jest.fn((cb) => cb(tx)),
     };
@@ -101,6 +101,36 @@ describe('UsersService', () => {
       const [result] = await service.getUsers(undefined, undefined, undefined, undefined, orgAUser);
       expect(result).toMatchObject({ id: 'user-a1', firstName: 'Asha', lastName: 'Patel' });
       expect(result.roles).toEqual([{ id: 'role-1', name: 'Manager', code: 'manager' }]);
+    });
+  });
+
+  describe('getUsersStats (BUG029)', () => {
+    it('returns real total/active counts, not a page length', async () => {
+      prisma.userProfiles.count.mockResolvedValueOnce(12).mockResolvedValueOnce(9);
+      const result = await service.getUsersStats(undefined, undefined, orgAUser);
+      expect(result).toEqual({ total: 12, active: 9 });
+    });
+
+    it('mirrors getUsers()\'s own org scope, role, and search filters', async () => {
+      prisma.userProfiles.count.mockResolvedValue(0);
+      await service.getUsersStats('manager', 'asha', orgAUser);
+      const [totalArgs, activeArgs] = prisma.userProfiles.count.mock.calls;
+      expect(totalArgs[0].where).toMatchObject({
+        client_org_id: 'org-a',
+        role: { OR: [{ code: 'manager' }, { name: 'manager' }] },
+      });
+      // The active count must be the exact same filter plus is_active: true —
+      // never a differently-scoped count that could silently disagree with
+      // the total.
+      expect(activeArgs[0].where).toMatchObject({ ...totalArgs[0].where, is_active: true });
+    });
+
+    it('an org-less NON-platform caller is scoped to an impossible sentinel, matching getUsers()', async () => {
+      prisma.userProfiles.count.mockResolvedValue(0);
+      const orgLess = { sub: 'u-9', roles: ['manager'], client_org_id: null } as any;
+      await service.getUsersStats(undefined, undefined, orgLess);
+      const where = prisma.userProfiles.count.mock.calls[0][0].where;
+      expect(where.client_org_id).toBe('__no_org__');
     });
   });
 
@@ -265,6 +295,22 @@ describe('UsersService', () => {
       await service.getAuditLogs(undefined, undefined, undefined, undefined, orgLess);
       const where = prisma.auditLogs.findMany.mock.calls[0][0].where;
       expect(where.user).toEqual({ userProfiles: { client_org_id: '__no_org__' } });
+    });
+  });
+
+  describe('getAuditLogsCount (BUG029)', () => {
+    it('returns a real count, mirroring getAuditLogs()\'s own filters', async () => {
+      prisma.auditLogs.count.mockResolvedValue(37);
+      const result = await service.getAuditLogsCount('login', undefined, platformUser);
+      expect(result).toBe(37);
+      expect(prisma.auditLogs.count).toHaveBeenCalledWith({ where: expect.objectContaining({ action: 'login' }) });
+    });
+
+    it('scopes to the caller org via user.userProfiles for a non-platform caller', async () => {
+      prisma.auditLogs.count.mockResolvedValue(0);
+      await service.getAuditLogsCount(undefined, undefined, orgAUser);
+      const where = prisma.auditLogs.count.mock.calls[0][0].where;
+      expect(where.user).toEqual({ userProfiles: { client_org_id: 'org-a' } });
     });
   });
 

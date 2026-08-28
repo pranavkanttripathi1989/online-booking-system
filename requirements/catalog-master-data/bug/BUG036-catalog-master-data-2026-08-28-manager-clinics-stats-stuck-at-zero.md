@@ -4,10 +4,26 @@ type: bug
 feature: catalog-master-data
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN204`)
+
+`toCardClinic()` now takes a `roomCount` argument, computed at the call
+site from `roomsData.rooms` (already fetched by this page via
+`ROOMS_QUERY`) filtered to `r.clinic?.id === c.id` — no new query.
+Clinicians/today's/monthly bookings stay honest `0`s; the stale
+"blocked on Phase 5/7" comment was rewritten to say plainly that Rooms
+is now real and the other three genuinely have no query on this page
+to derive them from yet, rather than citing a blocker that's been false
+for a long time.
+
+Live-verified as `admin@medibook.dev`: header now reads "4 clinics · 2
+rooms total" (previously "0 rooms total"), MG Road Clinic's card shows
+"2 Rooms" (previously 0), matching the real `ROOMS_QUERY` data
+independently confirmed in the original bug report. See `TR224`.
 
 # BUG036 — `/manager/clinics`: Rooms/Clinicians/Today's Bookings hardcoded to 0 for every real clinic, even though the real data exists on the same page
 

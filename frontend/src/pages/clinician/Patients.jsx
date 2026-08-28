@@ -211,7 +211,7 @@ export default function ClinicianPatients() {
   // figure across all patients that this query cannot see.
   const kpis = [
     { label: 'Total Patients', value: totalPatients, color: STITCH_BRAND },
-    { label: 'With Upcoming (page)', value: rows.filter((p) => p.nextAppt).length, color: '#E29578' },
+    { label: 'With Upcoming (this page)', value: rows.filter((p) => p.nextAppt).length, color: '#E29578' },
   ]
 
   // ── Render ─────────────────────────────────────────────────────────────────

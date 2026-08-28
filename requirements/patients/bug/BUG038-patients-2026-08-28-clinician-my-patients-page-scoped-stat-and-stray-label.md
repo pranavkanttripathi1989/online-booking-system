@@ -4,10 +4,19 @@ type: bug
 feature: patients
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: [BUG029, BUG036]
 ---
+
+## Resolution (2026-08-28, `PLAN204`)
+
+Took the doc's own honest-label escape hatch rather than building new
+backend aggregation for a single stat card: relabeled to "With Upcoming
+(this page)" (was "With Upcoming (page)"). "Total Patients" was already
+real (`data?.patients?.paginatorInfo?.total`) — only the stray label
+text needed fixing. Live-verified as `clinician@medibook.dev`: the
+stat card now reads "With Upcoming (this page)". See `TR224`.
 
 # BUG038 — `/clinician/patients`: a stray developer label ("(page)") leaked into production, and the stat it's honestly describing is the wrong thing to show
 

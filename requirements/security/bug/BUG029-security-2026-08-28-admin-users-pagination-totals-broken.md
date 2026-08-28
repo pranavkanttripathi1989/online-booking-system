@@ -4,10 +4,31 @@ type: bug
 feature: security
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN204`)
+
+Backend: new `getUsersStats(role, search)` query (`{total, active}`) and
+`getAuditLogsCount(action, resource)` query, both mirroring their sibling
+list query's exact `where` clause via a shared private
+`buildUsersWhere`/`buildAuditLogsWhere` helper — the count can never drift
+from what the list is actually capable of showing. Frontend: both
+`StatCard`s, "Showing X of Y", and both `TablePagination`'s `count` prop
+now read these real totals instead of `-1`/the current page's own row
+length. Passing a real `count` to `TablePagination` fixes the "paging
+never stops" defect as a side effect — MUI disables "Next" automatically
+once the real last page is reached, no manual `nextIconButtonProps`
+logic needed.
+
+14 new backend unit tests (`users.service.spec.ts` ×7,
+`users.resolver.spec.ts` ×7 across gating + passthrough). Live-verified
+against the real dev stack as `admin@medibook.dev`: "Total Users: 12",
+"Active Users: 10" (both stable across pages), "Showing 8 of 12" → next
+page "Showing 4 of 12" with "Next" now disabled, Audit Logs "1–8 of
+1225" with Next correctly enabled. See `TR224`.
 
 # BUG029 — `/admin/users`: "Total Users"/"Active Users" and pagination totals are wrong, and paging never stops
 

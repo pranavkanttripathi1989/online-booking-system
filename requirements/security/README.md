@@ -22,7 +22,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
-| BUG029 | bug | `/admin/users`: pagination totals wrong, paging never stops | open | 2026-08-28 | 2026-08-28 | — | [BUG029-security-2026-08-28-admin-users-pagination-totals-broken.md](./bug/BUG029-security-2026-08-28-admin-users-pagination-totals-broken.md) |
+| BUG029 | bug | `/admin/users`: pagination totals wrong, paging never stops | done | 2026-08-28 | 2026-08-28 | — | [BUG029-security-2026-08-28-admin-users-pagination-totals-broken.md](./bug/BUG029-security-2026-08-28-admin-users-pagination-totals-broken.md) |
 | BUG026 | bug | `updateRolePermissions` could strip a system role's permissions; `getAuditLogs` unscoped | done | 2026-08-26 | 2026-08-26 | — | [BUG026-security-2026-08-26-role-permission-mutation-guards.md](./bug/BUG026-security-2026-08-26-role-permission-mutation-guards.md) |
 | BUG022 | bug | The password-reset flow has no second step | done | 2026-08-25 | 2026-08-25 | — | [BUG022-security-2026-08-25-password-reset-flow-has-no-second-step.md](./bug/BUG022-security-2026-08-25-password-reset-flow-has-no-second-step.md) |
 | BUG006 | bug | The F-01 "org-less caller sees everything" pattern survived in twelve more services | done | 2026-08-22 | 2026-08-22 | BUG004 | [BUG006-security-2026-08-22-org-less-caller-leaks-in-nine-services.md](./bug/BUG006-security-2026-08-22-org-less-caller-leaks-in-nine-services.md) |

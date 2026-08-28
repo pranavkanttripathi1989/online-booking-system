@@ -105,19 +105,23 @@ const getDeletedClinicIds = () => {
   }
 }
 
-// Backend/schema.prisma's Clinics/Rooms models don't yet carry clinician
-// counts, today's/monthly appointment volume, or a manager/specialties list
-// (those depend on Phase 5 Clinicians and Phase 7 Appointments existing) —
-// real-backend rows render with honest placeholders for those fields rather
-// than fabricated numbers. See context/phase4-catalog-modules-implementation-plan.md.
-const toCardClinic = (c) => ({
+// BUG036 (2026-08-28) -- this comment used to say Rooms/Clinicians/
+// Appointments counts were all blocked on Phase 5/7 not existing yet. Both
+// shipped long ago; the zeros were stale, not honest. Rooms is now real,
+// computed from ROOMS_QUERY data already fetched by this same page (see the
+// call site below) -- no new query needed. Clinicians and today's/monthly
+// appointment volume genuinely have no query on this page to derive them
+// from yet (would need a new clinic-scoped clinician count and a
+// clinic-scoped appointment-volume aggregate) -- still honest zeros, not a
+// stale excuse.
+const toCardClinic = (c, roomCount) => ({
   id: c.id,
   name: c.name,
   address: [c.address, c.city, c.postcode].filter(Boolean).join(', '),
   phone: c.phone,
   manager: '—',
   clinicians: 0,
-  rooms: 0,
+  rooms: roomCount,
   status: c.is_active ? 'active' : 'inactive',
   specialties: [],
   todayAppts: 0,
@@ -160,11 +164,14 @@ function ManagerClinicsInner() {
   const [deletedMockIds] = useState(getDeletedClinicIds)
   const [locallyRemovedIds, setLocallyRemovedIds] = useState([])
 
+  const rawRooms = roomsData?.rooms ?? []
   const clinics = useMock
     ? CLINICS_DATA.filter((c) => !deletedMockIds.includes(c.id) && !locallyRemovedIds.includes(c.id))
-    : apiClinics.map(toCardClinic).filter((c) => !locallyRemovedIds.includes(c.id))
+    : apiClinics
+        .map((c) => toCardClinic(c, rawRooms.filter((r) => r.clinic?.id === c.id).length))
+        .filter((c) => !locallyRemovedIds.includes(c.id))
 
-  const rooms = useMock ? ROOMS_DATA : (roomsData?.rooms ?? []).map(toCardRoom)
+  const rooms = useMock ? ROOMS_DATA : rawRooms.map(toCardRoom)
 
   const filtered = clinics.filter((c) => !search || c.name.toLowerCase().includes(search.toLowerCase()))
 

@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| security-2026-08-28-page-scoped-stat-fixes | security | 2026-08-28 | BUG029, BUG036, BUG038, PLAN204, TP224, TR224 | done | [manifest.md](./security-2026-08-28-page-scoped-stat-fixes/manifest.md) |
 | frontend-platform-2026-08-28-route-guard-fixes | frontend-platform | 2026-08-28 | BUG039, BUG046, PLAN203, TP223, TR223 | done | [manifest.md](./frontend-platform-2026-08-28-route-guard-fixes/manifest.md) |
 | patients-2026-08-28-bug040 | patients | 2026-08-28 | BUG040, BUG041, PLAN202, TP222, TR222 | done | [manifest.md](./patients-2026-08-28-bug040/manifest.md) |
 | prescriptions-2026-08-27-req159 | prescriptions | 2026-08-27 | REQ159, PLAN201, TP221, TR221 | done | [manifest.md](./prescriptions-2026-08-27-req159/manifest.md) |

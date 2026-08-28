@@ -1,6 +1,6 @@
 import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { UsersService } from './users.service';
-import { AdminUserType, PermissionType, RolePermissionType, AuditLogType, AppRoleType } from './entities/user-admin.entity';
+import { AdminUserType, PermissionType, RolePermissionType, AuditLogType, AppRoleType, AdminUsersStatsType } from './entities/user-admin.entity';
 import { UserInput, UserUpdateInput, AppRoleInput } from './dto/user-admin.input';
 import { AuthUserType, RoleType } from '../auth/entities/user.entity';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -22,6 +22,18 @@ export class UsersResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.usersService.getUsers(limit, offset, role, search, user);
+  }
+
+  // BUG029 — getUsers() has no total count; this mirrors its exact filters
+  // (role, search, org scope) so the frontend can render a real total.
+  @Auth('admin', 'super_admin', 'manager')
+  @Query(() => AdminUsersStatsType)
+  getUsersStats(
+    @Args('role', { nullable: true }) role: string,
+    @Args('search', { nullable: true }) search: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.usersService.getUsersStats(role, search, user);
   }
 
   @Auth('admin', 'super_admin', 'manager')
@@ -63,6 +75,17 @@ export class UsersResolver {
     @CurrentUser() user: JwtPayload,
   ) {
     return this.usersService.getAuditLogs(limit, offset, action, resource, user);
+  }
+
+  // BUG029 — same missing-total problem, for the Audit Logs tab.
+  @Auth('admin', 'super_admin')
+  @Query(() => Int)
+  getAuditLogsCount(
+    @Args('action', { nullable: true }) action: string,
+    @Args('resource', { nullable: true }) resource: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.usersService.getAuditLogsCount(action, resource, user);
   }
 
   @Auth('admin', 'super_admin')

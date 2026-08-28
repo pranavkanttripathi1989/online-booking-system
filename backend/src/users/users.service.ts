@@ -27,30 +27,52 @@ export class UsersService {
     };
   }
 
+  // BUG029 — shared by getUsers() and getUsersStats() so the stats query can
+  // never drift from the list query's own filters (same org scope, same
+  // role/search match) — the stats must describe exactly the rows the list
+  // is capable of showing, not a differently-filtered count.
+  private buildUsersWhere(role: string | undefined, search: string | undefined, user: JwtPayload) {
+    return {
+      is_deleted: false,
+      // BUG006 — `?? undefined` is NOT a filter in Prisma: an org-less caller
+      // read every tenant's user directory. `orgScope` fails closed instead.
+      ...orgScope(user),
+      role: role ? { OR: [{ code: role }, { name: role }] } : undefined,
+      ...(search
+        ? {
+            OR: [
+              { first_name: { contains: search, mode: 'insensitive' as const } },
+              { last_name: { contains: search, mode: 'insensitive' as const } },
+              { email: { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
+        : {}),
+    };
+  }
+
   async getUsers(limit: number | undefined, offset: number | undefined, role: string | undefined, search: string | undefined, user: JwtPayload) {
     const rows = await this.prisma.userProfiles.findMany({
-      where: {
-        is_deleted: false,
-        // BUG006 — `?? undefined` is NOT a filter in Prisma: an org-less caller
-        // read every tenant's user directory. `orgScope` fails closed instead.
-        ...orgScope(user),
-        role: role ? { OR: [{ code: role }, { name: role }] } : undefined,
-        ...(search
-          ? {
-              OR: [
-                { first_name: { contains: search, mode: 'insensitive' as const } },
-                { last_name: { contains: search, mode: 'insensitive' as const } },
-                { email: { contains: search, mode: 'insensitive' as const } },
-              ],
-            }
-          : {}),
-      },
+      where: this.buildUsersWhere(role, search, user),
       include: { role: true, clinic: true },
       orderBy: { created_at: 'desc' },
       skip: offset ?? 0,
       take: limit ?? 50,
     });
     return rows.map((r) => this.toAdminUser(r));
+  }
+
+  // BUG029 — getUsers() returned a plain array with no total count at all,
+  // so the frontend had nothing to build a real "Total Users"/"Active Users"/
+  // pagination total from except the current page's own row count. Mirrors
+  // getUsers()'s exact where-clause (via buildUsersWhere) so the counts always
+  // describe the same filtered set the list is showing.
+  async getUsersStats(role: string | undefined, search: string | undefined, user: JwtPayload) {
+    const where = this.buildUsersWhere(role, search, user);
+    const [total, active] = await Promise.all([
+      this.prisma.userProfiles.count({ where }),
+      this.prisma.userProfiles.count({ where: { ...where, is_active: true } }),
+    ]);
+    return { total, active };
   }
 
   // SECURITY: getUsers() already scopes its list by client_org_id, but this
@@ -132,14 +154,21 @@ export class UsersService {
   // future widening of the @Auth gate to a real org-scoped role (the exact
   // webhooks/api-keys lesson already recorded in CLAUDE.md) doesn't silently
   // leak every tenant's audit trail to it.
+  // BUG029 — shared by getAuditLogs() and getAuditLogsCount() for the same
+  // reason as buildUsersWhere() above: the count must describe exactly the
+  // rows the list query is capable of showing.
+  private buildAuditLogsWhere(action: string | undefined, resource: string | undefined, user: JwtPayload) {
+    return {
+      is_deleted: false,
+      action: action ?? undefined,
+      resource: resource ?? undefined,
+      ...(isPlatformOperator(user) ? {} : { user: { userProfiles: { client_org_id: user.client_org_id ?? '__no_org__' } } }),
+    };
+  }
+
   async getAuditLogs(limit: number | undefined, offset: number | undefined, action: string | undefined, resource: string | undefined, user: JwtPayload) {
     const rows = await this.prisma.auditLogs.findMany({
-      where: {
-        is_deleted: false,
-        action: action ?? undefined,
-        resource: resource ?? undefined,
-        ...(isPlatformOperator(user) ? {} : { user: { userProfiles: { client_org_id: user.client_org_id ?? '__no_org__' } } }),
-      },
+      where: this.buildAuditLogsWhere(action, resource, user),
       include: { user: { include: { userProfiles: true } } },
       orderBy: { created_at: 'desc' },
       skip: offset ?? 0,
@@ -159,6 +188,11 @@ export class UsersService {
         ? { id: r.user.id, firstName: r.user.userProfiles.first_name, lastName: r.user.userProfiles.last_name, email: r.user.userProfiles.email }
         : undefined,
     }));
+  }
+
+  // BUG029 — same missing-total problem as getUsers(), for the Audit Logs tab.
+  async getAuditLogsCount(action: string | undefined, resource: string | undefined, user: JwtPayload) {
+    return this.prisma.auditLogs.count({ where: this.buildAuditLogsWhere(action, resource, user) });
   }
 
   async createUser(input: UserInput, currentUser: JwtPayload) {

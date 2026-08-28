@@ -90,6 +90,13 @@ const GET_ADMIN_DATA = gql`
         name
       }
     }
+    # BUG029 — getUsers() itself has no total; this real, filter-matching
+    # count (never the current page's own row count) drives "Total Users" /
+    # "Active Users" and the pagination total below.
+    getUsersStats(role: $role, search: $search) {
+      total
+      active
+    }
     getUserRoles {
       id
       name
@@ -121,6 +128,9 @@ const GET_RBAC_DATA = gql`
 `
 const GET_AUDIT_LOGS = gql`
   query GetAuditLogs($limit: Int, $offset: Int, $action: String, $resource: String) {
+    # BUG029 — real total, matching the same action/resource filters as the
+    # list below, so pagination stops at the real last page.
+    getAuditLogsCount(action: $action, resource: $resource)
     getAuditLogs(limit: $limit, offset: $offset, action: $action, resource: $resource) {
       id
       action
@@ -409,8 +419,8 @@ export default function AdminUsers() {
 
       {/* SUMMARY STATS */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-        <StatCard icon={<PeopleAlt />} value={users.length} label="Total Users" color="#6366F1" />
-        <StatCard icon={<CheckCircle />} value={users.filter((u) => u.isActive).length} label="Active Users" color="#10B981" />
+        <StatCard icon={<PeopleAlt />} value={adminData?.getUsersStats?.total ?? 0} label="Total Users" color="#6366F1" />
+        <StatCard icon={<CheckCircle />} value={adminData?.getUsersStats?.active ?? 0} label="Active Users" color="#10B981" />
         <StatCard icon={<Shield />} value={rolesList.length} label="System Roles" color={BRAND} />
         <StatCard icon={<VerifiedUser />} value={adminData?.getPermissions?.length ?? 0} label="Permissions Defined" color="#F59E0B" />
       </Box>
@@ -624,13 +634,14 @@ export default function AdminUsers() {
               alignItems: 'center',
             }}
           >
-            {/* FIX-4: Derive totalCount from local filtered array */}
+            {/* BUG029 — real total from getUsersStats, not the current page's
+                own filteredUsers.length repeated on both sides. */}
             <Typography variant="caption" color="text.secondary">
-              Showing {filteredUsers.length} of {filteredUsers.length} users
+              Showing {filteredUsers.length} of {adminData?.getUsersStats?.total ?? 0} users
             </Typography>
             <TablePagination
               component="div"
-              count={-1}
+              count={adminData?.getUsersStats?.total ?? 0}
               rowsPerPage={rowsPerPage}
               rowsPerPageOptions={[8]}
               page={userPage}
@@ -1037,9 +1048,10 @@ export default function AdminUsers() {
               </TableBody>
             </Table>
           </TableContainer>
+          {/* BUG029 — real total from getAuditLogsCount. */}
           <TablePagination
             component="div"
-            count={-1}
+            count={auditData?.getAuditLogsCount ?? 0}
             rowsPerPage={rowsPerPage}
             rowsPerPageOptions={[8]}
             page={auditPage}

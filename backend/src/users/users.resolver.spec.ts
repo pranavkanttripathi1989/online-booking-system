@@ -12,12 +12,14 @@ describe('UsersResolver', () => {
   beforeEach(async () => {
     service = {
       getUsers: jest.fn(),
+      getUsersStats: jest.fn(),
       getUser: jest.fn(),
       getUserRoles: jest.fn(),
       getPermissions: jest.fn(),
       getRolePermissions: jest.fn(),
       updateRolePermissions: jest.fn(),
       getAuditLogs: jest.fn(),
+      getAuditLogsCount: jest.fn(),
       createUser: jest.fn(),
       updateUser: jest.fn(),
       listRoles: jest.fn(),
@@ -34,6 +36,7 @@ describe('UsersResolver', () => {
   describe('role gating (@Auth annotations)', () => {
     it.each([
       ['getUsers', UsersResolver.prototype.getUsers],
+      ['getUsersStats', UsersResolver.prototype.getUsersStats],
       ['getUser', UsersResolver.prototype.getUser],
     ])('%s is gated to admin/super_admin/manager', (_name, handler) => {
       expect(reflector.get(ROLES_KEY, handler)).toEqual(['admin', 'super_admin', 'manager']);
@@ -48,6 +51,7 @@ describe('UsersResolver', () => {
       ['getRolePermissions', UsersResolver.prototype.getRolePermissions],
       ['updateRolePermissions', UsersResolver.prototype.updateRolePermissions],
       ['getAuditLogs', UsersResolver.prototype.getAuditLogs],
+      ['getAuditLogsCount', UsersResolver.prototype.getAuditLogsCount],
       ['createUser', UsersResolver.prototype.createUser],
       ['updateUser', UsersResolver.prototype.updateUser],
       ['roles', UsersResolver.prototype.roles],
@@ -81,6 +85,20 @@ describe('UsersResolver', () => {
       service.createRole.mockResolvedValue({ id: 'role-new' });
       await resolver.createRole(input, user);
       expect(service.createRole).toHaveBeenCalledWith(input, user);
+    });
+
+    it('getUsersStats (BUG029) forwards role, search, and the current user', async () => {
+      const user = { client_org_id: 'org-a' } as any;
+      service.getUsersStats.mockResolvedValue({ total: 5, active: 3 });
+      await resolver.getUsersStats('manager', 'asha', user);
+      expect(service.getUsersStats).toHaveBeenCalledWith('manager', 'asha', user);
+    });
+
+    it('getAuditLogsCount (BUG029) forwards action, resource, and the current user', async () => {
+      const user = { client_org_id: 'org-a' } as any;
+      service.getAuditLogsCount.mockResolvedValue(7);
+      await resolver.getAuditLogsCount('login', 'appointment', user);
+      expect(service.getAuditLogsCount).toHaveBeenCalledWith('login', 'appointment', user);
     });
   });
 });

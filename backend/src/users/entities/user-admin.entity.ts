@@ -1,4 +1,4 @@
-import { ObjectType, Field, ID } from '@nestjs/graphql';
+import { ObjectType, Field, ID, Int } from '@nestjs/graphql';
 
 // Registered 'AdminUserRole' — distinct from auth's canonical 'Role' type
 // (login/me's colleague-facing shape). admin/users/index.jsx's getUsers/
@@ -37,6 +37,15 @@ export class AdminUserType {
   @Field(() => AdminUserProfileType, { nullable: true }) profile?: AdminUserProfileType;
   @Field(() => [AdminUserRoleType]) roles: AdminUserRoleType[];
   @Field(() => AdminUserClinicType, { nullable: true }) clinic?: AdminUserClinicType;
+}
+
+// BUG029 — getUsers() itself stays a plain array (an existing, in-use
+// contract); this is a sibling query so the frontend can build a real total,
+// not a restructuring of getUsers()'s own return type.
+@ObjectType('AdminUsersStats')
+export class AdminUsersStatsType {
+  @Field(() => Int) total: number;
+  @Field(() => Int) active: number;
 }
 
 @ObjectType('Permission')
