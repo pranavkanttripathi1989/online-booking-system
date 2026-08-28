@@ -53,6 +53,35 @@ const LANGUAGES = [
 const CLINICIAN_TYPES = ['General Physician', 'Pediatrician', 'Dermatologist', 'Cardiologist'];
 const ROOM_TYPES = ['Consultation Room'];
 
+// Realistic, varied visit reasons for the bulk appointment volume below --
+// every one of ~2000 rows previously used the identical literal string
+// "Consultation", which reads as obviously synthetic in any list view.
+const APPOINTMENT_REASONS = [
+  'Annual checkup', 'Follow-up visit', 'Fever and cold symptoms', 'Routine consultation',
+  'Blood pressure review', 'Diabetes management', 'Skin rash', 'Persistent cough',
+  'Headache and fatigue', 'Vaccination', 'Prescription renewal', 'General health checkup',
+];
+
+// Realistic Indian first/last name pools for the bulk patient volume below.
+// Deliberately real-looking (matching the clinicians' own "Sarah Mitchell"/
+// "Rohan Verma" convention) rather than "E2E PatientNNNN" -- the old
+// generic-suffix naming made every screenshot/manual QA pass instantly
+// read as fake data. Combined by two different-length arrays cycling at
+// different rates (see the patient loop below) so 199 rows draw from
+// 30*24 = 720 real combinations before any first+last pair repeats.
+const PATIENT_FIRST_NAMES = [
+  'Aarav', 'Vivaan', 'Aditya', 'Vihaan', 'Arjun', 'Sai', 'Reyansh', 'Ayaan',
+  'Krishna', 'Ishaan', 'Rohan', 'Kabir', 'Aryan', 'Dhruv', 'Karthik',
+  'Ananya', 'Diya', 'Saanvi', 'Aadhya', 'Kavya', 'Riya', 'Myra', 'Anika',
+  'Ishita', 'Meera', 'Pooja', 'Neha', 'Sneha', 'Priyanka', 'Divya',
+];
+const PATIENT_LAST_NAMES = [
+  'Sharma', 'Verma', 'Gupta', 'Reddy', 'Iyer', 'Nair', 'Menon', 'Rao',
+  'Kumar', 'Singh', 'Patel', 'Shah', 'Joshi', 'Desai', 'Kulkarni',
+  'Mehta', 'Agarwal', 'Bose', 'Chatterjee', 'Pillai', 'Krishnan', 'Pandey',
+  'Mishra', 'Chauhan',
+];
+
 // The one id that must NOT be freshly generated: 8 existing e2e specs
 // (public-booking, booking-payment, clinician-portal, manager-clinicians-
 // patients, calendar, manager-appointments, manager-availability-blocks)
@@ -235,11 +264,22 @@ async function main() {
   const PATIENT_COUNT = 200;
   const patientRows = [];
   for (let i = 2; i <= PATIENT_COUNT; i++) {
+    const firstName = PATIENT_FIRST_NAMES[i % PATIENT_FIRST_NAMES.length];
+    const lastName = PATIENT_LAST_NAMES[i % PATIENT_LAST_NAMES.length];
     patientRows.push({
-      first_name: 'E2E', last_name: `Patient${String(i).padStart(4, '0')}`,
+      first_name: firstName, last_name: lastName,
       date_of_birth: new Date(1970 + (i % 40), i % 12, (i % 27) + 1),
-      email: `e2e.patient${i}@e2e.dev`, phone: `+9198101${String(i).padStart(5, '0')}`,
+      // Index suffix keeps the email/phone genuinely unique even though
+      // the name pools themselves start repeating past 720 combinations
+      // (well outside PATIENT_COUNT=200, but kept anyway for safety).
+      email: `${firstName.toLowerCase()}.${lastName.toLowerCase()}${i}@e2e.dev`, phone: `+9198101${String(i).padStart(5, '0')}`,
       address: `${i} Test Road, Bengaluru`,
+      // Patients.client_org_id (BUG024) didn't exist when this fixture was
+      // first written -- every row here and Anita's below silently got
+      // client_org_id: null, which org-scoped queries treat as "no org", not
+      // "visible to every org". Confirmed live: an org-scoped manager account
+      // saw a real, error-free, empty patients list against 200 real rows.
+      client_org_id: primaryOrg.id,
     });
   }
   await prisma.patients.createMany({ data: patientRows });
@@ -252,7 +292,7 @@ async function main() {
   // list -- confirmed live: patient #1 in the original ordering fell off
   // page 1 entirely once real pagination kicked in.
   const anita = await prisma.patients.create({
-    data: { first_name: 'Anita', last_name: 'Sharma', date_of_birth: new Date('1988-04-12'), email: 'anita.sharma@e2e.dev', phone: '+919810100001', address: '1 MG Road, Bengaluru' },
+    data: { first_name: 'Anita', last_name: 'Sharma', date_of_birth: new Date('1988-04-12'), email: 'anita.sharma@e2e.dev', phone: '+919810100001', address: '1 MG Road, Bengaluru', client_org_id: primaryOrg.id },
   });
   const patients = await prisma.patients.findMany({ select: { id: true, first_name: true, last_name: true }, orderBy: { created_at: 'asc' } });
 
@@ -315,7 +355,7 @@ async function main() {
       clinic_id: clinician.clinic_id, room_id: roomId,
       clinician_id: clinician.id, patient_id: patient.id,
       appointment_date: daysFromNow(dayOffset), appointment_time: daysFromNow(dayOffset, hour, minute),
-      duration_minutes: 30, status, reason: 'Consultation', product_id: generalConsult.id,
+      duration_minutes: 30, status, reason: APPOINTMENT_REASONS[i % APPOINTMENT_REASONS.length], product_id: generalConsult.id,
     });
   }
   // createMany in batches -- 2000 rows in one call is fine for Postgres, but
