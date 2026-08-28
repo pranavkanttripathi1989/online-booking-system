@@ -12,8 +12,8 @@
 | scheduling-engine | 1 | 2 | 0 | 1 | 2 | 2026-08-26 | [scheduling-engine](./scheduling-engine/README.md) |
 | pharmacy | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 5 | 0 | 1 | 5 | 2026-08-27 | [prescriptions](./prescriptions/README.md) |
-| queue-management | 1 | 5 | 1 | 2 | 5 | 2026-08-28 | [queue-management](./queue-management/README.md) |
-| appointments | 1 | 7 | 6 | 3 | 11 | 2026-08-28 | [appointments](./appointments/README.md) |
+| queue-management | 1 | 5 | 1 | 1 | 6 | 2026-08-28 | [queue-management](./queue-management/README.md) |
+| appointments | 1 | 7 | 6 | 2 | 12 | 2026-08-28 | [appointments](./appointments/README.md) |
 | organizations | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 5 | 2 | 3 | 6 | 2026-08-28 | [catalog-master-data](./catalog-master-data/README.md) |
 | abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |

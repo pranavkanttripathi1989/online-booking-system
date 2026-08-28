@@ -16,4 +16,6 @@ _none yet_
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN203 | bug | Route-guard corrections: /queue, /appointments, /calendar | done | 2026-08-28 | 2026-08-28 | — | [PLAN203-frontend-platform-2026-08-28-route-guard-corrections-queue-appointments-calendar.md](./bug/PLAN203-frontend-platform-2026-08-28-route-guard-corrections-queue-appointments-calendar.md) |

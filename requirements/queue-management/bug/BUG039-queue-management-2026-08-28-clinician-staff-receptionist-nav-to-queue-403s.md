@@ -4,10 +4,27 @@ type: bug
 feature: queue-management
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN203`)
+
+`/queue` was pulled out of the shared `RoleGuard roles={['admin',
+'super_admin', 'manager']}` block in `App.jsx` (which also gates a large
+number of manager-only routes) and given its own dedicated `RoleGuard`
+with `['admin', 'super_admin', 'manager', 'clinician', 'staff',
+'receptionist']` — matching the nav config and backend `@Auth` exactly.
+Widening the shared block itself was deliberately avoided, since that
+would have granted clinician/staff/receptionist access to every other
+route in it (manager dashboard, billing, availability, blocks, etc.) —
+a new regression in the opposite direction.
+
+Live-verified: `receptionist@medibook.dev` ("Jamie Reception", Staff
+role) now opens Live Queue from the sidebar without a 403. Manager's own
+pre-existing access to `/queue` (and every other route in the shared
+block) is unaffected. See `TR223`.
 
 # BUG039 — Clinician/staff/receptionist's own "Live Queue" nav item leads straight to a 403
 

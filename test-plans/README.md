@@ -69,4 +69,4 @@
 | test-coverage-audit | 0 | 4 | 0 | 4 | 0 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
 | test-results | 0 | 0 | 1 | 1 | 0 | 2026-08-26 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 3 | 0 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
-| frontend-platform | 0 | 5 | 0 | 4 | 1 | 2026-08-27 | [frontend-platform](./frontend-platform/README.md) |
+| frontend-platform | 0 | 5 | 1 | 5 | 1 | 2026-08-28 | [frontend-platform](./frontend-platform/README.md) |

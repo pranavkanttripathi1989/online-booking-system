@@ -4,10 +4,31 @@ type: bug
 feature: appointments
 created: 2026-08-28
 updated: 2026-08-28
-status: open
+status: done
 parent: null
 related: []
 ---
+
+## Resolution (2026-08-28, `PLAN203`)
+
+`/calendar` gated to `RoleGuard roles={['admin', 'super_admin',
+'manager', 'receptionist', 'staff']}` (matching its own nav item's
+`roles`, which deliberately excludes `clinician` — clinicians use
+`/clinician/calendar` instead). `/appointments`, `/appointments/new`,
+`/appointments/:id`, and `/appointments/:id/edit` gated together to
+`['admin', 'super_admin', 'manager', 'receptionist', 'staff',
+'clinician']`, matching the "Appointments" nav item's own roles — widened
+from the two routes originally named in this bug to the whole family,
+since none of the sibling routes (`new`/`:id`/`:id/edit`) are reachable
+from any patient-facing page either, and all render the same
+staff/manager-built components. `/appointments/book` (the public
+booking wizard) was untouched — it already sits in its own
+`OptionalAuthShell` route, unaffected by this change.
+
+Live-verified: `patient@medibook.dev` now gets a 403 on both
+`/appointments` and `/calendar` (previously rendered the full staff
+bulk-management UI). `receptionist@medibook.dev`'s own legitimate
+access to both is unaffected. See `TR223`.
 
 # BUG046 — `/appointments` and `/calendar` have no frontend role gate at all; a `'patient'` account can reach the staff bulk-management UI directly
 

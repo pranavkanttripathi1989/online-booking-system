@@ -382,14 +382,24 @@ function App() {
               }
             />
           </Route>
-          <Route
-            path="/calendar"
-            element={
-              <Suspense fallback={<ShellPageLoader />}>
-                <CalendarPage />
-              </Suspense>
-            }
-          />
+          {/* BUG046 — /calendar and /appointments used to sit here as plain
+              sibling routes with no RoleGuard at all, reachable by ANY
+              authenticated role including 'patient' (the same unguarded
+              shape /dashboard was fixed away from, per the comment above).
+              Backend appointments.service.ts self-scopes a patient caller
+              correctly, so this was a UI-surface leak (the staff/manager
+              bulk-management page), not a PHI leak -- gated here to match
+              AppShell.jsx's own nav roles for each. */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'receptionist', 'staff']} />}>
+            <Route
+              path="/calendar"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <CalendarPage />
+                </Suspense>
+              }
+            />
+          </Route>
           <Route
             path="/messages"
             element={
@@ -435,41 +445,53 @@ function App() {
           />
 
           {/* ── Appointments ─────────────────────────────────────────── */}
+          {/* BUG046 — this whole family used to have no RoleGuard at all,
+              reachable by ANY authenticated role including 'patient' (a
+              patient never navigates here through the app's own UI — the
+              patient-facing equivalent is /patient/appointments and the
+              public /appointments/book wizard below). Gated to match
+              AppShell.jsx's own "Appointments" nav roles. */}
           <Route
-            path="/appointments"
             element={
-              <Suspense fallback={<ShellPageLoader />}>
-                <AppointmentsPage />
-              </Suspense>
+              <RoleGuard roles={['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician']} />
             }
-          />
-          <Route
-            path="/appointments/new"
-            element={
-              <Suspense fallback={<ShellPageLoader />}>
-                <NewAppointmentPage />
-              </Suspense>
-            }
-          />
-          {/* /appointments/book moved to its own top-level OptionalAuthShell route
-              (below) — it's the one flow meant to work both logged-in and
-              anonymous, so it isn't nested under ProtectedRoute here. */}
-          <Route
-            path="/appointments/:id"
-            element={
-              <Suspense fallback={<ShellPageLoader />}>
-                <AppointmentDetailPage />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/appointments/:id/edit"
-            element={
-              <Suspense fallback={<ShellPageLoader />}>
-                <EditAppointmentPage />
-              </Suspense>
-            }
-          />
+          >
+            <Route
+              path="/appointments"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <AppointmentsPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/appointments/new"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <NewAppointmentPage />
+                </Suspense>
+              }
+            />
+            {/* /appointments/book moved to its own top-level OptionalAuthShell route
+                (below) — it's the one flow meant to work both logged-in and
+                anonymous, so it isn't nested under ProtectedRoute here. */}
+            <Route
+              path="/appointments/:id"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <AppointmentDetailPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/appointments/:id/edit"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <EditAppointmentPage />
+                </Suspense>
+              }
+            />
+          </Route>
 
           {/* ── Clinicians ───────────────────────────────────────────── */}
           <Route
@@ -903,14 +925,6 @@ function App() {
               }
             />
             <Route
-              path="/queue"
-              element={
-                <Suspense fallback={<ShellPageLoader />}>
-                  <QueueBoardPage />
-                </Suspense>
-              }
-            />
-            <Route
               path="/staff"
               element={
                 <Suspense fallback={<ShellPageLoader />}>
@@ -963,6 +977,26 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <ReviewsPage />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* BUG039 — /queue's own RoleGuard used to sit inside the
+              manager/admin-only block above, narrower than both the nav
+              config (AppShell.jsx) and the backend @Auth (QUEUE_STAFF_ROLES),
+              which both already allow clinician/staff/receptionist. Given
+              its own dedicated RoleGuard here instead of widening the shared
+              block, which would have granted those roles every other route
+              in it too. */}
+          <Route
+            element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'clinician', 'staff', 'receptionist']} />}
+          >
+            <Route
+              path="/queue"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <QueueBoardPage />
                 </Suspense>
               }
             />
