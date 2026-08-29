@@ -82,6 +82,21 @@ const GET_ORG_BRANDING = gql`
     }
   }
 `
+const GET_CLINICS_FOR_SETTINGS = gql`
+  query ClinicsForSettings {
+    clinics {
+      id
+      name
+      address
+      city
+      postcode
+      timezone
+      phone
+      email
+      is_primary
+    }
+  }
+`
 const GET_INTEGRATIONS = gql`
   query GetIntegrations {
     bookingWidgetConfigs {
@@ -379,6 +394,59 @@ describe('settings/index.jsx — Clinic tab role gating (BUG044)', () => {
   it('redirects off a stale deep link into the hidden Clinic tab instead of rendering an invalid tab value', async () => {
     renderPage(baseMocks(), { hasRole: () => false, initialTab: 4 })
     await waitFor(() => expect(screen.getByRole('tab', { name: /Profile/i, selected: true })).toBeInTheDocument())
+  })
+
+  // BUG (found live) -- `clinics` is deliberately unscoped for admin/
+  // super_admin (a legitimate cross-org tooling need elsewhere), so this
+  // section used to call it directly and silently show whichever clinic
+  // happened to be flagged is_primary -- an org-less admin/super_admin
+  // saw (and could save edits to) an arbitrary, unrelated tenant's real
+  // clinic record. No mock for GET_CLINICS_FOR_SETTINGS is provided here
+  // deliberately -- if the fix regresses and the query fires anyway,
+  // MockedProvider fails loudly rather than this test silently passing.
+  it('shows "no organisation" for an org-less admin instead of silently loading another tenant\'s clinic', async () => {
+    renderPage(baseMocks(), { hasRole: () => true, initialTab: 4 })
+    await waitFor(() =>
+      expect(
+        screen.getByText("Your account isn't associated with an organisation, so there's no clinic to manage here."),
+      ).toBeInTheDocument(),
+    )
+    expect(screen.queryByLabelText('Clinic Name')).not.toBeInTheDocument()
+  })
+
+  it('loads and shows the real clinic for a caller who genuinely belongs to an organisation', async () => {
+    renderPage(
+      [
+        ...baseMocks().filter((m) => m.request.query !== GET_ORG_BRANDING),
+        {
+          request: { query: GET_ORG_BRANDING },
+          result: { data: { myOrgBranding: { name: 'City Heart Clinic Group', logo_url: null, primary_color: '#006D77', secondary_color: '#007680' } } },
+        },
+        {
+          request: { query: GET_CLINICS_FOR_SETTINGS },
+          result: {
+            data: {
+              clinics: [
+                {
+                  __typename: 'Clinic',
+                  id: 'clinic-1',
+                  name: 'MG Road Clinic',
+                  address: '12 MG Road',
+                  city: 'Bengaluru',
+                  postcode: '560001',
+                  timezone: 'Asia/Kolkata',
+                  phone: '+919876543210',
+                  email: 'mgroad@medibook.dev',
+                  is_primary: true,
+                },
+              ],
+            },
+          },
+        },
+      ],
+      { hasRole: () => true, initialTab: 4 },
+    )
+    await waitFor(() => expect(screen.getByDisplayValue('MG Road Clinic')).toBeInTheDocument())
   })
 })
 

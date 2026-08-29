@@ -693,7 +693,21 @@ export default function SettingsPage() {
   const setClinicField = (field) => (e) => setClinicForm((prev) => ({ ...prev, [field]: e.target.value }))
 
   const loadClinic = async () => {
-    if (!canManageClinic) {
+    // BUG (found live) -- `clinics` is deliberately unscoped for
+    // admin/super_admin (orgScope() returns {} for platform operators, by
+    // design, for legitimate cross-org tooling like /manager/clinics). This
+    // section previously called it directly and picked whichever clinic
+    // happened to have is_primary: true with no clinic picker and no
+    // org-name disclosure -- for an org-less admin, that meant silently
+    // viewing (and, via handleSaveClinic below, actually being able to
+    // SAVE EDITS TO) an arbitrary, unrelated tenant's real clinic record
+    // under a form that visually implies "your own clinic". Reusing
+    // hasOrgForBranding (Branding's own already-correct, strictly
+    // client_org_id-gated check, computed just above) as the single
+    // source of truth for "does this account genuinely belong to an org"
+    // closes it -- an org-less caller now sees the same empty state
+    // Branding already shows, instead of someone else's data.
+    if (!canManageClinic || !hasOrgForBranding) {
       setClinicLoaded(true)
       return
     }
@@ -720,9 +734,14 @@ export default function SettingsPage() {
     }
   }
   useEffect(() => {
-    loadClinic()
+    // Deliberately sequenced after brandingLoaded (not a bare mount effect)
+    // -- loadClinic() needs hasOrgForBranding to already reflect a real,
+    // resolved query result, not this state's own initial `false` default,
+    // to correctly distinguish "org-less caller" from "branding query still
+    // in flight".
+    if (brandingLoaded) loadClinic()
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [brandingLoaded])
 
   const handleSaveClinic = async () => {
     setClinicError(null)
@@ -2278,7 +2297,9 @@ export default function SettingsPage() {
               {canManageClinic && clinicLoaded && !hasClinicToManage && (
                 <Grid item xs={12}>
                   <Alert severity="info" sx={{ borderRadius: 2 }}>
-                    No clinic found for your organisation yet — add one from Clinics first.
+                    {hasOrgForBranding
+                      ? "No clinic found for your organisation yet — add one from Clinics first."
+                      : "Your account isn't associated with an organisation, so there's no clinic to manage here."}
                   </Alert>
                 </Grid>
               )}
