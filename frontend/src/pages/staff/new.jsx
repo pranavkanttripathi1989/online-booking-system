@@ -26,6 +26,7 @@ import {
   alpha,
   Autocomplete,
 } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
 import EmailRoundedIcon from '@mui/icons-material/EmailRounded'
@@ -42,10 +43,6 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import { useSnackbar } from 'notistack'
 import { useMutation, useQuery, gql } from '@apollo/client'
-
-// ─── Constants ────────────────────────────────────────────────────────────────
-const TEAL = '#006D77'
-const TEAL_LIGHT = '#00858F'
 
 // context/open-questions.md #3, resolved: status/since are now real fields
 // on CreateStaffInput (backend/src/staff/dto/staff.input.ts).
@@ -89,11 +86,18 @@ const DEPARTMENTS = [
   'Pharmacy',
   'Radiology',
 ]
-const STATUSES = [
-  { value: 'active', label: 'Active', color: '#0B7B5C', bg: '#E6F4EA' },
-  { value: 'on_leave', label: 'On Leave', color: '#8A4700', bg: '#FEF7E0' },
-  { value: 'inactive', label: 'Inactive', color: '#5F6368', bg: '#F8F9FA' },
-]
+// Theme-derived, not a hand-picked hex map -- see staff/edit.jsx for the
+// same conversion.
+function statusStyleFor(theme) {
+  const p = theme.palette
+  const dark = theme.palette.mode === 'dark'
+  const tone = (main, darkText) => ({ color: dark ? main : darkText, bg: alpha(main, dark ? 0.18 : 0.12) })
+  return [
+    { value: 'active', label: 'Active', ...tone(p.success.main, p.success.dark) },
+    { value: 'on_leave', label: 'On Leave', ...tone(p.warning.main, p.warning.dark) },
+    { value: 'inactive', label: 'Inactive', color: p.text.secondary, bg: p.action.hover },
+  ]
+}
 
 const EMPTY = {
   name: '',
@@ -122,8 +126,11 @@ function getInitials(name) {
   )
 }
 
-function avatarColor(name) {
-  const colors = [TEAL, '#7C3AED', '#0F9D58', '#D97706', '#D93025', '#1565C7']
+// Deterministic per-user colour, still varying across users -- pulled from
+// the real theme (not a fixed hex ramp) so it stays legible in dark mode.
+function avatarColor(theme, name) {
+  const p = theme.palette
+  const colors = [p.primary.main, p.secondary.main, p.success.main, p.warning.dark, p.error.main, p.info.main]
   let h = 0
   for (const c of name) h = (h * 31 + c.charCodeAt(0)) % colors.length
   return colors[h]
@@ -131,6 +138,8 @@ function avatarColor(name) {
 
 // ─── Field Row ────────────────────────────────────────────────────────────────
 function FieldSection({ icon: Icon, title, children }) {
+  const theme = useTheme()
+  const TEAL = theme.palette.primary.main
   return (
     <Box sx={{ mb: 3.5 }}>
       <Stack direction="row" spacing={1.25} alignItems="center" sx={{ mb: 2 }}>
@@ -139,7 +148,7 @@ function FieldSection({ icon: Icon, title, children }) {
             width: 32,
             height: 32,
             borderRadius: 1.5,
-            bgcolor: `${TEAL}15`,
+            bgcolor: alpha(TEAL, 0.08),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -147,7 +156,7 @@ function FieldSection({ icon: Icon, title, children }) {
         >
           <Icon sx={{ fontSize: '1rem', color: TEAL }} />
         </Box>
-        <Typography variant="subtitle2" fontWeight={700} sx={{ color: '#202124' }}>
+        <Typography variant="subtitle2" fontWeight={700} sx={{ color: 'text.primary' }}>
           {title}
         </Typography>
       </Stack>
@@ -158,6 +167,13 @@ function FieldSection({ icon: Icon, title, children }) {
 
 // ─── Add Staff Page ────────────────────────────────────────────────────────────
 export default function AddStaffPage() {
+  const theme = useTheme()
+  // TEAL/TEAL_LIGHT kept as the same names every existing call site in this
+  // file already uses -- now resolved from the real theme instead of a
+  // hardcoded hex pair, matching staff/edit.jsx's identical conversion.
+  const TEAL = theme.palette.primary.main
+  const TEAL_LIGHT = theme.palette.primary.light
+  const STATUSES = statusStyleFor(theme)
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm] = useState(EMPTY)
@@ -219,7 +235,7 @@ export default function AddStaffPage() {
   }
 
   const initials = form.name ? getInitials(form.name) : '?'
-  const avatarBg = form.name ? avatarColor(form.name) : '#9AA0A6'
+  const avatarBg = form.name ? avatarColor(theme, form.name) : theme.palette.text.disabled
 
   // Password strength — BUG-STAFF-004 fix: evaluate complexity FIRST, then length fallbacks
   const pwdStrength = !form.password
@@ -232,7 +248,7 @@ export default function AddStaffPage() {
           ? 2
           : 1
 
-  const pwdColors = ['', '#D93025', '#F9AB00', '#0B7B5C', '#006D77']
+  const pwdColors = ['', theme.palette.error.main, theme.palette.warning.main, theme.palette.success.main, theme.palette.primary.main]
   const pwdLabels = ['', 'Weak', 'Fair', 'Good', 'Strong']
 
   return (
@@ -246,16 +262,16 @@ export default function AddStaffPage() {
         <IconButton
           onClick={() => navigate('/staff')}
           sx={{
-            bgcolor: '#F8FAFC',
-            border: '1px solid #E2E8F0',
+            bgcolor: 'action.hover',
+            border: '1px solid', borderColor: 'divider',
             borderRadius: 2,
-            '&:hover': { bgcolor: `${TEAL}10`, borderColor: TEAL, color: TEAL },
+            '&:hover': { bgcolor: alpha(TEAL, 0.06), borderColor: TEAL, color: TEAL },
           }}
         >
           <ArrowBackRoundedIcon fontSize="small" />
         </IconButton>
         <Box sx={{ flex: 1 }}>
-          <Typography variant="h5" fontWeight={800} sx={{ color: '#0D1B2E', lineHeight: 1.2 }}>
+          <Typography variant="h5" fontWeight={800} sx={{ color: 'text.primary', lineHeight: 1.2 }}>
             Add New Staff Member
           </Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.3 }}>
@@ -311,14 +327,14 @@ export default function AddStaffPage() {
               >
                 {initials}
               </Avatar>
-              <Typography variant="h6" fontWeight={800} sx={{ color: '#0D1B2E', lineHeight: 1.2 }}>
+              <Typography variant="h6" fontWeight={800} sx={{ color: 'text.primary', lineHeight: 1.2 }}>
                 {form.name || 'New Staff Member'}
               </Typography>
               {form.role && (
                 <Chip
                   label={form.role}
                   size="small"
-                  sx={{ mt: 1, bgcolor: `${TEAL}15`, color: TEAL, fontWeight: 700, fontSize: '0.72rem', borderRadius: 1.5 }}
+                  sx={{ mt: 1, bgcolor: alpha(TEAL, 0.08), color: TEAL, fontWeight: 700, fontSize: '0.72rem', borderRadius: 1.5 }}
                 />
               )}
               {form.department && (
@@ -338,7 +354,7 @@ export default function AddStaffPage() {
             <CardContent sx={{ px: 2 }}>
               <Typography
                 variant="caption"
-                sx={{ color: '#9AA0A6', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.62rem' }}
+                sx={{ color: 'text.disabled', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.62rem' }}
               >
                 Status
               </Typography>
@@ -353,18 +369,18 @@ export default function AddStaffPage() {
                       gap: 1.25,
                       p: 1,
                       borderRadius: 2,
-                      border: `1.5px solid ${form.status === s.value ? TEAL : '#E8EAED'}`,
-                      bgcolor: form.status === s.value ? `${TEAL}08` : 'transparent',
+                      border: `1.5px solid ${form.status === s.value ? TEAL : theme.palette.divider}`,
+                      bgcolor: form.status === s.value ? alpha(TEAL, 0.06) : 'transparent',
                       cursor: 'pointer',
                       transition: 'all 0.15s ease',
-                      '&:hover': { borderColor: TEAL, bgcolor: `${TEAL}06` },
+                      '&:hover': { borderColor: TEAL, bgcolor: alpha(TEAL, 0.04) },
                     }}
                   >
                     <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: s.color, flexShrink: 0 }} />
                     <Typography
                       variant="caption"
                       fontWeight={form.status === s.value ? 700 : 500}
-                      sx={{ color: form.status === s.value ? TEAL : '#5F6368' }}
+                      sx={{ color: form.status === s.value ? TEAL : 'text.secondary' }}
                     >
                       {s.label}
                     </Typography>
@@ -425,7 +441,7 @@ export default function AddStaffPage() {
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <LocationOnRoundedIcon sx={{ fontSize: '1rem', color: '#9AA0A6' }} />
+                            <LocationOnRoundedIcon sx={{ fontSize: '1rem', color: 'text.disabled' }} />
                           </InputAdornment>
                         ),
                       }}
@@ -457,7 +473,7 @@ export default function AddStaffPage() {
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <EmailRoundedIcon sx={{ fontSize: '1rem', color: '#9AA0A6' }} />
+                            <EmailRoundedIcon sx={{ fontSize: '1rem', color: 'text.disabled' }} />
                           </InputAdornment>
                         ),
                       }}
@@ -480,7 +496,7 @@ export default function AddStaffPage() {
                       InputProps={{
                         startAdornment: (
                           <InputAdornment position="start">
-                            <PhoneRoundedIcon sx={{ fontSize: '1rem', color: '#9AA0A6' }} />
+                            <PhoneRoundedIcon sx={{ fontSize: '1rem', color: 'text.disabled' }} />
                           </InputAdornment>
                         ),
                       }}
@@ -592,7 +608,7 @@ export default function AddStaffPage() {
                           sx={{
                             height: 4,
                             borderRadius: 2,
-                            bgcolor: '#E8EAED',
+                            bgcolor: 'divider',
                             '& .MuiLinearProgress-bar': { bgcolor: pwdColors[pwdStrength], borderRadius: 2 },
                           }}
                         />
@@ -664,9 +680,9 @@ export default function AddStaffPage() {
                 borderRadius: 2.5,
                 textTransform: 'none',
                 fontWeight: 700,
-                borderColor: '#E2E8F0',
-                color: '#5F6368',
-                '&:hover': { borderColor: '#CBD5E1', bgcolor: '#F8FAFC' },
+                borderColor: 'divider',
+                color: 'text.secondary',
+                '&:hover': { borderColor: 'text.disabled', bgcolor: 'action.hover' },
               }}
             >
               Cancel
