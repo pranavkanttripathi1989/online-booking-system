@@ -44,7 +44,7 @@ gates. Phase 2's claim work depends on both.
 | **P2-07** | Drug interaction + allergy hard-stops | BE+FE | **done, scoped** (`REQ159`) | P1-12 | Allergy-only — drug-drug interaction deferred, see the slice's own doc |
 | **P2-08** | Regional-language Rx print (i18n for documents) | BE+FE | **done** (`REQ160`) | P1-07 | English/Hindi shipped; route/instructions translation and other languages (`P2-09`) deferred, see `REQ160`'s own account |
 | **P2-09** | i18n: 3 more regional languages | FE | **done, expanded to 6** (`REQ161`) | P1-07 | User selected both offered language sets — Tamil, Bengali, Marathi, Telugu, Kannada, Gujarati all shipped, not just 3. `PrescriptionBuilder.jsx`'s print-language picker stays en/hi only (backend font support, `REQ160`'s scope) |
-| **P2-10** | Recurring/series appointments + treatment-plan scheduling | BE+FE | not started | — | Multi-sitting packages exist; series scheduling doesn't |
+| **P2-10** | Recurring/series appointments + treatment-plan scheduling | BE+FE | **done** (`REQ163`) | — | New `AppointmentSeries` domain, eagerly materialized via reused `AppointmentsService.create()` per occurrence; `pages/appointments/series/{new,detail}.jsx`. Patient-portal access and a calendar-popover badge deliberately deferred, see `REQ163`'s own account |
 | **P2-11** | Immunisation schedule tracker | BE+FE | not started | — | Large paediatric segment in India; recall infra exists |
 | **P2-12** | Chronic-disease registries (diabetes/HTN) + recall | BE+FE | not started | P2-11 | Cohort reports already built |
 | **P2-13** | Investigation orders + results inbox (lab loop) | BE+FE | not started | — | `REQ020` P1 |

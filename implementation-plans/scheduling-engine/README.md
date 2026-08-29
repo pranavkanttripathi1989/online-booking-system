@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN222 | improvement | Recurring/series appointments + treatment-plan scheduling | done | 2026-08-29 | 2026-08-29 | REQ163 | [PLAN222-scheduling-engine-2026-08-29-recurring-series-and-treatment-plans.md](./improvement/PLAN222-scheduling-engine-2026-08-29-recurring-series-and-treatment-plans.md) |
 | PLAN159 | improvement | Hybrid-mode booked:walk-in interleaving | done | 2026-08-26 | 2026-08-26 | REQ119 | [PLAN159-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md](./improvement/PLAN159-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md) |
 | PLAN146 | improvement | Booking waitlist for fully-booked slots | done | 2026-08-26 | 2026-08-26 | REQ106 | [PLAN146-scheduling-engine-2026-08-26-booking-waitlist.md](./improvement/PLAN146-scheduling-engine-2026-08-26-booking-waitlist.md) |
 
