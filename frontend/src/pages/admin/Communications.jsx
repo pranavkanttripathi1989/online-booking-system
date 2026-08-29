@@ -36,6 +36,7 @@ import {
   LinearProgress,
   useTheme,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import EmailIcon from '@mui/icons-material/Email'
 import SmsIcon from '@mui/icons-material/Sms'
 import NotificationsIcon from '@mui/icons-material/Notifications'
@@ -521,7 +522,11 @@ export default function AdminCommunications() {
                           icon={<EmailIcon sx={{ fontSize: 14 }} />}
                           label="EMAIL"
                           size="small"
-                          sx={{ bgcolor: '#DBEAFE', color: '#1E40AF', fontWeight: 700 }}
+                          sx={{
+                            bgcolor: (t) => alpha(t.palette.info.main, t.palette.mode === 'dark' ? 0.18 : 0.12),
+                            color: 'info.main',
+                            fontWeight: 700,
+                          }}
                         />
                       </Stack>
                       <Typography variant="body2" color="text.secondary">
@@ -608,7 +613,7 @@ export default function AdminCommunications() {
             <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                  <EmailIcon sx={{ color: '#006D77' }} />
+                  <EmailIcon sx={{ color: 'primary.main' }} />
                   <Typography variant="h5" component="h3" fontWeight={700}>
                     Email Settings
                   </Typography>
@@ -662,7 +667,7 @@ export default function AdminCommunications() {
             <Card>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2 }}>
-                  <SmsIcon sx={{ color: '#006D77' }} />
+                  <SmsIcon sx={{ color: 'primary.main' }} />
                   <Typography variant="h5" component="h3" fontWeight={700}>
                     OTP / SMS Provider
                   </Typography>
@@ -733,7 +738,7 @@ export default function AdminCommunications() {
                     <Chip
                       size="small"
                       label="Credentials configured"
-                      sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontWeight: 700, alignSelf: 'flex-start' }}
+                      sx={{ bgcolor: (t) => alpha(t.palette.success.main, t.palette.mode === 'dark' ? 0.18 : 0.12), color: 'success.main', fontWeight: 700, alignSelf: 'flex-start' }}
                     />
                   )}
 
@@ -807,7 +812,7 @@ export default function AdminCommunications() {
                     <Chip
                       size="small"
                       label="Credentials configured"
-                      sx={{ bgcolor: '#D1FAE5', color: '#065F46', fontWeight: 700, alignSelf: 'flex-start' }}
+                      sx={{ bgcolor: (t) => alpha(t.palette.success.main, t.palette.mode === 'dark' ? 0.18 : 0.12), color: 'success.main', fontWeight: 700, alignSelf: 'flex-start' }}
                     />
                   )}
 
