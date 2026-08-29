@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useApolloClient, gql } from '@apollo/client'
+import { alpha, useTheme } from '@mui/material/styles'
 import {
   Alert,
   Box,
@@ -202,6 +203,7 @@ const MOCK_ORGS = [
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function AdminOrganizations() {
+  const theme = useTheme()
   const client = useApolloClient()
   const [orgs, setOrgs] = useState([])
   const [total, setTotal] = useState(0)
@@ -418,9 +420,9 @@ export default function AdminOrganizations() {
       {/* KPIs */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Orgs', value: total, color: '#006D77' },
-          { label: 'Active', value: activeOrgs, color: '#2DC653' },
-          { label: 'Inactive', value: total - activeOrgs, color: '#E29578' },
+          { label: 'Total Orgs', value: total, color: theme.palette.primary.main },
+          { label: 'Active', value: activeOrgs, color: theme.palette.success.main },
+          { label: 'Inactive', value: total - activeOrgs, color: theme.palette.warning.main },
         ].map(({ label, value, color }) => (
           <Grid item xs={6} sm={3} key={label}>
             <Card sx={{ borderTop: `4px solid ${color}` }}>
@@ -486,7 +488,7 @@ export default function AdminOrganizations() {
                 <TableRow key={org.id} hover>
                   <TableCell>
                     <Stack direction="row" spacing={1.5} alignItems="center">
-                      <Avatar sx={{ bgcolor: '#006D77', width: 34, height: 34 }}>
+                      <Avatar sx={{ bgcolor: 'primary.main', width: 34, height: 34 }}>
                         <BusinessIcon sx={{ fontSize: 18 }} />
                       </Avatar>
                       <Typography variant="body2" fontWeight={700}>
@@ -511,7 +513,13 @@ export default function AdminOrganizations() {
                     <Chip
                       label={org.is_active ? 'Active' : 'Inactive'}
                       size="small"
-                      sx={{ bgcolor: org.is_active ? '#D1FAE5' : '#FEE2E2', color: org.is_active ? '#065F46' : '#991B1B', fontWeight: 700 }}
+                      sx={{
+                        bgcolor: org.is_active
+                          ? alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)
+                          : alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.18 : 0.12),
+                        color: org.is_active ? 'success.main' : 'error.main',
+                        fontWeight: 700,
+                      }}
                     />
                   </TableCell>
                   <TableCell>
@@ -713,8 +721,13 @@ export default function AdminOrganizations() {
                   sx={{
                     textTransform: 'capitalize',
                     fontWeight: 700,
-                    bgcolor: subData.status === 'active' ? '#D1FAE5' : subData.status === 'trial' ? '#DBEAFE' : '#FEE2E2',
-                    color: subData.status === 'active' ? '#065F46' : subData.status === 'trial' ? '#1E40AF' : '#991B1B',
+                    bgcolor:
+                      subData.status === 'active'
+                        ? alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)
+                        : subData.status === 'trial'
+                          ? alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)
+                          : alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.18 : 0.12),
+                    color: subData.status === 'active' ? 'success.main' : subData.status === 'trial' ? 'info.main' : 'error.main',
                   }}
                 />
               </Stack>
