@@ -1,6 +1,7 @@
 import { useQuery } from '@apollo/client'
 import { useMemo } from 'react'
 import { Box, Grid, Card, CardContent, Skeleton, Alert, Typography, Button, Chip, alpha } from '@mui/material'
+import { useTheme } from '@mui/material/styles'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import { Helmet } from 'react-helmet-async'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
@@ -150,6 +151,7 @@ function ChartSkeleton({ height = 290 }) {
 // ─── Page ─────────────────────────────────────────────────────────────────────
 
 export default function DashboardPage() {
+  const theme = useTheme()
   const navigate = useNavigate()
   const { user } = useAuth()
   const { data, loading, error } = useQuery(DASHBOARD_QUERY, {
@@ -181,7 +183,7 @@ export default function DashboardPage() {
       label: 'Total Appointments Today',
       value: d?.total_appointments_today ?? null,
       trend: d?.total_appointments_today_change ?? null,
-      color: '#006D77',
+      color: theme.palette.primary.main,
       href: '/appointments',
     },
     {
@@ -189,7 +191,7 @@ export default function DashboardPage() {
       label: 'Total Clinicians',
       value: d?.total_clinicians ?? null,
       trend: d?.total_clinicians_change ?? null,
-      color: '#0F9D58',
+      color: theme.palette.success.main,
       href: '/clinicians',
     },
     {
@@ -197,7 +199,7 @@ export default function DashboardPage() {
       label: 'Total Patients',
       value: d?.total_patients ?? null,
       trend: d?.total_patients_change ?? null,
-      color: '#9334E6',
+      color: theme.palette.secondary.main,
       href: '/patients',
     },
     {
@@ -205,7 +207,7 @@ export default function DashboardPage() {
       label: 'Revenue This Month',
       value: d?.total_revenue_month ?? null,
       trend: d?.total_revenue_month_change ?? null,
-      color: '#FA7B17',
+      color: theme.palette.warning.main,
       prefix: '$',
       href: '/finances',
     },
@@ -276,9 +278,10 @@ export default function DashboardPage() {
             label={`Refreshed ${lastRefreshed}`}
             size="small"
             sx={{
-              bgcolor: '#F8F9FA',
-              color: '#5F6368',
-              border: '1px solid #E8EAED',
+              bgcolor: 'action.hover',
+              color: 'text.secondary',
+              border: '1px solid',
+              borderColor: 'divider',
               fontSize: '0.7rem',
               display: { xs: 'none', sm: 'flex' },
             }}
@@ -333,8 +336,12 @@ export default function DashboardPage() {
             label={`${confirmationRate}%`}
             size="small"
             sx={{
-              bgcolor: confirmationRate >= 75 ? '#E6F4EA' : confirmationRate >= 50 ? '#FEF7E0' : '#FCE8E6',
-              color: confirmationRate >= 75 ? '#137333' : confirmationRate >= 50 ? '#8A4700' : '#A50E0E',
+              bgcolor: (t) =>
+                alpha(
+                  confirmationRate >= 75 ? t.palette.success.main : confirmationRate >= 50 ? t.palette.warning.main : t.palette.error.main,
+                  t.palette.mode === 'dark' ? 0.18 : 0.12
+                ),
+              color: confirmationRate >= 75 ? 'success.main' : confirmationRate >= 50 ? 'warning.dark' : 'error.main',
               fontWeight: 700,
               fontSize: '0.72rem',
               height: 20,
