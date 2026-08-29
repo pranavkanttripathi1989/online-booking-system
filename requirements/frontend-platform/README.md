@@ -20,6 +20,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG053 | bug | Org accent color doesn't cascade everywhere it should | done | 2026-08-29 | 2026-08-29 | BUG051 | [BUG053-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md](./bug/BUG053-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md) |
 | BUG048 | bug | `/clinician/encounters/:id` and `/clinician/prescriptions/new` had no route-level RoleGuard | done | 2026-08-29 | 2026-08-29 | — | [BUG048-frontend-platform-2026-08-29-clinician-route-guard-gap.md](./bug/BUG048-frontend-platform-2026-08-29-clinician-route-guard-gap.md) |
 | BUG047 | bug | Dark mode toggle does nothing; three competing theme definitions coexist | done | 2026-08-29 | 2026-08-29 | — | [BUG047-frontend-platform-2026-08-29-dark-mode-toggle-does-nothing-three-competing-themes.md](./bug/BUG047-frontend-platform-2026-08-29-dark-mode-toggle-does-nothing-three-competing-themes.md) |
 | BUG032 | bug | Admin Console's own quick-nav sidebar omits 4 real admin pages | done | 2026-08-28 | 2026-08-28 | — | [BUG032-frontend-platform-2026-08-28-admin-console-nav-missing-pages.md](./bug/BUG032-frontend-platform-2026-08-28-admin-console-nav-missing-pages.md) |
