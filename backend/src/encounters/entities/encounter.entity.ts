@@ -7,6 +7,7 @@ export class EncounterNoteType {
   @Field() content: string;
   @Field(() => Int) version: number;
   @Field() updated_at: Date;
+  @Field() ai_generated: boolean;
 }
 
 @ObjectType('EncounterAddendum')
@@ -80,6 +81,7 @@ export class VitalType {
   @Field(() => Float) value: number;
   @Field() unit: string;
   @Field() recorded_at: Date;
+  @Field() ai_generated: boolean;
 }
 
 @ObjectType('EncounterAttachment')
