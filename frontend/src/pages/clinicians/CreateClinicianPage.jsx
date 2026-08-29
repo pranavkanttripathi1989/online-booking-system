@@ -26,6 +26,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
@@ -163,7 +164,7 @@ function CreateClinicianPageContent() {
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
         <IconButton
           onClick={() => navigate('/clinicians')}
-          sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}
+          sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}
           aria-label="Back to clinicians"
         >
           <ArrowBackRoundedIcon />
@@ -174,16 +175,16 @@ function CreateClinicianPageContent() {
               width: 40,
               height: 40,
               borderRadius: 2.5,
-              background: 'linear-gradient(135deg,#E8F0FE,#C5D8FD)',
+              background: (t) => `linear-gradient(135deg, ${alpha(t.palette.primary.main, 0.18)}, ${alpha(t.palette.primary.light, 0.24)})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <PersonAddRoundedIcon sx={{ color: '#1A73E8', fontSize: '1.2rem' }} />
+            <PersonAddRoundedIcon sx={{ color: 'primary.main', fontSize: '1.2rem' }} />
           </Box>
           <Box>
-            <Typography variant="h5" fontWeight={800} color="#202124">
+            <Typography variant="h5" fontWeight={800} color="text.primary">
               New Clinician
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -208,8 +209,8 @@ function CreateClinicianPageContent() {
               borderRadius: 2.5,
               textTransform: 'none',
               fontWeight: 700,
-              background: 'linear-gradient(135deg,#4285F4,#1A73E8)',
-              '&:hover': { background: 'linear-gradient(135deg,#1A73E8,#1557B0)' },
+              background: (t) => `linear-gradient(135deg, ${t.palette.primary.light}, ${t.palette.primary.main})`,
+              '&:hover': { background: (t) => `linear-gradient(135deg, ${t.palette.primary.main}, ${t.palette.primary.dark})` },
             }}
           >
             {loading ? 'Saving…' : 'Save Clinician'}
@@ -222,8 +223,8 @@ function CreateClinicianPageContent() {
         <Grid container spacing={3}>
           {/* Personal Info */}
           <Grid item xs={12} md={8}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED', mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={700} color="#202124" mb={2.5}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+              <Typography variant="subtitle1" fontWeight={700} color="text.primary" mb={2.5}>
                 Personal Information
               </Typography>
               <Grid container spacing={2.5}>
@@ -337,8 +338,8 @@ function CreateClinicianPageContent() {
             </Paper>
 
             {/* Professional Credentials — requirements/semble-competitive-gap-analysis-requirements.md Phase 1 */}
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED', mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={700} color="#202124" mb={2.5}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+              <Typography variant="subtitle1" fontWeight={700} color="text.primary" mb={2.5}>
                 Professional Credentials
               </Typography>
               <Grid container spacing={2.5}>
@@ -407,7 +408,7 @@ function CreateClinicianPageContent() {
             </Paper>
 
             {/* Locum coverage */}
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED', mb: 3 }}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
               <Controller
                 name="is_locum"
                 control={control}
@@ -481,8 +482,8 @@ function CreateClinicianPageContent() {
             </Paper>
 
             {/* Clinics & Services */}
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED' }}>
-              <Typography variant="subtitle1" fontWeight={700} color="#202124" mb={2.5}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="subtitle1" fontWeight={700} color="text.primary" mb={2.5}>
                 Assignments
               </Typography>
               <Grid container spacing={2.5}>
@@ -584,8 +585,8 @@ function CreateClinicianPageContent() {
 
           {/* Sidebar */}
           <Grid item xs={12} md={4}>
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED', mb: 3 }}>
-              <Typography variant="subtitle1" fontWeight={700} color="#202124" mb={2.5}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+              <Typography variant="subtitle1" fontWeight={700} color="text.primary" mb={2.5}>
                 Primary Specialisation
               </Typography>
               <Controller
@@ -604,8 +605,8 @@ function CreateClinicianPageContent() {
               />
             </Paper>
 
-            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED' }}>
-              <Typography variant="subtitle1" fontWeight={700} color="#202124" mb={1}>
+            <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
+              <Typography variant="subtitle1" fontWeight={700} color="text.primary" mb={1}>
                 Status
               </Typography>
               <Controller
