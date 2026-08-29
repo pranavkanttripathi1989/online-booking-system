@@ -35,7 +35,7 @@
 | reviews | 0 | 1 | 0 | 0 | 1 | 2026-08-27 | [reviews](./reviews/README.md) |
 | organization-branding | 1 | 3 | 0 | 0 | 4 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
-| settings | 1 | 0 | 2 | 0 | 3 | 2026-08-29 | [settings](./settings/README.md) |
+| settings | 1 | 0 | 3 | 0 | 4 | 2026-08-29 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | semble-competitive-gap | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [semble-competitive-gap](./semble-competitive-gap/README.md) |
 | patients | 0 | 0 | 6 | 0 | 6 | 2026-08-29 | [patients](./patients/README.md) |
