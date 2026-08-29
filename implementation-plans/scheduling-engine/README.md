@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN224 | improvement | Clinician calendar hover popover quick actions | done | 2026-08-30 | 2026-08-30 | REQ165 | [PLAN224-scheduling-engine-2026-08-30-calendar-hover-popover-quick-actions.md](./improvement/PLAN224-scheduling-engine-2026-08-30-calendar-hover-popover-quick-actions.md) |
 | PLAN223 | improvement | Clinician calendar Drawer: "Start Consultation" + "Open Appointment Detail" | done | 2026-08-30 | 2026-08-30 | REQ164 | [PLAN223-scheduling-engine-2026-08-30-calendar-popover-consultation-and-detail-actions.md](./improvement/PLAN223-scheduling-engine-2026-08-30-calendar-popover-consultation-and-detail-actions.md) |
 | PLAN222 | improvement | Recurring/series appointments + treatment-plan scheduling | done | 2026-08-29 | 2026-08-29 | REQ163 | [PLAN222-scheduling-engine-2026-08-29-recurring-series-and-treatment-plans.md](./improvement/PLAN222-scheduling-engine-2026-08-29-recurring-series-and-treatment-plans.md) |
 | PLAN159 | improvement | Hybrid-mode booked:walk-in interleaving | done | 2026-08-26 | 2026-08-26 | REQ119 | [PLAN159-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md](./improvement/PLAN159-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md) |
