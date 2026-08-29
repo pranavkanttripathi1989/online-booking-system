@@ -177,6 +177,46 @@ describe('PrescriptionPrint', () => {
     await waitFor(() => expect(screen.getByText(/ending in 89/)).toBeInTheDocument())
   })
 
+  // P2-08 (US-RX-07) — the document's own labels (not the toolbar, which
+  // stays in the viewer's own UI language) follow the prescription's own
+  // `language` field, independent of any app-wide language setting.
+  it('renders the document content in Hindi for a Hindi-language prescription, while the toolbar stays in English', async () => {
+    render(
+      <MockedProvider
+        mocks={[
+          {
+            request: { query: PRINT_QUERY, variables: { id: 'rx-1' } },
+            result: { data: { printPrescription: { ...PAYLOAD, prescription: { ...PAYLOAD.prescription, language: 'hi' } } } },
+          },
+        ]}
+        addTypename={false}
+      >
+        <MemoryRouter initialEntries={['/prescriptions/rx-1/print']}>
+          <Routes>
+            <Route path="/prescriptions/:id/print" element={<PrescriptionPrint />} />
+          </Routes>
+        </MemoryRouter>
+      </MockedProvider>,
+    )
+    await waitFor(() => expect(screen.getByText('City Heart Clinic')).toBeInTheDocument())
+    // Document content: translated labels and the coded frequency value.
+    // The 'hi' bundle loads asynchronously (config.js's lazy per-language
+    // backend) -- the component renders the English fallback until it
+    // resolves, so this must wait rather than assert instantly.
+    // Labels sit alongside a literal ":" as a sibling JSX child of the same
+    // <strong> element, so the queryable combined text includes it.
+    await waitFor(() => expect(screen.getByText('रोगी:')).toBeInTheDocument())
+    expect(screen.getByText('हस्ताक्षर')).toBeInTheDocument()
+    expect(screen.getByText('दिन में दो बार')).toBeInTheDocument() // frequency 'BD'
+    // Clinician/patient/drug free text is never translated.
+    expect(screen.getByText('Sarah Mitchell')).toBeInTheDocument()
+    expect(screen.getByText('Amoxicillin')).toBeInTheDocument()
+    // Page chrome stays in the viewer's own (English, in this test) UI
+    // language regardless of the prescription's own language.
+    expect(screen.getByRole('button', { name: 'Print' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /Share via WhatsApp/i })).toBeInTheDocument()
+  })
+
   it('shows the real error message when the mutation reports success:false', async () => {
     renderPage([
       {

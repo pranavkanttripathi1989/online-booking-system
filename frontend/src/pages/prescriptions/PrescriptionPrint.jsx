@@ -1,7 +1,9 @@
 import { useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, gql } from '@apollo/client'
+import { useTranslation } from 'react-i18next'
 import { useSnackbar } from 'notistack'
+import { useScopedTranslation } from '../../i18n/useScopedTranslation'
 import {
   Alert,
   Box,
@@ -103,6 +105,15 @@ function PrescriptionPrint() {
   const [downloading, setDownloading] = useState(false)
   const { data, loading, error } = useQuery(PRINT_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
   const payload = data?.printPrescription
+  // P2-08 (US-RX-07) -- `t` (the app's own current UI language) covers this
+  // page's own chrome (toolbar buttons, toast messages) -- whoever is
+  // viewing this screen keeps their own language there regardless of which
+  // language the prescription itself was issued in. `tDoc` is locked to the
+  // prescription's own `language` field and covers only the physical
+  // document content below (the part a patient would actually read/print),
+  // per useScopedTranslation's own doc comment.
+  const { t } = useTranslation()
+  const { t: tDoc } = useScopedTranslation(payload?.prescription?.language)
 
   // REQ057 (US-PAT-02) — real server-side PDF, separate rendering path from
   // this page's own window.print() (see PLAN080 for why the two aren't unified).
@@ -152,7 +163,7 @@ function PrescriptionPrint() {
   if (!payload)
     return (
       <Box p={4}>
-        <Alert severity="warning">Prescription not found.</Alert>
+        <Alert severity="warning">{t('prescription.notFound')}</Alert>
       </Box>
     )
 
@@ -177,7 +188,7 @@ function PrescriptionPrint() {
       <Box sx={{ '@media print': { display: 'none' }, mb: 2 }}>
         <Stack direction="row" spacing={1.5}>
           <Button variant="contained" startIcon={<PrintRoundedIcon />} onClick={() => window.print()}>
-            Print
+            {t('prescription.print')}
           </Button>
           <Button
             variant="outlined"
@@ -185,7 +196,7 @@ function PrescriptionPrint() {
             onClick={handleDownload}
             disabled={downloading}
           >
-            {downloading ? 'Preparing PDF…' : 'Download PDF'}
+            {downloading ? t('prescription.preparingPdf') : t('prescription.downloadPdf')}
           </Button>
           <Button
             variant="outlined"
@@ -193,10 +204,10 @@ function PrescriptionPrint() {
             onClick={handleShare}
             disabled={sharing}
           >
-            {sharing ? 'Sending…' : 'Share via WhatsApp'}
+            {sharing ? t('prescription.sending') : t('prescription.shareViaWhatsapp')}
           </Button>
           <Button variant="outlined" startIcon={<VerifiedRoundedIcon />} onClick={() => navigate(`/prescriptions/verify?id=${id}`)}>
-            Verify
+            {t('prescription.verify')}
           </Button>
         </Stack>
       </Box>
@@ -217,7 +228,7 @@ function PrescriptionPrint() {
             zIndex: 0,
           }}
         >
-          DUPLICATE
+          {tDoc('prescription.duplicate')}
         </Typography>
       )}
 
@@ -241,7 +252,7 @@ function PrescriptionPrint() {
           )}
           {clinician.registration_number && (
             <Typography variant="caption" display="block">
-              Reg. No: {clinician.registration_number}
+              {tDoc('prescription.regNo')}: {clinician.registration_number}
             </Typography>
           )}
         </Box>
@@ -252,22 +263,23 @@ function PrescriptionPrint() {
       <Stack direction="row" justifyContent="space-between" sx={{ position: 'relative', zIndex: 1 }}>
         <Box>
           <Typography variant="body2">
-            <strong>Patient:</strong> {patient.full_name}
+            <strong>{tDoc('prescription.patient')}:</strong> {patient.full_name}
           </Typography>
           {patient.date_of_birth && (
             <Typography variant="body2">
-              <strong>DOB:</strong> {new Date(patient.date_of_birth).toLocaleDateString()}
+              <strong>{tDoc('prescription.dob')}:</strong> {new Date(patient.date_of_birth).toLocaleDateString()}
               {patient.gender ? ` · ${patient.gender}` : ''}
             </Typography>
           )}
         </Box>
         <Typography variant="body2">
-          <strong>Date:</strong> {new Date(prescription.issued_at).toLocaleDateString()}
+          <strong>{tDoc('prescription.date')}:</strong> {new Date(prescription.issued_at).toLocaleDateString()}
         </Typography>
       </Stack>
 
       <Divider sx={{ my: 2 }} />
 
+      {/* Universal pharmacy symbol, not translated -- stays as-is in every language. */}
       <Typography variant="subtitle2" fontWeight={700} sx={{ mb: 1, position: 'relative', zIndex: 1 }}>
         ℞
       </Typography>
@@ -275,13 +287,13 @@ function PrescriptionPrint() {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell>Drug</TableCell>
-              <TableCell>Dose</TableCell>
-              <TableCell>Frequency</TableCell>
-              <TableCell>Route</TableCell>
-              <TableCell>Duration</TableCell>
-              <TableCell>Qty</TableCell>
-              <TableCell>Instructions</TableCell>
+              <TableCell>{tDoc('prescription.drug')}</TableCell>
+              <TableCell>{tDoc('prescription.dose')}</TableCell>
+              <TableCell>{tDoc('prescription.frequency')}</TableCell>
+              <TableCell>{tDoc('prescription.route')}</TableCell>
+              <TableCell>{tDoc('prescription.duration')}</TableCell>
+              <TableCell>{tDoc('prescription.qty')}</TableCell>
+              <TableCell>{tDoc('prescription.instructions')}</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -289,9 +301,15 @@ function PrescriptionPrint() {
               <TableRow key={idx}>
                 <TableCell>{item.drug_name}</TableCell>
                 <TableCell>{item.dose}</TableCell>
-                <TableCell>{item.frequency}</TableCell>
+                {/* PrescriptionItems.frequency is a closed 6-value clinical
+                    shorthand enum (OD|BD|TDS|QID|HS|SOS) -- safe to translate
+                    via a fixed lookup, unlike route/instructions below which
+                    are clinician-authored free text and stay exactly as
+                    entered (translating those automatically would be a real
+                    clinical-safety risk, not just a cosmetic gap). */}
+                <TableCell>{tDoc(`prescription.frequencyCode.${item.frequency}`, { defaultValue: item.frequency })}</TableCell>
                 <TableCell>{item.route || '—'}</TableCell>
-                <TableCell>{item.duration_days ? `${item.duration_days} days` : '—'}</TableCell>
+                <TableCell>{item.duration_days ? `${item.duration_days} ${tDoc('prescription.days')}` : '—'}</TableCell>
                 <TableCell>{item.qty ?? '—'}</TableCell>
                 <TableCell>{item.instructions || '—'}</TableCell>
               </TableRow>
@@ -303,10 +321,10 @@ function PrescriptionPrint() {
       <Box sx={{ mt: 6, display: 'flex', justifyContent: 'flex-end', position: 'relative', zIndex: 1 }}>
         <Box textAlign="center">
           <Divider sx={{ width: 200, mb: 0.5 }} />
-          <Typography variant="caption">Signature</Typography>
+          <Typography variant="caption">{tDoc('prescription.signature')}</Typography>
           {prescription.pdf_hash && (
             <Typography variant="caption" color="text.secondary" display="block">
-              Verification code: {formatVerificationCode(prescription.pdf_hash)}
+              {tDoc('prescription.verificationCode')}: {formatVerificationCode(prescription.pdf_hash)}
             </Typography>
           )}
         </Box>
