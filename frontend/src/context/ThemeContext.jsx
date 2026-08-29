@@ -16,9 +16,20 @@ const GET_MY_ORG_ACCENT_COLOR = gql`
   query MyOrgAccentColorForTheme {
     myOrgBranding {
       primary_color
+      secondary_color
     }
   }
 `
+
+// BUG053 -- hex -> "r, g, b" triplet, for CSS custom properties consumed by
+// rgba(var(--mb-primary-rgb), alpha) in plain CSS (FullCalendar/Recharts
+// blocks in index.css, which can't reach theme.components overrides -- see
+// the data-theme effect below for why those need a DOM-level hook at all).
+function hexToRgbTriplet(hex) {
+  const m = /^#?([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '')
+  if (!m) return null
+  return `${parseInt(m[1], 16)}, ${parseInt(m[2], 16)}, ${parseInt(m[3], 16)}`
+}
 
 // BUG047 follow-up -- synced to backend/src/account (myProfile/updateMyProfile)
 // so the preference follows the user across devices, not just this browser.
@@ -63,6 +74,8 @@ function hasSession() {
  * @property {string|null} accentColor - the caller's organization's branding
  *   primary_color (read-only here; changed via Settings > Clinic Settings >
  *   Branding, manager+ only), or null for an org-less caller/no org branding set
+ * @property {string|null} secondaryColor - the same organization's branding
+ *   secondary_color (read-only here, same source/gating as accentColor)
  * @property {number} fontScale - personal, per-device typography scale (one of
  *   FONT_SCALE_PRESETS)
  * @property {(scale: number) => void} setFontScale - clamps to the nearest
@@ -73,6 +86,7 @@ const ThemeModeContext = createContext({
   resolvedMode: 'light',
   setMode: () => {},
   accentColor: null,
+  secondaryColor: null,
   fontScale: 1,
   setFontScale: () => {},
 })
@@ -128,6 +142,7 @@ export function ThemeModeProvider({ children }) {
   // logo/name already behave in AppShell today.
   const { data: brandingData } = useQuery(GET_MY_ORG_ACCENT_COLOR, { errorPolicy: 'ignore' })
   const accentColor = brandingData?.myOrgBranding?.primary_color ?? null
+  const secondaryColor = brandingData?.myOrgBranding?.secondary_color ?? null
 
   const setFontScale = useCallback((scale) => {
     const clamped = FONT_SCALE_PRESETS.includes(scale) ? scale : 1
@@ -196,8 +211,8 @@ export function ThemeModeProvider({ children }) {
   }, [])
 
   const theme = useMemo(
-    () => createAppTheme(resolvedMode, { accentColor, fontScale }),
-    [resolvedMode, accentColor, fontScale],
+    () => createAppTheme(resolvedMode, { accentColor, secondaryColor, fontScale }),
+    [resolvedMode, accentColor, secondaryColor, fontScale],
   )
 
   // Third-party libraries that render their own DOM outside MUI's component
@@ -210,8 +225,20 @@ export function ThemeModeProvider({ children }) {
     document.documentElement.setAttribute('data-theme', resolvedMode)
   }, [resolvedMode])
 
+  // BUG053 -- same "plain CSS can't reach theme.components" gap as above,
+  // but for the org's live accent rather than light/dark mode: CalendarView
+  // .css's FullCalendar overrides used a hardcoded teal rgba() regardless of
+  // org branding. Expose the resolved primary color as an "r, g, b" custom
+  // property so plain CSS can do rgba(var(--mb-primary-rgb), alpha).
+  useEffect(() => {
+    const triplet = hexToRgbTriplet(theme.palette.primary.main)
+    if (triplet) document.documentElement.style.setProperty('--mb-primary-rgb', triplet)
+  }, [theme])
+
   return (
-    <ThemeModeContext.Provider value={{ mode, resolvedMode, setMode, accentColor, fontScale, setFontScale }}>
+    <ThemeModeContext.Provider
+      value={{ mode, resolvedMode, setMode, accentColor, secondaryColor, fontScale, setFontScale }}
+    >
       <ThemeProvider theme={theme}>
         <CssBaseline />
         {children}

@@ -45,7 +45,7 @@ export default function StitchKpiCard({ title, value, icon, color, trend, subtit
         minWidth: 160,
         transition: 'all 0.2s ease',
         '&:hover': {
-          boxShadow: '0 8px 24px rgba(0,109,119,0.10)',
+          boxShadow: `0 8px 24px ${alpha(theme.palette.primary.main, 0.1)}`,
           transform: 'translateY(-2px)',
         },
       }}

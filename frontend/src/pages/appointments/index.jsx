@@ -1170,11 +1170,11 @@ export default function AppointmentsPage() {
             position: 'fixed',
             bottom: { xs: 80, md: 32 },
             right: { xs: 20, md: 32 },
-            background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-            boxShadow: '0 4px 14px rgba(26,115,232,0.40)',
+            background: `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`,
+            boxShadow: `0 4px 14px ${alpha(theme.palette.primary.main, 0.4)}`,
             '&:hover': {
-              background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)',
-              boxShadow: '0 6px 20px rgba(26,115,232,0.48)',
+              background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)`,
+              boxShadow: `0 6px 20px ${alpha(theme.palette.primary.main, 0.48)}`,
             },
           }}
         >

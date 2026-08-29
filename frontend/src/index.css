@@ -1,6 +1,15 @@
 /* ─── Google Font ───────────────────────────────────────────────────────────── */
 /* Plus Jakarta Sans is loaded via link tag in index.html */
 
+/* BUG053 -- fallback for context/ThemeContext.jsx's org-accent custom
+   property, so FullCalendar's CalendarView.css never resolves rgba(var(...))
+   to NaN before the ThemeModeProvider effect runs on first paint. JS
+   overwrites this with the real org's theme.palette.primary.main the
+   moment myOrgBranding resolves. */
+:root {
+  --mb-primary-rgb: 0, 109, 119;
+}
+
 /* ─── Google Color System CSS Variables ─────────────────────────────────────── */
 :root {
   --g-blue: #1a73e8;

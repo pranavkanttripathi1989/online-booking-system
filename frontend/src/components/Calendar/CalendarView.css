@@ -56,7 +56,7 @@
 }
 
 .fc .fc-button:focus {
-  box-shadow: 0 0 0 3px rgba(0, 109, 119, 0.25) !important;
+  box-shadow: 0 0 0 3px rgba(var(--mb-primary-rgb), 0.25) !important;
   outline: none !important;
 }
 
@@ -163,7 +163,7 @@
 
 /* Today background tint */
 .fc .fc-day-today {
-  background: rgba(0, 109, 119, 0.04) !important;
+  background: rgba(var(--mb-primary-rgb), 0.04) !important;
 }
 
 /* Weekend columns — very subtle warm gray */
@@ -174,7 +174,7 @@
 
 /* Empty day cell hover */
 .fc .fc-daygrid-day:hover {
-  background: rgba(0, 109, 119, 0.03) !important;
+  background: rgba(var(--mb-primary-rgb), 0.03) !important;
   cursor: pointer;
 }
 
@@ -219,7 +219,7 @@
 
 /* Hover on time slot */
 .fc .fc-timegrid-slot:hover {
-  background: rgba(0, 109, 119, 0.04) !important;
+  background: rgba(var(--mb-primary-rgb), 0.04) !important;
   cursor: pointer;
 }
 
@@ -430,7 +430,7 @@
   transition: background 0.15s ease !important;
 }
 .fc .fc-daygrid-day:hover {
-  background: rgba(0, 109, 119, 0.05) !important;
+  background: rgba(var(--mb-primary-rgb), 0.05) !important;
   cursor: pointer;
 }
 .fc .fc-daygrid-day:hover .fc-daygrid-day-number {
@@ -449,12 +449,12 @@
   justify-content: center !important;
   margin: 4px !important;
   font-weight: 800 !important;
-  box-shadow: 0 2px 8px rgba(0, 109, 119, 0.4) !important;
+  box-shadow: 0 2px 8px rgba(var(--mb-primary-rgb), 0.4) !important;
 }
 
 /* Today cell — very gentle teal tint */
 .fc .fc-day-today {
-  background: rgba(0, 109, 119, 0.03) !important;
+  background: rgba(var(--mb-primary-rgb), 0.03) !important;
 }
 
 /* Toolbar title — animated on view change */
@@ -481,7 +481,7 @@
   transition: background 0.12s ease !important;
 }
 .fc .fc-list-event:hover td {
-  background: linear-gradient(90deg, rgba(0, 109, 119, 0.06) 0%, rgba(0, 109, 119, 0.02) 100%) !important;
+  background: linear-gradient(90deg, rgba(var(--mb-primary-rgb), 0.06) 0%, rgba(var(--mb-primary-rgb), 0.02) 100%) !important;
   cursor: pointer;
 }
 .fc .fc-list-event-dot {
@@ -517,7 +517,7 @@
 
 /* Week view column header on today */
 .fc .fc-day-today.fc-col-header-cell {
-  background: rgba(0, 109, 119, 0.06) !important;
+  background: rgba(var(--mb-primary-rgb), 0.06) !important;
 }
 .fc .fc-day-today .fc-col-header-cell-cushion {
   color: #006d77 !important;
@@ -534,6 +534,6 @@
 
 /* Select-mirror (drag selection) */
 .fc .fc-highlight {
-  background: rgba(0, 109, 119, 0.12) !important;
+  background: rgba(var(--mb-primary-rgb), 0.12) !important;
   border-radius: 6px !important;
 }

@@ -1701,8 +1701,8 @@ export default function SettingsPage() {
                         textTransform: 'none',
                         fontWeight: 700,
                         px: 3,
-                        background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-                        '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
+                        background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
+                        '&:hover': { background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)` },
                       }}
                     >
                       {savingProfile ? 'Saving…' : 'Save Changes'}
@@ -2103,8 +2103,8 @@ export default function SettingsPage() {
                 borderRadius: 2.5,
                 textTransform: 'none',
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-                '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
+                background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
+                '&:hover': { background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)` },
               }}
             >
               {savingNotifs ? 'Saving…' : 'Save Preferences'}
@@ -2261,8 +2261,8 @@ export default function SettingsPage() {
                   textTransform: 'none',
                   fontWeight: 700,
                   alignSelf: 'flex-start',
-                  background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-                  '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
+                  background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
+                  '&:hover': { background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)` },
                 }}
               >
                 Save Appearance
@@ -2395,8 +2395,8 @@ export default function SettingsPage() {
                         borderRadius: 2.5,
                         textTransform: 'none',
                         fontWeight: 700,
-                        background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-                        '&:hover': { background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)' },
+                        background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
+                        '&:hover': { background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)` },
                       }}
                     >
                       {savingClinic ? 'Saving…' : 'Save Clinic Settings'}

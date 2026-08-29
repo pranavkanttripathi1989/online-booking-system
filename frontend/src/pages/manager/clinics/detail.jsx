@@ -162,7 +162,7 @@ function ClinicDetailPageInner() {
           variant="contained"
           startIcon={<EditRoundedIcon />}
           onClick={() => navigate(`/manager/clinics/${id}/edit`)}
-          sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, background: 'linear-gradient(135deg,#4285F4,#1A73E8)' }}
+          sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, background: (t) => `linear-gradient(135deg,${t.palette.primary.light},${t.palette.primary.main})` }}
         >
           Edit Clinic
         </Button>

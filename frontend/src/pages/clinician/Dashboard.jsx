@@ -468,7 +468,14 @@ export default function ClinicianDashboard() {
   return (
     <Box p={{ xs: 2, md: 4 }} maxWidth="xl" mx="auto">
       {/* ── HEADER BANNER ─────────────────────────────────────────── */}
-      <Box sx={{ background: 'linear-gradient(135deg, #006D77 0%, #0A9396 100%)', p: 3, borderRadius: 3, mb: 3 }}>
+      <Box
+        sx={{
+          background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.light} 100%)`,
+          p: 3,
+          borderRadius: 3,
+          mb: 3,
+        }}
+      >
         <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
           <Box>
             <Typography variant="overline" sx={{ color: 'rgba(255,255,255,0.7)', letterSpacing: 1.5, fontWeight: 700 }}>

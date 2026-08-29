@@ -108,17 +108,15 @@ import { useInactivityLogout } from '../hooks/useInactivityLogout'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DRAWER_WIDTH = 260
-// Deliberate exception (FRONTEND_RULES.md UI-2/§22 precedent, same category
-// as login.jsx's BrandPanel and the admin audit-log JSON viewer): the
-// sidebar/top-nav rail is a fixed brand-teal chrome, independent of the
-// app's own light/dark toggle -- live-confirmed this session, the drawer
-// stays this same teal in both modes while the page content area switches.
-// Do NOT replace with theme.palette.primary.main here -- that value itself
-// changes between light/dark, which would break the "always this exact
-// teal" identity these two constants exist to guarantee. Only used inside
-// DrawerContent/TopNavBar/the Drawer paper backgrounds below.
-const TEAL = '#006D77'
-const TEAL_LIGHT = '#00858F'
+// BUG053: TEAL/TEAL_LIGHT used to be fixed module-level literals ("always
+// this exact teal, independent of org branding"). That was wrong -- the
+// sidebar header renders the org's own live logo/name, so it must track
+// the org's real accent color (BUG051's theme.palette.primary), the same
+// way calendar/index.jsx's "New Booking" button already correctly does.
+// Each component below (DrawerContent/TopNavBar/AppShell) now derives its
+// own TEAL/TEAL_LIGHT from useTheme() rather than a shared constant --
+// still independent of the light/dark toggle (both modes read the same
+// theme.palette.primary), just no longer independent of org branding.
 
 // REQ002/PLAN022 — org branding (logo + org name in the sidebar/top-nav
 // header). No role gate on myOrgBranding (any authenticated user); resolves
@@ -485,6 +483,8 @@ function DrawerContent({
   onClose,
 }) {
   const theme = useTheme()
+  const TEAL = theme.palette.primary.main
+  const TEAL_LIGHT = theme.palette.primary.light
   const userRoles = user?.roles?.map((r) => r.name) || ['patient']
   const role = userRoles[0]
   const roleCfg = { label: ROLE_LABELS[role] ?? ROLE_LABELS.patient, bg: roleAccent(theme, role) }
@@ -504,6 +504,7 @@ function DrawerContent({
     <Box sx={{ width: DRAWER_WIDTH, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#1A2332', overflow: 'hidden' }}>
       {/* Brand header */}
       <Box
+        data-testid="sidebar-brand-header"
         sx={{
           background: `linear-gradient(160deg, #004D55 0%, ${TEAL} 100%)`,
           px: 2.5,
@@ -570,7 +571,7 @@ function DrawerContent({
                 bgcolor: TEAL,
                 fontWeight: 800,
                 fontSize: '0.9rem',
-                boxShadow: `0 2px 8px rgba(0,109,119,0.35)`,
+                boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.35)}`,
               }}
             >
               {initials}
@@ -629,7 +630,7 @@ function DrawerContent({
                 mb: 0.3,
                 color: active ? '#fff' : 'rgba(255,255,255,0.58)',
                 background: active ? `linear-gradient(135deg, ${TEAL}E8 0%, ${TEAL_LIGHT}F2 100%)` : 'transparent',
-                boxShadow: active ? `0 2px 10px rgba(0,109,119,0.36)` : 'none',
+                boxShadow: active ? `0 2px 10px ${alpha(theme.palette.primary.main, 0.36)}` : 'none',
                 '&:hover': { bgcolor: active ? undefined : 'rgba(255,255,255,0.06)', color: '#fff' },
                 '&.Mui-selected': {
                   background: `linear-gradient(135deg, ${TEAL}E8 0%, ${TEAL_LIGHT}F2 100%)`,
@@ -822,6 +823,9 @@ function DrawerContent({
 
 // ─── Top Navigation Bar ────────────────────────────────────────────────────────
 function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMenu, branding, bannerOffset = 0 }) {
+  const theme = useTheme()
+  const TEAL = theme.palette.primary.main
+  const TEAL_LIGHT = theme.palette.primary.light
   const [moreAnchor, setMoreAnchor] = useState(null)
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/')
 
@@ -906,7 +910,7 @@ function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMen
                   minWidth: 'auto',
                   color: active ? '#fff' : 'rgba(255,255,255,0.60)',
                   bgcolor: active ? `${TEAL}CC` : 'transparent',
-                  boxShadow: active ? `0 2px 8px rgba(0,109,119,0.35)` : 'none',
+                  boxShadow: active ? `0 2px 8px ${alpha(theme.palette.primary.main, 0.35)}` : 'none',
                   '&:hover': { bgcolor: active ? `${TEAL}E0` : 'rgba(255,255,255,0.08)', color: '#fff' },
                   transition: 'all 0.15s',
                   fontFamily: '"Plus Jakarta Sans", sans-serif',
@@ -985,7 +989,7 @@ function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMen
                         borderRadius: 1.5,
                         mx: 0.5,
                         color: active ? TEAL : 'inherit',
-                        bgcolor: active ? 'rgba(0,109,119,0.08)' : 'transparent',
+                        bgcolor: active ? alpha(theme.palette.primary.main, 0.08) : 'transparent',
                         fontWeight: active ? 700 : 400,
                       }}
                     >
@@ -1005,12 +1009,12 @@ function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMen
             size="small"
             onClick={onToggleLayout}
             sx={{
-              color: 'rgba(0,169,181,0.80)',
-              bgcolor: 'rgba(0,109,119,0.18)',
+              color: alpha(theme.palette.primary.light, 0.8),
+              bgcolor: alpha(theme.palette.primary.main, 0.18),
               borderRadius: 1.5,
               p: 0.7,
               mr: 1,
-              '&:hover': { bgcolor: 'rgba(0,109,119,0.30)' },
+              '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.3) },
             }}
           >
             <ViewSidebarRoundedIcon sx={{ fontSize: '1.1rem' }} />
@@ -1026,7 +1030,7 @@ function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMen
                 bgcolor: TEAL,
                 fontSize: '0.72rem',
                 fontWeight: 700,
-                boxShadow: `0 2px 8px rgba(0,109,119,0.40)`,
+                boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.4)}`,
               }}
             >
               A
@@ -1041,6 +1045,8 @@ function TopNavBar({ navItems, location, navigate, onToggleLayout, onOpenUserMen
 // ─── Main AppShell ────────────────────────────────────────────────────────────
 export default function AppShell() {
   const theme = useTheme()
+  const TEAL = theme.palette.primary.main
+  const TEAL_LIGHT = theme.palette.primary.light
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const navigate = useNavigate()
   const location = useLocation()
@@ -1391,7 +1397,7 @@ export default function AppShell() {
                     cursor: 'pointer',
                     width: '100%',
                     transition: 'all 0.18s ease',
-                    '&:hover': { borderColor: TEAL, boxShadow: `0 0 0 3px rgba(0,109,119,0.10)`, bgcolor: 'action.selected' },
+                    '&:hover': { borderColor: TEAL, boxShadow: `0 0 0 3px ${alpha(theme.palette.primary.main, 0.1)}`, bgcolor: 'action.selected' },
                   }}
                 >
                   <SearchRoundedIcon sx={{ color: 'text.disabled', fontSize: '1rem', flexShrink: 0 }} />
@@ -1427,7 +1433,7 @@ export default function AppShell() {
                     bgcolor: 'background.paper',
                     borderRadius: '12px',
                     border: `2px solid ${TEAL}`,
-                    boxShadow: `0 0 0 4px rgba(0,109,119,0.10)`,
+                    boxShadow: `0 0 0 4px ${alpha(theme.palette.primary.main, 0.1)}`,
                     px: 1.5,
                     py: 0.75,
                   }}
@@ -1496,7 +1502,7 @@ export default function AppShell() {
                     bgcolor: 'primary.main',
                     borderRadius: 1.5,
                     p: 0.7,
-                    '&:hover': { bgcolor: 'primary.dark', boxShadow: `0 4px 12px rgba(0,109,119,0.30)` },
+                    '&:hover': { bgcolor: 'primary.dark', boxShadow: `0 4px 12px ${alpha(theme.palette.primary.main, 0.3)}` },
                     transition: 'all 0.18s ease',
                   }}
                 >
@@ -1535,7 +1541,7 @@ export default function AppShell() {
                         background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
                         fontSize: '0.78rem',
                         fontWeight: 700,
-                        boxShadow: `0 2px 8px rgba(0,109,119,0.35)`,
+                        boxShadow: `0 2px 8px ${alpha(theme.palette.primary.main, 0.35)}`,
                         transition: 'transform 0.15s',
                         '&:hover': { transform: 'scale(1.05)' },
                       }}
@@ -1637,7 +1643,7 @@ export default function AppShell() {
               navigate(userRoles.includes('patient') ? '/patient/profile' : '/profile')
               setAnchorEl(null)
             }}
-            sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
+            sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.06) } }}
           >
             <ListItemIcon>
               <AccountCircleIcon fontSize="small" sx={{ color: 'text.secondary' }} />
@@ -1651,7 +1657,7 @@ export default function AppShell() {
               navigate('/settings')
               setAnchorEl(null)
             }}
-            sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}
+            sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.06) } }}
           >
             <ListItemIcon>
               <SettingsIcon fontSize="small" sx={{ color: 'text.secondary' }} />
@@ -1660,7 +1666,7 @@ export default function AppShell() {
               Settings
             </Typography>
           </MenuItem>
-          <MenuItem onClick={toggleLayout} sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' } }}>
+          <MenuItem onClick={toggleLayout} sx={{ borderRadius: 2, py: 1, px: 1.5, '&:hover': { bgcolor: alpha(theme.palette.primary.main, 0.06) } }}>
             <ListItemIcon>
               {isTopNav ? (
                 <ViewSidebarRoundedIcon fontSize="small" sx={{ color: TEAL }} />

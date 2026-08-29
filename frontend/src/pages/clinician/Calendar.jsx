@@ -853,7 +853,7 @@ export default function ClinicianCalendar() {
                             overflow: 'hidden',
                             opacity: 0.9,
                             border: isSelected ? '2px solid rgba(255,255,255,0.9)' : '2px solid transparent',
-                            boxShadow: isSelected ? '0 0 0 2px rgba(0,109,119,0.4)' : 'none',
+                            boxShadow: isSelected ? `0 0 0 2px ${alpha(theme.palette.primary.main, 0.4)}` : 'none',
                             '&:hover': { opacity: 1, boxShadow: '0 3px 10px rgba(0,0,0,0.2)', transform: 'translateY(-1px)', zIndex: 5 },
                             transition: 'all 0.15s',
                             zIndex: isSelected ? 4 : 2,

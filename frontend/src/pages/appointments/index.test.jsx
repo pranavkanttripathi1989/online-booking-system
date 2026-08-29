@@ -117,10 +117,10 @@ function baseMocks(rows = [apptRow()]) {
   ]
 }
 
-function renderPage(mocks) {
+function renderPage(mocks, renderTheme = theme) {
   useAuth.mockReturnValue({ hasRole: () => true })
   return render(
-    <ThemeProvider theme={theme}>
+    <ThemeProvider theme={renderTheme}>
       <HelmetProvider>
         <MemoryRouter>
           <SnackbarProvider>
@@ -132,6 +132,18 @@ function renderPage(mocks) {
       </HelmetProvider>
     </ThemeProvider>,
   )
+}
+
+function cssRulesText() {
+  return Array.from(document.styleSheets)
+    .flatMap((sheet) => {
+      try {
+        return Array.from(sheet.cssRules).map((r) => r.cssText)
+      } catch {
+        return []
+      }
+    })
+    .join('\n')
 }
 
 describe('AppointmentsListPage — no-show risk indicator (P1-17)', () => {
@@ -153,4 +165,16 @@ describe('AppointmentsListPage — no-show risk indicator (P1-17)', () => {
     await userEvent.hover(screen.getByText('High risk'))
     expect(await screen.findByText('3 prior no-shows, Booked far in advance')).toBeInTheDocument()
   }, 20000)
+})
+
+describe('AppointmentsListPage — new-appointment FAB tracks the org accent (BUG053)', () => {
+  it('renders from theme.palette.primary, not a fixed Google-blue literal', async () => {
+    const accentTheme = createAppTheme('light', { accentColor: '#080075' })
+    renderPage(baseMocks([apptRow()]), accentTheme)
+    await screen.findByLabelText('new appointment')
+    const css = cssRulesText().toLowerCase()
+    expect(css).toContain('#080075')
+    expect(css).not.toContain('#4285f4')
+    expect(css).not.toContain('#1a73e8')
+  })
 })

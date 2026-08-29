@@ -4,7 +4,7 @@
  */
 import React from 'react'
 import { Card, CardContent, CardActions, Stack, Box, Typography, Chip, Avatar, Button, Rating, Divider } from '@mui/material'
-import { alpha } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import { useNavigate } from 'react-router-dom'
 import LocationOnIcon from '@mui/icons-material/LocationOn'
 import VideocamIcon from '@mui/icons-material/Videocam'
@@ -26,6 +26,7 @@ export default function DoctorCard({
   initials,
 }) {
   const navigate = useNavigate()
+  const theme = useTheme()
   const avatarInitials =
     initials ||
     name
@@ -44,7 +45,7 @@ export default function DoctorCard({
         borderColor: 'divider',
         transition: 'box-shadow 0.2s, transform 0.15s',
         '&:hover': {
-          boxShadow: '0 6px 24px rgba(0,109,119,0.14)',
+          boxShadow: `0 6px 24px ${alpha(theme.palette.primary.main, 0.14)}`,
           transform: 'translateY(-2px)',
         },
       }}

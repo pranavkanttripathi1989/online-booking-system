@@ -239,7 +239,7 @@ function InfoTile({ icon, label, value }) {
           width: 36,
           height: 36,
           borderRadius: 2,
-          bgcolor: 'rgba(0,109,119,0.08)',
+          bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -426,8 +426,8 @@ function ReminderDialog({ open, onClose, onSend, patientEmail, patientPhone }) {
           sx={{
             borderRadius: 2,
             fontWeight: 700,
-            background: 'linear-gradient(135deg,#006D77,#00858F)',
-            '&:hover': { background: 'linear-gradient(135deg,#005A62,#006D77)' },
+            background: (t) => `linear-gradient(135deg,${t.palette.primary.main},${t.palette.primary.light})`,
+            '&:hover': { background: (t) => `linear-gradient(135deg,${t.palette.primary.dark},${t.palette.primary.main})` },
           }}
         >
           Send via {channel === 'email' ? 'Email' : 'SMS'}
@@ -744,7 +744,7 @@ export default function AppointmentDetailPage() {
         {/* ── LEFT COLUMN (65%) ────────────────────────────────────────── */}
         <Grid item xs={12} md={8}>
           {/* Patient card */}
-          <Card accent="linear-gradient(90deg,#006D77,#00858F)" sx={{ mb: 3 }}>
+          <Card accent={`linear-gradient(90deg,${theme.palette.primary.main},${theme.palette.primary.light})`} sx={{ mb: 3 }}>
             <Box sx={{ p: 3 }}>
               <Stack direction={{ xs: 'column', sm: 'row' }} spacing={3} alignItems={{ sm: 'flex-start' }} justifyContent="space-between">
                 {/* Avatar + name */}
@@ -757,8 +757,8 @@ export default function AppointmentDetailPage() {
                       bgcolor: 'primary.main',
                       fontSize: '1.4rem',
                       fontWeight: 800,
-                      border: '3px solid rgba(0,109,119,0.15)',
-                      boxShadow: '0 4px 14px rgba(0,109,119,0.2)',
+                      border: (t) => `3px solid ${alpha(t.palette.primary.main, 0.15)}`,
+                      boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.2)}`,
                     }}
                   >
                     {initials(apt.patient?.full_name)}
@@ -1192,7 +1192,7 @@ export default function AppointmentDetailPage() {
               below (SUG-APPT-012), which is unrelated mock/decorative
               content, not the same feature. */}
           {checklistItems.length > 0 && (
-            <Card accent="linear-gradient(90deg,#006D77,#00858F)" sx={{ mb: 3 }}>
+            <Card accent={`linear-gradient(90deg,${theme.palette.primary.main},${theme.palette.primary.light})`} sx={{ mb: 3 }}>
               <Box sx={{ p: 3 }}>
                 <Stack direction="row" spacing={1} alignItems="center" mb={2}>
                   <TaskAltRoundedIcon sx={{ color: 'primary.main', fontSize: '1.1rem' }} />

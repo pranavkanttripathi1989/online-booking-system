@@ -1,6 +1,7 @@
 import { Routes, Route, Navigate } from 'react-router-dom'
 import { Suspense, lazy } from 'react'
 import { Box, CircularProgress, LinearProgress } from '@mui/material'
+import { useTheme, alpha } from '@mui/material/styles'
 
 // ─── Layouts & Guards — synchronous imports (NEVER lazy) ──────────────────────
 import ProtectedRoute from './components/ProtectedRoute/ProtectedRoute'
@@ -178,23 +179,38 @@ const ManagerImports = lazy(() => import('./pages/manager/imports/index'))
 import AdminLayout from './layouts/AdminLayout'
 
 // ─── Loading fallbacks ────────────────────────────────────────────────────────
-const FullPageLoader = () => (
-  <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ bgcolor: '#F0F7F8' }}>
-    <CircularProgress size={48} thickness={4} sx={{ color: '#006D77' }} />
-  </Box>
-)
+// BUG053: was fixed teal ('#006D77'/'#F0F7F8') regardless of org branding.
+// Both loaders render inside main.jsx's <ThemeModeProvider>, so the real,
+// org-derived theme is always available here -- no chicken-and-egg case.
+const FullPageLoader = () => {
+  const theme = useTheme()
+  return (
+    <Box
+      display="flex"
+      justifyContent="center"
+      alignItems="center"
+      minHeight="100vh"
+      sx={{ bgcolor: alpha(theme.palette.primary.main, 0.04) }}
+    >
+      <CircularProgress size={48} thickness={4} sx={{ color: 'primary.main' }} />
+    </Box>
+  )
+}
 
-const ShellPageLoader = () => (
-  <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
-    <LinearProgress
-      sx={{
-        height: 3,
-        bgcolor: 'rgba(0,109,119,0.1)',
-        '& .MuiLinearProgress-bar': { bgcolor: '#006D77' },
-      }}
-    />
-  </Box>
-)
+const ShellPageLoader = () => {
+  const theme = useTheme()
+  return (
+    <Box sx={{ position: 'fixed', top: 0, left: 0, right: 0, zIndex: 9999 }}>
+      <LinearProgress
+        sx={{
+          height: 3,
+          bgcolor: alpha(theme.palette.primary.main, 0.1),
+          '& .MuiLinearProgress-bar': { bgcolor: 'primary.main' },
+        }}
+      />
+    </Box>
+  )
+}
 
 // The booking wizard (/appointments/book) is the one route genuinely meant
 // to work both logged-in (pre-fills patient details, matches

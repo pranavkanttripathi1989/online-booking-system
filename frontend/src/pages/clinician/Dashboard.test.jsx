@@ -1,9 +1,11 @@
 import { render, screen, waitFor } from '@testing-library/react'
 import { MemoryRouter } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
+import { ThemeProvider } from '@mui/material/styles'
 import { gql } from '@apollo/client'
 import Dashboard from './Dashboard'
 import { useAuth } from '../../hooks/useAuth'
+import { createAppTheme } from '../../theme'
 
 jest.mock('../../hooks/useAuth', () => ({
   useAuth: jest.fn(),
@@ -103,14 +105,27 @@ const lunchMock = () => ({
   result: { data: { getLunchBreaks: [] } },
 })
 
-function renderDashboard(mocks) {
-  return render(
+function renderDashboard(mocks, theme) {
+  const body = (
     <MemoryRouter>
       <MockedProvider mocks={mocks} addTypename={false}>
         <Dashboard />
       </MockedProvider>
-    </MemoryRouter>,
+    </MemoryRouter>
   )
+  return render(theme ? <ThemeProvider theme={theme}>{body}</ThemeProvider> : body)
+}
+
+function cssRulesText() {
+  return Array.from(document.styleSheets)
+    .flatMap((sheet) => {
+      try {
+        return Array.from(sheet.cssRules).map((r) => r.cssText)
+      } catch {
+        return []
+      }
+    })
+    .join('\n')
 }
 
 describe('clinician/Dashboard (BUG021)', () => {
@@ -182,5 +197,18 @@ describe('clinician/Dashboard (BUG021)', () => {
     renderDashboard([profileMock(linkedClinician), clinicMock(), appointmentsMock([confirmedAppt]), spacersMock(), lunchMock()])
 
     await waitFor(() => expect(screen.getAllByText('Priya Nair').length).toBeGreaterThan(0))
+  })
+})
+
+describe('clinician/Dashboard — greeting banner tracks the org accent (BUG053)', () => {
+  it('renders from theme.palette.primary, not a fixed teal literal', async () => {
+    const linkedClinician = { id: CLINICIAN_ID, full_name: 'Sarah Mitchell', clinician_type: { name: 'General Physician' } }
+    const accentTheme = createAppTheme('light', { accentColor: '#080075' })
+    renderDashboard([profileMock(linkedClinician), clinicMock(), appointmentsMock([]), spacersMock(), lunchMock()], accentTheme)
+
+    await waitFor(() => expect(screen.getByText('No more appointments today.')).toBeInTheDocument())
+    const css = cssRulesText().toLowerCase()
+    expect(css).toContain('#080075')
+    expect(css).not.toContain('#006d77')
   })
 })

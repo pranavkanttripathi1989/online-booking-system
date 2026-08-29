@@ -262,11 +262,11 @@ export default function DashboardPage() {
               whiteSpace: 'nowrap',
               width: { xs: '100%', sm: 'auto' },
               mt: { xs: 0.5, sm: 0 },
-              background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
-              boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
+              background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.light} 100%)`,
+              boxShadow: (t) => `0 2px 8px ${alpha(t.palette.primary.main, 0.3)}`,
               '&:hover': {
-                background: 'linear-gradient(135deg, #005A62 0%, #006D77 100%)',
-                boxShadow: '0 4px 14px rgba(0,109,119,0.45)',
+                background: (t) => `linear-gradient(135deg, ${t.palette.primary.dark} 0%, ${t.palette.primary.main} 100%)`,
+                boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.45)}`,
               },
             }}
           >
@@ -316,7 +316,7 @@ export default function DashboardPage() {
                   outline: 'none',
                   transition: 'transform 0.15s, box-shadow 0.15s',
                   '&:hover': kpi.href ? { transform: 'translateY(-2px)', boxShadow: '0 6px 20px rgba(0,0,0,0.10)' } : {},
-                  '&:focus-visible': kpi.href ? { boxShadow: '0 0 0 3px rgba(0,109,119,0.35)', borderRadius: 3 } : {},
+                  '&:focus-visible': kpi.href ? { boxShadow: (t) => `0 0 0 3px ${alpha(t.palette.primary.main, 0.35)}`, borderRadius: 3 } : {},
                 }}
               >
                 <KpiCard {...kpi} loading={false} />

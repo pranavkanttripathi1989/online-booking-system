@@ -24,6 +24,7 @@ const GET_MY_ORG_ACCENT_COLOR = gql`
   query MyOrgAccentColorForTheme {
     myOrgBranding {
       primary_color
+      secondary_color
     }
   }
 `
@@ -38,12 +39,13 @@ const STORAGE_KEY = 'medibook_appearance_prefs'
 const SESSION_MARKER_KEY = 'medibook_has_session'
 
 function Probe() {
-  const { mode, resolvedMode, setMode, accentColor, fontScale, setFontScale } = useThemeMode()
+  const { mode, resolvedMode, setMode, accentColor, secondaryColor, fontScale, setFontScale } = useThemeMode()
   return (
     <div>
       <div data-testid="mode">{mode}</div>
       <div data-testid="resolvedMode">{resolvedMode}</div>
       <div data-testid="accentColor">{accentColor ?? 'null'}</div>
+      <div data-testid="secondaryColor">{secondaryColor ?? 'null'}</div>
       <div data-testid="fontScale">{fontScale}</div>
       <button onClick={() => setMode('dark')}>go-dark</button>
       <button onClick={() => setFontScale(1.25)}>go-xl</button>
@@ -122,10 +124,15 @@ describe('ThemeContext.jsx — BUG047 backend sync', () => {
 })
 
 describe('ThemeContext.jsx — accentColor (organization branding, read-only here)', () => {
-  it('exposes the organization branding primary_color as accentColor', async () => {
+  it('exposes the organization branding primary_color as accentColor and secondary_color as secondaryColor', async () => {
     render(
       <MockedProvider
-        mocks={[{ request: { query: GET_MY_ORG_ACCENT_COLOR }, result: { data: { myOrgBranding: { primary_color: '#D93025' } } } }]}
+        mocks={[
+          {
+            request: { query: GET_MY_ORG_ACCENT_COLOR },
+            result: { data: { myOrgBranding: { primary_color: '#D93025', secondary_color: '#0F9D58' } } },
+          },
+        ]}
         addTypename={false}
       >
         <ThemeModeProvider>
@@ -134,11 +141,13 @@ describe('ThemeContext.jsx — accentColor (organization branding, read-only her
       </MockedProvider>,
     )
     await waitFor(() => expect(screen.getByTestId('accentColor')).toHaveTextContent('#D93025'))
+    expect(screen.getByTestId('secondaryColor')).toHaveTextContent('#0F9D58')
   })
 
   it('falls back to null (brand default) for an org-less caller', async () => {
     renderWithMocks([])
     await waitFor(() => expect(screen.getByTestId('accentColor')).toHaveTextContent('null'))
+    expect(screen.getByTestId('secondaryColor')).toHaveTextContent('null')
   })
 })
 

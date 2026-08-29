@@ -287,7 +287,7 @@ export default function PatientDashboard() {
     <Paper
       elevation={0}
       sx={{
-        background: 'linear-gradient(135deg, #004D55 0%, #0A9396 100%)',
+        background: (t) => `linear-gradient(135deg, ${t.palette.primary.dark} 0%, ${t.palette.primary.light} 100%)`,
         p: 4,
         borderRadius: 3,
         mb: 3,

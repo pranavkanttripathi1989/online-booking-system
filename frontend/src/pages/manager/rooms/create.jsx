@@ -121,7 +121,7 @@ export default function CreateRoomPage() {
                 })
             }}
             disabled={loading}
-            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, background: 'linear-gradient(135deg,#4285F4,#1A73E8)' }}
+            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, background: (t) => `linear-gradient(135deg,${t.palette.primary.light},${t.palette.primary.main})` }}
           >
             {loading ? 'Saving…' : 'Save Room'}
           </Button>

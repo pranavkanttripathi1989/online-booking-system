@@ -971,11 +971,11 @@ export default function CalendarPage() {
               fontSize: '0.875rem',
               fontFamily: "'Plus Jakarta Sans', sans-serif",
               background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
-              boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
+              boxShadow: (t) => `0 2px 8px ${alpha(t.palette.primary.main, 0.3)}`,
               display: { xs: 'none', sm: 'flex' },
               '&:hover': {
                 background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`,
-                boxShadow: '0 4px 14px rgba(0,109,119,0.40)',
+                boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.4)}`,
                 transform: 'translateY(-1px)',
               },
               transition: 'all 0.2s ease',
@@ -1346,7 +1346,7 @@ export default function CalendarPage() {
                 sx={{
                   px: 2,
                   py: 1.5,
-                  background: 'linear-gradient(135deg, rgba(0,109,119,0.07) 0%, rgba(0,109,119,0.12) 100%)',
+                  background: (t) => `linear-gradient(135deg, ${alpha(t.palette.primary.main, 0.07)} 0%, ${alpha(t.palette.primary.main, 0.12)} 100%)`,
                   borderBottom: '1px solid #E8EAED',
                   display: 'flex',
                   alignItems: 'center',
@@ -1515,7 +1515,7 @@ export default function CalendarPage() {
                     fontSize: '0.75rem',
                     fontWeight: 700,
                     color: 'primary.main',
-                    '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' },
+                    '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.06) },
                   }}
                 >
                   View All Appointments
@@ -1607,7 +1607,7 @@ export default function CalendarPage() {
                     alignItems: 'center',
                     justifyContent: 'center',
                     flexShrink: 0,
-                    boxShadow: '0 2px 8px rgba(0,109,119,0.3)',
+                    boxShadow: (t) => `0 2px 8px ${alpha(t.palette.primary.main, 0.3)}`,
                   }}
                 >
                   <Typography sx={{ color: 'primary.contrastText', fontWeight: 800, fontSize: '0.9rem' }}>
@@ -1670,7 +1670,7 @@ export default function CalendarPage() {
                           width: 28,
                           height: 28,
                           borderRadius: 1.5,
-                          bgcolor: 'rgba(0,109,119,0.08)',
+                          bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'center',
@@ -1719,7 +1719,7 @@ export default function CalendarPage() {
                     background: (t) => `linear-gradient(135deg,${t.palette.primary.light},${t.palette.primary.main})`,
                     '&:hover': {
                       background: (t) => `linear-gradient(135deg,${t.palette.primary.main},${t.palette.primary.dark})`,
-                      boxShadow: '0 4px 12px rgba(0,109,119,0.35)',
+                      boxShadow: (t) => `0 4px 12px ${alpha(t.palette.primary.main, 0.35)}`,
                     },
                   }}
                 >
@@ -1763,7 +1763,7 @@ export default function CalendarPage() {
           right: 24,
           zIndex: 1200,
           background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
-          boxShadow: '0 4px 14px rgba(0,109,119,0.40)',
+          boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.4)}`,
           '&:hover': { background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)` },
         }}
       >

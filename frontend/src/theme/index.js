@@ -75,6 +75,14 @@ function buildPrimaryFromAccent(hex) {
   return { main: hex, light: lighten(hex, 0.35), dark: darken(hex, 0.2), contrastText }
 }
 
+// BUG053 -- exact structural mirror of buildPrimaryFromAccent above, for the
+// org's secondary_color (already exposed end-to-end by myOrgBranding; this
+// is the first frontend consumer of that field).
+function buildSecondaryFromAccent(hex) {
+  const contrastText = contrastRatio(hex, '#FFFFFF') >= WCAG_AA_MIN_CONTRAST ? '#fff' : '#000'
+  return { main: hex, light: lighten(hex, 0.35), dark: darken(hex, 0.2), contrastText }
+}
+
 // FRONTEND_RULES.md RES-6 -- "never below 14px anywhere for any label,
 // caption, helper or legal text." body2 (13px) and caption (11px) already
 // violate this floor today at the default scale -- this clamp is a
@@ -108,14 +116,21 @@ function buildTypography(scale) {
  * @param {string|null} [options.accentColor] - '#RRGGBB' override for
  *   palette.primary (Settings > Appearance). Falls back to the brand
  *   default when omitted/null.
+ * @param {string|null} [options.secondaryColor] - '#RRGGBB' override for
+ *   palette.secondary (org branding's secondary_color). Falls back to the
+ *   brand default when omitted/null.
  * @param {number} [options.fontScale=1] - multiplier applied to every
  *   typography variant, floor-clamped per RES-6. 1 = unchanged defaults.
  * @returns {import('@mui/material/styles').Theme}
  */
 export function createAppTheme(mode = 'light', options = {}) {
-  const { accentColor, fontScale = 1 } = options
+  const { accentColor, secondaryColor, fontScale = 1 } = options
   const base = mode === 'dark' ? DARK : LIGHT
-  const p = accentColor ? { ...base, primary: buildPrimaryFromAccent(accentColor) } : base
+  const p = {
+    ...base,
+    ...(accentColor ? { primary: buildPrimaryFromAccent(accentColor) } : {}),
+    ...(secondaryColor ? { secondary: buildSecondaryFromAccent(secondaryColor) } : {}),
+  }
   const tableHeadBg = mode === 'dark' ? '#1C2A34' : '#E8F8F9'
   // These two derive from p.primary in both modes (not just dark, as
   // before this fix) so a custom accent color affects nav-selected/
