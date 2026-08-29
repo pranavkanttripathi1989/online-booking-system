@@ -1,4 +1,5 @@
 import { render, screen, waitFor } from '@testing-library/react'
+import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
@@ -35,6 +36,13 @@ function allergyMock(allergies) {
   return { request: { query: PATIENT_ALLERGY_BANNER, variables: { patient_id: PATIENT_ID } }, result: { data: { patientAllergyBanner: allergies } } }
 }
 
+// P2-08 — a marker route so a successful Issue can be asserted by real
+// navigation (proving the mutation's exact variables matched a mock),
+// without mounting the real (much heavier) PrescriptionPrint page.
+function PrintMarker() {
+  return <div data-testid="print-marker" />
+}
+
 function renderAt(search, state, mocks = []) {
   return render(
     <MemoryRouter initialEntries={[{ pathname: '/clinician/prescriptions/new', search, state }]}>
@@ -44,6 +52,7 @@ function renderAt(search, state, mocks = []) {
         >
           <Routes>
             <Route path="/clinician/prescriptions/new" element={<PrescriptionBuilder />} />
+            <Route path="/prescriptions/:id/print" element={<PrintMarker />} />
           </Routes>
         </MockedProvider>
       </SnackbarProvider>
@@ -121,5 +130,71 @@ describe('PrescriptionBuilder — allergy hard-stop (P2-07)', () => {
     await waitFor(() => expect(screen.getByText(/Imported 1 draft item from AI Scribe/)).toBeInTheDocument())
     expect(screen.queryByText(/Allergy:/)).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: /issue/i })).not.toBeDisabled()
+  })
+})
+
+// P2-08 (US-RX-07)
+describe('PrescriptionBuilder — print language (P2-08)', () => {
+  const search = `?encounterId=${ENCOUNTER_ID}&patientId=${PATIENT_ID}`
+  const CREATE_PRESCRIPTION = gql`
+    mutation CreatePrescription($input: CreatePrescriptionInput!) {
+      createPrescription(input: $input) {
+        id
+      }
+    }
+  `
+  const validLine = {
+    aiDraftItems: [
+      { drug_name_text: 'amoxicillin', drug_id: 'drug-1', matched_drug_name: 'Amoxicillin 500mg', dose: '500mg', frequency: 'BD', duration_days: 5 },
+    ],
+  }
+
+  // Apollo's MockedProvider matches a mutation by its EXACT variables — a
+  // mock declared with { language: 'en' } simply won't match a real call
+  // sending 'hi' (or vice versa), so successful navigation to the print
+  // marker is itself proof the right language reached the mutation.
+  it('defaults to English when issuing without changing Print Language', async () => {
+    renderAt(search, validLine, [
+      {
+        request: {
+          query: CREATE_PRESCRIPTION,
+          variables: {
+            input: {
+              encounter_id: ENCOUNTER_ID,
+              language: 'en',
+              items: [{ drug_id: 'drug-1', dose: '500mg', frequency: 'BD', duration_days: 5, substitutable: true }],
+            },
+          },
+        },
+        result: { data: { createPrescription: { id: 'rx-1' } } },
+      },
+    ])
+    await waitFor(() => expect(screen.getByText(/Imported 1 draft item from AI Scribe/)).toBeInTheDocument())
+    expect(screen.getByLabelText('Print Language')).toHaveTextContent('English')
+    await userEvent.click(screen.getByRole('button', { name: /issue/i }))
+    await waitFor(() => expect(screen.getByTestId('print-marker')).toBeInTheDocument())
+  })
+
+  it('sends the selected Hindi language when the clinician changes Print Language before issuing', async () => {
+    renderAt(search, validLine, [
+      {
+        request: {
+          query: CREATE_PRESCRIPTION,
+          variables: {
+            input: {
+              encounter_id: ENCOUNTER_ID,
+              language: 'hi',
+              items: [{ drug_id: 'drug-1', dose: '500mg', frequency: 'BD', duration_days: 5, substitutable: true }],
+            },
+          },
+        },
+        result: { data: { createPrescription: { id: 'rx-1' } } },
+      },
+    ])
+    await waitFor(() => expect(screen.getByText(/Imported 1 draft item from AI Scribe/)).toBeInTheDocument())
+    await userEvent.click(screen.getByLabelText('Print Language'))
+    await userEvent.click(await screen.findByRole('option', { name: 'Hindi' }))
+    await userEvent.click(screen.getByRole('button', { name: /issue/i }))
+    await waitFor(() => expect(screen.getByTestId('print-marker')).toBeInTheDocument())
   })
 })

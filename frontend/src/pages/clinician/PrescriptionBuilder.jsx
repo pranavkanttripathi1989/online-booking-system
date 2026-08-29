@@ -16,6 +16,7 @@ import {
   FormControl,
   Grid,
   IconButton,
+  InputLabel,
   List,
   ListItemButton,
   ListItemText,
@@ -132,6 +133,18 @@ const CREATE_PRESCRIPTION_SET = gql`
   }
 `
 
+// P2-08 (US-RX-07) — deliberately a separate, narrower list from the app's
+// own SUPPORTED_LANGUAGES (frontend/src/i18n/config.js): that list governs
+// the app's own UI language and may grow (P2-09) ahead of which languages
+// the *printed Rx* can actually render correctly (backend/src/common/pdf's
+// registered font + label dictionary, currently just 'en'/'hi'). Keep this
+// in sync with backend/src/common/pdf/i18n-labels.ts's own PdfLanguage type
+// when a new language is added there.
+const PRESCRIPTION_LANGUAGES = [
+  { code: 'en', label: 'English' },
+  { code: 'hi', label: 'Hindi' },
+]
+
 const FREQUENCIES = ['OD', 'BD', 'TDS', 'QID', 'HS', 'SOS']
 const FREQUENCY_PER_DAY = { OD: 1, BD: 2, TDS: 3, QID: 4, HS: 1, SOS: null }
 
@@ -197,6 +210,7 @@ function PrescriptionBuilder() {
       }
     })
   })
+  const [language, setLanguage] = useState('en')
   const [drugSearch, setDrugSearch] = useState('')
   const [historyOpen, setHistoryOpen] = useState(false)
   const [saveSetOpen, setSaveSetOpen] = useState(false)
@@ -286,7 +300,7 @@ function PrescriptionBuilder() {
     }
     try {
       const { data } = await createPrescription({
-        variables: { input: { encounter_id: encounterId, items: buildItemsInput() } },
+        variables: { input: { encounter_id: encounterId, language, items: buildItemsInput() } },
       })
       const id = data?.createPrescription?.id
       if (id) navigate(`/prescriptions/${id}/print`)
@@ -318,13 +332,34 @@ function PrescriptionBuilder() {
 
   return (
     <Box p={{ xs: 1.5, md: 3 }}>
-      <Stack direction="row" spacing={1.5} alignItems="center" mb={2}>
+      <Stack direction="row" spacing={1.5} alignItems="center" mb={2} flexWrap="wrap">
         <Button startIcon={<ArrowBackRoundedIcon />} onClick={() => navigate(-1)}>
           Back
         </Button>
-        <Typography variant="h6" fontWeight={700}>
+        <Typography variant="h6" fontWeight={700} sx={{ flexGrow: 1 }}>
           New Prescription
         </Typography>
+        {/* P2-08 (US-RX-07) — the language the printed Rx itself renders in
+            (patient-facing labels + the closed frequency-code vocabulary),
+            independent of this clinician's own app UI language. Defaults to
+            English; drug names/route/instructions stay exactly as the
+            clinician types them regardless of this choice (see
+            i18n-labels.ts's own comment for why those aren't translated). */}
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel id="prescription-language-label">Print Language</InputLabel>
+          <Select
+            labelId="prescription-language-label"
+            label="Print Language"
+            value={language}
+            onChange={(e) => setLanguage(e.target.value)}
+          >
+            {PRESCRIPTION_LANGUAGES.map((l) => (
+              <MenuItem key={l.code} value={l.code}>
+                {l.label}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
       </Stack>
 
       {importedAiDraftCount > 0 && (
