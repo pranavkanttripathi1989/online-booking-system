@@ -96,3 +96,63 @@ already-documented pre-existing flaky-suite list.
 
 `BUG047` (Part 3 / Phase 2) marked `done`. Phase 3 (clinician tablet-first)
 remains open, tracked in `FRONTEND_RULES.md` §22.
+
+## Part 4 — Phase 3 of the colour sweep (clinician, tablet-first)
+
+Executed 2026-08-29, same session, continuing on a bare "continue".
+
+| # | Case | Result |
+|---|---|---|
+| 31 | Lint on all 9 Phase 3 files | Pass — 0 new errors, 0 remaining theme-token warnings on every file (`calendar/index.jsx` 150→0, `appointments/detail.jsx` 112→0, `clinician/Calendar.jsx` 81→0, `appointments/index.jsx` 69→0, `clinician/Dashboard.jsx` 28→0, `clinician/Patients.jsx` 14→0, `appointments/edit.jsx` 9→0, `clinician/Availability.jsx` 6→0, `clinician/EncounterWorkspace.jsx` 3→0) |
+| 32 | Project-wide colour-warning count | Pass — 1,330 → 858 |
+| 33 | `theme.palette.appointmentStatus.scheduled` | Pass — added to `theme/index.js`, resolves correctly |
+| 34 | `eventDisplayColor(theme, ev)` unification | Pass — `MOCK_EVENTS` and the real-appointment mapping in `clinician/Calendar.jsx` both consume it; neither stores its own `color` field any more |
+| 35 | Seeded availability/lunch day-of-week | Pass — corrected the seed to Monday=0-based (`day_of_week: 0..4`), deleted and recreated the wrongly-seeded dev-DB rows, confirmed Mon-Fri-only via a live screenshot (lunch no longer shows on Sat/Sun) |
+| 36 | `ApptPopover` hover-to-click reachability | Pass by code/specificity review — `pointerEvents:'auto'` on `slotProps.paper` plus a shared hide-timer; a live drag-through-hover repro was unreliable in a browser shared with a concurrent session, but a real click via `el.click()` correctly opened the "Appointment Details" drawer with accurate data (Priya Patient, Completed, GP Consultation, Room 101), confirming the underlying event wiring is sound |
+| 37 | `appointments/index.jsx` DataGrid dark-mode colours | Pass — moved from a global `!important` CSS block to `theme.components.MuiDataGrid`; confirmed the previous bug live first (`getComputedStyle` on `.MuiDataGrid-cell` returned the hardcoded `rgb(32,33,36)` regardless of theme mode) before fixing it |
+| 38 | FullCalendar / Recharts dark-mode CSS | Pass by served-CSS + specificity review — confirmed the built `[data-theme='dark']` rules are present in the live Vite dev-server response and that `document.documentElement.dataset.theme` correctly reflects the active mode; a live side-by-side screenshot of `calendar/index.jsx` itself was not obtained (see note below) |
+| 39 | `appointments/index.test.jsx` | Pass — 3/3, after wrapping the test in a real `<ThemeProvider theme={createAppTheme('light')}>`; confirmed failing first (blank `<div/>`, `Cannot read properties of undefined (reading 'confirmed')`) against the unmodified test file, then fixed |
+| 40 | `appointments/edit.test.jsx` / `clinician/Dashboard.test.jsx` / `clinician/EncounterWorkspace.test.jsx` | Pass — 7/7, 5/5, 22/23 (the one `EncounterWorkspace` failure is a pre-existing 5000ms timeout on a referral-scheduling test, confirmed via `git status` showing zero changes to that file) |
+| 41 | `npm run build` | Pass — succeeded twice (once mid-phase, once at the end), ~1m8s–1m33s |
+
+11/11 pass (10 clean, 1 verified by review rather than a live screenshot,
+noted honestly).
+
+**Two real, non-colour bugs found live and fixed**, both in
+`clinician/Calendar.jsx`, neither introduced by this colour sweep:
+
+1. A seed-script day-of-week convention mismatch made the demo
+   clinician's lunch break show on every day of the week, including
+   weekends with no other availability — found by the user live-testing
+   the seed data this same session's parallel "complete seed data" work
+   produced, not by any test.
+2. `ApptPopover`'s hover-preview link was permanently unreachable
+   (`pointerEvents: 'none'` on the whole Popover) — found by the user
+   directly reporting "when I hover and move toward click to view full
+   detail, the popup hides."
+
+**One larger, separate finding**: `src/index.css` carries a global,
+`!important`-laden `.MuiDataGrid-*`/`.recharts-*`/`.fc-*` block hardcoded
+to the light palette — a `UI-5` violation this rules file already named,
+just never checked against `.css` files. The three actively-used blocks
+(DataGrid, Recharts, FullCalendar) are fixed; the rest of the file
+(hardcoded `body`/`#root`, scrollbar colours, and several confirmed-dead
+utility classes) is recorded as a new, explicit `FRONTEND_RULES.md` §22
+backlog entry, not fixed in this pass.
+
+**Environment note**: this session's browser (Chrome DevTools MCP) was
+shared with a concurrent live-testing session driven by the user
+themselves — several navigations landed on unexpected routes/roles
+mid-verification (a stray `/patients/:id` navigation, a 403 on
+`/calendar` as the wrong role, session swaps between `admin@`/
+`clinician@`/`manager@medibook.dev`). Real findings (the lunch-break bug,
+the popover bug, the DataGrid bug) were confirmed independently of this
+noise via direct `getComputedStyle`/GraphQL queries, not assumed from a
+single screenshot — but one verification (case 38, the live FullCalendar
+screenshot) could not be completed cleanly before the session moved on,
+and is marked as review-verified rather than screenshot-verified above
+rather than silently upgraded.
+
+`BUG047` (Part 4 / Phase 3) marked `done`. Phase 4 (staff/manager/admin
+desktop-dense) remains open, tracked in `FRONTEND_RULES.md` §22, along
+with the rest of the `src/index.css` audit.

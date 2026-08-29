@@ -98,3 +98,47 @@ just literal hex, before deleting it.
 Live-verified in dark mode: the login page's two-column layout, and the
 public landing page (header, hero search card, filters sidebar, doctor-
 result cards). Phase 3 (clinician tablet-first tier) is next, not started.
+
+## Part 4, same session (bare "continue") — Phase 3 of the colour sweep
+
+Swept the last backlog tier: `calendar/index.jsx`, `appointments/{detail,
+index,edit}.jsx`, `clinician/{Calendar,Dashboard,Patients,Availability,
+EncounterWorkspace}.jsx` — 472 warnings fixed across 9 files, project-wide
+count 1,330 → 858. `theme.palette.appointmentStatus` gained a `scheduled`
+tone; `clinician/Calendar.jsx`'s mock and real event colour paths (each
+previously a separate, inconsistent hex source) unified onto one
+`eventDisplayColor(theme, ev)` helper.
+
+Two real, non-colour bugs found live and fixed in `clinician/Calendar.jsx`,
+neither caused by this sweep: a seed-script day-of-week convention
+mismatch (ISO Monday=1 vs. this app's real Monday=0) made the demo
+clinician's lunch break show on every day including weekends, corrected in
+`backend/prisma/seed.ts` and the already-seeded dev-DB rows; and
+`ApptPopover`'s hover-preview "Click to view full details" link was
+permanently unreachable (`pointerEvents: 'none'` on the whole Popover),
+fixed with the standard MUI hoverable-popover recipe (`pointerEvents:
+'auto'` on the paper, a shared hide-timer).
+
+A separate, larger finding: `src/index.css` carried a global,
+`!important`-laden `.MuiDataGrid-*`/`.recharts-*`/`.fc-*` block hardcoded
+to the light palette — invisible to the `.jsx`-only `no-hardcoded-colors`
+lint rule, and the exact "never a global CSS file, never `!important`"
+violation `FRONTEND_RULES.md` UI-5 already named. Fixed the three
+actively-used blocks (DataGrid via a new `theme.components.MuiDataGrid`
+override; FullCalendar/Recharts, which render outside MUI's tree, via new
+`[data-theme='dark']` CSS variants backed by a `data-theme` attribute
+`ThemeContext.jsx` now sets on `<html>`). The rest of that file is a new,
+explicit `FRONTEND_RULES.md` §22 backlog entry, not fixed this pass. Also
+fixed a related test gap: `appointments/index.test.jsx` rendered with no
+`ThemeProvider` at all, silently relying on MUI's bare default theme until
+`theme.palette.appointmentStatus` usage made that crash — now wrapped in a
+real `createAppTheme('light')` provider, matching the real app.
+
+See `PLAN212`/`TP232`/`TR232`'s own "Part 4" sections for full detail,
+including the live-verification account and its one honestly-noted gap
+(a concurrent, user-driven session sharing the same browser prevented a
+final live screenshot of `calendar/index.jsx` itself in dark mode — that
+one fix is verified by served-CSS + selector-specificity review, not a
+screenshot). Phase 4 (staff/manager/admin desktop-dense, ~660 warnings)
+remains open, tracked in `FRONTEND_RULES.md` §22, along with the rest of
+the `src/index.css` audit.

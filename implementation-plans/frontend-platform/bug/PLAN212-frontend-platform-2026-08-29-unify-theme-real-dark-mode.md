@@ -271,14 +271,139 @@ public landing page in dark mode (header bar, hero search card, filters
 sidebar, and doctor-result cards all render correctly with no stray white
 surfaces).
 
-### Phase 3-4 (backlog, sequenced, not started)
+### Part 4 (same day) — Phase 3 of the colour sweep (clinician, tablet-first)
+
+Continuation on a bare "continue" — swept `calendar/index.jsx` (150→0),
+`appointments/detail.jsx` (112→0), `clinician/Calendar.jsx` (81→0),
+`appointments/index.jsx` (69→0), `clinician/Dashboard.jsx` (28→0),
+`clinician/Patients.jsx` (14→0), `appointments/edit.jsx` (9→0),
+`clinician/Availability.jsx` (6→0), `clinician/EncounterWorkspace.jsx`
+(3→0) — all 9 Phase 3 files now fully clean. Project-wide count:
+1,330 → 858.
+
+Same conversion pattern as Phases 1-2, plus:
+
+- **`theme.palette.appointmentStatus` gained a `scheduled` tone**
+  (`theme/index.js`) — every prior file converted to it used a subset of
+  statuses that happened to exclude `'scheduled'`, a real, common
+  appointment status this codebase's own history had already flagged as
+  a previously-missing dropdown option (`edit.jsx`'s own `STATUS_OPTIONS`
+  fix). `'break'` (a lunch/schedule-block event, not a real appointment
+  status) stays a small local `alpha(warning.main, ...)` helper per file,
+  not added to the shared palette.
+- **Mock-vs-real colour unification**: `clinician/Calendar.jsx`'s
+  `MOCK_EVENTS` stored a per-type hex (`color: '#006D77'` for in-person,
+  etc.) while its real-appointment mapping stored a per-status hex — two
+  different, inconsistent sources for the same field. Replaced both with
+  one `eventDisplayColor(theme, ev)` helper (type-based for mock/break/
+  block events, status-based for everything else), removing the `color`
+  field from both code paths entirely rather than patching two hex maps
+  in parallel.
+
+**Two real, non-colour bugs found live while verifying this phase in the
+browser** (via Chrome DevTools MCP, not just lint/build), both now fixed
+in `clinician/Calendar.jsx`:
+
+1. **Lunch break showed on every day of the week, including weekends.**
+   The seed script (`backend/prisma/seed.ts`, this same session's own
+   separate "complete seed data" work) wrote `ClinicianAvailability`/
+   `LunchBreaks.day_of_week` using ISO numbering (Monday=1), but this
+   app's real runtime convention — confirmed against `clinician/
+   Availability.jsx`'s own write path (`day_of_week: String(dayIndex)`
+   from a `DAYS = ['Mon', ...]` array) — is Monday=0. The schema
+   comment on `ClinicianAvailability.day_of_week` ("0-6 Sunday-Saturday")
+   is itself stale/wrong documentation, not the real convention. Fixed
+   the seed (Mon-Fri now `day_of_week: 0..4`, lunch break now 5 explicit
+   weekday rows instead of a `null` "every day" sentinel) and corrected
+   the already-seeded dev-DB rows directly.
+2. **The hover popover's "Click to view full details →" link was
+   permanently unreachable.** `ApptPopover`'s root `<Popover>` had
+   `pointerEvents: 'none'` on its own `sx`, which — combined with a
+   200ms close-on-mouseleave timer on the trigger card — meant moving
+   the real mouse from the card toward the popover always registered as
+   leaving the card (hiding the popover) before the cursor could reach
+   the link, and even if it hadn't, the link itself couldn't receive a
+   click at all. Fixed by keeping `pointerEvents: 'none'` on the
+   Popover root (so it still doesn't block the page underneath) but
+   setting `pointerEvents: 'auto'` on `slotProps.paper` and giving the
+   paper its own `onMouseEnter`/`onMouseLeave` that share the trigger
+   card's own hide-timer — the standard MUI recipe for a hoverable
+   non-modal popover. Pre-existing, not introduced by this colour sweep.
+
+**A separate, larger finding, not scoped to `clinician/`**: sweeping
+`appointments/index.jsx`'s `<DataGrid>` surfaced that `src/index.css`
+carried a global, `!important`-laden `.MuiDataGrid-*` block hardcoded to
+the light palette — it silently beat every theme-aware `sx` override on
+that page, rendering dark-on-dark unreadable cell text in dark mode. This
+is exactly the `UI-5` violation ("never a global CSS file, never
+`!important`") already named in this rules file, just never enforced
+against `.css` files (the `no-hardcoded-colors` ESLint rule only scans
+`.jsx`). Fixed by moving it to a `theme.components.MuiDataGrid` override
+(`theme/index.js`) reusing the same `tableHeadBg`/`tableHeadColor`/
+`rowHoverBg` tokens `MuiTableHead`/`MuiTableRow` already share, and
+deleting the global block. The same file's `.recharts-*` (chart tooltips)
+and `.fc-*` (FullCalendar, actively used by `calendar/index.jsx`) blocks
+had the identical light-only hardcode problem but render *outside* MUI's
+component tree, so a `theme.components` override can't reach them —
+given `[data-theme='dark']` CSS variants instead, backed by a new
+`data-theme` attribute `context/ThemeContext.jsx` now sets on `<html>`
+specifically for this "third-party DOM, plain-CSS-only" case. The rest of
+`src/index.css` (hardcoded `body`/`#root` colours, scrollbar colours, and
+a block of confirmed-dead `.status-*`/`.tag-*`/`.skeleton-shimmer`/
+`.hover-card` classes with zero real importers) is **not yet audited** —
+recorded as a new, explicit backlog entry in `FRONTEND_RULES.md` §22.
+
+**A related test-infrastructure gap, also fixed**: `appointments/
+index.test.jsx` rendered with no `<ThemeProvider>` at all, which passed
+silently until `StatusChip`/`NoShowRiskChip` started reading
+`theme.palette.appointmentStatus` — `useTheme()` with no provider
+silently returns MUI's bare default theme (no custom palette keys),
+crashing the whole render to a blank `<div/>` with a
+`Cannot read properties of undefined` error, not a clear test failure
+message. Fixed by wrapping the test in the real
+`<ThemeProvider theme={createAppTheme('light')}>`, matching how the real
+app is never rendered without one (`main.jsx`). Recorded in
+`FRONTEND_RULES.md` UI-8 as a rule for any future test exercising a
+component that reads a custom palette extension.
+
+**Testing**: `npx eslint` clean (0 new errors, 0 remaining theme-token
+warnings) across all 9 Phase 3 files plus `theme/index.js`,
+`context/ThemeContext.jsx`, `src/index.css`, and `backend/prisma/seed.ts`.
+`npx tsc --noEmit` clean on `seed.ts`. Existing dedicated tests re-run:
+`appointments/index.test.jsx` (3/3, after the ThemeProvider fix — this
+same suite's own no-show-risk-chip test caught the missing-palette bug
+in the first place), `appointments/edit.test.jsx` (7/7),
+`clinician/Dashboard.test.jsx` (5/5), `clinician/
+EncounterWorkspace.test.jsx` (22/23 — the one failure is a pre-existing,
+unrelated 5000ms timeout on a referral-scheduling test, confirmed via
+`git status` showing zero changes to that file, consistent with this
+suite's own already-documented host-load flakiness). `npm run build`
+succeeds. Live-verified via Chrome DevTools MCP against the real dev
+backend, logged in as `manager@medibook.dev`/`clinician@medibook.dev`:
+the real-data appointments list and its `StatusChip`/`NoShowRiskChip`
+rendering, the clinician calendar's real seeded appointments, the
+"Appointment Details" drawer opened by a real click, and the
+`/calendar` (manager) route's 403 fallback page — all correctly dark.
+The FullCalendar/Recharts CSS fix was verified by confirming the served
+`[data-theme='dark']` rules are present in the live dev-server response
+and that `document.documentElement.dataset.theme` is set correctly; a
+concurrent session sharing the same browser prevented a final
+side-by-side screenshot of `calendar/index.jsx` itself in dark mode, so
+that one specific page is verified by code/specificity review rather
+than a live screenshot — noted honestly rather than claimed as seen.
+
+### Phase 4 (backlog, sequenced, not started)
 
 Recorded in `FRONTEND_RULES.md` §22's `UI-2` entry with the exact
-per-directory counts. **Phase 3** — clinician tablet-first tier
-(`clinician/`, `calendar/`, `appointments/`, ~420 warnings) — next-highest
-priority per `FRONTEND_RULES.md` §5's own tiering table. **Phase 4** —
-staff/manager/admin desktop-dense (`staff/`, `finances/`, `manager/`,
-`admin/`, `patients/`, `analytics/`, `clinicians/`, `messages/`,
-`reviews/`, `settings/` remainder, ~660) — largest volume, lowest
-per-screen risk. A future session should re-measure the warning count
-before trusting any number written here, then pick up Phase 3 next.
+per-directory counts. Staff/manager/admin desktop-dense tier (`staff/`,
+`finances/`, `manager/`, `admin/`, `patients/`, `analytics/`,
+`clinicians/`, `messages/`, `reviews/`, `settings/` remainder, ~660
+warnings) — largest volume, lowest per-screen risk. A future session
+should re-measure the warning count before trusting any number written
+here, then pick up Phase 4. Also still open: the rest of `src/index.css`
+(see Part 4's own finding above) and the "complete seed data" backend
+work this same session did in parallel (`backend/prisma/seed.ts` — a home
+clinic, clinician/patient rows, availability, sample appointments for the
+demo accounts) is functionally separate from this bug/plan and not
+formally documented under its own `REQ`/`PLAN` — worth a proper writeup
+if extended further.

@@ -53,3 +53,19 @@ related: [BUG047, BUG044]
 | 28 | Login page, dark mode | Brand panel (left) unchanged; form panel/tabs/inputs (right) render with dark surfaces |
 | 29 | Public landing page, dark mode | Header bar, hero search card, filters sidebar, and doctor-result cards all render correctly, no stray white |
 | 30 | `npm run build` | Succeeds |
+
+## Part 4 — Phase 3 of the colour sweep (clinician, tablet-first)
+
+| # | Case | Expected |
+|---|---|---|
+| 31 | `npx eslint` on all 9 Phase 3 files | 0 new errors, 0 remaining theme-token warnings |
+| 32 | Project-wide colour-warning count | Decreases further from the Phase 2 result |
+| 33 | `theme.palette.appointmentStatus.scheduled` | Present, resolves from `info.main/.light/.dark` like the other statuses |
+| 34 | `clinician/Calendar.jsx`'s `MOCK_EVENTS`/real-appointment mapping | Neither stores a `color` field any more; both render via one shared `eventDisplayColor(theme, ev)` |
+| 35 | Seeded `ClinicianAvailability`/`LunchBreaks` for the demo clinician | `day_of_week` 0-4 (Mon-Fri only), never shown on Sat/Sun |
+| 36 | `ApptPopover`'s "Click to view full details →" link | Reachable by a real mouse moving from the trigger card into the popover, without the popover hiding first |
+| 37 | `appointments/index.jsx`'s `<DataGrid>`, dark mode | Cell/header/hover colours resolve from the theme, not from `src/index.css`'s removed global `!important` block |
+| 38 | `calendar/index.jsx` (FullCalendar) / any Recharts tooltip, dark mode | Toolbar title, column headers, grid borders, now-indicator, and tooltip background/text all resolve via the new `[data-theme='dark']` CSS variants |
+| 39 | `appointments/index.test.jsx` | Renders inside a real `<ThemeProvider theme={createAppTheme('light')}>`; no longer crashes on `theme.palette.appointmentStatus` being undefined |
+| 40 | `appointments/edit.test.jsx`, `clinician/Dashboard.test.jsx`, `clinician/EncounterWorkspace.test.jsx` | All pass (one pre-existing, unrelated timeout in `EncounterWorkspace.test.jsx` excepted) |
+| 41 | `npm run build` | Succeeds |
