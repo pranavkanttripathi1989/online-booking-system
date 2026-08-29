@@ -2,7 +2,7 @@ import { useState } from 'react'
 import { Helmet } from 'react-helmet-async'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, gql } from '@apollo/client'
-import { alpha } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import {
   Box,
   Button,
@@ -91,23 +91,37 @@ function getInitials(name) {
   )
 }
 
-const ROLE_COLORS = {
-  Receptionist: '#1A73E8',
-  Admin: '#0F9D58',
-  Nurse: '#9334E6',
-  'Lab Technician': '#FA7B17',
-  'IT Administrator': '#009688',
-  'Billing Specialist': '#D93025',
-  'Security Officer': '#5F6368',
+// Theme-derived, not a hand-picked hex map -- see calendar/index.jsx,
+// finances/index.jsx, messages/index.jsx, admin/users/index.jsx,
+// staff/edit.jsx for the same conversion.
+function roleColorFor(theme, role) {
+  const p = theme.palette
+  const colors = {
+    Receptionist: p.primary.main,
+    Admin: p.success.main,
+    Nurse: p.secondary.main,
+    'Lab Technician': p.warning.dark,
+    'IT Administrator': p.info.main,
+    'Billing Specialist': p.error.main,
+    'Security Officer': p.text.secondary,
+  }
+  return colors[role] ?? p.text.disabled
 }
 
-const STATUS_MAP = {
-  active: { label: 'Active', bg: '#E6F4EA', text: '#137333', border: '#CEEAD6' },
-  on_leave: { label: 'On Leave', bg: '#FEF7E0', text: '#8A4700', border: '#FDD663' },
-  inactive: { label: 'Inactive', bg: '#F8F9FA', text: '#5F6368', border: '#E8EAED' },
+function statusMapFor(theme) {
+  const p = theme.palette
+  const dark = theme.palette.mode === 'dark'
+  const tone = (main, darkText, label) => ({ label, bg: alpha(main, dark ? 0.18 : 0.12), text: dark ? main : darkText, border: alpha(main, dark ? 0.4 : 0.3) })
+  return {
+    active: tone(p.success.main, p.success.dark, 'Active'),
+    on_leave: tone(p.warning.main, p.warning.dark, 'On Leave'),
+    inactive: { label: 'Inactive', bg: p.action.hover, text: p.text.secondary, border: p.divider },
+  }
 }
 
 export default function StaffPage() {
+  const theme = useTheme()
+  const STATUS_MAP = statusMapFor(theme)
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [search, setSearch] = useState('')
@@ -158,7 +172,7 @@ export default function StaffPage() {
           {/* ── Header ──────────────────────────────────────────────────────── */}
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 3, gap: 2, flexWrap: 'wrap' }}>
             <Box>
-              <Typography variant="h4" fontWeight={800} sx={{ color: '#0D1B2E' }}>
+              <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary' }}>
                 Staff Management
               </Typography>
               <Typography variant="body2" sx={{ color: 'text.secondary' }}>
@@ -173,10 +187,10 @@ export default function StaffPage() {
                 borderRadius: 2.5,
                 textTransform: 'none',
                 fontWeight: 700,
-                background: 'linear-gradient(135deg, #00858F 0%, #006D77 100%)',
-                boxShadow: '0 4px 14px rgba(0,109,119,0.30)',
+                background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
+                boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.3)}`,
                 width: { xs: '100%', sm: 'auto' },
-                '&:hover': { boxShadow: '0 6px 20px rgba(0,109,119,0.45)', transform: 'translateY(-1px)' },
+                '&:hover': { boxShadow: (t) => `0 6px 20px ${alpha(t.palette.primary.main, 0.45)}`, transform: 'translateY(-1px)' },
                 transition: 'all 0.2s ease',
               }}
             >
@@ -187,20 +201,20 @@ export default function StaffPage() {
           {/* ── KPI Cards ───────────────────────────────────────────────────── */}
           <Grid container spacing={2.5} sx={{ mb: 3 }}>
             {[
-              { label: 'Total Staff', value: staffList.length, icon: PersonRoundedIcon, color: '#1565C7' },
+              { label: 'Total Staff', value: staffList.length, icon: PersonRoundedIcon, color: theme.palette.info.main },
               {
                 label: 'Active',
                 value: staffList.filter((s) => s.status === 'active').length,
                 icon: CheckCircleRoundedIcon,
-                color: '#0B7B5C',
+                color: theme.palette.success.main,
               },
               {
                 label: 'On Leave',
                 value: staffList.filter((s) => s.status === 'on_leave').length,
                 icon: PersonOffRoundedIcon,
-                color: '#D97706',
+                color: theme.palette.warning.dark,
               },
-              { label: 'Departments', value: new Set(staffList.map((s) => s.department)).size, icon: WorkRoundedIcon, color: '#7C3AED' },
+              { label: 'Departments', value: new Set(staffList.map((s) => s.department)).size, icon: WorkRoundedIcon, color: theme.palette.secondary.main },
             ].map((kpi) => (
               <Grid item xs={6} md={3} key={kpi.label}>
                 <Card sx={{ borderRadius: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
@@ -235,8 +249,8 @@ export default function StaffPage() {
           </Grid>
 
           {/* ── Filters ─────────────────────────────────────────────────────── */}
-          <Paper sx={{ border: '1px solid #E2E8F0', borderRadius: 3, boxShadow: 'none', mb: 3 }}>
-            <Box sx={{ p: 2, borderBottom: '1px solid #E2E8F0', display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Paper sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, boxShadow: 'none', mb: 3 }}>
+            <Box sx={{ p: 2, borderBottom: '1px solid', borderBottomColor: 'divider', display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
               <TextField
                 size="small"
                 placeholder="Search staff…"
@@ -263,10 +277,10 @@ export default function StaffPage() {
                       fontWeight: 700,
                       cursor: 'pointer',
                       borderRadius: '8px',
-                      bgcolor: departmentFilter === d ? 'rgba(0,109,119,0.10)' : '#F8F9FA',
-                      color: departmentFilter === d ? '#006D77' : '#5F6368',
-                      border: `1.5px solid ${departmentFilter === d ? 'rgba(0,109,119,0.40)' : '#E8EAED'}`,
-                      '&:hover': { bgcolor: departmentFilter === d ? 'rgba(0,109,119,0.12)' : '#F1F3F4' },
+                      bgcolor: departmentFilter === d ? (t) => alpha(t.palette.primary.main, 0.1) : 'action.hover',
+                      color: departmentFilter === d ? 'primary.main' : 'text.secondary',
+                      border: (t) => `1.5px solid ${departmentFilter === d ? alpha(t.palette.primary.main, 0.4) : t.palette.divider}`,
+                      '&:hover': { bgcolor: departmentFilter === d ? (t) => alpha(t.palette.primary.main, 0.12) : 'action.hover' },
                     }}
                   />
                 ))}
@@ -277,9 +291,9 @@ export default function StaffPage() {
               onChange={(_, v) => setTab(v)}
               sx={{
                 px: 2,
-                '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 44, fontSize: '0.85rem', color: '#5F6368' },
-                '& .MuiTab-root.Mui-selected': { color: '#006D77' },
-                '& .MuiTabs-indicator': { bgcolor: '#006D77', height: 3, borderRadius: '3px 3px 0 0' },
+                '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 44, fontSize: '0.85rem', color: 'text.secondary' },
+                '& .MuiTab-root.Mui-selected': { color: 'primary.main' },
+                '& .MuiTabs-indicator': { bgcolor: 'primary.main', height: 3, borderRadius: '3px 3px 0 0' },
               }}
             >
               <Tab label={`All (${staffList.length})`} />
@@ -299,7 +313,7 @@ export default function StaffPage() {
                         fontSize: '0.72rem',
                         textTransform: 'uppercase',
                         letterSpacing: '0.06em',
-                        bgcolor: '#F8FAFC',
+                        bgcolor: 'action.hover',
                         py: 1.2,
                       },
                     }}
@@ -315,7 +329,7 @@ export default function StaffPage() {
                 </TableHead>
                 <TableBody>
                   {filtered.map((s) => {
-                    const roleColor = ROLE_COLORS[s.role] || '#64748B'
+                    const roleColor = roleColorFor(theme, s.role)
                     const status = STATUS_MAP[s.status] || { label: s.status, color: 'default' }
                     return (
                       <TableRow
@@ -363,9 +377,9 @@ export default function StaffPage() {
                             label={STATUS_MAP[s.status]?.label ?? s.status}
                             size="small"
                             sx={{
-                              bgcolor: STATUS_MAP[s.status]?.bg ?? '#F8F9FA',
-                              color: STATUS_MAP[s.status]?.text ?? '#5F6368',
-                              border: `1px solid ${STATUS_MAP[s.status]?.border ?? '#E8EAED'}`,
+                              bgcolor: STATUS_MAP[s.status]?.bg ?? theme.palette.action.hover,
+                              color: STATUS_MAP[s.status]?.text ?? theme.palette.text.secondary,
+                              border: `1px solid ${STATUS_MAP[s.status]?.border ?? theme.palette.divider}`,
                               fontWeight: 700,
                               fontSize: '0.72rem',
                               borderRadius: '8px',
@@ -382,7 +396,7 @@ export default function StaffPage() {
                                   e.stopPropagation()
                                   navigate(`/staff/edit/${s.id}`)
                                 }}
-                                sx={{ color: '#006D77', '&:hover': { bgcolor: 'rgba(0,109,119,0.10)' } }}
+                                sx={{ color: 'primary.main', '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.1) } }}
                               >
                                 <EditRoundedIcon fontSize="small" />
                               </IconButton>
@@ -437,9 +451,9 @@ export default function StaffPage() {
                 variant="outlined"
                 sx={{
                   borderRadius: 2,
-                  borderColor: '#E2E8F0',
-                  color: '#5F6368',
-                  '&:hover': { borderColor: '#CBD5E1' },
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': { borderColor: 'text.disabled' },
                   textTransform: 'none',
                   fontWeight: 700,
                 }}
