@@ -64,5 +64,38 @@
     "back": "[Bȧck ẊẊẊ]",
     "noAvailability": "[Nȯ ȧvȧïlȧbïlïty fȯr thïs dȧtė. Plėȧsė sėlėct ȧnȯthėr dȧtė. ẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊ]",
     "holdCountdown": "[Slȯt hėld fȯr {{minutes}}:{{seconds}} — cȯmplėtė yȯůr bȯȯkïng bėfȯrė ït's rėlėȧsėd. ẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊẊ]"
+  },
+  "prescription": {
+    "patient": "[Pȧtïėnt ẊẊẊ]",
+    "dob": "[DȮB ẊẊẊ]",
+    "gender": "[Gėndėr ẊẊẊ]",
+    "date": "[Dȧtė ẊẊẊ]",
+    "regNo": "[Rėg. Nȯ ẊẊẊ]",
+    "duplicate": "[DŮPLÏCȦTĖ ẊẊẊẊ]",
+    "drug": "[Drůg ẊẊẊ]",
+    "dose": "[Dȯsė ẊẊẊ]",
+    "frequency": "[Frėqůėncy ẊẊẊẊ]",
+    "route": "[Rȯůtė ẊẊẊ]",
+    "duration": "[Důrȧtïȯn ẊẊẊẊ]",
+    "qty": "[Qty ẊẊẊ]",
+    "instructions": "[Ïnstrůctïȯns ẊẊẊẊẊ]",
+    "days": "[dȧys ẊẊẊ]",
+    "signature": "[Sïgnȧtůrė ẊẊẊẊ]",
+    "verificationCode": "[Vėrïfïcȧtïȯn cȯdė ẊẊẊẊẊẊẊ]",
+    "print": "[Prïnt ẊẊẊ]",
+    "preparingPdf": "[Prėpȧrïng PDF… ẊẊẊẊẊẊ]",
+    "downloadPdf": "[Dȯwnlȯȧd PDF ẊẊẊẊẊ]",
+    "sending": "[Sėndïng… ẊẊẊẊ]",
+    "shareViaWhatsapp": "[Shȧrė vïȧ WhȧtsȦpp ẊẊẊẊẊẊẊẊ]",
+    "verify": "[Vėrïfy ẊẊẊ]",
+    "notFound": "[Prėscrïptïȯn nȯt fȯůnd. ẊẊẊẊẊẊẊẊẊẊ]",
+    "frequencyCode": {
+      "OD": "[Ȯncė dȧïly ẊẊẊẊ]",
+      "BD": "[Twïcė dȧïly ẊẊẊẊẊ]",
+      "TDS": "[Thrėė tïmės dȧïly ẊẊẊẊẊẊẊ]",
+      "QID": "[Fȯůr tïmės dȧïly ẊẊẊẊẊẊẊ]",
+      "HS": "[Ȧt bėdtïmė ẊẊẊẊ]",
+      "SOS": "[Ȧs nėėdėd ẊẊẊẊ]"
+    }
   }
 }

@@ -45,5 +45,38 @@
     "back": "Back",
     "noAvailability": "No availability for this date. Please select another date.",
     "holdCountdown": "Slot held for {{minutes}}:{{seconds}} — complete your booking before it's released."
+  },
+  "prescription": {
+    "patient": "Patient",
+    "dob": "DOB",
+    "gender": "Gender",
+    "date": "Date",
+    "regNo": "Reg. No",
+    "duplicate": "DUPLICATE",
+    "drug": "Drug",
+    "dose": "Dose",
+    "frequency": "Frequency",
+    "route": "Route",
+    "duration": "Duration",
+    "qty": "Qty",
+    "instructions": "Instructions",
+    "days": "days",
+    "signature": "Signature",
+    "verificationCode": "Verification code",
+    "print": "Print",
+    "preparingPdf": "Preparing PDF…",
+    "downloadPdf": "Download PDF",
+    "sending": "Sending…",
+    "shareViaWhatsapp": "Share via WhatsApp",
+    "verify": "Verify",
+    "notFound": "Prescription not found.",
+    "frequencyCode": {
+      "OD": "Once daily",
+      "BD": "Twice daily",
+      "TDS": "Three times daily",
+      "QID": "Four times daily",
+      "HS": "At bedtime",
+      "SOS": "As needed"
+    }
   }
 }

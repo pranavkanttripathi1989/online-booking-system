@@ -3,7 +3,11 @@ import { initReactI18next } from 'react-i18next'
 // The default/fallback language is bundled synchronously, deliberately —
 // see the resources/partialBundledLanguages note below for why this
 // doesn't violate I18N-8's "never bundle all languages" (only ONE is).
+// Exported (not just used below) so useScopedTranslation.js can seed its own
+// standalone cache with the same always-available English bundle, matching
+// this file's own "the fallback is always synchronously available" guarantee.
 import enCommon from './locales/en/common.json'
+export { enCommon }
 
 // P1-07 (I18N-1…I18N-10) — the i18n layer this codebase has never had.
 // FRONTEND_RULES.md's own §20.1 calls this the single most expensive rule
@@ -23,7 +27,14 @@ export const LANGUAGE_STORAGE_KEY = 'medibook_language'
 // its own chunk) without adding a third runtime dependency
 // (i18next-http-backend) for what is, in a bundled SPA, not actually an
 // HTTP fetch.
-const localeLoaders = {
+// Exported so useScopedTranslation.js can reuse the exact same lazy-loaded
+// bundles for a document locked to a specific language, without going
+// through i18next's own cloneInstance()/Suspense machinery (found, live, to
+// mis-fire: a clone's own resource load trips the *global* react-i18next
+// Suspense binding, which then discards the in-flight render of whichever
+// component asked for the clone -- see useScopedTranslation.js's own
+// comment for the full account).
+export const localeLoaders = {
   en: () => import('./locales/en/common.json'),
   hi: () => import('./locales/hi/common.json'),
   // I18N-4 — a generated (scripts/generate-pseudo-locale.mjs), +40%-length,
