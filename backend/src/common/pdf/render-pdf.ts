@@ -31,6 +31,42 @@ export function renderPdfToBuffer(build: (doc: PDFKit.PDFDocument) => void): Pro
   });
 }
 
+// P2-08 (REQ021 US-RX-07) — pdfkit's built-in 'Helvetica'/'Helvetica-Bold'
+// are the Adobe standard-14 AFM fonts (WinAnsi/Latin-1 only, no Devanagari
+// glyphs at all); a non-English prescription needs a real embedded font.
+// Registered under fixed logical names so call sites can just
+// `.font(pdfFontName(language))` without caring about the underlying file.
+// The .ttf here specifically (not the @fontsource npm package's own .woff2
+// build) -- pdfkit 0.20's fontkit-based embedding throws
+// "RangeError: Offset is outside the bounds of the DataView" subsetting
+// that .woff2's Devanagari glyph table; a raw .ttf (sourced from
+// @expo-google-fonts/noto-sans-devanagari, same upstream Noto Sans
+// Devanagari OFL-1.1 font) embeds and subsets correctly (confirmed via a
+// direct FontFile2/CIDFontType2 check on the rendered PDF's own objects).
+const FONTS_ROOT = path.join(__dirname, 'fonts');
+const LANGUAGE_FONTS: Record<string, { name: string; file: string } | undefined> = {
+  hi: { name: 'NotoSansDevanagari', file: path.join(FONTS_ROOT, 'NotoSansDevanagari-Regular.ttf') },
+};
+const registeredFonts = new Set<string>();
+
+// Returns the pdfkit font name to use for `language` -- registers the
+// underlying file on `doc` the first time it's needed for that document,
+// falls back to 'Helvetica' for English or any language with no bundled
+// font (P2-09's own future languages land here as more LANGUAGE_FONTS
+// entries, not a new call-site convention).
+export function pdfFontName(doc: PDFKit.PDFDocument, language: string | null | undefined, bold = false): string {
+  const entry = language ? LANGUAGE_FONTS[language] : undefined;
+  if (!entry) return bold ? 'Helvetica-Bold' : 'Helvetica';
+  if (!registeredFonts.has(entry.name)) {
+    doc.registerFont(entry.name, entry.file);
+    registeredFonts.add(entry.name);
+  }
+  // Noto Sans Devanagari ships one (Regular) weight in this bundle -- pdfkit
+  // has no synthetic bold, so a "bold" request for this language still
+  // renders as Regular rather than silently throwing on a missing font name.
+  return entry.name;
+}
+
 // REQ139 — org-branding.controller.ts always stores logo_url as a
 // same-origin relative path (`/uploads/branding/<file>`), never a full
 // URL, so resolving it back to a real file is a local filesystem lookup,

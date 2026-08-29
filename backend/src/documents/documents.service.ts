@@ -10,7 +10,8 @@ import { EncountersService } from '../encounters/encounters.service';
 import { InsuranceService } from '../insurance/insurance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { renderPdfToBuffer, drawLetterhead } from '../common/pdf/render-pdf';
+import { renderPdfToBuffer, drawLetterhead, pdfFontName } from '../common/pdf/render-pdf';
+import { pdfLabel, frequencyLabel, PdfLanguage } from '../common/pdf/i18n-labels';
 
 const formatDate = (d: Date | string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -46,56 +47,70 @@ export class DocumentsService {
   private drawPrescriptionPdf(doc: PDFKit.PDFDocument, data: any) {
     drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone, data.clinic.logo_url);
 
-    doc.fontSize(11).font('Helvetica-Bold').text(data.clinician.full_name);
-    doc.fontSize(9).font('Helvetica');
+    // P2-08 (US-RX-07) — a prescription issued in Hindi renders its whole
+    // body (including free-text drug/route/instructions, which may
+    // themselves be typed in Hindi by the clinician) through the bundled
+    // Devanagari font rather than only the translated labels: Noto Sans
+    // Devanagari also covers full Latin/₹, so English content is unaffected,
+    // and any Hindi free text the clinician actually typed renders
+    // correctly instead of showing missing glyphs under 'Helvetica'. The
+    // one exception is the ℞ symbol below, which this font doesn't include.
+    const language: PdfLanguage = data.prescription.language === 'hi' ? 'hi' : 'en';
+    const font = (bold = false) => doc.font(pdfFontName(doc, language, bold));
+
+    font(true).fontSize(11).text(data.clinician.full_name);
+    font().fontSize(9);
     if (data.clinician.qualifications) doc.text(data.clinician.qualifications);
-    if (data.clinician.registration_number) doc.text(`Reg. No: ${data.clinician.registration_number}`);
+    if (data.clinician.registration_number) doc.text(`${pdfLabel('regNo', language)}: ${data.clinician.registration_number}`);
     doc.moveDown(0.75);
 
-    doc.fontSize(11).font('Helvetica-Bold').text(`Patient: ${data.patient.full_name}`);
-    doc.fontSize(9).font('Helvetica');
+    font(true).fontSize(11).text(`${pdfLabel('patient', language)}: ${data.patient.full_name}`);
+    font().fontSize(9);
     const patientLine = [
-      data.patient.date_of_birth ? `DOB: ${formatDate(data.patient.date_of_birth)}` : undefined,
-      data.patient.gender ? `Gender: ${data.patient.gender}` : undefined,
+      data.patient.date_of_birth ? `${pdfLabel('dob', language)}: ${formatDate(data.patient.date_of_birth)}` : undefined,
+      data.patient.gender ? `${pdfLabel('gender', language)}: ${data.patient.gender}` : undefined,
     ]
       .filter(Boolean)
       .join('   ');
     if (patientLine) doc.text(patientLine);
-    doc.text(`Date: ${formatDate(data.prescription.issued_at)}`);
+    doc.text(`${pdfLabel('date', language)}: ${formatDate(data.prescription.issued_at)}`);
     doc.moveDown(1);
 
     if (data.is_reprint) {
       doc.save();
       doc.rotate(-30, { origin: [297, 420] });
-      doc.fontSize(60).fillColor('#dddddd').font('Helvetica-Bold').text('DUPLICATE', 130, 390, { lineBreak: false });
+      font(true).fontSize(60).fillColor('#dddddd').text(pdfLabel('duplicate', language), 130, 390, { lineBreak: false });
       doc.restore();
       doc.fillColor('black');
     }
 
+    // ℞ is a universal pharmacy symbol, not translated text -- and Noto
+    // Sans Devanagari doesn't include this glyph, so this line always uses
+    // the base font regardless of language.
     doc.fontSize(14).font('Helvetica-Bold').text('℞');
     doc.moveDown(0.5);
     for (const item of data.prescription.items as any[]) {
-      doc.fontSize(10).font('Helvetica-Bold').text(item.drug_name);
+      font(true).fontSize(10).text(item.drug_name);
       const details = [
         item.dose,
-        item.frequency,
+        frequencyLabel(item.frequency, language),
         item.route,
-        item.duration_days ? `${item.duration_days} days` : undefined,
-        item.qty ? `Qty: ${item.qty}` : undefined,
+        item.duration_days ? `${item.duration_days} ${pdfLabel('days', language)}` : undefined,
+        item.qty ? `${pdfLabel('qty', language)}: ${item.qty}` : undefined,
       ]
         .filter(Boolean)
         .join('  ·  ');
-      doc.fontSize(9).font('Helvetica').text(details);
+      font().fontSize(9).text(details);
       if (item.instructions) {
-        doc.fontSize(9).fillColor('#555555').text(item.instructions);
+        font().fontSize(9).fillColor('#555555').text(item.instructions);
         doc.fillColor('black');
       }
       doc.moveDown(0.5);
     }
 
     doc.moveDown(2);
-    doc.fontSize(9).text('_______________________');
-    doc.text('Signature');
+    font().fontSize(9).text('_______________________');
+    doc.text(pdfLabel('signature', language));
     // REQ129 (US-RX-08) — a short, human-checkable code derived from the
     // prescription's own tamper-evident content hash. A pharmacist/patient
     // can compare this against verifyPrescriptionIntegrity()'s own
@@ -103,7 +118,7 @@ export class DocumentsService {
     // drug list matches what was actually signed.
     if (data.prescription.pdf_hash) {
       doc.moveDown(0.5);
-      doc.fontSize(8).fillColor('#555555').text(`Verification code: ${formatVerificationCode(data.prescription.pdf_hash)}`);
+      font().fontSize(8).fillColor('#555555').text(`${pdfLabel('verificationCode', language)}: ${formatVerificationCode(data.prescription.pdf_hash)}`);
       doc.fillColor('black');
     }
   }

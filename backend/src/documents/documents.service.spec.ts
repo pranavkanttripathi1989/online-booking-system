@@ -108,6 +108,44 @@ describe('DocumentsService', () => {
       const buffer = await service.prescriptionPdf('rx-1', user);
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
     });
+
+    // P2-08 (US-RX-07) — asserts the bundled Devanagari font is actually
+    // embedded for a Hindi-language prescription, not just that a PDF came
+    // out. pdfkit's own object stream isn't easily glyph-inspected from a
+    // unit test, but the embedded font's /BaseFont name is a real,
+    // deterministic signal: an English prescription only ever embeds the
+    // standard Helvetica family (no /FontFile2 at all -- those are the
+    // built-in AFM fonts, not embedded), while a Hindi one embeds a
+    // subsetted NotoSansDevanagari TrueType font (/FontFile2 present).
+    it('embeds the bundled Devanagari font for a Hindi-language prescription, unlike the English default', async () => {
+      prescriptionsService.printPrescription.mockResolvedValue({
+        ...printData,
+        prescription: { ...printData.prescription, language: 'hi' },
+      });
+      const buffer = await service.prescriptionPdf('rx-1', user);
+      const text = buffer.toString('latin1');
+      expect(text).toContain('/FontFile2');
+      expect(text).toMatch(/NotoSansDevanagari/);
+    });
+
+    it('embeds no custom font (Helvetica only, no /FontFile2) for the English default', async () => {
+      prescriptionsService.printPrescription.mockResolvedValue(printData);
+      const buffer = await service.prescriptionPdf('rx-1', user);
+      const text = buffer.toString('latin1');
+      expect(text).not.toContain('/FontFile2');
+      expect(text).not.toMatch(/NotoSansDevanagari/);
+    });
+
+    it('still renders a real PDF for a language value this document doesn\'t recognise (defensive default to English)', async () => {
+      prescriptionsService.printPrescription.mockResolvedValue({
+        ...printData,
+        prescription: { ...printData.prescription, language: 'ta' },
+      });
+      const buffer = await service.prescriptionPdf('rx-1', user);
+      const text = buffer.toString('latin1');
+      expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+      expect(text).not.toContain('/FontFile2');
+    });
   });
 
   // REQ109
