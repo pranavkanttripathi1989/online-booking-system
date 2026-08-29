@@ -21,6 +21,7 @@ import {
   CircularProgress,
   Alert,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { Helmet } from 'react-helmet-async'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
@@ -88,6 +89,7 @@ function initials(name = '') {
 const STAR_FILTERS = ['all', '5', '4', '3', '2', '1']
 
 export default function ReviewsPage() {
+  const theme = useTheme()
   const [filter, setFilter] = useState('all')
   const [search, setSearch] = useState('')
   const [replyDialog, setReplyDialog] = useState({ open: false, id: null, text: '', editing: false })
@@ -140,10 +142,10 @@ export default function ReviewsPage() {
 
       {/* Header */}
       <Box sx={{ mb: 3 }}>
-        <Typography variant="h4" fontWeight={800} sx={{ color: '#0D1B2E' }}>
+        <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary' }}>
           Reviews
         </Typography>
-        <Typography variant="body2" sx={{ color: '#7A96AE' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary' }}>
           Platform-wide patient feedback — {totalReviews} total
         </Typography>
       </Box>
@@ -175,10 +177,10 @@ export default function ReviewsPage() {
                     gap: 1,
                   }}
                 >
-                  <Typography variant="overline" sx={{ color: '#7A96AE', letterSpacing: '0.12em' }}>
+                  <Typography variant="overline" sx={{ color: 'text.secondary', letterSpacing: '0.12em' }}>
                     Platform Average
                   </Typography>
-                  <Typography fontWeight={800} sx={{ fontSize: '4rem', color: '#0D1B2E', lineHeight: 1, letterSpacing: '-2px' }}>
+                  <Typography fontWeight={800} sx={{ fontSize: '4rem', color: 'text.primary', lineHeight: 1, letterSpacing: '-2px' }}>
                     {avgRating}
                   </Typography>
                   <Rating
@@ -187,9 +189,9 @@ export default function ReviewsPage() {
                     precision={0.1}
                     icon={<StarRoundedIcon fontSize="inherit" />}
                     emptyIcon={<StarRoundedIcon fontSize="inherit" />}
-                    sx={{ '& .MuiRating-iconFilled': { color: '#F9AB00' }, '& .MuiRating-iconEmpty': { color: '#E8EAED' } }}
+                    sx={{ '& .MuiRating-iconFilled': { color: 'warning.main' }, '& .MuiRating-iconEmpty': { color: 'divider' } }}
                   />
-                  <Typography variant="body2" sx={{ color: '#7A96AE', fontWeight: 500 }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 500 }}>
                     Based on {totalReviews} reviews
                   </Typography>
                 </CardContent>
@@ -200,30 +202,30 @@ export default function ReviewsPage() {
             <Grid item xs={12} md={8}>
               <Card sx={{ borderRadius: 3, height: '100%' }}>
                 <CardContent sx={{ p: '24px !important' }}>
-                  <Typography fontWeight={700} sx={{ color: '#0D1B2E', mb: 2 }}>
+                  <Typography fontWeight={700} sx={{ color: 'text.primary', mb: 2 }}>
                     Rating Breakdown
                   </Typography>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {breakdown.map(({ stars, pct, count }) => (
                       <Box key={stars} sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.3, width: 60, flexShrink: 0 }}>
-                          <Typography variant="caption" fontWeight={700} sx={{ color: '#202124', minWidth: 8 }}>
+                          <Typography variant="caption" fontWeight={700} sx={{ color: 'text.primary', minWidth: 8 }}>
                             {stars}
                           </Typography>
-                          <StarRoundedIcon sx={{ color: '#F9AB00', fontSize: '0.85rem' }} />
+                          <StarRoundedIcon sx={{ color: 'warning.main', fontSize: '0.85rem' }} />
                         </Box>
-                        <Box sx={{ flex: 1, bgcolor: '#F1F3F4', borderRadius: 2, height: 8, overflow: 'hidden' }}>
+                        <Box sx={{ flex: 1, bgcolor: 'action.hover', borderRadius: 2, height: 8, overflow: 'hidden' }}>
                           <Box
                             sx={{
                               width: `${pct}%`,
                               height: '100%',
-                              bgcolor: stars >= 4 ? '#0F9D58' : stars === 3 ? '#F9AB00' : '#D93025',
+                              bgcolor: stars >= 4 ? theme.palette.success.main : stars === 3 ? theme.palette.warning.main : theme.palette.error.main,
                               borderRadius: 2,
                               transition: 'width 0.6s ease',
                             }}
                           />
                         </Box>
-                        <Typography variant="caption" sx={{ color: '#7A96AE', fontWeight: 600, minWidth: 56, textAlign: 'right' }}>
+                        <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600, minWidth: 56, textAlign: 'right' }}>
                           {pct}% ({count})
                         </Typography>
                       </Box>
@@ -256,10 +258,10 @@ export default function ReviewsPage() {
                     borderRadius: '8px',
                     cursor: 'pointer',
                     fontSize: '0.78rem',
-                    bgcolor: filter === f ? '#E8F0FE' : '#F8F9FA',
-                    color: filter === f ? '#1A73E8' : '#5F6368',
-                    border: `1.5px solid ${filter === f ? '#AECBFA' : '#E8EAED'}`,
-                    '&:hover': { bgcolor: filter === f ? '#E8F0FE' : '#F1F3F4' },
+                    bgcolor: filter === f ? (t) => alpha(t.palette.primary.main, 0.12) : 'action.hover',
+                    color: filter === f ? 'primary.main' : 'text.secondary',
+                    border: (t) => `1.5px solid ${filter === f ? alpha(t.palette.primary.main, 0.3) : t.palette.divider}`,
+                    '&:hover': { bgcolor: filter === f ? (t) => alpha(t.palette.primary.main, 0.12) : 'action.hover' },
                   }}
                 />
               ))}
@@ -272,19 +274,19 @@ export default function ReviewsPage() {
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <SearchRoundedIcon fontSize="small" sx={{ color: '#9AA0A6' }} />
+                    <SearchRoundedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
                   </InputAdornment>
                 ),
                 // SUG-REV-005: Clear button in search field
                 endAdornment: search ? (
                   <InputAdornment position="end">
                     <IconButton size="small" onClick={() => setSearch('')} aria-label="Clear search">
-                      <CloseRoundedIcon fontSize="small" sx={{ color: '#9AA0A6' }} />
+                      <CloseRoundedIcon fontSize="small" sx={{ color: 'text.disabled' }} />
                     </IconButton>
                   </InputAdornment>
                 ) : null,
               }}
-              sx={{ flex: 1, minWidth: { xs: '100%', sm: 220 }, '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: '#fff' } }}
+              sx={{ flex: 1, minWidth: { xs: '100%', sm: 220 }, '& .MuiOutlinedInput-root': { borderRadius: 2.5, bgcolor: 'background.paper' } }}
             />
           </Box>
 
@@ -295,28 +297,28 @@ export default function ReviewsPage() {
                 key={review.id}
                 sx={{
                   borderRadius: 3,
-                  border: review.stars <= 2 ? '1.5px solid #F5C6C2' : review.stars === 3 ? '1.5px solid #FDD663' : '1px solid #E8EAED',
+                  border: (t) => (review.stars <= 2 ? `1.5px solid ${alpha(t.palette.error.main, 0.3)}` : review.stars === 3 ? `1.5px solid ${alpha(t.palette.warning.main, 0.3)}` : `1px solid ${t.palette.divider}`),
                   transition: 'box-shadow 0.2s, transform 0.2s',
                   '&:hover': { boxShadow: '0 4px 12px rgba(32,33,36,0.12)', transform: 'translateY(-2px)' },
                 }}
               >
                 <CardContent sx={{ p: '20px !important' }}>
                   <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 2, flexWrap: 'wrap' }}>
-                    <Avatar sx={{ width: 44, height: 44, bgcolor: '#EEF4FF', color: '#1565C7', fontWeight: 700, flexShrink: 0 }}>
+                    <Avatar sx={{ width: 44, height: 44, bgcolor: (t) => alpha(t.palette.primary.main, 0.12), color: 'primary.main', fontWeight: 700, flexShrink: 0 }}>
                       {initials(review.patient_name)}
                     </Avatar>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 0.5 }}>
-                        <Typography fontWeight={700} sx={{ color: '#0D1B2E' }}>
+                        <Typography fontWeight={700} sx={{ color: 'text.primary' }}>
                           {review.patient_name}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: '#B8C6D4' }}>
+                        <Typography variant="caption" sx={{ color: 'text.disabled' }}>
                           →
                         </Typography>
-                        <Typography variant="body2" sx={{ color: '#1565C7', fontWeight: 600 }}>
+                        <Typography variant="body2" sx={{ color: 'primary.main', fontWeight: 600 }}>
                           {review.clinician_name}
                         </Typography>
-                        <Typography variant="caption" sx={{ color: '#B8C6D4', ml: 'auto' }}>
+                        <Typography variant="caption" sx={{ color: 'text.disabled', ml: 'auto' }}>
                           {/* SUG-REV-002: Null guard for missing created_at */}
                           {review.created_at
                             ? new Date(review.created_at).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -329,15 +331,15 @@ export default function ReviewsPage() {
                         size="small"
                         icon={<StarRoundedIcon fontSize="inherit" />}
                         emptyIcon={<StarRoundedIcon fontSize="inherit" />}
-                        sx={{ mb: 1, '& .MuiRating-iconFilled': { color: '#F9AB00' }, '& .MuiRating-iconEmpty': { color: '#E8EAED' } }}
+                        sx={{ mb: 1, '& .MuiRating-iconFilled': { color: 'warning.main' }, '& .MuiRating-iconEmpty': { color: 'divider' } }}
                       />
-                      <Typography variant="body2" sx={{ color: '#3D5A72', lineHeight: 1.7 }}>
+                      <Typography variant="body2" sx={{ color: 'text.secondary', lineHeight: 1.7 }}>
                         {review.comment}
                       </Typography>
                       {review.response && (
-                        <Box sx={{ mt: 1.5, pl: 2, borderLeft: '3px solid #1A73E8', bgcolor: '#F8F9FA', borderRadius: 1, p: 1.5 }}>
+                        <Box sx={{ mt: 1.5, pl: 2, borderLeft: '3px solid', borderLeftColor: 'primary.main', bgcolor: 'action.hover', borderRadius: 1, p: 1.5 }}>
                           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                            <Typography variant="caption" fontWeight={700} sx={{ color: '#1A73E8' }}>
+                            <Typography variant="caption" fontWeight={700} sx={{ color: 'primary.main' }}>
                               Manager Response
                             </Typography>
                             {/* SUG-REV-006: Edit existing response — reopens the reply dialog pre-filled */}
@@ -346,13 +348,13 @@ export default function ReviewsPage() {
                                 size="small"
                                 aria-label={`Edit response to ${review.patient_name}`}
                                 onClick={() => setReplyDialog({ open: true, id: review.id, text: review.response, editing: true })}
-                                sx={{ color: '#1A73E8', p: 0.4, ml: 1 }}
+                                sx={{ color: 'primary.main', p: 0.4, ml: 1 }}
                               >
                                 <EditRoundedIcon sx={{ fontSize: '0.9rem' }} />
                               </IconButton>
                             </Tooltip>
                           </Box>
-                          <Typography variant="body2" sx={{ color: '#5F6368', mt: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
                             {review.response}
                           </Typography>
                         </Box>
@@ -365,7 +367,7 @@ export default function ReviewsPage() {
                           <IconButton
                             size="small"
                             onClick={() => setReplyDialog({ open: true, id: review.id, text: '', editing: false })}
-                            sx={{ color: '#1A73E8', bgcolor: '#E8F0FE', borderRadius: '8px', '&:hover': { bgcolor: '#AECBFA' } }}
+                            sx={{ color: 'primary.main', bgcolor: (t) => alpha(t.palette.primary.main, 0.12), borderRadius: '8px', '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.24) } }}
                           >
                             <ReplyRoundedIcon sx={{ fontSize: '1.05rem' }} />
                           </IconButton>
@@ -377,7 +379,7 @@ export default function ReviewsPage() {
                           size="small"
                           onClick={() => setConfirmDeleteId(review.id)}
                           aria-label={`Delete review by ${review.patient_name}`}
-                          sx={{ color: '#A50E0E', bgcolor: '#FCE8E6', borderRadius: '8px', '&:hover': { bgcolor: '#F5C6C2' } }}
+                          sx={{ color: 'error.dark', bgcolor: (t) => alpha(t.palette.error.main, 0.12), borderRadius: '8px', '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.24) } }}
                         >
                           <DeleteOutlineRoundedIcon sx={{ fontSize: '1.05rem' }} />
                         </IconButton>
@@ -390,8 +392,8 @@ export default function ReviewsPage() {
 
             {filtered.length === 0 && (
               <Box sx={{ textAlign: 'center', py: 8 }}>
-                <StarRoundedIcon sx={{ fontSize: 56, color: '#E2E8F0', mb: 1 }} />
-                <Typography fontWeight={600} sx={{ color: '#7A96AE' }}>
+                <StarRoundedIcon sx={{ fontSize: 56, color: 'divider', mb: 1 }} />
+                <Typography fontWeight={600} sx={{ color: 'text.secondary' }}>
                   No reviews found
                 </Typography>
               </Box>
@@ -443,7 +445,7 @@ export default function ReviewsPage() {
       <Dialog open={Boolean(confirmDeleteId)} onClose={() => setConfirmDeleteId(null)} maxWidth="xs" fullWidth>
         <DialogTitle fontWeight={700}>Delete Review?</DialogTitle>
         <DialogContent>
-          <Typography variant="body2" sx={{ color: '#5F6368' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Are you sure you want to delete this review? This action cannot be undone.
           </Typography>
         </DialogContent>
