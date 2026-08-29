@@ -20,8 +20,8 @@ order, front-end and back-end together.*
 ```yaml
 current_phase:  2
 current_doc:    02-phase2-win-the-midmarket.md
-current_slice:  P2-09            # next unstarted, unblocked slice — P2-01 depends on blocked P1-10; P2-02..P2-08 done (P2-07 shipped allergy-only; P2-08 shipped English/Hindi only, see REQ160)
-last_completed: REQ160           # P2-08 (regional-language Rx print, English/Hindi) closed 2026-08-29
+current_slice:  P2-10            # next unstarted, unblocked slice — P2-01 depends on blocked P1-10; P2-02..P2-09 done (P2-07 shipped allergy-only; P2-08 shipped English/Hindi only; P2-09 shipped all 6 offered languages, not just 3, per explicit user selection, see REQ161)
+last_completed: REQ161           # P2-09 (6 regional languages) closed 2026-08-29; BUG048 (clinician route-guard gap, found live-tracing the consult-to-Rx flow) also closed same day
 blocked_on:     P1-08/09/10, P1-14/15   # ABDM (NHA credentials + certification) and the voice/WhatsApp AI agent (no telephony vendor or LLM provider in this codebase) — both skipped per explicit user decision, not silently dropped
 phase_1_status: complete except the two blocked gates above — every other P1-01..P1-18 slice is done
 ```

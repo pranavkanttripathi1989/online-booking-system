@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR234 | improvement | Six more regional languages (P2-09) results | pass | 2026-08-29 | 2026-08-29 | TP234 | [TR234-frontend-platform-2026-08-29-six-regional-languages.md](./improvement/TR234-frontend-platform-2026-08-29-six-regional-languages.md) |
 | TR210 | improvement | i18n framework + English/Hindi extraction results | pass | 2026-08-27 | 2026-08-27 | TP210 | [TR210-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md](./improvement/TR210-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md) |
 | TR206 | improvement | Frontend CI gates results | pass | 2026-08-27 | 2026-08-27 | TP206 | [TR206-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md](./improvement/TR206-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md) |
 | TR181 | improvement | Cache-and-network audit round 2 results | pass | 2026-08-26 | 2026-08-26 | TP181 | [TR181-frontend-platform-2026-08-26-cache-and-network-audit-round-2.md](./improvement/TR181-frontend-platform-2026-08-26-cache-and-network-audit-round-2.md) |
@@ -18,6 +19,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR235 | bug | Guard the clinician encounter/prescription routes results | pass | 2026-08-29 | 2026-08-29 | TP235 | [TR235-frontend-platform-2026-08-29-clinician-route-guard-gap.md](./bug/TR235-frontend-platform-2026-08-29-clinician-route-guard-gap.md) |
 | TR232 | bug | Unify the theme, ship real app-wide dark mode results | pass | 2026-08-29 | 2026-08-29 | TP232 | [TR232-frontend-platform-2026-08-29-unify-theme-real-dark-mode.md](./bug/TR232-frontend-platform-2026-08-29-unify-theme-real-dark-mode.md) |
 | TR230 | bug | Admin console quick-nav fix results | pass | 2026-08-28 | 2026-08-28 | TP230 | [TR230-frontend-platform-2026-08-28-admin-console-nav-fix.md](./bug/TR230-frontend-platform-2026-08-28-admin-console-nav-fix.md) |
 | TR228 | bug | Sidebar Messages badge and patients mock-fallback fixes results | pass | 2026-08-28 | 2026-08-28 | TP228 | [TR228-frontend-platform-2026-08-28-messages-badge-and-patients-mock-fallback-fixes.md](./bug/TR228-frontend-platform-2026-08-28-messages-badge-and-patients-mock-fallback-fixes.md) |
