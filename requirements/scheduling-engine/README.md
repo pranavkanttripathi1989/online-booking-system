@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ164 | improvement | Clinician calendar: "Start Consultation" + "Open Appointment Detail" from the appointment panel | done | 2026-08-30 | 2026-08-30 | REQ017 | [REQ164-scheduling-engine-2026-08-30-calendar-popover-consultation-and-detail-actions.md](./improvement/REQ164-scheduling-engine-2026-08-30-calendar-popover-consultation-and-detail-actions.md) |
 | REQ163 | improvement | Recurring/series appointments + treatment-plan scheduling (P2-10) | done | 2026-08-29 | 2026-08-29 | REQ017 | [REQ163-scheduling-engine-2026-08-29-recurring-series-and-treatment-plans.md](./improvement/REQ163-scheduling-engine-2026-08-29-recurring-series-and-treatment-plans.md) |
 | REQ119 | improvement | Hybrid-mode booked:walk-in interleaving (US-CAL-04) | done | 2026-08-26 | 2026-08-26 | REQ017 | [REQ119-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md](./improvement/REQ119-scheduling-engine-2026-08-26-hybrid-walkin-interleaving.md) |
 | REQ106 | improvement | Booking waitlist for fully-booked slots | done | 2026-08-26 | 2026-08-26 | REQ017 | [REQ106-scheduling-engine-2026-08-26-booking-waitlist.md](./improvement/REQ106-scheduling-engine-2026-08-26-booking-waitlist.md) |
