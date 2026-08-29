@@ -704,6 +704,15 @@ export default function AppointmentDetailPage() {
               height: 30,
             }}
           />
+          {apt.series_id && (
+            <Chip
+              icon={<EventRepeatRoundedIcon fontSize="small" />}
+              label={`Part of series${apt.series_occurrence_no ? ` · #${apt.series_occurrence_no}` : ''}`}
+              size="small"
+              onClick={() => navigate(`/appointments/series/${apt.series_id}`)}
+              sx={{ fontWeight: 700, cursor: 'pointer' }}
+            />
+          )}
           <Tooltip title="Print appointment details">
             <Button
               variant="outlined"

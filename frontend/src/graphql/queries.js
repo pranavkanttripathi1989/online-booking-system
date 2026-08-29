@@ -24,6 +24,8 @@ export const APPOINTMENT_FIELDS = gql`
     type
     booking_mode
     token_no
+    series_id
+    series_occurrence_no
     notes
     cancellation_reason
     reminder_sent_at
@@ -640,3 +642,40 @@ export const TEST_RESULTS_QUERY = gql`
     }
   }
 `
+
+// REQ163 (P2-10) — the staff-facing series index; deliberately omits the
+// nested `appointments` field (an N+1-per-series fetch a list view doesn't
+// need) — GET_APPOINTMENT_SERIES below is the one that populates it, for
+// the detail view.
+export const GET_APPOINTMENT_SERIES_LIST = gql`
+  query GetAppointmentSeriesList($clinic_id: ID) {
+    appointmentSeriesList(clinic_id: $clinic_id) {
+      id
+      name
+      series_type
+      status
+      clinic_id
+      patient_id
+      created_at
+    }
+  }
+`
+
+export const GET_APPOINTMENT_SERIES = gql`
+  query GetAppointmentSeries($id: ID!) {
+    appointmentSeries(id: $id) {
+      id
+      name
+      series_type
+      status
+      clinic_id
+      patient_id
+      created_at
+      appointments {
+        ...AppointmentFields
+      }
+    }
+  }
+  ${APPOINTMENT_FIELDS}
+`
+

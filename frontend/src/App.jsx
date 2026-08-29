@@ -81,6 +81,8 @@ const AppointmentsPage = lazy(() => import('./pages/appointments/index'))
 const NewAppointmentPage = lazy(() => import('./pages/appointments/create'))
 const EditAppointmentPage = lazy(() => import('./pages/appointments/edit'))
 const AppointmentDetailPage = lazy(() => import('./pages/appointments/detail'))
+const NewAppointmentSeriesPage = lazy(() => import('./pages/appointments/series/new'))
+const AppointmentSeriesDetailPage = lazy(() => import('./pages/appointments/series/detail'))
 const BookingWizard = lazy(() => import('./pages/booking/index'))
 
 // ─── Clinicians ───────────────────────────────────────────────────────────────
@@ -491,6 +493,26 @@ function App() {
             {/* /appointments/book moved to its own top-level OptionalAuthShell route
                 (below) — it's the one flow meant to work both logged-in and
                 anonymous, so it isn't nested under ProtectedRoute here. */}
+            {/* REQ163 (P2-10) — React Router v6 scores a literal "series"
+                segment over the ":id" wildcard below regardless of
+                declaration order, so this doesn't collide with
+                /appointments/:id. */}
+            <Route
+              path="/appointments/series/new"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <NewAppointmentSeriesPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/appointments/series/:id"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <AppointmentSeriesDetailPage />
+                </Suspense>
+              }
+            />
             <Route
               path="/appointments/:id"
               element={

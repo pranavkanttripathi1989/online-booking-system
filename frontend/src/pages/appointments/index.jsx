@@ -634,9 +634,16 @@ export default function AppointmentsPage() {
       sortable: false,
       renderCell: ({ row }) => (
         <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 0.5, width: '100%', overflow: 'hidden' }}>
-          <Typography variant="body2" fontWeight={600} noWrap sx={{ color: 'text.primary', lineHeight: 1.4, maxWidth: '100%' }}>
-            {row.patient?.full_name ?? '—'}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, maxWidth: '100%' }}>
+            <Typography variant="body2" fontWeight={600} noWrap sx={{ color: 'text.primary', lineHeight: 1.4, maxWidth: '100%' }}>
+              {row.patient?.full_name ?? '—'}
+            </Typography>
+            {row.series_id && (
+              <Tooltip title={`Part of a series${row.series_occurrence_no ? ` (#${row.series_occurrence_no})` : ''}`}>
+                <EventRepeatIcon sx={{ fontSize: '0.9rem', color: 'primary.main', flexShrink: 0 }} />
+              </Tooltip>
+            )}
+          </Box>
           <Typography variant="caption" noWrap sx={{ color: 'text.disabled', lineHeight: 1.3, maxWidth: '100%' }}>
             {row.patient?.email ?? ''}
           </Typography>
@@ -833,6 +840,14 @@ export default function AppointmentsPage() {
                 Export CSV
               </Button>
             </Tooltip>
+            <Button
+              variant="outlined"
+              startIcon={<EventRepeatIcon />}
+              onClick={() => navigate('/appointments/series/new')}
+              sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700 }}
+            >
+              New Series
+            </Button>
             <Button
               variant="contained"
               startIcon={<AddIcon />}

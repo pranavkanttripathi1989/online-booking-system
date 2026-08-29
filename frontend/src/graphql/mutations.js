@@ -193,6 +193,49 @@ export const COMPLETE_APPOINTMENT_MUTATION = gql`
   }
 `
 
+// REQ163 (P2-10) — recurring/series appointments + treatment-plan
+// scheduling. Every occurrence is validated/created through the same
+// createAppointment path server-side (reused, not reimplemented) — the
+// response is a partial-success report (created_count/failed_count), never
+// a silent all-or-nothing outcome (STATE-10/BOOK-19).
+export const CREATE_APPOINTMENT_SERIES_MUTATION = gql`
+  mutation CreateAppointmentSeries($input: CreateAppointmentSeriesInput!) {
+    createAppointmentSeries(input: $input) {
+      success
+      userErrors {
+        message
+      }
+      attempted_count
+      created_count
+      failed_count
+      failures {
+        occurrence_index
+        message
+      }
+      series {
+        id
+        name
+        series_type
+        status
+      }
+    }
+  }
+`
+
+export const CANCEL_APPOINTMENT_SERIES_MUTATION = gql`
+  mutation CancelAppointmentSeries($input: CancelAppointmentSeriesInput!) {
+    cancelAppointmentSeries(input: $input) {
+      success
+      userErrors {
+        message
+      }
+      attempted_count
+      cancelled_count
+      failed_count
+    }
+  }
+`
+
 // REQ023 (US-BIL-01, scoped subset) — front-desk mixed-tender counter billing.
 // REQ056 (US-BIL-03) — discount_amount/discount_reason on the input, and
 // pending_approval_id on the response: when a discount exceeds the org's
