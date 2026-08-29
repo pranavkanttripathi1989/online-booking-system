@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react'
 import { useQuery, useMutation, useSubscription, gql } from '@apollo/client'
 import { useTheme, useMediaQuery } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   Box,
   Typography,
@@ -259,21 +260,26 @@ const DELETE_CANNED_REPLY = gql`
 `
 
 // ─── Role colour map (SUG-MSG-005) ───────────────────────────────────────────
-const ROLE_STYLE = {
-  patient: { bg: '#E8F5E9', color: '#2E7D32', label: 'Patient', icon: PersonRoundedIcon },
-  clinician: { bg: '#E3F2FD', color: '#1565C0', label: 'Clinician', icon: LocalHospitalRoundedIcon },
-  staff: { bg: '#F3E5F5', color: '#6A1B9A', label: 'Staff', icon: BadgeRoundedIcon },
-}
-
-function getRoleStyle(role) {
-  return ROLE_STYLE[role] ?? ROLE_STYLE.staff
+// Theme-derived, not a hand-picked hex map -- see calendar/index.jsx and
+// finances/index.jsx for the same conversion.
+function getRoleStyle(theme, role) {
+  const p = theme.palette
+  const dark = theme.palette.mode === 'dark'
+  const tone = (main, darkText) => ({ bg: alpha(main, dark ? 0.18 : 0.12), color: dark ? main : darkText })
+  const styles = {
+    patient: { ...tone(p.success.main, p.success.dark), label: 'Patient', icon: PersonRoundedIcon },
+    clinician: { ...tone(p.primary.main, p.primary.dark), label: 'Clinician', icon: LocalHospitalRoundedIcon },
+    staff: { ...tone(p.secondary.main, p.secondary.dark), label: 'Staff', icon: BadgeRoundedIcon },
+  }
+  return styles[role] ?? styles.staff
 }
 
 // ─── Contact Item ─────────────────────────────────────────────────────────────
 function ContactItem({ thread, active, currentUserId, onClick }) {
+  const theme = useTheme()
   const other = thread.participants.find((p) => p.id !== currentUserId) ?? thread.participants[0]
   const unread = thread.unread_count ?? 0
-  const rs = getRoleStyle(other?.role)
+  const rs = getRoleStyle(theme, other?.role)
   const RoleIcon = rs.icon
   return (
     <ListItemButton
@@ -286,9 +292,10 @@ function ContactItem({ thread, active, currentUserId, onClick }) {
         borderRadius: 2,
         mx: 1,
         mb: 0.5,
-        borderLeft: active ? '3px solid #1A73E8' : '3px solid transparent',
-        '&.Mui-selected': { bgcolor: '#E8F0FE' },
-        '&:hover': { bgcolor: active ? '#E8F0FE' : '#F8F9FA' },
+        borderLeft: active ? '3px solid' : '3px solid transparent',
+        borderLeftColor: active ? 'primary.main' : 'transparent',
+        '&.Mui-selected': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08) },
+        '&:hover': { bgcolor: active ? (t) => alpha(t.palette.primary.main, 0.08) : 'action.hover' },
         transition: 'all 0.15s',
       }}
     >
@@ -297,8 +304,8 @@ function ContactItem({ thread, active, currentUserId, onClick }) {
           sx={{
             width: 40,
             height: 40,
-            bgcolor: active ? '#1A73E8' : '#E8F0FE',
-            color: active ? '#fff' : '#1A73E8',
+            bgcolor: active ? 'primary.main' : (t) => alpha(t.palette.primary.main, 0.12),
+            color: active ? 'common.white' : 'primary.main',
             fontSize: '0.8rem',
             fontWeight: 700,
           }}
@@ -318,30 +325,30 @@ function ContactItem({ thread, active, currentUserId, onClick }) {
             width: 10,
             height: 10,
             borderRadius: '50%',
-            bgcolor: '#0F9D58',
-            border: '2px solid #fff',
+            bgcolor: 'success.main',
+            border: '2px solid', borderColor: 'background.paper',
           }}
         />
       </Box>
       <Box sx={{ flex: 1, minWidth: 0 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.25 }}>
-          <Typography variant="body2" fontWeight={unread ? 700 : 500} sx={{ color: '#202124' }} noWrap>
+          <Typography variant="body2" fontWeight={unread ? 700 : 500} sx={{ color: 'text.primary' }} noWrap>
             {other?.name ?? 'Unknown'}
           </Typography>
-          <Typography variant="caption" sx={{ color: '#9AA0A6', flexShrink: 0, ml: 1 }}>
+          <Typography variant="caption" sx={{ color: 'text.disabled', flexShrink: 0, ml: 1 }}>
             {/* SUG-DT-S7-001: relative time ("2 min ago", "3 days ago", etc.) instead of a raw clock time */}
             {thread.last_activity ? formatRelativeTime(thread.last_activity) : ''}
           </Typography>
         </Box>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="caption" sx={{ color: unread ? '#202124' : '#9AA0A6', fontWeight: unread ? 600 : 400 }} noWrap>
+          <Typography variant="caption" sx={{ color: unread ? 'text.primary' : 'text.disabled', fontWeight: unread ? 600 : 400 }} noWrap>
             {thread.last_message}
           </Typography>
           {unread > 0 && (
             <Box
               sx={{
-                bgcolor: '#D93025',
-                color: '#fff',
+                bgcolor: 'error.main',
+                color: 'common.white',
                 borderRadius: '10px',
                 px: 0.8,
                 fontSize: '0.6rem',
@@ -370,6 +377,7 @@ function ContactItem({ thread, active, currentUserId, onClick }) {
 
 // ─── Message Bubble ───────────────────────────────────────────────────────────
 function MessageBubble({ msg, currentUserId }) {
+  const theme = useTheme()
   const isMe = msg.from_id === currentUserId
   const initials = (msg.from_name ?? '?')
     .split(' ')
@@ -381,7 +389,7 @@ function MessageBubble({ msg, currentUserId }) {
   // SUG-MSG-006: Delivery status indicator
   // Optimistic: our sent messages show "Sent" tick; older messages (read: true) show "Read" double-tick in teal
   const DeliveryIcon = msg.read ? DoneAllRoundedIcon : DoneRoundedIcon
-  const deliveryColor = msg.read ? '#0F9D58' : '#9AA0A6'
+  const deliveryColor = msg.read ? theme.palette.primary.main : theme.palette.text.disabled
 
   return (
     <Box sx={{ display: 'flex', justifyContent: isMe ? 'flex-end' : 'flex-start', mb: 1.5 }}>
@@ -390,8 +398,8 @@ function MessageBubble({ msg, currentUserId }) {
           sx={{
             width: 30,
             height: 30,
-            bgcolor: '#E8F0FE',
-            color: '#1A73E8',
+            bgcolor: (t) => alpha(t.palette.primary.main, 0.12),
+            color: 'primary.main',
             fontSize: '0.7rem',
             fontWeight: 700,
             mr: 1,
@@ -408,9 +416,9 @@ function MessageBubble({ msg, currentUserId }) {
             px: 2,
             py: 1.25,
             borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
-            bgcolor: isMe ? '#1A73E8' : '#F1F3F4',
-            color: isMe ? '#FFFFFF' : '#202124',
-            boxShadow: isMe ? '0 2px 8px rgba(26,115,232,0.20)' : '0 1px 4px rgba(32,33,36,0.06)',
+            bgcolor: isMe ? 'primary.main' : 'action.hover',
+            color: isMe ? 'common.white' : 'text.primary',
+            boxShadow: isMe ? (t) => `0 2px 8px ${alpha(t.palette.primary.main, 0.2)}` : '0 1px 4px rgba(32,33,36,0.06)',
           }}
         >
           <Typography sx={{ fontSize: '0.875rem', fontWeight: 400, lineHeight: 1.6, fontFamily: "'Plus Jakarta Sans', sans-serif" }}>
@@ -434,7 +442,7 @@ function MessageBubble({ msg, currentUserId }) {
                       alignItems: 'center',
                       gap: 0.5,
                       textDecoration: 'underline',
-                      color: isMe ? 'rgba(255,255,255,0.9)' : '#1A73E8',
+                      color: isMe ? 'rgba(255,255,255,0.9)' : 'primary.main',
                     }}
                   >
                     <AttachFileRoundedIcon sx={{ fontSize: '0.85rem' }} /> {a.original_filename}
@@ -445,7 +453,7 @@ function MessageBubble({ msg, currentUserId }) {
           )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: isMe ? 'flex-end' : 'flex-start', gap: 0.4, mt: 0.4 }}>
-          <Typography variant="caption" sx={{ color: '#9AA0A6', fontSize: '0.68rem' }}>
+          <Typography variant="caption" sx={{ color: 'text.disabled', fontSize: '0.68rem' }}>
             {msg.sent_at ? new Date(msg.sent_at).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }) : ''}
           </Typography>
           {/* SUG-MSG-006: delivery tick for sent messages */}
@@ -462,7 +470,8 @@ function MessageBubble({ msg, currentUserId }) {
 
 // ─── Thread header role chip ──────────────────────────────────────────────────
 function RoleChip({ role }) {
-  const rs = getRoleStyle(role)
+  const theme = useTheme()
+  const rs = getRoleStyle(theme, role)
   const Icon = rs.icon
   return (
     <Chip
@@ -744,15 +753,15 @@ function MessagesPage() {
             flexShrink: 0,
             display: 'flex',
             flexDirection: 'column',
-            bgcolor: '#fff',
+            bgcolor: 'background.paper',
             borderRadius: 3,
-            border: '1px solid #E2E8F0',
+            border: '1px solid', borderColor: 'divider',
             mr: { xs: 0, sm: 2 },
             overflow: 'hidden',
           }}
         >
           {/* Header — search + compose inline (BUG-MSG-002 fix) */}
-          <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid #F5F7FA' }}>
+          <Box sx={{ px: 2, pt: 2, pb: 1.5, borderBottom: '1px solid', borderBottomColor: 'divider' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               {/* Search — BUG-MSG-004: useMemo filtered */}
               <Box
@@ -761,14 +770,14 @@ function MessagesPage() {
                   flex: 1,
                   alignItems: 'center',
                   gap: 1,
-                  bgcolor: '#F5F7FA',
-                  border: '1.5px solid #E2E8F0',
+                  bgcolor: 'action.hover',
+                  border: '1.5px solid', borderColor: 'divider',
                   borderRadius: 2,
                   px: 1.5,
                   py: 0.75,
                 }}
               >
-                <SearchRoundedIcon sx={{ color: '#B8C6D4', fontSize: '1rem' }} />
+                <SearchRoundedIcon sx={{ color: 'text.disabled', fontSize: '1rem' }} />
                 <InputBase
                   id="messages-search"
                   placeholder="Search conversations…"
@@ -785,9 +794,9 @@ function MessagesPage() {
                   size="small"
                   onClick={() => setComposeOpen(true)}
                   sx={{
-                    color: '#006D77',
-                    bgcolor: '#E0F7F7',
-                    '&:hover': { bgcolor: '#C8F0F0' },
+                    color: 'primary.main',
+                    bgcolor: (t) => alpha(t.palette.primary.main, 0.1),
+                    '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.18) },
                     borderRadius: 1.5,
                     flexShrink: 0,
                     width: 36,
@@ -848,7 +857,7 @@ function MessagesPage() {
               ))}
               {displayedThreads.length === 0 && (
                 <Box sx={{ textAlign: 'center', py: 4 }}>
-                  <SearchRoundedIcon sx={{ fontSize: '2rem', color: '#B8C6D4', mb: 1 }} />
+                  <SearchRoundedIcon sx={{ fontSize: '2rem', color: 'text.disabled', mb: 1 }} />
                   <Typography variant="body2" color="text.secondary">
                     No conversations found
                   </Typography>
@@ -869,9 +878,9 @@ function MessagesPage() {
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            bgcolor: '#FFFFFF',
+            bgcolor: 'background.paper',
             borderRadius: 3,
-            border: '1px solid #E2E8F0',
+            border: '1px solid', borderColor: 'divider',
             overflow: 'hidden',
           }}
         >
@@ -886,11 +895,11 @@ function MessagesPage() {
                 sx={{
                   px: { xs: 2, sm: 3 },
                   py: 2,
-                  borderBottom: '1px solid #F8F9FA',
+                  borderBottom: '1px solid', borderBottomColor: 'divider',
                   display: 'flex',
                   alignItems: 'center',
                   gap: { xs: 1, sm: 2 },
-                  bgcolor: '#fff',
+                  bgcolor: 'background.paper',
                 }}
               >
                 {/* BUG-MSG-003: Mobile back button */}
@@ -900,13 +909,13 @@ function MessagesPage() {
                     aria-label="Back to inbox"
                     size="small"
                     onClick={() => setActiveThreadId(null)}
-                    sx={{ color: '#5F6368', mr: 0.5 }}
+                    sx={{ color: 'text.secondary', mr: 0.5 }}
                   >
                     <ArrowBackRoundedIcon sx={{ fontSize: '1.2rem' }} />
                   </IconButton>
                 )}
                 <Box sx={{ position: 'relative' }}>
-                  <Avatar sx={{ width: 40, height: 40, bgcolor: '#E8F0FE', color: '#1A73E8', fontWeight: 700 }}>
+                  <Avatar sx={{ width: 40, height: 40, bgcolor: (t) => alpha(t.palette.primary.main, 0.12), color: 'primary.main', fontWeight: 700 }}>
                     {(otherParticipant?.name ?? '?')
                       .split(' ')
                       .map((w) => w[0])
@@ -922,17 +931,17 @@ function MessagesPage() {
                       width: 10,
                       height: 10,
                       borderRadius: '50%',
-                      bgcolor: '#0F9D58',
-                      border: '2px solid #fff',
+                      bgcolor: 'success.main',
+                      border: '2px solid', borderColor: 'background.paper',
                     }}
                   />
                 </Box>
                 <Box sx={{ flex: 1, minWidth: 0 }}>
-                  <Typography fontWeight={700} sx={{ color: '#202124', fontSize: '0.95rem' }} noWrap>
+                  <Typography fontWeight={700} sx={{ color: 'text.primary', fontSize: '0.95rem' }} noWrap>
                     {otherParticipant?.name ?? 'Unknown'}
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                    <Typography variant="caption" sx={{ color: '#0F9D58', fontWeight: 600 }}>
+                    <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 600 }}>
                       ● Online
                     </Typography>
                     {/* SUG-MSG-005: styled role chip in thread header */}
@@ -949,8 +958,8 @@ function MessagesPage() {
                         sx={{
                           fontWeight: 700,
                           fontSize: '0.7rem',
-                          bgcolor: new Date(activeThread.sla_due_at) < new Date() ? '#FCE8E6' : '#E6F4EA',
-                          color: new Date(activeThread.sla_due_at) < new Date() ? '#B3261E' : '#188038',
+                          bgcolor: new Date(activeThread.sla_due_at) < new Date() ? (t) => alpha(t.palette.error.main, 0.12) : (t) => alpha(t.palette.success.main, 0.12),
+                          color: new Date(activeThread.sla_due_at) < new Date() ? 'error.dark' : 'success.dark',
                         }}
                       />
                     </Tooltip>
@@ -985,7 +994,7 @@ function MessagesPage() {
                       <IconButton
                         aria-label={label}
                         size="small"
-                        sx={{ color: '#9AA0A6', '&:hover': { bgcolor: '#F8F9FA', color: '#1A73E8' }, transition: 'all 0.15s' }}
+                        sx={{ color: 'text.disabled', '&:hover': { bgcolor: 'action.hover', color: 'primary.main' }, transition: 'all 0.15s' }}
                       >
                         <Icon sx={{ fontSize: '1.15rem' }} />
                       </IconButton>
@@ -995,11 +1004,11 @@ function MessagesPage() {
               </Box>
 
               {/* Messages */}
-              <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5, bgcolor: '#F5F7FA' }}>
+              <Box sx={{ flex: 1, overflowY: 'auto', px: 3, py: 2.5, bgcolor: 'action.hover' }}>
                 <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2 }}>
                   <Typography
                     variant="caption"
-                    sx={{ bgcolor: '#E2E8F0', color: '#7A96AE', borderRadius: 2, px: 2, py: 0.5, fontWeight: 600 }}
+                    sx={{ bgcolor: 'divider', color: 'text.secondary', borderRadius: 2, px: 2, py: 0.5, fontWeight: 600 }}
                   >
                     {activeThread?.last_activity
                       ? new Date(activeThread.last_activity).toLocaleDateString('en-GB', {
@@ -1017,7 +1026,7 @@ function MessagesPage() {
               </Box>
 
               {/* Input */}
-              <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #F5F7FA', bgcolor: '#fff' }}>
+              <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderTopColor: 'divider', bgcolor: 'background.paper' }}>
                 {/* REQ058 (US-MSG-01) -- staged attachment preview */}
                 {stagedFile && (
                   <Chip
@@ -1036,13 +1045,13 @@ function MessagesPage() {
                       aria-label="Attach file"
                       size="small"
                       onClick={() => fileInputRef.current?.click()}
-                      sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}
+                      sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
                     >
                       <AttachFileRoundedIcon sx={{ fontSize: '1.1rem' }} />
                     </IconButton>
                   </Tooltip>
                   <Tooltip title="Emoji">
-                    <IconButton aria-label="Insert emoji" size="small" sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}>
+                    <IconButton aria-label="Insert emoji" size="small" sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}>
                       <EmojiEmotionsOutlinedIcon sx={{ fontSize: '1.1rem' }} />
                     </IconButton>
                   </Tooltip>
@@ -1053,7 +1062,7 @@ function MessagesPage() {
                         aria-label="Insert canned reply"
                         size="small"
                         onClick={(e) => setCannedMenuAnchor(e.currentTarget)}
-                        sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7' } }}
+                        sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}
                       >
                         <ContentPasteRoundedIcon sx={{ fontSize: '1.05rem' }} />
                       </IconButton>
@@ -1086,14 +1095,14 @@ function MessagesPage() {
                   <Box
                     sx={{
                       flex: 1,
-                      bgcolor: '#F8F9FA',
-                      border: '1.5px solid #E8EAED',
+                      bgcolor: 'action.hover',
+                      border: '1.5px solid', borderColor: 'divider',
                       borderRadius: '12px',
                       px: 2,
                       py: 1,
                       display: 'flex',
                       alignItems: 'center',
-                      '&:focus-within': { borderColor: '#1A73E8', boxShadow: '0 0 0 3px rgba(26,115,232,0.12)', bgcolor: '#fff' },
+                      '&:focus-within': (t) => ({ borderColor: t.palette.primary.main, boxShadow: `0 0 0 3px ${alpha(t.palette.primary.main, 0.12)}`, bgcolor: t.palette.background.paper }),
                       transition: 'all 0.18s',
                     }}
                   >
@@ -1116,16 +1125,16 @@ function MessagesPage() {
                         size="small"
                         disabled={(!input.trim() && !stagedFile) || uploadingAttachment}
                         sx={{
-                          bgcolor: input.trim() || stagedFile ? '#1A73E8' : '#E8EAED',
-                          color: input.trim() || stagedFile ? '#fff' : '#9AA0A6',
+                          bgcolor: input.trim() || stagedFile ? 'primary.main' : 'divider',
+                          color: input.trim() || stagedFile ? 'common.white' : 'text.disabled',
                           width: 36,
                           height: 36,
                           transition: 'all 0.18s',
-                          '&:hover': { bgcolor: input.trim() || stagedFile ? '#1557B0' : '#E8EAED' },
+                          '&:hover': { bgcolor: input.trim() || stagedFile ? 'primary.dark' : 'divider' },
                         }}
                       >
                         {uploadingAttachment ? (
-                          <CircularProgress size={16} sx={{ color: '#fff' }} />
+                          <CircularProgress size={16} sx={{ color: 'common.white' }} />
                         ) : (
                           <SendRoundedIcon sx={{ fontSize: '1rem' }} />
                         )}
@@ -1137,7 +1146,7 @@ function MessagesPage() {
             </>
           ) : (
             <Box
-              sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: '#B8C6D4' }}
+              sx={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', color: 'text.disabled' }}
             >
               <EditRoundedIcon sx={{ fontSize: '3rem', mb: 1.5, opacity: 0.4 }} />
               <Typography variant="h6" fontWeight={600}>
@@ -1155,9 +1164,9 @@ function MessagesPage() {
                   mt: 2,
                   borderRadius: 2,
                   textTransform: 'none',
-                  color: '#006D77',
-                  borderColor: '#006D77',
-                  '&:hover': { bgcolor: '#E0F7F7', borderColor: '#006D77' },
+                  color: 'primary.main',
+                  borderColor: 'primary.main',
+                  '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.1), borderColor: 'primary.main' },
                 }}
               >
                 New Message
@@ -1179,7 +1188,7 @@ function MessagesPage() {
             value={composeRecip}
             onChange={(_, v) => setComposeRecip(v)}
             renderOption={(props, option) => {
-              const rs = getRoleStyle(option.role)
+              const rs = getRoleStyle(theme, option.role)
               const RIcon = rs.icon
               return (
                 <Box component="li" {...props} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -1274,7 +1283,7 @@ function MessagesPage() {
             variant="contained"
             disabled={!composeRecip || !composeMsg.trim()}
             onClick={handleComposeSend}
-            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: '#006D77', '&:hover': { bgcolor: '#005B64' } }}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
             startIcon={<SendRoundedIcon />}
           >
             Send
@@ -1371,7 +1380,7 @@ function MessagesPage() {
             variant="contained"
             disabled={!cannedTitle.trim() || !cannedBody.trim()}
             onClick={handleSaveCannedReply}
-            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: '#006D77', '&:hover': { bgcolor: '#005B64' } }}
+            sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' } }}
           >
             {cannedEditingId ? 'Save changes' : 'Add reply'}
           </Button>
