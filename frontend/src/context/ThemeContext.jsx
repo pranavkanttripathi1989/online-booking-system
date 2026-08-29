@@ -130,6 +130,16 @@ export function ThemeModeProvider({ children }) {
 
   const theme = useMemo(() => createAppTheme(resolvedMode), [resolvedMode])
 
+  // Third-party libraries that render their own DOM outside MUI's component
+  // tree (FullCalendar, Recharts) can't be reached by a theme.components
+  // override -- only plain CSS can style them, and plain CSS has no way to
+  // ask "is dark mode active" without a DOM hook. This is that hook; see
+  // index.css's own `[data-theme='dark']` overrides for the FullCalendar/
+  // Recharts blocks this was added for (BUG047 follow-up, 2026-08-29).
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', resolvedMode)
+  }, [resolvedMode])
+
   return (
     <ThemeModeContext.Provider value={{ mode, resolvedMode, setMode }}>
       <ThemeProvider theme={theme}>

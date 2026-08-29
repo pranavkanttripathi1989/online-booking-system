@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useLazyQuery, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
+import { alpha } from '@mui/material/styles'
 import {
   Alert,
   Autocomplete,
@@ -729,7 +730,11 @@ function NotesPane({
           ) : (
             <Stack spacing={1}>
               {encounter.diagnoses.map((d) => (
-                <Paper key={d.id} variant="outlined" sx={{ p: 1.5, bgcolor: d.type === 'allergy' ? '#FFF4E5' : '#FAFAFA' }}>
+                <Paper
+                  key={d.id}
+                  variant="outlined"
+                  sx={{ p: 1.5, bgcolor: d.type === 'allergy' ? (t) => alpha(t.palette.warning.main, 0.12) : 'action.hover' }}
+                >
                   <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                     <Chip size="small" label={d.type} sx={{ textTransform: 'capitalize' }} />
                     {d.status && <Chip size="small" label={d.status} variant="outlined" sx={{ textTransform: 'capitalize' }} />}
@@ -887,7 +892,7 @@ function NotesPane({
             </Typography>
             <Stack spacing={1}>
               {encounter.addenda.map((a) => (
-                <Paper key={a.id} variant="outlined" sx={{ p: 1.5, bgcolor: '#FAFAFA' }}>
+                <Paper key={a.id} variant="outlined" sx={{ p: 1.5, bgcolor: 'action.hover' }}>
                   <Typography variant="body2">{a.content}</Typography>
                   <Typography variant="caption" color="text.secondary">
                     {new Date(a.created_at).toLocaleString()}

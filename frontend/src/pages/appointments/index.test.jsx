@@ -4,10 +4,20 @@ import { MemoryRouter } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
 import { HelmetProvider } from 'react-helmet-async'
 import { SnackbarProvider } from 'notistack'
+import { ThemeProvider } from '@mui/material/styles'
 import { gql } from '@apollo/client'
 import AppointmentsListPage from './index'
 import { APPOINTMENT_FIELDS, CLINICIANS_QUERY } from '../../graphql/queries'
 import { useAuth } from '../../hooks/useAuth'
+import { createAppTheme } from '../../theme'
+
+// BUG047 follow-up (P1-17 status/risk chips now read the real app theme's
+// theme.palette.appointmentStatus extension, not a per-file hex map) --
+// this page can no longer render with no ThemeProvider at all. The real
+// app is never rendered without one (main.jsx wraps the whole tree), so a
+// test render without one was already testing an unrealistic setup, not a
+// real one.
+const theme = createAppTheme('light')
 
 jest.mock('../../hooks/useAuth', () => ({
   useAuth: jest.fn(),
@@ -110,15 +120,17 @@ function baseMocks(rows = [apptRow()]) {
 function renderPage(mocks) {
   useAuth.mockReturnValue({ hasRole: () => true })
   return render(
-    <HelmetProvider>
-      <MemoryRouter>
-        <SnackbarProvider>
-          <MockedProvider mocks={mocks}>
-            <AppointmentsListPage />
-          </MockedProvider>
-        </SnackbarProvider>
-      </MemoryRouter>
-    </HelmetProvider>,
+    <ThemeProvider theme={theme}>
+      <HelmetProvider>
+        <MemoryRouter>
+          <SnackbarProvider>
+            <MockedProvider mocks={mocks}>
+              <AppointmentsListPage />
+            </MockedProvider>
+          </SnackbarProvider>
+        </MemoryRouter>
+      </HelmetProvider>
+    </ThemeProvider>,
   )
 }
 

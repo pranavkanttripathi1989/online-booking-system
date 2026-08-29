@@ -5,6 +5,7 @@ import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
 import dayjs from 'dayjs'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
+import { alpha } from '@mui/material/styles'
 import {
   Alert,
   Box,
@@ -182,7 +183,7 @@ export default function EditAppointmentPage() {
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/appointments')} sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}>
+        <IconButton onClick={() => navigate('/appointments')} sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'divider' } }}>
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -191,16 +192,16 @@ export default function EditAppointmentPage() {
               width: 40,
               height: 40,
               borderRadius: 2.5,
-              background: 'linear-gradient(135deg,#FEF7E0,#FEEFC3)',
+              background: (t) => `linear-gradient(135deg,${alpha(t.palette.warning.main, 0.2)},${alpha(t.palette.warning.light, 0.3)})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <EditCalendarRoundedIcon sx={{ color: '#F9AB00', fontSize: '1.2rem' }} />
+            <EditCalendarRoundedIcon sx={{ color: 'warning.main', fontSize: '1.2rem' }} />
           </Box>
           <Box>
-            <Typography variant="h5" fontWeight={800} color="#202124">
+            <Typography variant="h5" fontWeight={800} color="text.primary">
               Edit Appointment
             </Typography>
             <Typography variant="body2" color="text.secondary">
@@ -225,8 +226,8 @@ export default function EditAppointmentPage() {
               borderRadius: 2.5,
               textTransform: 'none',
               fontWeight: 700,
-              background: 'linear-gradient(135deg,#006D77,#00858F)',
-              '&:hover': { background: 'linear-gradient(135deg,#005A62,#006D77)', boxShadow: '0 4px 14px rgba(0,109,119,0.40)' },
+              background: (t) => `linear-gradient(135deg,${t.palette.primary.main},${t.palette.primary.light})`,
+              '&:hover': { background: (t) => `linear-gradient(135deg,${t.palette.primary.dark},${t.palette.primary.main})`, boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.4)}` },
             }}
           >
             {loading ? 'Saving…' : 'Save Changes'}
@@ -236,8 +237,8 @@ export default function EditAppointmentPage() {
 
       <Grid container spacing={3}>
         <Grid item xs={12} md={8}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED', mb: 3 }}>
-            <Typography variant="subtitle1" fontWeight={700} color="#202124" mb={2.5}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+            <Typography variant="subtitle1" fontWeight={700} color="text.primary" mb={2.5}>
               Schedule
             </Typography>
             <Grid container spacing={2.5}>
@@ -313,8 +314,8 @@ export default function EditAppointmentPage() {
           </Paper>
         </Grid>
         <Grid item xs={12} md={4}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED', mb: 3 }}>
-            <Typography variant="subtitle1" fontWeight={700} color="#202124" mb={2.5}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 3 }}>
+            <Typography variant="subtitle1" fontWeight={700} color="text.primary" mb={2.5}>
               Status
             </Typography>
             <TextField
@@ -345,15 +346,15 @@ export default function EditAppointmentPage() {
           </Paper>
 
           {/* Read-only info */}
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED', bgcolor: '#F8F9FA' }}>
-            <Typography variant="subtitle2" fontWeight={700} color="#5F6368" mb={1}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mb={1}>
               Patient
             </Typography>
             <Typography fontWeight={600}>{apt?.patient?.full_name ?? '—'}</Typography>
             <Typography variant="body2" color="text.secondary">
               {apt?.patient?.email}
             </Typography>
-            <Typography variant="subtitle2" fontWeight={700} color="#5F6368" mt={2} mb={0.5}>
+            <Typography variant="subtitle2" fontWeight={700} color="text.secondary" mt={2} mb={0.5}>
               Service
             </Typography>
             <Typography fontWeight={600}>{apt?.service?.name ?? '—'}</Typography>

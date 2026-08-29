@@ -34,6 +34,7 @@ import {
   Close as CloseIcon,
   Block as BlockIcon,
 } from '@mui/icons-material'
+import { alpha, useTheme } from '@mui/material/styles'
 import dayjs from 'dayjs'
 import StitchKpiCard from '../../components/shared/StitchKpiCard'
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore'
@@ -177,7 +178,6 @@ const patientInitials = (fullName) =>
 const isUpcomingStatus = (status) => status === 'scheduled' || status === 'confirmed'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
-const STITCH_BRAND = '#006D77'
 const START_MINS = 480 // 08:00
 const PIXELS_PER_MIN = 1.2
 const TIMELINE_HEIGHT = 720
@@ -206,14 +206,14 @@ const getTopAndHeight = (startTime, durationOrEndTime) => {
   return { top, height }
 }
 
-const getStatusColor = (status) => {
+const getStatusColor = (theme, status) => {
   switch (status) {
     case 'completed':
-      return '#2DC653'
+      return theme.palette.success.main
     case 'cancelled':
-      return '#E63946'
+      return theme.palette.error.main
     default:
-      return STITCH_BRAND
+      return theme.palette.primary.main
   }
 }
 
@@ -244,6 +244,7 @@ function assignOverlapColumns(appts) {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ClinicianDashboard() {
+  const theme = useTheme()
   const { user } = useAuth()
   const navigate = useNavigate()
   const todayStr = dayjs().format('YYYY-MM-DD')
@@ -521,10 +522,10 @@ export default function ClinicianDashboard() {
 
       {/* ── KPI CARDS ─────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-        <StitchKpiCard title="Total Today" value={allAppointments.length} icon={<EventNote />} color="#3B82F6" />
-        <StitchKpiCard title="Completed" value={completedApps.length} icon={<CheckCircle />} color="#10B981" />
-        <StitchKpiCard title="Remaining" value={upcomingApps.length} icon={<AccessTime />} color={STITCH_BRAND} />
-        <StitchKpiCard title="Video Calls" value={videoApps.length} icon={<Videocam />} color="#7C3AED" />
+        <StitchKpiCard title="Total Today" value={allAppointments.length} icon={<EventNote />} color={theme.palette.info.main} />
+        <StitchKpiCard title="Completed" value={completedApps.length} icon={<CheckCircle />} color={theme.palette.success.main} />
+        <StitchKpiCard title="Remaining" value={upcomingApps.length} icon={<AccessTime />} color={theme.palette.primary.main} />
+        <StitchKpiCard title="Video Calls" value={videoApps.length} icon={<Videocam />} color={theme.palette.secondary.main} />
       </Box>
       {/* NEW-CLDASH-019: completed/total progress bar */}
       {allAppointments.length > 0 && (
@@ -537,12 +538,12 @@ export default function ClinicianDashboard() {
               {completedApps.length} / {allAppointments.length} completed
             </Typography>
           </Stack>
-          <Box sx={{ height: 6, bgcolor: '#E8F8F9', borderRadius: 3, overflow: 'hidden' }}>
+          <Box sx={{ height: 6, bgcolor: (t) => alpha(t.palette.primary.main, 0.08), borderRadius: 3, overflow: 'hidden' }}>
             <Box
               sx={{
                 height: '100%',
                 borderRadius: 3,
-                bgcolor: '#10B981',
+                bgcolor: 'success.main',
                 width: `${Math.min(100, (completedApps.length / allAppointments.length) * 100)}%`,
                 transition: 'width 0.4s ease',
               }}
@@ -557,8 +558,8 @@ export default function ClinicianDashboard() {
           <Typography variant="overline" fontWeight={700} color="text.secondary" display="block" mb={1} letterSpacing={1}>
             Today's Schedule
           </Typography>
-          <Paper elevation={0} sx={{ border: '1px solid', borderColor: '#E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
-            <Box ref={timelineRef} position="relative" height={TIMELINE_HEIGHT} overflow="auto" sx={{ bgcolor: '#FAFCFC' }}>
+          <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
+            <Box ref={timelineRef} position="relative" height={TIMELINE_HEIGHT} overflow="auto" sx={{ bgcolor: 'background.default' }}>
               {/* Background time grid */}
               {timeLabels.map(({ raw, label, isHour }) => {
                 const { top } = getTopAndHeight(raw, 0)
@@ -570,7 +571,7 @@ export default function ClinicianDashboard() {
                     left={0}
                     right={0}
                     height={30 * PIXELS_PER_MIN}
-                    borderBottom={`1px solid ${isHour ? '#E2E8F0' : '#F1F5F9'}`}
+                    borderBottom={(t) => `1px solid ${isHour ? t.palette.divider : t.palette.action.hover}`}
                   >
                     {isHour && (
                       <Typography
@@ -580,7 +581,7 @@ export default function ClinicianDashboard() {
                           position: 'absolute',
                           top: -9,
                           left: 8,
-                          bgcolor: '#FAFCFC',
+                          bgcolor: 'background.default',
                           px: 0.5,
                           fontWeight: 700,
                           fontSize: '0.68rem',
@@ -635,7 +636,7 @@ export default function ClinicianDashboard() {
               {/* Appointment blocks — SUG-CLDASH-002: click opens detail drawer */}
               {apptWithCols.map((appt) => {
                 const { top, height } = getTopAndHeight(appt.startTime, appt.duration || appt.endTime)
-                const blockColor = getStatusColor(appt.status)
+                const blockColor = getStatusColor(theme, appt.status)
                 const totalCols = appt._totalCols ?? 1
                 const col = appt._col ?? 0
                 const colWidth = `calc(${(1 / totalCols) * 100}% - ${64 + 12}px)`
@@ -703,8 +704,8 @@ export default function ClinicianDashboard() {
                       right: 12,
                       top,
                       height: Math.max(height, 28),
-                      bgcolor: '#FFFBEB',
-                      border: '1.5px dashed #F59E0B',
+                      bgcolor: (t) => alpha(t.palette.warning.main, 0.12),
+                      border: (t) => `1.5px dashed ${t.palette.warning.main}`,
                       borderRadius: 1.5,
                       display: 'flex',
                       alignItems: 'center',
@@ -712,8 +713,8 @@ export default function ClinicianDashboard() {
                       px: 1,
                     }}
                   >
-                    <RestaurantMenu sx={{ fontSize: 13, color: '#F59E0B' }} />
-                    <Typography variant="caption" color="#92400E" fontWeight={700}>
+                    <RestaurantMenu sx={{ fontSize: 13, color: 'warning.main' }} />
+                    <Typography variant="caption" color="warning.dark" fontWeight={700}>
                       Lunch Break
                     </Typography>
                   </Box>
@@ -732,8 +733,8 @@ export default function ClinicianDashboard() {
                         right: 12,
                         top,
                         height: Math.max(height, 28),
-                        bgcolor: '#F8FAFC',
-                        border: '1.5px dashed #CBD5E1',
+                        bgcolor: 'action.hover',
+                        border: '1.5px dashed', borderColor: 'divider',
                         borderRadius: 1.5,
                         display: 'flex',
                         alignItems: 'center',
@@ -742,7 +743,7 @@ export default function ClinicianDashboard() {
                         pr: 0.5,
                       }}
                     >
-                      <DoNotDisturb sx={{ fontSize: 13, color: '#94A3B8', flexShrink: 0 }} />
+                      <DoNotDisturb sx={{ fontSize: 13, color: 'text.disabled', flexShrink: 0 }} />
                       <Typography variant="caption" color="text.secondary" fontWeight={600} noWrap sx={{ flex: 1 }}>
                         Blocked{sb.reason ? `: ${sb.reason}` : ''}
                       </Typography>
@@ -757,8 +758,8 @@ export default function ClinicianDashboard() {
         {/* ── RIGHT COL ───────────────────────────────────────────── */}
         <Grid item xs={12} md={5}>
           {/* UPCOMING NEXT */}
-          <Paper elevation={0} sx={{ border: '2px solid', borderColor: STITCH_BRAND, borderRadius: 3, mb: 3, overflow: 'hidden' }}>
-            <Box sx={{ bgcolor: STITCH_BRAND, px: 2.5, py: 1.25 }}>
+          <Paper elevation={0} sx={{ border: '2px solid', borderColor: theme.palette.primary.main, borderRadius: 3, mb: 3, overflow: 'hidden' }}>
+            <Box sx={{ bgcolor: theme.palette.primary.main, px: 2.5, py: 1.25 }}>
               <Typography
                 variant="overline"
                 sx={{ color: 'rgba(255,255,255,0.9)', letterSpacing: 1.5, fontWeight: 700, fontSize: '0.68rem' }}
@@ -772,7 +773,7 @@ export default function ClinicianDashboard() {
                   <Stack direction="row" gap={2} alignItems="center" mb={2}>
                     <Avatar
                       src={`https://www.gravatar.com/avatar/${nextAppt.patient.id}?d=mp`}
-                      sx={{ width: 56, height: 56, border: `2px solid ${STITCH_BRAND}30` }}
+                      sx={{ width: 56, height: 56, border: `2px solid ${theme.palette.primary.main}30` }}
                     />
                     <Box>
                       <Typography variant="subtitle1" fontWeight={800}>
@@ -793,7 +794,7 @@ export default function ClinicianDashboard() {
                     <Button
                       variant="outlined"
                       fullWidth
-                      sx={{ borderRadius: 2, borderColor: '#E2E8F0', color: 'text.secondary', fontWeight: 600 }}
+                      sx={{ borderRadius: 2, borderColor: 'divider', color: 'text.secondary', fontWeight: 600 }}
                       onClick={() => navigate(`/patients/${nextAppt.patient.id}`)}
                     >
                       View Notes
@@ -803,7 +804,7 @@ export default function ClinicianDashboard() {
                         variant="contained"
                         fullWidth
                         startIcon={<Videocam />}
-                        sx={{ bgcolor: STITCH_BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+                        sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' }, borderRadius: 2, fontWeight: 700 }}
                         onClick={() => navigate(`/video-consultation/${nextAppt.id}`)}
                       >
                         Start Session
@@ -820,8 +821,8 @@ export default function ClinicianDashboard() {
           </Paper>
 
           {/* QUEUE */}
-          <Paper elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3, overflow: 'hidden' }}>
-            <Box sx={{ px: 2.5, py: 1.5, bgcolor: '#F8FAFC', borderBottom: '1px solid #E2E8F0' }}>
+          <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
+            <Box sx={{ px: 2.5, py: 1.5, bgcolor: 'action.hover', borderBottom: '1px solid', borderBottomColor: 'divider' }}>
               <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1} fontSize="0.68rem">
                 Upcoming Queue
               </Typography>
@@ -846,9 +847,9 @@ export default function ClinicianDashboard() {
                           </Typography>
                         }
                       />
-                      {appt.type === 'video' && <Videocam sx={{ color: STITCH_BRAND, fontSize: 16 }} />}
+                      {appt.type === 'video' && <Videocam sx={{ color: theme.palette.primary.main, fontSize: 16 }} />}
                       {/* SUG-CLDASH-012: queue item click opens detail drawer */}
-                      <IconButton size="small" onClick={() => setSelectedAppt(appt)} sx={{ ml: 0.5, color: STITCH_BRAND }}>
+                      <IconButton size="small" onClick={() => setSelectedAppt(appt)} sx={{ ml: 0.5, color: theme.palette.primary.main }}>
                         <EventNote sx={{ fontSize: 16 }} />
                       </IconButton>
                     </ListItem>
@@ -873,7 +874,7 @@ export default function ClinicianDashboard() {
         onClose={() => setBlockDrawerOpen(false)}
         PaperProps={{ sx: { width: 360, display: 'flex', flexDirection: 'column' } }}
       >
-        <Box sx={{ bgcolor: STITCH_BRAND, px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+        <Box sx={{ bgcolor: theme.palette.primary.main, px: 3, py: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <Stack direction="row" alignItems="center" gap={1}>
             <BlockIcon sx={{ color: 'white', fontSize: 18 }} />
             <Typography variant="h6" color="white" fontWeight={700}>
@@ -902,15 +903,15 @@ export default function ClinicianDashboard() {
                     mb: 2,
                     px: 1.5,
                     py: 0.75,
-                    bgcolor: '#E8F8F9',
+                    bgcolor: (t) => alpha(t.palette.primary.main, 0.08),
                     borderRadius: 2,
                     display: 'inline-flex',
                     alignItems: 'center',
                     gap: 0.75,
                   }}
                 >
-                  <AccessTime sx={{ fontSize: 14, color: STITCH_BRAND }} />
-                  <Typography variant="caption" color={STITCH_BRAND} fontWeight={700}>
+                  <AccessTime sx={{ fontSize: 14, color: theme.palette.primary.main }} />
+                  <Typography variant="caption" color={theme.palette.primary.main} fontWeight={700}>
                     Duration: {dur >= 60 ? `${Math.floor(dur / 60)}h ${dur % 60 ? (dur % 60) + 'm' : ''}`.trim() : `${dur} mins`}
                   </Typography>
                 </Box>
@@ -951,7 +952,7 @@ export default function ClinicianDashboard() {
             />
           </Stack>
         </Box>
-        <Box sx={{ p: 3, borderTop: '1px solid #E2E8F0', flexShrink: 0 }}>
+        <Box sx={{ p: 3, borderTop: '1px solid', borderTopColor: 'divider', flexShrink: 0 }}>
           <Stack direction="row" spacing={1.5}>
             <Button
               variant="outlined"
@@ -969,7 +970,7 @@ export default function ClinicianDashboard() {
               fullWidth
               onClick={handleSaveBlock}
               disabled={savingBlock}
-              sx={{ bgcolor: STITCH_BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+              sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' }, borderRadius: 2, fontWeight: 700 }}
             >
               {savingBlock ? 'Saving…' : 'Save Block'}
             </Button>
@@ -988,7 +989,7 @@ export default function ClinicianDashboard() {
           <>
             <Box
               sx={{
-                bgcolor: getStatusColor(selectedAppt.status),
+                bgcolor: getStatusColor(theme, selectedAppt.status),
                 px: 3,
                 py: 2,
                 display: 'flex',
@@ -1011,14 +1012,14 @@ export default function ClinicianDashboard() {
                   onError={(e) => {
                     e.currentTarget.style.display = 'none'
                   }}
-                  sx={{ width: 56, height: 56, border: `2px solid ${STITCH_BRAND}30`, position: 'relative' }}
+                  sx={{ width: 56, height: 56, border: `2px solid ${theme.palette.primary.main}30`, position: 'relative' }}
                 />
                 {/* Fallback initials avatar always rendered behind */}
                 <Avatar
                   sx={{
                     width: 56,
                     height: 56,
-                    bgcolor: getStatusColor(selectedAppt.status),
+                    bgcolor: getStatusColor(theme, selectedAppt.status),
                     fontWeight: 800,
                     fontSize: '1rem',
                     position: 'absolute',
@@ -1044,8 +1045,8 @@ export default function ClinicianDashboard() {
                   label={selectedAppt.status.toUpperCase()}
                   size="small"
                   sx={{
-                    bgcolor: getStatusColor(selectedAppt.status) + '22',
-                    color: getStatusColor(selectedAppt.status),
+                    bgcolor: getStatusColor(theme, selectedAppt.status) + '22',
+                    color: getStatusColor(theme, selectedAppt.status),
                     fontWeight: 700,
                     width: 'fit-content',
                   }}
@@ -1053,11 +1054,11 @@ export default function ClinicianDashboard() {
                 <Chip
                   label={selectedAppt.type === 'video' ? '📹 Video' : '🏥 In-Person'}
                   size="small"
-                  sx={{ bgcolor: '#F0F9FF', color: '#0369A1', fontWeight: 600, width: 'fit-content' }}
+                  sx={{ bgcolor: (t) => alpha(t.palette.info.main, 0.12), color: 'info.dark', fontWeight: 600, width: 'fit-content' }}
                 />
               </Stack>
             </Box>
-            <Box sx={{ p: 3, borderTop: '1px solid #E2E8F0', flexShrink: 0 }}>
+            <Box sx={{ p: 3, borderTop: '1px solid', borderTopColor: 'divider', flexShrink: 0 }}>
               <Stack spacing={1.5}>
                 {/* Mark Complete — only offered for still-upcoming appointments */}
                 {isUpcomingStatus(selectedAppt.status) && (
@@ -1067,7 +1068,7 @@ export default function ClinicianDashboard() {
                     startIcon={<CheckCircle />}
                     onClick={() => handleMarkComplete(selectedAppt.id)}
                     disabled={markingComplete}
-                    sx={{ bgcolor: '#10B981', '&:hover': { bgcolor: '#059669' }, borderRadius: 2, fontWeight: 700 }}
+                    sx={{ bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' }, borderRadius: 2, fontWeight: 700 }}
                   >
                     {markingComplete ? 'Saving…' : 'Mark Complete'}
                   </Button>
@@ -1086,7 +1087,7 @@ export default function ClinicianDashboard() {
                     fullWidth
                     startIcon={<Videocam />}
                     onClick={() => navigate(`/video-consultation/${selectedAppt.id}`)}
-                    sx={{ bgcolor: STITCH_BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+                    sx={{ bgcolor: 'primary.main', '&:hover': { bgcolor: 'primary.dark' }, borderRadius: 2, fontWeight: 700 }}
                   >
                     Join Video Call
                   </Button>

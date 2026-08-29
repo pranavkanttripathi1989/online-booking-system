@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react'
 import { Box, Grid, Typography, Stack, Button, Chip, Avatar, IconButton, Tooltip, Drawer, Popover, Divider } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import TodayIcon from '@mui/icons-material/Today'
@@ -71,14 +72,42 @@ const GRID_ROW = 60
 const GRID_START_HOUR = 9
 
 // ─── Status config ────────────────────────────────────────────────────────────
-const STATUS_CFG = {
-  confirmed: { label: 'Confirmed', bg: '#E6F4EA', color: '#137333', border: '#CEEAD6' },
-  scheduled: { label: 'Scheduled', bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA' },
-  pending: { label: 'Pending', bg: '#FEF7E0', color: '#8A4700', border: '#FDD663' },
-  completed: { label: 'Completed', bg: '#E8F8F9', color: '#006D77', border: '#B2DFDB' },
-  cancelled: { label: 'Cancelled', bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2' },
-  no_show: { label: 'No Show', bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED' },
-  break: { label: 'Break', bg: '#FEF3C7', color: '#92400E', border: '#FDE68A' },
+// Consumes the shared theme.palette.appointmentStatus (theme/index.js) rather
+// than a per-file hex map -- 'break' isn't a real appointment status (it's a
+// lunch-break/schedule-block event), so it's derived from warning locally.
+const STATUS_LABELS = {
+  confirmed: 'Confirmed',
+  scheduled: 'Scheduled',
+  pending: 'Pending',
+  completed: 'Completed',
+  cancelled: 'Cancelled',
+  no_show: 'No Show',
+  break: 'Break',
+}
+function statusCfgFor(theme, status) {
+  if (status === 'break') {
+    const w = theme.palette.warning
+    const dark = theme.palette.mode === 'dark'
+    return {
+      label: 'Break',
+      bg: alpha(w.main, dark ? 0.18 : 0.12),
+      color: dark ? w.light : w.dark,
+      border: alpha(w.main, dark ? 0.4 : 0.3),
+    }
+  }
+  const meta = theme.palette.appointmentStatus[status] ?? theme.palette.appointmentStatus.confirmed
+  return { label: STATUS_LABELS[status] ?? status, bg: meta.bg, color: meta.text, border: meta.border }
+}
+// Colour shown on an event card/avatar. Mock events (no real channel data on
+// the backend Appointment type) use a per-type colour; real events use their
+// status colour -- matching what each previously stored in its own `color`
+// field, now computed instead of hardcoded.
+function eventDisplayColor(theme, ev) {
+  if (ev.type === 'break') return theme.palette.warning.main
+  if (ev.type === 'block') return theme.palette.grey[600]
+  if (ev.type === 'video') return theme.palette.secondary.main
+  if (!ev.status) return theme.palette.primary.main
+  return statusCfgFor(theme, ev.status).color
 }
 
 // ─── Mock Events ──────────────────────────────────────────────────────────────
@@ -96,7 +125,6 @@ const MOCK_EVENTS = [
     service: 'General Consultation',
     duration: 30,
     room: 'Room 1A',
-    color: '#006D77',
   },
   {
     id: 2,
@@ -111,7 +139,6 @@ const MOCK_EVENTS = [
     service: 'Follow-up',
     duration: 30,
     room: 'Room 1A',
-    color: '#006D77',
   },
   {
     id: 3,
@@ -126,7 +153,6 @@ const MOCK_EVENTS = [
     service: null,
     duration: 30,
     room: null,
-    color: '#D97706',
   },
   {
     id: 4,
@@ -141,7 +167,6 @@ const MOCK_EVENTS = [
     service: 'Video Consultation',
     duration: 30,
     room: null,
-    color: '#7C3AED',
   },
   {
     id: 5,
@@ -156,7 +181,6 @@ const MOCK_EVENTS = [
     service: 'Specialist Review',
     duration: 60,
     room: 'Room 2B',
-    color: '#006D77',
   },
   {
     id: 6,
@@ -171,7 +195,6 @@ const MOCK_EVENTS = [
     service: 'General Consultation',
     duration: 30,
     room: 'Room 1A',
-    color: '#006D77',
   },
   {
     id: 7,
@@ -186,7 +209,6 @@ const MOCK_EVENTS = [
     service: 'Video Consultation',
     duration: 30,
     room: null,
-    color: '#7C3AED',
   },
   {
     id: 8,
@@ -201,7 +223,6 @@ const MOCK_EVENTS = [
     service: null,
     duration: 30,
     room: 'Conf. Room',
-    color: '#6B7280',
   },
   {
     id: 9,
@@ -216,7 +237,6 @@ const MOCK_EVENTS = [
     service: 'Follow-up',
     duration: 30,
     room: 'Room 3C',
-    color: '#006D77',
   },
   {
     id: 10,
@@ -231,7 +251,6 @@ const MOCK_EVENTS = [
     service: 'General Consultation',
     duration: 30,
     room: 'Room 1B',
-    color: '#006D77',
   },
   {
     id: 11,
@@ -246,7 +265,6 @@ const MOCK_EVENTS = [
     service: 'General Consultation',
     duration: 30,
     room: 'Room 1A',
-    color: '#006D77',
   },
   {
     id: 12,
@@ -261,7 +279,6 @@ const MOCK_EVENTS = [
     service: null,
     duration: 30,
     room: null,
-    color: '#D97706',
   },
   {
     id: 13,
@@ -276,7 +293,6 @@ const MOCK_EVENTS = [
     service: 'Video Consultation',
     duration: 60,
     room: null,
-    color: '#7C3AED',
   },
   {
     id: 14,
@@ -291,7 +307,6 @@ const MOCK_EVENTS = [
     service: 'General Consultation',
     duration: 60,
     room: 'Room 2A',
-    color: '#006D77',
   },
 ]
 
@@ -332,12 +347,13 @@ function getCurrentTimePx() {
 }
 
 // ─── Hover Popover Card ────────────────────────────────────────────────────────
-function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
+function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName, onPaperMouseEnter, onPaperMouseLeave }) {
+  const theme = useTheme()
   const open = Boolean(anchorEl)
   if (!ev) return null
 
   const isPatient = ev.type !== 'break' && ev.type !== 'block'
-  const sc = STATUS_CFG[ev.status] ?? STATUS_CFG.confirmed
+  const sc = statusCfgFor(theme, ev.status)
   const startFmt = formatHour(ev.start)
   const endFmt = formatHour(ev.end)
   const initials = ev.patient
@@ -358,6 +374,16 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
       transformOrigin={{ vertical: 'top', horizontal: 'left' }}
       slotProps={{
         paper: {
+          // BUG (found live 2026-08-29): pointerEvents:'none' on the whole
+          // Popover made the "Click to view full details" link inside it
+          // permanently unclickable, and moving the mouse off the trigger
+          // card toward the popover always counted as a real mouse-leave --
+          // the popover hid itself the instant a real user tried to reach
+          // it. Fixed by making only the Paper interactive and having it
+          // cancel/reschedule the same hide-timer the trigger card uses, so
+          // hovering from the card into the popover is one continuous hover.
+          onMouseEnter: onPaperMouseEnter,
+          onMouseLeave: onPaperMouseLeave,
           sx: {
             width: 320,
             borderRadius: 3,
@@ -365,6 +391,7 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
             boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
             mt: -1,
             ml: 0.5,
+            pointerEvents: 'auto',
           },
         },
       }}
@@ -375,15 +402,15 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
         sx={{
           px: 2,
           py: 1.5,
-          bgcolor: '#fff',
-          borderBottom: '1px solid #E8EAED',
+          bgcolor: 'background.paper',
+          borderBottom: '1px solid', borderBottomColor: 'divider',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
         }}
       >
         <Stack direction="row" spacing={1} alignItems="center">
-          <CalendarMonthIcon sx={{ color: '#006D77', fontSize: 18 }} />
+          <CalendarMonthIcon sx={{ color: 'primary.main', fontSize: 18 }} />
           <Typography fontWeight={700} fontSize="0.9rem">
             {isPatient ? 'Appointment' : ev.patient}
           </Typography>
@@ -398,12 +425,12 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
       </Box>
 
       {/* Popover Body */}
-      <Box sx={{ px: 2, py: 1.5, bgcolor: '#fff' }}>
+      <Box sx={{ px: 2, py: 1.5, bgcolor: 'background.paper' }}>
         {isPatient ? (
           <>
             {/* Patient row */}
             <Stack direction="row" spacing={1.5} alignItems="center" mb={1.5}>
-              <Avatar sx={{ width: 38, height: 38, bgcolor: ev.color, fontWeight: 800, fontSize: '0.85rem' }}>{initials}</Avatar>
+              <Avatar sx={{ width: 38, height: 38, bgcolor: (t) => eventDisplayColor(t, ev), fontWeight: 800, fontSize: '0.85rem' }}>{initials}</Avatar>
               <Box>
                 <Typography fontWeight={700} fontSize="0.95rem">
                   {ev.patient}
@@ -418,7 +445,7 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
 
             {/* Time */}
             <Stack direction="row" spacing={1.5} alignItems="flex-start" mb={1}>
-              <AccessTimeIcon sx={{ color: '#006D77', fontSize: 16, mt: 0.3 }} />
+              <AccessTimeIcon sx={{ color: 'primary.main', fontSize: 16, mt: 0.3 }} />
               <Box>
                 <Typography
                   variant="caption"
@@ -437,7 +464,7 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
             {/* Service */}
             {ev.service && (
               <Stack direction="row" spacing={1.5} alignItems="flex-start" mb={1}>
-                <MedicalServicesIcon sx={{ color: '#006D77', fontSize: 16, mt: 0.3 }} />
+                <MedicalServicesIcon sx={{ color: 'primary.main', fontSize: 16, mt: 0.3 }} />
                 <Box>
                   <Typography
                     variant="caption"
@@ -457,7 +484,7 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
             {/* Room */}
             {ev.room && (
               <Stack direction="row" spacing={1.5} alignItems="flex-start" mb={1}>
-                <MeetingRoomIcon sx={{ color: '#006D77', fontSize: 16, mt: 0.3 }} />
+                <MeetingRoomIcon sx={{ color: 'primary.main', fontSize: 16, mt: 0.3 }} />
                 <Box>
                   <Typography
                     variant="caption"
@@ -481,8 +508,8 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
                 icon={ev.type === 'video' ? <VideocamIcon sx={{ fontSize: 12 }} /> : <LocationOnIcon sx={{ fontSize: 12 }} />}
                 label={ev.type === 'video' ? 'Video' : 'In-Person'}
                 sx={{
-                  bgcolor: ev.type === 'video' ? '#EDE9FE' : '#E8F8F9',
-                  color: ev.type === 'video' ? '#7C3AED' : '#006D77',
+                  bgcolor: (t) => alpha(ev.type === 'video' ? t.palette.secondary.main : t.palette.primary.main, 0.12),
+                  color: ev.type === 'video' ? 'secondary.main' : 'primary.main',
                   fontWeight: 600,
                   fontSize: '0.68rem',
                   height: 20,
@@ -493,7 +520,7 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
         ) : (
           /* Break / block mini view */
           <Stack direction="row" spacing={1.5} alignItems="center">
-            <AccessTimeIcon sx={{ color: '#6B7280', fontSize: 16 }} />
+            <AccessTimeIcon sx={{ color: 'text.disabled', fontSize: 16 }} />
             <Typography variant="body2" fontWeight={600}>
               {startFmt} – {endFmt}
             </Typography>
@@ -502,10 +529,10 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
       </Box>
 
       {isPatient && (
-        <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #E8EAED', bgcolor: '#F8F9FA' }}>
+        <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderTopColor: 'divider', bgcolor: 'action.hover' }}>
           <Typography
             variant="caption"
-            sx={{ color: '#006D77', fontWeight: 700, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+            sx={{ color: 'primary.main', fontWeight: 700, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
             onClick={onViewFull}
           >
             Click to view full details →
@@ -518,6 +545,7 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName }) {
 
 // ─── Main Component ───────────────────────────────────────────────────────────
 export default function ClinicianCalendar() {
+  const theme = useTheme()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [weekOffset, setWeekOffset] = useState(0)
@@ -569,7 +597,6 @@ export default function ClinicianCalendar() {
       const end = dayjs(a.end_datetime)
       // Monday=0..Sunday=6, matching DAYS/monday above.
       const day = (start.day() + 6) % 7
-      const sc = STATUS_CFG[a.status] ?? STATUS_CFG.confirmed
       return {
         id: a.id,
         day,
@@ -586,7 +613,6 @@ export default function ClinicianCalendar() {
         service: a.service?.name ?? null,
         duration: a.duration_minutes,
         room: a.room?.name ?? null,
-        color: sc.color,
       }
     })
 
@@ -613,7 +639,6 @@ export default function ClinicianCalendar() {
         service: null,
         duration: eh * 60 + em - (sh * 60 + sm),
         room: null,
-        color: STATUS_CFG.break.color,
       }))
     })
 
@@ -621,7 +646,7 @@ export default function ClinicianCalendar() {
   }, [data, lunchData, error, weekOffset])
 
   const isPatientAppt = selected && selected.type !== 'break' && selected.type !== 'block'
-  const statusCfg = selected ? (STATUS_CFG[selected.status] ?? STATUS_CFG.confirmed) : null
+  const statusCfg = selected ? statusCfgFor(theme, selected.status) : null
   const initials = selected?.patient
     ? selected.patient
         .split(' ')
@@ -692,10 +717,10 @@ export default function ClinicianCalendar() {
       {/* LEGEND */}
       <Stack direction="row" spacing={2} sx={{ mb: 2 }} flexWrap="wrap" gap={1}>
         {[
-          ['In-Person', '#006D77'],
-          ['Video', '#7C3AED'],
-          ['Break', '#D97706'],
-          ['Blocked', '#6B7280'],
+          ['In-Person', theme.palette.primary.main],
+          ['Video', theme.palette.secondary.main],
+          ['Break', theme.palette.warning.main],
+          ['Blocked', theme.palette.grey[600]],
         ].map(([label, color]) => (
           <Stack key={label} direction="row" alignItems="center" spacing={0.75}>
             <Box sx={{ width: 12, height: 12, borderRadius: 1, bgcolor: color }} />
@@ -712,14 +737,14 @@ export default function ClinicianCalendar() {
       {/* GRID */}
       <Box sx={{ overflowX: 'auto', pb: 1, width: '100%', minWidth: 0 }}>
         <Box sx={{ minWidth: 700 }}>
-          <Grid container spacing={0} sx={{ border: '1px solid #D0E8EA', borderRadius: 2, overflow: 'hidden' }}>
+          <Grid container spacing={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, overflow: 'hidden' }}>
             {/* Time column */}
-            <Grid item sx={{ width: 64, borderRight: '1px solid #D0E8EA', flexShrink: 0 }}>
-              <Box sx={{ height: 48, borderBottom: '1px solid #D0E8EA' }} />
+            <Grid item sx={{ width: 64, borderRight: '1px solid', borderRightColor: 'divider', flexShrink: 0 }}>
+              <Box sx={{ height: 48, borderBottom: '1px solid', borderBottomColor: 'divider' }} />
               {HOURS_LABELS.map((label) => (
                 <Box
                   key={label}
-                  sx={{ height: GRID_ROW, borderBottom: '1px solid #F0F7F8', display: 'flex', alignItems: 'flex-start', pt: 0.5, pl: 0.5 }}
+                  sx={{ height: GRID_ROW, borderBottom: '1px solid', borderBottomColor: 'divider', display: 'flex', alignItems: 'flex-start', pt: 0.5, pl: 0.5 }}
                 >
                   <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.68rem', lineHeight: 1 }}>
                     {label}
@@ -736,7 +761,7 @@ export default function ClinicianCalendar() {
               const events = assignOverlapColumns(rawEvents)
 
               return (
-                <Grid item key={day} xs sx={{ borderRight: dayIdx < 6 ? '1px solid #D0E8EA' : 'none', minWidth: 0 }}>
+                <Grid item key={day} xs sx={{ borderRight: dayIdx < 6 ? '1px solid' : 'none', borderRightColor: 'divider', minWidth: 0 }}>
                   {/* Day header */}
                   <Box
                     sx={{
@@ -746,7 +771,7 @@ export default function ClinicianCalendar() {
                       flexDirection: 'column',
                       alignItems: 'center',
                       justifyContent: 'center',
-                      bgcolor: isToday ? '#E8F8F9' : '#FAFAFA',
+                      bgcolor: isToday ? (t) => alpha(t.palette.primary.main, 0.08) : 'action.hover',
                     }}
                   >
                     <Typography variant="caption" color="text.secondary" fontWeight={700}>
@@ -756,8 +781,8 @@ export default function ClinicianCalendar() {
                       variant="body2"
                       fontWeight={700}
                       sx={{
-                        color: isToday ? '#006D77' : 'text.primary',
-                        bgcolor: isToday ? 'rgba(0,109,119,0.08)' : 'transparent',
+                        color: isToday ? 'primary.main' : 'text.primary',
+                        bgcolor: isToday ? (t) => alpha(t.palette.primary.main, 0.08) : 'transparent',
                         borderRadius: '50%',
                         width: 24,
                         height: 24,
@@ -773,7 +798,7 @@ export default function ClinicianCalendar() {
                   {/* Hour slots + events */}
                   <Box sx={{ position: 'relative' }}>
                     {HOURS.map((h) => (
-                      <Box key={h} sx={{ height: GRID_ROW, borderBottom: '1px solid #F0F7F8' }} />
+                      <Box key={h} sx={{ height: GRID_ROW, borderBottom: '1px solid', borderBottomColor: 'divider' }} />
                     ))}
 
                     {/* Current time line */}
@@ -821,7 +846,7 @@ export default function ClinicianCalendar() {
                             left: `calc(${(col / totalCols) * 100}% + 2px)`,
                             right: `calc(${((totalCols - col - 1) / totalCols) * 100}% + 2px)`,
                             height: heightPx,
-                            bgcolor: ev.color,
+                            bgcolor: (t) => eventDisplayColor(t, ev),
                             borderRadius: 1,
                             cursor: 'pointer',
                             p: 0.5,
@@ -836,7 +861,7 @@ export default function ClinicianCalendar() {
                         >
                           <Typography
                             variant="caption"
-                            sx={{ color: '#fff', fontWeight: 700, fontSize: '0.65rem', display: 'block' }}
+                            sx={{ color: 'common.white', fontWeight: 700, fontSize: '0.65rem', display: 'block' }}
                             noWrap
                           >
                             {ev.patient}
@@ -876,6 +901,8 @@ export default function ClinicianCalendar() {
           handleClick(hovered)
         }}
         clinicianName={clinicianName}
+        onPaperMouseEnter={() => clearTimeout(hoverTimer.current)}
+        onPaperMouseLeave={handleMouseLeave}
       />
 
       {/* FULL DETAIL DRAWER */}
@@ -888,7 +915,7 @@ export default function ClinicianCalendar() {
             width: { xs: '100vw', sm: 400 },
             display: 'flex',
             flexDirection: 'column',
-            bgcolor: '#F8F9FA',
+            bgcolor: 'background.default',
           },
         }}
       >
@@ -897,7 +924,7 @@ export default function ClinicianCalendar() {
             {/* Drawer Header */}
             <Box
               sx={{
-                bgcolor: isPatientAppt ? selected.color || '#006D77' : '#6B7280',
+                bgcolor: (t) => (isPatientAppt ? eventDisplayColor(t, selected) : t.palette.grey[600]),
                 px: 3,
                 py: 2.5,
                 display: 'flex',
@@ -918,15 +945,15 @@ export default function ClinicianCalendar() {
               {isPatientAppt ? (
                 <>
                   {/* Patient Card */}
-                  <Box sx={{ p: 2, borderRadius: 3, border: '1px solid #E8EAED', mb: 2, bgcolor: '#fff' }}>
+                  <Box sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 2, bgcolor: 'background.paper' }}>
                     <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
-                      <PersonIcon sx={{ color: '#006D77', fontSize: 18 }} />
+                      <PersonIcon sx={{ color: 'primary.main', fontSize: 18 }} />
                       <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
                         Patient
                       </Typography>
                     </Stack>
                     <Stack direction="row" spacing={2} alignItems="center">
-                      <Avatar sx={{ width: 52, height: 52, bgcolor: selected.color || '#006D77', fontWeight: 800, fontSize: '1rem' }}>
+                      <Avatar sx={{ width: 52, height: 52, bgcolor: (t) => eventDisplayColor(t, selected), fontWeight: 800, fontSize: '1rem' }}>
                         {initials}
                       </Avatar>
                       <Box>
@@ -955,8 +982,9 @@ export default function ClinicianCalendar() {
                             }
                             label={selected.type === 'video' ? 'Video' : 'In-Person'}
                             sx={{
-                              bgcolor: selected.type === 'video' ? '#EDE9FE' : '#E8F8F9',
-                              color: selected.type === 'video' ? '#7C3AED' : '#006D77',
+                              bgcolor: (t) =>
+                                alpha(selected.type === 'video' ? t.palette.secondary.main : t.palette.primary.main, 0.12),
+                              color: selected.type === 'video' ? 'secondary.main' : 'primary.main',
                               fontWeight: 600,
                               fontSize: '0.7rem',
                             }}
@@ -967,16 +995,16 @@ export default function ClinicianCalendar() {
                   </Box>
 
                   {/* Time & Duration */}
-                  <Box sx={{ p: 2, borderRadius: 3, border: '1px solid #E8EAED', mb: 2, bgcolor: '#fff' }}>
+                  <Box sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 2, bgcolor: 'background.paper' }}>
                     <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
-                      <AccessTimeIcon sx={{ color: '#006D77', fontSize: 18 }} />
+                      <AccessTimeIcon sx={{ color: 'primary.main', fontSize: 18 }} />
                       <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
                         Time & Duration
                       </Typography>
                     </Stack>
                     <Stack spacing={1.5}>
                       <Stack direction="row" spacing={1.5}>
-                        <AccessTimeIcon sx={{ color: '#006D77', fontSize: 16, mt: 0.3 }} />
+                        <AccessTimeIcon sx={{ color: 'primary.main', fontSize: 16, mt: 0.3 }} />
                         <Box>
                           <Typography variant="caption" color="text.secondary">
                             Time
@@ -987,7 +1015,7 @@ export default function ClinicianCalendar() {
                         </Box>
                       </Stack>
                       <Stack direction="row" spacing={1.5}>
-                        <AccessTimeIcon sx={{ color: '#006D77', fontSize: 16, mt: 0.3 }} />
+                        <AccessTimeIcon sx={{ color: 'primary.main', fontSize: 16, mt: 0.3 }} />
                         <Box>
                           <Typography variant="caption" color="text.secondary">
                             Duration
@@ -1002,9 +1030,9 @@ export default function ClinicianCalendar() {
 
                   {/* Service */}
                   {selected.service && (
-                    <Box sx={{ p: 2, borderRadius: 3, border: '1px solid #E8EAED', mb: 2, bgcolor: '#fff' }}>
+                    <Box sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 2, bgcolor: 'background.paper' }}>
                       <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
-                        <MedicalServicesIcon sx={{ color: '#006D77', fontSize: 18 }} />
+                        <MedicalServicesIcon sx={{ color: 'primary.main', fontSize: 18 }} />
                         <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
                           Service
                         </Typography>
@@ -1017,9 +1045,9 @@ export default function ClinicianCalendar() {
 
                   {/* Room */}
                   {selected.room && (
-                    <Box sx={{ p: 2, borderRadius: 3, border: '1px solid #E8EAED', mb: 2, bgcolor: '#fff' }}>
+                    <Box sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 2, bgcolor: 'background.paper' }}>
                       <Stack direction="row" spacing={1} alignItems="center" mb={1.5}>
-                        <MeetingRoomIcon sx={{ color: '#006D77', fontSize: 18 }} />
+                        <MeetingRoomIcon sx={{ color: 'primary.main', fontSize: 18 }} />
                         <Typography variant="subtitle2" fontWeight={700} color="text.secondary">
                           Room
                         </Typography>
@@ -1031,10 +1059,10 @@ export default function ClinicianCalendar() {
                   )}
                 </>
               ) : (
-                <Box sx={{ p: 2, borderRadius: 3, border: '1px solid #E8EAED', mb: 2, bgcolor: '#fff' }}>
+                <Box sx={{ p: 2, borderRadius: 3, border: '1px solid', borderColor: 'divider', mb: 2, bgcolor: 'background.paper' }}>
                   <Stack spacing={1.5}>
                     <Stack direction="row" spacing={1.5}>
-                      <AccessTimeIcon sx={{ color: '#006D77', fontSize: 16, mt: 0.3 }} />
+                      <AccessTimeIcon sx={{ color: 'primary.main', fontSize: 16, mt: 0.3 }} />
                       <Box>
                         <Typography variant="caption" color="text.secondary">
                           Time
@@ -1062,7 +1090,7 @@ export default function ClinicianCalendar() {
 
             {/* Drawer Footer */}
             {isPatientAppt && (
-              <Box sx={{ p: 2.5, borderTop: '1px solid #E8EAED', flexShrink: 0, bgcolor: '#fff' }}>
+              <Box sx={{ p: 2.5, borderTop: '1px solid', borderTopColor: 'divider', flexShrink: 0, bgcolor: 'background.paper' }}>
                 <Stack spacing={1.5}>
                   {selected.type === 'video' && (
                     <Button
@@ -1070,7 +1098,7 @@ export default function ClinicianCalendar() {
                       fullWidth
                       startIcon={<VideocamIcon />}
                       onClick={() => navigate(`/video/${selected.id}`)}
-                      sx={{ bgcolor: '#7C3AED', '&:hover': { bgcolor: '#6D28D9' }, borderRadius: 2, fontWeight: 700 }}
+                      sx={{ bgcolor: 'secondary.main', '&:hover': { bgcolor: 'secondary.dark' }, borderRadius: 2, fontWeight: 700 }}
                     >
                       Join Video Call
                     </Button>
@@ -1080,7 +1108,7 @@ export default function ClinicianCalendar() {
                     fullWidth
                     startIcon={<PersonIcon />}
                     onClick={() => selected.patientId && navigate(`/patients/${selected.patientId}`)}
-                    sx={{ borderRadius: 2, fontWeight: 600, borderColor: '#006D77', color: '#006D77' }}
+                    sx={{ borderRadius: 2, fontWeight: 600, borderColor: 'primary.main', color: 'primary.main' }}
                   >
                     View Patient
                   </Button>

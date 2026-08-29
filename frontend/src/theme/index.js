@@ -51,6 +51,7 @@ function buildStatusPalette(p, mode) {
   })
   return {
     confirmed: tone(p.success.main, p.success.light, p.success.dark),
+    scheduled: tone(p.info.main, p.info.light, p.info.dark),
     pending: tone(p.warning.main, p.warning.light, p.warning.dark),
     cancelled: tone(p.error.main, p.error.light, p.error.dark),
     completed: tone(p.info.main, p.info.light, p.info.dark),
@@ -199,6 +200,29 @@ export function createAppTheme(mode = 'light') {
       },
       MuiMenu: {
         styleOverrides: { paper: { backgroundImage: 'none' } },
+      },
+      // BUG (found live 2026-08-29): src/index.css had a global,
+      // `!important`-laden `.MuiDataGrid-*` block hardcoded to the light
+      // palette (#202124 cell text, #f8f9fa header/hover) -- it beat every
+      // theme-aware `sx` override on the page that actually uses DataGrid
+      // (appointments/index.jsx), rendering dark-on-dark unreadable cell
+      // text in dark mode. FRONTEND_RULES.md UI-5 already banned exactly
+      // this pattern ("never a global CSS file, never !important"); this
+      // is the real, theme-token-driven replacement, reusing the same
+      // tableHeadBg/tableHeadColor/rowHoverBg tokens MuiTableHead/MuiTableRow
+      // already use above, so the two table styling systems stay in sync.
+      MuiDataGrid: {
+        styleOverrides: {
+          root: { border: `1px solid ${p.divider}`, borderRadius: 16 },
+          columnHeaders: { backgroundColor: tableHeadBg, borderBottom: `1px solid ${p.divider}` },
+          columnHeader: {
+            fontSize: '0.7rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.1em', color: tableHeadColor,
+          },
+          row: { '&:hover': { backgroundColor: rowHoverBg } },
+          cell: { borderBottom: `1px solid ${p.divider}`, fontSize: '0.875rem', color: p.text.primary },
+          footerContainer: { borderTop: `1px solid ${p.divider}`, background: tableHeadBg },
+          selectedRowCount: { color: p.text.secondary, fontSize: '0.8rem' },
+        },
       },
     },
   })

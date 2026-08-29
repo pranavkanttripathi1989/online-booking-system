@@ -29,6 +29,7 @@ import {
   Tooltip,
 } from '@mui/material'
 import { Add, Close, Edit, DeleteOutline, Alarm } from '@mui/icons-material'
+import { alpha } from '@mui/material/styles'
 import { TimePicker } from '@mui/x-date-pickers/TimePicker'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -512,7 +513,7 @@ export default function ClinicianAvailability() {
             border: '1px solid',
             borderColor: 'divider',
             borderRadius: 2,
-            bgcolor: '#f8fafc',
+            bgcolor: 'action.hover',
             display: 'flex',
             flexDirection: 'column',
           }}
@@ -710,7 +711,7 @@ export default function ClinicianAvailability() {
               border: '1.5px dashed',
               borderColor: 'divider',
               borderRadius: 2,
-              bgcolor: '#fafafa',
+              bgcolor: 'action.hover',
             }}
           >
             <Alarm sx={{ fontSize: 36, color: 'text.disabled', mb: 1 }} />
@@ -797,7 +798,7 @@ export default function ClinicianAvailability() {
                   value={formData.recurrence_type}
                   onChange={(e) => handleRecurrenceChange(e.target.value)}
                   sx={{
-                    bgcolor: '#f8fafc',
+                    bgcolor: 'action.hover',
                     p: 1,
                     borderRadius: 2,
                     border: '1px solid',
@@ -887,8 +888,8 @@ export default function ClinicianAvailability() {
                 )}
                 {/* SUG-DT-006: live 12h preview — shows selected times in h:mm A format */}
                 {(formData.start_time || formData.end_time) && !isEndBeforeStart && (
-                  <Box sx={{ mt: 1, px: 1.5, py: 0.75, bgcolor: '#E8F8F9', borderRadius: 2, border: '1px solid #B2EBF2' }}>
-                    <Typography variant="caption" sx={{ color: '#006D77', fontWeight: 700 }}>
+                  <Box sx={{ mt: 1, px: 1.5, py: 0.75, bgcolor: (t) => alpha(t.palette.primary.main, 0.08), borderRadius: 2, border: '1px solid', borderColor: (t) => alpha(t.palette.primary.main, 0.3) }}>
+                    <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 700 }}>
                       Selected: {formData.start_time ? formData.start_time.format('h:mm A') : '—'}
                       {' – '}
                       {formData.end_time ? formData.end_time.format('h:mm A') : '—'}
@@ -907,7 +908,7 @@ export default function ClinicianAvailability() {
                   value={formData.mode}
                   onChange={(e) => handleChange('mode', e.target.value)}
                   sx={{
-                    bgcolor: '#f8fafc',
+                    bgcolor: 'action.hover',
                     p: 1,
                     borderRadius: 2,
                     border: '1px solid',

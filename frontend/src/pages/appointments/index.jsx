@@ -30,7 +30,7 @@ import {
   Stack,
   Alert,
 } from '@mui/material'
-import { useTheme } from '@mui/material/styles'
+import { alpha, useTheme } from '@mui/material/styles'
 import { DataGrid } from '@mui/x-data-grid'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
@@ -128,27 +128,32 @@ const BULK_RESCHEDULE_MUTATION = gql`
 // ─── Status config ───────────────────────────────────────────────────────────
 const STATUS_OPTIONS = ['all', 'pending', 'confirmed', 'cancelled', 'completed', 'no_show']
 
-const STATUS_CFG = {
-  pending: { label: 'Pending', bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', dot: '#F9AB00' },
-  confirmed: { label: 'Confirmed', bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', dot: '#0F9D58' },
-  cancelled: { label: 'Cancelled', bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', dot: '#D93025' },
-  completed: { label: 'Completed', bg: '#E8F0FE', color: '#1557B0', border: '#AECBFA', dot: '#1A73E8' },
-  no_show: { label: 'No Show', bg: '#F8F9FA', color: '#3C4043', border: '#E8EAED', dot: '#80868B' },
-  rescheduled: { label: 'Rescheduled', bg: '#F3E8FD', color: '#6E2DB8', border: '#D7AEFA', dot: '#9334E6' },
+const STATUS_LABELS_LIST = {
+  pending: 'Pending',
+  confirmed: 'Confirmed',
+  cancelled: 'Cancelled',
+  completed: 'Completed',
+  no_show: 'No Show',
+  rescheduled: 'Rescheduled',
 }
 
 // ─── Status Chip ─────────────────────────────────────────────────────────────
+// Consumes the shared theme.palette.appointmentStatus (theme/index.js)
+// rather than a per-file hex map -- see calendar/index.jsx and
+// clinician/Calendar.jsx for the same conversion.
 function StatusChip({ status }) {
-  const cfg = STATUS_CFG[status] ?? { label: status, bg: '#F8F9FA', color: '#5F6368', border: '#E8EAED', dot: '#9AA0A6' }
+  const theme = useTheme()
+  const meta = theme.palette.appointmentStatus[status] ?? theme.palette.appointmentStatus.no_show
+  const label = STATUS_LABELS_LIST[status] ?? status
   return (
     <Chip
-      label={cfg.label}
+      label={label}
       size="small"
       sx={{
-        bgcolor: cfg.bg,
-        color: cfg.color,
-        border: `1px solid ${cfg.border}`,
-        borderLeft: `3px solid ${cfg.dot}`,
+        bgcolor: meta.bg,
+        color: meta.text,
+        border: `1px solid ${meta.border}`,
+        borderLeft: `3px solid ${meta.dot}`,
         fontWeight: 700,
         borderRadius: '8px',
         fontSize: '0.68rem',
@@ -161,16 +166,26 @@ function StatusChip({ status }) {
 // P1-17 — A11Y-3: never colour alone. Each level gets its own icon, not
 // just a different dot colour, so it reads correctly for the ~1-in-12
 // colour-blind Indian male users FRONTEND_RULES.md itself cites.
-const RISK_CFG = {
-  high: { label: 'High risk', bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', Icon: ErrorRoundedIcon },
-  medium: { label: 'Medium risk', bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', Icon: WarningAmberRoundedIcon },
-  low: { label: 'Low risk', bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', Icon: CheckCircleOutlineRoundedIcon },
+function riskCfgFor(theme, level) {
+  const tone = (main, dark) => ({
+    bg: alpha(main, theme.palette.mode === 'dark' ? 0.18 : 0.12),
+    color: theme.palette.mode === 'dark' ? main : dark,
+    border: alpha(main, theme.palette.mode === 'dark' ? 0.4 : 0.3),
+  })
+  const p = theme.palette
+  const RISK_CFG = {
+    high: { label: 'High risk', ...tone(p.error.main, p.error.dark), Icon: ErrorRoundedIcon },
+    medium: { label: 'Medium risk', ...tone(p.warning.main, p.warning.dark), Icon: WarningAmberRoundedIcon },
+    low: { label: 'Low risk', ...tone(p.success.main, p.success.dark), Icon: CheckCircleOutlineRoundedIcon },
+  }
+  return RISK_CFG[level] ?? RISK_CFG.low
 }
 
 // ─── No-show Risk Chip ───────────────────────────────────────────────────────
 function NoShowRiskChip({ risk }) {
+  const theme = useTheme()
   if (!risk) return null
-  const cfg = RISK_CFG[risk.level] ?? RISK_CFG.low
+  const cfg = riskCfgFor(theme, risk.level)
   const Icon = cfg.Icon
   return (
     <Tooltip title={risk.reasons.length ? risk.reasons.join(', ') : 'No risk factors on file'} placement="top">
@@ -213,9 +228,9 @@ function EmptyState({ hasFilters, onClearFilters }) {
             sx={{
               borderRadius: 2,
               fontWeight: 700,
-              borderColor: '#D93025',
-              color: '#D93025',
-              '&:hover': { bgcolor: 'rgba(217,48,37,0.06)' },
+              borderColor: 'error.main',
+              color: 'error.main',
+              '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.06) },
             }}
           >
             Clear all filters
@@ -454,7 +469,7 @@ export default function AppointmentsPage() {
     setStatusOverrides((prev) => ({ ...prev, [rowId]: newStatus }))
     setStatusMenuAnchor(null)
     updateAppointment({ variables: { id: rowId, input: { status: newStatus } } })
-    enqueueSnackbar(`Status updated to "${STATUS_CFG[newStatus]?.label ?? newStatus}"`, { variant: 'success', autoHideDuration: 3000 })
+    enqueueSnackbar(`Status updated to "${STATUS_LABELS_LIST[newStatus] ?? newStatus}"`, { variant: 'success', autoHideDuration: 3000 })
   }
 
   // SUG-APPT-006: Bulk cancel — cancel all selected non-terminal rows
@@ -618,10 +633,10 @@ export default function AppointmentsPage() {
       sortable: false,
       renderCell: ({ row }) => (
         <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', py: 0.5, width: '100%', overflow: 'hidden' }}>
-          <Typography variant="body2" fontWeight={600} noWrap sx={{ color: '#202124', lineHeight: 1.4, maxWidth: '100%' }}>
+          <Typography variant="body2" fontWeight={600} noWrap sx={{ color: 'text.primary', lineHeight: 1.4, maxWidth: '100%' }}>
             {row.patient?.full_name ?? '—'}
           </Typography>
-          <Typography variant="caption" noWrap sx={{ color: '#9AA0A6', lineHeight: 1.3, maxWidth: '100%' }}>
+          <Typography variant="caption" noWrap sx={{ color: 'text.disabled', lineHeight: 1.3, maxWidth: '100%' }}>
             {row.patient?.email ?? ''}
           </Typography>
         </Box>
@@ -694,8 +709,8 @@ export default function AppointmentsPage() {
               .filter((s) => s !== row.status)
               .map((s) => (
                 <MenuItem key={s} dense onClick={() => handleInlineStatusChange(row.id, s)} sx={{ gap: 1.5 }}>
-                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: STATUS_CFG[s]?.dot, flexShrink: 0 }} />
-                  {STATUS_CFG[s]?.label ?? s}
+                  <Box sx={{ width: 10, height: 10, borderRadius: '50%', bgcolor: theme.palette.appointmentStatus[s]?.dot, flexShrink: 0 }} />
+                  {STATUS_LABELS_LIST[s] ?? s}
                 </MenuItem>
               ))}
           </Menu>
@@ -765,10 +780,10 @@ export default function AppointmentsPage() {
           }}
         >
           <Box>
-            <Typography variant="h4" fontWeight={800} sx={{ color: '#202124', fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>
+            <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary', fontSize: { xs: '1.35rem', sm: '1.5rem' } }}>
               Appointments
             </Typography>
-            <Typography variant="body2" sx={{ color: '#5F6368' }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
               {loading ? 'Loading…' : `${total.toLocaleString()} ${viewTab !== 'all' ? viewTab : 'total'} appointments`}
             </Typography>
           </Box>
@@ -793,9 +808,9 @@ export default function AppointmentsPage() {
                 sx={{
                   borderRadius: 2,
                   fontWeight: 700,
-                  borderColor: '#DADCE0',
-                  color: '#5F6368',
-                  '&:hover': { bgcolor: '#F1F3F4', borderColor: '#9AA0A6' },
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': { bgcolor: 'action.hover', borderColor: 'text.disabled' },
                 }}
               >
                 Close Cash Drawer
@@ -809,9 +824,9 @@ export default function AppointmentsPage() {
                 sx={{
                   borderRadius: 2,
                   fontWeight: 700,
-                  borderColor: '#DADCE0',
-                  color: '#5F6368',
-                  '&:hover': { bgcolor: '#F1F3F4', borderColor: '#9AA0A6' },
+                  borderColor: 'divider',
+                  color: 'text.secondary',
+                  '&:hover': { bgcolor: 'action.hover', borderColor: 'text.disabled' },
                 }}
               >
                 Export CSV
@@ -824,11 +839,11 @@ export default function AppointmentsPage() {
               sx={{
                 borderRadius: 2,
                 px: 2.5,
-                background: 'linear-gradient(135deg, #006D77 0%, #00858F 100%)',
-                boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
+                background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.light} 100%)`,
+                boxShadow: (t) => `0 2px 8px ${alpha(t.palette.primary.main, 0.3)}`,
                 '&:hover': {
-                  background: 'linear-gradient(135deg, #005A62 0%, #006D77 100%)',
-                  boxShadow: '0 4px 14px rgba(0,109,119,0.45)',
+                  background: (t) => `linear-gradient(135deg, ${t.palette.primary.dark} 0%, ${t.palette.primary.main} 100%)`,
+                  boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.45)}`,
                 },
               }}
             >
@@ -838,15 +853,15 @@ export default function AppointmentsPage() {
         </Box>
 
         {/* SUG-APPT-008: Upcoming / Past / All tab strip */}
-        <Paper elevation={0} sx={{ border: '1px solid #E8EAED', borderRadius: 3, mb: 2, overflow: 'hidden' }}>
+        <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, mb: 2, overflow: 'hidden' }}>
           <Tabs
             value={viewTab}
             onChange={handleTabChange}
             sx={{
               px: 1,
-              '& .MuiTab-root': { fontWeight: 700, textTransform: 'none', minHeight: 48, fontSize: '0.875rem', color: '#5F6368' },
-              '& .MuiTab-root.Mui-selected': { color: '#006D77' },
-              '& .MuiTabs-indicator': { bgcolor: '#006D77', height: 3, borderRadius: '3px 3px 0 0' },
+              '& .MuiTab-root': { fontWeight: 700, textTransform: 'none', minHeight: 48, fontSize: '0.875rem', color: 'text.secondary' },
+              '& .MuiTab-root.Mui-selected': { color: 'primary.main' },
+              '& .MuiTabs-indicator': { bgcolor: 'primary.main', height: 3, borderRadius: '3px 3px 0 0' },
             }}
           >
             <Tab value="upcoming" icon={<UpcomingRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Upcoming" />
@@ -861,9 +876,10 @@ export default function AppointmentsPage() {
           sx={{
             p: 2,
             mb: 2,
-            border: '1px solid #E8EAED',
+            border: '1px solid',
+            borderColor: 'divider',
             borderRadius: 3,
-            bgcolor: '#FFFFFF',
+            bgcolor: 'background.paper',
           }}
         >
           <Grid container spacing={2} alignItems="center">
@@ -877,11 +893,11 @@ export default function AppointmentsPage() {
                 onChange={(e) => setSearchDraft(e.target.value)}
                 onKeyDown={handleSearchKeyDown}
                 onBlur={() => setSearch(searchDraft)}
-                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#006D77' } }}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: 'primary.main' } }}
                 InputProps={{
                   startAdornment: (
                     <InputAdornment position="start">
-                      <SearchIcon fontSize="small" sx={{ color: '#9AA0A6' }} />
+                      <SearchIcon fontSize="small" sx={{ color: 'text.disabled' }} />
                     </InputAdornment>
                   ),
                 }}
@@ -900,11 +916,11 @@ export default function AppointmentsPage() {
                   setStatus(e.target.value)
                   setPaginationModel((p) => ({ ...p, page: 0 }))
                 }}
-                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#006D77' } }}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: 'primary.main' } }}
               >
                 {STATUS_OPTIONS.map((s) => (
                   <MenuItem key={s} value={s} sx={{ textTransform: 'capitalize' }}>
-                    {s === 'all' ? 'All Statuses' : (STATUS_CFG[s]?.label ?? s)}
+                    {s === 'all' ? 'All Statuses' : (STATUS_LABELS_LIST[s] ?? s)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -922,7 +938,7 @@ export default function AppointmentsPage() {
                   setClinicianId(e.target.value)
                   setPaginationModel((p) => ({ ...p, page: 0 }))
                 }}
-                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: '#006D77' } }}
+                sx={{ '& .MuiOutlinedInput-root.Mui-focused fieldset': { borderColor: 'primary.main' } }}
               >
                 <MenuItem value="">All Clinicians</MenuItem>
                 {clinicians.map((c) => (
@@ -973,7 +989,7 @@ export default function AppointmentsPage() {
             {/* Clear */}
             <Grid item xs="auto">
               <Tooltip title="Clear filters">
-                <IconButton onClick={handleClearFilters} sx={{ color: '#D93025', '&:hover': { bgcolor: 'rgba(217,48,37,0.06)' } }}>
+                <IconButton onClick={handleClearFilters} sx={{ color: 'error.main', '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.06) } }}>
                   <FilterAltOffIcon />
                 </IconButton>
               </Tooltip>
@@ -1033,15 +1049,15 @@ export default function AppointmentsPage() {
               px: 3,
               py: 1.5,
               borderRadius: 3,
-              border: '1.5px solid #006D77',
-              bgcolor: 'rgba(0,109,119,0.04)',
+              border: '1.5px solid', borderColor: 'primary.main',
+              bgcolor: (t) => alpha(t.palette.primary.main, 0.04),
               display: 'flex',
               alignItems: 'center',
               gap: 2,
               flexWrap: 'wrap',
             }}
           >
-            <Typography variant="body2" fontWeight={700} sx={{ color: '#006D77', flex: 1 }}>
+            <Typography variant="body2" fontWeight={700} sx={{ color: 'primary.main', flex: 1 }}>
               {rowSelectionModel.length} appointment{rowSelectionModel.length !== 1 ? 's' : ''} selected
             </Typography>
             <Button
@@ -1052,9 +1068,9 @@ export default function AppointmentsPage() {
               sx={{
                 borderRadius: 2,
                 fontWeight: 700,
-                borderColor: '#006D77',
-                color: '#006D77',
-                '&:hover': { bgcolor: 'rgba(0,109,119,0.08)' },
+                borderColor: 'primary.main',
+                color: 'primary.main',
+                '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08) },
               }}
             >
               Export Selected
@@ -1070,7 +1086,7 @@ export default function AppointmentsPage() {
               Bulk Cancel
             </Button>
             <Tooltip title="Clear selection">
-              <IconButton size="small" onClick={() => setRowSelectionModel([])} sx={{ color: '#5F6368' }}>
+              <IconButton size="small" onClick={() => setRowSelectionModel([])} sx={{ color: 'text.secondary' }}>
                 <DeselctRoundedIcon fontSize="small" />
               </IconButton>
             </Tooltip>
@@ -1127,19 +1143,19 @@ export default function AppointmentsPage() {
                 overflow: 'hidden',
               },
               '& .MuiDataGrid-columnHeaders': {
-                backgroundColor: '#F8F9FA',
-                color: '#9AA0A6',
+                backgroundColor: 'action.hover',
+                color: 'text.disabled',
                 fontWeight: 700,
                 fontSize: '0.70rem',
                 textTransform: 'uppercase',
                 letterSpacing: '0.10em',
               },
               '& .MuiDataGrid-columnSeparator': { display: 'none' },
-              '& .MuiDataGrid-row:hover': { backgroundColor: '#F1F3F4' },
-              '& .MuiDataGrid-row.Mui-selected': { backgroundColor: 'rgba(0,109,119,0.06)' },
-              '& .MuiDataGrid-row.Mui-selected:hover': { backgroundColor: 'rgba(0,109,119,0.10)' },
-              '& .MuiCheckbox-root.Mui-checked': { color: '#006D77' },
-              '& .MuiCheckbox-root.MuiCheckbox-indeterminate': { color: '#006D77' },
+              '& .MuiDataGrid-row:hover': { backgroundColor: 'action.hover' },
+              '& .MuiDataGrid-row.Mui-selected': { backgroundColor: (t) => alpha(t.palette.primary.main, 0.06) },
+              '& .MuiDataGrid-row.Mui-selected:hover': { backgroundColor: (t) => alpha(t.palette.primary.main, 0.1) },
+              '& .MuiCheckbox-root.Mui-checked': { color: 'primary.main' },
+              '& .MuiCheckbox-root.MuiCheckbox-indeterminate': { color: 'primary.main' },
             }}
           />
         </Paper>

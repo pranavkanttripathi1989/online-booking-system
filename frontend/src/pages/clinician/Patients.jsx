@@ -23,6 +23,7 @@ import {
   TextField,
   Alert,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import DownloadIcon from '@mui/icons-material/Download'
 import { PatientAvatar } from '../../components/shared'
 import SearchIcon from '@mui/icons-material/Search'
@@ -98,9 +99,6 @@ function toRow(p) {
   }
 }
 
-// ─── Constants ────────────────────────────────────────────────────────────────
-const STITCH_BRAND = '#006D77'
-
 // `condition` and `status` (active/new/inactive) are GONE rather than faked.
 // Neither exists anywhere in the schema. `status` could be *derived* — "new" if
 // one visit, "inactive" if the last visit is over N months old — but N is a
@@ -137,6 +135,7 @@ const compareBy = (key, dir) => (a, b) => {
 
 // ─── Component ────────────────────────────────────────────────────────────────
 export default function ClinicianPatients() {
+  const theme = useTheme()
   const navigate = useNavigate()
 
   // ── State ──────────────────────────────────────────────────────────────────
@@ -210,8 +209,8 @@ export default function ClinicianPatients() {
   // "Upcoming Appts" is scoped to this page, and says so, rather than implying a
   // figure across all patients that this query cannot see.
   const kpis = [
-    { label: 'Total Patients', value: totalPatients, color: STITCH_BRAND },
-    { label: 'With Upcoming (this page)', value: rows.filter((p) => p.nextAppt).length, color: '#E29578' },
+    { label: 'Total Patients', value: totalPatients, color: theme.palette.primary.main },
+    { label: 'With Upcoming (this page)', value: rows.filter((p) => p.nextAppt).length, color: theme.palette.secondary.main },
   ]
 
   // ── Render ─────────────────────────────────────────────────────────────────
@@ -234,7 +233,7 @@ export default function ClinicianPatients() {
             variant="outlined"
             startIcon={<DownloadIcon />}
             onClick={exportCSV}
-            sx={{ color: STITCH_BRAND, borderColor: STITCH_BRAND, borderRadius: 2, fontWeight: 600, '&:hover': { bgcolor: '#E8F8F9' } }}
+            sx={{ color: 'primary.main', borderColor: 'primary.main', borderRadius: 2, fontWeight: 600, '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08) } }}
           >
             Export CSV
           </Button>
@@ -314,9 +313,9 @@ export default function ClinicianPatients() {
       )}
 
       {/* TABLE */}
-      <TableContainer component={Paper} sx={{ border: '1px solid #D0E8EA', borderRadius: 2 }}>
+      <TableContainer component={Paper} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2 }}>
         <Table size="small">
-          <TableHead sx={{ bgcolor: '#F8FCFC' }}>
+          <TableHead sx={{ bgcolor: 'action.hover' }}>
             <TableRow>
               {COLS.map(({ key, label, sortable }) => (
                 <TableCell key={key} sx={{ fontWeight: 700, borderBottom: '2px solid #D0E8EA', py: 1.5 }}>
@@ -352,7 +351,7 @@ export default function ClinicianPatients() {
                         size="small"
                         variant="outlined"
                         onClick={() => handleSearchChange('')}
-                        sx={{ mt: 1, color: STITCH_BRAND, borderColor: STITCH_BRAND, borderRadius: 2 }}
+                        sx={{ mt: 1, color: 'primary.main', borderColor: 'primary.main', borderRadius: 2 }}
                       >
                         Clear filters
                       </Button>
@@ -402,7 +401,7 @@ export default function ClinicianPatients() {
                           <Chip
                             label={`${dayjs().diff(dayjs(patient.dob), 'year')}y`}
                             size="small"
-                            sx={{ bgcolor: '#F1F5F9', color: '#475569', fontWeight: 600, fontSize: '0.6rem', height: 16, px: 0 }}
+                            sx={{ bgcolor: 'action.hover', color: 'text.secondary', fontWeight: 600, fontSize: '0.6rem', height: 16, px: 0 }}
                           />
                         )}
                       </Stack>
@@ -432,8 +431,8 @@ export default function ClinicianPatients() {
                     <TableCell>
                       {patient.nextAppt ? (
                         <Stack direction="row" alignItems="center" spacing={0.5}>
-                          <CalendarMonthIcon sx={{ fontSize: 14, color: '#2DC653' }} />
-                          <Typography variant="body2" sx={{ color: '#2DC653', fontWeight: 600 }}>
+                          <CalendarMonthIcon sx={{ fontSize: 14, color: 'success.main' }} />
+                          <Typography variant="body2" sx={{ color: 'success.main', fontWeight: 600 }}>
                             {dayjs(patient.nextAppt).format('DD/MM/YYYY')}
                           </Typography>
                         </Stack>
@@ -446,7 +445,7 @@ export default function ClinicianPatients() {
 
                     {/* Total Visits */}
                     <TableCell>
-                      <Chip label={patient.totalVisits} size="small" sx={{ bgcolor: '#E8F8F9', fontWeight: 700, color: STITCH_BRAND }} />
+                      <Chip label={patient.totalVisits} size="small" sx={{ bgcolor: (t) => alpha(t.palette.primary.main, 0.08), fontWeight: 700, color: 'primary.main' }} />
                     </TableCell>
 
                     {/* Status — NEW-CLPAT-019: overdue warning badge */}
@@ -457,7 +456,7 @@ export default function ClinicianPatients() {
                             <Chip
                               label="Overdue"
                               size="small"
-                              sx={{ bgcolor: '#FFF3CD', color: '#856404', fontWeight: 700, fontSize: '0.65rem', height: 18 }}
+                              sx={{ bgcolor: (t) => alpha(t.palette.warning.main, 0.16), color: 'warning.dark', fontWeight: 700, fontSize: '0.65rem', height: 18 }}
                             />
                           </Tooltip>
                         )}
@@ -472,7 +471,7 @@ export default function ClinicianPatients() {
                             size="small"
                             onClick={() => navigate(`/patients/${patient.id}`)}
                             aria-label={`View ${patient.name}'s profile`}
-                            sx={{ color: STITCH_BRAND, '&:hover': { bgcolor: '#E8F8F9' } }}
+                            sx={{ color: 'primary.main', '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08) } }}
                           >
                             <VisibilityIcon fontSize="small" />
                           </IconButton>
@@ -488,7 +487,7 @@ export default function ClinicianPatients() {
                               })
                             }
                             aria-label={`Book appointment for ${patient.name}`}
-                            sx={{ color: '#3A86FF', '&:hover': { bgcolor: '#EFF6FF' } }}
+                            sx={{ color: 'info.main', '&:hover': { bgcolor: (t) => alpha(t.palette.info.main, 0.08) } }}
                           >
                             <CalendarMonthIcon fontSize="small" />
                           </IconButton>

@@ -28,6 +28,7 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import CalendarMonthRoundedIcon from '@mui/icons-material/CalendarMonthRounded'
 import PersonRoundedIcon from '@mui/icons-material/PersonRounded'
@@ -62,12 +63,11 @@ const STATUS_LABELS = {
   completed: 'Completed',
   no_show: 'No Show',
 }
-const STATUS_COLORS = {
-  confirmed: '#0F9D58',
-  pending: '#F9AB00',
-  cancelled: '#D93025',
-  completed: '#006D77',
-  no_show: '#80868B',
+// BUG047 Phase 3 -- status colour comes from theme.palette.appointmentStatus
+// (theme/index.js)'s own `.dot`, the one shared source, instead of this
+// file's own hex map. Callers with no `theme` in scope take it as an arg.
+function statusDot(theme, status) {
+  return theme.palette.appointmentStatus[status]?.dot ?? theme.palette.text.disabled
 }
 
 // ─── Appointment type meta ────────────────────────────────────────────────────
@@ -159,7 +159,7 @@ const WEEKDAY_SLOTS = [
 ]
 const WEEKEND_SLOTS = ['09:00', '09:30', '10:00', '10:30', '11:00']
 
-function generateMockCalendarData() {
+function generateMockCalendarData(theme) {
   // First use real MockStore appointments
   const storeApts = MockStore.getAppointments()
   const realEvents = storeApts.map((apt) => ({
@@ -167,8 +167,8 @@ function generateMockCalendarData() {
     title: apt.patient?.full_name ?? 'Unknown',
     start: apt.start_datetime,
     end: apt.end_datetime,
-    backgroundColor: STATUS_COLORS[apt.status] ?? '#006D77',
-    borderColor: STATUS_COLORS[apt.status] ?? '#006D77',
+    backgroundColor: statusDot(theme, apt.status),
+    borderColor: statusDot(theme, apt.status),
     extendedProps: {
       patient: apt.patient?.full_name,
       clinician: apt.clinician?.full_name,
@@ -204,7 +204,7 @@ function generateMockCalendarData() {
       const [h, m] = timeSlot.split(':').map(Number)
       const startDt = new Date(year, month, day, h, m)
       const endDt = new Date(startDt.getTime() + type.duration * 60 * 1000)
-      const bg = STATUS_COLORS[type.status] ?? '#006D77'
+      const bg = statusDot(theme, type.status)
       extraEvents.push({
         id: `gen-${eventId++}`,
         title: patient,
@@ -269,7 +269,7 @@ function availableAtHour(avail, hour) {
 // ─── PillSelect ──────────────────────────────────────────────────────────────
 function PillSelect({ value, onChange, label, placeholder, icon: Icon, children, minWidth = 145 }) {
   const active = Boolean(value)
-  const TEAL = '#006D77'
+  const theme = useTheme()
   return (
     <TextField
       select
@@ -279,7 +279,10 @@ function PillSelect({ value, onChange, label, placeholder, icon: Icon, children,
       SelectProps={{
         displayEmpty: true,
         renderValue: (val) => {
-          if (!val && placeholder) return <span style={{ color: '#5F6368', fontWeight: 500 }}>{placeholder}</span>
+          if (!val && placeholder)
+            return (
+              <span style={{ color: theme.palette.text.secondary, fontWeight: 500 }}>{placeholder}</span>
+            )
           const childArr = Array.isArray(children) ? children.flat() : [children]
           const match = childArr.find((c) => c?.props?.value === val)
           return match?.props?.children ?? val
@@ -289,25 +292,25 @@ function PillSelect({ value, onChange, label, placeholder, icon: Icon, children,
         minWidth,
         '& .MuiOutlinedInput-root': {
           borderRadius: '22px',
-          bgcolor: active ? 'rgba(0,109,119,0.08)' : '#F8F9FA',
+          bgcolor: active ? (t) => alpha(t.palette.primary.main, 0.08) : 'action.hover',
           transition: 'all 0.15s ease',
-          '& fieldset': { borderColor: active ? 'rgba(0,109,119,0.4)' : '#E8EAED', transition: 'border-color 0.15s' },
-          '&:hover fieldset': { borderColor: TEAL },
-          '&.Mui-focused fieldset': { borderColor: TEAL, borderWidth: 1.5 },
+          '& fieldset': { borderColor: active ? (t) => alpha(t.palette.primary.main, 0.4) : 'divider', transition: 'border-color 0.15s' },
+          '&:hover fieldset': { borderColor: 'primary.main' },
+          '&.Mui-focused fieldset': { borderColor: 'primary.main', borderWidth: 1.5 },
         },
         '& .MuiSelect-select': {
-          color: active ? TEAL : '#5F6368',
+          color: active ? 'primary.main' : 'text.secondary',
           fontWeight: active ? 700 : 500,
           fontSize: '0.82rem',
           py: '7px',
           fontFamily: "'Plus Jakarta Sans', sans-serif",
         },
-        '& .MuiSvgIcon-root.MuiSelect-icon': { color: active ? TEAL : '#9AA0A6' },
+        '& .MuiSvgIcon-root.MuiSelect-icon': { color: active ? 'primary.main' : 'text.disabled' },
       }}
       InputProps={{
         startAdornment: (
           <InputAdornment position="start" sx={{ mr: 0.25 }}>
-            <Icon sx={{ fontSize: '0.9rem', color: active ? TEAL : '#9AA0A6', transition: 'color 0.15s' }} />
+            <Icon sx={{ fontSize: '0.9rem', color: active ? 'primary.main' : 'text.disabled', transition: 'color 0.15s' }} />
           </InputAdornment>
         ),
       }}
@@ -319,6 +322,7 @@ function PillSelect({ value, onChange, label, placeholder, icon: Icon, children,
 
 // ─── RoomView ────────────────────────────────────────────────────────────────
 function RoomView({ date, rooms, appointments, availability, onEventClick }) {
+  const theme = useTheme()
   const dateStr = dayjs(date).format('YYYY-MM-DD')
   const dayAppts = useMemo(
     () =>
@@ -351,14 +355,15 @@ function RoomView({ date, rooms, appointments, availability, onEventClick }) {
           sx={{
             display: 'grid',
             gridTemplateColumns: colTemplate,
-            borderBottom: '2px solid #E8EAED',
+            borderBottom: '2px solid',
+            borderBottomColor: 'divider',
             position: 'sticky',
             top: 0,
-            bgcolor: '#fff',
+            bgcolor: 'background.paper',
             zIndex: 2,
           }}
         >
-          <Box sx={{ p: 1.5, borderRight: '1px solid #E8EAED', bgcolor: '#F8F9FA' }}>
+          <Box sx={{ p: 1.5, borderRight: '1px solid', borderRightColor: 'divider', bgcolor: 'action.hover' }}>
             <Typography variant="caption" fontWeight={700} color="text.secondary">
               TIME
             </Typography>
@@ -366,13 +371,16 @@ function RoomView({ date, rooms, appointments, availability, onEventClick }) {
           {rooms.map((room) => {
             const avails = getRoomAvails(room.id)
             return (
-              <Box key={room.id} sx={{ p: 1.5, textAlign: 'center', borderRight: '1px solid #E8EAED', bgcolor: '#F8F9FA' }}>
-                <Typography variant="body2" fontWeight={700} color="#202124">
+              <Box key={room.id} sx={{ p: 1.5, textAlign: 'center', borderRight: '1px solid', borderRightColor: 'divider', bgcolor: 'action.hover' }}>
+                <Typography variant="body2" fontWeight={700} color="text.primary">
                   {room.name}
                 </Typography>
                 {avails.map((a) => (
-                  <Box key={a.id} sx={{ mt: 0.5, display: 'inline-block', bgcolor: '#E8F0FE', borderRadius: 1, px: 0.75, py: 0.25 }}>
-                    <Typography variant="caption" sx={{ color: '#1A73E8', fontWeight: 700, fontSize: '0.68rem' }}>
+                  <Box
+                    key={a.id}
+                    sx={{ mt: 0.5, display: 'inline-block', bgcolor: (t) => alpha(t.palette.info.main, 0.12), borderRadius: 1, px: 0.75, py: 0.25 }}
+                  >
+                    <Typography variant="caption" sx={{ color: 'info.main', fontWeight: 700, fontSize: '0.68rem' }}>
                       {a.clinician?.first_name?.charAt(0)}
                       {a.clinician?.last_name?.charAt(0)} · {(a.start_time || '').slice(0, 5)}–{(a.end_time || '').slice(0, 5)}
                     </Typography>
@@ -385,21 +393,22 @@ function RoomView({ date, rooms, appointments, availability, onEventClick }) {
 
         {/* Hour rows */}
         {ROOM_VIEW_HOURS.map((hour) => (
-          <Box key={hour} sx={{ display: 'grid', gridTemplateColumns: colTemplate, borderBottom: '1px solid #F1F3F4' }}>
+          <Box key={hour} sx={{ display: 'grid', gridTemplateColumns: colTemplate, borderBottom: '1px solid', borderBottomColor: 'divider' }}>
             {/* Time label */}
             <Box
               sx={{
                 p: 1,
                 pr: 1.5,
-                borderRight: '1px solid #E8EAED',
+                borderRight: '1px solid',
+                borderRightColor: 'divider',
                 textAlign: 'right',
-                bgcolor: '#F8F9FA',
+                bgcolor: 'action.hover',
                 display: 'flex',
                 alignItems: 'flex-start',
                 justifyContent: 'flex-end',
               }}
             >
-              <Typography variant="caption" sx={{ color: '#80868B', fontWeight: 600, mt: 0.5 }}>
+              <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, mt: 0.5 }}>
                 {hour < 10 ? `0${hour}` : hour}:00
               </Typography>
             </Box>
@@ -413,9 +422,10 @@ function RoomView({ date, rooms, appointments, availability, onEventClick }) {
                   key={room.id}
                   sx={{
                     p: 0.5,
-                    borderRight: '1px solid #F1F3F4',
+                    borderRight: '1px solid',
+                    borderRightColor: 'divider',
                     minHeight: 72,
-                    bgcolor: hasAvail && appts.length === 0 ? 'rgba(26,115,232,0.04)' : '#fff',
+                    bgcolor: hasAvail && appts.length === 0 ? (t) => alpha(t.palette.info.main, 0.04) : 'background.paper',
                     position: 'relative',
                     transition: 'background 0.15s',
                   }}
@@ -431,33 +441,27 @@ function RoomView({ date, rooms, appointments, availability, onEventClick }) {
                               width: 20,
                               height: 20,
                               borderRadius: '50%',
-                              bgcolor: 'rgba(0,109,119,0.15)',
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.15),
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
                             }}
                           >
-                            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: '#006D77' }}>
+                            <Typography sx={{ fontSize: '0.6rem', fontWeight: 800, color: 'primary.main' }}>
                               {a.clinician?.first_name?.charAt(0)}
                               {a.clinician?.last_name?.charAt(0)}
                             </Typography>
                           </Box>
                         ))}
-                        {avails.length > 2 && <Typography sx={{ fontSize: '0.6rem', color: '#006D77' }}>+{avails.length - 2}</Typography>}
+                        {avails.length > 2 && <Typography sx={{ fontSize: '0.6rem', color: 'primary.main' }}>+{avails.length - 2}</Typography>}
                       </Box>
                     </Tooltip>
                   )}
                   {/* Appointment cards */}
                   {appts.map((evt) => {
                     const s = evt.extendedProps?.status
-                    const COLOR_MAP = {
-                      confirmed: { bg: '#E6F4EA', border: '#34A853', text: '#137333' },
-                      pending: { bg: '#FEF7E0', border: '#F9AB00', text: '#7A5100' },
-                      cancelled: { bg: '#FCE8E6', border: '#EA4335', text: '#C5221F' },
-                      completed: { bg: '#E8F0FE', border: '#4285F4', text: '#1A56E2' },
-                      no_show: { bg: '#F1F3F4', border: '#9AA0A6', text: '#5F6368' },
-                    }
-                    const c = COLOR_MAP[s] || COLOR_MAP.confirmed
+                    const meta = theme.palette.appointmentStatus[s] ?? theme.palette.appointmentStatus.confirmed
+                    const c = { bg: meta.bg, border: meta.dot, text: meta.text }
                     return (
                       <Box
                         key={evt.id}
@@ -481,7 +485,7 @@ function RoomView({ date, rooms, appointments, availability, onEventClick }) {
                           {evt.extendedProps?.patient}
                         </Typography>
                         {evt.extendedProps?.clinician && (
-                          <Typography sx={{ fontSize: '0.65rem', color: '#5F6368' }} noWrap>
+                          <Typography sx={{ fontSize: '0.65rem', color: 'text.secondary' }} noWrap>
                             {evt.extendedProps.clinician}
                           </Typography>
                         )}
@@ -493,18 +497,18 @@ function RoomView({ date, rooms, appointments, availability, onEventClick }) {
                               display: 'inline-flex',
                               alignItems: 'center',
                               gap: 0.25,
-                              bgcolor: 'rgba(0,109,119,0.09)',
+                              bgcolor: (t) => alpha(t.palette.primary.main, 0.09),
                               borderRadius: 0.75,
                               px: 0.5,
                               py: '1px',
                             }}
                           >
                             {evt.extendedProps.apptType === 'video' ? (
-                              <VideocamRoundedIcon sx={{ fontSize: '0.58rem', color: '#006D77' }} />
+                              <VideocamRoundedIcon sx={{ fontSize: '0.58rem', color: 'primary.main' }} />
                             ) : (
-                              <DirectionsCarRoundedIcon sx={{ fontSize: '0.58rem', color: '#006D77' }} />
+                              <DirectionsCarRoundedIcon sx={{ fontSize: '0.58rem', color: 'primary.main' }} />
                             )}
-                            <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: '#006D77' }}>
+                            <Typography sx={{ fontSize: '0.58rem', fontWeight: 700, color: 'primary.main' }}>
                               {evt.extendedProps.apptType === 'video' ? 'Video' : 'Home Visit'}
                             </Typography>
                           </Box>
@@ -663,7 +667,7 @@ export default function CalendarPage() {
   // not a reason to pad it with a month of fabricated events.
   const appointments = data?.appointments?.data ?? []
   const realEvents = appointments.map(toCalendarEvent)
-  const events = error ? generateMockCalendarData() : realEvents
+  const events = error ? generateMockCalendarData(theme) : realEvents
 
   // ── Status counts ─────────────────────────────────────────────────────────
   const realAppts = events.filter((e) => !e.extendedProps?.isBlocked)
@@ -788,24 +792,24 @@ export default function CalendarPage() {
               width: 44,
               height: 44,
               borderRadius: 2.5,
-              background: 'linear-gradient(135deg, rgba(0,109,119,0.12) 0%, rgba(0,109,119,0.20) 100%)',
+              background: (t) => `linear-gradient(135deg, ${alpha(t.palette.primary.main, 0.12)} 0%, ${alpha(t.palette.primary.main, 0.20)} 100%)`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
             }}
           >
-            <CalendarMonthRoundedIcon sx={{ color: '#006D77', fontSize: '1.3rem' }} />
+            <CalendarMonthRoundedIcon sx={{ color: 'primary.main', fontSize: '1.3rem' }} />
           </Box>
           <Box>
-            <Typography variant="h4" fontWeight={800} sx={{ color: '#202124', fontSize: { xs: '1.35rem', sm: '1.6rem' }, lineHeight: 1 }}>
+            <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary', fontSize: { xs: '1.35rem', sm: '1.6rem' }, lineHeight: 1 }}>
               Calendar
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 0.3 }}>
-              <Typography variant="body2" sx={{ color: '#5F6368' }}>
+              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                 {loading ? 'Loading…' : `${events.length.toLocaleString()} appointment${events.length !== 1 ? 's' : ''}`}
               </Typography>
-              {loading && <CircularProgress size={14} thickness={5} sx={{ color: '#006D77' }} />}
+              {loading && <CircularProgress size={14} thickness={5} sx={{ color: 'primary.main' }} />}
             </Box>
           </Box>
           {/* Today's Schedule toggle badge (SUG-CAL-005) */}
@@ -814,7 +818,7 @@ export default function CalendarPage() {
               <Badge
                 badgeContent={todayEvents.length}
                 color="error"
-                sx={{ cursor: 'pointer', '& .MuiBadge-badge': { bgcolor: '#006D77', fontSize: '0.65rem', minWidth: 16, height: 16 } }}
+                sx={{ cursor: 'pointer', '& .MuiBadge-badge': { bgcolor: 'primary.main', fontSize: '0.65rem', minWidth: 16, height: 16 } }}
                 onClick={() => setTodayOpen((v) => !v)}
               >
                 <Box
@@ -822,16 +826,17 @@ export default function CalendarPage() {
                     width: 36,
                     height: 36,
                     borderRadius: 2,
-                    bgcolor: todayOpen ? 'rgba(0,109,119,0.12)' : '#F1F3F4',
+                    bgcolor: todayOpen ? (t) => alpha(t.palette.primary.main, 0.12) : 'action.hover',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    border: todayOpen ? '1.5px solid rgba(0,109,119,0.3)' : '1.5px solid #E8EAED',
+                    border: todayOpen ? (t) => `1.5px solid ${alpha(t.palette.primary.main, 0.3)}` : '1.5px solid',
+                    borderColor: todayOpen ? undefined : 'divider',
                     transition: 'all 0.2s',
-                    '&:hover': { bgcolor: 'rgba(0,109,119,0.12)', borderColor: 'rgba(0,109,119,0.3)' },
+                    '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.12), borderColor: (t) => alpha(t.palette.primary.main, 0.3) },
                   }}
                 >
-                  <TodayRoundedIcon sx={{ fontSize: '1.1rem', color: todayOpen ? '#006D77' : '#9AA0A6' }} />
+                  <TodayRoundedIcon sx={{ fontSize: '1.1rem', color: todayOpen ? 'primary.main' : 'text.disabled' }} />
                 </Box>
               </Badge>
             </Tooltip>
@@ -849,17 +854,18 @@ export default function CalendarPage() {
                     width: 36,
                     height: 36,
                     borderRadius: 2,
-                    bgcolor: jumpDateOpen ? 'rgba(0,109,119,0.12)' : '#F1F3F4',
+                    bgcolor: jumpDateOpen ? (t) => alpha(t.palette.primary.main, 0.12) : 'action.hover',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
                     cursor: 'pointer',
-                    border: jumpDateOpen ? '1.5px solid rgba(0,109,119,0.3)' : '1.5px solid #E8EAED',
+                    border: jumpDateOpen ? (t) => `1.5px solid ${alpha(t.palette.primary.main, 0.3)}` : '1.5px solid',
+                    borderColor: jumpDateOpen ? undefined : 'divider',
                     transition: 'all 0.2s',
-                    '&:hover': { bgcolor: 'rgba(0,109,119,0.12)', borderColor: 'rgba(0,109,119,0.3)' },
+                    '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.12), borderColor: (t) => alpha(t.palette.primary.main, 0.3) },
                   }}
                 >
-                  <EventAvailableRoundedIcon sx={{ fontSize: '1.1rem', color: jumpDateOpen ? '#006D77' : '#9AA0A6' }} />
+                  <EventAvailableRoundedIcon sx={{ fontSize: '1.1rem', color: jumpDateOpen ? 'primary.main' : 'text.disabled' }} />
                 </Box>
                 {/* Native date input — visually hidden, triggered via .showPicker() */}
                 <input
@@ -896,10 +902,10 @@ export default function CalendarPage() {
               borderRadius: '12px',
               fontSize: '0.78rem',
               fontWeight: 700,
-              bgcolor: '#F1F3F4',
+              bgcolor: 'action.hover',
               minWidth: 110,
               '& fieldset': { border: 'none' },
-              '& .MuiSelect-select': { py: '6px', fontWeight: 700, color: '#006D77' },
+              '& .MuiSelect-select': { py: '6px', fontWeight: 700, color: 'primary.main' },
             }}
           >
             <MenuItem value="dayGridMonth">Month</MenuItem>
@@ -916,7 +922,7 @@ export default function CalendarPage() {
             onChange={handleViewChange}
             size="small"
             sx={{
-              bgcolor: '#F1F3F4',
+              bgcolor: 'action.hover',
               borderRadius: '12px',
               p: '4px',
               gap: '2px',
@@ -930,13 +936,13 @@ export default function CalendarPage() {
                 py: 0.65,
                 fontSize: '0.78rem',
                 fontWeight: 700,
-                color: '#5F6368',
+                color: 'text.secondary',
                 fontFamily: "'Plus Jakarta Sans', sans-serif",
                 textTransform: 'none',
                 transition: 'all 0.18s ease',
                 minWidth: 52,
-                '&.Mui-selected': { bgcolor: '#FFFFFF', color: '#006D77', boxShadow: '0 1px 5px rgba(32,33,36,0.16)' },
-                '&:hover:not(.Mui-selected)': { bgcolor: '#E8EAED' },
+                '&.Mui-selected': { bgcolor: 'background.paper', color: 'primary.main', boxShadow: '0 1px 5px rgba(32,33,36,0.16)' },
+                '&:hover:not(.Mui-selected)': { bgcolor: 'divider' },
               },
             }}
           >
@@ -963,11 +969,11 @@ export default function CalendarPage() {
               textTransform: 'none',
               fontSize: '0.875rem',
               fontFamily: "'Plus Jakarta Sans', sans-serif",
-              background: 'linear-gradient(135deg, #00858F 0%, #006D77 100%)',
+              background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
               boxShadow: '0 2px 8px rgba(0,109,119,0.30)',
               display: { xs: 'none', sm: 'flex' },
               '&:hover': {
-                background: 'linear-gradient(135deg, #006D77 0%, #005A62 100%)',
+                background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`,
                 boxShadow: '0 4px 14px rgba(0,109,119,0.40)',
                 transform: 'translateY(-1px)',
               },
@@ -1010,7 +1016,7 @@ export default function CalendarPage() {
             SelectProps={{
               displayEmpty: true,
               renderValue: (val) => {
-                const color = val ? (STATUS_COLORS[val] ?? '#9AA0A6') : '#9AA0A6'
+                const color = val ? statusDot(theme, val) : theme.palette.text.disabled
                 return (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                     <FiberManualRecordIcon sx={{ fontSize: '0.70rem', color, flexShrink: 0 }} />
@@ -1023,13 +1029,13 @@ export default function CalendarPage() {
               minWidth: 145,
               '& .MuiOutlinedInput-root': {
                 borderRadius: '22px',
-                bgcolor: filterStatus ? 'rgba(0,109,119,0.08)' : '#F8F9FA',
-                '& fieldset': { borderColor: filterStatus ? 'rgba(0,109,119,0.4)' : '#E8EAED' },
-                '&:hover fieldset': { borderColor: '#006D77' },
-                '&.Mui-focused fieldset': { borderColor: '#006D77', borderWidth: 1.5 },
+                bgcolor: filterStatus ? (t) => alpha(t.palette.primary.main, 0.08) : 'action.hover',
+                '& fieldset': { borderColor: filterStatus ? (t) => alpha(t.palette.primary.main, 0.4) : 'divider' },
+                '&:hover fieldset': { borderColor: 'primary.main' },
+                '&.Mui-focused fieldset': { borderColor: 'primary.main', borderWidth: 1.5 },
               },
               '& .MuiSelect-select': {
-                color: filterStatus ? '#006D77' : '#5F6368',
+                color: filterStatus ? 'primary.main' : 'text.secondary',
                 fontWeight: filterStatus ? 700 : 500,
                 fontSize: '0.82rem',
                 py: '7px',
@@ -1040,7 +1046,7 @@ export default function CalendarPage() {
             {STATUS_OPTIONS.map((s) => (
               <MenuItem key={s} value={s}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  {s && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: STATUS_COLORS[s], flexShrink: 0 }} />}
+                  {s && <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: statusDot(theme, s), flexShrink: 0 }} />}
                   {STATUS_LABELS[s]}
                 </Box>
               </MenuItem>
@@ -1063,42 +1069,40 @@ export default function CalendarPage() {
               icon={<ClearRoundedIcon sx={{ fontSize: '0.78rem !important' }} />}
               onClick={handleClearFilters}
               sx={{
-                bgcolor: '#FCE8E6',
-                color: '#D93025',
+                bgcolor: (t) => alpha(t.palette.error.main, 0.12),
+                color: 'error.main',
                 fontWeight: 700,
                 fontSize: '0.75rem',
-                border: '1px solid rgba(217,48,37,0.20)',
+                border: (t) => `1px solid ${alpha(t.palette.error.main, 0.20)}`,
                 borderRadius: '20px',
-                '&:hover': { bgcolor: '#F5C6C2' },
-                '& .MuiChip-icon': { color: '#D93025' },
+                '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.22) },
+                '& .MuiChip-icon': { color: 'error.main' },
               }}
             />
           )}
 
           <Box sx={{ ml: 'auto', display: { xs: 'none', md: 'flex' }, gap: 0.75, flexShrink: 0 }}>
-            {[
-              { key: 'confirmed', label: 'Confirmed', color: '#0F9D58', bg: '#E6F4EA' },
-              { key: 'pending', label: 'Pending', color: '#F9AB00', bg: '#FEF7E0' },
-              { key: 'cancelled', label: 'Cancelled', color: '#D93025', bg: '#FCE8E6' },
-            ].map(
-              ({ key, label, color, bg }) =>
+            {['confirmed', 'pending', 'cancelled'].map((key) => {
+              const meta = theme.palette.appointmentStatus[key]
+              return (
                 statusCounts[key] > 0 && (
                   <Chip
                     key={key}
-                    label={`${statusCounts[key]} ${label}`}
+                    label={`${statusCounts[key]} ${STATUS_LABELS[key]}`}
                     size="small"
                     sx={{
-                      bgcolor: bg,
-                      color,
+                      bgcolor: meta.bg,
+                      color: meta.text,
                       fontWeight: 700,
                       fontSize: '0.72rem',
                       borderRadius: '20px',
-                      border: `1px solid ${color}22`,
+                      border: `1px solid ${meta.border}`,
                       height: 24,
                     }}
                   />
-                ),
-            )}
+                )
+              )
+            })}
           </Box>
         </Box>
       )}
@@ -1107,15 +1111,15 @@ export default function CalendarPage() {
       {!isRoomView && (
         <Box sx={{ display: { xs: 'none', sm: 'flex' }, gap: 2, mb: 1.5, px: 0.5, flexWrap: 'wrap' }}>
           {[
-            { label: 'Confirmed', color: '#0F9D58' },
-            { label: 'Pending', color: '#F9AB00' },
-            { label: 'Cancelled', color: '#D93025' },
-            { label: 'Completed', color: '#006D77' },
-            { label: 'No Show', color: '#80868B' },
+            { label: 'Confirmed', color: theme.palette.appointmentStatus.confirmed.dot },
+            { label: 'Pending', color: theme.palette.appointmentStatus.pending.dot },
+            { label: 'Cancelled', color: theme.palette.appointmentStatus.cancelled.dot },
+            { label: 'Completed', color: theme.palette.appointmentStatus.completed.dot },
+            { label: 'No Show', color: theme.palette.appointmentStatus.no_show.dot },
           ].map(({ label, color }) => (
             <Box key={label} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Box sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: color, flexShrink: 0 }} />
-              <Typography variant="caption" sx={{ color: '#5F6368', fontSize: '0.72rem', fontWeight: 600 }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.72rem', fontWeight: 600 }}>
                 {label}
               </Typography>
             </Box>
@@ -1152,7 +1156,7 @@ export default function CalendarPage() {
                 label="‹"
                 size="small"
                 onClick={() => setRoomViewDate((d) => d.subtract(1, 'day'))}
-                sx={{ cursor: 'pointer', fontWeight: 700, borderRadius: '10px', bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}
+                sx={{ cursor: 'pointer', fontWeight: 700, borderRadius: '10px', bgcolor: 'action.hover', '&:hover': { bgcolor: 'divider' } }}
               />
               <Chip
                 label={roomViewDate.isSame(dayjs(), 'day') ? 'Today' : roomViewDate.format('ddd, DD MMM')}
@@ -1162,16 +1166,16 @@ export default function CalendarPage() {
                   cursor: 'pointer',
                   fontWeight: 700,
                   borderRadius: '10px',
-                  bgcolor: roomViewDate.isSame(dayjs(), 'day') ? 'rgba(0,109,119,0.10)' : '#F1F3F4',
-                  color: roomViewDate.isSame(dayjs(), 'day') ? '#006D77' : 'inherit',
-                  '&:hover': { bgcolor: '#E8EAED' },
+                  bgcolor: roomViewDate.isSame(dayjs(), 'day') ? (t) => alpha(t.palette.primary.main, 0.10) : 'action.hover',
+                  color: roomViewDate.isSame(dayjs(), 'day') ? 'primary.main' : 'inherit',
+                  '&:hover': { bgcolor: 'divider' },
                 }}
               />
               <Chip
                 label="›"
                 size="small"
                 onClick={() => setRoomViewDate((d) => d.add(1, 'day'))}
-                sx={{ cursor: 'pointer', fontWeight: 700, borderRadius: '10px', bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}
+                sx={{ cursor: 'pointer', fontWeight: 700, borderRadius: '10px', bgcolor: 'action.hover', '&:hover': { bgcolor: 'divider' } }}
               />
             </Stack>
 
@@ -1194,9 +1198,9 @@ export default function CalendarPage() {
                           fontSize: '0.75rem',
                           borderRadius: '20px',
                           transition: 'all 0.15s',
-                          bgcolor: selected ? '#006D77' : '#F1F3F4',
-                          color: selected ? '#fff' : '#5F6368',
-                          '&:hover': { bgcolor: selected ? '#005A62' : '#E8EAED' },
+                          bgcolor: selected ? 'primary.main' : 'action.hover',
+                          color: selected ? 'primary.contrastText' : 'text.secondary',
+                          '&:hover': { bgcolor: selected ? 'primary.dark' : 'divider' },
                         }}
                       />
                     )
@@ -1218,19 +1222,19 @@ export default function CalendarPage() {
           {/* Availability legend */}
           <Stack direction="row" spacing={2} sx={{ mt: 1 }} alignItems="center">
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: '#D2E3FC' }} />
+              <Box sx={{ width: 12, height: 12, borderRadius: '50%', bgcolor: (t) => alpha(t.palette.info.main, 0.3) }} />
               <Typography variant="caption" color="text.secondary">
                 Clinician available (no appointment)
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ width: 12, height: 12, borderRadius: 1, bgcolor: '#34A853' }} />
+              <Box sx={{ width: 12, height: 12, borderRadius: 1, bgcolor: 'success.main' }} />
               <Typography variant="caption" color="text.secondary">
                 Confirmed
               </Typography>
             </Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Box sx={{ width: 12, height: 12, borderRadius: 1, bgcolor: '#F9AB00' }} />
+              <Box sx={{ width: 12, height: 12, borderRadius: 1, bgcolor: 'warning.main' }} />
               <Typography variant="caption" color="text.secondary">
                 Pending
               </Typography>
@@ -1241,7 +1245,7 @@ export default function CalendarPage() {
 
       {/* ── SUG-CAL-008: Full skeleton when loading ───────────────────────── */}
       {loading && (
-        <Box sx={{ flex: 1, bgcolor: '#FFFFFF', borderRadius: 3, border: '1px solid #E8EAED', overflow: 'hidden', minHeight: 480, p: 2 }}>
+        <Box sx={{ flex: 1, bgcolor: 'background.paper', borderRadius: 3, border: '1px solid #E8EAED', overflow: 'hidden', minHeight: 480, p: 2 }}>
           {/* Toolbar skeleton */}
           <Stack direction="row" spacing={1} mb={2} justifyContent="space-between" alignItems="center">
             <Stack direction="row" spacing={1}>
@@ -1280,7 +1284,7 @@ export default function CalendarPage() {
             sx={{
               flex: 1,
               minWidth: 0,
-              bgcolor: '#FFFFFF',
+              bgcolor: 'background.paper',
               borderRadius: 3,
               border: '1px solid #E8EAED',
               overflow: 'hidden',
@@ -1327,7 +1331,7 @@ export default function CalendarPage() {
               sx={{
                 width: 272,
                 height: '100%',
-                bgcolor: '#FFFFFF',
+                bgcolor: 'background.paper',
                 borderRadius: 3,
                 border: '1px solid #E8EAED',
                 boxShadow: '0 1px 4px rgba(32,33,36,0.06), 0 4px 16px rgba(32,33,36,0.04)',
@@ -1349,10 +1353,10 @@ export default function CalendarPage() {
                 }}
               >
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <EventNoteRoundedIcon sx={{ fontSize: '1rem', color: '#006D77' }} />
+                  <EventNoteRoundedIcon sx={{ fontSize: '1rem', color: 'primary.main' }} />
                   <Box>
-                    <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', color: '#202124', lineHeight: 1 }}>Today's Schedule</Typography>
-                    <Typography sx={{ fontSize: '0.68rem', color: '#5F6368', fontWeight: 500 }}>{dayjs().format('ddd, DD MMM')}</Typography>
+                    <Typography sx={{ fontWeight: 800, fontSize: '0.82rem', color: 'text.primary', lineHeight: 1 }}>Today's Schedule</Typography>
+                    <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', fontWeight: 500 }}>{dayjs().format('ddd, DD MMM')}</Typography>
                   </Box>
                 </Stack>
                 <Stack direction="row" spacing={0.5} alignItems="center">
@@ -1361,8 +1365,8 @@ export default function CalendarPage() {
                       label={todayEvents.length}
                       size="small"
                       sx={{
-                        bgcolor: '#006D77',
-                        color: '#fff',
+                        bgcolor: 'primary.main',
+                        color: 'primary.contrastText',
                         fontWeight: 800,
                         fontSize: '0.7rem',
                         height: 20,
@@ -1371,7 +1375,7 @@ export default function CalendarPage() {
                       }}
                     />
                   )}
-                  <IconButton size="small" onClick={() => setTodayOpen(false)} sx={{ color: '#9AA0A6', '&:hover': { color: '#006D77' } }}>
+                  <IconButton size="small" onClick={() => setTodayOpen(false)} sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main' } }}>
                     <ChevronRightRoundedIcon sx={{ fontSize: '1rem' }} />
                   </IconButton>
                 </Stack>
@@ -1384,7 +1388,7 @@ export default function CalendarPage() {
                   overflowY: 'auto',
                   p: 1.5,
                   '&::-webkit-scrollbar': { width: 4 },
-                  '&::-webkit-scrollbar-thumb': { bgcolor: '#E8EAED', borderRadius: 2 },
+                  '&::-webkit-scrollbar-thumb': { bgcolor: 'divider', borderRadius: 2 },
                 }}
               >
                 {todayEvents.length === 0 ? (
@@ -1399,8 +1403,8 @@ export default function CalendarPage() {
                       gap: 1,
                     }}
                   >
-                    <EventNoteRoundedIcon sx={{ fontSize: '2.5rem', color: '#E8EAED' }} />
-                    <Typography sx={{ fontSize: '0.78rem', color: '#9AA0A6', fontWeight: 600, textAlign: 'center' }}>
+                    <EventNoteRoundedIcon sx={{ fontSize: '2.5rem', color: 'divider' }} />
+                    <Typography sx={{ fontSize: '0.78rem', color: 'text.disabled', fontWeight: 600, textAlign: 'center' }}>
                       No appointments today
                     </Typography>
                     <Button
@@ -1412,10 +1416,10 @@ export default function CalendarPage() {
                         borderRadius: 2,
                         textTransform: 'none',
                         fontSize: '0.72rem',
-                        borderColor: '#006D77',
-                        color: '#006D77',
+                        borderColor: 'primary.main',
+                        color: 'primary.main',
                         fontWeight: 700,
-                        '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' },
+                        '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.06) },
                       }}
                     >
                       + Add Appointment
@@ -1424,7 +1428,7 @@ export default function CalendarPage() {
                 ) : (
                   todayEvents.map((evt, idx) => {
                     const status = evt.extendedProps?.status ?? 'confirmed'
-                    const statusColor = STATUS_COLORS[status] ?? '#006D77'
+                    const statusColor = statusDot(theme, status)
                     const startTime = dayjs(evt.start)
                     const endTime = dayjs(evt.end)
                     const isPast = endTime.isBefore(dayjs())
@@ -1439,8 +1443,8 @@ export default function CalendarPage() {
                           borderRadius: 2,
                           cursor: 'pointer',
                           border: '1px solid',
-                          borderColor: isCurrent ? statusColor + '60' : '#F1F3F4',
-                          bgcolor: isCurrent ? statusColor + '08' : isPast ? '#FAFAFA' : '#fff',
+                          borderColor: isCurrent ? statusColor + '60' : theme.palette.divider,
+                          bgcolor: isCurrent ? statusColor + '08' : isPast ? 'action.hover' : 'background.paper',
                           opacity: isPast ? 0.65 : 1,
                           transition: 'all 0.15s',
                           position: 'relative',
@@ -1468,21 +1472,21 @@ export default function CalendarPage() {
                           </Typography>
                           {isCurrent && (
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
-                              <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: '#0F9D58', animation: 'pulse 2s infinite' }} />
-                              <Typography sx={{ fontSize: '0.6rem', color: '#0F9D58', fontWeight: 700 }}>NOW</Typography>
+                              <Box sx={{ width: 5, height: 5, borderRadius: '50%', bgcolor: 'success.main', animation: 'pulse 2s infinite' }} />
+                              <Typography sx={{ fontSize: '0.6rem', color: 'success.main', fontWeight: 700 }}>NOW</Typography>
                             </Box>
                           )}
                         </Stack>
-                        <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: '#202124', lineHeight: 1.2, mb: 0.2 }} noWrap>
+                        <Typography sx={{ fontSize: '0.78rem', fontWeight: 800, color: 'text.primary', lineHeight: 1.2, mb: 0.2 }} noWrap>
                           {evt.extendedProps?.patient ?? evt.title}
                         </Typography>
                         {evt.extendedProps?.clinician && (
-                          <Typography sx={{ fontSize: '0.68rem', color: '#5F6368', fontWeight: 500 }} noWrap>
+                          <Typography sx={{ fontSize: '0.68rem', color: 'text.secondary', fontWeight: 500 }} noWrap>
                             {evt.extendedProps.clinician}
                           </Typography>
                         )}
                         {evt.extendedProps?.service && (
-                          <Typography sx={{ fontSize: '0.65rem', color: '#9AA0A6', mt: 0.3 }} noWrap>
+                          <Typography sx={{ fontSize: '0.65rem', color: 'text.disabled', mt: 0.3 }} noWrap>
                             {evt.extendedProps.service}
                           </Typography>
                         )}
@@ -1509,7 +1513,7 @@ export default function CalendarPage() {
                     textTransform: 'none',
                     fontSize: '0.75rem',
                     fontWeight: 700,
-                    color: '#006D77',
+                    color: 'primary.main',
                     '&:hover': { bgcolor: 'rgba(0,109,119,0.06)' },
                   }}
                 >
@@ -1547,7 +1551,7 @@ export default function CalendarPage() {
               left: '50%',
               transform: 'translate(-50%, -50%)',
               width: 340,
-              bgcolor: '#fff',
+              bgcolor: 'background.paper',
               borderRadius: 3,
               boxShadow: '0 12px 40px rgba(32,33,36,0.22), 0 2px 8px rgba(32,33,36,0.10)',
               border: '1px solid #E8EAED',
@@ -1560,32 +1564,34 @@ export default function CalendarPage() {
             }}
           >
             {/* Accent top */}
-            <Box sx={{ height: 4, background: `linear-gradient(90deg, #006D77, #00858F)` }} />
+            <Box sx={{ height: 4, background: (t) => `linear-gradient(90deg, ${t.palette.primary.main}, ${t.palette.primary.light})` }} />
             <Box sx={{ p: 2.5 }}>
               {/* Status + close */}
               <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1.5}>
                 <Stack direction="row" spacing={1} alignItems="center">
-                  <CalendarMonthRoundedIcon sx={{ color: '#006D77', fontSize: '1.1rem' }} />
-                  <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#202124' }}>
+                  <CalendarMonthRoundedIcon sx={{ color: 'primary.main', fontSize: '1.1rem' }} />
+                  <Typography variant="subtitle1" fontWeight={800} sx={{ color: 'text.primary' }}>
                     Appointment
                   </Typography>
                 </Stack>
-                {popoverEvent.extendedProps?.status && (
-                  <Chip
-                    label={STATUS_LABELS[popoverEvent.extendedProps.status] ?? popoverEvent.extendedProps.status}
-                    size="small"
-                    sx={{
-                      bgcolor: STATUS_COLORS[popoverEvent.extendedProps.status]
-                        ? STATUS_COLORS[popoverEvent.extendedProps.status] + '18'
-                        : '#F1F3F4',
-                      color: STATUS_COLORS[popoverEvent.extendedProps.status] ?? '#5F6368',
-                      border: `1px solid ${STATUS_COLORS[popoverEvent.extendedProps.status] ?? '#E8EAED'}44`,
-                      fontWeight: 700,
-                      fontSize: '0.7rem',
-                      height: 22,
-                    }}
-                  />
-                )}
+                {popoverEvent.extendedProps?.status &&
+                  (() => {
+                    const meta = theme.palette.appointmentStatus[popoverEvent.extendedProps.status]
+                    return (
+                      <Chip
+                        label={STATUS_LABELS[popoverEvent.extendedProps.status] ?? popoverEvent.extendedProps.status}
+                        size="small"
+                        sx={{
+                          bgcolor: meta ? meta.bg : 'action.hover',
+                          color: meta ? meta.text : 'text.secondary',
+                          border: `1px solid ${meta ? meta.border : theme.palette.divider}`,
+                          fontWeight: 700,
+                          fontSize: '0.7rem',
+                          height: 22,
+                        }}
+                      />
+                    )
+                  })()}
               </Stack>
 
               {/* Patient */}
@@ -1595,7 +1601,7 @@ export default function CalendarPage() {
                     width: 42,
                     height: 42,
                     borderRadius: '50%',
-                    bgcolor: '#006D77',
+                    bgcolor: 'primary.main',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
@@ -1603,7 +1609,7 @@ export default function CalendarPage() {
                     boxShadow: '0 2px 8px rgba(0,109,119,0.3)',
                   }}
                 >
-                  <Typography sx={{ color: '#fff', fontWeight: 800, fontSize: '0.9rem' }}>
+                  <Typography sx={{ color: 'primary.contrastText', fontWeight: 800, fontSize: '0.9rem' }}>
                     {(popoverEvent.extendedProps?.patient ?? popoverEvent.title ?? '?')
                       .split(' ')
                       .map((n) => n[0])
@@ -1613,7 +1619,7 @@ export default function CalendarPage() {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: '#202124' }}>
+                  <Typography variant="subtitle2" fontWeight={800} sx={{ color: 'text.primary' }}>
                     {popoverEvent.extendedProps?.patient ?? popoverEvent.title ?? '—'}
                   </Typography>
                   <Typography variant="caption" color="text.secondary">
@@ -1628,24 +1634,24 @@ export default function CalendarPage() {
               <Stack spacing={1} mb={2}>
                 {[
                   [
-                    <AccessTimeRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />,
+                    <AccessTimeRoundedIcon sx={{ fontSize: '0.9rem', color: 'primary.main' }} />,
                     'Time',
                     `${dayjs(popoverEvent.start).format('ddd DD MMM, h:mm A')} \u2013 ${dayjs(popoverEvent.end).format('h:mm A')}`,
                   ],
                   [
-                    <MedicalServicesRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />,
+                    <MedicalServicesRoundedIcon sx={{ fontSize: '0.9rem', color: 'primary.main' }} />,
                     'Service',
                     popoverEvent.extendedProps?.service,
                   ],
-                  [<MeetingRoomRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />, 'Room', popoverEvent.extendedProps?.room],
+                  [<MeetingRoomRoundedIcon sx={{ fontSize: '0.9rem', color: 'primary.main' }} />, 'Room', popoverEvent.extendedProps?.room],
                   [
                     // NEW-CAL-012: appointment type icon in popover
                     popoverEvent.extendedProps?.apptType === 'video' ? (
-                      <VideocamRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />
+                      <VideocamRoundedIcon sx={{ fontSize: '0.9rem', color: 'primary.main' }} />
                     ) : popoverEvent.extendedProps?.apptType === 'home_visit' ? (
-                      <DirectionsCarRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />
+                      <DirectionsCarRoundedIcon sx={{ fontSize: '0.9rem', color: 'primary.main' }} />
                     ) : (
-                      <PersonRoundedIcon sx={{ fontSize: '0.9rem', color: '#006D77' }} />
+                      <PersonRoundedIcon sx={{ fontSize: '0.9rem', color: 'primary.main' }} />
                     ),
                     'Type',
                     popoverEvent.extendedProps?.apptType
@@ -1676,7 +1682,7 @@ export default function CalendarPage() {
                         <Typography
                           variant="caption"
                           sx={{
-                            color: '#9AA0A6',
+                            color: 'text.disabled',
                             fontWeight: 700,
                             textTransform: 'uppercase',
                             fontSize: '0.6rem',
@@ -1685,7 +1691,7 @@ export default function CalendarPage() {
                         >
                           {label}
                         </Typography>
-                        <Typography variant="body2" fontWeight={600} sx={{ color: '#202124', lineHeight: 1.2 }}>
+                        <Typography variant="body2" fontWeight={600} sx={{ color: 'text.primary', lineHeight: 1.2 }}>
                           {value}
                         </Typography>
                       </Box>
@@ -1709,8 +1715,11 @@ export default function CalendarPage() {
                     textTransform: 'none',
                     fontWeight: 700,
                     fontSize: '0.8rem',
-                    background: 'linear-gradient(135deg,#00858F,#006D77)',
-                    '&:hover': { background: 'linear-gradient(135deg,#006D77,#005A62)', boxShadow: '0 4px 12px rgba(0,109,119,0.35)' },
+                    background: (t) => `linear-gradient(135deg,${t.palette.primary.light},${t.palette.primary.main})`,
+                    '&:hover': {
+                      background: (t) => `linear-gradient(135deg,${t.palette.primary.main},${t.palette.primary.dark})`,
+                      boxShadow: '0 4px 12px rgba(0,109,119,0.35)',
+                    },
                   }}
                 >
                   View Full Details
@@ -1729,9 +1738,9 @@ export default function CalendarPage() {
                     textTransform: 'none',
                     fontWeight: 700,
                     fontSize: '0.8rem',
-                    borderColor: '#E8EAED',
-                    color: '#5F6368',
-                    '&:hover': { borderColor: '#006D77', color: '#006D77', bgcolor: 'rgba(0,109,119,0.04)' },
+                    borderColor: 'divider',
+                    color: 'text.secondary',
+                    '&:hover': { borderColor: 'primary.main', color: 'primary.main', bgcolor: (t) => alpha(t.palette.primary.main, 0.04) },
                   }}
                 >
                   Edit
@@ -1752,12 +1761,12 @@ export default function CalendarPage() {
           bottom: 24,
           right: 24,
           zIndex: 1200,
-          background: 'linear-gradient(135deg, #00858F 0%, #006D77 100%)',
+          background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
           boxShadow: '0 4px 14px rgba(0,109,119,0.40)',
-          '&:hover': { background: 'linear-gradient(135deg, #006D77 0%, #005A62 100%)' },
+          '&:hover': { background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)` },
         }}
       >
-        <AddRoundedIcon sx={{ color: '#fff' }} />
+        <AddRoundedIcon sx={{ color: 'primary.contrastText' }} />
       </Fab>
     </Box>
   )

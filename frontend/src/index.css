@@ -188,10 +188,18 @@ body {
 }
 
 /* ─── Recharts Tooltip ──────────────────────────────────────────────────────── */
+/* Recharts renders its default tooltip wrapper with an inline
+   `background-color: #fff` style -- only `!important` here can beat that,
+   and only a `[data-theme='dark']` variant (set on <html> by
+   context/ThemeContext.jsx, since this tooltip renders outside MUI's
+   component tree and can't be reached by a theme.components override)
+   keeps it from staying a white box forever once dark mode ships
+   (BUG047 follow-up, 2026-08-29). */
 .recharts-default-tooltip {
   font-family: 'Plus Jakarta Sans', sans-serif !important;
   border-radius: 12px !important;
   border: 1px solid #e8eaed !important;
+  background-color: #ffffff !important;
   box-shadow: 0 4px 16px rgba(32, 33, 36, 0.18) !important;
   padding: 10px 14px !important;
 }
@@ -204,8 +212,22 @@ body {
   font-size: 0.8rem !important;
   color: #5f6368 !important;
 }
+[data-theme='dark'] .recharts-default-tooltip {
+  border-color: #2a3d46 !important;
+  background-color: #16232d !important;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.45) !important;
+}
+[data-theme='dark'] .recharts-tooltip-label {
+  color: #eaf3f3 !important;
+}
+[data-theme='dark'] .recharts-tooltip-item {
+  color: #9db3b8 !important;
+}
 
 /* ─── FullCalendar Overrides ────────────────────────────────────────────────── */
+/* Same reasoning as the Recharts block above: FullCalendar renders its own
+   DOM outside MUI's tree, so only plain CSS (dark-mode-aware via
+   `[data-theme='dark']`, not a theme.components override) can style it. */
 .fc {
   font-family: 'Plus Jakarta Sans', sans-serif !important;
 }
@@ -277,42 +299,44 @@ body {
 .fc-timegrid-event .fc-event-title {
   font-weight: 700;
 }
+[data-theme='dark'] .fc-toolbar-title {
+  color: #eaf3f3;
+}
+[data-theme='dark'] .fc-button-primary {
+  background-color: #3a86ff !important;
+  border-color: #3a86ff !important;
+}
+[data-theme='dark'] .fc-button-primary:hover {
+  background-color: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+}
+[data-theme='dark'] .fc-button-primary:not(:disabled).fc-button-active {
+  background-color: #1d4ed8 !important;
+  border-color: #1d4ed8 !important;
+}
+[data-theme='dark'] .fc-day-today {
+  background-color: rgba(255, 255, 255, 0.06) !important;
+}
+[data-theme='dark'] .fc-now-indicator-line {
+  border-color: #f87171 !important;
+}
+[data-theme='dark'] .fc-col-header-cell {
+  background-color: #1c2a34 !important;
+  color: #9db3b8 !important;
+}
+[data-theme='dark'] .fc-scrollgrid {
+  border-color: #2a3d46 !important;
+}
+[data-theme='dark'] .fc-scrollgrid td,
+[data-theme='dark'] .fc-scrollgrid th {
+  border-color: #2a3d46 !important;
+}
 
-/* ─── MUI DataGrid Overrides ────────────────────────────────────────────────── */
-.MuiDataGrid-root {
-  border: 1px solid #e8eaed !important;
-  border-radius: 16px !important;
-  overflow: hidden;
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
-}
-.MuiDataGrid-columnHeaders {
-  background-color: #f8f9fa !important;
-  border-bottom: 1px solid #e8eaed !important;
-}
-.MuiDataGrid-columnHeader {
-  font-size: 0.7rem !important;
-  font-weight: 700 !important;
-  text-transform: uppercase !important;
-  letter-spacing: 0.1em !important;
-  color: #9aa0a6 !important;
-}
-.MuiDataGrid-row:hover {
-  background-color: #f8f9fa !important;
-}
-.MuiDataGrid-cell {
-  border-bottom: 1px solid #f8f9fa !important;
-  font-size: 0.875rem !important;
-  color: #202124 !important;
-  font-family: 'Plus Jakarta Sans', sans-serif !important;
-}
-.MuiDataGrid-footerContainer {
-  border-top: 1px solid #e8eaed !important;
-  background: #f8f9fa !important;
-}
-.MuiDataGrid-selectedRowCount {
-  color: #5f6368 !important;
-  font-size: 0.8rem !important;
-}
+/* MUI DataGrid styling moved to theme/index.js's `MuiDataGrid` component
+   override (BUG047 follow-up, 2026-08-29) -- this block was a global,
+   `!important`-laden, light-mode-only hardcode that silently beat every
+   theme-aware `sx` prop on the page using DataGrid, rendering unreadable
+   dark-on-dark cell text in dark mode. See FRONTEND_RULES.md UI-5/UI-8. */
 
 /* ─── Card hover utility ────────────────────────────────────────────────────── */
 .hover-card {
