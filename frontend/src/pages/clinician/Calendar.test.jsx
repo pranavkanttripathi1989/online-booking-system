@@ -172,3 +172,43 @@ describe('clinician/Calendar — appointment Drawer actions (REQ164)', () => {
     expect(screen.getByRole('button', { name: /Open Appointment Detail/ })).toBeInTheDocument()
   })
 })
+
+describe('clinician/Calendar — hover popover quick actions', () => {
+  it('shows and navigates via both quick actions from the hover popover, without opening the Drawer', async () => {
+    useAuth.mockReturnValue({ user: { id: 'u-1', clinician: { id: CLINICIAN_ID } }, hasRole: (r) => r === 'clinician' })
+    renderCalendar([appointmentsMock('confirmed'), lunchMock])
+    await waitFor(() => expect(screen.getByText('Rohan Verma')).toBeInTheDocument())
+
+    await userEvent.hover(screen.getByText('Rohan Verma'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Open Detail/ })).toBeInTheDocument())
+
+    // The Drawer's own (differently-labelled) "Open Appointment Detail"
+    // button must NOT be present yet -- only the popover, not the Drawer, is open.
+    expect(screen.queryByRole('button', { name: /Open Appointment Detail/ })).not.toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Start Consultation/ }))
+    await waitFor(() => expect(screen.getByTestId('encounter-marker')).toHaveTextContent(`/clinician/encounters/${APPOINTMENT_ID}`))
+  })
+
+  it('hides the popover\'s "Start Consultation" for a non-clinician role, keeping "Open Detail"', async () => {
+    useAuth.mockReturnValue({ user: { id: 'u-1', clinician: { id: CLINICIAN_ID } }, hasRole: () => false })
+    renderCalendar([appointmentsMock('confirmed'), lunchMock])
+    await waitFor(() => expect(screen.getByText('Rohan Verma')).toBeInTheDocument())
+
+    await userEvent.hover(screen.getByText('Rohan Verma'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Open Detail/ })).toBeInTheDocument())
+
+    expect(screen.queryByRole('button', { name: /Start Consultation/ })).not.toBeInTheDocument()
+  })
+
+  it('hides the popover\'s "Start Consultation" for a terminal (completed) appointment', async () => {
+    useAuth.mockReturnValue({ user: { id: 'u-1', clinician: { id: CLINICIAN_ID } }, hasRole: (r) => r === 'clinician' })
+    renderCalendar([appointmentsMock('completed'), lunchMock])
+    await waitFor(() => expect(screen.getByText('Rohan Verma')).toBeInTheDocument())
+
+    await userEvent.hover(screen.getByText('Rohan Verma'))
+    await waitFor(() => expect(screen.getByRole('button', { name: /Open Detail/ })).toBeInTheDocument())
+
+    expect(screen.queryByRole('button', { name: /Start Consultation/ })).not.toBeInTheDocument()
+  })
+})

@@ -351,10 +351,15 @@ function getCurrentTimePx() {
 // ─── Hover Popover Card ────────────────────────────────────────────────────────
 function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName, onPaperMouseEnter, onPaperMouseLeave }) {
   const theme = useTheme()
+  const navigate = useNavigate()
+  const { hasRole } = useAuth()
   const open = Boolean(anchorEl)
   if (!ev) return null
 
   const isPatient = ev.type !== 'break' && ev.type !== 'block'
+  // Same terminal-status exclusion as the Drawer's own "Start Consultation"
+  // button (and appointments/detail.jsx's isTerminal) -- kept in sync deliberately.
+  const isTerminalEv = ['cancelled', 'completed', 'no_show'].includes(ev.status)
   const sc = statusCfgFor(theme, ev.status)
   const startFmt = formatHour(ev.start)
   const endFmt = formatHour(ev.end)
@@ -532,6 +537,32 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName, onPaper
 
       {isPatient && (
         <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid', borderTopColor: 'divider', bgcolor: 'action.hover' }}>
+          {/* Quick actions, mirroring the Drawer's own two buttons (REQ164)
+              so a clinician can act without opening the full panel at all. */}
+          <Stack direction="row" spacing={1} mb={1}>
+            {hasRole('clinician') && !isTerminalEv && (
+              <Button
+                size="small"
+                variant="contained"
+                fullWidth
+                startIcon={<MonitorHeartRoundedIcon sx={{ fontSize: 15 }} />}
+                onClick={() => navigate(`/clinician/encounters/${ev.id}`)}
+                sx={{ borderRadius: 1.5, fontWeight: 700, fontSize: '0.7rem', py: 0.5 }}
+              >
+                Start Consultation
+              </Button>
+            )}
+            <Button
+              size="small"
+              variant="outlined"
+              fullWidth
+              startIcon={<OpenInNewIcon sx={{ fontSize: 14 }} />}
+              onClick={() => navigate(`/appointments/${ev.id}`)}
+              sx={{ borderRadius: 1.5, fontWeight: 600, fontSize: '0.7rem', py: 0.5, borderColor: 'primary.main', color: 'primary.main' }}
+            >
+              Open Detail
+            </Button>
+          </Stack>
           <Typography
             variant="caption"
             sx={{ color: 'primary.main', fontWeight: 700, cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
