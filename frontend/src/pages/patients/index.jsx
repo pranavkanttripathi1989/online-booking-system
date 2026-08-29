@@ -36,6 +36,7 @@ import {
   ToggleButton,
   ToggleButtonGroup,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import SearchIcon from '@mui/icons-material/Search'
 import ClearIcon from '@mui/icons-material/Clear'
@@ -304,9 +305,9 @@ function MergePatientsDialog({ open, patientA, patientB, onClose, onConfirm }) {
         <Table size="small">
           <TableHead>
             <TableRow>
-              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#9AA0A6' }}>Field</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#188038' }}>Keeping (primary)</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: '#9AA0A6' }}>Archiving</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'text.secondary' }}>Field</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'success.main' }}>Keeping (primary)</TableCell>
+              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'text.secondary' }}>Archiving</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
@@ -557,7 +558,7 @@ export default function PatientsPage() {
             mb: 2,
             border: (t) => `1px solid ${t.palette.warning.light}`,
             borderRadius: 3,
-            bgcolor: '#FEF7E0',
+            bgcolor: (t) => (t.palette.mode === 'dark' ? 'rgba(249,171,0,0.16)' : 'warning.light'),
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -597,7 +598,7 @@ export default function PatientsPage() {
             InputProps={{
               startAdornment: (
                 <InputAdornment position="start">
-                  {loading && debouncedSearch ? <CircularProgress size={16} /> : <SearchIcon fontSize="small" sx={{ color: '#9AA0A6' }} />}
+                  {loading && debouncedSearch ? <CircularProgress size={16} /> : <SearchIcon fontSize="small" sx={{ color: 'text.secondary' }} />}
                 </InputAdornment>
               ),
               endAdornment: search && (
@@ -718,7 +719,7 @@ export default function PatientsPage() {
                   '& th': {
                     fontWeight: 700,
                     bgcolor: 'background.default',
-                    color: '#9AA0A6',
+                    color: 'text.secondary',
                     fontSize: '0.70rem',
                     textTransform: 'uppercase',
                     letterSpacing: '0.10em',
@@ -772,7 +773,7 @@ export default function PatientsPage() {
                         opacity: p.archived ? 0.6 : 1,
                         bgcolor: mergeSelection.includes(p.id) ? 'primary.50' : undefined,
                         '&:last-child td': { border: 0 },
-                        '&:hover': { bgcolor: mergeSelection.includes(p.id) ? 'primary.50' : '#F1F3F4' },
+                        '&:hover': { bgcolor: mergeSelection.includes(p.id) ? 'primary.50' : 'action.hover' },
                         '&:focus-visible': { outline: (t) => `2px solid ${t.palette.primary.main}`, outlineOffset: '-2px' },
                       }}
                     >
@@ -811,7 +812,7 @@ export default function PatientsPage() {
                                       size="small"
                                       icon={<MergeTypeRoundedIcon sx={{ fontSize: 12 }} />}
                                       label={`Merged → ${p.merged_into_name}`}
-                                      sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#FCE8E6', color: '#B3261E' }}
+                                      sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: 'error.light', color: 'error.dark' }}
                                     />
                                   </Tooltip>
                                 ) : (
@@ -819,7 +820,7 @@ export default function PatientsPage() {
                                     <Chip
                                       size="small"
                                       label="Archived"
-                                      sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: '#F1F3F4' }}
+                                      sx={{ height: 18, fontSize: 10, fontWeight: 700, bgcolor: 'action.hover' }}
                                     />
                                   )
                                 )}
@@ -832,7 +833,7 @@ export default function PatientsPage() {
                                       icon={<MergeTypeRoundedIcon sx={{ fontSize: 12 }} />}
                                       label={`${p.merge_history.length} merged`}
                                       variant="outlined"
-                                      sx={{ height: 18, fontSize: 10, fontWeight: 700, color: '#188038', borderColor: '#188038' }}
+                                      sx={{ height: 18, fontSize: 10, fontWeight: 700, color: 'success.main', borderColor: 'success.main' }}
                                     />
                                   </Tooltip>
                                 )}
@@ -866,8 +867,13 @@ export default function PatientsPage() {
                               fontSize: 10,
                               height: 20,
                               textTransform: 'capitalize',
-                              bgcolor: p.gender === 'male' ? '#EFF6FF' : p.gender === 'female' ? '#FDF2F8' : '#F0FDF4',
-                              color: p.gender === 'male' ? '#1565C7' : p.gender === 'female' ? '#9D174D' : '#0B7B5C',
+                              bgcolor: (t) =>
+                                p.gender === 'male'
+                                  ? alpha(t.palette.info.main, t.palette.mode === 'dark' ? 0.18 : 0.1)
+                                  : p.gender === 'female'
+                                    ? alpha(t.palette.secondary.main, t.palette.mode === 'dark' ? 0.18 : 0.1)
+                                    : alpha(t.palette.success.main, t.palette.mode === 'dark' ? 0.18 : 0.1),
+                              color: p.gender === 'male' ? 'info.main' : p.gender === 'female' ? 'secondary.main' : 'success.main',
                               fontWeight: 700,
                             }}
                           />
