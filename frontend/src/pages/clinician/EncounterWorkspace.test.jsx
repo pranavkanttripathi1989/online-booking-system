@@ -903,6 +903,16 @@ describe('EncounterWorkspace — referrals (REQ128)', () => {
     expect(screen.queryByRole('button', { name: /Mark /i })).not.toBeInTheDocument()
   })
 
+  // Every test in this file mounts the full EncounterWorkspace, which now
+  // renders 8 real TipTap/ProseMirror editor instances (FORM-20, one per
+  // SECTIONS entry). jsdom has no real layout engine, so mounting 8
+  // ProseMirror views is measurably slower here than in a real browser
+  // (confirmed live: a real Chrome page renders and interacts with them
+  // without any perceptible lag) -- this specific test's own extra
+  // mutation+refetch+re-render work on top of that mount cost pushes it
+  // past the default 5s jest timeout on this host. A longer timeout, not
+  // a code change, is the correct fix for a jsdom-environment cost, not a
+  // real one.
   it('advances a referral to scheduled via the real updateReferralStatus mutation and refetches', async () => {
     const enc = encounter({
       referrals: [
@@ -946,7 +956,7 @@ describe('EncounterWorkspace — referrals (REQ128)', () => {
 
     await waitFor(() => expect(screen.getByRole('button', { name: 'Mark completed' })).toBeInTheDocument())
     expect(screen.queryByRole('button', { name: 'Mark scheduled' })).not.toBeInTheDocument()
-  })
+  }, 15000)
 })
 
 describe('EncounterWorkspace — vitals + growth chart (REQ130)', () => {
@@ -1028,7 +1038,10 @@ describe('EncounterWorkspace — AI Scribe (P1-11/P1-12)', () => {
     })
     renderPage(baseMocks(enc))
 
-    await waitFor(() => expect(screen.getByDisplayValue('Rest and fluids')).toBeInTheDocument())
+    // RichTextEditor (FORM-20) renders content in a contentEditable div, not
+    // a native form control, so its value isn't queryable via
+    // getByDisplayValue -- assert on the rendered text instead.
+    await waitFor(() => expect(screen.getByText('Rest and fluids')).toBeInTheDocument())
     expect(screen.getByText('AI draft — review before signing')).toBeInTheDocument()
     // Only one section is flagged -- exactly one badge, not one per section.
     expect(screen.getAllByText('AI draft — review before signing')).toHaveLength(1)

@@ -12,6 +12,12 @@
     "gzip": true
   },
   {
+    "name": "RichTextEditor lazy chunk (TipTap/ProseMirror, FORM-20)",
+    "path": "dist/assets/RichTextEditor-*.js",
+    "limit": "130 KB",
+    "gzip": true
+  },
+  {
     "name": "Initial CSS",
     "path": "dist/assets/*.css",
     "limit": "18 KB",

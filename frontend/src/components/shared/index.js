@@ -21,4 +21,11 @@ export {
   KpiRowSkeleton,
   PageHeaderSkeleton,
   AppointmentsListSkeleton,
+  RichTextEditorSkeleton,
 } from './Skeletons'
+
+// RichTextEditor is deliberately NOT re-exported here as a plain default —
+// it's a heavy widget (TipTap/ProseMirror) that MUST be loaded via
+// React.lazy/Suspense at each call site (PERF-12), never as part of an
+// eagerly-imported barrel. Import it directly:
+//   const RichTextEditor = lazy(() => import('@/components/shared/RichTextEditor'))

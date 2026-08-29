@@ -12,6 +12,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { renderPdfToBuffer, drawLetterhead, pdfFontName } from '../common/pdf/render-pdf';
 import { pdfLabel, frequencyLabel, PdfLanguage } from '../common/pdf/i18n-labels';
+import { htmlToPlainText } from '../common/utils/html-to-plain-text';
 
 const formatDate = (d: Date | string | null | undefined) =>
   d ? new Date(d).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' }) : '—';
@@ -225,7 +226,7 @@ export class DocumentsService {
       for (const note of (encounter as any).notes as any[]) {
         if (!note.content) continue;
         doc.fontSize(10).font('Helvetica-Bold').text(SECTION_LABELS[note.section] ?? note.section);
-        doc.fontSize(9).font('Helvetica').text(note.content);
+        doc.fontSize(9).font('Helvetica').text(htmlToPlainText(note.content));
         doc.moveDown(0.5);
       }
 

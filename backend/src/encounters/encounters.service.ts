@@ -16,6 +16,7 @@ import {
   CreateAttachmentInput,
 } from './dto/encounter.input';
 import { PatientsService } from '../patients/patients.service';
+import { htmlToPlainText } from '../common/utils/html-to-plain-text';
 
 // REQ135 -- more permissive than insurance.service.ts's own CLAIM_TRANSITIONS
 // (money changing hands there warrants a stricter machine): a referral is
@@ -538,7 +539,7 @@ export class EncountersService {
         type: 'encounter',
         date: e.created_at,
         title: e.status === 'signed' ? 'Consultation (signed)' : 'Consultation (in progress)',
-        summary: e.notes.find((n: any) => n.section === 'complaints')?.content ?? undefined,
+        summary: htmlToPlainText(e.notes.find((n: any) => n.section === 'complaints')?.content) || undefined,
         encounter_id: e.id,
       })),
       ...diagnoses.map((d) => ({

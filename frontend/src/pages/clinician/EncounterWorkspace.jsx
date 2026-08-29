@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useLazyQuery, gql } from '@apollo/client'
 import { useSnackbar } from 'notistack'
@@ -45,6 +45,13 @@ import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContai
 import { useAuth } from '../../hooks/useAuth'
 import ErrorBoundary from '../../components/ErrorBoundary'
 import { downloadAuthenticatedPdf } from '../../utils/documents'
+import { RichTextEditorSkeleton } from '../../components/shared/Skeletons'
+
+// FORM-20 -- clinical note sections are reader-facing formatted text, not
+// unformatted wrapped text, so they use the rich text editor, not a plain
+// TextField. Heavy (TipTap/ProseMirror) -- lazy-loaded per PERF-12, never
+// part of this already-lazy-loaded page's own initial render.
+const RichTextEditor = lazy(() => import('../../components/shared/RichTextEditor'))
 
 // P1-12 (FR-AI-04) — a blob → base64 payload for submitTranscription's
 // audio_base64 input; FileReader is the only web API that does this
@@ -682,20 +689,20 @@ function NotesPane({
                 />
               )}
             </Stack>
-            <TextField
-              fullWidth
-              multiline
-              minRows={2}
-              inputProps={{ 'aria-labelledby': `section-label-${s.key}` }}
-              value={drafts[s.key] ?? ''}
-              disabled={locked}
-              onChange={(e) => setDrafts((d) => ({ ...d, [s.key]: e.target.value }))}
-              onBlur={() => {
-                if ((drafts[s.key] ?? '') !== sectionContent(encounter?.notes, s.key)) {
-                  onSaveNote(s.key, drafts[s.key] ?? '')
-                }
-              }}
-            />
+            <Suspense fallback={<RichTextEditorSkeleton />}>
+              <RichTextEditor
+                ariaLabelledBy={`section-label-${s.key}`}
+                value={drafts[s.key] ?? ''}
+                disabled={locked}
+                onChange={(html) => setDrafts((d) => ({ ...d, [s.key]: html }))}
+                onBlur={(html) => {
+                  setDrafts((d) => ({ ...d, [s.key]: html }))
+                  if (html !== sectionContent(encounter?.notes, s.key)) {
+                    onSaveNote(s.key, html)
+                  }
+                }}
+              />
+            </Suspense>
           </Box>
         ))}
 

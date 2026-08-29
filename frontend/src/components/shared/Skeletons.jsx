@@ -191,3 +191,22 @@ export function AppointmentsListSkeleton({ count = 3 }) {
     </Stack>
   )
 }
+
+// ─── Rich text editor skeleton (PERF-12 Suspense fallback) ────────────────────
+// Matches RichTextEditor's own border/toolbar-row/content-area shape so its
+// lazy chunk loading in doesn't shift layout (STATE-3).
+export function RichTextEditorSkeleton({ minHeight = 80 }) {
+  return (
+    <Box sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 1, overflow: 'hidden' }}>
+      <Stack direction="row" spacing={0.5} sx={{ px: 0.5, py: 0.5, borderBottom: '1px solid', borderColor: 'divider', bgcolor: 'action.hover' }}>
+        {Array.from({ length: 5 }).map((_, i) => (
+          <Skeleton key={i} variant="rounded" width={28} height={28} />
+        ))}
+      </Stack>
+      <Box sx={{ px: 1.5, py: 1, minHeight }}>
+        <Skeleton variant="text" width="90%" />
+        <Skeleton variant="text" width="60%" />
+      </Box>
+    </Box>
+  )
+}

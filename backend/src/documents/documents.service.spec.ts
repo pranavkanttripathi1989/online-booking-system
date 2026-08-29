@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, ForbiddenException } from '@nestjs/common';
+import PDFDocument = require('pdfkit');
 import { DocumentsService } from './documents.service';
 import { PrescriptionsService } from '../prescriptions/prescriptions.service';
 import { AppointmentPaymentsService } from '../appointment-payments/appointment-payments.service';
@@ -239,6 +240,28 @@ describe('DocumentsService', () => {
       expect(prisma.patients.findUnique).toHaveBeenCalledWith({ where: { id: 'patient-1' } });
       expect(prisma.clinicians.findUnique).toHaveBeenCalledWith({ where: { id: 'clinician-1' } });
       expect(buffer.subarray(0, 4).toString()).toBe('%PDF');
+    });
+
+    // BUG (FORM-20 rich-text conversion) -- EncounterNotes.content is now
+    // TipTap-authored HTML; this PDF has no HTML renderer, so it must
+    // strip tags before handing text to pdfkit or a real visit summary
+    // would show literal "<p>"/"<strong>" markup to a patient.
+    it('strips HTML tags from a rich-text note before rendering, rather than leaking raw markup', async () => {
+      const textSpy = jest.spyOn(PDFDocument.prototype, 'text');
+      encountersService.encounter.mockResolvedValue({
+        ...encounterData,
+        notes: [{ section: 'complaints', content: '<p>Patient has <strong>severe</strong> fever</p>' }],
+      });
+      prisma.patients.findUnique.mockResolvedValue({ first_name: 'Anita', last_name: 'Sharma' });
+      prisma.clinicians.findUnique.mockResolvedValue({ first_name: 'Sarah', last_name: 'Mitchell' });
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: { client_organization: { name: 'MG Road Clinic' } } });
+
+      await service.visitSummaryPdf('enc-1', user);
+
+      const renderedTexts = textSpy.mock.calls.map((c) => c[0]);
+      expect(renderedTexts).toContain('Patient has severe fever');
+      expect(renderedTexts.some((t) => typeof t === 'string' && t.includes('<'))).toBe(false);
+      textSpy.mockRestore();
     });
 
     // REQ139

@@ -618,6 +618,26 @@ describe('EncountersService', () => {
       expect(result.map((e: any) => e.type)).toEqual(['test_result', 'diagnosis', 'encounter', 'attachment']);
     });
 
+    // BUG (FORM-20 rich-text conversion) -- EncounterNotes.content is now
+    // TipTap-authored HTML; the timeline snippet must strip it to plain
+    // text or a raw "<p>fever</p>" would render literally in the UI.
+    it('strips HTML from the complaints note when building the encounter event summary', async () => {
+      prisma.encounters.findMany.mockResolvedValue([
+        {
+          id: 'enc-1',
+          status: 'signed',
+          created_at: new Date('2026-08-20'),
+          notes: [{ section: 'complaints', content: '<p>Patient has <strong>fever</strong></p>' }],
+        },
+      ]);
+      prisma.diagnoses.findMany.mockResolvedValue([]);
+      prisma.attachments.findMany.mockResolvedValue([]);
+      prisma.testResults.findMany.mockResolvedValue([]);
+      const result = await service.patientTimeline('pat-a', patientA);
+      const encounterEvent = result.find((e: any) => e.type === 'encounter')!;
+      expect(encounterEvent.summary).toBe('Patient has fever');
+    });
+
     // REQ065 (REQ018 US-BOOK-02 residue) — found and fixed while building
     // REQ024's own US-MSG-05.
     it('allows a patient to read a dependant\'s timeline', async () => {
