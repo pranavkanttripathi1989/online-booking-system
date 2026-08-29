@@ -347,6 +347,8 @@ function VideoConsultation() {
         </AppBar>
 
         <Box flexGrow={1} display="flex" p={2} gap={2} overflow="auto">
+          {/* Deliberate literal exception, same rationale as this page's own darkTheme above:
+              a video feed surface is always black regardless of the app's light/dark toggle. */}
           <Box flexGrow={1} display="flex" flexDirection="column" position="relative" bgcolor="#000" borderRadius={3} overflow="hidden" minHeight={360}>
             {joining && (
               <Box display="flex" flexDirection="column" alignItems="center" justifyContent="center" height="100%" gap={2}>
