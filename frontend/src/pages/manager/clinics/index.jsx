@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useQuery, useMutation } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import { Box, Grid, Typography, Card, CardContent, Stack, Button, Chip, IconButton, Divider, Tooltip, Alert } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteOutlineIcon from '@mui/icons-material/DeleteOutline'
@@ -141,6 +142,7 @@ const toCardRoom = (r) => ({
 })
 
 function ManagerClinicsInner() {
+  const theme = useTheme()
   const navigate = useNavigate()
   const [search, setSearch] = useState('')
   const [tab, setTab] = useState(0)
@@ -209,8 +211,8 @@ function ManagerClinicsInner() {
             borderRadius: 2.5,
             textTransform: 'none',
             fontWeight: 700,
-            background: 'linear-gradient(135deg,#4285F4 0%,#1A73E8 100%)',
-            '&:hover': { background: 'linear-gradient(135deg,#1A73E8 0%,#1557B0 100%)' },
+            background: `linear-gradient(135deg, ${theme.palette.primary.light} 0%, ${theme.palette.primary.main} 100%)`,
+            '&:hover': { background: `linear-gradient(135deg, ${theme.palette.primary.main} 0%, ${theme.palette.primary.dark} 100%)` },
           }}
         >
           Add Clinic
@@ -234,13 +236,13 @@ function ManagerClinicsInner() {
       {/* KPI row */}
       <Grid container spacing={2} sx={{ mb: 3 }}>
         {[
-          { label: 'Total Clinics', value: clinics.length, color: '#006D77' },
-          { label: 'Active Clinics', value: clinics.filter((c) => c.status === 'active').length, color: '#0F9D58' },
-          { label: 'Total Clinicians', value: clinics.reduce((s, c) => s + c.clinicians, 0), color: '#1A73E8' },
-          { label: "Today's Bookings", value: clinics.reduce((s, c) => s + c.todayAppts, 0), color: '#F9AB00' },
+          { label: 'Total Clinics', value: clinics.length, color: theme.palette.primary.main },
+          { label: 'Active Clinics', value: clinics.filter((c) => c.status === 'active').length, color: theme.palette.success.main },
+          { label: 'Total Clinicians', value: clinics.reduce((s, c) => s + c.clinicians, 0), color: theme.palette.info.main },
+          { label: "Today's Bookings", value: clinics.reduce((s, c) => s + c.todayAppts, 0), color: theme.palette.warning.main },
         ].map(({ label, value, color }) => (
           <Grid item xs={6} sm={3} key={label}>
-            <Card elevation={0} sx={{ border: '1px solid #E8EAED', borderTop: `4px solid ${color}`, borderRadius: 2.5 }}>
+            <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderTop: `4px solid ${color}`, borderRadius: 2.5 }}>
               <CardContent sx={{ p: 2 }}>
                 <Typography variant="h4" fontWeight={800} sx={{ color }}>
                   {value}
@@ -279,7 +281,8 @@ function ManagerClinicsInner() {
               <Card
                 elevation={0}
                 sx={{
-                  border: '1px solid #E8EAED',
+                  border: '1px solid',
+                  borderColor: 'divider',
                   borderRadius: 3,
                   opacity: clinic.status === 'inactive' ? 0.65 : 1,
                   transition: 'box-shadow 0.2s',
@@ -295,7 +298,7 @@ function ManagerClinicsInner() {
                         </Typography>
                         {clinic.is_primary && (
                           <Tooltip title="Head office">
-                            <StarIcon sx={{ fontSize: 16, color: '#F9AB00' }} aria-label="Head office" />
+                            <StarIcon sx={{ fontSize: 16, color: 'warning.main' }} aria-label="Head office" />
                           </Tooltip>
                         )}
                       </Stack>
@@ -304,8 +307,11 @@ function ManagerClinicsInner() {
                         size="small"
                         sx={{
                           mt: 0.5,
-                          bgcolor: clinic.status === 'active' ? '#E6F4EA' : '#F3F4F6',
-                          color: clinic.status === 'active' ? '#137333' : '#6B7280',
+                          bgcolor:
+                            clinic.status === 'active'
+                              ? alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)
+                              : alpha(theme.palette.text.secondary, 0.12),
+                          color: clinic.status === 'active' ? theme.palette.success.main : 'text.secondary',
                           fontWeight: 700,
                           borderRadius: '8px',
                           fontSize: '0.7rem',
@@ -319,7 +325,7 @@ function ManagerClinicsInner() {
                             size="small"
                             aria-label={`Set ${clinic.name} as head office`}
                             onClick={() => setHeadOffice({ variables: { id: clinic.id } })}
-                            sx={{ color: '#F9AB00' }}
+                            sx={{ color: 'warning.main' }}
                           >
                             <StarOutlineIcon fontSize="small" />
                           </IconButton>
@@ -330,7 +336,7 @@ function ManagerClinicsInner() {
                           size="small"
                           aria-label={`View ${clinic.name}`}
                           onClick={() => navigate(`/manager/clinics/${clinic.id}`)}
-                          sx={{ color: '#1A73E8' }}
+                          sx={{ color: 'primary.main' }}
                         >
                           <VisibilityIcon fontSize="small" />
                         </IconButton>
@@ -340,7 +346,7 @@ function ManagerClinicsInner() {
                           size="small"
                           aria-label={`Edit ${clinic.name}`}
                           onClick={() => navigate(`/manager/clinics/${clinic.id}/edit`)}
-                          sx={{ color: '#F9AB00' }}
+                          sx={{ color: 'warning.main' }}
                         >
                           <EditIcon fontSize="small" />
                         </IconButton>
@@ -350,7 +356,7 @@ function ManagerClinicsInner() {
                           size="small"
                           aria-label={`Delete ${clinic.name}`}
                           onClick={() => setDeleteId(clinic.id)}
-                          sx={{ color: '#D93025' }}
+                          sx={{ color: 'error.main' }}
                         >
                           <DeleteOutlineIcon fontSize="small" />
                         </IconButton>
@@ -414,19 +420,25 @@ function ManagerClinicsInner() {
         <Grid container spacing={2}>
           {rooms.map((room) => (
             <Grid item xs={12} sm={6} md={3} key={room.id}>
-              <Card elevation={0} sx={{ border: `2px solid ${room.status === 'in-use' ? '#006D77' : '#E8EAED'}`, borderRadius: 2.5 }}>
+              <Card
+                elevation={0}
+                sx={{ border: '2px solid', borderColor: room.status === 'in-use' ? 'primary.main' : 'divider', borderRadius: 2.5 }}
+              >
                 <CardContent sx={{ p: 2 }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
                     <Stack direction="row" spacing={1} alignItems="center">
-                      <MeetingRoomIcon sx={{ color: '#006D77', fontSize: 20 }} />
+                      <MeetingRoomIcon sx={{ color: 'primary.main', fontSize: 20 }} />
                       <Typography fontWeight={700}>{room.name}</Typography>
                     </Stack>
                     <Chip
                       label={room.status === 'in-use' ? 'In Use' : 'Available'}
                       size="small"
                       sx={{
-                        bgcolor: room.status === 'in-use' ? '#E8F8F9' : '#E6F4EA',
-                        color: room.status === 'in-use' ? '#006D77' : '#137333',
+                        bgcolor:
+                          room.status === 'in-use'
+                            ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)
+                            : alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.18 : 0.12),
+                        color: room.status === 'in-use' ? theme.palette.primary.main : theme.palette.success.main,
                         fontWeight: 700,
                       }}
                     />
@@ -441,12 +453,12 @@ function ManagerClinicsInner() {
                   </Stack>
                   <Stack direction="row" spacing={0.5} justifyContent="flex-end" mt={1.5}>
                     <Tooltip title="View Room">
-                      <IconButton size="small" onClick={() => navigate(`/manager/rooms/${room.id}`)} sx={{ color: '#1A73E8' }}>
+                      <IconButton size="small" onClick={() => navigate(`/manager/rooms/${room.id}`)} sx={{ color: 'primary.main' }}>
                         <VisibilityIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Edit Room">
-                      <IconButton size="small" onClick={() => navigate(`/manager/rooms/${room.id}/edit`)} sx={{ color: '#F9AB00' }}>
+                      <IconButton size="small" onClick={() => navigate(`/manager/rooms/${room.id}/edit`)} sx={{ color: 'warning.main' }}>
                         <EditIcon fontSize="small" />
                       </IconButton>
                     </Tooltip>
