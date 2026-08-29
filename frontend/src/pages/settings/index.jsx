@@ -40,6 +40,7 @@ import {
   DialogActions,
   CircularProgress,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import CameraAltRoundedIcon from '@mui/icons-material/CameraAltRounded'
@@ -60,6 +61,11 @@ function TabPanel({ value, index, children }) {
   return value === index ? <Box>{children}</Box> : null
 }
 
+// Deliberate exception (FRONTEND_RULES.md UI-2/§22 precedent): these are a
+// user-selectable accent-colour swatch palette, not UI chrome -- the whole
+// point is a fixed, exact hex a person picks and keeps regardless of the
+// app's own light/dark toggle, the same way an OS accent-colour picker
+// works. Converting these to theme tokens would defeat the feature.
 const ACCENT_COLORS = ['#1A73E8', '#0F9D58', '#9334E6', '#D93025', '#F9AB00', '#0891B2', '#5F6368']
 
 // BUG044 -- Appearance prefs have no server-side model; per-device localStorage
@@ -511,6 +517,7 @@ const REQUEST_DATA_RIGHTS = gql`
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
+  const theme = useTheme()
   const { user, updateUser, logout, hasRole } = useAuth()
   const client = useApolloClient()
   const navigate = useNavigate()
@@ -641,6 +648,10 @@ export default function SettingsPage() {
   // user.organisation — that field isn't even populated by the real `me`
   // query today, only by MOCK_USERS.
   const [logoUrl, setLogoUrl] = useState(null)
+  // Deliberate exception (same category as ACCENT_COLORS above): an org's
+  // own custom brand colours, picked and persisted by an admin, independent
+  // of this app's own light/dark toggle. The default here is just this
+  // app's own teal as a sensible starting point before an org customises it.
   const [primaryColor, setPrimaryColor] = useState('#006D77')
   const [secondaryColor, setSecondaryColor] = useState('#007680')
   const [hasOrgForBranding, setHasOrgForBranding] = useState(false)
@@ -1423,7 +1434,7 @@ export default function SettingsPage() {
         </Alert>
       )}
 
-      <Paper sx={{ borderRadius: 3, border: '1px solid #E8EAED', boxShadow: 'none', overflow: 'hidden' }}>
+      <Paper sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none', overflow: 'hidden' }}>
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v)}
@@ -1431,11 +1442,11 @@ export default function SettingsPage() {
           scrollButtons="auto"
           sx={{
             px: 2,
-            borderBottom: '1px solid #E8EAED',
-            bgcolor: '#F8F9FA',
+            borderBottom: '1px solid', borderBottomColor: 'divider',
+            bgcolor: 'action.hover',
             '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 52, fontSize: '0.875rem', gap: 0.75 },
-            '& .Mui-selected': { color: '#1A73E8' },
-            '& .MuiTabs-indicator': { bgcolor: '#1A73E8', height: 3, borderRadius: 1.5 },
+            '& .Mui-selected': { color: 'primary.main' },
+            '& .MuiTabs-indicator': { bgcolor: 'primary.main', height: 3, borderRadius: 1.5 },
           }}
         >
           <Tab value={0} icon={<EditRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Profile" />
@@ -1461,7 +1472,7 @@ export default function SettingsPage() {
                 <Box sx={{ position: 'relative', display: 'inline-block' }}>
                   <Avatar
                     src={avatarSrc}
-                    sx={{ width: 110, height: 110, bgcolor: '#E8F0FE', color: '#1A73E8', fontSize: '2.5rem', fontWeight: 800 }}
+                    sx={{ width: 110, height: 110, bgcolor: (t) => alpha(t.palette.primary.main, 0.12), color: 'primary.main', fontSize: '2.5rem', fontWeight: 800 }}
                   >
                     {(firstName[0] ?? '') + (lastName[0] ?? '')}
                   </Avatar>
@@ -1491,12 +1502,12 @@ export default function SettingsPage() {
                       position: 'absolute',
                       bottom: 0,
                       right: 0,
-                      bgcolor: '#fff',
-                      border: '2px solid #E8EAED',
-                      '&:hover': { bgcolor: '#E8F0FE' },
+                      bgcolor: 'background.paper',
+                      border: '2px solid', borderColor: 'divider',
+                      '&:hover': { bgcolor: (t) => alpha(t.palette.primary.main, 0.08) },
                     }}
                   >
-                    <CameraAltRoundedIcon fontSize="small" sx={{ color: '#1A73E8' }} />
+                    <CameraAltRoundedIcon fontSize="small" sx={{ color: 'primary.main' }} />
                   </IconButton>
                 </Box>
                 <Typography variant="caption" display="block" sx={{ mt: 1.5, color: 'text.secondary' }}>
@@ -1747,7 +1758,7 @@ export default function SettingsPage() {
               {/* 2FA — PLAN016 Slice C: real TOTP enrollment against startTotpEnrollment/confirmTotpEnrollment/disableTotp */}
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <SecurityRoundedIcon sx={{ fontSize: '1.1rem', color: '#0F9D58' }} /> Two-Factor Authentication
+                  <SecurityRoundedIcon sx={{ fontSize: '1.1rem', color: 'success.main' }} /> Two-Factor Authentication
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
                   {totpEnabled
@@ -1779,7 +1790,7 @@ export default function SettingsPage() {
               {/* Active sessions */}
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <DevicesRoundedIcon sx={{ fontSize: '1.1rem', color: '#9334E6' }} /> Active Sessions
+                  <DevicesRoundedIcon sx={{ fontSize: '1.1rem', color: 'secondary.main' }} /> Active Sessions
                 </Typography>
                 <Stack spacing={1.5}>
                   {/* SUG-SET-003: real mySessions data; Revoke wired to revokeMySession.
@@ -1832,7 +1843,7 @@ export default function SettingsPage() {
               {/* REQ053 (US-SEC-05) — Emergency Access (break-glass) */}
               <Box>
                 <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <SecurityRoundedIcon sx={{ fontSize: '1.1rem', color: '#D93025' }} /> Emergency Access
+                  <SecurityRoundedIcon sx={{ fontSize: '1.1rem', color: 'error.main' }} /> Emergency Access
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
                   Emergency access grants temporary elevated permissions for urgent situations. Every request and use is logged.
@@ -1934,8 +1945,8 @@ export default function SettingsPage() {
               )}
               <Divider />
               {/* Danger zone */}
-              <Box sx={{ p: 2.5, border: '1.5px solid #F5C6C2', borderRadius: 2.5, bgcolor: '#FCE8E6' }}>
-                <Typography variant="subtitle1" fontWeight={800} sx={{ color: '#D93025', mb: 0.5 }}>
+              <Box sx={{ p: 2.5, border: '1.5px solid', borderColor: (t) => alpha(t.palette.error.main, 0.3), borderRadius: 2.5, bgcolor: (t) => alpha(t.palette.error.main, 0.08) }}>
+                <Typography variant="subtitle1" fontWeight={800} sx={{ color: 'error.main', mb: 0.5 }}>
                   Danger Zone
                 </Typography>
                 <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2 }}>
@@ -1975,8 +1986,8 @@ export default function SettingsPage() {
                           fontSize: '0.70rem',
                           textTransform: 'uppercase',
                           letterSpacing: '0.10em',
-                          bgcolor: '#F8F9FA',
-                          color: '#9AA0A6',
+                          bgcolor: 'action.hover',
+                          color: 'text.disabled',
                         },
                       }}
                     >
@@ -2388,8 +2399,8 @@ export default function SettingsPage() {
               )}
               <Grid item xs={12} sm={6} sx={{ opacity: hasOrgForBranding ? 1 : 0.5, pointerEvents: hasOrgForBranding ? 'auto' : 'none' }}>
                 <Stack direction="row" spacing={2} alignItems="center">
-                  <Avatar variant="rounded" src={logoSrc} sx={{ width: 64, height: 64, bgcolor: '#F0F7F8', border: '1px solid #E8EAED' }}>
-                    <BusinessRoundedIcon sx={{ color: '#006D77' }} />
+                  <Avatar variant="rounded" src={logoSrc} sx={{ width: 64, height: 64, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>
+                    <BusinessRoundedIcon sx={{ color: 'primary.main' }} />
                   </Avatar>
                   <Box>
                     <input ref={logoInputRef} type="file" accept="image/png,image/jpeg" hidden onChange={handleLogoSelect} />
@@ -2986,7 +2997,7 @@ export default function SettingsPage() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle fontWeight={700} sx={{ color: '#D93025' }}>
+        <DialogTitle fontWeight={700} sx={{ color: 'error.main' }}>
           Request Emergency Access
         </DialogTitle>
         <DialogContent>
@@ -3030,7 +3041,7 @@ export default function SettingsPage() {
       </Dialog>
 
       <Dialog open={deactivateOpen} onClose={() => setDeactivateOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle fontWeight={700} sx={{ color: '#D93025' }}>
+        <DialogTitle fontWeight={700} sx={{ color: 'error.main' }}>
           Deactivate Account?
         </DialogTitle>
         <DialogContent>
@@ -3095,7 +3106,7 @@ export default function SettingsPage() {
           </>
         ) : (
           <>
-            <DialogTitle fontWeight={700} sx={{ color: '#0F9D58' }}>
+            <DialogTitle fontWeight={700} sx={{ color: 'success.main' }}>
               2FA is now enabled
             </DialogTitle>
             <DialogContent>
@@ -3103,7 +3114,7 @@ export default function SettingsPage() {
                 Save these backup codes somewhere safe. Each one can be used once to sign in if you lose access to your authenticator app —
                 they won't be shown again.
               </Alert>
-              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: '#F8F9FA' }}>
+              <Paper variant="outlined" sx={{ p: 2, borderRadius: 2, bgcolor: 'action.hover' }}>
                 <Grid container spacing={1}>
                   {backupCodes.map((c) => (
                     <Grid item xs={6} key={c}>
@@ -3135,7 +3146,7 @@ export default function SettingsPage() {
         maxWidth="xs"
         fullWidth
       >
-        <DialogTitle fontWeight={700} sx={{ color: '#D93025' }}>
+        <DialogTitle fontWeight={700} sx={{ color: 'error.main' }}>
           Disable two-factor authentication?
         </DialogTitle>
         <DialogContent>
