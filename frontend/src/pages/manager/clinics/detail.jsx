@@ -106,7 +106,7 @@ function ClinicDetailPageInner() {
   const InfoRow = ({ icon: Icon, label, value }) =>
     value ? (
       <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1.5, mb: 1.5 }}>
-        <Icon sx={{ color: '#5F6368', fontSize: '1.1rem', mt: 0.3 }} />
+        <Icon sx={{ color: 'text.secondary', fontSize: '1.1rem', mt: 0.3 }} />
         <Box>
           <Typography variant="caption" color="text.secondary">
             {label}
@@ -124,7 +124,7 @@ function ClinicDetailPageInner() {
 
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/clinics')} sx={{ bgcolor: '#F1F3F4', '&:hover': { bgcolor: '#E8EAED' } }}>
+        <IconButton onClick={() => navigate('/manager/clinics')} sx={{ bgcolor: 'action.hover', '&:hover': { bgcolor: 'action.selected' } }}>
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -133,13 +133,13 @@ function ClinicDetailPageInner() {
               width: 44,
               height: 44,
               borderRadius: 3,
-              background: 'linear-gradient(135deg,#006D77,#005F69)',
+              background: (t) => `linear-gradient(135deg, ${t.palette.primary.main}, ${t.palette.primary.dark})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <ApartmentRoundedIcon sx={{ color: '#fff', fontSize: '1.4rem' }} />
+            <ApartmentRoundedIcon sx={{ color: 'common.white', fontSize: '1.4rem' }} />
           </Box>
           <Box>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -220,8 +220,9 @@ function ClinicDetailPageInner() {
                       justifyContent: 'space-between',
                       p: 1.5,
                       borderRadius: 2,
-                      border: '1px solid #F1F3F4',
-                      '&:hover': { bgcolor: '#F8F9FA' },
+                      border: '1px solid',
+                      borderColor: 'divider',
+                      '&:hover': { bgcolor: 'action.hover' },
                     }}
                   >
                     <Box>
