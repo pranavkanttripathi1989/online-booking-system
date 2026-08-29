@@ -107,6 +107,15 @@ import { useInactivityLogout } from '../hooks/useInactivityLogout'
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DRAWER_WIDTH = 260
+// Deliberate exception (FRONTEND_RULES.md UI-2/§22 precedent, same category
+// as login.jsx's BrandPanel and the admin audit-log JSON viewer): the
+// sidebar/top-nav rail is a fixed brand-teal chrome, independent of the
+// app's own light/dark toggle -- live-confirmed this session, the drawer
+// stays this same teal in both modes while the page content area switches.
+// Do NOT replace with theme.palette.primary.main here -- that value itself
+// changes between light/dark, which would break the "always this exact
+// teal" identity these two constants exist to guarantee. Only used inside
+// DrawerContent/TopNavBar/the Drawer paper backgrounds below.
 const TEAL = '#006D77'
 const TEAL_LIGHT = '#00858F'
 
@@ -474,6 +483,10 @@ function DrawerContent({
   const isActive = (path) => location.pathname === path || location.pathname.startsWith(path + '/')
 
   return (
+    // #1A2332 is a deliberate fixed-dark sidebar background, same exception
+    // as TEAL/TEAL_LIGHT above -- not theme.palette.background.paper, which
+    // would make the rail follow the light/dark toggle and break its own
+    // "always this exact colour" identity.
     <Box sx={{ width: DRAWER_WIDTH, height: '100%', display: 'flex', flexDirection: 'column', bgcolor: '#1A2332', overflow: 'hidden' }}>
       {/* Brand header */}
       <Box
@@ -1190,8 +1203,8 @@ export default function AppShell() {
             right: 0,
             zIndex: theme.zIndex.drawer + 10,
             height: IMPERSONATION_BANNER_HEIGHT,
-            bgcolor: '#D93025',
-            color: '#fff',
+            bgcolor: 'error.main',
+            color: 'common.white',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1207,7 +1220,7 @@ export default function AppShell() {
             size="small"
             onClick={handleExitImpersonation}
             sx={{
-              color: '#fff',
+              color: 'common.white',
               textTransform: 'none',
               fontWeight: 800,
               minWidth: 0,
