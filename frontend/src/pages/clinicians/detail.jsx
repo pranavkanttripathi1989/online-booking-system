@@ -151,7 +151,7 @@ export default function ClinicianDetailPage() {
           <Grid container spacing={3} alignItems="flex-start">
             <Grid item xs={12} sm="auto">
               <Box sx={{ position: 'relative', display: 'inline-block', textAlign: 'center' }}>
-                <Avatar src={c.avatar_url} sx={{ width: 96, height: 96, bgcolor: '#0B7B5C', fontSize: '2rem', fontWeight: 800 }}>
+                <Avatar src={c.avatar_url} sx={{ width: 96, height: 96, bgcolor: 'success.main', fontSize: '2rem', fontWeight: 800 }}>
                   {!c.avatar_url && initials}
                 </Avatar>
                 <Chip
