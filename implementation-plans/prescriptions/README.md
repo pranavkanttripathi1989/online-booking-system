@@ -15,6 +15,7 @@
 | PLAN169 | improvement | Tamper-evident hash on printed prescriptions (US-RX-08) | done | 2026-08-26 | 2026-08-26 | REQ129 | [PLAN169-prescriptions-2026-08-26-tamper-evident-signature.md](./improvement/PLAN169-prescriptions-2026-08-26-tamper-evident-signature.md) |
 | PLAN166 | improvement | Pending-dispense queue across the whole pharmacy | done | 2026-08-26 | 2026-08-26 | REQ126 | [PLAN166-prescriptions-2026-08-26-pending-dispense-queue.md](./improvement/PLAN166-prescriptions-2026-08-26-pending-dispense-queue.md) |
 | PLAN149 | improvement | OTP-gated WhatsApp sharing of a prescription PDF | done | 2026-08-26 | 2026-08-26 | REQ109 | [PLAN149-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/PLAN149-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
+| PLAN213 | improvement | Regional-language Rx print (P2-08) | done | 2026-08-29 | 2026-08-29 | REQ160 | [PLAN213-prescriptions-2026-08-29-regional-language-print.md](./improvement/PLAN213-prescriptions-2026-08-29-regional-language-print.md) |
 
 ## bug
 

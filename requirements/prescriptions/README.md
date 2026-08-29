@@ -15,6 +15,7 @@
 | REQ126 | improvement | Pending-dispense queue across the whole pharmacy | done | 2026-08-26 | 2026-08-26 | REQ021 | [REQ126-prescriptions-2026-08-26-pending-dispense-queue.md](./improvement/REQ126-prescriptions-2026-08-26-pending-dispense-queue.md) |
 | REQ159 | improvement | Allergy hard-stop on prescribing (P2-07, scoped) | done | 2026-08-27 | 2026-08-27 | REQ021 | [REQ159-prescriptions-2026-08-27-allergy-hard-stop.md](./improvement/REQ159-prescriptions-2026-08-27-allergy-hard-stop.md) |
 | REQ109 | improvement | OTP-gated WhatsApp sharing of a prescription PDF | done | 2026-08-26 | 2026-08-26 | REQ021 | [REQ109-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/REQ109-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
+| REQ160 | improvement | Regional-language Rx print (P2-08) | done | 2026-08-29 | 2026-08-29 | REQ021 | [REQ160-prescriptions-2026-08-29-regional-language-print.md](./improvement/REQ160-prescriptions-2026-08-29-regional-language-print.md) |
 
 ## bug
 

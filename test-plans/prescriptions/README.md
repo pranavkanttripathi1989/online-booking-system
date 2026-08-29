@@ -15,6 +15,7 @@
 | TP189 | improvement | Tamper-evident hash verification | approved | 2026-08-26 | 2026-08-26 | PLAN169 | [TP189-prescriptions-2026-08-26-tamper-evident-signature.md](./improvement/TP189-prescriptions-2026-08-26-tamper-evident-signature.md) |
 | TP186 | improvement | Pending-dispense queue verification | approved | 2026-08-26 | 2026-08-26 | PLAN166 | [TP186-prescriptions-2026-08-26-pending-dispense-queue.md](./improvement/TP186-prescriptions-2026-08-26-pending-dispense-queue.md) |
 | TP173 | improvement | OTP-gated WhatsApp sharing verification | approved | 2026-08-26 | 2026-08-26 | PLAN149 | [TP173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/TP173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
+| TP233 | improvement | Regional-language Rx print verification | done | 2026-08-29 | 2026-08-29 | PLAN213 | [TP233-prescriptions-2026-08-29-regional-language-print.md](./improvement/TP233-prescriptions-2026-08-29-regional-language-print.md) |
 
 ## bug
 

@@ -42,7 +42,7 @@ gates. Phase 2's claim work depends on both.
 | **P2-05** | AI-assisted migration importer (Practo / MocDoc / HealthPlix mappers) | BE+FE | **done** (`REQ157`) | P1-11 | #1 switching blocker. AI *structures* imported free-text notes — rivals can't |
 | **P2-06** | Doctor revenue-share & payouts engine | BE+FE | **done** (`REQ158`) | — | Named chain-ICP need; branch overrides already built |
 | **P2-07** | Drug interaction + allergy hard-stops | BE+FE | **done, scoped** (`REQ159`) | P1-12 | Allergy-only — drug-drug interaction deferred, see the slice's own doc |
-| **P2-08** | Regional-language Rx print (i18n for documents) | BE+FE | not started | P1-07 | Rivals market 23+ languages |
+| **P2-08** | Regional-language Rx print (i18n for documents) | BE+FE | **done** (`REQ160`) | P1-07 | English/Hindi shipped; route/instructions translation and other languages (`P2-09`) deferred, see `REQ160`'s own account |
 | **P2-09** | i18n: 3 more regional languages | FE | not started | P1-07 | Prioritise by where clinics actually are |
 | **P2-10** | Recurring/series appointments + treatment-plan scheduling | BE+FE | not started | — | Multi-sitting packages exist; series scheduling doesn't |
 | **P2-11** | Immunisation schedule tracker | BE+FE | not started | — | Large paediatric segment in India; recall infra exists |
