@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useQuery, useMutation, gql } from '@apollo/client'
+import { alpha, useTheme } from '@mui/material/styles'
 import {
   Alert,
   Box,
@@ -122,11 +123,16 @@ const typeIcon = (type) => {
 // (of any type, e.g. an urgent appointment) is always shown in red so it stands out in
 // the list. This is deliberate, not a bug: severity should be scannable at a glance
 // regardless of category. See SUG-NOTIF-PLAN-006 for the documented test case.
-const iconColor = (priority, type) => {
-  if (priority === 'high') return { bg: '#FEE2E2', color: '#DC2626', border: '#FECACA' }
-  if (type === 'payment') return { bg: '#D1FAE5', color: '#059669', border: '#A7F3D0' }
-  if (type === 'appointment') return { bg: '#DBEAFE', color: '#2563EB', border: '#BFDBFE' }
-  return { bg: '#F3F4F6', color: '#6B7280', border: '#E5E7EB' }
+const iconColor = (theme, priority, type) => {
+  const tone = (main) => ({
+    bg: alpha(main, theme.palette.mode === 'dark' ? 0.18 : 0.12),
+    color: main,
+    border: alpha(main, theme.palette.mode === 'dark' ? 0.4 : 0.3),
+  })
+  if (priority === 'high') return tone(theme.palette.error.main)
+  if (type === 'payment') return tone(theme.palette.success.main)
+  if (type === 'appointment') return tone(theme.palette.info.main)
+  return { bg: theme.palette.action.hover, color: theme.palette.text.secondary, border: theme.palette.divider }
 }
 
 const timeAgo = (dateStr) => {
@@ -143,6 +149,7 @@ const timeAgo = (dateStr) => {
 // ─── Component ────────────────────────────────────────────────────────────────
 
 export default function NotificationsPage() {
+  const theme = useTheme()
   const { user } = useAuth()
   const [filter, setFilter] = useState('unread')
   const [actionError, setActionError] = useState(null)
@@ -280,7 +287,7 @@ export default function NotificationsPage() {
       {/* List */}
       <Stack spacing={1.5}>
         {notifications.map((notif) => {
-          const colors = iconColor(notif.priority, notif.type)
+          const colors = iconColor(theme, notif.priority, notif.type)
           return (
             <Card
               key={notif.id}
