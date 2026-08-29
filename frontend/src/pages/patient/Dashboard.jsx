@@ -154,10 +154,18 @@ const StatusChip = ({ status }) => {
     switch (status) {
       case 'scheduled':
         return { color: 'info', label: 'Scheduled' }
+      case 'confirmed':
+        return { color: 'primary', label: 'Confirmed' }
+      case 'pending':
+        return { color: 'warning', label: 'Pending' }
       case 'completed':
         return { color: 'success', label: 'Completed' }
       case 'cancelled':
         return { color: 'error', label: 'Cancelled' }
+      case 'no_show':
+        return { color: 'error', label: 'No Show' }
+      case 'rescheduled':
+        return { color: 'secondary', label: 'Rescheduled' }
       default:
         return { color: 'default', label: status }
     }
