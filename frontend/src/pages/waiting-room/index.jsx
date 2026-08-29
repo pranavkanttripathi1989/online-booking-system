@@ -5,6 +5,7 @@ import { useQuery, useMutation } from '@apollo/client'
 import { useSnackbar } from 'notistack'
 import dayjs from 'dayjs'
 import { Avatar, Box, Button, Card, CardContent, Chip, Paper, Stack, TextField, Tooltip, Typography, CircularProgress } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import PersonAddAltRoundedIcon from '@mui/icons-material/PersonAddAltRounded'
 import MedicalServicesRoundedIcon from '@mui/icons-material/MedicalServicesRounded'
 import LogoutRoundedIcon from '@mui/icons-material/LogoutRounded'
@@ -36,15 +37,20 @@ function journeyStage(status) {
   return 'not_arrived' // scheduled, confirmed, or anything else pre-arrival
 }
 
-const STAGE_META = {
-  not_arrived: { label: 'Not arrived', color: '#5F6368', bg: '#F1F3F4' },
-  arrived: { label: 'Checked in', color: '#1A73E8', bg: '#E8F0FE' },
-  in_consultation: { label: 'With clinician', color: '#7B3FE4', bg: '#F3E8FD' },
-  departed: { label: 'Completed', color: '#188038', bg: '#E6F4EA' },
-  dna: { label: 'Did not attend', color: '#B3261E', bg: '#FCE8E6' },
+function stageMetaFor(theme) {
+  const tone = (main) => alpha(main, theme.palette.mode === 'dark' ? 0.22 : 0.12)
+  return {
+    not_arrived: { label: 'Not arrived', color: theme.palette.text.secondary, bg: theme.palette.action.hover },
+    arrived: { label: 'Checked in', color: theme.palette.info.main, bg: tone(theme.palette.info.main) },
+    in_consultation: { label: 'With clinician', color: theme.palette.secondary.main, bg: tone(theme.palette.secondary.main) },
+    departed: { label: 'Completed', color: theme.palette.success.main, bg: tone(theme.palette.success.main) },
+    dna: { label: 'Did not attend', color: theme.palette.error.main, bg: tone(theme.palette.error.main) },
+  }
 }
 
 function WaitingRoomContent() {
+  const theme = useTheme()
+  const STAGE_META = stageMetaFor(theme)
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [selectedDate, setSelectedDate] = useState(dayjs().format('YYYY-MM-DD'))
@@ -112,7 +118,7 @@ function WaitingRoomContent() {
           <Paper
             key={key}
             elevation={0}
-            sx={{ px: 2, py: 1.25, borderRadius: 2.5, border: '1px solid #E8EAED', flexShrink: 0, minWidth: 130 }}
+            sx={{ px: 2, py: 1.25, borderRadius: 2.5, border: '1px solid', borderColor: 'divider', flexShrink: 0, minWidth: 130 }}
           >
             <Typography variant="h5" fontWeight={800} sx={{ color: meta.color }}>
               {counts[key]}
@@ -143,7 +149,9 @@ function WaitingRoomContent() {
               <Card key={appt.id} variant="outlined" sx={{ borderRadius: 2.5 }}>
                 <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
                   <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
-                    <Avatar sx={{ bgcolor: '#E8F0FE', color: '#1A73E8', fontWeight: 700 }}>{appt.patient?.full_name?.[0] ?? 'P'}</Avatar>
+                    <Avatar sx={{ bgcolor: alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.22 : 0.12), color: 'info.main', fontWeight: 700 }}>
+                      {appt.patient?.full_name?.[0] ?? 'P'}
+                    </Avatar>
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography
                         variant="body1"
@@ -197,8 +205,8 @@ function WaitingRoomContent() {
                             textTransform: 'none',
                             borderRadius: 2,
                             fontWeight: 700,
-                            bgcolor: '#7B3FE4',
-                            '&:hover': { bgcolor: '#6329D1' },
+                            bgcolor: 'secondary.main',
+                            '&:hover': { bgcolor: 'secondary.dark' },
                           }}
                         >
                           Start Consultation
@@ -214,8 +222,8 @@ function WaitingRoomContent() {
                             textTransform: 'none',
                             borderRadius: 2,
                             fontWeight: 700,
-                            bgcolor: '#188038',
-                            '&:hover': { bgcolor: '#12652C' },
+                            bgcolor: 'success.main',
+                            '&:hover': { bgcolor: 'success.dark' },
                           }}
                         >
                           Check Out
