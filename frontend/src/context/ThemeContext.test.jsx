@@ -20,24 +20,41 @@ const SET_MY_THEME_MODE = gql`
     }
   }
 `
+const GET_MY_ORG_ACCENT_COLOR = gql`
+  query MyOrgAccentColorForTheme {
+    myOrgBranding {
+      primary_color
+    }
+  }
+`
+// ThemeModeProvider fires this unconditionally on every render (unlike the
+// theme_mode hydration query, which only fires once per device with no
+// stored preference) -- every test needs a mock for it, an org-less
+// `{ myOrgBranding: null }` response by default unless a test cares about
+// a real accent color.
+const noOrgBrandingMock = { request: { query: GET_MY_ORG_ACCENT_COLOR }, result: { data: { myOrgBranding: null } } }
 
 const STORAGE_KEY = 'medibook_appearance_prefs'
 const SESSION_MARKER_KEY = 'medibook_has_session'
 
 function Probe() {
-  const { mode, resolvedMode, setMode } = useThemeMode()
+  const { mode, resolvedMode, setMode, accentColor, fontScale, setFontScale } = useThemeMode()
   return (
     <div>
       <div data-testid="mode">{mode}</div>
       <div data-testid="resolvedMode">{resolvedMode}</div>
+      <div data-testid="accentColor">{accentColor ?? 'null'}</div>
+      <div data-testid="fontScale">{fontScale}</div>
       <button onClick={() => setMode('dark')}>go-dark</button>
+      <button onClick={() => setFontScale(1.25)}>go-xl</button>
+      <button onClick={() => setFontScale(999)}>go-invalid</button>
     </div>
   )
 }
 
 function renderWithMocks(mocks) {
   return render(
-    <MockedProvider mocks={mocks} addTypename={false}>
+    <MockedProvider mocks={[noOrgBrandingMock, ...mocks]} addTypename={false}>
       <ThemeModeProvider>
         <Probe />
       </ThemeModeProvider>
@@ -71,10 +88,10 @@ describe('ThemeContext.jsx — BUG047 backend sync', () => {
     await waitFor(() => expect(mutationCalled).toBe(true))
   })
 
-  it('does not attempt any backend call for a logged-out session', async () => {
-    // No SESSION_MARKER_KEY set -- a guest/public page. MockedProvider with
-    // zero mocks throws if anything unexpected is requested, so an empty
-    // mocks array itself proves no query/mutation fires.
+  it('does not attempt any theme_mode backend call for a logged-out session', async () => {
+    // No SESSION_MARKER_KEY set -- a guest/public page. Only noOrgBrandingMock
+    // is provided (always fires, session or not); no SET_MY_THEME_MODE mock
+    // exists, so MockedProvider would fail loudly if setMode tried one.
     window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeMode: 'light' }))
     renderWithMocks([])
 
@@ -101,5 +118,56 @@ describe('ThemeContext.jsx — BUG047 backend sync', () => {
     renderWithMocks([])
 
     expect(screen.getByTestId('mode')).toHaveTextContent('light')
+  })
+})
+
+describe('ThemeContext.jsx — accentColor (organization branding, read-only here)', () => {
+  it('exposes the organization branding primary_color as accentColor', async () => {
+    render(
+      <MockedProvider
+        mocks={[{ request: { query: GET_MY_ORG_ACCENT_COLOR }, result: { data: { myOrgBranding: { primary_color: '#D93025' } } } }]}
+        addTypename={false}
+      >
+        <ThemeModeProvider>
+          <Probe />
+        </ThemeModeProvider>
+      </MockedProvider>,
+    )
+    await waitFor(() => expect(screen.getByTestId('accentColor')).toHaveTextContent('#D93025'))
+  })
+
+  it('falls back to null (brand default) for an org-less caller', async () => {
+    renderWithMocks([])
+    await waitFor(() => expect(screen.getByTestId('accentColor')).toHaveTextContent('null'))
+  })
+})
+
+describe('ThemeContext.jsx — fontScale (personal, per-device)', () => {
+  it('setFontScale applies instantly and persists without clobbering a stored themeMode', async () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ themeMode: 'dark' }))
+    renderWithMocks([])
+
+    await userEvent.click(screen.getByRole('button', { name: 'go-xl' }))
+
+    expect(screen.getByTestId('fontScale')).toHaveTextContent('1.25')
+    const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY))
+    expect(stored).toEqual({ themeMode: 'dark', fontScale: 1.25 })
+  })
+
+  it('clamps an out-of-range fontScale to the default (1) rather than storing it verbatim', async () => {
+    renderWithMocks([])
+
+    await userEvent.click(screen.getByRole('button', { name: 'go-invalid' }))
+
+    expect(screen.getByTestId('fontScale')).toHaveTextContent('1')
+    const stored = JSON.parse(window.localStorage.getItem(STORAGE_KEY))
+    expect(stored.fontScale).toBe(1)
+  })
+
+  it('reloads a previously saved fontScale on next mount', () => {
+    window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ fontScale: 1.1 }))
+    renderWithMocks([])
+
+    expect(screen.getByTestId('fontScale')).toHaveTextContent('1.1')
   })
 })

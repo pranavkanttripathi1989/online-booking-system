@@ -55,24 +55,24 @@ import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import CodeRoundedIcon from '@mui/icons-material/CodeRounded'
 import ContentCopyRoundedIcon from '@mui/icons-material/ContentCopyRounded'
 import { useAuth } from '../../context/AuthContext'
-import { useThemeMode } from '../../context/ThemeContext'
+import { useThemeMode, FONT_SCALE_PRESETS } from '../../context/ThemeContext'
 
 function TabPanel({ value, index, children }) {
   return value === index ? <Box>{children}</Box> : null
 }
 
-// Deliberate exception (FRONTEND_RULES.md UI-2/§22 precedent): these are a
-// user-selectable accent-colour swatch palette, not UI chrome -- the whole
-// point is a fixed, exact hex a person picks and keeps regardless of the
-// app's own light/dark toggle, the same way an OS accent-colour picker
-// works. Converting these to theme tokens would defeat the feature.
-const ACCENT_COLORS = ['#1A73E8', '#0F9D58', '#9334E6', '#D93025', '#F9AB00', '#0891B2', '#5F6368']
-
 // BUG044 -- Appearance prefs have no server-side model; per-device localStorage
 // is the documented minimum bar (the bug's own acceptance criteria).
+// themeMode and fontScale are intentionally NOT here -- both are owned by
+// ThemeModeContext (context/ThemeContext.jsx), which already reads/writes
+// this same key. Accent Color used to be a third field here too (a
+// personal, per-device swatch pick) -- removed: an organization's accent
+// is a brand-identity setting, not a personal one, so it now reads from
+// the org's own real Branding color (ThemeModeContext's accentColor,
+// sourced from Settings > Clinic Settings > Branding) instead of a second,
+// competing per-device mechanism.
 const APPEARANCE_STORAGE_KEY = 'medibook_appearance_prefs'
-// themeMode is intentionally NOT here -- it's owned by ThemeModeContext (context/ThemeContext.jsx).
-const DEFAULT_APPEARANCE = { fontSize: 2, accent: '#1565C7', compact: false, rtl: false }
+const DEFAULT_APPEARANCE = { compact: false, rtl: false }
 function loadAppearancePrefs() {
   try {
     const raw = window.localStorage.getItem(APPEARANCE_STORAGE_KEY)
@@ -647,10 +647,12 @@ export default function SettingsPage() {
   // user.organisation — that field isn't even populated by the real `me`
   // query today, only by MOCK_USERS.
   const [logoUrl, setLogoUrl] = useState(null)
-  // Deliberate exception (same category as ACCENT_COLORS above): an org's
-  // own custom brand colours, picked and persisted by an admin, independent
-  // of this app's own light/dark toggle. The default here is just this
-  // app's own teal as a sensible starting point before an org customises it.
+  // Deliberate UI-2 exception: an org's own custom brand colours, picked
+  // and persisted by a manager+, independent of this app's own light/dark
+  // toggle. The default here is just this app's own teal as a sensible
+  // starting point before an org customises it. This is the real,
+  // backend-stored color the Appearance tab's accentColor now reads
+  // (ThemeContext.jsx) -- see that context for the propagation.
   const [primaryColor, setPrimaryColor] = useState('#006D77')
   const [secondaryColor, setSecondaryColor] = useState('#007680')
   const [hasOrgForBranding, setHasOrgForBranding] = useState(false)
@@ -1061,13 +1063,14 @@ export default function SettingsPage() {
   }
 
   // Appearance state -- hydrated from localStorage (BUG044); see
-  // loadAppearancePrefs/APPEARANCE_STORAGE_KEY above.
+  // loadAppearancePrefs/APPEARANCE_STORAGE_KEY above. themeMode and
+  // fontScale apply instantly via ThemeModeContext (never gated behind
+  // this tab's own Save button); accentColor is read-only here, sourced
+  // from the organization's real Branding color, editable only via
+  // Settings > Clinic Settings > Branding (manager+). Only Compact
+  // Mode/RTL remain this component's own local state, saved explicitly.
   const [appearancePrefs] = useState(loadAppearancePrefs)
-  const [fontSize, setFontSize] = useState(appearancePrefs.fontSize) // 0=sm, 1=md, 2=lg, 3=xl
-  const [accent, setAccent] = useState(appearancePrefs.accent)
-  // BUG047 -- theme mode lives in the single shared ThemeModeContext (applies
-  // immediately and persists on its own), not local component state.
-  const { mode: themeMode, setMode: setThemeMode } = useThemeMode()
+  const { mode: themeMode, setMode: setThemeMode, accentColor, fontScale, setFontScale } = useThemeMode()
   const [compact, setCompact] = useState(appearancePrefs.compact)
   const [rtl, setRtl] = useState(appearancePrefs.rtl)
   const [language, setLanguage] = useState('en')
@@ -1080,7 +1083,13 @@ export default function SettingsPage() {
   const handleSaveAppearance = () => {
     setAppearanceError(null)
     try {
-      window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({ fontSize, accent, compact, rtl }))
+      // BUG (fixed) -- this used to be a bare overwrite of the whole shared
+      // APPEARANCE_STORAGE_KEY, silently deleting whatever ThemeModeContext
+      // had just written (themeMode/fontScale). Read-modify-write instead,
+      // matching ThemeContext.jsx's own merge-safe writeStoredField pattern.
+      const raw = window.localStorage.getItem(APPEARANCE_STORAGE_KEY)
+      const existing = raw ? JSON.parse(raw) : {}
+      window.localStorage.setItem(APPEARANCE_STORAGE_KEY, JSON.stringify({ ...existing, compact, rtl }))
       handleSave('Appearance settings')
     } catch {
       setAppearanceError('Could not save your appearance preferences on this device. Check your browser storage settings and try again.')
@@ -2134,17 +2143,17 @@ export default function SettingsPage() {
                   Font Size
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 2 }}>
-                  Adjust the base text size across the application
+                  Adjust the base text size across the application — applies immediately, no need to hit Save.
                 </Typography>
                 <Stack direction="row" alignItems="center" spacing={2}>
                   <Typography
                     variant="caption"
-                    sx={{ fontWeight: 700, color: 'text.secondary', minWidth: 50, textAlign: 'center', fontSize: `${12 + fontSize * 2}px` }}
+                    sx={{ fontWeight: 700, color: 'text.secondary', minWidth: 50, textAlign: 'center', fontSize: `${12 * fontScale}px` }}
                   >
                     Aa
                   </Typography>
                   <Slider
-                    value={fontSize}
+                    value={FONT_SCALE_PRESETS.indexOf(fontScale) === -1 ? 1 : FONT_SCALE_PRESETS.indexOf(fontScale)}
                     min={0}
                     max={3}
                     step={1}
@@ -2154,34 +2163,40 @@ export default function SettingsPage() {
                       { value: 2, label: 'LG' },
                       { value: 3, label: 'XL' },
                     ]}
-                    onChange={(_, v) => setFontSize(v)}
+                    onChange={(_, v) => setFontScale(FONT_SCALE_PRESETS[v])}
                     sx={{ flex: 1 }}
                   />
                 </Stack>
               </Box>
-              {/* Accent color */}
+              {/* Accent color -- an organization brand identity, not a personal
+                  preference; read-only here, set via Settings > Clinic Settings >
+                  Branding (manager+). See ThemeContext.jsx's accentColor. */}
               <Box>
-                <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 1.5 }}>
+                <Typography variant="subtitle1" fontWeight={800} sx={{ mb: 0.5 }}>
                   Accent Color
                 </Typography>
-                <Stack direction="row" spacing={1.5} flexWrap="wrap">
-                  {ACCENT_COLORS.map((c) => (
-                    <Box
-                      key={c}
-                      onClick={() => setAccent(c)}
-                      sx={{
-                        width: 36,
-                        height: 36,
-                        borderRadius: '50%',
-                        bgcolor: c,
-                        cursor: 'pointer',
-                        border: accent === c ? `3px solid ${c}` : '3px solid transparent',
-                        outline: accent === c ? `2px solid #fff` : 'none',
-                        boxShadow: accent === c ? `0 0 0 3px ${c}55` : 'none',
-                        transition: 'all 0.15s',
-                      }}
-                    />
-                  ))}
+                <Typography variant="caption" sx={{ color: 'text.secondary', display: 'block', mb: 1.5 }}>
+                  Set by your organization's Branding settings, applies to everyone in your clinic.
+                </Typography>
+                <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Box
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      borderRadius: '50%',
+                      bgcolor: accentColor || 'primary.main',
+                      border: '1px solid',
+                      borderColor: 'divider',
+                    }}
+                  />
+                  <Typography variant="body2" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                    {accentColor || 'Default'}
+                  </Typography>
+                  {canManageClinic && (
+                    <Button size="small" onClick={() => setTab(4)} sx={{ textTransform: 'none' }}>
+                      Change in Branding →
+                    </Button>
+                  )}
                 </Stack>
               </Box>
               {/* Toggles */}

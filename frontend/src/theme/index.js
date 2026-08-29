@@ -1,4 +1,5 @@
-import { createTheme, alpha } from '@mui/material/styles'
+import { createTheme, alpha, lighten, darken } from '@mui/material/styles'
+import { contrastRatio, WCAG_AA_MIN_CONTRAST } from './contrast'
 
 // BUG047 -- single source of truth for the app's palette, light AND dark.
 // Previously this file only ever built a light theme, and a second,
@@ -60,29 +61,81 @@ function buildStatusPalette(p, mode) {
   }
 }
 
-export function createAppTheme(mode = 'light') {
-  const p = mode === 'dark' ? DARK : LIGHT
+// A user-chosen accent (Settings > Appearance) overrides palette.primary.
+// Must run BEFORE the rest of createAppTheme computes its literals -- most
+// component overrides below (MuiOutlinedInput hover border, MuiCard/
+// MuiPaper) bake in `p.primary.*` as build-time literals, not a live
+// `theme.palette.primary` lookup, so patching palette.primary after
+// createTheme() returns would miss them. Only MuiAlert's four `standard*`
+// overrides use the dynamic `({theme}) => ...` form, and those read
+// success/info/warning/error, never primary, so they're unaffected either
+// way.
+function buildPrimaryFromAccent(hex) {
+  const contrastText = contrastRatio(hex, '#FFFFFF') >= WCAG_AA_MIN_CONTRAST ? '#fff' : '#000'
+  return { main: hex, light: lighten(hex, 0.35), dark: darken(hex, 0.2), contrastText }
+}
+
+// FRONTEND_RULES.md RES-6 -- "never below 14px anywhere for any label,
+// caption, helper or legal text." body2 (13px) and caption (11px) already
+// violate this floor today at the default scale -- this clamp is a
+// deliberate, in-scope side-fix (RES-6's own wording is unconditional, not
+// "only when the user picks small"), not hidden scope creep.
+const RES6_FLOOR_PX = 14
+function scaledRem(baseRem, scale) {
+  const px = Math.max(baseRem * 16 * scale, RES6_FLOOR_PX)
+  return `${px / 16}rem`
+}
+
+function buildTypography(scale) {
+  return {
+    fontFamily: "'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif",
+    h1: { fontSize: scaledRem(2, scale), fontWeight: 700, letterSpacing: '-0.5px' },
+    h2: { fontSize: scaledRem(1.5, scale), fontWeight: 700, letterSpacing: '-0.3px' },
+    h3: { fontSize: scaledRem(1.25, scale), fontWeight: 600 },
+    h4: { fontSize: scaledRem(1, scale), fontWeight: 600 },
+    h5: { fontSize: scaledRem(0.9375, scale), fontWeight: 600 },
+    h6: { fontSize: scaledRem(0.875, scale), fontWeight: 600 },
+    body1: { fontSize: scaledRem(0.9375, scale) },
+    body2: { fontSize: scaledRem(0.8125, scale) },
+    caption: { fontSize: scaledRem(0.6875, scale) },
+    button: { fontWeight: 600, textTransform: 'none' },
+  }
+}
+
+/**
+ * @param {'light'|'dark'} [mode]
+ * @param {object} [options]
+ * @param {string|null} [options.accentColor] - '#RRGGBB' override for
+ *   palette.primary (Settings > Appearance). Falls back to the brand
+ *   default when omitted/null.
+ * @param {number} [options.fontScale=1] - multiplier applied to every
+ *   typography variant, floor-clamped per RES-6. 1 = unchanged defaults.
+ * @returns {import('@mui/material/styles').Theme}
+ */
+export function createAppTheme(mode = 'light', options = {}) {
+  const { accentColor, fontScale = 1 } = options
+  const base = mode === 'dark' ? DARK : LIGHT
+  const p = accentColor ? { ...base, primary: buildPrimaryFromAccent(accentColor) } : base
   const tableHeadBg = mode === 'dark' ? '#1C2A34' : '#E8F8F9'
-  const tableHeadColor = mode === 'dark' ? p.primary.main : '#004D55'
+  // These two derive from p.primary in both modes (not just dark, as
+  // before this fix) so a custom accent color affects nav-selected/
+  // table-head consistently -- previously the light-mode branch was a
+  // hardcoded copy of LIGHT.primary's own default values, which happened
+  // to match but silently stopped following an accent override.
+  const tableHeadColor = mode === 'dark' ? p.primary.main : p.primary.dark
   const rowHoverBg = mode === 'dark' ? '#1C2A34' : '#F0F7F8'
-  const sidebarSelectedBg = mode === 'dark' ? p.primary.dark : '#006D77'
+  const sidebarSelectedBg = mode === 'dark' ? p.primary.dark : p.primary.main
 
   return createTheme({
     palette: { mode, ...p, appointmentStatus: buildStatusPalette(p, mode) },
-    typography: {
-      fontFamily: "'Plus Jakarta Sans', 'Segoe UI', system-ui, sans-serif",
-      h1: { fontSize: '2rem', fontWeight: 700, letterSpacing: '-0.5px' },
-      h2: { fontSize: '1.5rem', fontWeight: 700, letterSpacing: '-0.3px' },
-      h3: { fontSize: '1.25rem', fontWeight: 600 },
-      h4: { fontSize: '1rem', fontWeight: 600 },
-      h5: { fontSize: '0.9375rem', fontWeight: 600 },
-      h6: { fontSize: '0.875rem', fontWeight: 600 },
-      body1: { fontSize: '0.9375rem' },
-      body2: { fontSize: '0.8125rem' },
-      caption: { fontSize: '0.6875rem' },
-      button: { fontWeight: 600, textTransform: 'none' },
-    },
+    typography: buildTypography(fontScale),
     shape: { borderRadius: 10 },
+    // Deliberately stays pinned to the fixed brand-teal tint regardless of
+    // a custom accent -- this is a decorative shadow tone, not something
+    // palette.primary-driven elsewhere in this file, and re-deriving every
+    // shadow stop from an arbitrary user-picked accent is out of scope for
+    // this fix (mirrors AppShell.jsx's own "deliberately dark rail"
+    // precedent for a chrome detail that doesn't follow user preference).
     shadows: [
       'none',
       '0 1px 4px rgba(0,109,119,0.08)',

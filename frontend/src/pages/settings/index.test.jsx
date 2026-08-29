@@ -385,7 +385,13 @@ describe('settings/index.jsx — Clinic tab role gating (BUG044)', () => {
 describe('settings/index.jsx — Appearance persistence (BUG044)', () => {
   beforeEach(() => window.localStorage.clear())
 
-  it('persists appearance preferences to localStorage and confirms success only after the write', async () => {
+  // BUG (fixed) -- handleSaveAppearance used to overwrite the whole shared
+  // 'medibook_appearance_prefs' key wholesale, silently deleting whatever
+  // ThemeModeContext had already written (themeMode, fontScale). This is
+  // the exact case that would have caught it: a prior themeMode must
+  // survive a Save Appearance click.
+  it('merges into existing localStorage prefs on save, never clobbering a themeMode ThemeModeContext already wrote', async () => {
+    window.localStorage.setItem('medibook_appearance_prefs', JSON.stringify({ themeMode: 'dark' }))
     renderPage(baseMocks(), { initialTab: 3 })
     await waitFor(() => expect(screen.getByText('Accent Color')).toBeInTheDocument())
 
@@ -393,16 +399,30 @@ describe('settings/index.jsx — Appearance persistence (BUG044)', () => {
 
     await waitFor(() => expect(screen.getByText('Appearance settings saved successfully!')).toBeInTheDocument())
     const stored = JSON.parse(window.localStorage.getItem('medibook_appearance_prefs'))
-    // themeMode is intentionally absent -- BUG047 moved it to ThemeModeContext,
-    // which persists it independently the instant the Theme radio is clicked.
-    expect(stored).toMatchObject({ fontSize: 2, accent: '#1565C7', compact: false, rtl: false })
+    expect(stored).toEqual({ themeMode: 'dark', compact: false, rtl: false })
   })
 
-  it('reloads a previously saved font size instead of always defaulting to XL', async () => {
-    window.localStorage.setItem('medibook_appearance_prefs', JSON.stringify({ fontSize: 0 }))
+  // fontSize/accent used to be written here too -- both moved to
+  // ThemeModeContext (fontScale applies instantly; accentColor is now
+  // read-only, sourced from the organization's own Branding color, never
+  // written from this tab at all).
+  it('no longer writes fontSize/accent to localStorage', async () => {
     renderPage(baseMocks(), { initialTab: 3 })
     await waitFor(() => expect(screen.getByText('Accent Color')).toBeInTheDocument())
-    const slider = screen.getByRole('slider')
-    expect(slider).toHaveAttribute('aria-valuenow', '0')
+    await userEvent.click(screen.getByRole('button', { name: 'Save Appearance' }))
+    await waitFor(() => expect(screen.getByText('Appearance settings saved successfully!')).toBeInTheDocument())
+    const stored = JSON.parse(window.localStorage.getItem('medibook_appearance_prefs'))
+    expect(stored).not.toHaveProperty('fontSize')
+    expect(stored).not.toHaveProperty('accent')
+  })
+
+  it('shows Accent Color as a read-only organization setting, not a clickable personal swatch picker', async () => {
+    renderPage(baseMocks(), { initialTab: 3 })
+    await waitFor(() => expect(screen.getByText('Accent Color')).toBeInTheDocument())
+    expect(screen.getByText(/Set by your organization's Branding settings/i)).toBeInTheDocument()
+    // No ThemeModeProvider wraps this test -- useThemeMode() falls back to
+    // its default context value (accentColor: null), same as a caller with
+    // no org branding set.
+    expect(screen.getByText('Default')).toBeInTheDocument()
   })
 })
