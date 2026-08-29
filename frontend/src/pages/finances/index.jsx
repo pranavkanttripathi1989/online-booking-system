@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useApolloClient, gql, useQuery, useMutation } from '@apollo/client'
 import { useTheme, useMediaQuery } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import {
   Box,
   Typography,
@@ -99,10 +100,26 @@ const CASH_DRAWER_CLOSEOUTS_QUERY = gql`
   }
 `
 
-const DISCOUNT_STATUS_CFG = {
-  pending: { bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', label: 'Pending' },
-  approved: { bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', label: 'Approved' },
-  rejected: { bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', label: 'Rejected' },
+// Theme-derived tone helper -- see calendar/index.jsx and
+// clinician/Calendar.jsx for the same conversion, applied here to two
+// page-local (not appointment) status maps.
+function toneFor(theme, main, dark) {
+  const isDark = theme.palette.mode === 'dark'
+  return {
+    bg: alpha(main, isDark ? 0.18 : 0.12),
+    color: isDark ? main : dark,
+    border: alpha(main, isDark ? 0.4 : 0.3),
+  }
+}
+
+function discountStatusCfgFor(theme, status) {
+  const p = theme.palette
+  const cfg = {
+    pending: { ...toneFor(theme, p.warning.main, p.warning.dark), label: 'Pending' },
+    approved: { ...toneFor(theme, p.success.main, p.success.dark), label: 'Approved' },
+    rejected: { ...toneFor(theme, p.error.main, p.error.dark), label: 'Rejected' },
+  }
+  return cfg[status] ?? cfg.pending
 }
 
 // ─── REQ004 slice 2 — real GraphQL (backend/src/appointment-payments) ─────────
@@ -146,17 +163,22 @@ const DATE_RANGE_DAYS = {
 // Real AppointmentPayments statuses only — no 'overdue' (a checkout-time
 // capture has no due-date/invoice concept) and no 'refunded' (no refund
 // flow built yet — a distinct feature from capture, REQ004's own scope cut).
-const STATUS_CFG = {
-  succeeded: { bg: '#E6F4EA', color: '#137333', border: '#CEEAD6', accent: '#0F9D58', label: 'Succeeded' },
-  pending: { bg: '#FEF7E0', color: '#8A4700', border: '#FDD663', accent: '#F9AB00', label: 'Pending' },
-  failed: { bg: '#FCE8E6', color: '#A50E0E', border: '#F5C6C2', accent: '#D93025', label: 'Failed' },
+function paymentStatusCfgFor(theme, status) {
+  const p = theme.palette
+  const cfg = {
+    succeeded: { ...toneFor(theme, p.success.main, p.success.dark), accent: p.success.main, label: 'Succeeded' },
+    pending: { ...toneFor(theme, p.warning.main, p.warning.dark), accent: p.warning.main, label: 'Pending' },
+    failed: { ...toneFor(theme, p.error.main, p.error.dark), accent: p.error.main, label: 'Failed' },
+  }
+  return cfg[status] ?? cfg.pending
 }
 
 // ─── Balance KPI Card ─────────────────────────────────────────────────────────
 function BalanceCard({ icon: Icon, label, value, prefix, color, trend, action }) {
+  const theme = useTheme()
   const up = trend >= 0
   return (
-    <Card sx={{ borderRadius: 3, height: '100%', border: '1px solid #E8EAED', boxShadow: '0 1px 2px rgba(32,33,36,0.08)' }}>
+    <Card sx={{ borderRadius: 3, height: '100%', border: '1px solid', borderColor: 'divider', boxShadow: 1 }}>
       <CardContent sx={{ p: '20px !important' }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 2 }}>
           <Box
@@ -164,8 +186,8 @@ function BalanceCard({ icon: Icon, label, value, prefix, color, trend, action })
               width: 44,
               height: 44,
               borderRadius: 2,
-              bgcolor: `${color}1A`,
-              border: `1.5px solid ${color}33`,
+              bgcolor: alpha(color, 0.1),
+              border: `1.5px solid ${alpha(color, 0.2)}`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -182,16 +204,16 @@ function BalanceCard({ icon: Icon, label, value, prefix, color, trend, action })
                 px: 1,
                 py: 0.4,
                 borderRadius: 2,
-                bgcolor: up ? '#E6F4EA' : '#FCE8E6',
-                border: `1px solid ${up ? '#CEEAD6' : '#F5C6C2'}`,
+                bgcolor: alpha(up ? theme.palette.success.main : theme.palette.error.main, 0.12),
+                border: `1px solid ${alpha(up ? theme.palette.success.main : theme.palette.error.main, 0.3)}`,
               }}
             >
               {up ? (
-                <TrendingUpRoundedIcon sx={{ color: '#137333', fontSize: 13 }} />
+                <TrendingUpRoundedIcon sx={{ color: 'success.main', fontSize: 13 }} />
               ) : (
-                <TrendingDownRoundedIcon sx={{ color: '#A50E0E', fontSize: 13 }} />
+                <TrendingDownRoundedIcon sx={{ color: 'error.main', fontSize: 13 }} />
               )}
-              <Typography sx={{ color: up ? '#137333' : '#A50E0E', fontWeight: 700, fontSize: '0.7rem', lineHeight: 1 }}>
+              <Typography sx={{ color: up ? 'success.main' : 'error.main', fontWeight: 700, fontSize: '0.7rem', lineHeight: 1 }}>
                 {Math.abs(trend)}%
               </Typography>
             </Box>
@@ -201,7 +223,7 @@ function BalanceCard({ icon: Icon, label, value, prefix, color, trend, action })
           {prefix}
           {value.toLocaleString()}
         </Typography>
-        <Typography variant="body2" sx={{ color: '#5F6368', mt: 0.5, fontWeight: 500, fontSize: '0.8rem' }}>
+        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, fontWeight: 500, fontSize: '0.8rem' }}>
           {label}
         </Typography>
         {action && (
@@ -229,8 +251,9 @@ function BalanceCard({ icon: Icon, label, value, prefix, color, trend, action })
 
 // ─── SUG-AF-007: Invoice Detail Drawer ────────────────────────────────────────
 function InvoiceDrawer({ tx, open, onClose }) {
+  const theme = useTheme()
   if (!tx) return null
-  const sCfg = STATUS_CFG[tx.status] ?? STATUS_CFG.pending
+  const sCfg = paymentStatusCfgFor(theme, tx.status)
   return (
     <Drawer
       anchor="right"
@@ -245,12 +268,12 @@ function InvoiceDrawer({ tx, open, onClose }) {
       }}
     >
       {/* Drawer Header */}
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2.5, borderBottom: '1px solid #E8EAED' }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2.5, borderBottom: '1px solid', borderBottomColor: 'divider' }}>
         <Box>
-          <Typography fontWeight={800} sx={{ color: '#202124' }}>
+          <Typography fontWeight={800} sx={{ color: 'text.primary' }}>
             Receipt Details
           </Typography>
-          <Typography variant="caption" sx={{ color: '#5F6368', fontFamily: 'monospace' }}>
+          <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
             {tx.id}
           </Typography>
         </Box>
@@ -259,7 +282,7 @@ function InvoiceDrawer({ tx, open, onClose }) {
             aria-label="Print receipt"
             size="small"
             onClick={() => window.print()}
-            sx={{ color: '#5F6368', '&:hover': { color: '#1565C7', bgcolor: '#EEF4FF' } }}
+            sx={{ color: 'text.secondary', '&:hover': { color: 'primary.main', bgcolor: (t) => alpha(t.palette.primary.main, 0.08) } }}
           >
             <PrintRoundedIcon fontSize="small" />
           </IconButton>
@@ -267,7 +290,7 @@ function InvoiceDrawer({ tx, open, onClose }) {
             aria-label="Close drawer"
             size="small"
             onClick={onClose}
-            sx={{ color: '#5F6368', '&:hover': { color: '#D93025', bgcolor: '#FCE8E6' } }}
+            sx={{ color: 'text.secondary', '&:hover': { color: 'error.main', bgcolor: (t) => alpha(t.palette.error.main, 0.08) } }}
           >
             <CloseRoundedIcon fontSize="small" />
           </IconButton>
@@ -275,9 +298,9 @@ function InvoiceDrawer({ tx, open, onClose }) {
       </Box>
 
       {/* Patient Info */}
-      <Box sx={{ p: 2.5, borderBottom: '1px solid #F1F3F4' }}>
+      <Box sx={{ p: 2.5, borderBottom: '1px solid', borderBottomColor: 'divider' }}>
         <Stack direction="row" spacing={2} alignItems="center">
-          <Avatar sx={{ width: 48, height: 48, bgcolor: '#EEF4FF', color: '#1565C7', fontWeight: 700, fontSize: '0.85rem' }}>
+          <Avatar sx={{ width: 48, height: 48, bgcolor: (t) => alpha(t.palette.primary.main, 0.12), color: 'primary.main', fontWeight: 700, fontSize: '0.85rem' }}>
             {tx.patient_name
               .split(' ')
               .map((n) => n[0])
@@ -285,10 +308,10 @@ function InvoiceDrawer({ tx, open, onClose }) {
               .slice(0, 2)}
           </Avatar>
           <Box>
-            <Typography fontWeight={700} sx={{ color: '#0D1B2E' }}>
+            <Typography fontWeight={700} sx={{ color: 'text.primary' }}>
               {tx.patient_name}
             </Typography>
-            <Typography variant="caption" sx={{ color: '#7A96AE' }}>
+            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
               {tx.product_name ?? '—'}
             </Typography>
           </Box>
@@ -308,30 +331,30 @@ function InvoiceDrawer({ tx, open, onClose }) {
         ].map(({ label, value }) => (
           <Box
             key={label}
-            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.25, borderBottom: '1px solid #F1F3F4' }}
+            sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 1.25, borderBottom: '1px solid', borderBottomColor: 'divider' }}
           >
-            <Typography variant="body2" sx={{ color: '#5F6368', fontWeight: 600 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
               {label}
             </Typography>
-            <Typography variant="body2" fontWeight={700} sx={{ color: '#0D1B2E' }}>
+            <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary' }}>
               {value}
             </Typography>
           </Box>
         ))}
 
         {/* Amount highlight */}
-        <Box sx={{ py: 1.75, borderBottom: '1px solid #F1F3F4', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: '#5F6368', fontWeight: 600 }}>
+        <Box sx={{ py: 1.75, borderBottom: '1px solid', borderBottomColor: 'divider', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
             Amount
           </Typography>
-          <Typography fontWeight={800} sx={{ fontSize: '1.2rem', color: '#0B7B5C' }}>
+          <Typography fontWeight={800} sx={{ fontSize: '1.2rem', color: 'success.dark' }}>
             ₹{tx.amount.toLocaleString()}
           </Typography>
         </Box>
 
         {/* Status */}
         <Box sx={{ py: 1.25, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <Typography variant="body2" sx={{ color: '#5F6368', fontWeight: 600 }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary', fontWeight: 600 }}>
             Status
           </Typography>
           <Chip
@@ -362,7 +385,7 @@ function InvoiceDrawer({ tx, open, onClose }) {
             fullWidth
             variant="outlined"
             onClick={onClose}
-            sx={{ borderRadius: 2, fontWeight: 700, borderColor: '#DADCE0', color: '#5F6368' }}
+            sx={{ borderRadius: 2, fontWeight: 700, borderColor: 'divider', color: 'text.secondary' }}
           >
             Close
           </Button>
@@ -519,10 +542,10 @@ export default function FinancesPage() {
         }}
       >
         <Box>
-          <Typography variant="h4" fontWeight={800} sx={{ color: '#202124' }}>
+          <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary' }}>
             Finances
           </Typography>
-          <Typography variant="body2" sx={{ color: '#5F6368' }}>
+          <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             Real patient payments, captured via Razorpay
           </Typography>
         </Box>
@@ -534,9 +557,9 @@ export default function FinancesPage() {
           sx={{
             borderRadius: 2,
             fontWeight: 700,
-            background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
+            background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
             width: { xs: '100%', sm: 'auto' },
-            '&:hover': { boxShadow: '0 4px 14px rgba(26,115,232,0.35)' },
+            '&:hover': { boxShadow: (t) => `0 4px 14px ${alpha(t.palette.primary.main, 0.35)}` },
           }}
         >
           Export Report
@@ -559,7 +582,7 @@ export default function FinancesPage() {
             label="Revenue This Month"
             value={summary?.revenue_this_month ?? 0}
             prefix="₹"
-            color="#0F9D58"
+            color={theme.palette.success.main}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -568,7 +591,7 @@ export default function FinancesPage() {
             label={`Pending (${summary?.pending_count ?? 0})`}
             value={summary?.pending_amount ?? 0}
             prefix="₹"
-            color="#F9AB00"
+            color={theme.palette.warning.main}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -577,7 +600,7 @@ export default function FinancesPage() {
             label="Succeeded Payments"
             value={summary?.succeeded_count ?? 0}
             prefix=""
-            color="#1A73E8"
+            color={theme.palette.primary.main}
           />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
@@ -586,13 +609,13 @@ export default function FinancesPage() {
             label="Failed Payments"
             value={summary?.failed_count ?? 0}
             prefix=""
-            color="#D93025"
+            color={theme.palette.error.main}
           />
         </Grid>
       </Grid>
 
       {/* Main content tabs */}
-      <Card sx={{ borderRadius: 3, border: '1px solid #E8EAED', boxShadow: 'none' }}>
+      <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v)}
@@ -601,10 +624,10 @@ export default function FinancesPage() {
           aria-label="Finances sections"
           sx={{
             px: 2,
-            borderBottom: '1px solid #E8EAED',
-            '& .MuiTab-root': { color: '#5F6368', fontWeight: 600 },
-            '& .MuiTab-root.Mui-selected': { color: '#1A73E8', fontWeight: 700 },
-            '& .MuiTabs-indicator': { bgcolor: '#1A73E8', height: 3, borderRadius: '3px 3px 0 0' },
+            borderBottom: '1px solid', borderBottomColor: 'divider',
+            '& .MuiTab-root': { color: 'text.secondary', fontWeight: 600 },
+            '& .MuiTab-root.Mui-selected': { color: 'primary.main', fontWeight: 700 },
+            '& .MuiTabs-indicator': { bgcolor: 'primary.main', height: 3, borderRadius: '3px 3px 0 0' },
           }}
         >
           <Tab
@@ -674,16 +697,16 @@ export default function FinancesPage() {
                   },
                 }}
               >
-                <ToggleButton value="all" sx={{ '&.Mui-selected': { bgcolor: '#E8F0FE', color: '#1A73E8', borderColor: '#AECBFA' } }}>
+                <ToggleButton value="all" sx={{ '&.Mui-selected': { bgcolor: (t) => alpha(t.palette.primary.main, 0.12), color: 'primary.main', borderColor: 'primary.main' } }}>
                   All
                 </ToggleButton>
-                <ToggleButton value="succeeded" sx={{ '&.Mui-selected': { bgcolor: '#E6F4EA', color: '#137333', borderColor: '#CEEAD6' } }}>
+                <ToggleButton value="succeeded" sx={{ '&.Mui-selected': { bgcolor: (t) => alpha(t.palette.success.main, 0.12), color: 'success.dark', borderColor: 'success.main' } }}>
                   Succeeded
                 </ToggleButton>
-                <ToggleButton value="pending" sx={{ '&.Mui-selected': { bgcolor: '#FEF7E0', color: '#8A4700', borderColor: '#FDD663' } }}>
+                <ToggleButton value="pending" sx={{ '&.Mui-selected': { bgcolor: (t) => alpha(t.palette.warning.main, 0.12), color: 'warning.dark', borderColor: 'warning.main' } }}>
                   Pending
                 </ToggleButton>
-                <ToggleButton value="failed" sx={{ '&.Mui-selected': { bgcolor: '#FCE8E6', color: '#A50E0E', borderColor: '#F5C6C2' } }}>
+                <ToggleButton value="failed" sx={{ '&.Mui-selected': { bgcolor: (t) => alpha(t.palette.error.main, 0.12), color: 'error.dark', borderColor: 'error.main' } }}>
                   Failed
                 </ToggleButton>
               </ToggleButtonGroup>
@@ -693,7 +716,7 @@ export default function FinancesPage() {
             </Stack>
 
             {/* Transactions Table */}
-            <TableContainer sx={{ borderRadius: 2, border: '1px solid #E2E8F0', overflow: 'auto' }}>
+            <TableContainer sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'auto' }}>
               <Table>
                 <TableHead>
                   <TableRow>
@@ -711,18 +734,18 @@ export default function FinancesPage() {
                     </TableRow>
                   ) : (
                     filtered.map((tx) => {
-                      const sCfg = STATUS_CFG[tx.status] ?? STATUS_CFG.pending
+                      const sCfg = paymentStatusCfgFor(theme, tx.status)
                       return (
-                        <TableRow key={tx.id} sx={{ '&:hover': { bgcolor: '#F8FAFC' }, transition: 'background 0.15s' }}>
+                        <TableRow key={tx.id} sx={{ '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.15s' }}>
                           <TableCell>
-                            <Typography variant="caption" sx={{ color: '#B8C6D4', fontWeight: 600, fontFamily: 'monospace' }}>
+                            <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, fontFamily: 'monospace' }}>
                               {tx.id.slice(0, 8)}
                             </Typography>
                           </TableCell>
                           <TableCell>
                             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                               <Avatar
-                                sx={{ width: 30, height: 30, bgcolor: '#EEF4FF', color: '#1565C7', fontSize: '0.65rem', fontWeight: 700 }}
+                                sx={{ width: 30, height: 30, bgcolor: (t) => alpha(t.palette.primary.main, 0.12), color: 'primary.main', fontSize: '0.65rem', fontWeight: 700 }}
                               >
                                 {tx.patient_name
                                   .split(' ')
@@ -730,23 +753,23 @@ export default function FinancesPage() {
                                   .join('')
                                   .slice(0, 2)}
                               </Avatar>
-                              <Typography variant="body2" fontWeight={600} sx={{ color: '#0D1B2E' }}>
+                              <Typography variant="body2" fontWeight={600} sx={{ color: 'text.primary' }}>
                                 {tx.patient_name}
                               </Typography>
                             </Box>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" sx={{ color: '#3D5A72' }}>
+                            <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                               {tx.product_name ?? '—'}
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" sx={{ color: '#7A96AE' }}>
+                            <Typography variant="body2" sx={{ color: 'text.disabled' }}>
                               {new Date(tx.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                             </Typography>
                           </TableCell>
                           <TableCell>
-                            <Typography fontWeight={800} sx={{ color: '#0B7B5C', fontSize: '0.9rem' }}>
+                            <Typography fontWeight={800} sx={{ color: 'success.dark', fontSize: '0.9rem' }}>
                               ₹{tx.amount.toLocaleString()}
                             </Typography>
                           </TableCell>
@@ -754,7 +777,7 @@ export default function FinancesPage() {
                             <Chip
                               label={tx.method}
                               size="small"
-                              sx={{ bgcolor: '#F5F7FA', color: '#3D5A72', fontWeight: 600, borderRadius: 8 }}
+                              sx={{ bgcolor: 'action.hover', color: 'text.secondary', fontWeight: 600, borderRadius: 8 }}
                             />
                           </TableCell>
                           <TableCell>
@@ -780,7 +803,7 @@ export default function FinancesPage() {
                                 size="small"
                                 aria-label={`View receipt for ${tx.id}`}
                                 onClick={() => openDrawer(tx)}
-                                sx={{ color: '#B8C6D4', '&:hover': { color: '#1565C7', bgcolor: '#EEF4FF' } }}
+                                sx={{ color: 'text.disabled', '&:hover': { color: 'primary.main', bgcolor: (t) => alpha(t.palette.primary.main, 0.08) } }}
                               >
                                 <ReceiptLongRoundedIcon sx={{ fontSize: '0.95rem' }} />
                               </IconButton>
@@ -811,10 +834,10 @@ export default function FinancesPage() {
               }}
             >
               <Box>
-                <Typography fontWeight={800} sx={{ color: '#202124', mb: 0.5 }}>
+                <Typography fontWeight={800} sx={{ color: 'text.primary', mb: 0.5 }}>
                   Monthly Revenue
                 </Typography>
-                <Typography variant="body2" sx={{ color: '#5F6368' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                   Real captured Razorpay payments, by month
                 </Typography>
               </Box>
@@ -843,11 +866,11 @@ export default function FinancesPage() {
                 "Net Profit" — no expense tracking exists yet (see the info
                 banner on the Payment History tab). */}
             <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} mb={3}>
-              <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid #E8EAED', flex: 1 }}>
-                <Typography variant="body2" fontWeight={600} sx={{ color: '#5F6368', mb: 0.5 }}>
+              <Paper elevation={0} sx={{ p: 2, borderRadius: 2, border: '1px solid', borderColor: 'divider', flex: 1 }}>
+                <Typography variant="body2" fontWeight={600} sx={{ color: 'text.secondary', mb: 0.5 }}>
                   Total Revenue (selected range)
                 </Typography>
-                <Typography variant="h5" fontWeight={800} sx={{ color: '#0F9D58' }}>
+                <Typography variant="h5" fontWeight={800} sx={{ color: 'success.main' }}>
                   ₹{totalRevenue.toLocaleString()}
                 </Typography>
               </Paper>
@@ -859,19 +882,19 @@ export default function FinancesPage() {
               <ResponsiveContainer width="100%" height={320}>
                 <BarChart data={summary?.monthly ?? []} margin={{ top: 4, right: 8, left: -10, bottom: 0 }} barGap={4}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(0,0,0,0.06)" vertical={false} />
-                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: '#7A96AE' }} axisLine={false} tickLine={false} />
+                  <XAxis dataKey="month" tick={{ fontSize: 12, fill: theme.palette.text.disabled }} axisLine={false} tickLine={false} />
                   <YAxis
-                    tick={{ fontSize: 11, fill: '#7A96AE' }}
+                    tick={{ fontSize: 11, fill: theme.palette.text.disabled }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`}
                   />
                   <ReTooltip
                     formatter={(value) => [`₹${value.toLocaleString()}`, 'Revenue']}
-                    contentStyle={{ borderRadius: 8, border: '1px solid #E8EAED', boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+                    contentStyle={{ borderRadius: 8, border: `1px solid ${theme.palette.divider}`, boxShadow: '0 8px 24px rgba(0,0,0,0.12)', background: theme.palette.background.paper, color: theme.palette.text.primary }}
                   />
                   <Legend wrapperStyle={{ paddingTop: 12, fontSize: 12, fontWeight: 700 }} />
-                  <Bar dataKey="revenue" fill="#1A73E8" radius={[6, 6, 0, 0]} name="Revenue" />
+                  <Bar dataKey="revenue" fill={theme.palette.primary.main} radius={[6, 6, 0, 0]} name="Revenue" />
                 </BarChart>
               </ResponsiveContainer>
             )}
@@ -879,7 +902,7 @@ export default function FinancesPage() {
             <Divider sx={{ my: 3 }} />
             <Typography variant="caption" sx={{ color: 'text.disabled' }}>
               This is real captured payment revenue, distinct from the appointment-value "revenue" shown on the{' '}
-              <a href="/analytics" style={{ color: '#1A73E8', fontWeight: 700 }}>
+              <a href="/analytics" style={{ color: theme.palette.primary.main, fontWeight: 700 }}>
                 Analytics page
               </a>{' '}
               (billable value of completed appointments, whether or not payment was ever collected).
@@ -903,16 +926,16 @@ export default function FinancesPage() {
         {/* Tab 3: Discount Approvals — REQ056 (US-BIL-03) */}
         {tab === 3 && (
           <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography fontWeight={800} sx={{ color: '#202124', mb: 0.5 }}>
+            <Typography fontWeight={800} sx={{ color: 'text.primary', mb: 0.5 }}>
               Discount Approvals
             </Typography>
-            <Typography variant="body2" sx={{ color: '#5F6368', mb: 2.5 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
               A counter-payment discount above the org's configured threshold is queued here until a manager decides it.
             </Typography>
             {discountLoading ? (
               <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
             ) : (
-              <TableContainer sx={{ borderRadius: 2, border: '1px solid #E2E8F0', overflow: 'auto' }}>
+              <TableContainer sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'auto' }}>
                 <Table>
                   <TableHead>
                     <TableRow>
@@ -930,26 +953,26 @@ export default function FinancesPage() {
                       </TableRow>
                     ) : (
                       discountData.discountApprovalRequests.map((req) => {
-                        const sCfg = DISCOUNT_STATUS_CFG[req.status] ?? DISCOUNT_STATUS_CFG.pending
+                        const sCfg = discountStatusCfgFor(theme, req.status)
                         return (
-                          <TableRow key={req.id} sx={{ '&:hover': { bgcolor: '#F8FAFC' }, transition: 'background 0.15s' }}>
+                          <TableRow key={req.id} sx={{ '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.15s' }}>
                             <TableCell>
-                              <Typography variant="caption" sx={{ color: '#B8C6D4', fontWeight: 600, fontFamily: 'monospace' }}>
+                              <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, fontFamily: 'monospace' }}>
                                 {req.appointment_id.slice(0, 8)}
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Typography fontWeight={800} sx={{ color: '#0B7B5C', fontSize: '0.9rem' }}>
+                              <Typography fontWeight={800} sx={{ color: 'success.dark', fontSize: '0.9rem' }}>
                                 ₹{req.discount_amount.toLocaleString()}
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2" sx={{ color: '#3D5A72' }}>
+                              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                                 {req.discount_reason}
                               </Typography>
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2" sx={{ color: '#3D5A72' }}>
+                              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                                 ₹{req.expected_amount.toLocaleString()}
                               </Typography>
                             </TableCell>
@@ -968,7 +991,7 @@ export default function FinancesPage() {
                               />
                             </TableCell>
                             <TableCell>
-                              <Typography variant="body2" sx={{ color: '#7A96AE' }}>
+                              <Typography variant="body2" sx={{ color: 'text.disabled' }}>
                                 {new Date(req.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                               </Typography>
                             </TableCell>
@@ -984,7 +1007,7 @@ export default function FinancesPage() {
                                         onClick={() =>
                                           decideDiscountApproval({ variables: { input: { request_id: req.id, decision: 'approve' } } })
                                         }
-                                        sx={{ color: '#0F9D58', '&:hover': { bgcolor: '#E6F4EA' } }}
+                                        sx={{ color: 'success.main', '&:hover': { bgcolor: (t) => alpha(t.palette.success.main, 0.12) } }}
                                       >
                                         <CheckRoundedIcon fontSize="small" />
                                       </IconButton>
@@ -999,7 +1022,7 @@ export default function FinancesPage() {
                                         onClick={() =>
                                           decideDiscountApproval({ variables: { input: { request_id: req.id, decision: 'reject' } } })
                                         }
-                                        sx={{ color: '#D93025', '&:hover': { bgcolor: '#FCE8E6' } }}
+                                        sx={{ color: 'error.main', '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.12) } }}
                                       >
                                         <CloseRoundedIcon fontSize="small" />
                                       </IconButton>
@@ -1022,16 +1045,16 @@ export default function FinancesPage() {
         {/* Tab 4: Cash Drawer — REQ056 (US-BIL-04, scoped subset) */}
         {tab === 4 && (
           <Box sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography fontWeight={800} sx={{ color: '#202124', mb: 0.5 }}>
+            <Typography fontWeight={800} sx={{ color: 'text.primary', mb: 0.5 }}>
               Cash Drawer Closeouts
             </Typography>
-            <Typography variant="body2" sx={{ color: '#5F6368', mb: 2.5 }}>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
               Expected totals are computed server-side from real succeeded payments; only the counted (physical) totals come from staff.
             </Typography>
             {closeoutLoading ? (
               <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
             ) : (
-              <TableContainer sx={{ borderRadius: 2, border: '1px solid #E2E8F0', overflow: 'auto' }}>
+              <TableContainer sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'auto' }}>
                 <Table>
                   <TableHead>
                     <TableRow>
@@ -1053,7 +1076,7 @@ export default function FinancesPage() {
                         const reconciled = Math.abs(c.variance) <= 0.005
                         return (
                           <>
-                            <TableRow key={c.id} sx={{ '&:hover': { bgcolor: '#F8FAFC' }, transition: 'background 0.15s' }}>
+                            <TableRow key={c.id} sx={{ '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.15s' }}>
                               <TableCell>
                                 <IconButton size="small" onClick={() => setExpandedCloseout(isExpanded ? null : c.id)}>
                                   {isExpanded ? (
@@ -1064,7 +1087,7 @@ export default function FinancesPage() {
                                 </IconButton>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2" sx={{ color: '#3D5A72' }}>
+                                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
                                   {new Date(c.business_date).toLocaleDateString('en-IN', {
                                     day: '2-digit',
                                     month: 'short',
@@ -1073,22 +1096,22 @@ export default function FinancesPage() {
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2" fontWeight={700} sx={{ color: '#0D1B2E' }}>
+                                <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary' }}>
                                   ₹{c.total_expected.toLocaleString()}
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2" fontWeight={700} sx={{ color: '#0D1B2E' }}>
+                                <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary' }}>
                                   ₹{c.total_counted.toLocaleString()}
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2" fontWeight={800} sx={{ color: reconciled ? '#137333' : '#A50E0E' }}>
+                                <Typography variant="body2" fontWeight={800} sx={{ color: reconciled ? 'success.dark' : 'error.dark' }}>
                                   {c.variance > 0 ? '+' : ''}₹{c.variance.toLocaleString()}
                                 </Typography>
                               </TableCell>
                               <TableCell>
-                                <Typography variant="body2" sx={{ color: '#7A96AE' }}>
+                                <Typography variant="body2" sx={{ color: 'text.disabled' }}>
                                   {new Date(c.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
                                 </Typography>
                               </TableCell>
@@ -1096,7 +1119,7 @@ export default function FinancesPage() {
                             <TableRow>
                               <TableCell colSpan={6} sx={{ p: 0, border: isExpanded ? undefined : 'none' }}>
                                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                                  <Box sx={{ p: 2, bgcolor: '#FAFBFC' }}>
+                                  <Box sx={{ p: 2, bgcolor: 'action.hover' }}>
                                     <Table size="small">
                                       <TableHead>
                                         <TableRow>
@@ -1112,7 +1135,7 @@ export default function FinancesPage() {
                                             <TableCell>₹{b.expected.toLocaleString()}</TableCell>
                                             <TableCell>₹{b.counted.toLocaleString()}</TableCell>
                                             <TableCell
-                                              sx={{ color: Math.abs(b.variance) > 0.005 ? '#A50E0E' : '#137333', fontWeight: 700 }}
+                                              sx={{ color: Math.abs(b.variance) > 0.005 ? 'error.dark' : 'success.dark', fontWeight: 700 }}
                                             >
                                               {b.variance > 0 ? '+' : ''}₹{b.variance.toLocaleString()}
                                             </TableCell>
