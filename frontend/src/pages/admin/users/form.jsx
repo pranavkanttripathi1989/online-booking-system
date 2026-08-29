@@ -22,6 +22,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 
 import PersonAddRoundedIcon from '@mui/icons-material/PersonAddRounded'
@@ -105,7 +106,7 @@ function UserFormPage({ mode, initialData, userId, onDone }) {
         <title>{isCreate ? 'New User' : 'Edit User'} — MediBook</title>
       </Helmet>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/admin/users')} sx={{ bgcolor: '#F1F3F4' }}>
+        <IconButton onClick={() => navigate('/admin/users')} sx={{ bgcolor: 'action.hover' }}>
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -114,16 +115,19 @@ function UserFormPage({ mode, initialData, userId, onDone }) {
               width: 40,
               height: 40,
               borderRadius: 2.5,
-              background: isCreate ? 'linear-gradient(135deg,#E8F0FE,#C5D8FD)' : 'linear-gradient(135deg,#FEF7E0,#FEEFC3)',
+              background: (t) =>
+                isCreate
+                  ? `linear-gradient(135deg, ${alpha(t.palette.primary.main, 0.18)}, ${alpha(t.palette.primary.light, 0.24)})`
+                  : `linear-gradient(135deg, ${alpha(t.palette.warning.main, 0.24)}, ${alpha(t.palette.warning.light, 0.24)})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
             {isCreate ? (
-              <PersonAddRoundedIcon sx={{ color: '#1A73E8', fontSize: '1.2rem' }} />
+              <PersonAddRoundedIcon sx={{ color: 'primary.main', fontSize: '1.2rem' }} />
             ) : (
-              <EditRoundedIcon sx={{ color: '#F9AB00', fontSize: '1.2rem' }} />
+              <EditRoundedIcon sx={{ color: 'warning.main', fontSize: '1.2rem' }} />
             )}
           </Box>
           <Box>
@@ -297,7 +301,7 @@ export function EditUserPage() {
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
-        <CircularProgress sx={{ color: '#006D77' }} />
+        <CircularProgress sx={{ color: 'primary.main' }} />
       </Box>
     )
   }

@@ -18,6 +18,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
@@ -158,7 +159,7 @@ export default function EditProductPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/products')} sx={{ bgcolor: '#F1F3F4' }} aria-label="Back to products">
+        <IconButton onClick={() => navigate('/manager/products')} sx={{ bgcolor: 'action.hover' }} aria-label="Back to products">
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -167,13 +168,13 @@ export default function EditProductPage() {
               width: 40,
               height: 40,
               borderRadius: 2.5,
-              background: 'linear-gradient(135deg,#FEF7E0,#FEEFC3)',
+              background: (t) => `linear-gradient(135deg, ${alpha(t.palette.warning.main, 0.24)}, ${alpha(t.palette.warning.light, 0.24)})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <EditRoundedIcon sx={{ color: '#F9AB00', fontSize: '1.2rem' }} />
+            <EditRoundedIcon sx={{ color: 'warning.main', fontSize: '1.2rem' }} />
           </Box>
           <Box>
             <Typography variant="h5" fontWeight={800}>
@@ -197,7 +198,7 @@ export default function EditProductPage() {
             startIcon={loading ? <CircularProgress size={16} color="inherit" /> : <SaveRoundedIcon />}
             onClick={handleSave}
             disabled={loading}
-            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, bgcolor: '#8430CE', '&:hover': { bgcolor: '#6A27A8' } }}
+            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, bgcolor: 'secondary.main', '&:hover': { bgcolor: 'secondary.dark' } }}
           >
             {loading ? 'Saving…' : 'Save Changes'}
           </Button>

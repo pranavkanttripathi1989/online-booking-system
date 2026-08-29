@@ -24,6 +24,7 @@ import {
   IconButton,
   Tooltip,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import SecurityIcon from '@mui/icons-material/Security'
 import AccessTimeIcon from '@mui/icons-material/AccessTime'
 import LockIcon from '@mui/icons-material/Lock'
@@ -472,7 +473,15 @@ export default function AdminPolicies() {
                         onChange={(e) => updatePolicy(policy.id, e.target.value)}
                         sx={{ width: 100 }}
                       />
-                      <Chip label={policy.unit} size="small" sx={{ bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }} />
+                      <Chip
+                        label={policy.unit}
+                        size="small"
+                        sx={{
+                          bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.22 : 0.12),
+                          color: 'primary.main',
+                          fontWeight: 700,
+                        }}
+                      />
                     </Stack>
                   </CardContent>
                 </Card>
@@ -494,7 +503,7 @@ export default function AdminPolicies() {
           <Card>
             <CardContent sx={{ p: 2.5 }}>
               <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 2.5 }}>
-                <SecurityIcon sx={{ color: '#006D77' }} />
+                <SecurityIcon sx={{ color: 'primary.main' }} />
                 <Typography variant="h5" fontWeight={700}>
                   Security Settings
                 </Typography>
@@ -632,11 +641,11 @@ export default function AdminPolicies() {
               action: 'View Plan',
             },
           ].map(({ icon, title, desc, action }) => (
-            <Card key={title} sx={{ border: '1px solid #D0E8EA' }}>
+            <Card key={title} sx={{ border: '1px solid', borderColor: (t) => alpha(t.palette.primary.main, 0.24) }}>
               <CardContent sx={{ p: 2.5 }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Stack direction="row" spacing={1.5} alignItems="center">
-                    <Box sx={{ color: '#006D77' }}>{icon}</Box>
+                    <Box sx={{ color: 'primary.main' }}>{icon}</Box>
                     <Box>
                       <Typography fontWeight={700}>{title}</Typography>
                       <Typography variant="body2" color="text.secondary">

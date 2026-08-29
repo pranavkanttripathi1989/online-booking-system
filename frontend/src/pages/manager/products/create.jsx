@@ -17,6 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import Inventory2RoundedIcon from '@mui/icons-material/Inventory2Rounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
@@ -57,7 +58,7 @@ export default function CreateProductPage() {
         <title>New Product — MediBook</title>
       </Helmet>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/products')} sx={{ bgcolor: '#F1F3F4' }} aria-label="Back to products">
+        <IconButton onClick={() => navigate('/manager/products')} sx={{ bgcolor: 'action.hover' }} aria-label="Back to products">
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -66,13 +67,13 @@ export default function CreateProductPage() {
               width: 40,
               height: 40,
               borderRadius: 2.5,
-              background: 'linear-gradient(135deg,#F3E8FD,#E1BBFA)',
+              background: (t) => `linear-gradient(135deg, ${alpha(t.palette.secondary.main, 0.18)}, ${alpha(t.palette.secondary.light, 0.24)})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <Inventory2RoundedIcon sx={{ color: '#8430CE', fontSize: '1.2rem' }} />
+            <Inventory2RoundedIcon sx={{ color: 'secondary.main', fontSize: '1.2rem' }} />
           </Box>
           <Box>
             <Typography variant="h5" fontWeight={800}>
@@ -110,7 +111,7 @@ export default function CreateProductPage() {
                 })
             }}
             disabled={loading}
-            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, bgcolor: '#8430CE', '&:hover': { bgcolor: '#6A27A8' } }}
+            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, bgcolor: 'secondary.main', '&:hover': { bgcolor: 'secondary.dark' } }}
           >
             {loading ? 'Saving…' : 'Save Product'}
           </Button>
