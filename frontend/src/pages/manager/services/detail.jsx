@@ -2,6 +2,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import { useQuery } from '@apollo/client'
 import { Helmet } from 'react-helmet-async'
 import { Box, Button, Chip, Divider, Grid, IconButton, Paper, Skeleton, Stack, Typography } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import MedicalServicesRoundedIcon from '@mui/icons-material/MedicalServicesRounded'
@@ -12,6 +13,7 @@ import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
 import { SERVICE_DETAIL_QUERY } from '../../../graphql/queries'
 
 export default function ServiceDetailPage() {
+  const theme = useTheme()
   const { id } = useParams()
   const navigate = useNavigate()
 
@@ -49,7 +51,7 @@ export default function ServiceDetailPage() {
 
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor: '#F1F3F4' }}>
+        <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor: 'action.hover' }}>
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ flex: 1 }}>
@@ -73,20 +75,20 @@ export default function ServiceDetailPage() {
       <Grid container spacing={3}>
         {/* Main details */}
         <Grid item xs={12} md={7}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider' }}>
             <Stack direction="row" alignItems="center" spacing={2} mb={3}>
               <Box
                 sx={{
                   width: 56,
                   height: 56,
                   borderRadius: 3,
-                  background: 'linear-gradient(135deg,#E6F4EA,#CEEAD6)',
+                  background: (t) => `linear-gradient(135deg, ${alpha(t.palette.success.main, 0.24)}, ${alpha(t.palette.success.light, 0.24)})`,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
                 }}
               >
-                <MedicalServicesRoundedIcon sx={{ color: '#0F9D58', fontSize: '1.6rem' }} />
+                <MedicalServicesRoundedIcon sx={{ color: 'success.main', fontSize: '1.6rem' }} />
               </Box>
               <Box>
                 <Typography variant="h6" fontWeight={800}>
@@ -103,8 +105,8 @@ export default function ServiceDetailPage() {
                   label={s.is_active ? 'Active' : 'Inactive'}
                   size="small"
                   sx={{
-                    bgcolor: s.is_active ? '#E6F4EA' : '#FCE8E6',
-                    color: s.is_active ? '#137333' : '#A50E0E',
+                    bgcolor: alpha(s.is_active ? theme.palette.success.main : theme.palette.error.main, theme.palette.mode === 'dark' ? 0.18 : 0.12),
+                    color: s.is_active ? 'success.main' : 'error.main',
                     fontWeight: 700,
                     borderRadius: '8px',
                     fontSize: '0.72rem',
@@ -133,7 +135,7 @@ export default function ServiceDetailPage() {
                   Duration
                 </Typography>
                 <Stack direction="row" alignItems="center" spacing={0.75} mt={0.5}>
-                  <TimerRoundedIcon sx={{ fontSize: '1rem', color: '#F9AB00' }} />
+                  <TimerRoundedIcon sx={{ fontSize: '1rem', color: 'warning.main' }} />
                   <Typography variant="body1" fontWeight={700}>
                     {s.duration_minutes ?? '—'} min
                   </Typography>
@@ -165,7 +167,7 @@ export default function ServiceDetailPage() {
 
         {/* Clinicians assigned */}
         <Grid item xs={12} md={5}>
-          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid #E8EAED', height: '100%' }}>
+          <Paper elevation={0} sx={{ p: 3, borderRadius: 3, border: '1px solid', borderColor: 'divider', height: '100%' }}>
             <Typography variant="subtitle1" fontWeight={700} mb={2}>
               Assigned Clinicians
             </Typography>
@@ -178,20 +180,20 @@ export default function ServiceDetailPage() {
                     alignItems="center"
                     spacing={1.5}
                     onClick={() => navigate(`/clinicians/${c.id}`)}
-                    sx={{ cursor: 'pointer', p: 1, borderRadius: 2, '&:hover': { bgcolor: '#F1F3F4' } }}
+                    sx={{ cursor: 'pointer', p: 1, borderRadius: 2, '&:hover': { bgcolor: 'action.hover' } }}
                   >
                     <Box
                       sx={{
                         width: 36,
                         height: 36,
                         borderRadius: '50%',
-                        bgcolor: '#E8F0FE',
+                        bgcolor: alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.22 : 0.12),
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
                       }}
                     >
-                      <Typography variant="caption" fontWeight={800} color="#1A73E8">
+                      <Typography variant="caption" fontWeight={800} color="info.main">
                         {c.full_name?.[0]}
                       </Typography>
                     </Box>
