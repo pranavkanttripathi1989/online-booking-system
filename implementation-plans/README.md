@@ -31,7 +31,7 @@
 | organization-branding | 1 | 3 | 0 | 0 | 4 | 2026-08-26 | [organization-branding](./organization-branding/README.md) |
 | products | 0 | 0 | 1 | 0 | 1 | 2026-08-21 | [products](./products/README.md) |
 | security | 3 | 4 | 3 | 0 | 10 | 2026-08-28 | [security](./security/README.md) |
-| settings | 2 | 0 | 1 | 0 | 3 | 2026-08-29 | [settings](./settings/README.md) |
+| settings | 2 | 0 | 2 | 0 | 4 | 2026-08-29 | [settings](./settings/README.md) |
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | patient-payments | 4 | 3 | 0 | 0 | 7 | 2026-08-26 | [patient-payments](./patient-payments/README.md) |
 | patient-portal | 0 | 2 | 1 | 0 | 3 | 2026-08-28 | [patient-portal](./patient-portal/README.md) |
@@ -46,4 +46,4 @@
 | patients | 0 | 0 | 4 | 0 | 4 | 2026-08-29 | [patients](./patients/README.md) |
 | test-results | 0 | 0 | 1 | 0 | 1 | 2026-08-26 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
-| frontend-platform | 0 | 6 | 5 | 0 | 11 | 2026-08-29 | [frontend-platform](./frontend-platform/README.md) |
+| frontend-platform | 0 | 7 | 5 | 0 | 12 | 2026-08-29 | [frontend-platform](./frontend-platform/README.md) |

@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ162 | improvement | Rich text editor for clinical note sections (FORM-20) | done | 2026-08-29 | 2026-08-29 | — | [REQ162-frontend-platform-2026-08-29-rich-text-editor-for-clinical-notes.md](./improvement/REQ162-frontend-platform-2026-08-29-rich-text-editor-for-clinical-notes.md) |
 | REQ161 | improvement | Six more regional languages (P2-09): Tamil, Bengali, Marathi, Telugu, Kannada, Gujarati | done | 2026-08-29 | 2026-08-29 | REQ150 | [REQ161-frontend-platform-2026-08-29-six-regional-languages.md](./improvement/REQ161-frontend-platform-2026-08-29-six-regional-languages.md) |
 | REQ150 | improvement | i18n framework + English/Hindi extraction (P1-07) | done | 2026-08-27 | 2026-08-27 | — | [REQ150-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md](./improvement/REQ150-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md) |
 | REQ146 | improvement | Frontend CI gates: prettier, size-limit, axe-core, secret scanning | done | 2026-08-27 | 2026-08-27 | — | [REQ146-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md](./improvement/REQ146-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md) |

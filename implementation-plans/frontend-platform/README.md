@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN218 | improvement | Rich text editor for clinical note sections (FORM-20) | done | 2026-08-29 | 2026-08-29 | REQ162 | [PLAN218-frontend-platform-2026-08-29-rich-text-editor-for-clinical-notes.md](./improvement/PLAN218-frontend-platform-2026-08-29-rich-text-editor-for-clinical-notes.md) |
 | PLAN214 | improvement | Six more regional languages (P2-09) | done | 2026-08-29 | 2026-08-29 | REQ161 | [PLAN214-frontend-platform-2026-08-29-six-regional-languages.md](./improvement/PLAN214-frontend-platform-2026-08-29-six-regional-languages.md) |
 | PLAN190 | improvement | i18n framework + English/Hindi extraction (P1-07) | done | 2026-08-27 | 2026-08-27 | REQ150 | [PLAN190-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md](./improvement/PLAN190-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md) |
 | PLAN186 | improvement | Frontend CI gates: prettier, size-limit, axe-core, secret scanning | done | 2026-08-27 | 2026-08-27 | REQ146 | [PLAN186-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md](./improvement/PLAN186-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md) |

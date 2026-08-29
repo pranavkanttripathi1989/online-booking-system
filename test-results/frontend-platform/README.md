@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR238 | improvement | Rich text editor for clinical note sections results | pass | 2026-08-29 | 2026-08-29 | TP238 | [TR238-frontend-platform-2026-08-29-rich-text-editor-for-clinical-notes.md](./improvement/TR238-frontend-platform-2026-08-29-rich-text-editor-for-clinical-notes.md) |
 | TR234 | improvement | Six more regional languages (P2-09) results | pass | 2026-08-29 | 2026-08-29 | TP234 | [TR234-frontend-platform-2026-08-29-six-regional-languages.md](./improvement/TR234-frontend-platform-2026-08-29-six-regional-languages.md) |
 | TR210 | improvement | i18n framework + English/Hindi extraction results | pass | 2026-08-27 | 2026-08-27 | TP210 | [TR210-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md](./improvement/TR210-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md) |
 | TR206 | improvement | Frontend CI gates results | pass | 2026-08-27 | 2026-08-27 | TP206 | [TR206-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md](./improvement/TR206-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md) |

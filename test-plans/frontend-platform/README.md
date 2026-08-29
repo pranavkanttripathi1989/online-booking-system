@@ -8,6 +8,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP238 | improvement | Rich text editor for clinical note sections verification | approved | 2026-08-29 | 2026-08-29 | PLAN218 | [TP238-frontend-platform-2026-08-29-rich-text-editor-for-clinical-notes.md](./improvement/TP238-frontend-platform-2026-08-29-rich-text-editor-for-clinical-notes.md) |
 | TP234 | improvement | Six more regional languages (P2-09) verification | approved | 2026-08-29 | 2026-08-29 | PLAN214 | [TP234-frontend-platform-2026-08-29-six-regional-languages.md](./improvement/TP234-frontend-platform-2026-08-29-six-regional-languages.md) |
 | TP210 | improvement | i18n framework + English/Hindi extraction verification | done | 2026-08-27 | 2026-08-27 | PLAN190 | [TP210-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md](./improvement/TP210-frontend-platform-2026-08-27-i18n-framework-and-english-hindi.md) |
 | TP206 | improvement | Frontend CI gates: prettier, size-limit, axe-core, secret scanning | approved | 2026-08-27 | 2026-08-27 | REQ146 | [TP206-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md](./improvement/TP206-frontend-platform-2026-08-27-ci-gates-prettier-size-limit-axe-secrets.md) |
