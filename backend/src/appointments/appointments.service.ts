@@ -131,6 +131,10 @@ export class AppointmentsService {
       type: a.type ?? 'in_person',
       booking_mode: a.booking_mode ?? 'slot',
       token_no: a.token_no ?? undefined,
+      // REQ163 (P2-10) — present only for an appointment created as part
+      // of a series; null for every other appointment, unchanged.
+      series_id: a.series_id ?? undefined,
+      series_occurrence_no: a.series_occurrence_no ?? undefined,
       // REQ052 -- stored as { [key]: value }, exposed as a structured list.
       intake_responses: a.intake_responses
         ? Object.entries(a.intake_responses as Record<string, string>).map(([key, value]) => ({ key, value }))
@@ -322,6 +326,18 @@ export class AppointmentsService {
     return this.toGraphQL(appointment, logs);
   }
 
+  // REQ163 (P2-10) — org+self-scoped (same guards as loadScoped/findAll,
+  // reused rather than reimplemented), used by AppointmentSeriesService's
+  // detail view to list every real occurrence of one series.
+  async findBySeriesId(seriesId: string, user: JwtPayload) {
+    const rows = await this.prisma.appointments.findMany({
+      where: { series_id: seriesId, is_deleted: false, ...this.orgScope(user), ...this.selfScope(user) },
+      include: INCLUDE,
+      orderBy: { series_occurrence_no: 'asc' },
+    });
+    return rows.map((r) => this.toGraphQL(r));
+  }
+
   // Re-runs the real conflict check server-side — never trusts the client-
   // supplied slot_id as proof of availability (next-10-features-implementation-plan.md §3).
   private async assertSlotFree(clinicianId: string, start: Date, end: Date, excludeAppointmentId?: string) {
@@ -425,7 +441,14 @@ export class AppointmentsService {
     if (conflict) throw new BadRequestException('This time slot is no longer available');
   }
 
-  async create(input: AppointmentInput, user: JwtPayload) {
+  // REQ163 (P2-10) — seriesLink is deliberately NOT a field on the
+  // GraphQL-decorated AppointmentInput DTO: it's populated only by
+  // AppointmentSeriesService, an internal caller, never read from an
+  // untrusted client field (the same Hard-Rule-6 discipline
+  // escalated_from_encounter_id's own client-supplied-but-validated id
+  // uses, taken one step further here since this link has no legitimate
+  // reason to ever be client-settable at all).
+  async create(input: AppointmentInput, user: JwtPayload, seriesLink?: { series_id: string; series_occurrence_no: number }) {
     // P1-05 (BOOK-3) — a repeat idempotency key short-circuits to the
     // original appointment before any validation/lookup runs at all, so a
     // retried request can never fail differently (e.g. the slot it already
@@ -615,6 +638,8 @@ export class AppointmentsService {
             checkin_token_expires_at: checkinToken?.expiresAt,
             escalated_from_encounter_id: input.escalated_from_encounter_id,
             type: input.type ?? 'in_person',
+            series_id: seriesLink?.series_id,
+            series_occurrence_no: seriesLink?.series_occurrence_no,
           },
           include: INCLUDE,
         });

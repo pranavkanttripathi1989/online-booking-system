@@ -27,6 +27,18 @@ export interface DomainCase {
 
 export const CASES: DomainCase[] = [
   {
+    // REQ163 (P2-10). Org-scoped via clinic.client_org_id, same shape as
+    // packages' own row above -- clinic_id omitted, matching that
+    // precedent.
+    domain: 'appointment-series',
+    what: 'appointmentSeriesList',
+    query: `{ appointmentSeriesList { id } }`,
+    ids: (d) => (d.appointmentSeriesList ?? []).map((x: any) => x.id),
+    aId: IDS.appointmentSeriesA,
+    bId: IDS.appointmentSeriesB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
+  },
+  {
     domain: 'clinics',
     what: 'clinics',
     query: `{ clinics { id } }`,

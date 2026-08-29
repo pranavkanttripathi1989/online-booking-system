@@ -104,6 +104,10 @@ export class AppointmentType {
   // session/hybrid window; null for slot mode.
   @Field() booking_mode: string;
   @Field(() => Int, { nullable: true }) token_no?: number;
+  // REQ163 (P2-10) — present only when this appointment was created as
+  // part of an AppointmentSeries; null otherwise.
+  @Field(() => ID, { nullable: true }) series_id?: string;
+  @Field(() => Int, { nullable: true }) series_occurrence_no?: number;
   // REQ052 (US-BOOK-06) — structured, not a raw JSON scalar, matching this
   // codebase's convention for every other Json column.
   @Field(() => [IntakeFieldResponseType], { nullable: true }) intake_responses?: IntakeFieldResponseType[];

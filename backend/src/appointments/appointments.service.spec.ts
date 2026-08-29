@@ -273,6 +273,26 @@ describe('AppointmentsService — access scoping', () => {
       });
     });
 
+    // REQ163 (P2-10) — seriesLink is an internal-only 3rd parameter, never
+    // a field on AppointmentInput itself (deliberately not client-settable
+    // at all, unlike escalated_from_encounter_id above which is client-
+    // supplied-but-validated). Only AppointmentSeriesService ever passes it.
+    describe('seriesLink (REQ163)', () => {
+      it('persists series_id/series_occurrence_no on the created row when passed', async () => {
+        await service.create(baseInput as any, staffUser, { series_id: 'series-1', series_occurrence_no: 2 });
+        expect(prisma.appointments.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ series_id: 'series-1', series_occurrence_no: 2 }) }),
+        );
+      });
+
+      it('leaves both fields undefined for every ordinary (non-series) booking', async () => {
+        await service.create(baseInput as any, staffUser);
+        expect(prisma.appointments.create).toHaveBeenCalledWith(
+          expect.objectContaining({ data: expect.objectContaining({ series_id: undefined, series_occurrence_no: undefined }) }),
+        );
+      });
+    });
+
     // REQ124 (context/open-questions.md #14) — room assignment retries the
     // next active room instead of only ever trying the first one.
     describe('room assignment (REQ124)', () => {

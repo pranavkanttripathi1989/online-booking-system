@@ -254,6 +254,15 @@ model Appointments {
   // teleconsultation. Nullable: set only on the new in-person appointment
   // this creates, never on the originating video appointment itself.
   escalated_from_encounter_id String?
+  // REQ163 (P2-10) — set only by AppointmentSeriesService.create(), never
+  // client-settable via AppointmentInput (deliberately kept off that
+  // GraphQL-decorated DTO entirely -- see appointments.service.ts's
+  // create() signature, which takes this as a separate internal-only
+  // parameter rather than trusting a client-supplied field, the same
+  // Hard-Rule-6 discipline escalated_from_encounter_id above already
+  // established for a system-linked id).
+  series_id           String?
+  series_occurrence_no Int?
 
   clinic              Clinics               @relation(fields: [clinic_id], references: [id])
   room                Rooms                 @relation(fields: [room_id], references: [id])
@@ -263,6 +272,7 @@ model Appointments {
   product_variation   ProductVariations?    @relation(fields: [product_variation_id], references: [id])
   booked_by_user      UserProfiles?         @relation("AppointmentBookedBy", fields: [booked_by_user_id], references: [id])
   escalated_from_encounter Encounters?      @relation("EscalatedFromEncounter", fields: [escalated_from_encounter_id], references: [id])
+  series              AppointmentSeries?    @relation(fields: [series_id], references: [id])
   reviews             Reviews[]
   status_logs         AppointmentStatusLogs[]
   payments            AppointmentPayments[]
@@ -282,6 +292,44 @@ model Appointments {
   @@index([product_id])
   @@index([booked_by_user_id])
   @@index([escalated_from_encounter_id])
+  @@index([series_id])
+}
+
+// REQ163 (P2-10) — a named, eagerly-materialized group of linked
+// Appointments rows. Covers both a simple "recurring series" (every
+// occurrence shares one service_id) and a heterogeneous "treatment plan"
+// (each occurrence can be a different service) -- the distinction is a
+// frontend authoring convenience only (series_type is display metadata),
+// never a different backend code path. There is deliberately no separate
+// "planned occurrence" table: every occurrence is a real Appointments row
+// from the moment the series is created (no lazy/on-demand generation,
+// no background sweep) -- see AppointmentSeriesService.create()'s own
+// comment for why (no working recurrence-expansion precedent existed to
+// build on, and the per-row EXCLUDE constraints require reusing
+// AppointmentsService.create()'s existing per-row validation anyway).
+model AppointmentSeries {
+  id                String   @id @default(uuid())
+  // Nullable to match every other tenant-scoped model's convention here
+  // (a platform operator's own org-less write path) -- always populated
+  // in practice since only an org-affiliated caller can create a series.
+  client_org_id     String?
+  clinic_id         String
+  patient_id        String
+  name              String
+  series_type       String   @default("recurring") // 'recurring' | 'treatment_plan' -- display metadata only
+  status            String   @default("active") // 'active' | 'cancelled' -- 'completed' is derived client-side, never stored (see entity comment)
+  created_by_user_id String?
+  created_at        DateTime @default(now())
+  updated_at        DateTime @default(now())
+
+  client_organization ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  clinic       Clinics        @relation(fields: [clinic_id], references: [id])
+  patient      Patients       @relation(fields: [patient_id], references: [id])
+  created_by_user UserProfiles? @relation(fields: [created_by_user_id], references: [id])
+  appointments Appointments[]
+
+  @@index([client_org_id, clinic_id])
+  @@index([patient_id])
 }
 
 // P1-05 — BOOK-3's client-generated idempotency key, durable (unlike the
@@ -930,6 +978,7 @@ model ClientOrganizations {
   importJobs             ImportJobs[]
   revenueShareRules      RevenueShareRules[]
   payouts                Payouts[]
+  appointmentSeries      AppointmentSeries[]
 }
 
 model ClinicianAvailability {
@@ -1097,6 +1146,7 @@ model Clinics {
   spacerBlocks       SpacerBlocks[]
   blocks             RoomBlocks[]
   appointments       Appointments[]
+  appointmentSeries  AppointmentSeries[]
   userProfiles       UserProfiles[]
   products           Products[]
   productCategories  ProductCategories[]
@@ -1367,6 +1417,7 @@ model Patients {
   waitlistEntries      WaitlistEntries[]
 
   appointments Appointments[]
+  appointmentSeries AppointmentSeries[]
   userProfiles UserProfiles[]
   reviews      Reviews[]
   testResults  TestResults[]
@@ -2521,6 +2572,7 @@ model UserProfiles {
   client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   orderedTestResults TestResults[]
   bookedAppointments Appointments[] @relation("AppointmentBookedBy")
+  createdAppointmentSeries AppointmentSeries[]
   appointmentStatusLogs AppointmentStatusLogs[] @relation("StatusLogChangedBy")
   signedEncounters   Encounters[]            @relation("EncounterSignedBy")
   encounterAddenda   EncounterAddenda[]      @relation("AddendumAuthor")

@@ -153,9 +153,15 @@ export const IDS = {
   apiKeyB: u('e15'),
   scheduledReportA: u('e16'),
   scheduledReportB: u('e17'),
+  // REQ080 -- tasks domain.
+  taskA: u('f01'),
+  taskB: u('f02'),
   // REQ106 -- waitlist domain.
   waitlistEntryA: u('f03'),
   waitlistEntryB: u('f04'),
+  // REQ163 (P2-10) -- appointment-series domain.
+  appointmentSeriesA: u('g01'),
+  appointmentSeriesB: u('g02'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -191,6 +197,7 @@ const TABLES = [
   'Departments',
   'Drugs',
   'Appointments',
+  'AppointmentSeries',
   'TestResults',
   'ClinicianServices',
   'ClinicianLanguages',
@@ -345,6 +352,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
       // constraint (appointments_no_overlapping_booking), confirmed live.
       { id: IDS.analyticsApptA, clinic_id: IDS.clinicA, room_id: IDS.roomA, clinician_id: IDS.clinicianA, patient_id: IDS.patientA, appointment_date: when, appointment_time: new Date('2026-09-01T14:00:00.000Z'), reason: 'Analytics A', product_id: IDS.productA, status: 'completed' },
       { id: IDS.analyticsApptB, clinic_id: IDS.clinicB, room_id: IDS.roomB, clinician_id: IDS.clinicianB, patient_id: IDS.patientB, appointment_date: when, appointment_time: new Date('2026-09-01T14:00:00.000Z'), reason: 'Analytics B', product_id: IDS.productB, status: 'completed' },
+    ],
+  });
+
+  // REQ163 (P2-10) -- one appointment series per org.
+  await prisma.appointmentSeries.createMany({
+    data: [
+      { id: IDS.appointmentSeriesA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, patient_id: IDS.patientA, name: 'Fixture series A', created_by_user_id: IDS.userManagerA },
+      { id: IDS.appointmentSeriesB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, patient_id: IDS.patientB, name: 'Fixture series B', created_by_user_id: IDS.userManagerB },
     ],
   });
 
@@ -595,6 +610,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.scheduledReportA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, report_type: 'daily_collections', recipients_json: ['a@example.test'], cadence: 'daily', channel: 'email', created_by_user_id: IDS.userManagerA },
       { id: IDS.scheduledReportB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, report_type: 'daily_collections', recipients_json: ['b@example.test'], cadence: 'daily', channel: 'email', created_by_user_id: IDS.userManagerB },
+    ],
+  });
+
+  // REQ080 -- one internal follow-up task per org.
+  await prisma.tasks.createMany({
+    data: [
+      { id: IDS.taskA, client_org_id: IDS.orgA, subject: 'Fixture task A', created_by_user_id: IDS.userManagerA },
+      { id: IDS.taskB, client_org_id: IDS.orgB, subject: 'Fixture task B', created_by_user_id: IDS.userManagerB },
     ],
   });
 
