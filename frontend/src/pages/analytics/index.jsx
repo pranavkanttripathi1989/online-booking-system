@@ -12,6 +12,7 @@ import EventAvailableRoundedIcon from '@mui/icons-material/EventAvailableRounded
 import CurrencyRupeeRoundedIcon from '@mui/icons-material/CurrencyRupeeRounded'
 import PercentRoundedIcon from '@mui/icons-material/PercentRounded'
 import { BarChart, Bar, PieChart, Pie, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend } from 'recharts'
+import { useTheme } from '@mui/material/styles'
 
 // F-18 / BUG009. This page rendered seven months of invented figures — down to
 // "Revenue (Mar) $27,800", in dollars, for an India-market product — while
@@ -80,15 +81,24 @@ const RANGES = {
   last365days: { label: 'Last 12 months', days: 365 },
 }
 
-const STATUS_COLORS = {
-  Completed: '#0F9D58',
-  Scheduled: '#1A73E8',
-  Confirmed: '#1A73E8',
-  Cancelled: '#D93025',
-  Pending: '#F9AB00',
-  'No Show': '#9E9E9E',
+// Theme-derived, not a hand-picked hex map -- see manager/Dashboard.jsx for
+// the same conversion (this page's own STATUS_COLORS covers a superset of
+// statuses -- Confirmed/Pending/No Show -- that dashboard's PIE_COLORS didn't).
+function statusColorsFor(theme) {
+  const p = theme.palette
+  return {
+    Completed: p.success.main,
+    Scheduled: p.info.main,
+    Confirmed: p.info.main,
+    Cancelled: p.error.main,
+    Pending: p.warning.main,
+    'No Show': p.text.disabled,
+  }
 }
-const FALLBACK_COLORS = ['#1A73E8', '#0F9D58', '#9334E6', '#FA7B17', '#D93025', '#80868B']
+function fallbackColorsFor(theme) {
+  const p = theme.palette
+  return [p.info.main, p.success.main, p.secondary.main, p.warning.dark, p.error.main, p.text.disabled]
+}
 
 const inr = (n) => `₹${Number(n ?? 0).toLocaleString('en-IN')}`
 
@@ -163,11 +173,11 @@ function KpiCard({ label, value, trend, icon: Icon, color, loading }) {
             {!loading && trend != null && (
               <Stack direction="row" spacing={0.5} alignItems="center" sx={{ mt: 0.5 }}>
                 {up ? (
-                  <TrendingUpRoundedIcon sx={{ fontSize: 16, color: '#137333' }} />
+                  <TrendingUpRoundedIcon sx={{ fontSize: 16, color: 'success.dark' }} />
                 ) : (
-                  <TrendingDownRoundedIcon sx={{ fontSize: 16, color: '#A50E0E' }} />
+                  <TrendingDownRoundedIcon sx={{ fontSize: 16, color: 'error.dark' }} />
                 )}
-                <Typography variant="caption" fontWeight={700} sx={{ color: up ? '#137333' : '#A50E0E' }}>
+                <Typography variant="caption" fontWeight={700} sx={{ color: up ? 'success.dark' : 'error.dark' }}>
                   {up ? '+' : ''}
                   {Number(trend).toFixed(1)}%
                 </Typography>
@@ -185,6 +195,9 @@ function KpiCard({ label, value, trend, icon: Icon, color, loading }) {
 }
 
 export default function AnalyticsPage() {
+  const theme = useTheme()
+  const STATUS_COLORS = statusColorsFor(theme)
+  const FALLBACK_COLORS = fallbackColorsFor(theme)
   const { enqueueSnackbar } = useSnackbar()
   const [rangeKey, setRangeKey] = useState('last30days')
   const [clinicId, setClinicId] = useState('')
@@ -301,7 +314,7 @@ export default function AnalyticsPage() {
           <KpiCard
             label="Total Appointments"
             loading={loading && !stats}
-            color="#1A73E8"
+            color={theme.palette.info.main}
             icon={EventAvailableRoundedIcon}
             value={(stats?.totalAppointments ?? 0).toLocaleString('en-IN')}
             trend={stats?.trends?.totalAppointments}
@@ -311,7 +324,7 @@ export default function AnalyticsPage() {
           <KpiCard
             label="Revenue"
             loading={loading && !stats}
-            color="#9334E6"
+            color={theme.palette.secondary.main}
             icon={CurrencyRupeeRoundedIcon}
             value={inr(stats?.revenue)}
             trend={stats?.trends?.revenue}
@@ -321,7 +334,7 @@ export default function AnalyticsPage() {
           <KpiCard
             label="Active Patients"
             loading={loading && !stats}
-            color="#0F9D58"
+            color={theme.palette.success.main}
             icon={PeopleAltRoundedIcon}
             value={(stats?.activePatients ?? 0).toLocaleString('en-IN')}
             trend={stats?.trends?.activePatients}
@@ -331,7 +344,7 @@ export default function AnalyticsPage() {
           <KpiCard
             label="Cancellation Rate"
             loading={loading && !stats}
-            color="#D93025"
+            color={theme.palette.error.main}
             icon={PercentRoundedIcon}
             value={`${Number(stats?.cancellationRate ?? 0).toFixed(1)}%`}
             trend={stats?.trends?.cancellationRate}
@@ -356,14 +369,14 @@ export default function AnalyticsPage() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={series} margin={{ top: 4, right: 8, left: -20, bottom: 0 }} barGap={2}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8EAED" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
                     <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(d) => dayjs(d).format('D MMM')} />
                     <YAxis tick={{ fontSize: 11 }} allowDecimals={false} />
                     <Tooltip content={<ChartTooltip />} />
                     <Legend wrapperStyle={{ fontSize: 12 }} />
-                    <Bar dataKey="scheduled" fill="#1A73E8" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="completed" fill="#0F9D58" radius={[3, 3, 0, 0]} />
-                    <Bar dataKey="cancelled" fill="#D93025" radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="scheduled" fill={theme.palette.info.main} radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="completed" fill={theme.palette.success.main} radius={[3, 3, 0, 0]} />
+                    <Bar dataKey="cancelled" fill={theme.palette.error.main} radius={[3, 3, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -412,11 +425,11 @@ export default function AnalyticsPage() {
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats?.revenueByClinic ?? []} margin={{ top: 4, right: 8, left: -10, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E8EAED" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
                     <XAxis dataKey="name" tick={{ fontSize: 11 }} />
                     <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => `₹${(v / 1000).toFixed(0)}k`} />
                     <Tooltip content={<ChartTooltip />} />
-                    <Bar dataKey="revenue" fill="#9334E6" radius={[4, 4, 0, 0]} />
+                    <Bar dataKey="revenue" fill={theme.palette.secondary.main} radius={[4, 4, 0, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               )}
@@ -443,7 +456,7 @@ export default function AnalyticsPage() {
                     <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
                       {c.appointments} appt{c.appointments === 1 ? '' : 's'}
                     </Typography>
-                    <Typography variant="body2" fontWeight={700} sx={{ color: '#9334E6', whiteSpace: 'nowrap' }}>
+                    <Typography variant="body2" fontWeight={700} sx={{ color: 'secondary.main', whiteSpace: 'nowrap' }}>
                       {inr(c.revenue)}
                     </Typography>
                   </Stack>
