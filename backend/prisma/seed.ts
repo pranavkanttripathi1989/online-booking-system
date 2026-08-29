@@ -492,6 +492,41 @@ async function main() {
     { name: 'Amlodipine', composition: 'Amlodipine Besylate', strength: '5mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
     { name: 'Cetirizine', composition: 'Cetirizine Hydrochloride', strength: '10mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
     { name: 'Azithromycin', composition: 'Azithromycin', strength: '500mg', form: 'Tablet', schedule_class: 'H1', hsn: '30041020', gst_rate: 12, manufacturer: 'Generic' },
+    // 2026-08-30 -- 30 more entries, widening the OPD-relevant starter set
+    // (requested to give the clinician demo account, and every other org
+    // that inherits platform-seeded drugs, a realistic Rx-builder catalog
+    // instead of just the original 6). Same platform-global convention
+    // (client_org_id: null) and the same idempotent skip-if-exists loop.
+    { name: 'Ibuprofen', composition: 'Ibuprofen', strength: '400mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Diclofenac', composition: 'Diclofenac Sodium', strength: '50mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Aspirin', composition: 'Acetylsalicylic Acid', strength: '75mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Atorvastatin', composition: 'Atorvastatin Calcium', strength: '10mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Rosuvastatin', composition: 'Rosuvastatin Calcium', strength: '10mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Losartan', composition: 'Losartan Potassium', strength: '50mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Telmisartan', composition: 'Telmisartan', strength: '40mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Metoprolol', composition: 'Metoprolol Succinate', strength: '25mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Glimepiride', composition: 'Glimepiride', strength: '2mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Gliclazide', composition: 'Gliclazide', strength: '80mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Insulin Glargine', composition: 'Insulin Glargine', strength: '100IU/ml', form: 'Injection', schedule_class: 'H', hsn: '30043910', gst_rate: 5, manufacturer: 'Generic' },
+    { name: 'Omeprazole', composition: 'Omeprazole', strength: '20mg', form: 'Capsule', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Pantoprazole', composition: 'Pantoprazole Sodium', strength: '40mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Domperidone', composition: 'Domperidone', strength: '10mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Ondansetron', composition: 'Ondansetron', strength: '4mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Salbutamol', composition: 'Salbutamol Sulphate', strength: '100mcg', form: 'Inhaler', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Montelukast', composition: 'Montelukast Sodium', strength: '10mg', form: 'Tablet', schedule_class: 'H', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Levocetirizine', composition: 'Levocetirizine Dihydrochloride', strength: '5mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Chlorpheniramine', composition: 'Chlorpheniramine Maleate', strength: '4mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Vitamin D3', composition: 'Cholecalciferol', strength: '60000IU', form: 'Sachet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Vitamin B12', composition: 'Methylcobalamin', strength: '1500mcg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Folic Acid', composition: 'Folic Acid', strength: '5mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Iron + Folic Acid', composition: 'Ferrous Ascorbate + Folic Acid', strength: '100mg+1.5mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Calcium + Vitamin D3', composition: 'Calcium Carbonate + Cholecalciferol', strength: '500mg+250IU', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Ciprofloxacin', composition: 'Ciprofloxacin Hydrochloride', strength: '500mg', form: 'Tablet', schedule_class: 'H', hsn: '30041020', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Doxycycline', composition: 'Doxycycline Hyclate', strength: '100mg', form: 'Capsule', schedule_class: 'H', hsn: '30041020', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Amoxicillin + Clavulanic Acid', composition: 'Amoxicillin + Clavulanic Acid', strength: '625mg', form: 'Tablet', schedule_class: 'H1', hsn: '30041020', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'Metronidazole', composition: 'Metronidazole', strength: '400mg', form: 'Tablet', schedule_class: 'H', hsn: '30041020', gst_rate: 12, manufacturer: 'Generic' },
+    { name: 'ORS', composition: 'Oral Rehydration Salts', strength: '21.8g', form: 'Sachet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 5, manufacturer: 'Generic' },
+    { name: 'Zinc Sulphate', composition: 'Zinc Sulphate', strength: '20mg', form: 'Tablet', schedule_class: 'OTC', hsn: '30049099', gst_rate: 12, manufacturer: 'Generic' },
   ];
   for (const drug of DRUGS) {
     const existing = await prisma.drugs.findFirst({ where: { name: drug.name, client_org_id: null } });
