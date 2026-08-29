@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Box, Drawer, List, ListItemButton, ListItemIcon, ListItemText, Typography, Divider, IconButton, Stack } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { Outlet, useLocation, useNavigate } from 'react-router-dom'
 import MenuRoundedIcon from '@mui/icons-material/MenuRounded'
 import PeopleAltIcon from '@mui/icons-material/PeopleAlt'
@@ -56,6 +57,7 @@ const NAV_SECTIONS = [
 ]
 
 export default function AdminLayout() {
+  const theme = useTheme()
   const location = useLocation()
   const navigate = useNavigate()
   const [mobileNavOpen, setMobileNavOpen] = useState(false)
@@ -82,7 +84,7 @@ export default function AdminLayout() {
       <Box sx={{ px: 2, py: 1.5, mb: 0.5 }}>
         <Typography
           variant="caption"
-          sx={{ fontWeight: 800, fontSize: '0.65rem', letterSpacing: 1.2, textTransform: 'uppercase', color: BRAND }}
+          sx={{ fontWeight: 800, fontSize: '0.65rem', letterSpacing: 1.2, textTransform: 'uppercase', color: 'primary.main' }}
         >
           Admin Console
         </Typography>
@@ -122,8 +124,8 @@ export default function AdminLayout() {
                     py: 0.8,
                     borderRadius: 1.5,
                     mb: 0.25,
-                    bgcolor: active ? `${BRAND}14` : 'transparent',
-                    '&:hover': { bgcolor: active ? `${BRAND}20` : 'rgba(0,0,0,0.04)' },
+                    bgcolor: active ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.18 : 0.08) : 'transparent',
+                    '&:hover': { bgcolor: active ? alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.24 : 0.12) : 'action.hover' },
                   }}
                 >
                   <ListItemIcon sx={{ minWidth: 32, color: active ? 'primary.main' : 'text.disabled' }}>
@@ -135,11 +137,11 @@ export default function AdminLayout() {
                       variant: 'body2',
                       fontWeight: active ? 700 : 500,
                       fontSize: '0.8rem',
-                      color: active ? BRAND : 'text.secondary',
+                      color: active ? 'primary.main' : 'text.secondary',
                       noWrap: true,
                     }}
                   />
-                  {active && <Box sx={{ width: 3, height: 24, borderRadius: 4, bgcolor: BRAND, ml: 0.5, flexShrink: 0 }} />}
+                  {active && <Box sx={{ width: 3, height: 24, borderRadius: 4, bgcolor: 'primary.main', ml: 0.5, flexShrink: 0 }} />}
                 </ListItemButton>
               )
             })}
@@ -161,7 +163,7 @@ export default function AdminLayout() {
         <IconButton onClick={() => setMobileNavOpen(true)} aria-label="Open admin console menu" size="small">
           <MenuRoundedIcon />
         </IconButton>
-        <Typography variant="body2" fontWeight={700} sx={{ color: BRAND }}>
+        <Typography variant="body2" fontWeight={700} sx={{ color: 'primary.main' }}>
           Admin Console
         </Typography>
       </Stack>
@@ -192,7 +194,8 @@ export default function AdminLayout() {
             position: 'relative',
             height: '100%',
             bgcolor: 'background.default',
-            borderRight: '1px solid #E2E8F0',
+            borderRight: '1px solid',
+            borderColor: 'divider',
             boxShadow: 'none',
             pt: 1,
             pb: 2,
