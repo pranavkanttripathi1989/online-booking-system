@@ -30,7 +30,7 @@ import { execSync } from 'node:child_process'
 const __dirname = dirname(fileURLToPath(import.meta.url))
 const LOCALES_DIR = join(__dirname, '../src/i18n/locales')
 const SOURCE_LANGUAGE = 'en'
-const TARGET_LANGUAGES = ['hi'] // real, user-facing languages only — 'pseudo' is checked separately below
+const TARGET_LANGUAGES = ['hi', 'ta', 'bn', 'mr', 'te', 'kn', 'gu'] // real, user-facing languages only — 'pseudo' is checked separately below
 
 function loadJson(path) {
   return JSON.parse(readFileSync(path, 'utf8'))

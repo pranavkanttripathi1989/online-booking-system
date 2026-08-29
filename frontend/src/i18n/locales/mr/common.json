@@ -1,0 +1,80 @@
+{
+  "languageSwitcher": { "ariaLabel": "भाषा निवडा" },
+  "layout": {
+    "brand": "HealthSync",
+    "nav": {
+      "findDoctor": "डॉक्टर शोधा",
+      "howItWorks": "हे कसे कार्य करते",
+      "specialties": "विशेषता",
+      "forClinicians": "डॉक्टरांसाठी"
+    },
+    "forClinics": "क्लिनिकसाठी",
+    "signIn": "साइन इन करा",
+    "bookNow": "आता बुक करा",
+    "signInOrBook": "साइन इन / बुक करा",
+    "getStarted": "क्लिनिक चालवता? सुरुवात करा",
+    "openNav": "नेव्हिगेशन मेनू उघडा",
+    "closeNav": "नेव्हिगेशन बंद करा",
+    "footer": {
+      "tagline": "रुग्णांना योग्य डॉक्टरांशी जलद आणि सोप्या पद्धतीने जोडणे.",
+      "patients": "रुग्ण",
+      "patientsLinks": ["डॉक्टर शोधा", "अपॉइंटमेंट बुक करा", "व्हिडिओ सल्लामसलत", "वैद्यकीय नोंदी"],
+      "clinicians": "डॉक्टर",
+      "cliniciansLinks": ["HealthSync मध्ये सामील व्हा", "डॉक्टर पोर्टल", "उपलब्धता व्यवस्थापक", "बिलिंग"],
+      "company": "कंपनी",
+      "companyLinks": ["आमच्याबद्दल", "ब्लॉग", "करिअर", "संपर्क साधा"],
+      "copyright": "© 2026 HealthSync Ltd. सर्व हक्क राखीव. इंग्लंड आणि वेल्समध्ये नोंदणीकृत.",
+      "legalLinks": ["गोपनीयता धोरण", "सेवा अटी", "कुकी धोरण"]
+    }
+  },
+  "booking": {
+    "title": "अपॉइंटमेंट बुक करा",
+    "steps": {
+      "selectTime": "वेळ निवडा",
+      "yourDetails": "तुमचे तपशील",
+      "chooseService": "सेवा निवडा",
+      "reviewAndPay": "पुनरावलोकन करा आणि पैसे भरा"
+    },
+    "consultationType": "सल्लामसलत प्रकार",
+    "inPerson": "प्रत्यक्ष भेट",
+    "video": "व्हिडिओ सल्लामसलत",
+    "selectDateTime": "तारीख आणि वेळ निवडा",
+    "next": "पुढील पायरी",
+    "back": "मागे",
+    "noAvailability": "या तारखेसाठी कोणतीही उपलब्धता नाही. कृपया दुसरी तारीख निवडा.",
+    "holdCountdown": "तुमचा स्लॉट {{minutes}}:{{seconds}} पर्यंत राखीव आहे — तो सुटण्यापूर्वी तुमची बुकिंग पूर्ण करा."
+  },
+  "prescription": {
+    "patient": "रुग्ण",
+    "dob": "जन्मतारीख",
+    "gender": "लिंग",
+    "date": "तारीख",
+    "regNo": "नोंदणी क्र.",
+    "duplicate": "डुप्लिकेट",
+    "drug": "औषध",
+    "dose": "मात्रा",
+    "frequency": "वारंवारता",
+    "route": "मार्ग",
+    "duration": "कालावधी",
+    "qty": "प्रमाण",
+    "instructions": "सूचना",
+    "days": "दिवस",
+    "signature": "स्वाक्षरी",
+    "verificationCode": "पडताळणी कोड",
+    "print": "प्रिंट करा",
+    "preparingPdf": "PDF तयार होत आहे…",
+    "downloadPdf": "PDF डाउनलोड करा",
+    "sending": "पाठवत आहे…",
+    "shareViaWhatsapp": "WhatsApp द्वारे शेअर करा",
+    "verify": "पडताळणी करा",
+    "notFound": "प्रिस्क्रिप्शन सापडले नाही.",
+    "frequencyCode": {
+      "OD": "दिवसातून एकदा",
+      "BD": "दिवसातून दोनदा",
+      "TDS": "दिवसातून तीनदा",
+      "QID": "दिवसातून चारदा",
+      "HS": "झोपण्याच्या वेळी",
+      "SOS": "आवश्यकतेनुसार"
+    }
+  }
+}

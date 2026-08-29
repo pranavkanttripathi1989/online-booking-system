@@ -632,22 +632,34 @@ function App() {
               </Suspense>
             }
           />
-          <Route
-            path="/clinician/encounters/:appointmentId"
-            element={
-              <Suspense fallback={<ShellPageLoader />}>
-                <EncounterWorkspace />
-              </Suspense>
-            }
-          />
-          <Route
-            path="/clinician/prescriptions/new"
-            element={
-              <Suspense fallback={<ShellPageLoader />}>
-                <PrescriptionBuilder />
-              </Suspense>
-            }
-          />
+          {/* Guarded to match the backend: getOrCreateEncounter/createPrescription
+              are @Auth('clinician')-only (encounters.resolver.ts,
+              prescriptions.resolver.ts). These two routes previously had no
+              RoleGuard at all — EncounterWorkspace has its own internal
+              hasRole('clinician') check so it degraded gracefully, but
+              PrescriptionBuilder has no internal check whatsoever, so any
+              authenticated non-clinician could open the full Rx form and
+              only get rejected by the server on final submit, not on entry —
+              the SEC-18 "route gate doesn't match backend @Auth" bug class,
+              here as an absent gate rather than a narrow one. */}
+          <Route element={<RoleGuard roles={['clinician']} />}>
+            <Route
+              path="/clinician/encounters/:appointmentId"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <EncounterWorkspace />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/clinician/prescriptions/new"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <PrescriptionBuilder />
+                </Suspense>
+              }
+            />
+          </Route>
 
           {/* ── Staff ─────────────────────────────────────────────────── */}
           {/* Guarded to match the backend: dashboard.resolver.ts is

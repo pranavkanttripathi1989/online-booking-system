@@ -17,6 +17,12 @@ export { enCommon }
 export const SUPPORTED_LANGUAGES = [
   { code: 'en', label: 'English', nativeLabel: 'English' },
   { code: 'hi', label: 'Hindi', nativeLabel: 'हिन्दी' },
+  { code: 'ta', label: 'Tamil', nativeLabel: 'தமிழ்' },
+  { code: 'bn', label: 'Bengali', nativeLabel: 'বাংলা' },
+  { code: 'mr', label: 'Marathi', nativeLabel: 'मराठी' },
+  { code: 'te', label: 'Telugu', nativeLabel: 'తెలుగు' },
+  { code: 'kn', label: 'Kannada', nativeLabel: 'ಕನ್ನಡ' },
+  { code: 'gu', label: 'Gujarati', nativeLabel: 'ગુજરાતી' },
 ]
 export const DEFAULT_LANGUAGE = 'en'
 export const LANGUAGE_STORAGE_KEY = 'medibook_language'
@@ -37,6 +43,12 @@ export const LANGUAGE_STORAGE_KEY = 'medibook_language'
 export const localeLoaders = {
   en: () => import('./locales/en/common.json'),
   hi: () => import('./locales/hi/common.json'),
+  ta: () => import('./locales/ta/common.json'),
+  bn: () => import('./locales/bn/common.json'),
+  mr: () => import('./locales/mr/common.json'),
+  te: () => import('./locales/te/common.json'),
+  kn: () => import('./locales/kn/common.json'),
+  gu: () => import('./locales/gu/common.json'),
   // I18N-4 — a generated (scripts/generate-pseudo-locale.mjs), +40%-length,
   // non-ASCII pseudo-locale, deliberately NOT in SUPPORTED_LANGUAGES so it
   // can never appear in the real switcher — loadable by

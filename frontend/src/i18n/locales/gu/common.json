@@ -1,0 +1,80 @@
+{
+  "languageSwitcher": { "ariaLabel": "ભાષા પસંદ કરો" },
+  "layout": {
+    "brand": "HealthSync",
+    "nav": {
+      "findDoctor": "ડૉક્ટર શોધો",
+      "howItWorks": "તે કેવી રીતે કામ કરે છે",
+      "specialties": "વિશેષતાઓ",
+      "forClinicians": "ડૉક્ટરો માટે"
+    },
+    "forClinics": "ક્લિનિક્સ માટે",
+    "signIn": "સાઇન ઇન કરો",
+    "bookNow": "હમણાં બુક કરો",
+    "signInOrBook": "સાઇન ઇન / બુક કરો",
+    "getStarted": "ક્લિનિક ચલાવો છો? શરૂ કરો",
+    "openNav": "નેવિગેશન મેનૂ ખોલો",
+    "closeNav": "નેવિગેશન બંધ કરો",
+    "footer": {
+      "tagline": "દર્દીઓને યોગ્ય ડૉક્ટરો સાથે ઝડપી અને સરળ રીતે જોડવું.",
+      "patients": "દર્દીઓ",
+      "patientsLinks": ["ડૉક્ટર શોધો", "એપોઇન્ટમેન્ટ બુક કરો", "વિડિઓ પરામર્શ", "તબીબી રેકોર્ડ્સ"],
+      "clinicians": "ડૉક્ટરો",
+      "cliniciansLinks": ["HealthSync માં જોડાઓ", "ડૉક્ટર પોર્ટલ", "ઉપલબ્ધતા મેનેજર", "બિલિંગ"],
+      "company": "કંપની",
+      "companyLinks": ["અમારા વિશે", "બ્લોગ", "કારકિર્દી", "સંપર્ક કરો"],
+      "copyright": "© 2026 HealthSync Ltd. બધા હકો અનામત. ઇંગ્લેન્ડ અને વેલ્સમાં નોંધાયેલ.",
+      "legalLinks": ["ગોપનીયતા નીતિ", "સેવાની શરતો", "કૂકી નીતિ"]
+    }
+  },
+  "booking": {
+    "title": "એપોઇન્ટમેન્ટ બુક કરો",
+    "steps": {
+      "selectTime": "સમય પસંદ કરો",
+      "yourDetails": "તમારી વિગતો",
+      "chooseService": "સેવા પસંદ કરો",
+      "reviewAndPay": "સમીક્ષા કરો અને ચૂકવણી કરો"
+    },
+    "consultationType": "પરામર્શનો પ્રકાર",
+    "inPerson": "રૂબરૂ",
+    "video": "વિડિઓ પરામર્શ",
+    "selectDateTime": "તારીખ અને સમય પસંદ કરો",
+    "next": "આગળનું પગલું",
+    "back": "પાછળ",
+    "noAvailability": "આ તારીખ માટે કોઈ ઉપલબ્ધતા નથી. કૃપા કરીને બીજી તારીખ પસંદ કરો.",
+    "holdCountdown": "તમારો સ્લોટ {{minutes}}:{{seconds}} સુધી હોલ્ડ કરવામાં આવ્યો છે — તે છૂટે તે પહેલાં તમારી બુકિંગ પૂર્ણ કરો."
+  },
+  "prescription": {
+    "patient": "દર્દી",
+    "dob": "જન્મ તારીખ",
+    "gender": "લિંગ",
+    "date": "તારીખ",
+    "regNo": "નોંધણી નં.",
+    "duplicate": "ડુપ્લિકેટ",
+    "drug": "દવા",
+    "dose": "માત્રા",
+    "frequency": "આવર્તન",
+    "route": "માર્ગ",
+    "duration": "સમયગાળો",
+    "qty": "જથ્થો",
+    "instructions": "સૂચનાઓ",
+    "days": "દિવસો",
+    "signature": "સહી",
+    "verificationCode": "ચકાસણી કોડ",
+    "print": "પ્રિન્ટ કરો",
+    "preparingPdf": "PDF તૈયાર થઈ રહ્યું છે…",
+    "downloadPdf": "PDF ડાઉનલોડ કરો",
+    "sending": "મોકલી રહ્યું છે…",
+    "shareViaWhatsapp": "WhatsApp દ્વારા શેર કરો",
+    "verify": "ચકાસો",
+    "notFound": "પ્રિસ્ક્રિપ્શન મળ્યું નથી.",
+    "frequencyCode": {
+      "OD": "દિવસમાં એકવાર",
+      "BD": "દિવસમાં બે વાર",
+      "TDS": "દિવસમાં ત્રણ વાર",
+      "QID": "દિવસમાં ચાર વાર",
+      "HS": "સૂતી વખતે",
+      "SOS": "જરૂર પડે ત્યારે"
+    }
+  }
+}
