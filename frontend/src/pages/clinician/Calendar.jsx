@@ -12,6 +12,8 @@ import PersonIcon from '@mui/icons-material/Person'
 import MedicalServicesIcon from '@mui/icons-material/MedicalServices'
 import CalendarMonthIcon from '@mui/icons-material/CalendarMonth'
 import MeetingRoomIcon from '@mui/icons-material/MeetingRoom'
+import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import { useNavigate } from 'react-router-dom'
 import { useQuery, gql } from '@apollo/client'
 import dayjs from 'dayjs'
@@ -547,7 +549,7 @@ function ApptPopover({ ev, anchorEl, onClose, onViewFull, clinicianName, onPaper
 export default function ClinicianCalendar() {
   const theme = useTheme()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, hasRole } = useAuth()
   const [weekOffset, setWeekOffset] = useState(0)
   const [selected, setSelected] = useState(null) // full drawer
   const [hovered, setHovered] = useState(null) // popover event
@@ -646,6 +648,10 @@ export default function ClinicianCalendar() {
   }, [data, lunchData, error, weekOffset])
 
   const isPatientAppt = selected && selected.type !== 'break' && selected.type !== 'block'
+  // Matches appointments/detail.jsx's own isTerminal exclusion list — a
+  // consultation can't be (re)started on an appointment that's already
+  // cancelled, completed, or a no-show.
+  const isTerminalAppt = selected ? ['cancelled', 'completed', 'no_show'].includes(selected.status) : false
   const statusCfg = selected ? statusCfgFor(theme, selected.status) : null
   const initials = selected?.patient
     ? selected.patient
@@ -1103,6 +1109,29 @@ export default function ClinicianCalendar() {
                       Join Video Call
                     </Button>
                   )}
+                  {/* Mirrors appointments/detail.jsx's own clinician-only
+                      consultation entry point — same role gate, same
+                      terminal-status exclusion, same route. */}
+                  {hasRole('clinician') && !isTerminalAppt && (
+                    <Button
+                      variant="contained"
+                      fullWidth
+                      startIcon={<MonitorHeartRoundedIcon />}
+                      onClick={() => navigate(`/clinician/encounters/${selected.id}`)}
+                      sx={{ borderRadius: 2, fontWeight: 700 }}
+                    >
+                      Start Consultation
+                    </Button>
+                  )}
+                  <Button
+                    variant="outlined"
+                    fullWidth
+                    startIcon={<OpenInNewIcon />}
+                    onClick={() => navigate(`/appointments/${selected.id}`)}
+                    sx={{ borderRadius: 2, fontWeight: 600, borderColor: 'primary.main', color: 'primary.main' }}
+                  >
+                    Open Appointment Detail
+                  </Button>
                   <Button
                     variant="outlined"
                     fullWidth
