@@ -25,6 +25,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
@@ -180,7 +181,7 @@ export default function EditServicePage() {
     return (
       <Box className="page-enter">
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3 }}>
-          <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor: '#F1F3F4' }} aria-label="Back to services">
+          <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor: 'action.hover' }} aria-label="Back to services">
             <ArrowBackRoundedIcon />
           </IconButton>
           <Typography variant="h5" fontWeight={800} color="text.secondary">
@@ -200,7 +201,7 @@ export default function EditServicePage() {
         <title>Edit Service — MediBook</title>
       </Helmet>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor: '#F1F3F4' }}>
+        <IconButton onClick={() => navigate('/manager/services')} sx={{ bgcolor: 'action.hover' }}>
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -209,13 +210,13 @@ export default function EditServicePage() {
               width: 40,
               height: 40,
               borderRadius: 2.5,
-              background: 'linear-gradient(135deg,#FEF7E0,#FEEFC3)',
+              background: (t) => `linear-gradient(135deg, ${alpha(t.palette.warning.main, 0.24)}, ${alpha(t.palette.warning.light, 0.24)})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <EditRoundedIcon sx={{ color: '#F9AB00', fontSize: '1.2rem' }} />
+            <EditRoundedIcon sx={{ color: 'warning.main', fontSize: '1.2rem' }} />
           </Box>
           <Box>
             <Typography variant="h5" fontWeight={800}>
@@ -255,7 +256,7 @@ export default function EditServicePage() {
               })
             }
             disabled={loading}
-            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, bgcolor: '#0F9D58', '&:hover': { bgcolor: '#0B8043' } }}
+            sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, bgcolor: 'success.main', '&:hover': { bgcolor: 'success.dark' } }}
           >
             {loading ? 'Saving…' : 'Save Changes'}
           </Button>
