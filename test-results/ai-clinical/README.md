@@ -14,4 +14,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR237 | bug | Expose `ai_generated` on `EncounterNote`/`Vital` results | pass | 2026-08-29 | 2026-08-29 | TP237 | [TR237-ai-clinical-2026-08-29-ai-generated-flag-not-exposed-in-graphql.md](./bug/TR237-ai-clinical-2026-08-29-ai-generated-flag-not-exposed-in-graphql.md) |

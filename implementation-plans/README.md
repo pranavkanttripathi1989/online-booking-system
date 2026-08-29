@@ -4,7 +4,7 @@
 |---|---|---|---|---|---|---|---|
 | clinicians | 0 | 0 | 1 | 0 | 1 | 2026-08-27 | [clinicians](./clinicians/README.md) |
 | revenue-share | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [revenue-share](./revenue-share/README.md) |
-| ai-clinical | 1 | 1 | 0 | 0 | 2 | 2026-08-27 | [ai-clinical](./ai-clinical/README.md) |
+| ai-clinical | 1 | 1 | 1 | 0 | 3 | 2026-08-29 | [ai-clinical](./ai-clinical/README.md) |
 | data-migration | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [data-migration](./data-migration/README.md) |
 | telemedicine | 1 | 0 | 0 | 0 | 1 | 2026-08-27 | [telemedicine](./telemedicine/README.md) |
 | clinician-dashboard | 0 | 0 | 1 | 0 | 1 | 2026-08-25 | [clinician-dashboard](./clinician-dashboard/README.md) |

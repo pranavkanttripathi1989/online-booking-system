@@ -14,4 +14,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN217 | bug | Expose `ai_generated` on `EncounterNote`/`Vital` | done | 2026-08-29 | 2026-08-29 | BUG050 | [PLAN217-ai-clinical-2026-08-29-ai-generated-flag-not-exposed-in-graphql.md](./bug/PLAN217-ai-clinical-2026-08-29-ai-generated-flag-not-exposed-in-graphql.md) |

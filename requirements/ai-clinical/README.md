@@ -14,4 +14,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| BUG050 | bug | `ai_generated` written to `EncounterNotes`/`Vitals` but unreadable via GraphQL | done | 2026-08-29 | 2026-08-29 | REQ151 | [BUG050-ai-clinical-2026-08-29-ai-generated-flag-not-exposed-in-graphql.md](./bug/BUG050-ai-clinical-2026-08-29-ai-generated-flag-not-exposed-in-graphql.md) |
