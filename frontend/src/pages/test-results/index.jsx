@@ -8,6 +8,7 @@ import {
   Divider, LinearProgress, Select, FormControl, InputLabel, TableSortLabel, Skeleton,
   Autocomplete, CircularProgress,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { TEST_RESULTS_QUERY, PATIENTS_QUERY } from '../../graphql/queries'
 import { ORDER_TEST_MUTATION } from '../../graphql/mutations'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
@@ -59,7 +60,11 @@ const STATUS_PROPS = {
   processing: { color: 'warning', icon: HourglassEmptyRoundedIcon, label: 'Processing' },
   pending:    { color: 'default', icon: AccessTimeRoundedIcon, label: 'Pending' },
 }
-const FLAG_COLORS = { normal: '#0B7B5C', high: '#DC2626', low: '#D97706' }
+const flagColorsFor = (theme) => ({
+  normal: theme.palette.success.main,
+  high: theme.palette.error.main,
+  low: theme.palette.warning.main,
+})
 
 // ─── Result Detail Dialog ─────────────────────────────────────────────────────
 // SUG-TRES-001: handleDownloadPDF generates mock CSV/text file download
@@ -83,6 +88,8 @@ function handleDownloadPDF(result) {
 }
 
 function ResultDialog({ result, onClose }) {
+  const theme = useTheme()
+  const FLAG_COLORS = flagColorsFor(theme)
   if (!result) return null
   return (
     <Dialog open={!!result} onClose={onClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
@@ -98,7 +105,7 @@ function ResultDialog({ result, onClose }) {
           : (
             <Table size="small">
               <TableHead>
-                <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', color: 'text.secondary', bgcolor: '#F8FAFC' } }}>
+                <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', color: 'text.secondary', bgcolor: 'action.hover' } }}>
                   <TableCell>Parameter</TableCell>
                   <TableCell>Result</TableCell>
                   <TableCell>Reference Range</TableCell>
@@ -108,7 +115,7 @@ function ResultDialog({ result, onClose }) {
               <TableBody>
                 {result.values.map((v, i) => {
                   // SUG-TRES-003: fallback to grey for unknown flag values
-                  const flagColor = FLAG_COLORS[v.flag] || '#64748B'
+                  const flagColor = FLAG_COLORS[v.flag] || theme.palette.text.secondary
                   return (
                     <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
                       <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{v.name}</TableCell>
@@ -116,7 +123,13 @@ function ResultDialog({ result, onClose }) {
                       <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{v.ref}</TableCell>
                       <TableCell>
                         <Chip label={v.flag} size="small"
-                          sx={{ bgcolor: `${flagColor}18`, color: flagColor, fontWeight: 700, fontSize: '0.7rem', textTransform: 'capitalize' }}
+                          sx={{
+                            bgcolor: alpha(flagColor, theme.palette.mode === 'dark' ? 0.22 : 0.12),
+                            color: flagColor,
+                            fontWeight: 700,
+                            fontSize: '0.7rem',
+                            textTransform: 'capitalize',
+                          }}
                         />
                       </TableCell>
                     </TableRow>
@@ -142,6 +155,7 @@ function ResultDialog({ result, onClose }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TestResultsPage() {
+  const theme = useTheme()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -241,7 +255,7 @@ export default function TestResultsPage() {
       {/* ── Header ──────────────────────────────────────────────────────── */}
       <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 2 }}>
         <Box>
-          <Typography variant="h4" fontWeight={800} sx={{ color: '#0D1B2E' }}>Medical Test Results</Typography>
+          <Typography variant="h4" fontWeight={800} sx={{ color: 'text.primary' }}>Medical Test Results</Typography>
           <Typography variant="body2" sx={{ color: 'text.secondary' }}>
             {results.length} total results · {counts.pending} pending
             {/* REQ133 — the query is now bounded (first: 200 by default);
@@ -278,20 +292,30 @@ export default function TestResultsPage() {
             </Grid>
           ))
         ) : [
-          { label: 'Total Tests', value: results.length, color: '#1565C7', icon: ScienceRoundedIcon },
-          { label: 'Completed', value: counts.completed, color: '#0B7B5C', icon: CheckCircleRoundedIcon },
-          { label: 'Processing', value: counts.processing, color: '#D97706', icon: HourglassEmptyRoundedIcon },
-          { label: 'Pending', value: counts.pending, color: '#64748B', icon: AccessTimeRoundedIcon },
+          { label: 'Total Tests', value: results.length, color: theme.palette.info.main, icon: ScienceRoundedIcon },
+          { label: 'Completed', value: counts.completed, color: theme.palette.success.main, icon: CheckCircleRoundedIcon },
+          { label: 'Processing', value: counts.processing, color: theme.palette.warning.main, icon: HourglassEmptyRoundedIcon },
+          { label: 'Pending', value: counts.pending, color: theme.palette.text.secondary, icon: AccessTimeRoundedIcon },
         ].map((k) => (
           <Grid item xs={6} md={3} key={k.label}>
-            <Card sx={{ borderRadius: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
+            <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
               <CardContent sx={{ p: '16px !important' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Box>
                     <Typography variant="h4" fontWeight={800} sx={{ color: k.color }}>{k.value}</Typography>
                     <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 600 }}>{k.label}</Typography>
                   </Box>
-                  <Box sx={{ width: 44, height: 44, borderRadius: 2.5, bgcolor: `${k.color}18`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <Box
+                    sx={{
+                      width: 44,
+                      height: 44,
+                      borderRadius: 2.5,
+                      bgcolor: alpha(k.color, theme.palette.mode === 'dark' ? 0.22 : 0.12),
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
                     <k.icon sx={{ color: k.color, fontSize: '1.3rem' }} />
                   </Box>
                 </Stack>
@@ -302,8 +326,8 @@ export default function TestResultsPage() {
       </Grid>
 
       {/* ── Filters ─────────────────────────────────────────────────────── */}
-      <Paper sx={{ border: '1px solid #E2E8F0', borderRadius: 3, boxShadow: 'none', mb: 3 }}>
-        <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid #E2E8F0' }}>
+      <Paper sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, boxShadow: 'none', mb: 3 }}>
+        <Box sx={{ p: 2, display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center', borderBottom: '1px solid', borderColor: 'divider' }}>
           <TextField size="small" placeholder="Search by patient, test, or ID…" value={search} onChange={(e) => setSearch(e.target.value)}
             InputProps={{ startAdornment: <InputAdornment position="start"><SearchRoundedIcon fontSize="small" sx={{ color: 'text.disabled' }} /></InputAdornment> }}
             sx={{ flex: 1, minWidth: 240, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
@@ -317,7 +341,7 @@ export default function TestResultsPage() {
           {/* SUG-TRES-004: Reset Filters button */}
           {(search || typeFilter !== 'All' || statusFilter !== 'All') && (
             <Button size="small" variant="text" onClick={() => { setSearch(''); setTypeFilter('All'); setStatusFilter('All') }}
-              sx={{ textTransform: 'none', fontWeight: 700, color: '#64748B', whiteSpace: 'nowrap' }}>
+              sx={{ textTransform: 'none', fontWeight: 700, color: 'text.secondary', whiteSpace: 'nowrap' }}>
               Clear Filters
             </Button>
           )}
@@ -327,7 +351,7 @@ export default function TestResultsPage() {
         <TableContainer>
         <Table>
           <TableHead>
-            <TableRow sx={{ '& th': { fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', bgcolor: '#F8FAFC', py: 1.2 } }}>
+            <TableRow sx={{ '& th': { fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: '0.06em', bgcolor: 'action.hover', py: 1.2 } }}>
               <TableCell>ID</TableCell>
               <TableCell>Test</TableCell>
               {/* SUG-TRES-005: column sorting on Patient, Date Ordered, Status */}
@@ -439,7 +463,7 @@ export default function TestResultsPage() {
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2.5, gap: 1 }}>
-          <Button onClick={() => setOrderOpen(false)} sx={{ textTransform: 'none', fontWeight: 700, color: '#5F6368' }}>Cancel</Button>
+          <Button onClick={() => setOrderOpen(false)} sx={{ textTransform: 'none', fontWeight: 700, color: 'text.secondary' }}>Cancel</Button>
           <Button variant="contained" onClick={handleOrderSubmit}
             disabled={!orderForm.patientId}
             sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}>Submit Order</Button>
