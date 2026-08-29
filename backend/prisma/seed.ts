@@ -5,8 +5,26 @@ const prisma = new PrismaClient();
 
 // Matches frontend/src/pages/auth/login.jsx's DEMO_ACCOUNTS exactly, so the
 // same 5 demo buttons work against a real backend instead of the mock fallback.
+//
+// `profile` is an optional bag of the settings/index.jsx Profile-tab fields
+// (UserProfiles.bio/date_of_birth/gender/address_structured -- see
+// account.input.ts) that aren't required for login but make an account look
+// real rather than a bare email+password row. Only admin@medibook.dev carries
+// one today, per an explicit "complete seed data for admin@medibook.dev"
+// request -- deliberately not backfilled onto the other four demo accounts
+// in the same pass; extend this per-account when those need the same
+// treatment. `avatar_url` is left unset on purpose: no real image upload/
+// hosting exists in this seed, and a fabricated URL would just 404 in the UI.
 const DEMO_ACCOUNTS = [
-  { email: 'admin@medibook.dev', password: 'Admin1234!', role: 'admin', first_name: 'Admin', last_name: 'User', phone: '+919810000001' },
+  {
+    email: 'admin@medibook.dev', password: 'Admin1234!', role: 'admin', first_name: 'Admin', last_name: 'User', phone: '+919810000001',
+    profile: {
+      bio: 'Platform administrator for MediBook, overseeing tenant onboarding, org-wide policy, and platform health across all clinics on the network.',
+      date_of_birth: new Date('1985-03-14'),
+      gender: 'female',
+      address_structured: { line1: '221B Residency Road', line2: 'Near Brigade Road', city: 'Bengaluru', state: 'Karnataka', pincode: '560025', country: 'India' },
+    },
+  },
   { email: 'manager@medibook.dev', password: 'Mgr1234!', role: 'manager', first_name: 'Sarah', last_name: 'Manager', phone: '+919810000002' },
   { email: 'clinician@medibook.dev', password: 'Cln1234!', role: 'clinician', first_name: 'Alex', last_name: 'Clinician', phone: '+919810000003' },
   { email: 'receptionist@medibook.dev', password: 'Rec1234!', role: 'staff', first_name: 'Jamie', last_name: 'Reception', phone: '+919810000004' },
@@ -44,6 +62,17 @@ const EMAIL_TEMPLATES = [
   { name: 'Password Reset', type: 'password_reset' as const, subject: 'Reset your HealthSync password', body: 'Hi {{name}},\n\nClick the link below to reset your password:\n{{reset_link}}\n\nThis link expires in 1 hour.\n\nHealthSync Team', variables: ['name', 'reset_link'] },
   { name: 'Welcome Email', type: 'welcome' as const, subject: 'Welcome to HealthSync, {{name}}!', body: 'Dear {{name}},\n\nWelcome to HealthSync. Your account has been created successfully.\n\nLogin at: {{login_url}}\n\nHealthSync Team', variables: ['name', 'login_url'] },
 ];
+
+// Relative-to-now date helper for seed fixtures (never a fixed calendar
+// date, so re-running `db seed` months later still lands on a sensible day)
+// -- see appointments.service.ts's own appointment_date/appointment_time
+// split (date truncated to midnight, time the full timestamp).
+function atHour(daysFromNow: number, hour: number, minute = 0) {
+  const d = new Date();
+  d.setDate(d.getDate() + daysFromNow);
+  d.setHours(hour, minute, 0, 0);
+  return d;
+}
 
 async function main() {
   console.log('Seeding roles...');
@@ -168,9 +197,22 @@ async function main() {
     const orgIdForAccount = account.role === 'admin' || account.role === 'super_admin' ? null : primaryOrg.id;
     const existing = await prisma.userProfiles.findUnique({ where: { email: account.email } });
     if (existing) {
-      const patch: { phone?: string; client_org_id?: string | null } = {};
+      const patch: {
+        phone?: string; client_org_id?: string | null;
+        bio?: string; date_of_birth?: Date; gender?: string; address_structured?: object;
+      } = {};
       if (!existing.phone) patch.phone = account.phone;
       if (existing.client_org_id !== orgIdForAccount) patch.client_org_id = orgIdForAccount;
+      // Backfills the settings/index.jsx Profile-tab fields onto an
+      // already-existing account (most sessions' admin@medibook.dev
+      // predates this seed carrying a `profile` bag at all) -- only fills
+      // in what's genuinely still empty, never overwrites a real edit.
+      if (account.profile) {
+        if (!existing.bio) patch.bio = account.profile.bio;
+        if (!existing.date_of_birth) patch.date_of_birth = account.profile.date_of_birth;
+        if (!existing.gender) patch.gender = account.profile.gender;
+        if (!existing.address_structured) patch.address_structured = account.profile.address_structured;
+      }
       if (Object.keys(patch).length) {
         await prisma.userProfiles.update({ where: { id: existing.id }, data: patch });
         console.log(`  updated (${Object.keys(patch).join(', ')}): ${account.email}`);
@@ -191,10 +233,237 @@ async function main() {
         phone: account.phone,
         role_id: roleRecords[account.role].id,
         client_org_id: orgIdForAccount,
+        ...(account.profile ?? {}),
       },
     });
     console.log(`  created: ${account.email} (${account.role})`);
   }
+
+  // A real home clinic + clinical sample data for the demo accounts, per an
+  // explicit "complete seed data for admin@medibook.dev ... like
+  // appointments, patients etc" + "clinic assign" request -- without this,
+  // a genuinely fresh DB (prisma migrate deploy + db seed, no dump restore)
+  // gives every dashboard/calendar/report page nothing real to show, and
+  // the demo accounts' patient_id/clinician_id/clinic_id all stay null.
+  console.log('Seeding a home clinic + clinical sample data...');
+  let homeClinic = await prisma.clinics.findFirst({ where: { client_org_id: primaryOrg.id, is_deleted: false } });
+  if (!homeClinic) {
+    homeClinic = await prisma.clinics.create({
+      data: {
+        name: 'MG Road Clinic',
+        address: '12 MG Road',
+        city: 'Bengaluru',
+        postcode: '560001',
+        state: 'Karnataka',
+        phone: '+919876500001',
+        email: 'mgroad@cityheart.dev',
+        timezone: 'Asia/Kolkata',
+        is_primary: true,
+        client_org_id: primaryOrg.id,
+      },
+    });
+    console.log(`  created clinic: ${homeClinic.name}`);
+  }
+
+  let homeRoom = await prisma.rooms.findFirst({ where: { clinic_id: homeClinic.id, is_deleted: false } });
+  if (!homeRoom) {
+    homeRoom = await prisma.rooms.create({
+      data: { clinic_id: homeClinic.id, room_number: '101', room_type: 'consultation', capacity: 1 },
+    });
+    console.log(`  created room: ${homeRoom.room_number}`);
+  }
+
+  // Matches ServicesService.create()'s own real shape (product_type: 'simple',
+  // client_org_id-scoped, is_tax_exempt defaulting true for a clinical
+  // service) rather than inventing a different one for seed data.
+  let homeService = await prisma.products.findFirst({
+    where: { client_org_id: primaryOrg.id, name: 'GP Consultation', is_deleted: false },
+  });
+  if (!homeService) {
+    homeService = await prisma.products.create({
+      data: {
+        name: 'GP Consultation',
+        description: 'Standard 30-minute general practice consultation.',
+        product_type: 'simple',
+        sku: 'gp-consultation-seed',
+        price: 50000, // paise -- ₹500
+        duration_minutes: 30,
+        is_tax_exempt: true,
+        client_org_id: primaryOrg.id,
+      },
+    });
+    console.log(`  created service: ${homeService.name}`);
+  }
+
+  // clinician@medibook.dev -> a real Clinicians row (the demo login account
+  // and this row are linked via UserProfiles.clinician_id, per the schema's
+  // own relation -- they are not the same table).
+  let homeClinician = await prisma.clinicians.findFirst({ where: { email: 'clinician@medibook.dev' } });
+  if (!homeClinician) {
+    homeClinician = await prisma.clinicians.create({
+      data: {
+        clinic_id: homeClinic.id,
+        first_name: 'Alex',
+        last_name: 'Clinician',
+        clinician_type: 'General Physician',
+        gender: 'male',
+        email: 'clinician@medibook.dev',
+        phone: '+919810000003',
+        bio: 'General physician seeing walk-in and booked OPD patients at MG Road Clinic.',
+        consultation_fee: 50000, // paise -- ₹500
+        qualifications: 'MBBS, MD (General Medicine)',
+        registration_number: 'KMC-2015-004821',
+        medical_council: 'Karnataka Medical Council',
+        verification_status: 'verified',
+        verified_at: new Date(),
+      },
+    });
+    console.log(`  created clinician: ${homeClinician.first_name} ${homeClinician.last_name}`);
+  }
+  const clinicianAccount = await prisma.userProfiles.findUnique({ where: { email: 'clinician@medibook.dev' } });
+  if (clinicianAccount && (clinicianAccount.clinician_id !== homeClinician.id || clinicianAccount.clinic_id !== homeClinic.id)) {
+    await prisma.userProfiles.update({
+      where: { id: clinicianAccount.id },
+      data: { clinician_id: homeClinician.id, clinic_id: homeClinic.id },
+    });
+    console.log('  linked clinician@medibook.dev -> Clinicians row + MG Road Clinic');
+  }
+
+  // Mon-Fri 09:00-17:00 weekly availability + a matching weekday-only lunch
+  // break, so clinician/Availability.jsx and the booking wizard's slot
+  // picker have real hours to generate slots from, not an empty schedule.
+  // day_of_week is Monday=0-based here (Mon..Sun), matching this app's own
+  // real runtime convention -- clinician/Availability.jsx's DAYS array and
+  // its day_of_week: String(dayIndex) write path, confirmed against
+  // getLunchBreaks's own dayOfWeek semantics (see CLAUDE.md's own note on
+  // this). The schema comment's "0-6 Sunday-Saturday" is stale/wrong
+  // documentation, not the real convention this seed must match -- using
+  // it here would seed Tue-Sat instead of Mon-Fri, and a lunch break on
+  // every day of the week for a Mon-Fri-only clinic (both hit live and
+  // fixed in the same pass; see PLAN212/TR232's own account).
+  const WEEKDAYS = [0, 1, 2, 3, 4]; // Mon..Fri
+  const existingAvailability = await prisma.clinicianAvailability.findFirst({
+    where: { clinician_id: homeClinician.id, is_deleted: false },
+  });
+  if (!existingAvailability) {
+    for (const dayOfWeek of WEEKDAYS) {
+      await prisma.clinicianAvailability.create({
+        data: {
+          clinician_id: homeClinician.id,
+          clinic_id: homeClinic.id,
+          room_id: homeRoom.id,
+          day_of_week: dayOfWeek,
+          start_time: '09:00',
+          end_time: '17:00',
+          recurrence_type: 'weekly',
+        },
+      });
+    }
+    console.log('  created Mon-Fri 09:00-17:00 availability');
+  }
+  const existingLunchBreak = await prisma.lunchBreaks.findFirst({
+    where: { clinician_id: homeClinician.id, is_deleted: false },
+  });
+  if (!existingLunchBreak) {
+    for (const dayOfWeek of WEEKDAYS) {
+      await prisma.lunchBreaks.create({
+        data: {
+          clinician_id: homeClinician.id,
+          clinic_id: homeClinic.id,
+          day_of_week: dayOfWeek,
+          start_time: atHour(0, 13, 0),
+          end_time: atHour(0, 13, 30),
+          is_recurring: true,
+        },
+      });
+    }
+    console.log('  created Mon-Fri 13:00-13:30 lunch break');
+  }
+
+  const existingClinicianService = await prisma.clinicianServices.findFirst({
+    where: { clinician_id: homeClinician.id, product_id: homeService.id, is_deleted: false },
+  });
+  if (!existingClinicianService) {
+    await prisma.clinicianServices.create({ data: { clinician_id: homeClinician.id, product_id: homeService.id } });
+    console.log(`  linked ${homeClinician.first_name} ${homeClinician.last_name} -> ${homeService.name}`);
+  }
+
+  // patient@medibook.dev -> a real Patients row, same linking pattern as
+  // the clinician above.
+  let homePatient = await prisma.patients.findFirst({ where: { email: 'patient@medibook.dev', client_org_id: primaryOrg.id } });
+  if (!homePatient) {
+    homePatient = await prisma.patients.create({
+      data: {
+        client_org_id: primaryOrg.id,
+        first_name: 'Priya',
+        last_name: 'Patient',
+        date_of_birth: new Date('1992-06-20'),
+        email: 'patient@medibook.dev',
+        phone: '+919810000005',
+        address: '18 Church Street, Bengaluru, Karnataka 560001',
+        address_structured: { line1: '18 Church Street', line2: '', city: 'Bengaluru', state: 'Karnataka', pincode: '560001', country: 'India' },
+        gender: 'female',
+        patient_category: 'general',
+        acquisition_source: 'online_search',
+      },
+    });
+    console.log(`  created patient: ${homePatient.first_name} ${homePatient.last_name}`);
+  }
+  const patientAccount = await prisma.userProfiles.findUnique({ where: { email: 'patient@medibook.dev' } });
+  if (patientAccount && patientAccount.patient_id !== homePatient.id) {
+    await prisma.userProfiles.update({ where: { id: patientAccount.id }, data: { patient_id: homePatient.id } });
+    console.log('  linked patient@medibook.dev -> Patients row');
+  }
+
+  // manager@/receptionist@ have no Clinicians/Patients row of their own, but
+  // still need a real clinic_id -- otherwise every clinic-scoped page they
+  // load (queue, front-desk billing) has nothing to scope to.
+  for (const email of ['manager@medibook.dev', 'receptionist@medibook.dev']) {
+    const acct = await prisma.userProfiles.findUnique({ where: { email } });
+    if (acct && acct.clinic_id !== homeClinic.id) {
+      await prisma.userProfiles.update({ where: { id: acct.id }, data: { clinic_id: homeClinic.id } });
+      console.log(`  linked ${email} -> MG Road Clinic`);
+    }
+  }
+
+  // A handful of real appointments spanning past/today/future so dashboards,
+  // the calendar, and reports have something real to aggregate. Computed
+  // relative to "now" (never a fixed calendar date) so this stays
+  // meaningful on whatever day `prisma db seed` actually runs, and anchored
+  // well clear of midnight to sidestep the local-vs-UTC "today" ambiguity
+  // this codebase has hit before on an IST host (CLAUDE.md's own note).
+  const SAMPLE_APPOINTMENTS = [
+    { daysFromNow: -3, hour: 10, status: 'completed', reason: 'Follow-up for hypertension review' },
+    { daysFromNow: -1, hour: 15, status: 'completed', reason: 'Seasonal flu symptoms' },
+    { daysFromNow: 0, hour: 11, status: 'confirmed', reason: 'Annual general health check-up' },
+    { daysFromNow: 2, hour: 16, status: 'confirmed', reason: 'Persistent cough, follow-up review' },
+    { daysFromNow: 5, hour: 9, status: 'scheduled', reason: 'New patient consultation' },
+  ];
+  let appointmentsCreated = 0;
+  for (const sample of SAMPLE_APPOINTMENTS) {
+    const appointmentTime = atHour(sample.daysFromNow, sample.hour);
+    const existingAppointment = await prisma.appointments.findFirst({
+      where: { clinician_id: homeClinician.id, appointment_time: appointmentTime, is_deleted: false },
+    });
+    if (existingAppointment) continue;
+    await prisma.appointments.create({
+      data: {
+        clinic_id: homeClinic.id,
+        room_id: homeRoom.id,
+        clinician_id: homeClinician.id,
+        patient_id: homePatient.id,
+        product_id: homeService.id,
+        appointment_date: new Date(appointmentTime.toDateString()),
+        appointment_time: appointmentTime,
+        duration_minutes: homeService.duration_minutes ?? 30,
+        status: sample.status,
+        reason: sample.reason,
+        type: 'in_person',
+      },
+    });
+    appointmentsCreated++;
+  }
+  console.log(`  created ${appointmentsCreated} new sample appointment(s) (${SAMPLE_APPOINTMENTS.length - appointmentsCreated} already existed)`);
 
   console.log('Seeding email templates...');
   for (const tpl of EMAIL_TEMPLATES) {
