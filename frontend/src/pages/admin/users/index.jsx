@@ -56,6 +56,7 @@ import {
   CheckCircle,
   SupervisorAccount,
 } from '@mui/icons-material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -176,11 +177,9 @@ const START_IMPERSONATION = gql`
   }
 `
 
-// --- Design Tokens (from Stitch design) ---
-const BRAND = '#006D77'
-const BRAND_LIGHT = '#E0F2F1'
-
-// Role visual config — matching Stitch color scheme.
+// Role visual config — theme-derived, not a hand-picked hex map (see
+// calendar/index.jsx, finances/index.jsx, messages/index.jsx for the same
+// conversion).
 // Keys must be the real seeded role names (backend/prisma/seed.ts's ROLES:
 // admin/super_admin/manager/clinician/staff/patient) — this used to key off
 // an older system_admin/clinic_manager/receptionist naming scheme that no
@@ -188,21 +187,35 @@ const BRAND_LIGHT = '#E0F2F1'
 // fell through to the `default` "Unknown" grey chip here (same dead-name
 // class as AppShell.jsx's ROLE_COLORS, which had the identical
 // receptionist-vs-staff mismatch).
-const ROLE_STYLES = {
-  admin: { bg: '#FEE2E2', color: '#B91C1C', label: 'Admin' },
-  super_admin: { bg: '#FEE2E2', color: '#B91C1C', label: 'Super Admin' },
-  manager: { bg: '#EDE9FE', color: '#6D28D9', label: 'Manager' },
-  clinician: { bg: '#D1FAE5', color: '#065F46', label: 'Clinician' },
-  staff: { bg: '#DBEAFE', color: '#1E40AF', label: 'Staff' },
-  patient: { bg: '#FEF3C7', color: '#92400E', label: 'Patient' },
-  default: { bg: '#F1F5F9', color: '#475569', label: 'Unknown' },
+function roleStyleFor(theme, roleCode) {
+  const p = theme.palette
+  const dark = theme.palette.mode === 'dark'
+  const tone = (main, darkText, label) => ({ bg: alpha(main, dark ? 0.18 : 0.12), color: dark ? main : darkText, label })
+  const styles = {
+    admin: tone(p.error.main, p.error.dark, 'Admin'),
+    super_admin: tone(p.error.main, p.error.dark, 'Super Admin'),
+    manager: tone(p.secondary.main, p.secondary.dark, 'Manager'),
+    clinician: tone(p.success.main, p.success.dark, 'Clinician'),
+    staff: tone(p.info.main, p.info.dark, 'Staff'),
+    patient: tone(p.warning.main, p.warning.dark, 'Patient'),
+    default: { bg: 'action.hover', color: 'text.secondary', label: 'Unknown' },
+  }
+  return styles[roleCode] ?? styles.default
 }
 
-const ACTION_STYLES = {
-  CREATE: { color: 'success', bg: '#D1FAE5', textColor: '#065F46' },
-  UPDATE: { color: 'info', bg: '#DBEAFE', textColor: '#1E40AF' },
-  DELETE: { color: 'error', bg: '#FEE2E2', textColor: '#B91C1C' },
-  READ: { color: 'default', bg: '#F1F5F9', textColor: '#475569' },
+const ROLE_CODES = ['admin', 'super_admin', 'manager', 'clinician', 'staff', 'patient']
+
+function actionStyleFor(theme, action) {
+  const p = theme.palette
+  const dark = theme.palette.mode === 'dark'
+  const tone = (main, darkText, colorProp) => ({ bg: alpha(main, dark ? 0.18 : 0.12), textColor: dark ? main : darkText, color: colorProp })
+  const styles = {
+    CREATE: tone(p.success.main, p.success.dark, 'success'),
+    UPDATE: tone(p.info.main, p.info.dark, 'info'),
+    DELETE: tone(p.error.main, p.error.dark, 'error'),
+    READ: { bg: 'action.hover', textColor: 'text.secondary', color: 'default' },
+  }
+  return styles[action] ?? styles.READ
 }
 
 // --- Sub-components ---
@@ -211,7 +224,8 @@ function TabPanel({ children, value, index }) {
 }
 
 function RoleChip({ roleCode, roleName }) {
-  const style = ROLE_STYLES[roleCode] || ROLE_STYLES.default
+  const theme = useTheme()
+  const style = roleStyleFor(theme, roleCode)
   return (
     <Chip
       label={roleName || style.label}
@@ -252,6 +266,14 @@ function StatCard({ icon, value, label, color }) {
 
 // --- Main Component ---
 export default function AdminUsers() {
+  const theme = useTheme()
+  // BRAND/BRAND_LIGHT kept as the same names the rest of this component
+  // already uses throughout -- now resolved from the real theme instead
+  // of a hardcoded hex pair, so every existing call site (sx props,
+  // template literals, and plain component props alike) picks up dark
+  // mode with no other change needed.
+  const BRAND = theme.palette.primary.main
+  const BRAND_LIGHT = alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)
   const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const { enqueueSnackbar } = useSnackbar()
@@ -388,8 +410,17 @@ export default function AdminUsers() {
   }
 
   const getInitials = (first, last) => `${first?.[0] || ''}${last?.[0] || ''}`.toUpperCase()
+  // Deterministic per-user colour, still varying across users -- pulled from
+  // the real theme (not a fixed hex ramp) so it stays legible in dark mode.
   const getAvatarColor = (str = '') => {
-    const colors = ['#006D77', '#0E9F9F', '#14B8A6', '#0D9488', '#1CBFBF', '#047857']
+    const colors = [
+      theme.palette.primary.main,
+      theme.palette.primary.dark,
+      theme.palette.info.main,
+      theme.palette.success.dark,
+      theme.palette.secondary.dark,
+      theme.palette.success.main,
+    ]
     let hash = 0
     for (let i = 0; i < str.length; i++) hash = (hash * 31 + str.charCodeAt(i)) >>> 0
     return colors[hash % colors.length]
@@ -411,7 +442,7 @@ export default function AdminUsers() {
           variant="contained"
           startIcon={<PersonAdd />}
           onClick={() => navigate('/admin/users/new')}
-          sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700, px: 3 }}
+          sx={{ bgcolor: BRAND, '&:hover': { bgcolor: 'primary.dark' }, borderRadius: 2, fontWeight: 700, px: 3 }}
         >
           Add User
         </Button>
@@ -419,10 +450,10 @@ export default function AdminUsers() {
 
       {/* SUMMARY STATS */}
       <Box sx={{ display: 'flex', gap: 2, mb: 4, flexWrap: 'wrap' }}>
-        <StatCard icon={<PeopleAlt />} value={adminData?.getUsersStats?.total ?? 0} label="Total Users" color="#6366F1" />
-        <StatCard icon={<CheckCircle />} value={adminData?.getUsersStats?.active ?? 0} label="Active Users" color="#10B981" />
+        <StatCard icon={<PeopleAlt />} value={adminData?.getUsersStats?.total ?? 0} label="Total Users" color={theme.palette.secondary.main} />
+        <StatCard icon={<CheckCircle />} value={adminData?.getUsersStats?.active ?? 0} label="Active Users" color={theme.palette.success.main} />
         <StatCard icon={<Shield />} value={rolesList.length} label="System Roles" color={BRAND} />
-        <StatCard icon={<VerifiedUser />} value={adminData?.getPermissions?.length ?? 0} label="Permissions Defined" color="#F59E0B" />
+        <StatCard icon={<VerifiedUser />} value={adminData?.getPermissions?.length ?? 0} label="Permissions Defined" color={theme.palette.warning.main} />
       </Box>
 
       {/* TABS — Stitch styled */}
@@ -478,19 +509,17 @@ export default function AdminUsers() {
                 </InputAdornment>
               ),
             }}
-            sx={{ flex: 1, bgcolor: 'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            sx={{ flex: 1, bgcolor: 'background.paper', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
           />
-          <FormControl size="small" sx={{ minWidth: 170, bgcolor: 'white' }}>
+          <FormControl size="small" sx={{ minWidth: 170, bgcolor: 'background.paper' }}>
             <InputLabel>Filter by Role</InputLabel>
             <Select value={roleFilter} label="Filter by Role" onChange={(e) => setRoleFilter(e.target.value)} sx={{ borderRadius: 2 }}>
               <MenuItem value="all">All Roles</MenuItem>
-              {Object.entries(ROLE_STYLES)
-                .filter(([k]) => k !== 'default')
-                .map(([code, s]) => (
-                  <MenuItem key={code} value={code}>
-                    {s.label}
-                  </MenuItem>
-                ))}
+              {ROLE_CODES.map((code) => (
+                <MenuItem key={code} value={code}>
+                  {roleStyleFor(theme, code).label}
+                </MenuItem>
+              ))}
             </Select>
           </FormControl>
         </Stack>
@@ -498,7 +527,7 @@ export default function AdminUsers() {
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
           <TableContainer>
             <Table>
-              <TableHead sx={{ bgcolor: '#F8FAFC' }}>
+              <TableHead sx={{ bgcolor: 'action.hover' }}>
                 <TableRow>
                   <TableCell
                     sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.75rem', letterSpacing: 0.5, textTransform: 'uppercase' }}
@@ -545,7 +574,7 @@ export default function AdminUsers() {
                     const initials = getInitials(u.firstName, u.lastName)
                     const avatarBg = getAvatarColor(`${u.firstName}${u.lastName}`)
                     return (
-                      <TableRow key={u.id} hover sx={{ '&:hover': { bgcolor: '#F8FAFC' } }}>
+                      <TableRow key={u.id} hover sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
                         <TableCell>
                           <Stack direction="row" alignItems="center" gap={2}>
                             <Avatar
@@ -618,7 +647,7 @@ export default function AdminUsers() {
                                 size="small"
                                 aria-label={`Impersonate ${u.email}`}
                                 onClick={() => setImpersonateTarget(u)}
-                                sx={{ color: '#6D28D9', '&:hover': { bgcolor: '#EDE9FE' } }}
+                                sx={{ color: 'secondary.dark', '&:hover': { bgcolor: (t) => alpha(t.palette.secondary.main, 0.12) } }}
                               >
                                 <SupervisorAccount fontSize="small" />
                               </IconButton>
@@ -671,11 +700,9 @@ export default function AdminUsers() {
             <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
               {(rolesList.length > 0
                 ? rolesList
-                : Object.entries(ROLE_STYLES)
-                    .filter(([k]) => k !== 'default')
-                    .map(([code, s], i) => ({ id: String(i), code, name: s.label, description: '' }))
+                : ROLE_CODES.map((code, i) => ({ id: String(i), code, name: roleStyleFor(theme, code).label, description: '' }))
               ).map((role, idx, arr) => {
-                const style = ROLE_STYLES[role.code] || ROLE_STYLES.default
+                const style = roleStyleFor(theme, role.code)
                 const isSelected = selectedRole === role.id
                 return (
                   <Box key={role.id}>
@@ -686,7 +713,7 @@ export default function AdminUsers() {
                         py: 1.5,
                         bgcolor: isSelected ? BRAND_LIGHT : 'transparent',
                         borderLeft: isSelected ? `3px solid ${BRAND}` : '3px solid transparent',
-                        '&:hover': { bgcolor: isSelected ? BRAND_LIGHT : '#F8FAFC' },
+                        '&:hover': { bgcolor: isSelected ? BRAND_LIGHT : 'action.hover' },
                       }}
                     >
                       <Box
@@ -749,7 +776,7 @@ export default function AdminUsers() {
                     <TableRow>
                       <TableCell
                         sx={{
-                          bgcolor: '#F8FAFC',
+                          bgcolor: 'action.hover',
                           fontWeight: 700,
                           fontSize: '0.75rem',
                           color: 'text.secondary',
@@ -765,7 +792,7 @@ export default function AdminUsers() {
                           key={a}
                           align="center"
                           sx={{
-                            bgcolor: '#F8FAFC',
+                            bgcolor: 'action.hover',
                             fontWeight: 700,
                             fontSize: '0.75rem',
                             color: 'text.secondary',
@@ -799,7 +826,7 @@ export default function AdminUsers() {
                               <Checkbox
                                 color="primary"
                                 defaultChecked={a === 'READ'}
-                                sx={{ color: '#CBD5E1', '&.Mui-checked': { color: BRAND } }}
+                                sx={{ color: 'text.disabled', '&.Mui-checked': { color: BRAND } }}
                               />
                             </TableCell>
                           ))}
@@ -833,7 +860,7 @@ export default function AdminUsers() {
                                     )
                                   }
                                   color="primary"
-                                  sx={{ color: '#CBD5E1', '&.Mui-checked': { color: BRAND } }}
+                                  sx={{ color: 'text.disabled', '&.Mui-checked': { color: BRAND } }}
                                 />
                               </TableCell>
                             )
@@ -862,7 +889,7 @@ export default function AdminUsers() {
                 </InputAdornment>
               ),
             }}
-            sx={{ flex: 1, bgcolor: 'white', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            sx={{ flex: 1, bgcolor: 'background.paper', '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
           />
           <FormControl size="small" sx={{ minWidth: 160, bgcolor: 'white' }}>
             <InputLabel>Action</InputLabel>
@@ -892,7 +919,7 @@ export default function AdminUsers() {
         <Paper elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3, overflow: 'hidden' }}>
           <TableContainer>
             <Table size="small">
-              <TableHead sx={{ bgcolor: '#F8FAFC' }}>
+              <TableHead sx={{ bgcolor: 'action.hover' }}>
                 <TableRow>
                   <TableCell sx={{ width: 40 }} />
                   <TableCell
@@ -946,10 +973,10 @@ export default function AdminUsers() {
                 ) : (
                   auditLogs.map((log) => {
                     const isExpanded = expandedLogId === log.id
-                    const actionStyle = ACTION_STYLES[log.action] || ACTION_STYLES.READ
+                    const actionStyle = actionStyleFor(theme, log.action)
                     return (
                       <React.Fragment key={log.id}>
-                        <TableRow hover sx={{ cursor: 'pointer', '& > *': { borderBottom: 'unset' }, '&:hover': { bgcolor: '#F8FAFC' } }}>
+                        <TableRow hover sx={{ cursor: 'pointer', '& > *': { borderBottom: 'unset' }, '&:hover': { bgcolor: 'action.hover' } }}>
                           <TableCell>
                             <IconButton
                               size="small"
@@ -1024,6 +1051,10 @@ export default function AdminUsers() {
                         <TableRow>
                           <TableCell colSpan={6} sx={{ p: 0, border: 0 }}>
                             <Collapse in={isExpanded} timeout="auto" unmountOnExit>
+                              {/* Deliberate exception (FRONTEND_RULES.md UI-2/§22 precedent, same
+                                  category as login.jsx's BrandPanel): a fixed dark code/JSON payload
+                                  viewer, independent of the app's own light/dark toggle -- always
+                                  dark like a terminal, never a light-mode variant. */}
                               <Box sx={{ mx: 2, mb: 2, bgcolor: '#0D1B2A', borderRadius: 2, p: 2 }}>
                                 {log.userAgent && (
                                   <Typography variant="caption" sx={{ color: '#94A3B8', display: 'block', mb: 1, fontFamily: 'monospace' }}>
@@ -1118,13 +1149,11 @@ export default function AdminUsers() {
                   label="System Role"
                   onChange={(e) => setEditUser({ ...editUser, roleCodes: [e.target.value] })}
                 >
-                  {Object.entries(ROLE_STYLES)
-                    .filter(([k]) => k !== 'default')
-                    .map(([code, s]) => (
-                      <MenuItem key={code} value={code}>
-                        <RoleChip roleCode={code} roleName={s.label} />
-                      </MenuItem>
-                    ))}
+                  {ROLE_CODES.map((code) => (
+                    <MenuItem key={code} value={code}>
+                      <RoleChip roleCode={code} roleName={roleStyleFor(theme, code).label} />
+                    </MenuItem>
+                  ))}
                 </Select>
               </FormControl>
             </Grid>
