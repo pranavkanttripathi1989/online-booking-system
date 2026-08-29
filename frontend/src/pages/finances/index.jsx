@@ -686,6 +686,12 @@ export default function FinancesPage() {
                 size="small"
                 aria-label="Filter by status"
                 sx={{
+                  gap: 1,
+                  '& .MuiToggleButtonGroup-grouped': {
+                    marginLeft: '0 !important',
+                    borderLeft: '1.5px solid !important',
+                    borderColor: 'divider',
+                  },
                   '& .MuiToggleButton-root': {
                     borderRadius: '8px !important',
                     fontWeight: 700,
@@ -693,7 +699,8 @@ export default function FinancesPage() {
                     px: 1.5,
                     py: 0.5,
                     textTransform: 'capitalize',
-                    border: '1.5px solid #E8EAED',
+                    border: '1.5px solid',
+                    borderColor: 'divider',
                   },
                 }}
               >
