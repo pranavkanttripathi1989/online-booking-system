@@ -120,7 +120,6 @@ const GET_LUNCH_BREAKS = gql`
       id
       startTime
       endTime
-      duration
     }
   }
 `
