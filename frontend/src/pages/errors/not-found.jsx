@@ -16,21 +16,22 @@ export default function NotFoundPage() {
       p={4}
       bgcolor="background.default"
     >
-      {/* Icon circle — Google Blue */}
+      {/* Icon circle -- brand primary (was off-brand "Google Blue"; see FRONTEND_RULES.md UI-8's brand-fit rule) */}
       <Box
         sx={{
           width: 110,
           height: 110,
           borderRadius: '50%',
-          bgcolor: '#E8F0FE',
-          border: '2px solid #AECBFA',
+          bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.22 : 0.12),
+          border: '2px solid',
+          borderColor: (t) => alpha(t.palette.primary.main, 0.4),
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           mb: 3,
         }}
       >
-        <SentimentDissatisfied sx={{ fontSize: 58, color: '#1A73E8', opacity: 0.85 }} />
+        <SentimentDissatisfied sx={{ fontSize: 58, color: 'primary.main', opacity: 0.85 }} />
       </Box>
 
       {/* 404 number */}
@@ -40,7 +41,7 @@ export default function NotFoundPage() {
         sx={{
           fontSize: { xs: '6rem', sm: '9rem' },
           lineHeight: 1,
-          background: 'linear-gradient(135deg, #4285F4 30%, #1A73E8 100%)',
+          background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 30%, ${t.palette.primary.main} 100%)`,
           WebkitBackgroundClip: 'text',
           WebkitTextFillColor: 'transparent',
           mb: 2,
@@ -68,11 +69,11 @@ export default function NotFoundPage() {
           fontWeight: 700,
           px: 4,
           py: 1.5,
-          background: 'linear-gradient(135deg, #4285F4 0%, #1A73E8 100%)',
-          boxShadow: '0 4px 20px rgba(26,115,232,0.30)',
+          background: (t) => `linear-gradient(135deg, ${t.palette.primary.light} 0%, ${t.palette.primary.main} 100%)`,
+          boxShadow: (t) => `0 4px 20px ${alpha(t.palette.primary.main, 0.3)}`,
           '&:hover': {
-            background: 'linear-gradient(135deg, #1A73E8 0%, #1557B0 100%)',
-            boxShadow: '0 6px 24px rgba(26,115,232,0.40)',
+            background: (t) => `linear-gradient(135deg, ${t.palette.primary.main} 0%, ${t.palette.primary.dark} 100%)`,
+            boxShadow: (t) => `0 6px 24px ${alpha(t.palette.primary.main, 0.4)}`,
           },
         }}
       >

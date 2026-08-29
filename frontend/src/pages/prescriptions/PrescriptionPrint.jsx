@@ -160,6 +160,10 @@ function PrescriptionPrint() {
 
   return (
     <Box
+      // Deliberate literal exception (FRONTEND_RULES.md UI-2/§22 precedent, SURF-13):
+      // this renders a physical paper document (screen preview shares the same
+      // rendering path as window.print()) -- always white paper with black ink,
+      // independent of the app's own light/dark toggle.
       sx={{
         maxWidth: '210mm',
         mx: 'auto',

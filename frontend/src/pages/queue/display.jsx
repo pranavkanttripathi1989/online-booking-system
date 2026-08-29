@@ -50,6 +50,9 @@ function QueueDisplay() {
     )
 
   return (
+    // Deliberate literal exception (FRONTEND_RULES.md UI-2/§22 precedent): a
+    // large-type TV/waiting-room kiosk display, always dark for
+    // legibility across a room, independent of the app's own light/dark toggle.
     <Box sx={{ bgcolor: '#0b1220', color: '#fff', minHeight: '100vh', p: { xs: 3, md: 6 } }}>
       <Typography variant="h4" fontWeight={700} mb={4} textAlign="center">
         {board?.clinician_name}

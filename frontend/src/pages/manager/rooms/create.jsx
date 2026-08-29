@@ -17,6 +17,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
 import MeetingRoomRoundedIcon from '@mui/icons-material/MeetingRoomRounded'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
@@ -69,7 +70,7 @@ export default function CreateRoomPage() {
         <title>New Room — MediBook</title>
       </Helmet>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 3, flexWrap: 'wrap' }}>
-        <IconButton onClick={() => navigate('/manager/rooms')} sx={{ bgcolor: '#F1F3F4' }}>
+        <IconButton onClick={() => navigate('/manager/rooms')} sx={{ bgcolor: 'action.hover' }}>
           <ArrowBackRoundedIcon />
         </IconButton>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flex: 1 }}>
@@ -78,13 +79,13 @@ export default function CreateRoomPage() {
               width: 40,
               height: 40,
               borderRadius: 2.5,
-              background: 'linear-gradient(135deg,#E8F0FE,#C5D8FD)',
+              background: (t) => `linear-gradient(135deg, ${alpha(t.palette.info.main, 0.18)}, ${alpha(t.palette.info.light, 0.24)})`,
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
             }}
           >
-            <MeetingRoomRoundedIcon sx={{ color: '#1A73E8', fontSize: '1.2rem' }} />
+            <MeetingRoomRoundedIcon sx={{ color: 'info.main', fontSize: '1.2rem' }} />
           </Box>
           <Box>
             <Typography variant="h5" fontWeight={800}>
