@@ -16,5 +16,6 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP239 | bug | Appearance's Font Size and Accent Color did nothing verification | approved | 2026-08-29 | 2026-08-29 | PLAN219 | [TP239-settings-2026-08-29-appearance-theme-fontsize-accent-do-nothing.md](./bug/TP239-settings-2026-08-29-appearance-theme-fontsize-accent-do-nothing.md) |
 | TP231 | bug | "Clinic" and "Appearance" tabs — real wiring verification | approved | 2026-08-28 | 2026-08-29 | PLAN211 | [TP231-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md](./bug/TP231-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md) |
 

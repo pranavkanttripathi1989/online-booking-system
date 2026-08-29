@@ -16,5 +16,6 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR239 | bug | Appearance's Font Size and Accent Color did nothing results | pass | 2026-08-29 | 2026-08-29 | TP239 | [TR239-settings-2026-08-29-appearance-theme-fontsize-accent-do-nothing.md](./bug/TR239-settings-2026-08-29-appearance-theme-fontsize-accent-do-nothing.md) |
 | TR231 | bug | "Clinic" and "Appearance" tabs — real wiring results | pass | 2026-08-28 | 2026-08-29 | TP231 | [TR231-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md](./bug/TR231-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md) |
 

@@ -15,5 +15,6 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN219 | bug | Appearance's Font Size and Accent Color did nothing | done | 2026-08-29 | 2026-08-29 | BUG051 | [PLAN219-settings-2026-08-29-appearance-theme-fontsize-accent-do-nothing.md](./bug/PLAN219-settings-2026-08-29-appearance-theme-fontsize-accent-do-nothing.md) |
 | PLAN211 | bug | "Clinic" and "Appearance" tabs — real wiring | done | 2026-08-28 | 2026-08-29 | — | [PLAN211-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md](./bug/PLAN211-settings-2026-08-28-clinic-and-appearance-tabs-real-wiring.md) |
 

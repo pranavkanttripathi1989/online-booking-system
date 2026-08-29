@@ -14,5 +14,6 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG051 | bug | Appearance's Font Size and Accent Color did nothing | done | 2026-08-29 | 2026-08-29 | BUG044 | [BUG051-settings-2026-08-29-appearance-theme-fontsize-accent-do-nothing.md](./bug/BUG051-settings-2026-08-29-appearance-theme-fontsize-accent-do-nothing.md) |
 | BUG044 | bug | "Clinic" and "Appearance" settings tabs are fabricated; Save persists nothing | done | 2026-08-28 | 2026-08-29 | — | [BUG044-settings-2026-08-28-clinic-tab-entirely-fabricated-no-real-wiring.md](./bug/BUG044-settings-2026-08-28-clinic-tab-entirely-fabricated-no-real-wiring.md) |
 
