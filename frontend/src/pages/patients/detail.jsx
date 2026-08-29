@@ -47,6 +47,7 @@ import {
   Autocomplete,
   CircularProgress,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -713,6 +714,7 @@ function TabPanel({ value, index, children }) {
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function PatientDetailPage() {
+  const theme = useTheme()
   const { id } = useParams()
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
@@ -1033,7 +1035,7 @@ export default function PatientDetailPage() {
       </Button>
 
       {/* ── Hero Header ──────────────────────────────────────────────────── */}
-      <Card sx={{ borderRadius: 3, mb: 3, border: '1px solid #E2E8F0', boxShadow: 'none' }}>
+      <Card sx={{ borderRadius: 3, mb: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
         <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
           <Grid container spacing={3} alignItems="center">
             <Grid item xs={12} sm="auto">
@@ -1046,8 +1048,9 @@ export default function PatientDetailPage() {
                       width: 14,
                       height: 14,
                       borderRadius: '50%',
-                      bgcolor: p.status === 'active' ? '#0B7B5C' : '#94A3B8',
-                      border: '2px solid #fff',
+                      bgcolor: p.status === 'active' ? 'success.main' : 'grey.500',
+                      border: '2px solid',
+                      borderColor: 'background.paper',
                     }}
                   />
                 }
@@ -1063,7 +1066,7 @@ export default function PatientDetailPage() {
             </Grid>
             <Grid item xs={12} sm>
               <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" mb={0.5}>
-                <Typography variant="h5" fontWeight={800} sx={{ color: '#0D1B2E' }}>
+                <Typography variant="h5" fontWeight={800} sx={{ color: 'text.primary' }}>
                   {p.full_name}
                 </Typography>
                 <Chip
@@ -1132,14 +1135,15 @@ export default function PatientDetailPage() {
       </Card>
 
       {/* ── Tabs ─────────────────────────────────────────────────────────── */}
-      <Paper sx={{ borderRadius: 3, border: '1px solid #E2E8F0', boxShadow: 'none', overflow: 'hidden' }}>
+      <Paper sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none', overflow: 'hidden' }}>
         <Tabs
           value={tab}
           onChange={(_, v) => setTab(v)}
           sx={{
             px: 2,
-            borderBottom: '1px solid #E2E8F0',
-            bgcolor: '#FAFBFC',
+            borderBottom: '1px solid',
+            borderColor: 'divider',
+            bgcolor: 'action.hover',
             '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, minHeight: 52, fontSize: '0.875rem' },
             '& .Mui-selected': { color: 'primary.main' },
             '& .MuiTabs-indicator': { bgcolor: 'primary.main', height: 3, borderRadius: 1.5 },
@@ -1223,9 +1227,9 @@ export default function PatientDetailPage() {
                         alignItems="center"
                         spacing={1}
                         sx={{
-                          bgcolor: a.severity === 'Severe' ? '#FEF2F2' : '#F8FAFC',
+                          bgcolor: a.severity === 'Severe' ? alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.16 : 0.08) : 'action.hover',
                           border: '1px solid',
-                          borderColor: a.severity === 'Severe' ? '#FCA5A5' : '#E2E8F0',
+                          borderColor: a.severity === 'Severe' ? alpha(theme.palette.error.main, 0.4) : 'divider',
                           borderRadius: 2,
                           p: 1,
                         }}
@@ -1324,7 +1328,7 @@ export default function PatientDetailPage() {
                         direction="row"
                         alignItems="center"
                         spacing={1.5}
-                        sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 1.25 }}
+                        sx={{ bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.25 }}
                       >
                         <GroupRoundedIcon sx={{ color: 'text.disabled', fontSize: '1.1rem' }} />
                         <Box sx={{ flex: 1 }}>
@@ -1356,7 +1360,7 @@ export default function PatientDetailPage() {
                 >
                   Clinical Notes
                 </Typography>
-                <Box sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 2 }}>
+                <Box sx={{ bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 2 }}>
                   <Typography variant="body2" sx={{ color: 'text.primary', lineHeight: 1.8 }}>
                     {p.notes}
                   </Typography>
@@ -1395,7 +1399,7 @@ export default function PatientDetailPage() {
                         direction="row"
                         alignItems="center"
                         spacing={1.5}
-                        sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 1.25 }}
+                        sx={{ bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.25 }}
                       >
                         <MedicalServicesRoundedIcon sx={{ color: 'text.disabled', fontSize: '1.1rem' }} />
                         <Box sx={{ flex: 1 }}>
@@ -1428,7 +1432,7 @@ export default function PatientDetailPage() {
                   Primary Clinician
                 </Typography>
                 <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar sx={{ width: 40, height: 40, bgcolor: '#0B7B5C', fontSize: '1rem', fontWeight: 700 }}>{clinicianInitials}</Avatar>
+                  <Avatar sx={{ width: 40, height: 40, bgcolor: 'success.main', fontSize: '1rem', fontWeight: 700 }}>{clinicianInitials}</Avatar>
                   <Box>
                     <Typography variant="body2" fontWeight={700}>
                       {p.primary_clinician}
@@ -1457,10 +1461,10 @@ export default function PatientDetailPage() {
             </Stack>
             <Stack spacing={2}>
               {consultations.map((h, i) => (
-                <Box key={i} sx={{ borderLeft: '3px solid #1565C7', pl: 2.5, py: 0.5 }}>
+                <Box key={i} sx={{ borderLeft: '3px solid', borderColor: 'primary.main', pl: 2.5, py: 0.5 }}>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start" flexWrap="wrap" gap={1}>
                     <Box>
-                      <Typography variant="body2" fontWeight={700} sx={{ color: '#0D1B2E' }}>
+                      <Typography variant="body2" fontWeight={700} sx={{ color: 'text.primary' }}>
                         {h.diagnosis}
                       </Typography>
                       <Typography variant="caption" sx={{ color: 'text.secondary' }}>
@@ -1490,7 +1494,7 @@ export default function PatientDetailPage() {
                         fontSize: '0.75rem',
                         textTransform: 'uppercase',
                         letterSpacing: '0.06em',
-                        bgcolor: '#F8FAFC',
+                        bgcolor: 'action.hover',
                       },
                     }}
                   >
@@ -1544,7 +1548,7 @@ export default function PatientDetailPage() {
                             justifyContent: 'center',
                           }}
                         >
-                          <ScienceRoundedIcon sx={{ color: '#fff', fontSize: '1rem' }} />
+                          <ScienceRoundedIcon sx={{ color: 'common.white', fontSize: '1rem' }} />
                         </Box>
                         <Box>
                           <Typography variant="body2" fontWeight={700}>
@@ -1807,10 +1811,11 @@ export default function PatientDetailPage() {
                     direction="row"
                     alignItems="center"
                     spacing={1.5}
-                    sx={{ bgcolor: '#F8FAFC', border: '1px solid #E2E8F0', borderRadius: 2, p: 1.5 }}
+                    sx={{ bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 1.5 }}
                   >
-                    {c.channel === 'email' && <MarkEmailReadRoundedIcon sx={{ color: '#1565C7' }} />}
-                    {c.channel === 'sms' && <SmsRoundedIcon sx={{ color: '#7B3FE4' }} />}
+                    {c.channel === 'email' && <MarkEmailReadRoundedIcon sx={{ color: 'primary.main' }} />}
+                    {c.channel === 'sms' && <SmsRoundedIcon sx={{ color: 'secondary.main' }} />}
+                    {/* WhatsApp's own brand green -- deliberate exception, not app theme (FRONTEND_RULES.md UI-2 precedent). */}
                     {c.channel === 'whatsapp' && <WhatsAppIcon sx={{ color: '#25D366' }} />}
                     <Box sx={{ flex: 1, minWidth: 0 }}>
                       <Typography variant="body2" fontWeight={700} noWrap>
