@@ -27,6 +27,7 @@ import {
   Collapse,
 } from '@mui/material'
 import { EventNote, AttachMoney, PeopleAlt, Speed, Cancel } from '@mui/icons-material'
+import { alpha, useTheme } from '@mui/material/styles'
 import { DatePicker } from '@mui/x-date-pickers/DatePicker'
 import { LocalizationProvider } from '@mui/x-date-pickers/LocalizationProvider'
 import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs'
@@ -138,16 +139,6 @@ const GET_MANAGER_TRANSACTIONS = gql`
   }
 `
 
-// Stitch brand
-const BRAND = '#006D77'
-
-const PIE_COLORS = {
-  Scheduled: '#3B82F6',
-  Completed: '#10B981',
-  Cancelled: '#EF4444',
-  'No-Show': '#F59E0B',
-}
-
 // SUG-DASH-002: mock clinic dropdown options, used only while the first
 // getClinics response hasn't landed yet (see `clinics` below).
 const MOCK_CLINICS = [
@@ -157,6 +148,17 @@ const MOCK_CLINICS = [
 ]
 
 function ManagerDashboardInner() {
+  const theme = useTheme()
+  // BRAND kept as the same name every existing call site in this file
+  // already uses -- now resolved from the real theme instead of a
+  // hardcoded hex, matching staff/edit.jsx's identical conversion.
+  const BRAND = theme.palette.primary.main
+  const PIE_COLORS = {
+    Scheduled: theme.palette.info.main,
+    Completed: theme.palette.success.main,
+    Cancelled: theme.palette.error.main,
+    'No-Show': theme.palette.warning.main,
+  }
   const { user } = useAuth()
 
   // Filters state
@@ -313,14 +315,14 @@ function ManagerDashboardInner() {
           title="Total Appointments"
           value={loading ? '...' : stats.totalAppointments.toLocaleString()}
           icon={<EventNote />}
-          color="#3B82F6"
+          color={theme.palette.info.main}
           trend={stats.trends.totalAppointments}
         />
         <StitchKpiCard
           title="Gross Revenue"
           value={loading ? '...' : `₹${stats.revenue.toLocaleString()}`}
           icon={<AttachMoney />}
-          color="#10B981"
+          color={theme.palette.success.main}
           trend={stats.trends.revenue}
         />
         <StitchKpiCard
@@ -334,14 +336,14 @@ function ManagerDashboardInner() {
           title="Clinician Utilization"
           value={loading ? '...' : formatPercent(stats.utilization)}
           icon={<Speed />}
-          color="#7C3AED"
+          color={theme.palette.secondary.main}
           trend={stats.trends.utilization}
         />
         <StitchKpiCard
           title="Cancellation Rate"
           value={loading ? '...' : formatPercent(stats.cancellationRate)}
           icon={<Cancel />}
-          color="#EF4444"
+          color={theme.palette.error.main}
           trend={stats.trends.cancellationRate}
         />
       </Box>
@@ -349,7 +351,7 @@ function ManagerDashboardInner() {
       {/* CHARTS ROW 1 */}
       <Grid container spacing={3} mb={3}>
         <Grid item xs={12} md={8}>
-          <Card elevation={0} sx={{ p: 3, border: '1px solid #E2E8F0', borderRadius: 3, height: '100%' }}>
+          <Card elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3, height: '100%' }}>
             <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>
               Appointments Over Time
             </Typography>
@@ -367,17 +369,17 @@ function ManagerDashboardInner() {
               <Box height={300} mt={1}>
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={stats.timeSeriesData} margin={{ top: 5, right: 20, left: -20, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#F1F5F9" />
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={theme.palette.divider} />
                     <XAxis
                       dataKey="date"
-                      tick={{ fill: '#94A3B8', fontSize: 11, fontWeight: 600 }}
+                      tick={{ fill: theme.palette.text.disabled, fontSize: 11, fontWeight: 600 }}
                       axisLine={false}
                       tickLine={false}
                       dy={10}
                     />
-                    <YAxis tick={{ fill: '#94A3B8', fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <YAxis tick={{ fill: theme.palette.text.disabled, fontSize: 11 }} axisLine={false} tickLine={false} />
                     <RechartsTooltip
-                      contentStyle={{ borderRadius: 10, border: '1px solid #E2E8F0', boxShadow: '0 4px 16px rgba(0,0,0,0.08)' }}
+                      contentStyle={{ borderRadius: 10, border: `1px solid ${theme.palette.divider}`, boxShadow: '0 4px 16px rgba(0,0,0,0.08)', background: theme.palette.background.paper, color: theme.palette.text.primary }}
                     />
                     <Legend iconType="circle" wrapperStyle={{ paddingTop: 16, fontSize: 12 }} />
                     <Line
@@ -386,25 +388,25 @@ function ManagerDashboardInner() {
                       dataKey="scheduled"
                       stroke={BRAND}
                       strokeWidth={2.5}
-                      dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: BRAND }}
+                      dot={{ r: 3, strokeWidth: 2, fill: theme.palette.background.paper, stroke: BRAND }}
                       activeDot={{ r: 5 }}
                     />
                     <Line
                       type="monotone"
                       name="Completed"
                       dataKey="completed"
-                      stroke="#10B981"
+                      stroke={theme.palette.success.main}
                       strokeWidth={2.5}
-                      dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: '#10B981' }}
+                      dot={{ r: 3, strokeWidth: 2, fill: theme.palette.background.paper, stroke: theme.palette.success.main }}
                       activeDot={{ r: 5 }}
                     />
                     <Line
                       type="monotone"
                       name="Cancelled"
                       dataKey="cancelled"
-                      stroke="#EF4444"
+                      stroke={theme.palette.error.main}
                       strokeWidth={2.5}
-                      dot={{ r: 3, strokeWidth: 2, fill: 'white', stroke: '#EF4444' }}
+                      dot={{ r: 3, strokeWidth: 2, fill: theme.palette.background.paper, stroke: theme.palette.error.main }}
                       activeDot={{ r: 5 }}
                     />
                   </LineChart>
@@ -457,7 +459,7 @@ function ManagerDashboardInner() {
                       }}
                     >
                       {stats.statusDistribution.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name] || '#CBD5E1'} stroke="none" />
+                        <Cell key={`cell-${index}`} fill={PIE_COLORS[entry.name] || theme.palette.text.disabled} stroke="none" />
                       ))}
                     </Pie>
                     <RechartsTooltip contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }} />
@@ -473,7 +475,7 @@ function ManagerDashboardInner() {
       {/* CHARTS ROW 2 */}
       <Grid container spacing={3} mb={4}>
         <Grid item xs={12} md={6}>
-          <Card elevation={0} sx={{ p: 3, border: '1px solid #E2E8F0', borderRadius: 3, height: '100%' }}>
+          <Card elevation={0} sx={{ p: 3, border: '1px solid', borderColor: 'divider', borderRadius: 3, height: '100%' }}>
             <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>
               Revenue by Clinic
             </Typography>
@@ -486,10 +488,10 @@ function ManagerDashboardInner() {
               <Box height={280} mt={2}>
                 <ResponsiveContainer width="100%" height="100%">
                   <BarChart data={stats.revenueByClinic} margin={{ top: 10, right: 10, left: -10, bottom: 5 }} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#E0E0E0" />
+                    <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke={theme.palette.divider} />
                     <XAxis
                       type="number"
-                      tick={{ fill: '#6B7280', fontSize: 12 }}
+                      tick={{ fill: theme.palette.text.disabled, fontSize: 12 }}
                       axisLine={false}
                       tickLine={false}
                       tickFormatter={(value) => `₹${value / 1000}k`}
@@ -497,17 +499,17 @@ function ManagerDashboardInner() {
                     <YAxis
                       type="category"
                       dataKey="name"
-                      tick={{ fill: '#374151', fontSize: 13, fontWeight: 500 }}
+                      tick={{ fill: theme.palette.text.secondary, fontSize: 13, fontWeight: 500 }}
                       axisLine={false}
                       tickLine={false}
                       width={120}
                     />
                     <RechartsTooltip
-                      cursor={{ fill: '#F3F4F6' }}
-                      contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)' }}
+                      cursor={{ fill: theme.palette.action.hover }}
+                      contentStyle={{ borderRadius: 8, border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)', background: theme.palette.background.paper, color: theme.palette.text.primary }}
                       formatter={(value) => `₹${value.toLocaleString()}`}
                     />
-                    <Bar dataKey="revenue" fill="#006D77" radius={[0, 4, 4, 0]} barSize={28} />
+                    <Bar dataKey="revenue" fill={BRAND} radius={[0, 4, 4, 0]} barSize={28} />
                   </BarChart>
                 </ResponsiveContainer>
               </Box>
@@ -570,7 +572,7 @@ function ManagerDashboardInner() {
                   </TableHead>
                   <TableBody>
                     {stats.topClinicians.map((clinician, idx) => {
-                      const rankColors = ['#006D77', '#7C3AED', '#3B82F6']
+                      const rankColors = [theme.palette.primary.main, theme.palette.secondary.main, theme.palette.info.main]
                       return (
                         <TableRow key={clinician.id} sx={{ '&:last-child td, &:last-child th': { border: 0 } }}>
                           <TableCell component="th" scope="row">
@@ -579,8 +581,8 @@ function ManagerDashboardInner() {
                                 sx={{
                                   width: 28,
                                   height: 28,
-                                  bgcolor: `${rankColors[idx] || '#94A3B8'}20`,
-                                  color: rankColors[idx] || '#94A3B8',
+                                  bgcolor: alpha(rankColors[idx] || theme.palette.text.disabled, 0.15),
+                                  color: rankColors[idx] || theme.palette.text.disabled,
                                   fontSize: 12,
                                   fontWeight: 800,
                                 }}
@@ -598,7 +600,7 @@ function ManagerDashboardInner() {
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
-                            <Typography variant="subtitle2" sx={{ color: BRAND }} fontWeight={700}>
+                            <Typography variant="subtitle2" sx={{ color: 'primary.main' }} fontWeight={700}>
                               ₹{clinician.revenue.toLocaleString()}
                             </Typography>
                           </TableCell>
@@ -614,8 +616,8 @@ function ManagerDashboardInner() {
       </Grid>
 
       {/* TRANSACTIONS TABLE */}
-      <Card elevation={0} sx={{ border: '1px solid #E2E8F0', borderRadius: 3 }}>
-        <Box p={3} borderBottom="1px solid #E2E8F0" display="flex" justifyContent="space-between" alignItems="center">
+      <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+        <Box p={3} sx={{ borderBottom: '1px solid', borderBottomColor: 'divider' }} display="flex" justifyContent="space-between" alignItems="center">
           <Box>
             <Typography variant="overline" fontWeight={700} color="text.secondary" letterSpacing={1}>
               Recent Transactions
@@ -624,7 +626,7 @@ function ManagerDashboardInner() {
         </Box>
         <TableContainer>
           <Table sx={{ minWidth: 650 }}>
-            <TableHead sx={{ bgcolor: '#F8FAFC' }}>
+            <TableHead sx={{ bgcolor: 'action.hover' }}>
               <TableRow>
                 <TableCell
                   sx={{ fontWeight: 700, color: 'text.secondary', fontSize: '0.72rem', textTransform: 'uppercase', letterSpacing: 0.6 }}
