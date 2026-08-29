@@ -29,6 +29,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import { alpha, useTheme } from '@mui/material/styles'
 import AddIcon from '@mui/icons-material/Add'
 import EditIcon from '@mui/icons-material/Edit'
 import DeleteIcon from '@mui/icons-material/Delete'
@@ -37,8 +38,6 @@ import StoreIcon from '@mui/icons-material/Store'
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog'
 import ErrorBoundary from '../../../components/ErrorBoundary'
 import { CLINICS_QUERY } from '../../../graphql/queries'
-
-const BRAND = '#006D77'
 
 // ─── GraphQL — matches the real backend exactly (backend/src/services/,
 // backend/src/products/ for categories): SERVICES_QUERY/CREATE_SERVICE_MUTATION/
@@ -174,6 +173,8 @@ const MOCK_SERVICES = [
 const MOCK_CATEGORIES = [{ id: 'cat-1', name: 'Consultations', description: '', is_active: true }]
 
 function ServiceCatalog() {
+  const theme = useTheme()
+  const BRAND = theme.palette.primary.main
   const client = useApolloClient()
 
   const [loading, setLoading] = useState(true)
@@ -475,7 +476,7 @@ function ServiceCatalog() {
             <ListItemButton
               selected={selectedCategoryId === null}
               onClick={() => setSelectedCategoryId(null)}
-              sx={{ borderRadius: 1.5, mb: 0.5, '&.Mui-selected': { bgcolor: '#E0F2F1' } }}
+              sx={{ borderRadius: 1.5, mb: 0.5, '&.Mui-selected': { bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.22 : 0.12) } }}
             >
               <ListItemText
                 primary={
@@ -495,7 +496,7 @@ function ServiceCatalog() {
                 key={cat.id}
                 selected={selectedCategoryId === cat.id}
                 onClick={() => setSelectedCategoryId(cat.id)}
-                sx={{ borderRadius: 1.5, mb: 0.5, '&.Mui-selected': { bgcolor: '#E0F2F1' } }}
+                sx={{ borderRadius: 1.5, mb: 0.5, '&.Mui-selected': { bgcolor: alpha(theme.palette.primary.main, theme.palette.mode === 'dark' ? 0.22 : 0.12) } }}
               >
                 <ListItemText
                   primary={
@@ -582,7 +583,7 @@ function ServiceCatalog() {
               variant="contained"
               startIcon={<AddIcon />}
               onClick={openNewService}
-              sx={{ whiteSpace: 'nowrap', bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+              sx={{ whiteSpace: 'nowrap', bgcolor: BRAND, '&:hover': { bgcolor: theme.palette.primary.dark }, borderRadius: 2, fontWeight: 700 }}
             >
               Add Service
             </Button>
@@ -608,7 +609,7 @@ function ServiceCatalog() {
                     display: 'flex',
                     flexDirection: 'column',
                     transition: 'all 0.2s ease',
-                    '&:hover': { transform: 'translateY(-4px)', boxShadow: '0 12px 28px rgba(0,109,119,0.12)', borderColor: BRAND },
+                    '&:hover': { transform: 'translateY(-4px)', boxShadow: `0 12px 28px ${alpha(theme.palette.primary.main, 0.12)}`, borderColor: BRAND },
                   }}
                 >
                   <CardContent sx={{ flexGrow: 1, p: 2.5 }}>
@@ -740,7 +741,7 @@ function ServiceCatalog() {
             variant="contained"
             onClick={handleSaveService}
             disabled={submitting || !form.name.trim()}
-            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: theme.palette.primary.dark }, borderRadius: 2, fontWeight: 700 }}
           >
             {submitting ? 'Saving...' : 'Save Service'}
           </Button>
@@ -781,7 +782,7 @@ function ServiceCatalog() {
             variant="contained"
             disabled={submitting || !catForm.name.trim()}
             onClick={handleSaveCategory}
-            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: theme.palette.primary.dark }, borderRadius: 2, fontWeight: 700 }}
           >
             {editCat ? 'Save Changes' : 'Add Category'}
           </Button>
@@ -847,7 +848,7 @@ function ServiceCatalog() {
             variant="contained"
             onClick={handleSaveBranchPricing}
             disabled={branchSaving}
-            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: '#005B64' }, borderRadius: 2, fontWeight: 700 }}
+            sx={{ bgcolor: BRAND, '&:hover': { bgcolor: theme.palette.primary.dark }, borderRadius: 2, fontWeight: 700 }}
           >
             {branchSaving ? 'Saving...' : 'Save'}
           </Button>
