@@ -129,6 +129,7 @@ const BULK_RESCHEDULE_MUTATION = gql`
 const STATUS_OPTIONS = ['all', 'pending', 'confirmed', 'cancelled', 'completed', 'no_show']
 
 const STATUS_LABELS_LIST = {
+  scheduled: 'Scheduled',
   pending: 'Pending',
   confirmed: 'Confirmed',
   cancelled: 'Cancelled',

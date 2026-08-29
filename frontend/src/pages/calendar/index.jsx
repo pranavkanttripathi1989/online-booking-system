@@ -57,6 +57,7 @@ dayjs.extend(isBetween)
 const STATUS_OPTIONS = ['', 'pending', 'confirmed', 'cancelled', 'completed', 'no_show']
 const STATUS_LABELS = {
   '': 'All Statuses',
+  scheduled: 'Scheduled',
   pending: 'Pending',
   confirmed: 'Confirmed',
   cancelled: 'Cancelled',

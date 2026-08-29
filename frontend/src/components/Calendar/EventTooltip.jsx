@@ -11,6 +11,7 @@ import OpenInNewRoundedIcon from '@mui/icons-material/OpenInNewRounded'
 // BUG047 Phase 1 -- status colour comes from theme.palette.appointmentStatus
 // (theme/index.js), the one shared source, instead of this file's own hex map.
 const STATUS_LABELS = {
+  scheduled: 'Scheduled',
   pending: 'Pending',
   confirmed: 'Confirmed',
   cancelled: 'Cancelled',

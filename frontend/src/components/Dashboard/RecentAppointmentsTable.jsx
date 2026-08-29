@@ -39,6 +39,7 @@ const initials = (name) =>
 // (theme/index.js), the one shared source, so it re-balances correctly in
 // dark mode instead of this file hand-picking its own light-only pastel hex.
 const STATUS_LABELS = {
+  scheduled: 'Scheduled',
   confirmed: 'Confirmed',
   pending: 'Pending',
   cancelled: 'Cancelled',

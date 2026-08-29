@@ -141,6 +141,7 @@ const REDEEM_PACKAGE_SITTING_MUTATION = gql`
 // BUG047 Phase 3 -- status colour comes from theme.palette.appointmentStatus
 // (theme/index.js), the one shared source, instead of this file's own hex map.
 const STATUS_LABELS_DETAIL = {
+  scheduled: 'Scheduled',
   pending: 'Pending',
   confirmed: 'Confirmed',
   cancelled: 'Cancelled',
