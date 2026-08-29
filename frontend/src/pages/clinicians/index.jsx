@@ -19,6 +19,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import AddIcon from '@mui/icons-material/Add'
 import FilterListOffIcon from '@mui/icons-material/FilterListOff'
@@ -392,7 +393,7 @@ export default function CliniciansPage() {
                   <Chip
                     label={specialtyCount(s)}
                     size="small"
-                    sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }}
+                    sx={{ height: 18, fontSize: '0.65rem', bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.22 : 0.12), color: 'primary.main', fontWeight: 700 }}
                   />
                 </Box>
               </MenuItem>
@@ -423,7 +424,7 @@ export default function CliniciansPage() {
                   <Chip
                     label={clinicCount(c.id)}
                     size="small"
-                    sx={{ height: 18, fontSize: '0.65rem', bgcolor: '#E8F8F9', color: '#006D77', fontWeight: 700 }}
+                    sx={{ height: 18, fontSize: '0.65rem', bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.22 : 0.12), color: 'primary.main', fontWeight: 700 }}
                   />
                 </Box>
               </MenuItem>
@@ -453,12 +454,12 @@ export default function CliniciansPage() {
                 onClick={clearFilters}
                 startIcon={<FilterListOffIcon fontSize="small" />}
                 sx={{
-                  color: '#D93025',
-                  borderColor: '#D93025',
+                  color: 'error.main',
+                  borderColor: 'error.main',
                   borderRadius: 2,
                   fontWeight: 600,
                   whiteSpace: 'nowrap',
-                  '&:hover': { bgcolor: '#FCE8E6', borderColor: '#A50E0E' },
+                  '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.12), borderColor: 'error.dark' },
                 }}
               >
                 Clear Filters
