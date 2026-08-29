@@ -184,8 +184,43 @@ export function createAppTheme(mode = 'light') {
       },
       MuiListItemIcon: { styleOverrides: { root: { minWidth: 38 } } },
       MuiSkeleton: { defaultProps: { animation: 'wave' } },
+      // BUG (found live 2026-08-29): MUI's own default dark-mode background
+      // calculation for the 'standard' Alert variant produced a background
+      // *darker* than the Card/Paper surface it usually sits on (measured:
+      // rgb(14,19,25) alert vs rgb(22,35,45) card) -- instead of reading as
+      // a highlighted callout, it read as a hole, and the real 16-24px
+      // margin around it looked like "no spacing" because there was no
+      // colour contrast left to make the gap legible. Overridden with an
+      // explicit background/text built from our own palette via alpha(),
+      // matching the same tone convention chips/status pills already use.
       MuiAlert: {
-        styleOverrides: { root: { borderRadius: 8, fontSize: '0.8125rem' } },
+        styleOverrides: {
+          root: { borderRadius: 8, fontSize: '0.8125rem', border: '1px solid' },
+          standardSuccess: ({ theme }) => ({
+            backgroundColor: alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.16 : 0.12),
+            color: theme.palette.mode === 'dark' ? theme.palette.success.light : theme.palette.success.dark,
+            borderColor: alpha(theme.palette.success.main, 0.3),
+            '& .MuiAlert-icon': { color: theme.palette.success.main },
+          }),
+          standardInfo: ({ theme }) => ({
+            backgroundColor: alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.16 : 0.12),
+            color: theme.palette.mode === 'dark' ? theme.palette.info.light : theme.palette.info.dark,
+            borderColor: alpha(theme.palette.info.main, 0.3),
+            '& .MuiAlert-icon': { color: theme.palette.info.main },
+          }),
+          standardWarning: ({ theme }) => ({
+            backgroundColor: alpha(theme.palette.warning.main, theme.palette.mode === 'dark' ? 0.16 : 0.12),
+            color: theme.palette.mode === 'dark' ? theme.palette.warning.light : theme.palette.warning.dark,
+            borderColor: alpha(theme.palette.warning.main, 0.3),
+            '& .MuiAlert-icon': { color: theme.palette.warning.main },
+          }),
+          standardError: ({ theme }) => ({
+            backgroundColor: alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.16 : 0.12),
+            color: theme.palette.mode === 'dark' ? theme.palette.error.light : theme.palette.error.dark,
+            borderColor: alpha(theme.palette.error.main, 0.3),
+            '& .MuiAlert-icon': { color: theme.palette.error.main },
+          }),
+        },
       },
       MuiDialog: {
         styleOverrides: {
