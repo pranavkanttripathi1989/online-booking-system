@@ -40,7 +40,7 @@ import {
   DialogActions,
   CircularProgress,
 } from '@mui/material'
-import { alpha, useTheme } from '@mui/material/styles'
+import { alpha } from '@mui/material/styles'
 import SaveRoundedIcon from '@mui/icons-material/SaveRounded'
 import EditRoundedIcon from '@mui/icons-material/EditRounded'
 import CameraAltRoundedIcon from '@mui/icons-material/CameraAltRounded'
@@ -517,7 +517,6 @@ const REQUEST_DATA_RIGHTS = gql`
 
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function SettingsPage() {
-  const theme = useTheme()
   const { user, updateUser, logout, hasRole } = useAuth()
   const client = useApolloClient()
   const navigate = useNavigate()
@@ -744,7 +743,6 @@ export default function SettingsPage() {
   // could otherwise land a non-managing caller on the now-hidden Clinic tab.
   useEffect(() => {
     if (tab === 4 && !canManageClinic) setTab(0)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [tab, canManageClinic])
 
   // ── REQ018/REQ030/REQ015 — Integrations tab ──────────────────────────────
