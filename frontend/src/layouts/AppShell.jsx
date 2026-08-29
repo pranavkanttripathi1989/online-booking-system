@@ -84,6 +84,7 @@ import GlobeIcon from '@mui/icons-material/Language'
 import EmailRulesIcon from '@mui/icons-material/AlternateEmail'
 import FormatListNumberedIcon from '@mui/icons-material/FormatListNumbered'
 import FamilyRestroomRoundedIcon from '@mui/icons-material/FamilyRestroomRounded'
+import HourglassEmptyRoundedIcon from '@mui/icons-material/HourglassEmptyRounded'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import DarkModeRoundedIcon from '@mui/icons-material/DarkModeRounded'
@@ -237,6 +238,19 @@ const NAV_CONFIG = [
     label: 'Live Queue',
     path: '/queue',
     icon: <FormatListNumberedIcon />,
+    roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'],
+  },
+  // REQ042 — appointments.resolver.ts's checkInAppointment/startConsultation/
+  // completeAppointment/markNoShow/resetAppointmentJourney (waiting-room/
+  // index.jsx's own mutations) are all @Auth(...,'staff','receptionist'),
+  // matching Live Queue's own gate above -- but this page had no nav entry
+  // at all for any role, plus its own too-narrow App.jsx RoleGuard (fixed
+  // alongside this), so real front-desk staff had no way to reach a page
+  // the backend already let them use.
+  {
+    label: 'Waiting Room',
+    path: '/waiting-room',
+    icon: <HourglassEmptyRoundedIcon />,
     roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'],
   },
   // REQ059 — pharmacy.resolver.ts is @Auth('staff','manager','admin',

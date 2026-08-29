@@ -917,14 +917,6 @@ function App() {
               }
             />
             <Route
-              path="/waiting-room"
-              element={
-                <Suspense fallback={<ShellPageLoader />}>
-                  <WaitingRoomPage />
-                </Suspense>
-              }
-            />
-            <Route
               path="/staff"
               element={
                 <Suspense fallback={<ShellPageLoader />}>
@@ -997,6 +989,27 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <QueueBoardPage />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* /waiting-room's own RoleGuard used to sit inside the
+              manager/admin-only block above, narrower than the backend
+              @Auth on every check-in/start-consultation/mark-no-show
+              mutation it calls (appointments.resolver.ts), which already
+              allows clinician/staff/receptionist -- the exact same gap
+              BUG039 found and fixed for /queue. Given its own dedicated
+              RoleGuard here instead of widening the shared block, which
+              would have granted those roles every other route in it too. */}
+          <Route
+            element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'clinician', 'staff', 'receptionist']} />}
+          >
+            <Route
+              path="/waiting-room"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <WaitingRoomPage />
                 </Suspense>
               }
             />
