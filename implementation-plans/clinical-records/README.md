@@ -4,6 +4,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN230 | requirement | Immunisation schedule tracker (P2-11) | done | 2026-08-30 | 2026-08-30 | REQ167 | [PLAN230-clinical-records-2026-08-30-immunization-schedule-tracker.md](./requirement/PLAN230-clinical-records-2026-08-30-immunization-schedule-tracker.md) |
 | PLAN056 | requirement | Consultation workspace and clinical records (EMR), P0 slice | done | 2026-08-24 | 2026-08-24 | REQ020 | [PLAN056-clinical-records-2026-08-24-emr-consultation-workspace.md](./requirement/PLAN056-clinical-records-2026-08-24-emr-consultation-workspace.md) |
 
 ## improvement

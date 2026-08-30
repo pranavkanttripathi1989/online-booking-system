@@ -4,6 +4,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ167 | requirement | Immunisation schedule tracker (P2-11) | done | 2026-08-30 | 2026-08-30 | PP-PHASE2 | [REQ167-clinical-records-2026-08-30-immunization-schedule-tracker.md](./requirement/REQ167-clinical-records-2026-08-30-immunization-schedule-tracker.md) |
 | REQ020 | requirement | Consultation workspace and clinical records (EMR) | in-progress | 2026-08-22 | 2026-08-24 | — | [REQ020-clinical-records-2026-08-22-emr-consultation-workspace.md](./requirement/REQ020-clinical-records-2026-08-22-emr-consultation-workspace.md) |
 
 ## improvement

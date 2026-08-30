@@ -3,7 +3,7 @@ id: PP-PHASE2
 type: phase-plan
 feature: project-plans
 created: 2026-08-27
-updated: 2026-08-27
+updated: 2026-08-30
 status: in-progress
 parent: PRD-v2-CareOS.md §9
 ---
@@ -45,7 +45,7 @@ gates. Phase 2's claim work depends on both.
 | **P2-08** | Regional-language Rx print (i18n for documents) | BE+FE | **done** (`REQ160`) | P1-07 | English/Hindi shipped; route/instructions translation and other languages (`P2-09`) deferred, see `REQ160`'s own account |
 | **P2-09** | i18n: 3 more regional languages | FE | **done, expanded to 6** (`REQ161`) | P1-07 | User selected both offered language sets — Tamil, Bengali, Marathi, Telugu, Kannada, Gujarati all shipped, not just 3. `PrescriptionBuilder.jsx`'s print-language picker stays en/hi only (backend font support, `REQ160`'s scope) |
 | **P2-10** | Recurring/series appointments + treatment-plan scheduling | BE+FE | **done** (`REQ163`) | — | New `AppointmentSeries` domain, eagerly materialized via reused `AppointmentsService.create()` per occurrence; `pages/appointments/series/{new,detail}.jsx`. Patient-portal access and a calendar-popover badge deliberately deferred, see `REQ163`'s own account |
-| **P2-11** | Immunisation schedule tracker | BE+FE | not started | — | Large paediatric segment in India; recall infra exists |
+| **P2-11** | Immunisation schedule tracker | BE+FE | **done** (`REQ167`) | — | New `ImmunizationScheduleItems`/`ImmunizationRecords` domain, mirroring `TestResults`' own patient-direct-fact shape; a guardian-fallback reminder sweep (a plain copy of the appointment-reminder pattern would have silently never notified a child patient's own account) |
 | **P2-12** | Chronic-disease registries (diabetes/HTN) + recall | BE+FE | not started | P2-11 | Cohort reports already built |
 | **P2-13** | Investigation orders + results inbox (lab loop) | BE+FE | not started | — | `REQ020` P1 |
 | **P2-14** | Digital intake → auto-populate EMR | BE+FE | not started | — | `intake-fields` built; the EMR write-through isn't |
