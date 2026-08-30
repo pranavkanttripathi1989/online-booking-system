@@ -97,6 +97,11 @@ enum NotificationEventType {
   // applied before any code references it — the exact break_glass_requested
   // precedent above (a missing enum value crashes the whole dispatch call).
   waitlist_slot_available
+  // REQ167 (P2-11) — a patient (or their guardian) has an overdue or
+  // soon-due immunization per the National Immunization Schedule. Added in
+  // its own separate migration, applied before any code references it —
+  // the exact break_glass_requested/low_stock_alert precedent above.
+  immunization_due
 }
 
 enum NotificationPriority {
@@ -414,6 +419,10 @@ model Encounters {
   aiTranscriptionSessions AiTranscriptionSessions[]
   telemedicineSession TelemedicineSessions?
   escalatedAppointments Appointments[] @relation("EscalatedFromEncounter")
+  // REQ167 (P2-11) — optional: a vaccination is often given outside a
+  // formal consultation (an immunization camp, a walk-in), so this is not
+  // required the way investigationOrders/referrals are.
+  immunizationRecords ImmunizationRecords[]
 
   @@index([client_org_id, patient_id])
   @@index([clinician_id])
@@ -1441,6 +1450,8 @@ model Patients {
   patientMemberships       PatientMemberships[]
   tasks                    Tasks[]
   aiTranscriptionSessions  AiTranscriptionSessions[]
+  // REQ167 (P2-11)
+  immunizationRecords      ImmunizationRecords[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1523,6 +1534,53 @@ model TestResults {
   @@index([ordered_by_user_id])
   @@index([is_deleted, date_ordered])
   @@index([encounter_id])
+}
+
+// REQ167 (P2-11) — India's National Immunization Schedule. Platform-global
+// reference data, like Drugs/Languages -- no client_org_id, seeded via
+// seed.ts. due_age_days is days since Patients.date_of_birth.
+model ImmunizationScheduleItems {
+  id           String   @id @default(uuid())
+  vaccine_name String
+  dose_number  Int
+  due_age_days Int
+  sort_order   Int      @default(0)
+  is_active    Boolean  @default(true)
+  is_deleted   Boolean  @default(false)
+  created_at   DateTime @default(now())
+
+  immunizationRecords ImmunizationRecords[]
+
+  @@index([is_active, due_age_days])
+}
+
+// REQ167 (P2-11) — mirrors TestResults' own shape: patient_id mandatory,
+// encounter_id optional (a vaccination is often given outside a formal
+// consultation), no direct client_org_id/clinic_id -- scoped transitively
+// via patient_id -> Patients.client_org_id.
+model ImmunizationRecords {
+  id                      String   @id @default(uuid())
+  patient_id              String
+  schedule_item_id        String?  // soft link -- null for an off-schedule/catch-up dose
+  encounter_id            String?
+  vaccine_name            String   // denormalized at record time
+  dose_number             Int
+  administered_at         DateTime @default(now())
+  administered_by_user_id String?
+  batch_no                String?
+  site                    String?
+  notes                   String?
+  is_deleted              Boolean  @default(false)
+  created_at              DateTime @default(now())
+
+  patient        Patients                   @relation(fields: [patient_id], references: [id])
+  scheduleItem   ImmunizationScheduleItems?  @relation(fields: [schedule_item_id], references: [id])
+  encounter      Encounters?                @relation(fields: [encounter_id], references: [id])
+  administeredBy UserProfiles?              @relation(fields: [administered_by_user_id], references: [id])
+
+  @@index([patient_id, administered_at])
+  @@index([encounter_id])
+  @@index([schedule_item_id])
 }
 
 model PaymentTransactions {
@@ -2589,6 +2647,8 @@ model UserProfiles {
   aiTranscriptionConsents AiTranscriptionSessions[]
   telemedicineRecordingConsents TelemedicineSessions[]
   importJobsCreated  ImportJobs[]
+  // REQ167 (P2-11)
+  administeredImmunizations ImmunizationRecords[]
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])

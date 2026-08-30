@@ -507,7 +507,7 @@ export class EncountersService {
   async patientTimeline(patientId: string, user: JwtPayload) {
     await this.assertPatientAccess(patientId, user);
     const patientUserProfile = await this.prisma.userProfiles.findFirst({ where: { patient_id: patientId, is_deleted: false } });
-    const [encounters, diagnoses, attachments, testResults, clinicalThreads] = await Promise.all([
+    const [encounters, diagnoses, attachments, testResults, clinicalThreads, immunizationRecords] = await Promise.all([
       this.prisma.encounters.findMany({
         where: { patient_id: patientId },
         include: { notes: true },
@@ -531,6 +531,11 @@ export class EncountersService {
             orderBy: { last_activity: 'desc' },
           })
         : Promise.resolve([]),
+      // REQ167 (P2-11).
+      this.prisma.immunizationRecords.findMany({
+        where: { patient_id: patientId, is_deleted: false },
+        orderBy: { administered_at: 'desc' },
+      }),
     ]);
 
     const events = [
@@ -574,6 +579,15 @@ export class EncountersService {
         title: 'Clinical messaging thread',
         summary: th.last_message ?? undefined,
         encounter_id: undefined,
+      })),
+      // REQ167 (P2-11).
+      ...immunizationRecords.map((r) => ({
+        id: r.id,
+        type: 'immunization',
+        date: r.administered_at,
+        title: r.vaccine_name,
+        summary: `Dose ${r.dose_number}`,
+        encounter_id: r.encounter_id ?? undefined,
       })),
     ];
     return events.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());

@@ -52,6 +52,8 @@ describe('EncountersService', () => {
       patients: { findUnique: jest.fn().mockResolvedValue({ id: 'pat-a', first_name: 'Anita', last_name: 'Sharma' }) },
       userProfiles: { findFirst: jest.fn().mockResolvedValue(null), findUnique: jest.fn().mockResolvedValue(null) },
       messageThreads: { findMany: jest.fn().mockResolvedValue([]) },
+      // REQ167 (P2-11): findMany() backs patientTimeline()'s new immunization branch.
+      immunizationRecords: { findMany: jest.fn().mockResolvedValue([]) },
       $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
     };
     const module: TestingModule = await Test.createTestingModule({

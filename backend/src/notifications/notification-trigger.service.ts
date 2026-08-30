@@ -51,6 +51,10 @@ const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; a
   // email (which they won't check while waiting); no WhatsApp default
   // since it's the least time-critical of the real-time channels here.
   queue_delay: { email_enabled: false, sms_enabled: true, app_enabled: true, whatsapp_enabled: false },
+  // REQ167 (P2-11) — an informational reminder, not time-critical the way
+  // an appointment reminder is; same internal-alert-shaped profile as
+  // low_stock_alert (app+email only).
+  immunization_due: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
 };
 
 // US-NOT-04's own acceptance criterion names "an imminent appointment
@@ -87,6 +91,7 @@ const TEMPLATE_CATEGORY: Record<string, TemplateCategory> = {
   break_glass_requested: 'utility', // internal ops alert; DEFAULTS never enables whatsapp for it today, but the category is still pinned correctly for if that changes
   low_stock_alert: 'utility',
   queue_delay: 'utility',
+  immunization_due: 'utility',
 };
 
 // Every event type here carries real transactional content (a specific

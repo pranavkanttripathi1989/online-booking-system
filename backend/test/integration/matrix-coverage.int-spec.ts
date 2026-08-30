@@ -77,6 +77,16 @@ const EXEMPT: Record<string, string> = {
   // same reasoning as ai-clinical/telemedicine's own exemptions above.
   // The org-less-platform-operator rejection path is covered directly in
   // imports.service.spec.ts's own dedicated test instead.
+  // REQ167 (P2-11) -- immunizationSchedule is a global reference query (no
+  // client_org_id on ImmunizationScheduleItems at all, same shape as
+  // languages/drugs above); patientImmunizations/patientImmunizationStatus
+  // are both keyed by patient_id, reusing assertPatientAccess()'s own
+  // self/clinician/org scoping rather than re-deriving it (mirrors
+  // ai-clinical/telemedicine's own exemptions above) -- no list query
+  // exists on this resolver to build a cross-org matrix case from. Cross-
+  // org/self-scope isolation is covered directly in
+  // immunizations.service.spec.ts's own dedicated tests instead.
+  immunizations: 'No list query exists on this resolver (a global reference query plus two patient_id-keyed queries reusing assertPatientAccess-style scoping) — same shape as ai-clinical/telemedicine\'s own exemptions above. Isolation covered in immunizations.service.spec.ts directly.',
   imports: "No query or mutation on this resolver is keyed by any id — parseImportPreview/dryRunImport take only raw CSV content (nothing to read cross-tenant), and commitImport is a write-only bulk create scoped via orgIdForWrite(), the same helper every other domain's create path already uses. No 'org A reads org B's row by id' shape exists to build a matrix case from, same shape as ai-clinical/telemedicine's own exemptions above. Covered in imports.service.spec.ts's own dedicated test instead.",
   // REQ158 (P2-06). Unlike the exemptions above, this domain DOES have a
   // real id-keyed shape a matrix case could exercise (revenueShareRules/

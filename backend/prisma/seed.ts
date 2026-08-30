@@ -538,6 +538,50 @@ async function main() {
     console.log(`  created: ${drug.name}`);
   }
 
+  // REQ167 (P2-11) -- India's National Immunization Schedule (NIS), a
+  // curated public-health reference set, not org-customizable. Platform-
+  // global like Drugs/Languages above (no client_org_id column at all on
+  // this model). due_age_days is days since Patients.date_of_birth.
+  console.log('Seeding immunization schedule (platform-seeded reference data)...');
+  const IMMUNIZATION_SCHEDULE = [
+    { vaccine_name: 'BCG', dose_number: 1, due_age_days: 0, sort_order: 1 },
+    { vaccine_name: 'OPV', dose_number: 0, due_age_days: 0, sort_order: 2 },
+    { vaccine_name: 'Hepatitis B (birth dose)', dose_number: 1, due_age_days: 0, sort_order: 3 },
+    { vaccine_name: 'Pentavalent', dose_number: 1, due_age_days: 42, sort_order: 4 },
+    { vaccine_name: 'OPV', dose_number: 1, due_age_days: 42, sort_order: 5 },
+    { vaccine_name: 'Rotavirus', dose_number: 1, due_age_days: 42, sort_order: 6 },
+    { vaccine_name: 'PCV', dose_number: 1, due_age_days: 42, sort_order: 7 },
+    { vaccine_name: 'fIPV', dose_number: 1, due_age_days: 42, sort_order: 8 },
+    { vaccine_name: 'Pentavalent', dose_number: 2, due_age_days: 70, sort_order: 9 },
+    { vaccine_name: 'OPV', dose_number: 2, due_age_days: 70, sort_order: 10 },
+    { vaccine_name: 'Rotavirus', dose_number: 2, due_age_days: 70, sort_order: 11 },
+    { vaccine_name: 'PCV', dose_number: 2, due_age_days: 70, sort_order: 12 },
+    { vaccine_name: 'Pentavalent', dose_number: 3, due_age_days: 98, sort_order: 13 },
+    { vaccine_name: 'OPV', dose_number: 3, due_age_days: 98, sort_order: 14 },
+    { vaccine_name: 'Rotavirus', dose_number: 3, due_age_days: 98, sort_order: 15 },
+    { vaccine_name: 'PCV', dose_number: 3, due_age_days: 98, sort_order: 16 },
+    { vaccine_name: 'fIPV', dose_number: 2, due_age_days: 98, sort_order: 17 },
+    { vaccine_name: 'Measles-Rubella (MR)', dose_number: 1, due_age_days: 270, sort_order: 18 },
+    { vaccine_name: 'Vitamin A', dose_number: 1, due_age_days: 270, sort_order: 19 },
+    { vaccine_name: 'DPT (booster)', dose_number: 1, due_age_days: 486, sort_order: 20 },
+    { vaccine_name: 'OPV (booster)', dose_number: 1, due_age_days: 486, sort_order: 21 },
+    { vaccine_name: 'Measles-Rubella (MR)', dose_number: 2, due_age_days: 486, sort_order: 22 },
+    { vaccine_name: 'DPT (booster)', dose_number: 2, due_age_days: 1825, sort_order: 23 },
+    { vaccine_name: 'Td (adolescent)', dose_number: 1, due_age_days: 3650, sort_order: 24 },
+    { vaccine_name: 'Td (adolescent)', dose_number: 2, due_age_days: 5840, sort_order: 25 },
+  ];
+  for (const item of IMMUNIZATION_SCHEDULE) {
+    const existing = await prisma.immunizationScheduleItems.findFirst({
+      where: { vaccine_name: item.vaccine_name, dose_number: item.dose_number },
+    });
+    if (existing) {
+      console.log(`  skip (exists): ${item.vaccine_name} dose ${item.dose_number}`);
+      continue;
+    }
+    await prisma.immunizationScheduleItems.create({ data: item });
+    console.log(`  created: ${item.vaccine_name} dose ${item.dose_number}`);
+  }
+
   // REQ108 -- a curated ~100-code OPD-relevant starter set (real WHO
   // ICD-10 codes), not the full ~14,000+ code set (see REQ108's own
   // Scope note). Platform-global reference data, like Languages/Drugs

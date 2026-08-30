@@ -1612,6 +1612,37 @@ type Icd10Code {
   id: ID!
 }
 
+type ImmunizationRecord {
+  administered_at: String!
+  administered_by_name: String
+  batch_no: String
+  dose_number: Int!
+  encounter_id: ID
+  id: ID!
+  notes: String
+  patient_id: String!
+  schedule_item_id: ID
+  site: String
+  vaccine_name: String!
+}
+
+type ImmunizationScheduleItem {
+  dose_number: Int!
+  due_age_days: Int!
+  id: ID!
+  is_active: Boolean!
+  vaccine_name: String!
+}
+
+type ImmunizationStatusItem {
+  administered_record: ImmunizationRecord
+  dose_number: Int!
+  due_date: String!
+  schedule_item_id: ID!
+  status: String!
+  vaccine_name: String!
+}
+
 type ImpersonationResult {
   access_token: String
   expires_in: Int
@@ -1948,6 +1979,7 @@ type Mutation {
   recallQueueEntry(id: ID!): QueueEntry!
   receiveStock(input: ReceiveStockInput!): DrugBatch!
   recordCounterPayment(input: RecordCounterPaymentInput!): RecordCounterPaymentResult!
+  recordImmunization(input: RecordImmunizationInput!): ImmunizationRecord!
   recordVitals(input: RecordVitalsInput!): [Vital!]!
   redeemPackageSitting(input: RedeemPackageSittingInput!): RedeemPackageSittingResult!
   refresh(input: RefreshInput!): AuthPayload!
@@ -3070,6 +3102,7 @@ type Query {
   getUsers(limit: Int, offset: Int, role: String, search: String): [AdminUser!]!
   getUsersStats(role: String, search: String): AdminUsersStats!
   icd10Codes(search: String): [Icd10Code!]!
+  immunizationSchedule: [ImmunizationScheduleItem!]!
   intakeFieldConfigs(clinic_id: ID, product_id: ID): [IntakeFieldConfig!]!
   languages: [Language!]!
   lowStockDrugs(clinic_id: ID): [LowStockDrug!]!
@@ -3105,6 +3138,8 @@ type Query {
   patient(id: ID!): Patient
   patientAllergyBanner(patient_id: ID!): [Diagnosis!]!
   patientConsents(patient_id: ID!): [Consent!]!
+  patientImmunizationStatus(patient_id: ID!): [ImmunizationStatusItem!]!
+  patientImmunizations(patient_id: ID!): [ImmunizationRecord!]!
   patientInsurancePolicies(patient_id: ID!): [PatientInsurancePolicy!]!
   patientMembership(patient_id: ID!): PatientMembership
   patientPackages(patient_id: ID!): [PatientPackage!]!
@@ -3235,6 +3270,18 @@ type RecordCounterPaymentResult {
   payment_id: ID
   pending_approval_id: ID
   success: Boolean!
+}
+
+input RecordImmunizationInput {
+  administered_at: String
+  batch_no: String
+  dose_number: Int!
+  encounter_id: ID
+  notes: String
+  patient_id: ID!
+  schedule_item_id: ID
+  site: String
+  vaccine_name: String!
 }
 
 input RecordVitalsInput {
