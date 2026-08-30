@@ -1,6 +1,6 @@
 import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { MemoryRouter, Routes, Route } from 'react-router-dom'
+import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
@@ -153,6 +153,11 @@ function patientDetailMock({ appointments = [], overrides = {} } = {}) {
   }
 }
 
+function AppointmentDetailMarker() {
+  const location = useLocation()
+  return <div data-testid="appointment-detail-marker">{location.pathname}</div>
+}
+
 function renderPage(mocks, { patientMock } = {}) {
   return render(
     // UI-8 -- this page reads theme.palette.appointmentStatus (statusChipSx,
@@ -166,6 +171,7 @@ function renderPage(mocks, { patientMock } = {}) {
             <MockedProvider mocks={[patientMock ?? patientDetailMock(), ...mocks]}>
               <Routes>
                 <Route path="/patients/:id" element={<PatientDetailPage />} />
+                <Route path="/appointments/:id" element={<AppointmentDetailMarker />} />
               </Routes>
             </MockedProvider>
           </SnackbarProvider>
@@ -426,6 +432,16 @@ describe('patients/detail.jsx — real identity + Appointments tab (BUG055)', ()
     expect(screen.getByText('GP Consultation')).toBeInTheDocument()
     expect(screen.queryByText('Dr. Jane Smith')).not.toBeInTheDocument()
     expect(screen.queryByText('Dr. Carlos Vega')).not.toBeInTheDocument()
+  })
+
+  it('navigates to the real appointment detail page when a row is clicked', async () => {
+    renderPage([insuranceMock(), packagesMock()], { patientMock: patientDetailMock({ appointments: [realAppt] }) })
+    await waitFor(() => expect(screen.getByText('Rohan Verma')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('tab', { name: /Appointments/ }))
+    await waitFor(() => expect(screen.getByText('Alex Clinician')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: /View appointment on/ }))
+    await waitFor(() => expect(screen.getByTestId('appointment-detail-marker')).toHaveTextContent(`/appointments/${realAppt.id}`))
   })
 
   it('derives Visits/Last visit from the real appointment data, and drops the fields with no real backing', async () => {

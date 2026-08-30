@@ -1188,7 +1188,21 @@ export default function PatientDetailPage() {
                     {realAppointments.map((a) => {
                       const Icon = STATUS_ICONS[a.status] || CheckCircleRoundedIcon
                       return (
-                        <TableRow key={a.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                        <TableRow
+                          key={a.id}
+                          hover
+                          onClick={() => navigate(`/appointments/${a.id}`)}
+                          tabIndex={0}
+                          role="button"
+                          aria-label={`View appointment on ${dayjs(a.start_datetime).format('DD/MM/YYYY')}`}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' || e.key === ' ') {
+                              e.preventDefault()
+                              navigate(`/appointments/${a.id}`)
+                            }
+                          }}
+                          sx={{ cursor: 'pointer', '&:last-child td': { border: 0 } }}
+                        >
                           <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
                             {dayjs(a.start_datetime).format('DD/MM/YYYY, h:mm A')}
                           </TableCell>
