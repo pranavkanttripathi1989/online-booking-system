@@ -20,6 +20,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR257 | bug | /admin/plans route gate + Appointments test fragment drift results | pass | 2026-08-30 | 2026-08-30 | TP257 | [TR257-frontend-platform-2026-08-30-plans-route-gate-and-appointments-test-fragment-drift.md](./bug/TR257-frontend-platform-2026-08-30-plans-route-gate-and-appointments-test-fragment-drift.md) |
 | TR256 | bug | Remaining page-sweep integration gaps results | pass | 2026-08-30 | 2026-08-30 | TP256 | [TR256-frontend-platform-2026-08-30-remaining-pages-integration-gaps.md](./bug/TR256-frontend-platform-2026-08-30-remaining-pages-integration-gaps.md) |
 | TR255 | bug | admin/* pages 7 integration gaps results | pass | 2026-08-30 | 2026-08-30 | TP255 | [TR255-frontend-platform-2026-08-30-admin-pages-integration-gaps.md](./bug/TR255-frontend-platform-2026-08-30-admin-pages-integration-gaps.md) |
 | TR254 | bug | patient/clinician AuthContext login-cache gap fixes results | pass | 2026-08-30 | 2026-08-30 | TP254 | [TR254-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md](./bug/TR254-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md) |

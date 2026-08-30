@@ -20,6 +20,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG062 | bug | /admin/plans route gate too wide + patient/Appointments.test.jsx fragment drift | done | 2026-08-30 | 2026-08-30 | — | [BUG062-frontend-platform-2026-08-30-plans-route-gate-and-appointments-test-fragment-drift.md](./bug/BUG062-frontend-platform-2026-08-30-plans-route-gate-and-appointments-test-fragment-drift.md) |
 | BUG061 | bug | 7 integration gaps in the remaining page sweep, audit complete | done | 2026-08-30 | 2026-08-30 | — | [BUG061-frontend-platform-2026-08-30-remaining-pages-integration-gaps.md](./bug/BUG061-frontend-platform-2026-08-30-remaining-pages-integration-gaps.md) |
 | BUG060 | bug | 7 integration gaps in admin/* pages | done | 2026-08-30 | 2026-08-30 | — | [BUG060-frontend-platform-2026-08-30-admin-pages-integration-gaps.md](./bug/BUG060-frontend-platform-2026-08-30-admin-pages-integration-gaps.md) |
 | BUG059 | bug | Three new instances of the AuthContext login-cache gap (patient/clinician) | done | 2026-08-30 | 2026-08-30 | — | [BUG059-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md](./bug/BUG059-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md) |
