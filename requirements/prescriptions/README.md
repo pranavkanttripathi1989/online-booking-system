@@ -19,4 +19,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| BUG056 | bug | No way to view a completed appointment's consultation or its prescribed medicines | done | 2026-08-30 | 2026-08-30 | — | [BUG056-prescriptions-2026-08-30-no-way-to-view-consultation-or-prescriptions-from-appointment.md](./bug/BUG056-prescriptions-2026-08-30-no-way-to-view-consultation-or-prescriptions-from-appointment.md) |

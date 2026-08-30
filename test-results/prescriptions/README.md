@@ -19,4 +19,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR247 | bug | Consultation/prescription visibility fix results | pass | 2026-08-30 | 2026-08-30 | TP247 | [TR247-prescriptions-2026-08-30-no-way-to-view-consultation-or-prescriptions-from-appointment.md](./bug/TR247-prescriptions-2026-08-30-no-way-to-view-consultation-or-prescriptions-from-appointment.md) |

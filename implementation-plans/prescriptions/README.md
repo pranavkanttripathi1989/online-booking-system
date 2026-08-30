@@ -19,4 +19,6 @@
 
 ## bug
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN227 | bug | Surface consultation + prescriptions from a completed appointment | done | 2026-08-30 | 2026-08-30 | BUG056 | [PLAN227-prescriptions-2026-08-30-no-way-to-view-consultation-or-prescriptions-from-appointment.md](./bug/PLAN227-prescriptions-2026-08-30-no-way-to-view-consultation-or-prescriptions-from-appointment.md) |
