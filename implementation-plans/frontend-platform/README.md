@@ -20,6 +20,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN238 | bug | Fix manager/clinics fabricated data + 4 manager-page RBAC gates | done | 2026-08-30 | 2026-08-30 | BUG063 | [PLAN238-frontend-platform-2026-08-30-manager-clinics-fabricated-data-and-rbac-gate-audit.md](./bug/PLAN238-frontend-platform-2026-08-30-manager-clinics-fabricated-data-and-rbac-gate-audit.md) |
 | PLAN237 | bug | Fix /admin/plans route gate + Appointments test fragment drift | done | 2026-08-30 | 2026-08-30 | BUG062 | [PLAN237-frontend-platform-2026-08-30-plans-route-gate-and-appointments-test-fragment-drift.md](./bug/PLAN237-frontend-platform-2026-08-30-plans-route-gate-and-appointments-test-fragment-drift.md) |
 | PLAN236 | bug | Fix 7 remaining page-sweep integration gaps | done | 2026-08-30 | 2026-08-30 | BUG061 | [PLAN236-frontend-platform-2026-08-30-remaining-pages-integration-gaps.md](./bug/PLAN236-frontend-platform-2026-08-30-remaining-pages-integration-gaps.md) |
 | PLAN235 | bug | Fix 7 admin/* integration gaps | done | 2026-08-30 | 2026-08-30 | BUG060 | [PLAN235-frontend-platform-2026-08-30-admin-pages-integration-gaps.md](./bug/PLAN235-frontend-platform-2026-08-30-admin-pages-integration-gaps.md) |

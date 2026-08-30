@@ -41,7 +41,7 @@
 | patients | 0 | 1 | 9 | 0 | 10 | 2026-08-30 | [patients](./patients/README.md) |
 | test-results | 0 | 1 | 1 | 0 | 2 | 2026-08-30 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
-| frontend-platform | 0 | 7 | 9 | 0 | 16 | 2026-08-30 | [frontend-platform](./frontend-platform/README.md) |
+| frontend-platform | 0 | 7 | 10 | 0 | 17 | 2026-08-30 | [frontend-platform](./frontend-platform/README.md) |
 
 ## PRD-derived requirements (2026-08-22)
 
