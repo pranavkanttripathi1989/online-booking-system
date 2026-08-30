@@ -23,8 +23,11 @@ export class TestResultsResolver {
     @Args('first', { type: () => Int, defaultValue: 200 }) first: number,
     @Args('page', { type: () => Int, defaultValue: 1 }) page: number,
     @CurrentUser() user: JwtPayload,
+    // context/open-questions.md #20 -- lets a caller ask for one specific
+    // patient's results (patients/detail.jsx's own Test Results tab).
+    @Args('patient_id', { type: () => ID, nullable: true }) patientId?: string,
   ) {
-    return this.testResultsService.findAll(search, type, status, first, page, user);
+    return this.testResultsService.findAll(search, type, status, first, page, user, patientId);
   }
 
   @Query(() => TestResultType, { nullable: true })

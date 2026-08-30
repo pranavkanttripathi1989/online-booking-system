@@ -138,6 +138,44 @@ describe('TestResultsService — access scoping', () => {
 
   // REQ133 (F-14 residue) — {data, paginatorInfo}, matching
   // appointments.service.ts#findAll's own pagination shape/math exactly.
+  // context/open-questions.md #20 -- patient_id already existed on this
+  // model (F-08/BUG027), just was never exposed to GraphQL or filterable.
+  // Lets patients/detail.jsx's Test Results tab ask for one specific
+  // patient's real results instead of staying mock.
+  describe('findAll — patientId filter (open-questions.md #20)', () => {
+    it('filters to exactly the given patient when patientId is supplied', async () => {
+      await service.findAll(undefined, undefined, undefined, 200, 1, staffUser, 'pat-1');
+      const where = prisma.testResults.findMany.mock.calls[0][0].where;
+      expect(where.patient_id).toBe('pat-1');
+    });
+
+    it('omits the patient_id filter entirely when patientId is not supplied', async () => {
+      await service.findAll(undefined, undefined, undefined, 200, 1, staffUser);
+      const where = prisma.testResults.findMany.mock.calls[0][0].where;
+      expect(where.patient_id).toBeUndefined();
+    });
+  });
+
+  describe('toGraphQL — patient_id exposure (open-questions.md #20)', () => {
+    it('exposes the row\'s real patient_id', async () => {
+      prisma.testResults.count.mockResolvedValue(1);
+      prisma.testResults.findMany.mockResolvedValue([
+        { id: 'tr-1', patient_name: 'Anita', patient_id: 'pat-1', test_name: 'CBC', ordered_by_name: 'Dr. A', date_ordered: new Date(), status: 'pending', test_type: 'blood', values: [] },
+      ]);
+      const result = await service.findAll(undefined, undefined, undefined, 20, 1, staffUser);
+      expect(result.data[0].patient_id).toBe('pat-1');
+    });
+
+    it('leaves patient_id undefined for a free-text walk-in result', async () => {
+      prisma.testResults.count.mockResolvedValue(1);
+      prisma.testResults.findMany.mockResolvedValue([
+        { id: 'tr-2', patient_name: 'Walk-in', patient_id: null, test_name: 'Lipid', ordered_by_name: 'Dr. A', date_ordered: new Date(), status: 'pending', test_type: 'blood', values: [] },
+      ]);
+      const result = await service.findAll(undefined, undefined, undefined, 20, 1, staffUser);
+      expect(result.data[0].patient_id).toBeUndefined();
+    });
+  });
+
   describe('findAll — pagination (REQ133)', () => {
     it('passes skip/take derived from page/first into findMany', async () => {
       await service.findAll(undefined, undefined, undefined, 20, 3, staffUser);

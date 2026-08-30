@@ -18,6 +18,10 @@ export class TestResultsService {
     return {
       id: row.id,
       patient: row.patient_name,
+      // context/open-questions.md #20 -- patient_id already existed on this
+      // model (F-08/BUG027), just was never exposed to GraphQL; this is the
+      // only change needed to let a caller ask "this patient's results".
+      patient_id: row.patient_id ?? undefined,
       test: row.test_name,
       ordered_by: row.ordered_by_name,
       date_ordered: row.date_ordered.toISOString().split('T')[0],
@@ -31,7 +35,21 @@ export class TestResultsService {
   // REQ133 (F-14 residue) — {data, paginatorInfo}, matching
   // appointments.service.ts#findAll's own $transaction([count, findMany])
   // pagination math exactly (page-based, skip = (page-1)*first).
-  async findAll(search: string | undefined, type: string | undefined, status: string | undefined, first: number, page: number, user: JwtPayload) {
+  // context/open-questions.md #20 -- patientId is the new optional filter
+  // letting a staff/clinician/manager caller ask for one specific patient's
+  // results (patients/detail.jsx's own Test Results tab). Never a substitute
+  // for the org-scope below -- a patientId belonging to a patient outside
+  // the caller's own org simply matches nothing, since orgScopeVia(user,
+  // 'ordered_by') already excludes every other org's rows.
+  async findAll(
+    search: string | undefined,
+    type: string | undefined,
+    status: string | undefined,
+    first: number,
+    page: number,
+    user: JwtPayload,
+    patientId?: string,
+  ) {
     // REQ065 (REQ018 US-BOOK-02 residue) — a patient caller may read a
     // dependant's results too, not just their own.
     const allowedPatientIds = user.roles.includes('patient')
@@ -62,6 +80,7 @@ export class TestResultsService {
       // patients.service.ts's selfScope for the identical JWT-embedded
       // pattern).
       ...(allowedPatientIds ? { patient_id: { in: allowedPatientIds } } : {}),
+      ...(patientId ? { patient_id: patientId } : {}),
     };
     const [total, rows] = await this.prisma.$transaction([
       this.prisma.testResults.count({ where }),

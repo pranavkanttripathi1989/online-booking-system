@@ -3230,7 +3230,7 @@ type Query {
   suggestEncounterCodes(encounter_id: ID!): EncounterCodeSuggestions!
   tasks(filter: TaskFilterInput): [Task!]!
   testResult(id: ID!): TestResult
-  testResults(first: Int! = 200, page: Int! = 1, search: String, status: String, type: String): TestResultPaginated!
+  testResults(first: Int! = 200, page: Int! = 1, patient_id: ID, search: String, status: String, type: String): TestResultPaginated!
   thread(id: ID!): MessageThread!
   threads: [MessageThread!]!
   unbilledVisits(clinic_id: ID!): [UnbilledVisit!]!
@@ -3860,6 +3860,7 @@ type TestResult {
   id: ID!
   ordered_by: String!
   patient: String!
+  patient_id: ID
   status: String!
   test: String!
   type: String!

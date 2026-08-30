@@ -16,6 +16,10 @@ export class TestResultValueType {
 export class TestResultType {
   @Field(() => ID) id: string;
   @Field() patient: string; // patient_name, exposed under the frontend's existing field name
+  // context/open-questions.md #20 -- the column already existed (F-08/
+  // BUG027), just was never exposed to GraphQL. Nullable: free-text/
+  // walk-in results predate real patient linkage.
+  @Field(() => ID, { nullable: true }) patient_id?: string;
   @Field() test: string; // test_name
   @Field() ordered_by: string; // ordered_by_name
   @Field() date_ordered: string;
