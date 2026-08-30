@@ -20,6 +20,8 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG060 | bug | 7 integration gaps in admin/* pages | done | 2026-08-30 | 2026-08-30 | — | [BUG060-frontend-platform-2026-08-30-admin-pages-integration-gaps.md](./bug/BUG060-frontend-platform-2026-08-30-admin-pages-integration-gaps.md) |
+| BUG059 | bug | Three new instances of the AuthContext login-cache gap (patient/clinician) | done | 2026-08-30 | 2026-08-30 | — | [BUG059-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md](./bug/BUG059-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md) |
 | BUG058 | bug | manager/Availability.jsx, Blocks.jsx, clinics/edit.jsx, products/edit.jsx violated DATA-13 | done | 2026-08-30 | 2026-08-30 | — | [BUG058-frontend-platform-2026-08-30-manager-pages-integration-gaps.md](./bug/BUG058-frontend-platform-2026-08-30-manager-pages-integration-gaps.md) |
 | BUG053 | bug | Org accent color doesn't cascade everywhere it should | done | 2026-08-29 | 2026-08-29 | BUG051 | [BUG053-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md](./bug/BUG053-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md) |
 | BUG048 | bug | `/clinician/encounters/:id` and `/clinician/prescriptions/new` had no route-level RoleGuard | done | 2026-08-29 | 2026-08-29 | — | [BUG048-frontend-platform-2026-08-29-clinician-route-guard-gap.md](./bug/BUG048-frontend-platform-2026-08-29-clinician-route-guard-gap.md) |

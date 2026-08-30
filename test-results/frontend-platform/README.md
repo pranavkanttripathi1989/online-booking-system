@@ -20,6 +20,8 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR255 | bug | admin/* pages 7 integration gaps results | pass | 2026-08-30 | 2026-08-30 | TP255 | [TR255-frontend-platform-2026-08-30-admin-pages-integration-gaps.md](./bug/TR255-frontend-platform-2026-08-30-admin-pages-integration-gaps.md) |
+| TR254 | bug | patient/clinician AuthContext login-cache gap fixes results | pass | 2026-08-30 | 2026-08-30 | TP254 | [TR254-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md](./bug/TR254-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md) |
 | TR253 | bug | manager/* pages DATA-13/not-found-guard fixes results | pass | 2026-08-30 | 2026-08-30 | TP253 | [TR253-frontend-platform-2026-08-30-manager-pages-integration-gaps.md](./bug/TR253-frontend-platform-2026-08-30-manager-pages-integration-gaps.md) |
 | TR241 | bug | Org accent color doesn't cascade everywhere it should results | pass | 2026-08-29 | 2026-08-29 | TP241 | [TR241-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md](./bug/TR241-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md) |
 | TR235 | bug | Guard the clinician encounter/prescription routes results | pass | 2026-08-29 | 2026-08-29 | TP235 | [TR235-frontend-platform-2026-08-29-clinician-route-guard-gap.md](./bug/TR235-frontend-platform-2026-08-29-clinician-route-guard-gap.md) |

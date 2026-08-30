@@ -20,6 +20,8 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN235 | bug | Fix 7 admin/* integration gaps | done | 2026-08-30 | 2026-08-30 | BUG060 | [PLAN235-frontend-platform-2026-08-30-admin-pages-integration-gaps.md](./bug/PLAN235-frontend-platform-2026-08-30-admin-pages-integration-gaps.md) |
+| PLAN234 | bug | Network-only re-fetch for user.patient/user.clinician in 3 pages | done | 2026-08-30 | 2026-08-30 | BUG059 | [PLAN234-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md](./bug/PLAN234-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md) |
 | PLAN233 | bug | Fix DATA-13/not-found-guard gaps in 4 manager pages | done | 2026-08-30 | 2026-08-30 | BUG058 | [PLAN233-frontend-platform-2026-08-30-manager-pages-integration-gaps.md](./bug/PLAN233-frontend-platform-2026-08-30-manager-pages-integration-gaps.md) |
 | PLAN221 | bug | Org accent color doesn't cascade everywhere it should | done | 2026-08-29 | 2026-08-29 | BUG053 | [PLAN221-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md](./bug/PLAN221-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md) |
 | PLAN215 | bug | Guard the clinician encounter/prescription routes | done | 2026-08-29 | 2026-08-29 | BUG048 | [PLAN215-frontend-platform-2026-08-29-clinician-route-guard-gap.md](./bug/PLAN215-frontend-platform-2026-08-29-clinician-route-guard-gap.md) |
