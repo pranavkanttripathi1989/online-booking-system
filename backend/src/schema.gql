@@ -698,6 +698,26 @@ type ChecklistUserError {
   message: String!
 }
 
+type ChronicRegistryEnrollment {
+  condition: String!
+  enrolled_at: String!
+  enrolled_by_name: String
+  id: ID!
+  last_reviewed_at: String!
+  notes: String
+  patient_id: ID!
+  patient_name: String!
+  recall_status: String!
+  status: String!
+}
+
+type ChronicRegistrySuggestion {
+  matched_diagnosis_text: String!
+  matched_icd10_code: String!
+  patient_id: ID!
+  patient_name: String!
+}
+
 type Claim {
   appointment_date: DateTime!
   appointment_id: ID!
@@ -1540,6 +1560,12 @@ type EndImpersonationResult {
   userErrors: [ImpersonationUserError!]!
 }
 
+input EnrollInRegistryInput {
+  condition: String!
+  notes: String
+  patient_id: ID!
+}
+
 type EnrollMembershipResult {
   patientMembership: PatientMembership
   success: Boolean!
@@ -1794,6 +1820,10 @@ type LunchBreakSlot {
   startTime: String!
 }
 
+input MarkRegistryReviewedInput {
+  enrollment_id: ID!
+}
+
 type MembershipPlan {
   clinic_id: ID!
   description: String
@@ -1959,6 +1989,7 @@ type Mutation {
   disableTotp(input: DisableTotpInput!): GenericResult!
   dispensePrescriptionItem(input: DispensePrescriptionItemInput!): DrugBatch!
   endImpersonation: EndImpersonationResult!
+  enrollInRegistry(input: EnrollInRegistryInput!): ChronicRegistryEnrollment!
   enrollPatientMembership(input: EnrollPatientMembershipInput!): EnrollMembershipResult!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   getOrCreateEncounter(appointment_id: ID!): Encounter!
@@ -1971,6 +2002,7 @@ type Mutation {
   markAllNotificationsRead: NotificationMutationResult!
   markNoShow(id: ID!): Appointment!
   markNotificationRead(id: ID!): NotificationMutationResult!
+  markRegistryReviewed(input: MarkRegistryReviewedInput!): ChronicRegistryEnrollment!
   markThreadRead(threadId: ID!): Boolean!
   mergePatients(input: MergePatientsInput!): Patient!
   orderInvestigation(input: OrderInvestigationInput!): InvestigationOrder!
@@ -1991,6 +2023,7 @@ type Mutation {
   requestOtp(input: RequestOtpInput!): GenericResult!
   resetAppointmentJourney(id: ID!): Appointment!
   resetPassword(input: ResetPasswordInput!): GenericResult!
+  resolveRegistryEnrollment(input: ResolveRegistryEnrollmentInput!): ChronicRegistryEnrollment!
   resolveRightsRequest(id: ID!, input: ResolveRightsRequestInput!): RightsRequest!
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
   revokeApiKey(id: ID!): ApiKey!
@@ -3054,6 +3087,7 @@ type Query {
   cashDrawerCloseouts(clinic_id: ID): [CashDrawerCloseout!]!
   checklistCompletions(appointment_id: ID!): [ChecklistCompletion!]!
   checklistItems(clinic_id: ID, product_id: ID): [ChecklistItem!]!
+  chronicRegistrySuggestions(condition: String!): [ChronicRegistrySuggestion!]!
   claim(id: ID!): Claim
   claimAppeal(claim_id: ID!): ClaimAppeal
   claimEvidencePrescriptions(claim_id: ID!): [Prescription!]!
@@ -3169,6 +3203,7 @@ type Query {
   products(category_id: ID, clinic_id: ID): [Product!]!
   queueBoard(clinician_id: ID!): QueueBoard!
   queueEntries: [QueueEntry!]!
+  registryEnrollments(condition: String): [ChronicRegistryEnrollment!]!
   repeatPrescription(source_id: ID!): PrescriptionDraft!
   resource(id: ID!): Resource
   resources(clinic_id: ID): [Resource!]!
@@ -3341,6 +3376,10 @@ input RequestOtpInput {
 input ResetPasswordInput {
   new_password: String!
   token: String!
+}
+
+input ResolveRegistryEnrollmentInput {
+  enrollment_id: ID!
 }
 
 input ResolveRightsRequestInput {

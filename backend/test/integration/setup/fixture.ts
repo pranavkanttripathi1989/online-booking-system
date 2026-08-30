@@ -165,6 +165,9 @@ export const IDS = {
   // Patient Membership Plans -- membership-plans domain.
   membershipPlanA: u('h01'),
   membershipPlanB: u('h02'),
+  // REQ168 (P2-12) -- chronic-registries domain.
+  chronicRegistryEnrollmentA: u('i01'),
+  chronicRegistryEnrollmentB: u('i02'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -203,6 +206,7 @@ const TABLES = [
   'AppointmentSeries',
   'PatientMemberships',
   'MembershipPlans',
+  'ChronicRegistryEnrollments',
   'TestResults',
   'ClinicianServices',
   'ClinicianLanguages',
@@ -513,6 +517,16 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.membershipPlanA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: 'Wellness Basic', price_monthly_paise: 49900 },
       { id: IDS.membershipPlanB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: 'Wellness Basic', price_monthly_paise: 49900 },
+    ],
+  });
+
+  // REQ168 (P2-12) -- no direct client_org_id column, scoped transitively
+  // via patient_id -> Patients.client_org_id (patientA/B already stamp
+  // their own org).
+  await prisma.chronicRegistryEnrollments.createMany({
+    data: [
+      { id: IDS.chronicRegistryEnrollmentA, patient_id: IDS.patientA, condition: 'diabetes' },
+      { id: IDS.chronicRegistryEnrollmentB, patient_id: IDS.patientB, condition: 'diabetes' },
     ],
   });
 

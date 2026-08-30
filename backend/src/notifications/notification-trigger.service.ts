@@ -55,6 +55,9 @@ const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; a
   // an appointment reminder is; same internal-alert-shaped profile as
   // low_stock_alert (app+email only).
   immunization_due: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  // REQ168 (P2-12) — an internal ops/outreach alert to clinic staff, same
+  // profile as low_stock_alert/break_glass_requested.
+  chronic_registry_recall_due: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
 };
 
 // US-NOT-04's own acceptance criterion names "an imminent appointment
@@ -92,6 +95,7 @@ const TEMPLATE_CATEGORY: Record<string, TemplateCategory> = {
   low_stock_alert: 'utility',
   queue_delay: 'utility',
   immunization_due: 'utility',
+  chronic_registry_recall_due: 'utility',
 };
 
 // Every event type here carries real transactional content (a specific

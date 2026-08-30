@@ -370,6 +370,18 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
   },
   {
+    // REQ168 (P2-12). No direct client_org_id on ChronicRegistryEnrollments
+    // -- scoped via orgScopeVia(user, 'patient'), same shape as
+    // test-results' own orgScopeVia(user, 'ordered_by').
+    domain: 'chronic-registries',
+    what: 'registryEnrollments',
+    query: `{ registryEnrollments { id } }`,
+    ids: (d) => (d.registryEnrollments ?? []).map((x: any) => x.id),
+    aId: IDS.chronicRegistryEnrollmentA,
+    bId: IDS.chronicRegistryEnrollmentB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
+  },
+  {
     // REQ055 (US-ORG-05). clinic_id omitted, matching cancellation-rules/
     // packages' own precedent -- org-wide list via orgScope().
     domain: 'branch-overrides',

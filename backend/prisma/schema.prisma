@@ -102,6 +102,11 @@ enum NotificationEventType {
   // its own separate migration, applied before any code references it —
   // the exact break_glass_requested/low_stock_alert precedent above.
   immunization_due
+  // REQ168 (P2-12) — a patient enrolled in a chronic-disease registry
+  // (diabetes/hypertension) has fallen overdue for their recall review.
+  // Notifies org staff, not the patient (the reverse of immunization_due).
+  // Added in its own separate migration, same precedent as above.
+  chronic_registry_recall_due
 }
 
 enum NotificationPriority {
@@ -1452,6 +1457,8 @@ model Patients {
   aiTranscriptionSessions  AiTranscriptionSessions[]
   // REQ167 (P2-11)
   immunizationRecords      ImmunizationRecords[]
+  // REQ168 (P2-12)
+  chronicRegistryEnrollments ChronicRegistryEnrollments[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1581,6 +1588,44 @@ model ImmunizationRecords {
   @@index([patient_id, administered_at])
   @@index([encounter_id])
   @@index([schedule_item_id])
+}
+
+// REQ168 (P2-12) — a fixed pair, not an open catalog (the slice's own
+// title says "(diabetes/HTN)"); no separate reference-catalog table like
+// ImmunizationScheduleItems since there is nothing here for an org to
+// configure.
+enum ChronicConditionType {
+  diabetes
+  hypertension
+}
+
+// REQ168 (P2-12) — mirrors TestResults/ImmunizationRecords' own shape:
+// patient_id mandatory, no direct client_org_id/clinic_id -- scoped
+// transitively via patient_id -> Patients.client_org_id. Enrollment is
+// always a confirmed clinician action (never an automatic diagnosis-code
+// join -- Diagnoses.icd10_code has no guaranteed cleanliness), which
+// chronicRegistrySuggestions() surfaces as candidates only.
+model ChronicRegistryEnrollments {
+  id                  String               @id @default(uuid())
+  patient_id          String
+  condition           ChronicConditionType
+  status              String               @default("active") // active | resolved
+  enrolled_at         DateTime             @default(now())
+  enrolled_by_user_id String?
+  // Recall clock. Reset to now() by markRegistryReviewed() each time a
+  // clinician documents a follow-up review. A fixed 90-day interval for
+  // both conditions -- a stated simplification, not a per-condition
+  // clinically-validated cadence this codebase has any real source for.
+  last_reviewed_at    DateTime             @default(now())
+  notes               String?
+  is_deleted          Boolean              @default(false)
+
+  patient    Patients      @relation(fields: [patient_id], references: [id])
+  enrolledBy UserProfiles? @relation(fields: [enrolled_by_user_id], references: [id])
+
+  @@unique([patient_id, condition])
+  @@index([patient_id])
+  @@index([status, last_reviewed_at])
 }
 
 model PaymentTransactions {
@@ -2649,6 +2694,8 @@ model UserProfiles {
   importJobsCreated  ImportJobs[]
   // REQ167 (P2-11)
   administeredImmunizations ImmunizationRecords[]
+  // REQ168 (P2-12)
+  enrolledChronicRegistrations ChronicRegistryEnrollments[]
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])
