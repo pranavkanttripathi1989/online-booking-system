@@ -77,6 +77,7 @@ import BadgeIcon from '@mui/icons-material/Badge'
 import CategoryIcon from '@mui/icons-material/Category'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
 import CardMembershipIcon from '@mui/icons-material/CardMembership'
+import MonitorHeartRoundedIcon from '@mui/icons-material/MonitorHeartRounded'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import MedicationIcon from '@mui/icons-material/Medication'
 import SummarizeIcon from '@mui/icons-material/Summarize'
@@ -261,6 +262,11 @@ const NAV_CONFIG = [
   // REQ131 — insurance.resolver.ts's claims/submitClaim share the same
   // staff-inclusive @Auth gate as Pharmacy above.
   { label: 'Insurance Claims', path: '/manager/claims', icon: <PolicyRoundedIcon />, roles: ['admin', 'super_admin', 'manager', 'staff'] },
+  // REQ168 (P2-12) — chronic-registries.resolver.ts is @Auth('clinician',
+  // 'manager','admin','super_admin','staff'), same top-level placement as
+  // Pharmacy/Insurance Claims above for the identical reason (a clinician
+  // needs to reach this, not just manager-only staff).
+  { label: 'Chronic Registries', path: '/manager/registries', icon: <MonitorHeartRoundedIcon />, roles: ['admin', 'super_admin', 'manager', 'clinician', 'staff'] },
   // ── Shared ────────────────────────────────────────────────────────────────
   { label: 'Messages', path: '/messages', icon: <MessageIcon />, roles: 'all', badge: 0 },
   { label: 'Staff', path: '/staff', icon: <BadgeIcon />, roles: ['admin', 'super_admin', 'manager'] },

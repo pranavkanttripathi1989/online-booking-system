@@ -154,6 +154,7 @@ const EditProductPage = lazy(() => import('./pages/manager/products/edit'))
 const ManagerClinicForms = lazy(() => import('./pages/manager/clinic-forms/index'))
 const ManagerPackages = lazy(() => import('./pages/manager/packages/index'))
 const ManagerMemberships = lazy(() => import('./pages/manager/memberships/index'))
+const ManagerRegistries = lazy(() => import('./pages/manager/registries/index'))
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 const AdminUsers = lazy(() => import('./pages/admin/users/index'))
@@ -1028,6 +1029,23 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <ReviewsPage />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* REQ168 (P2-12) — /manager/registries needs clinician/staff too
+              (a clinician confirms suggestions off their own diagnoses,
+              front-desk staff can mark a review done), broader than the
+              admin/super_admin/manager-only block above — its own
+              dedicated RoleGuard, same precedent as /queue and
+              /waiting-room below. */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'clinician', 'staff']} />}>
+            <Route
+              path="/manager/registries"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerRegistries />
                 </Suspense>
               }
             />
