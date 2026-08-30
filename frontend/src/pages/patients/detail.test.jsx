@@ -89,6 +89,30 @@ const RECORD_IMMUNIZATION = gql`
   }
 `
 
+// context/open-questions.md #20 -- local re-declaration matching detail.jsx's
+// own inline gql exactly.
+const GET_PATIENT_TEST_RESULTS = gql`
+  query GetPatientTestResults($patient_id: ID) {
+    testResults(patient_id: $patient_id, first: 50) {
+      data {
+        id
+        test
+        ordered_by
+        date_ordered
+        date_completed
+        status
+        type
+        values {
+          name
+          value
+          ref
+          flag
+        }
+      }
+    }
+  }
+`
+
 // A-7 (project-plans/08-integration-gap-analysis.md) — the rest of this page
 // is deliberately still mock-driven (context/open-questions.md #13); this
 // spec covers only the new, real Insurance tab, scoped independently.
@@ -272,6 +296,10 @@ async function openPackagesTab() {
 
 async function openImmunizationsTab() {
   await userEvent.click(await screen.findByRole('tab', { name: /Immunizations/ }))
+}
+
+async function openTestResultsTab() {
+  await userEvent.click(await screen.findByRole('tab', { name: /Test Results/ }))
 }
 
 describe('patients/detail.jsx — Insurance tab (A-7)', () => {
@@ -726,4 +754,56 @@ describe('patients/detail.jsx — Immunizations tab (REQ167/P2-11)', () => {
     // refetch) — same generous timeout the membership enroll/cancel tests
     // above needed for the identical shape.
   }, 15000)
+})
+
+describe('patients/detail.jsx — Test Results tab (context/open-questions.md #20)', () => {
+  function testResultsMock(results = []) {
+    return {
+      request: { query: GET_PATIENT_TEST_RESULTS, variables: { patient_id: PATIENT_ID } },
+      result: { data: { testResults: { data: results } } },
+    }
+  }
+
+  it('shows a real empty state when no test results are recorded', async () => {
+    renderPage([insuranceMock(), packagesMock(), testResultsMock([])])
+    await openTestResultsTab()
+    await waitFor(() => expect(screen.getByText('No test results recorded for this patient yet.')).toBeInTheDocument())
+  })
+
+  it('renders a real test result, never the old fabricated Dr. Jane Smith/Dr. Carlos Vega rows', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      testResultsMock([
+        {
+          id: 'tr-1', test: 'Complete Blood Count', ordered_by: 'Dr. Alex Clinician', date_ordered: '2026-08-01',
+          date_completed: '2026-08-02', status: 'completed', type: 'blood',
+          values: [{ name: 'Haemoglobin', value: '13.5 g/dL', ref: '13.0-17.0', flag: 'normal' }],
+        },
+      ]),
+    ])
+    await openTestResultsTab()
+    await waitFor(() => expect(screen.getByText('Complete Blood Count')).toBeInTheDocument())
+    expect(screen.getByText(/Dr\. Alex Clinician/)).toBeInTheDocument()
+    expect(screen.queryByText(/Dr\. Jane Smith|Dr\. Carlos Vega/)).not.toBeInTheDocument()
+  })
+
+  it('shows the real discrete values in the View Result dialog', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      testResultsMock([
+        {
+          id: 'tr-1', test: 'Complete Blood Count', ordered_by: 'Dr. Alex Clinician', date_ordered: '2026-08-01',
+          date_completed: '2026-08-02', status: 'completed', type: 'blood',
+          values: [{ name: 'Haemoglobin', value: '13.5 g/dL', ref: '13.0-17.0', flag: 'normal' }],
+        },
+      ]),
+    ])
+    await openTestResultsTab()
+    await userEvent.click(await screen.findByRole('button', { name: 'View Result' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('Haemoglobin')).toBeInTheDocument()
+    expect(within(dialog).getByText('13.5 g/dL')).toBeInTheDocument()
+  })
 })

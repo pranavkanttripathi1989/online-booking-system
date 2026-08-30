@@ -210,13 +210,6 @@ const MOCK_HISTORY = [
   },
 ]
 
-const MOCK_TESTS = [
-  { id: 'T1', name: 'Complete Blood Count', date: '2026-01-10', status: 'completed', ordered_by: 'Dr. Carlos Vega' },
-  { id: 'T2', name: 'Blood Glucose', date: '2026-01-10', status: 'completed', ordered_by: 'Dr. Carlos Vega' },
-  { id: 'T3', name: 'Chest X-Ray', date: '2025-09-05', status: 'completed', ordered_by: 'Dr. Amara Patel' },
-  { id: 'T4', name: 'Allergy Panel', date: '2026-02-28', status: 'pending', ordered_by: 'Dr. Jane Smith' },
-]
-
 // Communication preferences + related accounts (family linking) —
 // requirements/semble-competitive-gap-analysis-requirements.md Phase 1
 const DEFAULT_COMM_PREFS = { email: true, sms: true, whatsapp: false }
@@ -352,6 +345,34 @@ const RECORD_IMMUNIZATION = gql`
   mutation RecordImmunization($input: RecordImmunizationInput!) {
     recordImmunization(input: $input) {
       id
+    }
+  }
+`
+
+// context/open-questions.md #20 -- TestResultType.patient_id already
+// existed on the model (F-08/BUG027), just was never exposed to GraphQL or
+// filterable. A local query (not the canonical TEST_RESULTS_QUERY in
+// graphql/queries.js) since that one has no patient_id filter argument --
+// matches this file's own established local-override convention for
+// Insurance/Packages/Membership/Immunizations above.
+const GET_PATIENT_TEST_RESULTS = gql`
+  query GetPatientTestResults($patient_id: ID) {
+    testResults(patient_id: $patient_id, first: 50) {
+      data {
+        id
+        test
+        ordered_by
+        date_ordered
+        date_completed
+        status
+        type
+        values {
+          name
+          value
+          ref
+          flag
+        }
+      }
     }
   }
 `
@@ -789,6 +810,16 @@ export default function PatientDetailPage() {
       },
     })
   }
+
+  // context/open-questions.md #20 -- real per-patient test results, closing
+  // this tab's mock status. skip: !id mirrors every other real query on
+  // this page.
+  const { data: testResultsData, loading: testResultsLoading } = useQuery(GET_PATIENT_TEST_RESULTS, {
+    variables: { patient_id: id },
+    skip: !id,
+    fetchPolicy: 'cache-and-network',
+  })
+  const realTestResults = testResultsData?.testResults?.data ?? []
 
   // Consultation records — requirements/semble-competitive-gap-analysis-requirements.md
   // Phase 2 (mirrors Semble's Consultation: id/patient/date/encounterType/doctorName/records)
@@ -1398,67 +1429,69 @@ export default function PatientDetailPage() {
           </TabPanel>
 
           {/* ── Test Results ────────────────────────────────────────────── */}
+          {/* context/open-questions.md #20 -- real per-patient test results
+              (BUG055 left this tab mock since TestResultType.patient_id
+              wasn't exposed/filterable at the time; the column already
+              existed on the model from F-08/BUG027). */}
           <TabPanel value={tab} index={3}>
-            {/* BUG055 -- unlike Appointments, there is no real per-patient Test
-                Results query today: TestResultType.patient is free text, no
-                patient_id FK or resolver filter exists to join on (confirmed
-                by direct code read). A name-matching join would be a silent-
-                failure risk, not a fix -- left honestly disclosed instead of
-                silently faked. See context/open-questions.md for the tracked
-                backend gap. */}
-            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-              Showing sample data — real per-patient test results aren't available yet.
-            </Typography>
-            <Stack spacing={2}>
-              {MOCK_TESTS.map((t) => (
-                <Card key={t.id} variant="outlined" sx={{ borderRadius: 2, border: '1px solid #E2E8F0' }}>
-                  <CardContent sx={{ py: '12px !important', px: 2.5 }}>
-                    <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
-                      <Stack direction="row" spacing={1.5} alignItems="center">
-                        <Box
-                          sx={{
-                            width: 36,
-                            height: 36,
-                            borderRadius: 2,
-                            bgcolor: 'primary.main',
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                          }}
-                        >
-                          <ScienceRoundedIcon sx={{ color: 'common.white', fontSize: '1rem' }} />
-                        </Box>
-                        <Box>
-                          <Typography variant="body2" fontWeight={700}>
-                            {t.name}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            Ordered by {t.ordered_by} · {dayjs(t.date).format('DD/MM/YYYY')}
-                          </Typography>
-                        </Box>
-                      </Stack>
-                      <Stack direction="row" spacing={1} alignItems="center">
-                        <Chip
-                          label={t.status}
-                          size="small"
-                          sx={{ fontWeight: 700, textTransform: 'capitalize', ...statusChipSx(theme, t.status) }}
-                        />
-                        {t.status === 'completed' && (
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => setViewResult(t)}
-                            sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}
+            {testResultsLoading ? (
+              <LinearProgress />
+            ) : realTestResults.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No test results recorded for this patient yet.
+              </Typography>
+            ) : (
+              <Stack spacing={2}>
+                {realTestResults.map((t) => (
+                  <Card key={t.id} variant="outlined" sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider' }}>
+                    <CardContent sx={{ py: '12px !important', px: 2.5 }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1}>
+                        <Stack direction="row" spacing={1.5} alignItems="center">
+                          <Box
+                            sx={{
+                              width: 36,
+                              height: 36,
+                              borderRadius: 2,
+                              bgcolor: 'primary.main',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                            }}
                           >
-                            View Result
-                          </Button>
-                        )}
+                            <ScienceRoundedIcon sx={{ color: 'common.white', fontSize: '1rem' }} />
+                          </Box>
+                          <Box>
+                            <Typography variant="body2" fontWeight={700}>
+                              {t.test}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                              Ordered by {t.ordered_by} · {dayjs(t.date_ordered).format('DD/MM/YYYY')}
+                            </Typography>
+                          </Box>
+                        </Stack>
+                        <Stack direction="row" spacing={1} alignItems="center">
+                          <Chip
+                            label={t.status}
+                            size="small"
+                            sx={{ fontWeight: 700, textTransform: 'capitalize', ...statusChipSx(theme, t.status) }}
+                          />
+                          {t.status === 'completed' && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => setViewResult(t)}
+                              sx={{ borderRadius: 1.5, textTransform: 'none', fontWeight: 700, fontSize: '0.75rem' }}
+                            >
+                              View Result
+                            </Button>
+                          )}
+                        </Stack>
                       </Stack>
-                    </Stack>
-                  </CardContent>
-                </Card>
-              ))}
-            </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Stack>
+            )}
           </TabPanel>
 
           {/* ── Documents ───────────────────────────────────────────────── */}
@@ -2124,6 +2157,9 @@ export default function PatientDetailPage() {
       </Paper>
 
       {/* ── View Result Dialog (SUG-PT-003 / SUG-PAT-013) ────────────────── */}
+      {/* context/open-questions.md #20 -- real field names (test/date_ordered,
+          not the old mock's name/date) and the real completed values, not
+          a placeholder "not available" message. */}
       <Dialog
         open={Boolean(viewResult)}
         onClose={() => setViewResult(null)}
@@ -2131,15 +2167,44 @@ export default function PatientDetailPage() {
         fullWidth
         PaperProps={{ sx: { borderRadius: 3 } }}
       >
-        <DialogTitle sx={{ fontWeight: 800 }}>{viewResult?.name}</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800 }}>{viewResult?.test}</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={1.5}>
             <InfoRow label="Status" value={viewResult?.status} icon={CheckCircleRoundedIcon} />
             <InfoRow label="Ordered By" value={viewResult?.ordered_by} icon={PersonRoundedIcon} />
-            <InfoRow label="Date" value={viewResult ? dayjs(viewResult.date).format('DD/MM/YYYY') : ''} icon={AccessTimeRoundedIcon} />
-            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
-              Full result document is not yet available in this demo environment.
-            </Typography>
+            <InfoRow
+              label="Date"
+              value={viewResult ? dayjs(viewResult.date_ordered).format('DD/MM/YYYY') : ''}
+              icon={AccessTimeRoundedIcon}
+            />
+            {viewResult?.values?.length > 0 ? (
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2, mt: 1 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Test</TableCell>
+                      <TableCell>Value</TableCell>
+                      <TableCell>Ref. Range</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {viewResult.values.map((v, idx) => (
+                      <TableRow key={idx}>
+                        <TableCell>{v.name}</TableCell>
+                        <TableCell sx={{ fontWeight: v.flag && v.flag !== 'normal' ? 700 : 400, color: v.flag && v.flag !== 'normal' ? 'error.main' : 'text.primary' }}>
+                          {v.value}
+                        </TableCell>
+                        <TableCell>{v.ref}</TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            ) : (
+              <Typography variant="body2" sx={{ color: 'text.secondary', mt: 1 }}>
+                No discrete values recorded for this result.
+              </Typography>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
