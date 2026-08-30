@@ -20,6 +20,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import CategoryIcon from '@mui/icons-material/Category'
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
 import { CLINICS_QUERY } from '../../graphql/queries'
+import { useAuth } from '../../context/AuthContext'
 
 // REQ014 (US-ORG-03). No mock fallback — this is a wholly new domain with
 // a real backend from day one (CLAUDE.md's "no page ships rendering data
@@ -78,6 +79,13 @@ const defaultForm = { name: '', clinic_id: '' }
 
 export default function AdminDepartments() {
   const client = useApolloClient()
+  const { hasRole } = useAuth()
+  // departments.resolver.ts gates createDepartment/updateDepartment/
+  // deleteDepartment to manager/admin/super_admin only, but the read
+  // queries also allow staff — self-gate the write actions client-side
+  // (SEC-18) so a staff caller sees this page (matching the widened
+  // route in App.jsx) without seeing controls they cannot use.
+  const canManage = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
   const [departments, setDepartments] = useState([])
   const [clinics, setClinics] = useState([])
   const [loading, setLoading] = useState(true)
@@ -179,16 +187,18 @@ export default function AdminDepartments() {
             Specialty groupings (Cardiology, Dental, Physio) for clinicians and services
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            reset()
-            setShowForm((p) => !p)
-          }}
-        >
-          Add Department
-        </Button>
+        {canManage && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              reset()
+              setShowForm((p) => !p)
+            }}
+          >
+            Add Department
+          </Button>
+        )}
       </Stack>
 
       {loadError && (
@@ -315,34 +325,36 @@ export default function AdminDepartments() {
                     </Typography>
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
-                    <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="Edit">
-                        <IconButton
-                          size="small"
-                          aria-label={`Edit ${item.name}`}
-                          onClick={() => {
-                            setEditItem(item)
-                            setForm({ name: item.name, clinic_id: item.clinic?.id ?? '' })
-                            setShowForm(true)
-                          }}
-                        >
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          aria-label={`Delete ${item.name}`}
-                          onClick={() => {
-                            setDeletingId(item.id)
-                            setConfirmOpen(true)
-                          }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
+                    {canManage && (
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="Edit">
+                          <IconButton
+                            size="small"
+                            aria-label={`Edit ${item.name}`}
+                            onClick={() => {
+                              setEditItem(item)
+                              setForm({ name: item.name, clinic_id: item.clinic?.id ?? '' })
+                              setShowForm(true)
+                            }}
+                          >
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label={`Delete ${item.name}`}
+                            onClick={() => {
+                              setDeletingId(item.id)
+                              setConfirmOpen(true)
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    )}
                   </Box>
                 </Box>
               ))}

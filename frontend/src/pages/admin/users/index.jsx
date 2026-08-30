@@ -330,7 +330,11 @@ export default function AdminUsers() {
     }
   }, [adminTab, rolesList, selectedRole])
 
-  const { data: rbacData, loading: rbacLoading } = useQuery(GET_RBAC_DATA, {
+  const {
+    data: rbacData,
+    loading: rbacLoading,
+    refetch: refetchRbac,
+  } = useQuery(GET_RBAC_DATA, {
     variables: { roleId: selectedRole },
     skip: !selectedRole || adminTab !== 1,
   })
@@ -405,7 +409,7 @@ export default function AdminUsers() {
       await toggleUserMutation({ variables: { id, isActive: !currentStatus } })
       refetchAdmin()
     } catch (err) {
-      console.error(err)
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message ?? err.message ?? 'Failed to update user status', { variant: 'error' })
     }
   }
 
@@ -760,9 +764,14 @@ export default function AdminUsers() {
                 onClick={async () => {
                   try {
                     await updateRolePermissions({ variables: { roleId: selectedRole, permissionIds: localSelections } })
-                    alert('Saved!')
+                    // WV-5 — no alert()/confirm()/prompt(), ever. DATA-9 —
+                    // getRolePermissions defaults to cache-first, so without
+                    // this refetch, switching roles and back served the
+                    // stale pre-save permissions from Apollo's cache.
+                    await refetchRbac()
+                    enqueueSnackbar('Permissions saved', { variant: 'success' })
                   } catch (err) {
-                    console.error(err)
+                    enqueueSnackbar(err?.graphQLErrors?.[0]?.message ?? err.message ?? 'Failed to save permissions', { variant: 'error' })
                   }
                 }}
               >

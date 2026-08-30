@@ -47,15 +47,9 @@ function UserFormPage({ mode, initialData, userId, onDone }) {
       enqueueSnackbar('User created successfully', { variant: 'success' })
       navigate('/admin/users')
     },
-    onError: (err) => {
-      // SUG-003: If offline/network error, show friendly warning instead of raw gql error
-      if (err.networkError) {
-        enqueueSnackbar(`User "${form.name}" created (mock mode — backend offline)`, { variant: 'warning' })
-        navigate('/admin/users')
-      } else {
-        enqueueSnackbar(err.message, { variant: 'error' })
-      }
-    },
+    // DATA-13/STATE-6 — a network error is a genuine failure, never a cue
+    // to claim the user was created anyway. No user is created; say so.
+    onError: (err) => enqueueSnackbar(err.message, { variant: 'error' }),
   })
   const [updateUser, { loading: updating }] = useMutation(UPDATE_USER_MUTATION, {
     onCompleted: () => {
@@ -85,7 +79,11 @@ function UserFormPage({ mode, initialData, userId, onDone }) {
             name: form.name,
             email: form.email,
             password: form.password,
-            role_ids: form.role_ids.length ? form.role_ids : undefined,
+            // UserInput.role_ids is a required (non-nullable) field on the
+            // backend -- sending `undefined` for an empty selection strips
+            // the key entirely and GraphQL rejects the whole mutation at
+            // variable-coercion time. An empty array is a valid, real value.
+            role_ids: form.role_ids,
           },
         },
       })
@@ -286,22 +284,40 @@ const MOCK_USER_STORE = {
 
 export function EditUserPage() {
   const { id } = useParams()
-  const { data, loading } = useQuery(GET_USER_BY_ID, { variables: { id }, skip: !id })
+  const { data, loading, error } = useQuery(GET_USER_BY_ID, { variables: { id }, skip: !id })
   const user = data?.getUser
 
-  // Derive pre-fill: real backend data → mock store lookup → empty fallback
-  const initialData = user
-    ? {
-        name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
-        email: user.email || '',
-        role_ids: (user.roles || []).map((r) => r.id),
-      }
-    : MOCK_USER_STORE[id] || { name: '', email: '', role_ids: [] }
+  // DATA-13 — mock (MOCK_USER_STORE below) is a fallback for a genuine
+  // query error only. A real "no such user" result (data.getUser: null,
+  // no error) MUST be a not-found state, never a silently-populated fake
+  // default record that a save could then overwrite the wrong user with.
+  const initialData = error
+    ? MOCK_USER_STORE[id]
+    : user
+      ? {
+          name: `${user.firstName || ''} ${user.lastName || ''}`.trim(),
+          email: user.email || '',
+          role_ids: (user.roles || []).map((r) => r.id),
+        }
+      : null
 
   if (loading) {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight={300}>
         <CircularProgress sx={{ color: 'primary.main' }} />
+      </Box>
+    )
+  }
+
+  if (!initialData) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 6 }}>
+        <Typography variant="h5" fontWeight={700} mb={1}>
+          User not found
+        </Typography>
+        <Typography variant="body2" color="text.secondary">
+          We couldn't find a user with that ID.
+        </Typography>
       </Box>
     )
   }

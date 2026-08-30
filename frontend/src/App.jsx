@@ -1098,30 +1098,6 @@ function App() {
               {/* NEW-ADMIN-003: /admin → /admin/users default landing */}
               <Route path="/admin" element={<Navigate to="/admin/users" replace />} />
               <Route
-                path="/admin/users"
-                element={
-                  <Suspense fallback={<ShellPageLoader />}>
-                    <AdminUsers />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/admin/users/new"
-                element={
-                  <Suspense fallback={<ShellPageLoader />}>
-                    <CreateUserPage />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/admin/users/:id/edit"
-                element={
-                  <Suspense fallback={<ShellPageLoader />}>
-                    <EditUserPage />
-                  </Suspense>
-                }
-              />
-              <Route
                 path="/admin/organizations"
                 element={
                   <Suspense fallback={<ShellPageLoader />}>
@@ -1150,14 +1126,6 @@ function App() {
                 element={
                   <Suspense fallback={<ShellPageLoader />}>
                     <AdminRoomTypes />
-                  </Suspense>
-                }
-              />
-              <Route
-                path="/admin/departments"
-                element={
-                  <Suspense fallback={<ShellPageLoader />}>
-                    <AdminDepartments />
                   </Suspense>
                 }
               />
@@ -1192,12 +1160,37 @@ function App() {
                real backend is org-scoped off the caller's own client_org_id
                (cancellation-rules, org-settings), or explicitly @Auth()'d to
                include 'manager' (insurance.resolver.ts's payers/empanelments,
-               consent.resolver.ts's rightsRequests) — a manager (not an
-               org-less admin/super_admin) is the real day-to-day caller for
-               all of these. Split out from the admin-only block above so a
-               manager can reach and use them. ── */}
+               consent.resolver.ts's rightsRequests, users.resolver.ts's
+               getUsers/getUsersStats/getUser) — a manager (not an org-less
+               admin/super_admin) is the real day-to-day caller for all of
+               these. Split out from the admin-only block above so a manager
+               can reach and use them. ── */}
           <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager']} />}>
             <Route element={<AdminLayout />}>
+              <Route
+                path="/admin/users"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminUsers />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/users/new"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <CreateUserPage />
+                  </Suspense>
+                }
+              />
+              <Route
+                path="/admin/users/:id/edit"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <EditUserPage />
+                  </Suspense>
+                }
+              />
               <Route
                 path="/admin/communications"
                 element={
@@ -1227,6 +1220,23 @@ function App() {
                 element={
                   <Suspense fallback={<ShellPageLoader />}>
                     <AdminRightsRequests />
+                  </Suspense>
+                }
+              />
+            </Route>
+          </Route>
+
+          {/* ── Admin, manager OR staff — departments.resolver.ts's own read
+               queries (departments/department) allow staff too; write
+               mutations stay manager/admin/super_admin-only and are
+               self-gated client-side inside Departments.jsx (canManage). ── */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'staff']} />}>
+            <Route element={<AdminLayout />}>
+              <Route
+                path="/admin/departments"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminDepartments />
                   </Suspense>
                 }
               />
