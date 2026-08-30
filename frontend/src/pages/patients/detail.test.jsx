@@ -4,9 +4,11 @@ import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { HelmetProvider } from 'react-helmet-async'
 import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
+import { ThemeProvider } from '@mui/material/styles'
 import { gql } from '@apollo/client'
 import { PATIENTS_QUERY } from '../../graphql/queries'
 import PatientDetailPage from './detail'
+import { createAppTheme } from '../../theme'
 
 // A-7 (project-plans/08-integration-gap-analysis.md) — the rest of this page
 // is deliberately still mock-driven (context/open-questions.md #13); this
@@ -117,17 +119,23 @@ function packagesMock({ packages = [] } = {}) {
 
 function renderPage(mocks) {
   return render(
-    <HelmetProvider>
-      <MemoryRouter initialEntries={[`/patients/${PATIENT_ID}`]}>
-        <SnackbarProvider>
-          <MockedProvider mocks={mocks}>
-            <Routes>
-              <Route path="/patients/:id" element={<PatientDetailPage />} />
-            </Routes>
-          </MockedProvider>
-        </SnackbarProvider>
-      </MemoryRouter>
-    </HelmetProvider>,
+    // UI-8 -- this page reads theme.palette.appointmentStatus (statusChipSx,
+    // for the Appointments/Test Results status chips); a bare render with no
+    // ThemeProvider silently falls back to MUI's stock default theme, which
+    // has no appointmentStatus key at all.
+    <ThemeProvider theme={createAppTheme('light')}>
+      <HelmetProvider>
+        <MemoryRouter initialEntries={[`/patients/${PATIENT_ID}`]}>
+          <SnackbarProvider>
+            <MockedProvider mocks={mocks}>
+              <Routes>
+                <Route path="/patients/:id" element={<PatientDetailPage />} />
+              </Routes>
+            </MockedProvider>
+          </SnackbarProvider>
+        </MemoryRouter>
+      </HelmetProvider>
+    </ThemeProvider>,
   )
 }
 

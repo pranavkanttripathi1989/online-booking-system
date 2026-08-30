@@ -48,6 +48,7 @@ import {
   CircularProgress,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
+import { formatCurrency } from '../../utils/dateTime'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -681,7 +682,16 @@ const INTAKE_QUESTIONS = [
   { id: 'q_smoker', label: 'Do you currently smoke?', type: 'yesno' },
 ]
 
-const STATUS_COLORS = { confirmed: 'success', completed: 'info', cancelled: 'error', pending: 'warning' }
+// UI-2/UI-8 -- a solid MUI color="info" Chip rendered as a flat saturated
+// blue, out of step with every other status chip in the app (which use the
+// shared soft alpha-tinted theme.palette.appointmentStatus tokens, e.g.
+// Calendar.jsx's statusCfgFor / RecentAppointmentsTable.jsx). Same status
+// vocabulary (confirmed/completed/cancelled/pending), so reuse that palette
+// directly rather than a second per-file color map.
+function statusChipSx(theme, status) {
+  const meta = theme.palette.appointmentStatus[status] ?? theme.palette.appointmentStatus.no_show
+  return { bgcolor: meta.bg, color: meta.text, border: `1px solid ${meta.border}` }
+}
 const STATUS_ICONS = {
   confirmed: CheckCircleRoundedIcon,
   completed: CheckCircleRoundedIcon,
@@ -1087,7 +1097,9 @@ export default function PatientDetailPage() {
                   size="small"
                   variant="outlined"
                 />
-                {p.outstanding_balance > 0 && <Chip label={`$${p.outstanding_balance} Balance`} size="small" color="warning" />}
+                {p.outstanding_balance > 0 && (
+                  <Chip label={`${formatCurrency(p.outstanding_balance)} Balance`} size="small" color="warning" />
+                )}
                 <Chip
                   icon={<CardMembershipRoundedIcon />}
                   label={membership.id === 'none' ? 'No membership' : `${membership.name} · ${formatInr(membership.price_monthly)}/mo`}
@@ -1519,9 +1531,8 @@ export default function PatientDetailPage() {
                           <Chip
                             icon={<Icon sx={{ fontSize: '0.85rem !important' }} />}
                             label={a.status}
-                            color={STATUS_COLORS[a.status] || 'default'}
                             size="small"
-                            sx={{ fontWeight: 700, textTransform: 'capitalize', fontSize: '0.72rem' }}
+                            sx={{ fontWeight: 700, textTransform: 'capitalize', fontSize: '0.72rem', ...statusChipSx(theme, a.status) }}
                           />
                         </TableCell>
                       </TableRow>
@@ -1565,9 +1576,8 @@ export default function PatientDetailPage() {
                       <Stack direction="row" spacing={1} alignItems="center">
                         <Chip
                           label={t.status}
-                          color={STATUS_COLORS[t.status] || 'default'}
                           size="small"
-                          sx={{ fontWeight: 700, textTransform: 'capitalize' }}
+                          sx={{ fontWeight: 700, textTransform: 'capitalize', ...statusChipSx(theme, t.status) }}
                         />
                         {t.status === 'completed' && (
                           <Button
