@@ -193,7 +193,7 @@ function EditClinicianPageContent() {
   const { enqueueSnackbar } = useSnackbar()
 
   const { data, loading: fetching } = useQuery(CLINICIAN_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'cache-and-network' })
-  const { data: clinicsData } = useQuery(CLINICS_QUERY)
+  const { data: clinicsData, error: clinicsError } = useQuery(CLINICS_QUERY)
   const { data: typesData } = useQuery(CLINICIAN_TYPES_QUERY)
   const { data: servicesData } = useQuery(SERVICES_QUERY)
   // Real clinicians list for the "who is this locum covering for" picker --
@@ -204,8 +204,10 @@ function EditClinicianPageContent() {
   const allClinicians = (cliniciansListError ? MockStore.getClinicians() : (cliniciansListData?.clinicians?.data ?? [])).filter(
     (c) => c.id !== id,
   )
-  // BUG-CLIN-006 fix: fall back to MockStore for dropdown options when backend offline
-  const clinics = (clinicsData?.clinics?.length ? clinicsData.clinics : MockStore.getClinics()).filter((c) => c.is_active)
+  // DATA-13 — mock is a fallback for a genuine query error only; an org
+  // with genuinely zero configured clinics must show an empty picker,
+  // never fabricated ones.
+  const clinics = (clinicsError ? MockStore.getClinics() : (clinicsData?.clinics ?? [])).filter((c) => c.is_active)
   const types = typesData?.clinicianTypes ?? MockStore.getClinicianTypes()
   const services = servicesData?.services ?? MockStore.getServices()
 

@@ -302,24 +302,26 @@ function MergePatientsDialog({ open, patientA, patientB, onClose, onConfirm }) {
           </Stack>
         </RadioGroup>
 
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'text.secondary' }}>Field</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'success.main' }}>Keeping (primary)</TableCell>
-              <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'text.secondary' }}>Archiving</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {rows.map(([label, primaryVal, secondaryVal]) => (
-              <TableRow key={label}>
-                <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>{label}</TableCell>
-                <TableCell sx={{ fontSize: 12 }}>{primaryVal}</TableCell>
-                <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>{secondaryVal}</TableCell>
+        <TableContainer>
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'text.secondary' }}>Field</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'success.main' }}>Keeping (primary)</TableCell>
+                <TableCell sx={{ fontWeight: 700, fontSize: 11, textTransform: 'uppercase', color: 'text.secondary' }}>Archiving</TableCell>
               </TableRow>
-            ))}
-          </TableBody>
-        </Table>
+            </TableHead>
+            <TableBody>
+              {rows.map(([label, primaryVal, secondaryVal]) => (
+                <TableRow key={label}>
+                  <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>{label}</TableCell>
+                  <TableCell sx={{ fontSize: 12 }}>{primaryVal}</TableCell>
+                  <TableCell sx={{ fontSize: 12, color: 'text.secondary' }}>{secondaryVal}</TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        </TableContainer>
 
         <Alert severity="warning" sx={{ mt: 2, borderRadius: 2 }}>
           Every appointment, encounter, prescription, test result, and payment tied to the archived record moves to the surviving record.

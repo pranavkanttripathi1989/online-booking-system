@@ -649,7 +649,10 @@ export default function PatientDetailPage() {
     setRelatedAccounts((prev) => [...prev, { id: `rel-${Date.now()}`, ...newRelated }])
     setNewRelated({ name: '', relationship: RELATIONSHIP_TYPES[0], phone: '' })
     setAddRelatedOpen(false)
-    enqueueSnackbar('Related account added', { variant: 'success' })
+    // context/open-questions.md #13 — this tab is local-state-only pending a
+    // real backend decision; the toast must say so honestly, matching
+    // sendCommunication's own "(demo mode)" disclosure above.
+    enqueueSnackbar('Related account added (demo mode — not saved)', { variant: 'success' })
   }
   const removeRelatedAccount = (relId) => setRelatedAccounts((prev) => prev.filter((r) => r.id !== relId))
 
@@ -840,7 +843,10 @@ export default function PatientDetailPage() {
     ])
     setNewConsultation({ encounter_type: ENCOUNTER_TYPES[0], diagnosis: '', notes: '' })
     setAddConsultationOpen(false)
-    enqueueSnackbar('Consultation record added', { variant: 'success' })
+    // context/open-questions.md #13 — this tab is local-state-only pending a
+    // real backend decision; the toast must say so honestly, matching
+    // sendCommunication's own "(demo mode)" disclosure above.
+    enqueueSnackbar('Consultation record added (demo mode — not saved)', { variant: 'success' })
   }
 
   const age = Math.floor((new Date() - new Date(p.date_of_birth)) / (365.25 * 24 * 3600 * 1000))

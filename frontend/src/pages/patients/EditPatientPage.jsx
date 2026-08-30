@@ -108,7 +108,7 @@ export default function EditPatientPage() {
   const [errors, setErrors] = useState({})
   const initialFormRef = useRef(null) // SUG-PT-013: snapshot for dirty-check
 
-  const { data, loading: fetching } = useQuery(PATIENT_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
+  const { data, loading: fetching, error: fetchError } = useQuery(PATIENT_DETAIL_QUERY, { variables: { id }, fetchPolicy: 'network-only' })
 
   // SUG-PT-013: serialize form (date -> plain string) for stable dirty comparison
   const serializeForm = (f) =>
@@ -129,8 +129,12 @@ export default function EditPatientPage() {
       }
       setForm(seeded)
       if (initialFormRef.current === null) initialFormRef.current = serializeForm(seeded)
-    } else if (!fetching) {
-      // SUG-PT-001: Mock fallback when backend offline
+    } else if (!fetching && fetchError) {
+      // DATA-13 — mock is a fallback for a genuine query error only. A
+      // real "no such patient" result (data.patient: null, no error)
+      // MUST hit the not-found guard below, never silently seed the
+      // form with a fabricated default — a save from there would
+      // overwrite whichever real patient this id happens to belong to.
       const mock = MOCK_EDIT_PATIENTS[id] ?? MOCK_EDIT_DEFAULT
       const seeded = {
         first_name: mock.first_name,
@@ -145,7 +149,7 @@ export default function EditPatientPage() {
       setForm(seeded)
       if (initialFormRef.current === null) initialFormRef.current = serializeForm(seeded)
     }
-  }, [data, fetching, id])
+  }, [data, fetching, fetchError, id])
 
   const [updatePatient, { loading }] = useMutation(UPDATE_PATIENT_MUTATION, {
     onCompleted: () => {
@@ -173,11 +177,29 @@ export default function EditPatientPage() {
     navigate(`/patients/${id}`)
   }
 
-  if (fetching || !form)
+  if (fetching)
     return (
       <Box>
         <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
         <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 3 }} />
+      </Box>
+    )
+
+  // DATA-13 — a real, successful "no such patient" result (not a fetch
+  // error, and no mock entry) must be a not-found state, never an
+  // infinite skeleton or a silently-seeded fabricated default.
+  if (!form)
+    return (
+      <Box sx={{ textAlign: 'center', py: 6 }}>
+        <Typography variant="h5" fontWeight={700} mb={1}>
+          Patient not found
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          We couldn't find a patient with that ID.
+        </Typography>
+        <Button variant="contained" onClick={() => navigate('/patients')} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>
+          Back to Patients
+        </Button>
       </Box>
     )
 

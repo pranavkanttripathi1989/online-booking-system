@@ -103,40 +103,42 @@ function ResultDialog({ result, onClose }) {
         {result.values.length === 0
           ? <Typography color="text.secondary" sx={{ py: 2, textAlign: 'center' }}>Results not yet available</Typography>
           : (
-            <Table size="small">
-              <TableHead>
-                <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', color: 'text.secondary', bgcolor: 'action.hover' } }}>
-                  <TableCell>Parameter</TableCell>
-                  <TableCell>Result</TableCell>
-                  <TableCell>Reference Range</TableCell>
-                  <TableCell>Flag</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {result.values.map((v, i) => {
-                  // SUG-TRES-003: fallback to grey for unknown flag values
-                  const flagColor = FLAG_COLORS[v.flag] || theme.palette.text.secondary
-                  return (
-                    <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
-                      <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{v.name}</TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: '0.85rem', color: flagColor }}>{v.value}</TableCell>
-                      <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{v.ref}</TableCell>
-                      <TableCell>
-                        <Chip label={v.flag} size="small"
-                          sx={{
-                            bgcolor: alpha(flagColor, theme.palette.mode === 'dark' ? 0.22 : 0.12),
-                            color: flagColor,
-                            fontWeight: 700,
-                            fontSize: '0.7rem',
-                            textTransform: 'capitalize',
-                          }}
-                        />
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-              </TableBody>
-            </Table>
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow sx={{ '& th': { fontWeight: 700, fontSize: '0.72rem', textTransform: 'uppercase', color: 'text.secondary', bgcolor: 'action.hover' } }}>
+                    <TableCell>Parameter</TableCell>
+                    <TableCell>Result</TableCell>
+                    <TableCell>Reference Range</TableCell>
+                    <TableCell>Flag</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {result.values.map((v, i) => {
+                    // SUG-TRES-003: fallback to grey for unknown flag values
+                    const flagColor = FLAG_COLORS[v.flag] || theme.palette.text.secondary
+                    return (
+                      <TableRow key={i} sx={{ '&:last-child td': { border: 0 } }}>
+                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{v.name}</TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: '0.85rem', color: flagColor }}>{v.value}</TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{v.ref}</TableCell>
+                        <TableCell>
+                          <Chip label={v.flag} size="small"
+                            sx={{
+                              bgcolor: alpha(flagColor, theme.palette.mode === 'dark' ? 0.22 : 0.12),
+                              color: flagColor,
+                              fontWeight: 700,
+                              fontSize: '0.7rem',
+                              textTransform: 'capitalize',
+                            }}
+                          />
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
           )
         }
       </DialogContent>

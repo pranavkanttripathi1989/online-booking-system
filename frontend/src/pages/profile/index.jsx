@@ -244,10 +244,12 @@ export default function ProfilePage() {
         setImageUrl(p.user_image || null)
         setPForm(seedForm(p))
       } else {
-        // SUG-PROF-001: Backend returned no data — use mock fallback
-        setProfile(MOCK_PROFILE)
-        setImageUrl(null)
-        setPForm(seedForm(MOCK_PROFILE))
+        // DATA-13 — a real, successful "myProfile: null" result for one's
+        // own logged-in account is never a legitimate empty state (unlike
+        // a real, possibly-zero list result elsewhere in the app) — it
+        // means something is genuinely wrong server-side. Show that
+        // honestly instead of silently rendering a fabricated identity.
+        setError('Could not load your profile. Please try again.')
       }
     } catch (_err) {
       // SUG-PROF-001: Network error — use mock fallback
@@ -443,7 +445,7 @@ export default function ProfilePage() {
             Manage your account information and security settings
           </Typography>
         </Box>
-        {!editing && (
+        {!editing && profile && (
           <Button
             variant="contained"
             startIcon={<EditIcon />}
@@ -464,13 +466,24 @@ export default function ProfilePage() {
         </Alert>
       )}
       {error && !editing && (
-        <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
+        <Alert
+          severity="error"
+          sx={{ mb: 2 }}
+          onClose={() => setError(null)}
+          action={
+            !profile && (
+              <Button color="inherit" size="small" onClick={load}>
+                Retry
+              </Button>
+            )
+          }
+        >
           {error}
         </Alert>
       )}
 
       {/* ── VIEW MODE ── */}
-      {!editing && (
+      {!editing && profile && (
         <Stack spacing={3}>
           {/* Profile header card */}
           <Card>

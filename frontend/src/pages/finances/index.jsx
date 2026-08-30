@@ -1127,29 +1127,31 @@ export default function FinancesPage() {
                               <TableCell colSpan={6} sx={{ p: 0, border: isExpanded ? undefined : 'none' }}>
                                 <Collapse in={isExpanded} timeout="auto" unmountOnExit>
                                   <Box sx={{ p: 2, bgcolor: 'action.hover' }}>
-                                    <Table size="small">
-                                      <TableHead>
-                                        <TableRow>
-                                          {['Tender Type', 'Expected', 'Counted', 'Variance'].map((h) => (
-                                            <TableCell key={h}>{h}</TableCell>
-                                          ))}
-                                        </TableRow>
-                                      </TableHead>
-                                      <TableBody>
-                                        {c.breakdown.map((b) => (
-                                          <TableRow key={b.tender_type}>
-                                            <TableCell sx={{ textTransform: 'capitalize' }}>{b.tender_type}</TableCell>
-                                            <TableCell>₹{b.expected.toLocaleString()}</TableCell>
-                                            <TableCell>₹{b.counted.toLocaleString()}</TableCell>
-                                            <TableCell
-                                              sx={{ color: Math.abs(b.variance) > 0.005 ? 'error.dark' : 'success.dark', fontWeight: 700 }}
-                                            >
-                                              {b.variance > 0 ? '+' : ''}₹{b.variance.toLocaleString()}
-                                            </TableCell>
+                                    <TableContainer>
+                                      <Table size="small">
+                                        <TableHead>
+                                          <TableRow>
+                                            {['Tender Type', 'Expected', 'Counted', 'Variance'].map((h) => (
+                                              <TableCell key={h}>{h}</TableCell>
+                                            ))}
                                           </TableRow>
-                                        ))}
-                                      </TableBody>
-                                    </Table>
+                                        </TableHead>
+                                        <TableBody>
+                                          {c.breakdown.map((b) => (
+                                            <TableRow key={b.tender_type}>
+                                              <TableCell sx={{ textTransform: 'capitalize' }}>{b.tender_type}</TableCell>
+                                              <TableCell>₹{b.expected.toLocaleString()}</TableCell>
+                                              <TableCell>₹{b.counted.toLocaleString()}</TableCell>
+                                              <TableCell
+                                                sx={{ color: Math.abs(b.variance) > 0.005 ? 'error.dark' : 'success.dark', fontWeight: 700 }}
+                                              >
+                                                {b.variance > 0 ? '+' : ''}₹{b.variance.toLocaleString()}
+                                              </TableCell>
+                                            </TableRow>
+                                          ))}
+                                        </TableBody>
+                                      </Table>
+                                    </TableContainer>
                                   </Box>
                                 </Collapse>
                               </TableCell>

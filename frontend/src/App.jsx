@@ -1001,14 +1001,6 @@ function App() {
               }
             />
             <Route
-              path="/test-results"
-              element={
-                <Suspense fallback={<ShellPageLoader />}>
-                  <TestResultsPage />
-                </Suspense>
-              }
-            />
-            <Route
               path="/analytics"
               element={
                 <Suspense fallback={<ShellPageLoader />}>
@@ -1087,6 +1079,25 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <WaitingRoomPage />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* /test-results's own RoleGuard used to sit inside the shared
+              manager/admin-only block above, narrower than the backend
+              @Auth on orderTest (test-results.resolver.ts: manager, admin,
+              super_admin, clinician, staff) -- the same gap class BUG039/
+              the /queue and /waiting-room routes above found and fixed.
+              Given its own dedicated RoleGuard here instead of widening
+              the shared block, which would have granted clinician/staff
+              every other route in it too. */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'clinician', 'staff']} />}>
+            <Route
+              path="/test-results"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <TestResultsPage />
                 </Suspense>
               }
             />
