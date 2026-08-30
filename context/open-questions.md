@@ -2,6 +2,35 @@
 
 Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the question, why it's genuinely ambiguous (not just unimplemented), and current status.
 
+## 20. `TestResultType` has no real per-patient join — `patients/detail.jsx`'s Test Results tab stays mock
+
+**Status:** Open, raised 2026-08-30 while fixing `BUG055` (`patients/detail.jsx`
+rendering a fabricated patient identity/appointment history for every real
+patient).
+
+`BUG055` wired Overview identity and the Appointments tab to the real,
+already-proven `PATIENT_DETAIL_QUERY` (already used correctly elsewhere by
+`PatientDetailDrawer.jsx`/`EditPatientPage.jsx`). Test Results could not get
+the same treatment: `backend/src/test-results/entities/test-result.entity.ts`'s
+`patient` field is free text (a name string), not a `patient_id` FK, and
+`test-results.resolver.ts` has no filter argument to join on at all — there
+is no way to ask "this patient's test results" from the real backend today.
+
+**Why this is a decision, not a task:** the tempting shortcut — match
+`TestResults.patient` against the open patient's `full_name` string — is a
+silent-failure risk, not a fix (two same-named patients would leak into each
+other's results; a legal-name-vs-preferred-name mismatch would hide real
+results). A real fix needs a schema change (a `patient_id` FK on
+`TestResults`, backfilled, plus a resolver filter) — its own scoped slice,
+not a rider on a frontend page-wiring bug fix.
+
+**Decision needed from the user:** prioritize a `patient_id` FK + resolver
+filter on `TestResults` as an upcoming `REQ` (closing this tab's mock status
+for real), or accept the current honest "Showing sample data" disclosure on
+this one tab indefinitely until `test-results` sees other schema work anyway.
+
+---
+
 ## 19. Patient reviews for named doctors are now live end-to-end — `SEC-13`'s counsel sign-off has not happened
 
 **Status:** Open, raised 2026-08-27 while building `P1-06` (server-side

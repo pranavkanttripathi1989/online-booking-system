@@ -36,7 +36,7 @@
 | patient-portal | 0 | 2 | 1 | 0 | 3 | 2026-08-28 | [patient-portal](./patient-portal/README.md) |
 | clinician-availability | 1 | 0 | 0 | 0 | 1 | 2026-08-19 | [clinician-availability](./clinician-availability/README.md) |
 | auth | 1 | 0 | 0 | 0 | 1 | 2026-08-18 | [auth](./auth/README.md) |
-| patients | 1 | 0 | 5 | 0 | 6 | 2026-08-30 | [patients](./patients/README.md) |
+| patients | 1 | 0 | 6 | 0 | 7 | 2026-08-30 | [patients](./patients/README.md) |
 | phase4-5-increment3 | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
 | phase4-backend-integration | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-backend-integration](./phase4-backend-integration/README.md) |
 | test-results-page | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [test-results-page](./test-results-page/README.md) |

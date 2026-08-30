@@ -43,7 +43,7 @@
 | phase4-5-increment3 | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-5-increment3](./phase4-5-increment3/README.md) |
 | phase4-catalog-modules | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [phase4-catalog-modules](./phase4-catalog-modules/README.md) |
 | test-results-backend | 1 | 0 | 0 | 0 | 1 | 2026-08-17 | [test-results-backend](./test-results-backend/README.md) |
-| patients | 0 | 0 | 5 | 0 | 5 | 2026-08-30 | [patients](./patients/README.md) |
+| patients | 0 | 0 | 6 | 0 | 6 | 2026-08-30 | [patients](./patients/README.md) |
 | test-results | 0 | 0 | 1 | 0 | 1 | 2026-08-26 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
 | frontend-platform | 0 | 7 | 6 | 0 | 13 | 2026-08-29 | [frontend-platform](./frontend-platform/README.md) |

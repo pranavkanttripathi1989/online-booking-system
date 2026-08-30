@@ -59,7 +59,7 @@
 | patient-appointments | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [patient-appointments](./patient-appointments/README.md) |
 | patient-dashboard | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [patient-dashboard](./patient-dashboard/README.md) |
 | patient-profile | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [patient-profile](./patient-profile/README.md) |
-| patients | 1 | 0 | 5 | 6 | 0 | 2026-08-30 | [patients](./patients/README.md) |
+| patients | 1 | 0 | 6 | 7 | 0 | 2026-08-30 | [patients](./patients/README.md) |
 | profile | 1 | 0 | 0 | 1 | 0 | 2026-04-02 | [profile](./profile/README.md) |
 | reviews | 1 | 1 | 0 | 1 | 1 | 2026-08-27 | [reviews](./reviews/README.md) |
 | staff-appointments | 1 | 0 | 0 | 0 | 1 | 2026-04-02 | [staff-appointments](./staff-appointments/README.md) |
