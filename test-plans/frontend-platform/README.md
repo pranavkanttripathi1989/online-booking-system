@@ -20,6 +20,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP256 | bug | Remaining page-sweep integration gaps verification | done | 2026-08-30 | 2026-08-30 | PLAN236 | [TP256-frontend-platform-2026-08-30-remaining-pages-integration-gaps.md](./bug/TP256-frontend-platform-2026-08-30-remaining-pages-integration-gaps.md) |
 | TP255 | bug | admin/* pages 7 integration gaps verification | done | 2026-08-30 | 2026-08-30 | PLAN235 | [TP255-frontend-platform-2026-08-30-admin-pages-integration-gaps.md](./bug/TP255-frontend-platform-2026-08-30-admin-pages-integration-gaps.md) |
 | TP254 | bug | patient/clinician AuthContext login-cache gap fixes verification | done | 2026-08-30 | 2026-08-30 | PLAN234 | [TP254-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md](./bug/TP254-frontend-platform-2026-08-30-patient-clinician-auth-context-login-gap.md) |
 | TP253 | bug | manager/* pages DATA-13/not-found-guard fixes verification | done | 2026-08-30 | 2026-08-30 | PLAN233 | [TP253-frontend-platform-2026-08-30-manager-pages-integration-gaps.md](./bug/TP253-frontend-platform-2026-08-30-manager-pages-integration-gaps.md) |
