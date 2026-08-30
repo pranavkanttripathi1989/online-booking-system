@@ -10,6 +10,55 @@ import { PATIENTS_QUERY, PATIENT_DETAIL_QUERY } from '../../graphql/queries'
 import PatientDetailPage from './detail'
 import { createAppTheme } from '../../theme'
 
+// Patient Membership -- local re-declarations matching detail.jsx's own
+// inline gql exactly (query-AST equality, not import identity — these
+// aren't exported from graphql/queries.js, matching the Insurance/Packages
+// tabs' own established inline-query convention).
+const GET_MEMBERSHIP_PLANS = gql`
+  query GetMembershipPlansForPatient {
+    membershipPlans {
+      id
+      name
+      description
+      price_monthly
+    }
+  }
+`
+const GET_PATIENT_MEMBERSHIP = gql`
+  query GetPatientMembership($patient_id: ID!) {
+    patientMembership(patient_id: $patient_id) {
+      id
+      status
+      price_monthly
+      membershipPlan {
+        id
+        name
+        price_monthly
+      }
+    }
+  }
+`
+const ENROLL_PATIENT_MEMBERSHIP = gql`
+  mutation EnrollPatientMembership($input: EnrollPatientMembershipInput!) {
+    enrollPatientMembership(input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
+  }
+`
+const CANCEL_PATIENT_MEMBERSHIP = gql`
+  mutation CancelPatientMembership($input: CancelPatientMembershipInput!) {
+    cancelPatientMembership(input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
+  }
+`
+
 // A-7 (project-plans/08-integration-gap-analysis.md) — the rest of this page
 // is deliberately still mock-driven (context/open-questions.md #13); this
 // spec covers only the new, real Insurance tab, scoped independently.
@@ -470,5 +519,101 @@ describe('patients/detail.jsx — real identity + Appointments tab (BUG055)', ()
     })
     await waitFor(() => expect(screen.getByText("Couldn't load this patient's record.")).toBeInTheDocument())
     expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
+})
+
+describe('patients/detail.jsx — Patient Membership (built for real)', () => {
+  const wellnessBasic = { __typename: 'MembershipPlan', id: 'plan-1', name: 'Wellness Basic', description: null, price_monthly: 499 }
+
+  function plansMock(plans = [wellnessBasic]) {
+    return { request: { query: GET_MEMBERSHIP_PLANS }, result: { data: { membershipPlans: plans } } }
+  }
+  function membershipMock(patientMembership = null) {
+    return {
+      request: { query: GET_PATIENT_MEMBERSHIP, variables: { patient_id: PATIENT_ID } },
+      result: { data: { patientMembership } },
+    }
+  }
+
+  it('shows "No membership" when the patient has no real active membership', async () => {
+    renderPage([insuranceMock(), packagesMock(), membershipMock(null), plansMock()])
+    await waitFor(() => expect(screen.getByText('No membership')).toBeInTheDocument())
+  })
+
+  it('shows the real active membership plan and price, not a mock value', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      membershipMock({
+        __typename: 'PatientMembership',
+        id: 'pm-1',
+        status: 'active',
+        price_monthly: 499,
+        membershipPlan: { __typename: 'MembershipPlan', id: 'plan-1', name: 'Wellness Basic', price_monthly: 499 },
+      }),
+      plansMock(),
+    ])
+    await waitFor(() => expect(screen.getByText('Wellness Basic · ₹499.00/mo')).toBeInTheDocument())
+  })
+
+  it('enrolls a patient via the real enrollPatientMembership mutation and refetches', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      membershipMock(null),
+      plansMock(),
+      {
+        request: {
+          query: ENROLL_PATIENT_MEMBERSHIP,
+          variables: { input: { patient_id: PATIENT_ID, membership_plan_id: 'plan-1' } },
+        },
+        result: { data: { enrollPatientMembership: { success: true, userErrors: [] } } },
+      },
+      membershipMock({
+        __typename: 'PatientMembership',
+        id: 'pm-1',
+        status: 'active',
+        price_monthly: 499,
+        membershipPlan: { __typename: 'MembershipPlan', id: 'plan-1', name: 'Wellness Basic', price_monthly: 499 },
+      }),
+    ])
+    await waitFor(() => expect(screen.getByText('No membership')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByText('No membership'))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByText('Wellness Basic'))
+
+    await waitFor(() => expect(screen.getByText('Membership updated')).toBeInTheDocument())
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    await waitFor(() => expect(screen.getByText('Wellness Basic · ₹499.00/mo')).toBeInTheDocument())
+  })
+
+  it('cancels a patient\'s membership via the real cancelPatientMembership mutation and refetches', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      membershipMock({
+        __typename: 'PatientMembership',
+        id: 'pm-1',
+        status: 'active',
+        price_monthly: 499,
+        membershipPlan: { __typename: 'MembershipPlan', id: 'plan-1', name: 'Wellness Basic', price_monthly: 499 },
+      }),
+      plansMock(),
+      {
+        request: { query: CANCEL_PATIENT_MEMBERSHIP, variables: { input: { patient_id: PATIENT_ID } } },
+        result: { data: { cancelPatientMembership: { success: true, userErrors: [] } } },
+      },
+      membershipMock(null),
+    ])
+    await waitFor(() => expect(screen.getByText('Wellness Basic · ₹499.00/mo')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByText('Wellness Basic · ₹499.00/mo'))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByText('No membership'))
+
+    await waitFor(() => expect(screen.getByText('Membership updated')).toBeInTheDocument())
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
+    await waitFor(() => expect(screen.getByText('No membership')).toBeInTheDocument())
   })
 })

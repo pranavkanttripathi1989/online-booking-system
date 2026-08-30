@@ -153,6 +153,7 @@ const EditProductPage = lazy(() => import('./pages/manager/products/edit'))
 // Phase G+3 — checklist/intake-field config (REQ051/REQ052) and multi-sitting packages (REQ054)
 const ManagerClinicForms = lazy(() => import('./pages/manager/clinic-forms/index'))
 const ManagerPackages = lazy(() => import('./pages/manager/packages/index'))
+const ManagerMemberships = lazy(() => import('./pages/manager/memberships/index'))
 
 // ─── Admin ────────────────────────────────────────────────────────────────────
 const AdminUsers = lazy(() => import('./pages/admin/users/index'))
@@ -954,6 +955,14 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <ManagerPackages />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/manager/memberships"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerMemberships />
                 </Suspense>
               }
             />

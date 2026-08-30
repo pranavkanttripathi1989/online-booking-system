@@ -76,6 +76,7 @@ import EventAvailableIcon from '@mui/icons-material/EventAvailable'
 import BadgeIcon from '@mui/icons-material/Badge'
 import CategoryIcon from '@mui/icons-material/Category'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
+import CardMembershipIcon from '@mui/icons-material/CardMembership'
 import UploadFileRoundedIcon from '@mui/icons-material/UploadFileRounded'
 import MedicationIcon from '@mui/icons-material/Medication'
 import SummarizeIcon from '@mui/icons-material/Summarize'
@@ -301,6 +302,8 @@ const MANAGER_CHILDREN = [
   { label: 'Clinic Forms', path: '/manager/clinic-forms', icon: <FormatListNumberedIcon /> },
   // Phase G+3 — multi-sitting service packages (REQ054).
   { label: 'Packages', path: '/manager/packages', icon: <WorkspacePremiumIcon /> },
+  // Patient Membership Plans — built for real 2026-08-30 (context/open-questions.md #13).
+  { label: 'Memberships', path: '/manager/memberships', icon: <CardMembershipIcon /> },
   // P2-05 — CSV migration importer.
   { label: 'Patient Import', path: '/manager/imports', icon: <UploadFileRoundedIcon /> },
   // P2-06 — doctor revenue-share & payouts.

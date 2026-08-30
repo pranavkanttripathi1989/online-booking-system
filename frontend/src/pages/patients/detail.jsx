@@ -48,6 +48,7 @@ import {
   Skeleton,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
+import { formatCurrency } from '../../utils/dateTime'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -268,15 +269,60 @@ const DOCUMENT_FOLDERS = ['General', 'Lab Reports', 'Prescriptions', 'Imaging', 
 const LETTER_REVIEW_STATUSES = ['Draft', 'Pending Review', 'Approved']
 const LETTER_STATUS_COLOR = { Draft: 'default', 'Pending Review': 'warning', Approved: 'success' }
 
-// Patient membership plans — distinct from the tenant's own SubscriptionPlans
-// (that's MediBook's SaaS plan; this is the *patient's* recurring plan with
-// the clinic, e.g. a monthly wellness membership). A real monetization lever,
-// not just parity. requirements/semble-competitive-gap-analysis-requirements.md Phase 4
-const MEMBERSHIP_PLANS = [
-  { id: 'none', name: 'No membership', price_monthly: 0 },
-  { id: 'basic', name: 'Wellness Basic', price_monthly: 49900 }, // paise
-  { id: 'premium', name: 'Wellness Premium', price_monthly: 149900 },
-]
+// Patient membership plans — built for real (backend module `memberships/`),
+// replacing what used to be a purely local `useState` mock with zero
+// backend at all (context/open-questions.md #13). `membershipPlans`/
+// `patientMembership` are real GraphQL — distinct from the tenant's own
+// SubscriptionPlans (that's MediBook's SaaS plan; this is the *patient's*
+// recurring plan with the clinic). `NONE_MEMBERSHIP` is a client-side-only
+// sentinel prepended to the real fetched plans so the dialog can still
+// offer "No membership" as an explicit cancel action.
+const NONE_MEMBERSHIP = { id: 'none', name: 'No membership', price_monthly: 0 }
+
+const GET_MEMBERSHIP_PLANS = gql`
+  query GetMembershipPlansForPatient {
+    membershipPlans {
+      id
+      name
+      description
+      price_monthly
+    }
+  }
+`
+const GET_PATIENT_MEMBERSHIP = gql`
+  query GetPatientMembership($patient_id: ID!) {
+    patientMembership(patient_id: $patient_id) {
+      id
+      status
+      price_monthly
+      membershipPlan {
+        id
+        name
+        price_monthly
+      }
+    }
+  }
+`
+const ENROLL_PATIENT_MEMBERSHIP = gql`
+  mutation EnrollPatientMembership($input: EnrollPatientMembershipInput!) {
+    enrollPatientMembership(input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
+  }
+`
+const CANCEL_PATIENT_MEMBERSHIP = gql`
+  mutation CancelPatientMembership($input: CancelPatientMembershipInput!) {
+    cancelPatientMembership(input: $input) {
+      success
+      userErrors {
+        message
+      }
+    }
+  }
+`
 
 const INTAKE_QUESTIONS = [
   { id: 'q_conditions', label: 'Do you have any pre-existing medical conditions?', type: 'yesno' },
@@ -617,11 +663,40 @@ export default function PatientDetailPage() {
     enqueueSnackbar('Letter shared with patient', { variant: 'success' })
   }
 
-  // Patient membership
-  const [membershipId, setMembershipId] = useState('none')
+  // Patient Membership -- real GraphQL (backend/src/memberships/). Replaces
+  // what used to be a purely local useState mock with zero backend at all.
   const [membershipDialogOpen, setMembershipDialogOpen] = useState(false)
-  const membership = MEMBERSHIP_PLANS.find((m) => m.id === membershipId)
-  const formatInr = (paise) => `₹${(paise / 100).toLocaleString('en-IN')}`
+  const { data: patientMembershipData, refetch: refetchPatientMembership } = useQuery(GET_PATIENT_MEMBERSHIP, {
+    variables: { patient_id: id },
+    skip: !id,
+    fetchPolicy: 'cache-and-network',
+  })
+  const { data: membershipPlansData } = useQuery(GET_MEMBERSHIP_PLANS, { skip: !membershipDialogOpen })
+  const activeMembership = patientMembershipData?.patientMembership ?? null
+  // NONE_MEMBERSHIP is a client-side-only sentinel, prepended to the real
+  // fetched plans so the dialog can still offer an explicit cancel action.
+  const membershipPlanOptions = [NONE_MEMBERSHIP, ...(membershipPlansData?.membershipPlans ?? [])]
+  const membershipMutationOpts = {
+    onCompleted: (d) => {
+      const result = d?.enrollPatientMembership ?? d?.cancelPatientMembership
+      if (!result?.success) {
+        enqueueSnackbar(result?.userErrors?.[0]?.message ?? 'Failed to update membership', { variant: 'error' })
+        return
+      }
+      enqueueSnackbar('Membership updated', { variant: 'success' })
+      refetchPatientMembership()
+    },
+    onError: (err) => enqueueSnackbar(err.message || 'Failed to update membership', { variant: 'error' }),
+  }
+  const [enrollMembership, { loading: enrolling }] = useMutation(ENROLL_PATIENT_MEMBERSHIP, membershipMutationOpts)
+  const [cancelMembership, { loading: cancelling }] = useMutation(CANCEL_PATIENT_MEMBERSHIP, membershipMutationOpts)
+  const selectMembershipPlan = (planId) => {
+    if (planId === 'none') {
+      if (activeMembership) cancelMembership({ variables: { input: { patient_id: id } } })
+      return
+    }
+    enrollMembership({ variables: { input: { patient_id: id, membership_plan_id: planId } } })
+  }
 
   // Consultation records — requirements/semble-competitive-gap-analysis-requirements.md
   // Phase 2 (mirrors Semble's Consultation: id/patient/date/encounterType/doctorName/records)
@@ -758,7 +833,11 @@ export default function PatientDetailPage() {
                 )}
                 <Chip
                   icon={<CardMembershipRoundedIcon sx={{ fontSize: '1rem !important', color: 'inherit !important' }} />}
-                  label={membership.id === 'none' ? 'No membership' : `${membership.name} · ${formatInr(membership.price_monthly)}/mo`}
+                  label={
+                    !activeMembership
+                      ? 'No membership'
+                      : `${activeMembership.membershipPlan?.name} · ${formatCurrency(activeMembership.price_monthly)}/mo`
+                  }
                   size="small"
                   onClick={() => setMembershipDialogOpen(true)}
                   sx={{
@@ -767,7 +846,7 @@ export default function PatientDetailPage() {
                     cursor: 'pointer',
                     transition: 'transform 0.12s, box-shadow 0.12s',
                     '&:hover': { boxShadow: 1, transform: 'translateY(-1px)' },
-                    ...(membership.id === 'none'
+                    ...(!activeMembership
                       ? {
                           bgcolor: 'action.hover',
                           color: 'text.secondary',
@@ -2198,39 +2277,41 @@ export default function PatientDetailPage() {
         <DialogTitle sx={{ fontWeight: 800 }}>Patient Membership</DialogTitle>
         <DialogContent dividers>
           <Stack spacing={1.5} pt={0.5}>
-            {MEMBERSHIP_PLANS.map((plan) => (
-              <Card
-                key={plan.id}
-                variant="outlined"
-                onClick={() => setMembershipId(plan.id)}
-                sx={{
-                  cursor: 'pointer',
-                  borderRadius: 2,
-                  borderColor: membershipId === plan.id ? 'primary.main' : 'divider',
-                  borderWidth: membershipId === plan.id ? 2 : 1,
-                }}
-              >
-                <CardContent sx={{ py: '10px !important', px: 2 }}>
-                  <Stack direction="row" justifyContent="space-between" alignItems="center">
-                    <Typography fontWeight={700} variant="body2">
-                      {plan.name}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      {plan.price_monthly === 0 ? '' : `${formatInr(plan.price_monthly)}/mo`}
-                    </Typography>
-                  </Stack>
-                </CardContent>
-              </Card>
-            ))}
+            {membershipPlanOptions.map((plan) => {
+              const isSelected = (activeMembership?.membershipPlan?.id ?? 'none') === plan.id
+              const busy = enrolling || cancelling
+              return (
+                <Card
+                  key={plan.id}
+                  variant="outlined"
+                  onClick={() => !busy && selectMembershipPlan(plan.id)}
+                  sx={{
+                    cursor: busy ? 'default' : 'pointer',
+                    opacity: busy && !isSelected ? 0.6 : 1,
+                    borderRadius: 2,
+                    borderColor: isSelected ? 'primary.main' : 'divider',
+                    borderWidth: isSelected ? 2 : 1,
+                  }}
+                >
+                  <CardContent sx={{ py: '10px !important', px: 2 }}>
+                    <Stack direction="row" justifyContent="space-between" alignItems="center">
+                      <Typography fontWeight={700} variant="body2">
+                        {plan.name}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {plan.price_monthly === 0 ? '' : `${formatCurrency(plan.price_monthly)}/mo`}
+                      </Typography>
+                    </Stack>
+                  </CardContent>
+                </Card>
+              )
+            })}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
           <Button
             variant="contained"
-            onClick={() => {
-              setMembershipDialogOpen(false)
-              enqueueSnackbar('Membership updated', { variant: 'success' })
-            }}
+            onClick={() => setMembershipDialogOpen(false)}
             sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
           >
             Done
