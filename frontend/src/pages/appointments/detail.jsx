@@ -1195,6 +1195,29 @@ export default function AppointmentDetailPage() {
             </Card>
           )}
 
+          {/* Reported live: a completed appointment gave no way back to its
+              own consultation notes/prescriptions -- the Actions card above
+              disappears entirely once isTerminal is true, with nothing in
+              its place. getOrCreateEncounter (and EncounterWorkspace's own
+              `locked` handling) already work correctly for an
+              already-signed encounter -- same route, same clinician-only
+              gate as "Start Consultation" above, just read-only once there. */}
+          {isTerminal && apt.status === 'completed' && hasRole('clinician') && (
+            <Card sx={{ mb: 3 }}>
+              <Box sx={{ p: 3, bgcolor: 'action.hover' }}>
+                <Button
+                  fullWidth
+                  variant="outlined"
+                  startIcon={<MonitorHeartRoundedIcon />}
+                  onClick={() => navigate(`/clinician/encounters/${apt.id}`)}
+                  sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700, py: 1.25 }}
+                >
+                  View Consultation
+                </Button>
+              </Box>
+            </Card>
+          )}
+
           {/* REQ051 (US-QUE-06) — real, staff-facing, backend-driven
               pre-consultation checklist. Gates QueueService.callNext() on
               the backend; distinct from the static patient-prep-tips card

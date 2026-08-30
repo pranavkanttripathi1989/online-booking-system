@@ -222,6 +222,28 @@ const PATIENT_TIMELINE = gql`
   }
 `
 
+// Reported live: a completed encounter's own prescriptions were nowhere
+// visible -- Encounters has no GraphQL resolve-field for its own
+// Prescriptions[] relation, so this reuses the same real, already-tested
+// patientPrescriptions(patient_id) query PrescriptionBuilder.jsx's own
+// "Repeat from History" already calls, adding encounter_id to the
+// selection so this component can filter to just this encounter's own
+// prescriptions client-side -- no backend change needed.
+const ENCOUNTER_PRESCRIPTIONS_QUERY = gql`
+  query EncounterPrescriptions($patient_id: ID!) {
+    patientPrescriptions(patient_id: $patient_id) {
+      id
+      encounter_id
+      issued_at
+      items {
+        drug_name
+        dose
+        frequency
+      }
+    }
+  }
+`
+
 const ENCOUNTER_TEMPLATES = gql`
   query EncounterTemplates {
     encounterTemplates {
@@ -1527,7 +1549,14 @@ function AiScribePanel({ encounter, onNotesUpdated }) {
 
 // ─── Right pane: templates, attachments, sign-off ──────────────────────────
 function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onUpload, onNewPrescription, onNotesUpdated }) {
+  const navigate = useNavigate()
   const { data: templatesData, refetch: refetchTemplates } = useQuery(ENCOUNTER_TEMPLATES)
+  const { data: prescriptionsData } = useQuery(ENCOUNTER_PRESCRIPTIONS_QUERY, {
+    variables: { patient_id: encounter?.patient_id },
+    skip: !encounter?.patient_id,
+    fetchPolicy: 'cache-and-network',
+  })
+  const encounterPrescriptions = (prescriptionsData?.patientPrescriptions ?? []).filter((p) => p.encounter_id === encounter?.id)
   const templates = templatesData?.encounterTemplates ?? []
   const [signOpen, setSignOpen] = useState(false)
   const [downloadingSummary, setDownloadingSummary] = useState(false)
@@ -1632,6 +1661,39 @@ function ActionsPane({ encounter, onApplyTemplate, onSaveAsTemplate, onSign, onU
       </Stack>
 
       <Divider sx={{ my: 2 }} />
+
+      {/* Real per-encounter prescription list -- reported live as
+          missing ("I can't see the prescription") on a completed
+          consultation. Reuses patientPrescriptions, filtered to this
+          encounter, since Encounters has no dedicated resolve-field. */}
+      <Typography variant="subtitle2" fontWeight={700} mb={1}>
+        Prescriptions
+      </Typography>
+      {encounterPrescriptions.length === 0 ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
+          No prescriptions issued in this consultation yet.
+        </Typography>
+      ) : (
+        <Stack spacing={0.75} sx={{ mb: 1.5 }}>
+          {encounterPrescriptions.map((rx) => (
+            <Paper key={rx.id} variant="outlined" sx={{ p: 1, borderRadius: 1.5 }}>
+              <Stack direction="row" justifyContent="space-between" alignItems="center" gap={1}>
+                <Box sx={{ minWidth: 0 }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(rx.issued_at).toLocaleDateString()}
+                  </Typography>
+                  <Typography variant="body2" noWrap title={rx.items.map((i) => `${i.drug_name} (${i.frequency})`).join(', ')}>
+                    {rx.items.map((i) => i.drug_name).join(', ')}
+                  </Typography>
+                </Box>
+                <Button size="small" onClick={() => navigate(`/prescriptions/${rx.id}/print`)} sx={{ flexShrink: 0 }}>
+                  View
+                </Button>
+              </Stack>
+            </Paper>
+          ))}
+        </Stack>
+      )}
 
       {/* REQ021: prescription builder entry point. Independent of the
           encounter's own lock state -- issuing a script and signing the

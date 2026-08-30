@@ -175,6 +175,20 @@ const PATIENT_TIMELINE = gql`
     }
   }
 `
+const ENCOUNTER_PRESCRIPTIONS_QUERY = gql`
+  query EncounterPrescriptions($patient_id: ID!) {
+    patientPrescriptions(patient_id: $patient_id) {
+      id
+      encounter_id
+      issued_at
+      items {
+        drug_name
+        dose
+        frequency
+      }
+    }
+  }
+`
 const ENCOUNTER_TEMPLATES = gql`
   query EncounterTemplates {
     encounterTemplates {
@@ -362,6 +376,7 @@ function baseMocks(enc) {
     { request: { query: PATIENT_TIMELINE, variables: { patient_id: PATIENT_ID } }, result: { data: { patientTimeline: [] } } },
     { request: { query: ENCOUNTER_TEMPLATES }, result: { data: { encounterTemplates: [] } } },
     { request: { query: PRE_CONSULT_SUMMARY, variables: { patientId: PATIENT_ID } }, result: { data: { preConsultSummary: [] } } },
+    { request: { query: ENCOUNTER_PRESCRIPTIONS_QUERY, variables: { patient_id: PATIENT_ID } }, result: { data: { patientPrescriptions: [] } } },
   ]
 }
 
@@ -1232,5 +1247,47 @@ describe('EncounterWorkspace — AI Scribe (P1-11/P1-12)', () => {
         },
       ])
     }, 20000)
+  })
+})
+
+describe('EncounterWorkspace — Prescriptions section (reported: "I can\'t see the prescription")', () => {
+  it('renders a real prescription issued in this encounter, not just an empty state', async () => {
+    const enc = encounter()
+    const mocks = [
+      ...baseMocks(enc).filter((m) => m.request.query !== ENCOUNTER_PRESCRIPTIONS_QUERY),
+      {
+        request: { query: ENCOUNTER_PRESCRIPTIONS_QUERY, variables: { patient_id: PATIENT_ID } },
+        result: {
+          data: {
+            patientPrescriptions: [
+              {
+                __typename: 'Prescription',
+                id: 'rx-1',
+                encounter_id: ENCOUNTER_ID,
+                issued_at: '2026-08-30T10:00:00.000Z',
+                items: [{ __typename: 'PrescriptionItem', drug_name: 'Paracetamol', dose: '500mg', frequency: 'BD' }],
+              },
+              // A different encounter's prescription -- must NOT appear here.
+              {
+                __typename: 'Prescription',
+                id: 'rx-2',
+                encounter_id: 'enc-other',
+                issued_at: '2026-08-20T10:00:00.000Z',
+                items: [{ __typename: 'PrescriptionItem', drug_name: 'Ibuprofen', dose: '400mg', frequency: 'TDS' }],
+              },
+            ],
+          },
+        },
+      },
+    ]
+    renderPage(mocks)
+    await waitFor(() => expect(screen.getByText('Paracetamol')).toBeInTheDocument())
+    expect(screen.queryByText('Ibuprofen')).not.toBeInTheDocument()
+    expect(screen.queryByText('No prescriptions issued in this consultation yet.')).not.toBeInTheDocument()
+  })
+
+  it('shows a real empty state when nothing has been prescribed in this encounter', async () => {
+    renderPage(baseMocks(encounter()))
+    await waitFor(() => expect(screen.getByText('No prescriptions issued in this consultation yet.')).toBeInTheDocument())
   })
 })
