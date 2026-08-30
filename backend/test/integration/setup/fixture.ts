@@ -162,6 +162,9 @@ export const IDS = {
   // REQ163 (P2-10) -- appointment-series domain.
   appointmentSeriesA: u('g01'),
   appointmentSeriesB: u('g02'),
+  // Patient Membership Plans -- membership-plans domain.
+  membershipPlanA: u('h01'),
+  membershipPlanB: u('h02'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -198,6 +201,8 @@ const TABLES = [
   'Drugs',
   'Appointments',
   'AppointmentSeries',
+  'PatientMemberships',
+  'MembershipPlans',
   'TestResults',
   'ClinicianServices',
   'ClinicianLanguages',
@@ -500,6 +505,14 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.packageA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: '10-Session Physio', total_sittings: 10, price_paise: 500000 },
       { id: IDS.packageB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: '10-Session Physio', total_sittings: 10, price_paise: 500000 },
+    ],
+  });
+
+  // Patient Membership Plans -- one plan per org.
+  await prisma.membershipPlans.createMany({
+    data: [
+      { id: IDS.membershipPlanA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: 'Wellness Basic', price_monthly_paise: 49900 },
+      { id: IDS.membershipPlanB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: 'Wellness Basic', price_monthly_paise: 49900 },
     ],
   });
 

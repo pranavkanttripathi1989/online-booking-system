@@ -359,6 +359,17 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'staff'],
   },
   {
+    // Patient Membership Plans (backend/src/memberships/). clinic_id
+    // omitted -> org-wide (same shape as packages above); own client_org_id.
+    domain: 'memberships',
+    what: 'membershipPlans',
+    query: `{ membershipPlans { id } }`,
+    ids: (d) => (d.membershipPlans ?? []).map((x: any) => x.id),
+    aId: IDS.membershipPlanA,
+    bId: IDS.membershipPlanB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
+  },
+  {
     // REQ055 (US-ORG-05). clinic_id omitted, matching cancellation-rules/
     // packages' own precedent -- org-wide list via orgScope().
     domain: 'branch-overrides',
@@ -454,6 +465,17 @@ export const CASES: DomainCase[] = [
     aId: IDS.scheduledReportA,
     bId: IDS.scheduledReportB,
     allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
+    // REQ080. Own client_org_id, org-wide shared visibility (no per-staff
+    // self-scoping) -- same shape as checklist/intake-fields above.
+    domain: 'tasks',
+    what: 'tasks',
+    query: `{ tasks { id } }`,
+    ids: (d) => (d.tasks ?? []).map((x: any) => x.id),
+    aId: IDS.taskA,
+    bId: IDS.taskB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'clinician', 'staff'],
   },
   {
     // REQ106. clinic_id omitted -> org-wide (same shared query/variables

@@ -972,6 +972,8 @@ model ClientOrganizations {
   impersonationSessions  ImpersonationSessions[]
   packages               Packages[]
   patientPackages        PatientPackages[]
+  membershipPlans        MembershipPlans[]
+  patientMemberships     PatientMemberships[]
   productBranchOverrides ProductBranchOverrides[]
   cannedReplies          CannedReplies[]
   tasks                  Tasks[]
@@ -1166,6 +1168,8 @@ model Clinics {
   intakeFieldConfigs ClinicIntakeFieldConfig[]
   packages           Packages[]
   patientPackages    PatientPackages[]
+  membershipPlans    MembershipPlans[]
+  patientMemberships PatientMemberships[]
   productBranchOverrides ProductBranchOverrides[]
   messageThreads     MessageThreads[]
   waitlistEntries    WaitlistEntries[]
@@ -1434,6 +1438,7 @@ model Patients {
   rightsRequests           RightsRequests[]
   insurancePolicies        PatientInsurancePolicies[]
   patientPackages          PatientPackages[]
+  patientMemberships       PatientMemberships[]
   tasks                    Tasks[]
   aiTranscriptionSessions  AiTranscriptionSessions[]
 
@@ -3331,6 +3336,65 @@ model PackageTransferLog {
 
   @@index([patient_package_id])
   @@index([client_org_id])
+}
+
+// Patient Membership Plans -- built for real 2026-08-30 (BUG-058-class
+// requirement), replacing a page that was previously 100% local useState
+// with zero backend at all (context/open-questions.md #13). Deliberately
+// scoped like Packages/PatientPackages (REQ054) -- an org+clinic catalog
+// plus a per-patient enrollment record -- rather than the platform's own
+// versioned Plans/PlanVersions (REQ032, a different concept: MediBook's
+// SaaS billing, not a patient's recurring plan with the clinic). No
+// discount/pricing-integration field yet -- resolveServicePrice() has no
+// membership parameter and where a member discount would rank against
+// payer-tariff/branch-override/category/channel pricing is a genuine,
+// separate open design question, not decided here.
+model MembershipPlans {
+  id                  String   @id @default(uuid())
+  client_org_id       String
+  clinic_id           String
+  name                String
+  description         String?
+  price_monthly_paise Int
+  is_active           Boolean  @default(true)
+  is_deleted          Boolean  @default(false)
+  created_at          DateTime @default(now())
+
+  client_organization ClientOrganizations  @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics              @relation(fields: [clinic_id], references: [id])
+  patientMemberships  PatientMemberships[]
+
+  @@index([client_org_id, clinic_id])
+}
+
+// price_monthly_paise denormalizes from the plan at enroll time (matches
+// PatientPackages.purchase_amount_paise's own precedent) so a later catalog
+// price change never silently changes what an existing member is shown as
+// paying. status is free text ('active'|'cancelled'), validated at the DTO
+// layer -- matches this pair's own no-Prisma-enum convention. The
+// migration's own partial unique index (WHERE status='active') is the real
+// "one active membership per patient" guarantee; enrollPatientMembership
+// itself already cancels any prior active row in the same transaction, so
+// this index is a safety net, not the primary mechanism.
+model PatientMemberships {
+  id                  String    @id @default(uuid())
+  membership_plan_id  String
+  patient_id          String
+  client_org_id       String
+  clinic_id           String
+  price_monthly_paise Int
+  status              String    @default("active")
+  enrolled_at         DateTime  @default(now())
+  cancelled_at        DateTime?
+  is_deleted          Boolean   @default(false)
+
+  membershipPlan      MembershipPlans      @relation(fields: [membership_plan_id], references: [id])
+  patient             Patients             @relation(fields: [patient_id], references: [id])
+  client_organization ClientOrganizations  @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics              @relation(fields: [clinic_id], references: [id])
+
+  @@index([patient_id, status])
+  @@index([client_org_id, clinic_id])
 }
 
 // Which service(s)/product(s) a sitting from this package may be redeemed
