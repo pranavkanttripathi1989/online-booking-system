@@ -8,7 +8,9 @@
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR249 | improvement | Patient Membership Plans verification results | pass | 2026-08-30 | 2026-08-30 | TP249 | [TR249-patients-2026-08-30-real-membership-plans.md](./improvement/TR249-patients-2026-08-30-real-membership-plans.md) |
 
 ## bug
 

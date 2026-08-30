@@ -6,7 +6,9 @@ _none yet_
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN229 | improvement | Patient Membership Plans, built for real | done | 2026-08-30 | 2026-08-30 | REQ166 | [PLAN229-patients-2026-08-30-real-membership-plans.md](./improvement/PLAN229-patients-2026-08-30-real-membership-plans.md) |
 
 ## bug
 
