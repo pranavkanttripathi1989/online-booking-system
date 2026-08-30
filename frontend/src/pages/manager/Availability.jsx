@@ -333,7 +333,7 @@ export default function ManagerAvailability() {
   // SUG-AVAIL-015 — optimistic delete: ids hidden immediately, re-shown if mutation fails
   const [deletedIds, setDeletedIds] = useState([])
 
-  const { data, loading, refetch } = useQuery(GET_AVAILABILITY_DATA, {
+  const { data, loading, error, refetch } = useQuery(GET_AVAILABILITY_DATA, {
     fetchPolicy: 'cache-and-network',
   })
 
@@ -353,8 +353,10 @@ export default function ManagerAvailability() {
       try {
         const { data: roomData } = await getRooms({ variables: { clinicId } })
         const liveRooms = (roomData?.rooms || []).filter((r) => r.is_active)
-        // Fall back to mock rooms if backend is offline or returns empty
-        setRooms(liveRooms.length ? liveRooms : (MOCK_ROOMS_BY_CLINIC[clinicId] ?? []))
+        // DATA-13 — a genuine empty result (no active rooms for this clinic)
+        // renders as empty, never fabricated data. Mock is for a real fetch
+        // failure only (below).
+        setRooms(liveRooms)
       } catch {
         // Backend unreachable — use mock rooms so offline testing works (SUG-AVAIL-014)
         setRooms(MOCK_ROOMS_BY_CLINIC[clinicId] ?? [])
@@ -511,13 +513,15 @@ export default function ManagerAvailability() {
     }
   }
 
-  // SUG-AVAIL-014 — Offline mock fallbacks: availabilities, clinicians, clinics
+  // DATA-13 — mock is a fallback for a genuine query error only; a real,
+  // legitimate empty result (e.g. no availability rows yet) must render as
+  // empty, never as fabricated data.
   // SUG-AVAIL-015 — filter out optimistically-deleted rows
-  const availabilities = (data?.availabilities?.length ? data.availabilities : MOCK_AVAILABILITIES).filter(
+  const availabilities = (error ? MOCK_AVAILABILITIES : (data?.availabilities ?? [])).filter(
     (a) => !deletedIds.includes(a.id),
   )
-  const clinicians = (data?.clinicians?.data?.length ? data.clinicians.data : MOCK_CLINICIANS_AV).filter((c) => c.is_active)
-  const clinics = data?.clinics?.length ? data.clinics : MOCK_CLINICS_AV
+  const clinicians = (error ? MOCK_CLINICIANS_AV : (data?.clinicians?.data ?? [])).filter((c) => c.is_active)
+  const clinics = error ? MOCK_CLINICS_AV : (data?.clinics ?? [])
 
   if (loading && !data) {
     return (

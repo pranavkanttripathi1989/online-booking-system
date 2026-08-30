@@ -74,31 +74,23 @@ const MOCK_PRODUCT_BY_ID = {
   },
 }
 
-const DEFAULT_MOCK_PRODUCT = {
-  id: '',
-  name: 'Unknown Product',
-  description: '',
-  price: '',
-  stock_quantity: '',
-  sku: '',
-  is_active: true,
-}
-
 export default function EditProductPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [form, setForm] = useState(null)
 
-  // GAP-PRD-003 FIX: changed from 'network-only' to 'cache-first' to allow offline use
-  const { data, loading: fetching } = useQuery(PRODUCT_DETAIL_QUERY, {
+  // DATA-13 — mock (MOCK_PRODUCT_BY_ID below) is a fallback for a genuine
+  // query error only, never for a real "no such product" result — that must
+  // hit the not-found guard below, not silently edit a fabricated default.
+  const { data, loading: fetching, error } = useQuery(PRODUCT_DETAIL_QUERY, {
     variables: { id },
     fetchPolicy: 'cache-first',
   })
 
   useEffect(() => {
-    // Use live backend data if available, otherwise fall back to mock
-    const p = data?.product ?? MOCK_PRODUCT_BY_ID[id] ?? DEFAULT_MOCK_PRODUCT
+    const p = error ? MOCK_PRODUCT_BY_ID[id] : data?.product
+    if (!p) return
     setForm({
       name: p.name ?? '',
       description: p.description ?? '',
@@ -107,7 +99,7 @@ export default function EditProductPage() {
       sku: p.sku ?? '',
       is_active: p.is_active ?? true,
     })
-  }, [data, id])
+  }, [data, error, id])
 
   const [updateProduct, { loading }] = useMutation(UPDATE_PRODUCT_MUTATION, {
     onCompleted: (data) => {
@@ -121,12 +113,28 @@ export default function EditProductPage() {
     onError: (err) => enqueueSnackbar(err.message, { variant: 'error' }),
   })
 
-  // GAP-PRD-003 FIX: guard changed to (fetching && !form) so form loads from mock immediately
   if (fetching && !form)
     return (
       <Box>
         <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
         <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 3 }} />
+      </Box>
+    )
+
+  // DATA-13 — an id that resolves to no real product and has no mock entry
+  // MUST be a not-found state, never a silently-populated fake default.
+  if (!fetching && !form)
+    return (
+      <Box sx={{ textAlign: 'center', py: 6 }}>
+        <Typography variant="h5" fontWeight={700} mb={1}>
+          Product not found
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          We couldn't find a product with that ID.
+        </Typography>
+        <Button variant="contained" onClick={() => navigate('/manager/products')} sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}>
+          Back to Products
+        </Button>
       </Box>
     )
   if (!form) return null

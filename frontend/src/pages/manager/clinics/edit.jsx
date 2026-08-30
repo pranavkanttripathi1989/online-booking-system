@@ -86,18 +86,6 @@ const MOCK_CLINIC_BY_ID = {
   },
 }
 
-const DEFAULT_MOCK_CLINIC = {
-  id: '',
-  name: 'Unknown Clinic',
-  address: '',
-  city: '',
-  postcode: '',
-  phone: '',
-  email: '',
-  timezone: 'Europe/London',
-  is_active: true,
-}
-
 export default function EditClinicPage() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -105,16 +93,17 @@ export default function EditClinicPage() {
   const [form, setForm] = useState(null)
   const [errors, setErrors] = useState({}) // SUG-CLI-006 / SUG-CLI-003 (older file) — email validation
 
-  // fetchPolicy: cache-first allows offline fallback via Apollo InMemoryCache
-  // FIX BUG-CLI-002: changed from 'network-only' to 'cache-first' + mock data fallback
-  const { data, loading: fetching } = useQuery(CLINIC_DETAIL_QUERY, {
+  // DATA-13 — mock (MOCK_CLINIC_BY_ID below) is a fallback for a genuine
+  // query error only, never for a real "no such clinic" result — that must
+  // hit the not-found guard below, not silently edit a fabricated default.
+  const { data, loading: fetching, error } = useQuery(CLINIC_DETAIL_QUERY, {
     variables: { id },
     fetchPolicy: 'cache-first',
   })
 
   useEffect(() => {
-    // Use live backend data if available, otherwise fall back to mock
-    const c = data?.clinic ?? MOCK_CLINIC_BY_ID[id] ?? DEFAULT_MOCK_CLINIC
+    const c = error ? MOCK_CLINIC_BY_ID[id] : data?.clinic
+    if (!c) return
     setForm({
       name: c.name || '',
       address: c.address || '',
@@ -127,7 +116,7 @@ export default function EditClinicPage() {
       timezone: c.timezone || 'Europe/London',
       is_active: c.is_active ?? true,
     })
-  }, [data, id])
+  }, [data, error, id])
 
   const [updateClinic, { loading }] = useMutation(UPDATE_CLINIC_MUTATION, {
     onCompleted: () => {
@@ -142,6 +131,27 @@ export default function EditClinicPage() {
       <Box>
         <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
         <Skeleton variant="rectangular" height={400} sx={{ borderRadius: 3 }} />
+      </Box>
+    )
+
+  // DATA-13 — an id that resolves to no real clinic and has no mock entry
+  // MUST be a not-found state, never a silently-populated fake default.
+  if (!fetching && !form)
+    return (
+      <Box sx={{ textAlign: 'center', py: 6 }}>
+        <Typography variant="h5" fontWeight={700} mb={1}>
+          Clinic not found
+        </Typography>
+        <Typography variant="body2" color="text.secondary" mb={2}>
+          We couldn't find a clinic with that ID.
+        </Typography>
+        <Button
+          variant="contained"
+          onClick={() => navigate('/manager/clinics')}
+          sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}
+        >
+          Back to Clinics
+        </Button>
       </Box>
     )
   if (!form) return null

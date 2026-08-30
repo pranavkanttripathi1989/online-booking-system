@@ -389,7 +389,7 @@ export default function ManagerBlocks() {
     setEditingRoomId(null)
   }
 
-  const { data, loading, refetch } = useQuery(GET_BLOCKS_DATA, { fetchPolicy: 'cache-and-network' })
+  const { data, loading, error, refetch } = useQuery(GET_BLOCKS_DATA, { fetchPolicy: 'cache-and-network' })
 
   const [createSpacerBlock] = useMutation(CREATE_SPACER_BLOCK)
   const [deleteSpacerBlock] = useMutation(DELETE_SPACER_BLOCK)
@@ -398,18 +398,18 @@ export default function ManagerBlocks() {
   const [updateSpacerBlock] = useMutation(UPDATE_SPACER_BLOCK)
   const [updateRoomBlock] = useMutation(UPDATE_ROOM_BLOCK)
 
-  // Fall back to mock data when GraphQL returns nothing (offline mode)
-  const clinicians = (data?.clinicians?.data?.length ? data.clinicians.data : MOCK_CLINICIANS).filter((c) => c.is_active)
-  const clinics = data?.clinics?.length ? data.clinics : MOCK_CLINICS
-  const allRooms = (data?.rooms?.length ? data.rooms : MOCK_ROOMS)
+  // DATA-13 — mock is a fallback for a genuine query error only; a real,
+  // legitimate empty result must render as empty, never as fabricated data.
+  const clinicians = (error ? MOCK_CLINICIANS : (data?.clinicians?.data ?? [])).filter((c) => c.is_active)
+  const clinics = error ? MOCK_CLINICS : (data?.clinics ?? [])
+  const allRooms = (error ? MOCK_ROOMS : (data?.rooms ?? []))
     .filter((r) => r.is_active)
     .map((r) => ({ ...r, clinic_id: r.clinic_id ?? r.clinic?.id }))
-  // FIX GAP-BLK-005 — fall back to mock block records
   // SUG-BLK-009 — merge in any local edits so updates are visible immediately (offline-safe)
-  const spacerBlocks = (data?.spacerBlocks?.length ? data.spacerBlocks : MOCK_SPACER_BLOCKS).map((b) =>
+  const spacerBlocks = (error ? MOCK_SPACER_BLOCKS : (data?.spacerBlocks ?? [])).map((b) =>
     spacerOverrides[b.id] ? { ...b, ...spacerOverrides[b.id] } : b,
   )
-  const roomBlocks = (data?.roomBlocks?.length ? data.roomBlocks : MOCK_ROOM_BLOCKS).map((b) =>
+  const roomBlocks = (error ? MOCK_ROOM_BLOCKS : (data?.roomBlocks ?? [])).map((b) =>
     roomOverrides[b.id] ? { ...b, ...roomOverrides[b.id] } : b,
   )
 
