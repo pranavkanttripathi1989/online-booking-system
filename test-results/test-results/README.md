@@ -6,7 +6,9 @@ _none yet_
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| TR252 | improvement | Results for exposing `patient_id` on `TestResultType` + filter argument | pass | 2026-08-30 | 2026-08-30 | TP252 | [TR252-test-results-2026-08-30-expose-patient-id-filter-verification.md](./improvement/TR252-test-results-2026-08-30-expose-patient-id-filter-verification.md) |
 
 ## bug
 

@@ -6,7 +6,9 @@ _none yet_
 
 ## improvement
 
-_none yet_
+| ID | Type | Title | Status | Created | Updated | Parent | Link |
+|---|---|---|---|---|---|---|---|
+| PLAN232 | improvement | Expose `patient_id` on `TestResultType` + a `patient_id` filter argument | done | 2026-08-30 | 2026-08-30 | REQ169 | [PLAN232-test-results-2026-08-30-expose-patient-id-filter.md](./improvement/PLAN232-test-results-2026-08-30-expose-patient-id-filter.md) |
 
 ## bug
 

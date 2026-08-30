@@ -66,6 +66,6 @@
 | clinician-calendar | 1 | 0 | 0 | 0 | 1 | 2026-03-20 | [clinician-calendar](./clinician-calendar/README.md) |
 | patient-profile | 1 | 0 | 0 | 0 | 1 | 2026-03-19 | [patient-profile](./patient-profile/README.md) |
 | test-coverage-audit | 0 | 4 | 0 | 0 | 4 | 2026-08-26 | [test-coverage-audit](./test-coverage-audit/README.md) |
-| test-results | 0 | 0 | 1 | 0 | 1 | 2026-08-26 | [test-results](./test-results/README.md) |
+| test-results | 0 | 1 | 1 | 0 | 2 | 2026-08-30 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
 | frontend-platform | 0 | 7 | 6 | 0 | 13 | 2026-08-29 | [frontend-platform](./frontend-platform/README.md) |

@@ -2,33 +2,6 @@
 
 Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the question, why it's genuinely ambiguous (not just unimplemented), and current status.
 
-## 20. `TestResultType` has no real per-patient join — `patients/detail.jsx`'s Test Results tab stays mock
-
-**Status:** Open, raised 2026-08-30 while fixing `BUG055` (`patients/detail.jsx`
-rendering a fabricated patient identity/appointment history for every real
-patient).
-
-`BUG055` wired Overview identity and the Appointments tab to the real,
-already-proven `PATIENT_DETAIL_QUERY` (already used correctly elsewhere by
-`PatientDetailDrawer.jsx`/`EditPatientPage.jsx`). Test Results could not get
-the same treatment: `backend/src/test-results/entities/test-result.entity.ts`'s
-`patient` field is free text (a name string), not a `patient_id` FK, and
-`test-results.resolver.ts` has no filter argument to join on at all — there
-is no way to ask "this patient's test results" from the real backend today.
-
-**Why this is a decision, not a task:** the tempting shortcut — match
-`TestResults.patient` against the open patient's `full_name` string — is a
-silent-failure risk, not a fix (two same-named patients would leak into each
-other's results; a legal-name-vs-preferred-name mismatch would hide real
-results). A real fix needs a schema change (a `patient_id` FK on
-`TestResults`, backfilled, plus a resolver filter) — its own scoped slice,
-not a rider on a frontend page-wiring bug fix.
-
-**Decision needed from the user:** prioritize a `patient_id` FK + resolver
-filter on `TestResults` as an upcoming `REQ` (closing this tab's mock status
-for real), or accept the current honest "Showing sample data" disclosure on
-this one tab indefinitely until `test-results` sees other schema work anyway.
-
 ---
 
 ## 19. Patient reviews for named doctors are now live end-to-end — `SEC-13`'s counsel sign-off has not happened
@@ -594,6 +567,22 @@ picking wrong could have quiet correctness implications elsewhere in the
 codebase this session hasn't audited.
 
 ## Resolved
+
+### `TestResultType` had no real per-patient join — `patients/detail.jsx`'s Test Results tab stayed mock (resolved 2026-08-30)
+
+Raised 2026-08-30 while fixing `BUG055`, framed as needing a schema change
+(a `patient_id` FK on `TestResults`, backfilled). Re-verified before
+starting the fix, not assumed: the column already existed — `BUG027`
+(2026-08-26) had already fixed `orderTest()` to write it. The real gap
+was narrower — `TestResultType` never exposed `patient_id` to GraphQL,
+and the `testResults` query had no filter argument to join on. Closed by
+`REQ169`/`PLAN232`: `patient_id` exposed on the entity, an optional
+`patient_id` filter argument added to `testResults` (additive to, never a
+substitute for, the existing org-scope and patient self-scope), and
+`patients/detail.jsx`'s Test Results tab wired to the real data —
+`MOCK_TESTS` deleted entirely. Live-verified end-to-end: ordering a real
+test for a real patient wrote a real `patient_id`, which then appeared on
+that same patient's own detail-page tab.
 
 ### manager/Dashboard.jsx KPIs, charts, and clinic filter (resolved 2026-08-18)
 
