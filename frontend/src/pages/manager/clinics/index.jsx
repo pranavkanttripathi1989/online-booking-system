@@ -149,7 +149,7 @@ function ManagerClinicsInner() {
   const [deleteId, setDeleteId] = useState(null)
 
   const { enqueueSnackbar } = useSnackbar()
-  const { data: clinicsData, loading: clinicsLoading, error: clinicsError, refetch } = useQuery(CLINICS_QUERY, { errorPolicy: 'all' })
+  const { data: clinicsData, error: clinicsError, refetch } = useQuery(CLINICS_QUERY, { errorPolicy: 'all' })
   const { data: roomsData } = useQuery(ROOMS_QUERY, { errorPolicy: 'all' })
   // REQ041 -- real clinics only; mock rows have no is_primary field to act on.
   const [setHeadOffice] = useMutation(SET_HEAD_OFFICE_CLINIC_MUTATION, {
@@ -161,7 +161,13 @@ function ManagerClinicsInner() {
   })
 
   const apiClinics = clinicsData?.clinics ?? []
-  const useMock = apiClinics.length === 0 && !clinicsLoading
+  // DATA-13 — mock is a fallback for a genuine query error only. This used
+  // to fire on any empty API result too (`apiClinics.length === 0`), which
+  // silently rendered CLINICS_DATA's 4 fabricated London clinics for any
+  // org with genuinely zero clinics yet — indistinguishable from real data,
+  // since the "Backend unavailable — showing sample data" banner below is
+  // itself gated on `clinicsError` and so never appeared on this path.
+  const useMock = !!clinicsError
 
   const [deletedMockIds] = useState(getDeletedClinicIds)
   const [locallyRemovedIds, setLocallyRemovedIds] = useState([])
@@ -275,6 +281,15 @@ function ManagerClinicsInner() {
 
       {/* Clinics tab */}
       {tab === 0 ? (
+        filtered.length === 0 ? (
+          <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+            <CardContent sx={{ textAlign: 'center', py: 6 }}>
+              <Typography color="text.secondary">
+                {search ? 'No clinics match your search.' : 'No clinics yet. Add your first clinic to get started.'}
+              </Typography>
+            </CardContent>
+          </Card>
+        ) : (
         <Grid container spacing={3}>
           {filtered.map((clinic) => (
             <Grid item xs={12} md={6} key={clinic.id}>
@@ -415,6 +430,13 @@ function ManagerClinicsInner() {
             </Grid>
           ))}
         </Grid>
+        )
+      ) : rooms.length === 0 ? (
+        <Card elevation={0} sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 3 }}>
+          <CardContent sx={{ textAlign: 'center', py: 6 }}>
+            <Typography color="text.secondary">No rooms yet.</Typography>
+          </CardContent>
+        </Card>
       ) : (
         /* Rooms tab */
         <Grid container spacing={2}>

@@ -851,14 +851,6 @@ function App() {
               }
             />
             <Route
-              path="/manager/resources"
-              element={
-                <Suspense fallback={<ShellPageLoader />}>
-                  <ManagerResources />
-                </Suspense>
-              }
-            />
-            <Route
               path="/manager/reports"
               element={
                 <Suspense fallback={<ShellPageLoader />}>
@@ -942,31 +934,6 @@ function App() {
                 </Suspense>
               }
             />
-            {/* Phase G+3 — checklist/intake-field config (REQ051/REQ052), packages (REQ054) */}
-            <Route
-              path="/manager/clinic-forms"
-              element={
-                <Suspense fallback={<ShellPageLoader />}>
-                  <ManagerClinicForms />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/manager/packages"
-              element={
-                <Suspense fallback={<ShellPageLoader />}>
-                  <ManagerPackages />
-                </Suspense>
-              }
-            />
-            <Route
-              path="/manager/memberships"
-              element={
-                <Suspense fallback={<ShellPageLoader />}>
-                  <ManagerMemberships />
-                </Suspense>
-              }
-            />
             {/* Shared manager/admin pages */}
             <Route
               path="/tasks"
@@ -1021,6 +988,77 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <ReviewsPage />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* BUG062 — checklist.resolver.ts's/intake-fields.resolver.ts's own
+              read queries allow clinician/staff too, narrower than the
+              shared admin/super_admin/manager-only block above. Write
+              mutations (create/update/deleteChecklistItem,
+              create/update/deleteIntakeFieldConfig) stay manager/admin/
+              super_admin-only and are self-gated client-side inside
+              manager/clinic-forms/index.jsx (canManage). */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'clinician', 'staff']} />}>
+            <Route
+              path="/manager/clinic-forms"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerClinicForms />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* BUG062 — packages.resolver.ts's own read query (packages)
+              allows staff too, narrower than the shared admin/super_admin/
+              manager-only block above. Write mutations (create/update/
+              deletePackage) stay manager/admin/super_admin-only and are
+              self-gated client-side inside manager/packages/index.jsx
+              (canManage). */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'staff']} />}>
+            <Route
+              path="/manager/packages"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerPackages />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* BUG062 — memberships.resolver.ts's own read query
+              (membershipPlans) allows clinician/staff too, narrower than
+              the shared admin/super_admin/manager-only block above. Write
+              mutations (create/update/deleteMembershipPlan) stay
+              manager/admin/super_admin-only and are self-gated
+              client-side inside manager/memberships/index.jsx
+              (canManage). */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'clinician', 'staff']} />}>
+            <Route
+              path="/manager/memberships"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerMemberships />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* resources.resolver.ts's own read query (resources) allows
+              staff too, narrower than the shared admin/super_admin/
+              manager-only block above — its own dedicated RoleGuard, same
+              precedent as /manager/registries and /queue below. Write
+              mutations (create/update/deleteResource) stay manager/admin/
+              super_admin-only and are self-gated client-side inside
+              manager/resources/index.jsx (canManage). */}
+          <Route element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'staff']} />}>
+            <Route
+              path="/manager/resources"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <ManagerResources />
                 </Suspense>
               }
             />

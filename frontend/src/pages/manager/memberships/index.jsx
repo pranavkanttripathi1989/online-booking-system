@@ -26,6 +26,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import CardMembershipIcon from '@mui/icons-material/CardMembership'
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog'
 import ErrorBoundary from '../../../components/ErrorBoundary'
+import { useAuth } from '../../../context/AuthContext'
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 // Patient Membership Plans -- built for real 2026-08-30, replacing a page
@@ -101,6 +102,14 @@ const defaultForm = {
 
 function ManagerMemberships() {
   const client = useApolloClient()
+  const { hasRole } = useAuth()
+  // memberships.resolver.ts gates createMembershipPlan/updateMembershipPlan/
+  // deleteMembershipPlan to manager/admin/super_admin only, but the read
+  // query also allows clinician/staff — self-gate the write actions
+  // client-side (SEC-18) so a clinician/staff caller sees this page
+  // (matching the widened route in App.jsx) without seeing controls they
+  // cannot use.
+  const canManage = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
 
   const [clinics, setClinics] = useState([])
   const [plans, setPlans] = useState([])
@@ -231,16 +240,18 @@ function ManagerMemberships() {
             Recurring monthly plans a patient can be enrolled in from their own detail page
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            resetForm()
-            setShowForm((p) => !p)
-          }}
-        >
-          New Plan
-        </Button>
+        {canManage && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              resetForm()
+              setShowForm((p) => !p)
+            }}
+          >
+            New Plan
+          </Button>
+        )}
       </Stack>
 
       {successMsg && (
@@ -379,23 +390,25 @@ function ManagerMemberships() {
                       <Box sx={{ bgcolor: 'info.50', borderRadius: 1, p: 1 }}>
                         <CardMembershipIcon color="info" />
                       </Box>
-                      <Stack direction="row" spacing={0.5}>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" aria-label={`Edit membership plan ${plan.name}`} onClick={() => handleEdit(plan)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            aria-label={`Delete membership plan ${plan.name}`}
-                            onClick={() => handleDelete(plan.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
+                      {canManage && (
+                        <Stack direction="row" spacing={0.5}>
+                          <Tooltip title="Edit">
+                            <IconButton size="small" aria-label={`Edit membership plan ${plan.name}`} onClick={() => handleEdit(plan)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              aria-label={`Delete membership plan ${plan.name}`}
+                              onClick={() => handleDelete(plan.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      )}
                     </Stack>
 
                     <Typography variant="h6" fontWeight={700} noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>

@@ -25,6 +25,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import PrecisionManufacturingIcon from '@mui/icons-material/PrecisionManufacturing'
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog'
 import ErrorBoundary from '../../../components/ErrorBoundary'
+import { useAuth } from '../../../context/AuthContext'
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 // REQ017 US-CAL-05 — multi-resource intersection booking. `resources` is a
@@ -85,6 +86,13 @@ const defaultForm = { clinicId: '', name: '', type: 'equipment', isBookable: tru
 
 function ManagerResources() {
   const client = useApolloClient()
+  const { hasRole } = useAuth()
+  // resources.resolver.ts gates createResource/updateResource/
+  // deleteResource to manager/admin/super_admin only, but the read query
+  // also allows staff — self-gate the write actions client-side (SEC-18)
+  // so a staff caller sees this page (matching the widened route in
+  // App.jsx) without seeing controls they cannot use.
+  const canManage = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
 
   const [clinics, setClinics] = useState([])
   const [resources, setResources] = useState([])
@@ -207,16 +215,18 @@ function ManagerResources() {
             Bookable equipment (ECG machines, chairs, bays) an appointment can require alongside a clinician and room
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            resetForm()
-            setShowForm((p) => !p)
-          }}
-        >
-          Add Resource
-        </Button>
+        {canManage && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              resetForm()
+              setShowForm((p) => !p)
+            }}
+          >
+            Add Resource
+          </Button>
+        )}
       </Stack>
 
       {successMsg && (
@@ -333,23 +343,25 @@ function ManagerResources() {
                     <Box sx={{ bgcolor: 'info.50', borderRadius: 1, p: 1 }}>
                       <PrecisionManufacturingIcon color="info" />
                     </Box>
-                    <Stack direction="row" spacing={0.5}>
-                      <Tooltip title="Edit">
-                        <IconButton size="small" aria-label={`Edit resource ${resource.name}`} onClick={() => handleEdit(resource)}>
-                          <EditIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                      <Tooltip title="Delete">
-                        <IconButton
-                          size="small"
-                          color="error"
-                          aria-label={`Delete resource ${resource.name}`}
-                          onClick={() => handleDelete(resource.id)}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Tooltip>
-                    </Stack>
+                    {canManage && (
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="Edit">
+                          <IconButton size="small" aria-label={`Edit resource ${resource.name}`} onClick={() => handleEdit(resource)}>
+                            <EditIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        <Tooltip title="Delete">
+                          <IconButton
+                            size="small"
+                            color="error"
+                            aria-label={`Delete resource ${resource.name}`}
+                            onClick={() => handleDelete(resource.id)}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      </Stack>
+                    )}
                   </Stack>
 
                   <Typography variant="h6" fontWeight={700} noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>

@@ -267,6 +267,20 @@ const NAV_CONFIG = [
   // Pharmacy/Insurance Claims above for the identical reason (a clinician
   // needs to reach this, not just manager-only staff).
   { label: 'Chronic Registries', path: '/manager/registries', icon: <MonitorHeartRoundedIcon />, roles: ['admin', 'super_admin', 'manager', 'clinician', 'staff'] },
+  // BUG062 — resources.resolver.ts's own read query (resources) is
+  // @Auth('manager','admin','super_admin','staff'); previously only nested
+  // under the Manager section below, which only renders for isManager
+  // (admin/super_admin/manager) — same top-level-promotion fix as
+  // Pharmacy/Insurance Claims above, for the identical gap class.
+  { label: 'Resources', path: '/manager/resources', icon: <PrecisionManufacturingIcon />, roles: ['admin', 'super_admin', 'manager', 'staff'] },
+  // BUG062 — checklist.resolver.ts's/intake-fields.resolver.ts's own read
+  // queries are clinician/staff-inclusive; same top-level promotion as
+  // Resources above, for the identical gap class.
+  { label: 'Clinic Forms', path: '/manager/clinic-forms', icon: <FormatListNumberedIcon />, roles: ['admin', 'super_admin', 'manager', 'clinician', 'staff'] },
+  // BUG062 — packages.resolver.ts's own read query is staff-inclusive.
+  { label: 'Packages', path: '/manager/packages', icon: <WorkspacePremiumIcon />, roles: ['admin', 'super_admin', 'manager', 'staff'] },
+  // BUG062 — memberships.resolver.ts's own read query is clinician/staff-inclusive.
+  { label: 'Memberships', path: '/manager/memberships', icon: <CardMembershipIcon />, roles: ['admin', 'super_admin', 'manager', 'clinician', 'staff'] },
   // ── Shared ────────────────────────────────────────────────────────────────
   { label: 'Messages', path: '/messages', icon: <MessageIcon />, roles: 'all', badge: 0 },
   { label: 'Staff', path: '/staff', icon: <BadgeIcon />, roles: ['admin', 'super_admin', 'manager'] },
@@ -300,16 +314,9 @@ const MANAGER_CHILDREN = [
   { label: 'Availability', path: '/manager/availability', icon: <EventAvailableIcon /> },
   { label: 'Blocks', path: '/manager/blocks', icon: <BlockIcon /> },
   { label: 'Rooms', path: '/manager/rooms', icon: <MeetingRoomIcon /> },
-  { label: 'Resources', path: '/manager/resources', icon: <PrecisionManufacturingIcon /> },
   { label: 'Products', path: '/manager/products', icon: <InventoryIcon /> },
   { label: 'Services', path: '/manager/services', icon: <MedicalServicesIcon /> },
   { label: 'Patient Reports', path: '/manager/reports', icon: <SummarizeIcon /> },
-  // Phase G+3 — checklist + intake-field config (REQ051/REQ052).
-  { label: 'Clinic Forms', path: '/manager/clinic-forms', icon: <FormatListNumberedIcon /> },
-  // Phase G+3 — multi-sitting service packages (REQ054).
-  { label: 'Packages', path: '/manager/packages', icon: <WorkspacePremiumIcon /> },
-  // Patient Membership Plans — built for real 2026-08-30 (context/open-questions.md #13).
-  { label: 'Memberships', path: '/manager/memberships', icon: <CardMembershipIcon /> },
   // P2-05 — CSV migration importer.
   { label: 'Patient Import', path: '/manager/imports', icon: <UploadFileRoundedIcon /> },
   // P2-06 — doctor revenue-share & payouts.

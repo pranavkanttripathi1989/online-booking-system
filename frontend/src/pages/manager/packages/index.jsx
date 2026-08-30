@@ -26,6 +26,7 @@ import DeleteIcon from '@mui/icons-material/Delete'
 import CardGiftcardIcon from '@mui/icons-material/CardGiftcard'
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog'
 import ErrorBoundary from '../../../components/ErrorBoundary'
+import { useAuth } from '../../../context/AuthContext'
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 // REQ054 (US-CAT-01) — multi-sitting service packages. price/purchase_amount
@@ -117,6 +118,13 @@ const defaultForm = {
 
 function ManagerPackages() {
   const client = useApolloClient()
+  const { hasRole } = useAuth()
+  // packages.resolver.ts gates createPackage/updatePackage/deletePackage to
+  // manager/admin/super_admin only, but the read query also allows staff —
+  // self-gate the write actions client-side (SEC-18) so a staff caller
+  // sees this page (matching the widened route in App.jsx) without seeing
+  // controls they cannot use.
+  const canManage = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
 
   const [clinics, setClinics] = useState([])
   const [products, setProducts] = useState([])
@@ -272,16 +280,18 @@ function ManagerPackages() {
             Multi-sitting bundles a patient buys once and redeems across future appointments
           </Typography>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<AddIcon />}
-          onClick={() => {
-            resetForm()
-            setShowForm((p) => !p)
-          }}
-        >
-          New Package
-        </Button>
+        {canManage && (
+          <Button
+            variant="contained"
+            startIcon={<AddIcon />}
+            onClick={() => {
+              resetForm()
+              setShowForm((p) => !p)
+            }}
+          >
+            New Package
+          </Button>
+        )}
       </Stack>
 
       {successMsg && (
@@ -475,23 +485,25 @@ function ManagerPackages() {
                       <Box sx={{ bgcolor: 'info.50', borderRadius: 1, p: 1 }}>
                         <CardGiftcardIcon color="info" />
                       </Box>
-                      <Stack direction="row" spacing={0.5}>
-                        <Tooltip title="Edit">
-                          <IconButton size="small" aria-label={`Edit package ${pkg.name}`} onClick={() => handleEdit(pkg)}>
-                            <EditIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                        <Tooltip title="Delete">
-                          <IconButton
-                            size="small"
-                            color="error"
-                            aria-label={`Delete package ${pkg.name}`}
-                            onClick={() => handleDelete(pkg.id)}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        </Tooltip>
-                      </Stack>
+                      {canManage && (
+                        <Stack direction="row" spacing={0.5}>
+                          <Tooltip title="Edit">
+                            <IconButton size="small" aria-label={`Edit package ${pkg.name}`} onClick={() => handleEdit(pkg)}>
+                              <EditIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                          <Tooltip title="Delete">
+                            <IconButton
+                              size="small"
+                              color="error"
+                              aria-label={`Delete package ${pkg.name}`}
+                              onClick={() => handleDelete(pkg.id)}
+                            >
+                              <DeleteIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        </Stack>
+                      )}
                     </Stack>
 
                     <Typography variant="h6" fontWeight={700} noWrap sx={{ overflow: 'hidden', textOverflow: 'ellipsis' }}>

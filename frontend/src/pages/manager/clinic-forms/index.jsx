@@ -39,6 +39,7 @@ import ChecklistIcon from '@mui/icons-material/PlaylistAddCheck'
 import DynamicFormIcon from '@mui/icons-material/DynamicForm'
 import ConfirmDialog from '../../../components/ConfirmDialog/ConfirmDialog'
 import ErrorBoundary from '../../../components/ErrorBoundary'
+import { useAuth } from '../../../context/AuthContext'
 
 // ─── GraphQL ─────────────────────────────────────────────────────────────────
 // REQ051/REQ052 (Phase G+3) — per-clinic checklist and intake-field config.
@@ -171,6 +172,14 @@ const dfIntakeField = { key: '', label: '', product_id: '', field_type: 'text', 
 
 function ClinicForms() {
   const client = useApolloClient()
+  const { hasRole } = useAuth()
+  // checklist.resolver.ts / intake-fields.resolver.ts gate every create/
+  // update/delete mutation to manager/admin/super_admin only, but both
+  // read queries also allow clinician/staff — self-gate the write actions
+  // client-side (SEC-18) so a clinician/staff caller sees this page
+  // (matching the widened route in App.jsx) without seeing controls they
+  // cannot use.
+  const canManage = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
 
   const [tabIndex, setTabIndex] = useState(0)
   const [clinics, setClinics] = useState([])
@@ -455,9 +464,11 @@ function ClinicForms() {
               <Typography variant="subtitle1" fontWeight={700}>
                 Pre-Visit Checklist Items
               </Typography>
-              <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateChecklistItem}>
-                Add Item
-              </Button>
+              {canManage && (
+                <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateChecklistItem}>
+                  Add Item
+                </Button>
+              )}
             </Stack>
             {checklistLoading ? (
               <Box display="flex" justifyContent="center" py={4}>
@@ -491,21 +502,25 @@ function ClinicForms() {
                           <TableCell>{item.is_required ? 'Yes' : 'No'}</TableCell>
                           <TableCell>{item.sort_order}</TableCell>
                           <TableCell align="right">
-                            <Tooltip title="Edit">
-                              <IconButton size="small" aria-label={`Edit ${item.label}`} onClick={() => openEditChecklistItem(item)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                aria-label={`Delete ${item.label}`}
-                                onClick={() => handleDelete('checklist', item.id)}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            {canManage && (
+                              <>
+                                <Tooltip title="Edit">
+                                  <IconButton size="small" aria-label={`Edit ${item.label}`} onClick={() => openEditChecklistItem(item)}>
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Delete">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    aria-label={`Delete ${item.label}`}
+                                    onClick={() => handleDelete('checklist', item.id)}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
@@ -525,9 +540,11 @@ function ClinicForms() {
               <Typography variant="subtitle1" fontWeight={700}>
                 Intake Form Fields
               </Typography>
-              <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateIntakeField}>
-                Add Field
-              </Button>
+              {canManage && (
+                <Button variant="contained" startIcon={<AddIcon />} onClick={openCreateIntakeField}>
+                  Add Field
+                </Button>
+              )}
             </Stack>
             {intakeLoading ? (
               <Box display="flex" justifyContent="center" py={4}>
@@ -565,21 +582,25 @@ function ClinicForms() {
                           <TableCell>{field.product_id ? (productName(field.product_id) ?? '—') : 'All services'}</TableCell>
                           <TableCell>{field.is_required ? 'Yes' : 'No'}</TableCell>
                           <TableCell align="right">
-                            <Tooltip title="Edit">
-                              <IconButton size="small" aria-label={`Edit ${field.label}`} onClick={() => openEditIntakeField(field)}>
-                                <EditIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
-                            <Tooltip title="Delete">
-                              <IconButton
-                                size="small"
-                                color="error"
-                                aria-label={`Delete ${field.label}`}
-                                onClick={() => handleDelete('intake', field.id)}
-                              >
-                                <DeleteIcon fontSize="small" />
-                              </IconButton>
-                            </Tooltip>
+                            {canManage && (
+                              <>
+                                <Tooltip title="Edit">
+                                  <IconButton size="small" aria-label={`Edit ${field.label}`} onClick={() => openEditIntakeField(field)}>
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                                <Tooltip title="Delete">
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    aria-label={`Delete ${field.label}`}
+                                    onClick={() => handleDelete('intake', field.id)}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Tooltip>
+                              </>
+                            )}
                           </TableCell>
                         </TableRow>
                       ))}
