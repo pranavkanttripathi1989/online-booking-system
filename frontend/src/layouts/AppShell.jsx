@@ -525,7 +525,7 @@ function DrawerContent({
             sx={{
               width: 36,
               height: 36,
-              borderRadius: 1.5,
+              borderRadius: 0,
               objectFit: 'cover',
               border: '1px solid rgba(255,255,255,0.20)',
               flexShrink: 0,
@@ -536,7 +536,7 @@ function DrawerContent({
             sx={{
               width: 36,
               height: 36,
-              borderRadius: 1.5,
+              borderRadius: 0,
               background: 'rgba(255,255,255,0.15)',
               display: 'flex',
               alignItems: 'center',

@@ -232,7 +232,11 @@ export function createAppTheme(mode = 'light', options = {}) {
       },
       MuiDrawer: {
         styleOverrides: {
-          paper: { borderRight: `1px solid ${p.divider}`, backgroundImage: 'none' },
+          // A fixed, full-height side panel should never round like a
+          // card — without this it silently inherits MuiPaper's own 12px
+          // default (below), rounding the sidebar's outer top/bottom-left
+          // corners.
+          paper: { borderRight: `1px solid ${p.divider}`, backgroundImage: 'none', borderRadius: 0 },
         },
       },
       MuiListItemButton: {

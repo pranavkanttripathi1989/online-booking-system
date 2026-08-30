@@ -307,7 +307,7 @@ export default function EditAppointmentPage() {
                   label="Notes"
                   value={form.notes}
                   onChange={set('notes')}
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                 />
               </Grid>
             </Grid>

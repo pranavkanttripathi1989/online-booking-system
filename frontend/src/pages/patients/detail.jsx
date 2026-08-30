@@ -78,6 +78,7 @@ import MarkEmailReadRoundedIcon from '@mui/icons-material/MarkEmailReadRounded'
 import SmsRoundedIcon from '@mui/icons-material/SmsRounded'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded'
+import VaccinesRoundedIcon from '@mui/icons-material/VaccinesRounded'
 import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded'
 import { PATIENTS_QUERY, PATIENT_DETAIL_QUERY } from '../../graphql/queries'
 
@@ -324,6 +325,37 @@ const CANCEL_PATIENT_MEMBERSHIP = gql`
   }
 `
 
+// Immunisation schedule tracker -- real GraphQL (backend/src/immunizations/,
+// REQ167/P2-11). India's National Immunization Schedule, seeded server-side;
+// this page only reads the computed due/overdue/administered view and
+// records a dose.
+const GET_PATIENT_IMMUNIZATION_STATUS = gql`
+  query GetPatientImmunizationStatus($patient_id: ID!) {
+    patientImmunizationStatus(patient_id: $patient_id) {
+      schedule_item_id
+      vaccine_name
+      dose_number
+      due_date
+      status
+      administered_record {
+        id
+        administered_at
+        administered_by_name
+        batch_no
+        site
+        notes
+      }
+    }
+  }
+`
+const RECORD_IMMUNIZATION = gql`
+  mutation RecordImmunization($input: RecordImmunizationInput!) {
+    recordImmunization(input: $input) {
+      id
+    }
+  }
+`
+
 const INTAKE_QUESTIONS = [
   { id: 'q_conditions', label: 'Do you have any pre-existing medical conditions?', type: 'yesno' },
   { id: 'q_conditions_detail', label: 'If yes, please describe', type: 'text' },
@@ -348,6 +380,27 @@ const STATUS_ICONS = {
   completed: CheckCircleRoundedIcon,
   cancelled: CancelRoundedIcon,
   pending: AccessTimeRoundedIcon,
+}
+
+// REQ167 (P2-11) -- a different status vocabulary from appointment status
+// above (administered/overdue/due_soon/upcoming), so a small dedicated
+// helper rather than forcing it into theme.palette.appointmentStatus.
+// Reuses the standard MUI semantic palette (error/warning/info/success)
+// with the same soft alpha-tint convention every other status chip here uses.
+const IMMUNIZATION_STATUS_META = {
+  administered: { color: 'success', label: 'Administered' },
+  overdue: { color: 'error', label: 'Overdue' },
+  due_soon: { color: 'warning', label: 'Due Soon' },
+  upcoming: { color: 'info', label: 'Upcoming' },
+}
+function immunizationStatusChipSx(theme, status) {
+  const color = IMMUNIZATION_STATUS_META[status]?.color ?? 'default'
+  if (color === 'default') return {}
+  return {
+    bgcolor: alpha(theme.palette[color].main, theme.palette.mode === 'dark' ? 0.18 : 0.12),
+    color: theme.palette[color].main,
+    border: `1px solid ${alpha(theme.palette[color].main, 0.4)}`,
+  }
 }
 
 function InfoRow({ label, value, icon: Icon }) {
@@ -698,6 +751,45 @@ export default function PatientDetailPage() {
     enrollMembership({ variables: { input: { patient_id: id, membership_plan_id: planId } } })
   }
 
+  // Immunisation schedule tracker -- real GraphQL (backend/src/immunizations/).
+  const [recordDoseDialog, setRecordDoseDialog] = useState(null) // the status item being recorded, or null
+  const [recordDoseForm, setRecordDoseForm] = useState({ administered_at: dayjs().format('YYYY-MM-DD'), batch_no: '', site: '', notes: '' })
+  const {
+    data: immunizationStatusData,
+    loading: immunizationStatusLoading,
+    refetch: refetchImmunizationStatus,
+  } = useQuery(GET_PATIENT_IMMUNIZATION_STATUS, { variables: { patient_id: id }, skip: !id, fetchPolicy: 'cache-and-network' })
+  const immunizationStatusItems = immunizationStatusData?.patientImmunizationStatus ?? []
+  const [recordImmunization, { loading: recordingDose }] = useMutation(RECORD_IMMUNIZATION, {
+    onCompleted: () => {
+      enqueueSnackbar('Immunization recorded', { variant: 'success' })
+      refetchImmunizationStatus()
+      setRecordDoseDialog(null)
+    },
+    onError: (err) => enqueueSnackbar(err.message || 'Failed to record immunization', { variant: 'error' }),
+  })
+  const openRecordDoseDialog = (item) => {
+    setRecordDoseDialog(item)
+    setRecordDoseForm({ administered_at: dayjs().format('YYYY-MM-DD'), batch_no: '', site: '', notes: '' })
+  }
+  const submitRecordDose = () => {
+    if (!recordDoseDialog) return
+    recordImmunization({
+      variables: {
+        input: {
+          patient_id: id,
+          ...(recordDoseDialog.schedule_item_id ? { schedule_item_id: recordDoseDialog.schedule_item_id } : {}),
+          vaccine_name: recordDoseDialog.vaccine_name,
+          dose_number: recordDoseDialog.dose_number,
+          administered_at: recordDoseForm.administered_at,
+          ...(recordDoseForm.batch_no ? { batch_no: recordDoseForm.batch_no } : {}),
+          ...(recordDoseForm.site ? { site: recordDoseForm.site } : {}),
+          ...(recordDoseForm.notes ? { notes: recordDoseForm.notes } : {}),
+        },
+      },
+    })
+  }
+
   // Consultation records — requirements/semble-competitive-gap-analysis-requirements.md
   // Phase 2 (mirrors Semble's Consultation: id/patient/date/encounterType/doctorName/records)
   const [consultations, setConsultations] = useState(MOCK_HISTORY)
@@ -937,6 +1029,7 @@ export default function PatientDetailPage() {
             iconPosition="start"
             label={`Packages (${patientPackages.length})`}
           />
+          <Tab icon={<VaccinesRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Immunizations" />
         </Tabs>
 
         <Box sx={{ p: { xs: 2, sm: 3 } }}>
@@ -1921,6 +2014,108 @@ export default function PatientDetailPage() {
                 <Button onClick={closeSellDialog}>Cancel</Button>
                 <Button variant="contained" disabled={!sellPackageId || purchasing} onClick={submitSell}>
                   {purchasing ? 'Selling…' : 'Sell'}
+                </Button>
+              </DialogActions>
+            </Dialog>
+          </TabPanel>
+
+          {/* ── Immunizations (REQ167/P2-11) ─────────────────────────────── */}
+          <TabPanel value={tab} index={10}>
+            <Typography variant="subtitle1" fontWeight={800} mb={2}>
+              Immunization Schedule
+            </Typography>
+            {immunizationStatusLoading ? (
+              <LinearProgress />
+            ) : immunizationStatusItems.length === 0 ? (
+              <Typography variant="body2" color="text.secondary">
+                No immunization schedule data available.
+              </Typography>
+            ) : (
+              <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 2 }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Vaccine</TableCell>
+                      <TableCell>Dose</TableCell>
+                      <TableCell>Due Date</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell align="right">Actions</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {immunizationStatusItems.map((item) => (
+                      <TableRow key={item.schedule_item_id}>
+                        <TableCell>{item.vaccine_name}</TableCell>
+                        <TableCell>{item.dose_number}</TableCell>
+                        <TableCell>{dayjs(item.due_date).format('DD MMM YYYY')}</TableCell>
+                        <TableCell>
+                          <Chip size="small" label={IMMUNIZATION_STATUS_META[item.status]?.label ?? item.status} sx={immunizationStatusChipSx(theme, item.status)} />
+                        </TableCell>
+                        <TableCell align="right">
+                          {item.status === 'administered' ? (
+                            <Tooltip
+                              title={
+                                item.administered_record
+                                  ? `Given ${dayjs(item.administered_record.administered_at).format('DD MMM YYYY')}${item.administered_record.administered_by_name ? ` by ${item.administered_record.administered_by_name}` : ''}`
+                                  : ''
+                              }
+                            >
+                              <CheckCircleRoundedIcon fontSize="small" sx={{ color: 'success.main' }} />
+                            </Tooltip>
+                          ) : (
+                            <Button size="small" variant="outlined" onClick={() => openRecordDoseDialog(item)}>
+                              Record
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+
+            <Dialog open={Boolean(recordDoseDialog)} onClose={() => setRecordDoseDialog(null)} fullWidth maxWidth="sm">
+              <DialogTitle>
+                Record {recordDoseDialog?.vaccine_name} (Dose {recordDoseDialog?.dose_number})
+              </DialogTitle>
+              <DialogContent>
+                <Stack spacing={2} sx={{ pt: 1 }}>
+                  <TextField
+                    type="date"
+                    label="Administered Date"
+                    size="small"
+                    InputLabelProps={{ shrink: true }}
+                    value={recordDoseForm.administered_at}
+                    onChange={(e) => setRecordDoseForm((f) => ({ ...f, administered_at: e.target.value }))}
+                  />
+                  <TextField
+                    label="Batch No."
+                    size="small"
+                    value={recordDoseForm.batch_no}
+                    onChange={(e) => setRecordDoseForm((f) => ({ ...f, batch_no: e.target.value }))}
+                  />
+                  <TextField
+                    label="Site"
+                    size="small"
+                    placeholder="e.g. Left thigh"
+                    value={recordDoseForm.site}
+                    onChange={(e) => setRecordDoseForm((f) => ({ ...f, site: e.target.value }))}
+                  />
+                  <TextField
+                    label="Notes"
+                    size="small"
+                    multiline
+                    rows={2}
+                    value={recordDoseForm.notes}
+                    onChange={(e) => setRecordDoseForm((f) => ({ ...f, notes: e.target.value }))}
+                  />
+                </Stack>
+              </DialogContent>
+              <DialogActions>
+                <Button onClick={() => setRecordDoseDialog(null)}>Cancel</Button>
+                <Button variant="contained" disabled={recordingDose} onClick={submitRecordDose}>
+                  {recordingDose ? 'Saving…' : 'Save'}
                 </Button>
               </DialogActions>
             </Dialog>

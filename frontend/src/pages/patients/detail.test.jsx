@@ -6,6 +6,7 @@ import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
 import { ThemeProvider } from '@mui/material/styles'
 import { gql } from '@apollo/client'
+import dayjs from 'dayjs'
 import { PATIENTS_QUERY, PATIENT_DETAIL_QUERY } from '../../graphql/queries'
 import PatientDetailPage from './detail'
 import { createAppTheme } from '../../theme'
@@ -55,6 +56,35 @@ const CANCEL_PATIENT_MEMBERSHIP = gql`
       userErrors {
         message
       }
+    }
+  }
+`
+
+// Immunisation schedule tracker -- local re-declarations matching detail.jsx's
+// own inline gql exactly (REQ167/P2-11).
+const GET_PATIENT_IMMUNIZATION_STATUS = gql`
+  query GetPatientImmunizationStatus($patient_id: ID!) {
+    patientImmunizationStatus(patient_id: $patient_id) {
+      schedule_item_id
+      vaccine_name
+      dose_number
+      due_date
+      status
+      administered_record {
+        id
+        administered_at
+        administered_by_name
+        batch_no
+        site
+        notes
+      }
+    }
+  }
+`
+const RECORD_IMMUNIZATION = gql`
+  mutation RecordImmunization($input: RecordImmunizationInput!) {
+    recordImmunization(input: $input) {
+      id
     }
   }
 `
@@ -238,6 +268,10 @@ async function openInsuranceTab() {
 
 async function openPackagesTab() {
   await userEvent.click(await screen.findByRole('tab', { name: /Packages/ }))
+}
+
+async function openImmunizationsTab() {
+  await userEvent.click(await screen.findByRole('tab', { name: /Immunizations/ }))
 }
 
 describe('patients/detail.jsx — Insurance tab (A-7)', () => {
@@ -616,4 +650,80 @@ describe('patients/detail.jsx — Patient Membership (built for real)', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Done' }))
     await waitFor(() => expect(screen.getByText('No membership')).toBeInTheDocument())
   })
+})
+
+describe('patients/detail.jsx — Immunizations tab (REQ167/P2-11)', () => {
+  function statusMock(items = []) {
+    return {
+      request: { query: GET_PATIENT_IMMUNIZATION_STATUS, variables: { patient_id: PATIENT_ID } },
+      result: { data: { patientImmunizationStatus: items } },
+    }
+  }
+
+  it('shows a real empty state when no schedule data is available', async () => {
+    renderPage([insuranceMock(), packagesMock(), statusMock([])])
+    await openImmunizationsTab()
+    await waitFor(() => expect(screen.getByText('No immunization schedule data available.')).toBeInTheDocument())
+  })
+
+  it('renders due/overdue/administered rows from the real computed status query', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      statusMock([
+        { schedule_item_id: 'item-1', vaccine_name: 'BCG', dose_number: 1, due_date: '2026-01-01', status: 'administered', administered_record: { id: 'rec-1', administered_at: '2026-01-05', administered_by_name: 'Dr. Alex', batch_no: null, site: null, notes: null } },
+        { schedule_item_id: 'item-2', vaccine_name: 'Pentavalent', dose_number: 1, due_date: '2026-02-01', status: 'overdue', administered_record: null },
+      ]),
+    ])
+    await openImmunizationsTab()
+    await waitFor(() => expect(screen.getByText('BCG')).toBeInTheDocument())
+    expect(screen.getByText('Pentavalent')).toBeInTheDocument()
+    expect(screen.getByText('Administered')).toBeInTheDocument()
+    expect(screen.getByText('Overdue')).toBeInTheDocument()
+    // The administered row shows a check icon, not a Record button.
+    expect(screen.getAllByRole('button', { name: 'Record' })).toHaveLength(1)
+  })
+
+  it('records a dose via the real recordImmunization mutation and refetches', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      statusMock([{ schedule_item_id: 'item-2', vaccine_name: 'Pentavalent', dose_number: 1, due_date: '2026-02-01', status: 'overdue', administered_record: null }]),
+      {
+        request: {
+          query: RECORD_IMMUNIZATION,
+          variables: {
+            input: {
+              patient_id: PATIENT_ID,
+              schedule_item_id: 'item-2',
+              vaccine_name: 'Pentavalent',
+              dose_number: 1,
+              administered_at: dayjs().format('YYYY-MM-DD'),
+            },
+          },
+        },
+        result: { data: { recordImmunization: { id: 'rec-new' } } },
+      },
+      statusMock([
+        {
+          schedule_item_id: 'item-2',
+          vaccine_name: 'Pentavalent',
+          dose_number: 1,
+          due_date: '2026-02-01',
+          status: 'administered',
+          administered_record: { id: 'rec-new', administered_at: '2026-08-30', administered_by_name: 'Sarah Manager', batch_no: null, site: null, notes: null },
+        },
+      ]),
+    ])
+    await openImmunizationsTab()
+    await userEvent.click(await screen.findByRole('button', { name: 'Record' }))
+    const dialog = await screen.findByRole('dialog')
+    await userEvent.click(within(dialog).getByRole('button', { name: 'Save' }))
+
+    await waitFor(() => expect(screen.getByText('Immunization recorded')).toBeInTheDocument())
+    await waitFor(() => expect(screen.queryByRole('button', { name: 'Record' })).not.toBeInTheDocument())
+    // Three sequential Apollo round-trips (initial status query, mutation,
+    // refetch) — same generous timeout the membership enroll/cancel tests
+    // above needed for the identical shape.
+  }, 15000)
 })
