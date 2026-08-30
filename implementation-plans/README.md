@@ -46,4 +46,4 @@
 | patients | 0 | 1 | 7 | 0 | 8 | 2026-08-30 | [patients](./patients/README.md) |
 | test-results | 0 | 1 | 1 | 0 | 2 | 2026-08-30 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
-| frontend-platform | 0 | 7 | 6 | 0 | 13 | 2026-08-29 | [frontend-platform](./frontend-platform/README.md) |
+| frontend-platform | 0 | 7 | 7 | 0 | 14 | 2026-08-30 | [frontend-platform](./frontend-platform/README.md) |

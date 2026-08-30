@@ -20,6 +20,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TP253 | bug | manager/* pages DATA-13/not-found-guard fixes verification | done | 2026-08-30 | 2026-08-30 | PLAN233 | [TP253-frontend-platform-2026-08-30-manager-pages-integration-gaps.md](./bug/TP253-frontend-platform-2026-08-30-manager-pages-integration-gaps.md) |
 | TP241 | bug | Org accent color doesn't cascade everywhere it should verification | approved | 2026-08-29 | 2026-08-29 | PLAN221 | [TP241-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md](./bug/TP241-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md) |
 | TP235 | bug | Guard the clinician encounter/prescription routes verification | approved | 2026-08-29 | 2026-08-29 | PLAN215 | [TP235-frontend-platform-2026-08-29-clinician-route-guard-gap.md](./bug/TP235-frontend-platform-2026-08-29-clinician-route-guard-gap.md) |
 | TP232 | bug | Unify the theme, ship real app-wide dark mode verification | approved | 2026-08-29 | 2026-08-29 | PLAN212 | [TP232-frontend-platform-2026-08-29-unify-theme-real-dark-mode.md](./bug/TP232-frontend-platform-2026-08-29-unify-theme-real-dark-mode.md) |

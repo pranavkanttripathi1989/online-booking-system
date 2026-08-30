@@ -20,6 +20,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN233 | bug | Fix DATA-13/not-found-guard gaps in 4 manager pages | done | 2026-08-30 | 2026-08-30 | BUG058 | [PLAN233-frontend-platform-2026-08-30-manager-pages-integration-gaps.md](./bug/PLAN233-frontend-platform-2026-08-30-manager-pages-integration-gaps.md) |
 | PLAN221 | bug | Org accent color doesn't cascade everywhere it should | done | 2026-08-29 | 2026-08-29 | BUG053 | [PLAN221-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md](./bug/PLAN221-frontend-platform-2026-08-29-org-accent-does-not-cascade-everywhere.md) |
 | PLAN215 | bug | Guard the clinician encounter/prescription routes | done | 2026-08-29 | 2026-08-29 | BUG048 | [PLAN215-frontend-platform-2026-08-29-clinician-route-guard-gap.md](./bug/PLAN215-frontend-platform-2026-08-29-clinician-route-guard-gap.md) |
 | PLAN212 | bug | Unify the theme, ship real app-wide dark mode | done | 2026-08-29 | 2026-08-29 | — | [PLAN212-frontend-platform-2026-08-29-unify-theme-real-dark-mode.md](./bug/PLAN212-frontend-platform-2026-08-29-unify-theme-real-dark-mode.md) |
