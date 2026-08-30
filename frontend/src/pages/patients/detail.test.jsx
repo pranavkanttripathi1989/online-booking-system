@@ -6,7 +6,7 @@ import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
 import { ThemeProvider } from '@mui/material/styles'
 import { gql } from '@apollo/client'
-import { PATIENTS_QUERY } from '../../graphql/queries'
+import { PATIENTS_QUERY, PATIENT_DETAIL_QUERY } from '../../graphql/queries'
 import PatientDetailPage from './detail'
 import { createAppTheme } from '../../theme'
 
@@ -117,7 +117,43 @@ function packagesMock({ packages = [] } = {}) {
   }
 }
 
-function renderPage(mocks) {
+// BUG055 -- every render of this page now needs PATIENT_DETAIL_QUERY to
+// resolve before any tab is reachable at all (it drives identity + the
+// Appointments tab). A default real-shaped patient, auto-prepended by
+// renderPage() below, keeps every pre-existing Insurance/Packages test in
+// this file working unmodified.
+function patientDetailMock({ appointments = [], overrides = {} } = {}) {
+  const sorted = [...appointments].sort((a, b) => new Date(b.start_datetime) - new Date(a.start_datetime))
+  return {
+    request: { query: PATIENT_DETAIL_QUERY, variables: { id: PATIENT_ID } },
+    result: {
+      data: {
+        patient: {
+          __typename: 'Patient',
+          id: PATIENT_ID,
+          first_name: 'Rohan',
+          last_name: 'Verma',
+          full_name: 'Rohan Verma',
+          email: 'rohan.verma@example.com',
+          phone: '+919810000000',
+          date_of_birth: '1992-06-20T00:00:00.000Z',
+          gender: 'male',
+          address: 'Bengaluru, Karnataka',
+          notes: '',
+          created_at: '2026-01-01T00:00:00.000Z',
+          ...overrides,
+          appointments: {
+            __typename: 'PatientAppointmentsPaginated',
+            data: sorted,
+            paginatorInfo: { __typename: 'PatientAppointmentPaginatorInfo', total: appointments.length, hasMorePages: false },
+          },
+        },
+      },
+    },
+  }
+}
+
+function renderPage(mocks, { patientMock } = {}) {
   return render(
     // UI-8 -- this page reads theme.palette.appointmentStatus (statusChipSx,
     // for the Appointments/Test Results status chips); a bare render with no
@@ -127,7 +163,7 @@ function renderPage(mocks) {
       <HelmetProvider>
         <MemoryRouter initialEntries={[`/patients/${PATIENT_ID}`]}>
           <SnackbarProvider>
-            <MockedProvider mocks={mocks}>
+            <MockedProvider mocks={[patientMock ?? patientDetailMock(), ...mocks]}>
               <Routes>
                 <Route path="/patients/:id" element={<PatientDetailPage />} />
               </Routes>
@@ -139,12 +175,14 @@ function renderPage(mocks) {
   )
 }
 
+// BUG055 -- the page now gates its entire render behind a real PATIENT_DETAIL_QUERY;
+// findByRole (not getByRole) waits for that to resolve before the tab exists at all.
 async function openInsuranceTab() {
-  await userEvent.click(screen.getByRole('tab', { name: /Insurance/ }))
+  await userEvent.click(await screen.findByRole('tab', { name: /Insurance/ }))
 }
 
 async function openPackagesTab() {
-  await userEvent.click(screen.getByRole('tab', { name: /Packages/ }))
+  await userEvent.click(await screen.findByRole('tab', { name: /Packages/ }))
 }
 
 describe('patients/detail.jsx — Insurance tab (A-7)', () => {
@@ -359,4 +397,62 @@ describe('patients/detail.jsx — Packages tab (REQ110)', () => {
 
     await waitFor(() => expect(screen.getByText('Physio 10-Sitting Pack')).toBeInTheDocument())
   }, 20000)
+})
+
+describe('patients/detail.jsx — real identity + Appointments tab (BUG055)', () => {
+  const realAppt = {
+    __typename: 'PatientAppointmentItem',
+    id: 'appt-1',
+    start_datetime: '2026-03-18T10:00:00.000Z',
+    end_datetime: '2026-03-18T10:20:00.000Z',
+    status: 'confirmed',
+    clinician: { __typename: 'PatientAppointmentClinician', id: 'cln-1', full_name: 'Alex Clinician' },
+    service: { __typename: 'PatientAppointmentService', id: 'svc-1', name: 'GP Consultation' },
+    clinic: { __typename: 'PatientAppointmentClinic', id: 'clinic-1', name: 'City Heart Clinic' },
+  }
+
+  it('renders the real patient identity, never the fabricated default', async () => {
+    renderPage([insuranceMock(), packagesMock()], { patientMock: patientDetailMock({ appointments: [realAppt] }) })
+    await waitFor(() => expect(screen.getByText('Rohan Verma')).toBeInTheDocument())
+    expect(screen.getByText(/rohan.verma@example.com/)).toBeInTheDocument()
+    expect(screen.queryByText('John Michael Doe')).not.toBeInTheDocument()
+  })
+
+  it('renders real appointments on the Appointments tab, never the fabricated Dr. Jane Smith/Dr. Carlos Vega rows', async () => {
+    renderPage([insuranceMock(), packagesMock()], { patientMock: patientDetailMock({ appointments: [realAppt] }) })
+    await waitFor(() => expect(screen.getByText('Rohan Verma')).toBeInTheDocument())
+    await userEvent.click(screen.getByRole('tab', { name: /Appointments/ }))
+    await waitFor(() => expect(screen.getByText('Alex Clinician')).toBeInTheDocument())
+    expect(screen.getByText('GP Consultation')).toBeInTheDocument()
+    expect(screen.queryByText('Dr. Jane Smith')).not.toBeInTheDocument()
+    expect(screen.queryByText('Dr. Carlos Vega')).not.toBeInTheDocument()
+  })
+
+  it('derives Visits/Last visit from the real appointment data, and drops the fields with no real backing', async () => {
+    renderPage([insuranceMock(), packagesMock()], { patientMock: patientDetailMock({ appointments: [realAppt] }) })
+    await waitFor(() => expect(screen.getByText('Rohan Verma')).toBeInTheDocument())
+    expect(screen.getByText('1 Visit')).toBeInTheDocument()
+    expect(screen.getByText(/Last visit: 18 Mar 2026/)).toBeInTheDocument()
+    // BUG055 -- these had zero real backing and must be genuinely absent,
+    // not merely blank/"—".
+    expect(screen.queryByText(/Balance/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Blood Type')).not.toBeInTheDocument()
+    expect(screen.queryByText('Primary Clinician')).not.toBeInTheDocument()
+  })
+
+  it('shows a real not-found state when the patient does not exist / is not accessible', async () => {
+    renderPage([], {
+      patientMock: { request: { query: PATIENT_DETAIL_QUERY, variables: { id: PATIENT_ID } }, result: { data: { patient: null } } },
+    })
+    await waitFor(() => expect(screen.getByText('Patient not found.')).toBeInTheDocument())
+  })
+
+  it('shows a real error state with retry on a genuine query failure', async () => {
+    const { GraphQLError } = require('graphql')
+    renderPage([], {
+      patientMock: { request: { query: PATIENT_DETAIL_QUERY, variables: { id: PATIENT_ID } }, result: { errors: [new GraphQLError('boom')] } },
+    })
+    await waitFor(() => expect(screen.getByText("Couldn't load this patient's record.")).toBeInTheDocument())
+    expect(screen.getByRole('button', { name: 'Retry' })).toBeInTheDocument()
+  })
 })

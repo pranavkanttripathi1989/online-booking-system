@@ -27,7 +27,6 @@ import {
   TableHead,
   TableRow,
   LinearProgress,
-  Badge,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -46,9 +45,9 @@ import {
   FormLabel,
   Autocomplete,
   CircularProgress,
+  Skeleton,
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
-import { formatCurrency } from '../../utils/dateTime'
 import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import GroupRoundedIcon from '@mui/icons-material/GroupRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
@@ -79,16 +78,15 @@ import SmsRoundedIcon from '@mui/icons-material/SmsRounded'
 import WhatsAppIcon from '@mui/icons-material/WhatsApp'
 import LocalHospitalRoundedIcon from '@mui/icons-material/LocalHospitalRounded'
 import SwapHorizRoundedIcon from '@mui/icons-material/SwapHorizRounded'
-import { PATIENTS_QUERY } from '../../graphql/queries'
+import { PATIENTS_QUERY, PATIENT_DETAIL_QUERY } from '../../graphql/queries'
 
 // A-7 (project-plans/08-integration-gap-analysis.md) — real, tested backend
 // (patientInsurancePolicies/createPatientInsurancePolicy) with no capture UI
-// anywhere. This page's own other 7 tabs are still local-state-only mock
-// content pending a real product decision (context/open-questions.md #13) —
-// this Insurance tab is deliberately independent of that: real GraphQL
-// against the real `id` route param (which IS the real patient database id,
-// even though MOCK_PATIENTS_DETAIL below doesn't know about it), not a rider
-// on the page's own broader, already-flagged, already-paused mock status.
+// anywhere. Identity/Appointments are now also real (BUG055, PATIENT_DETAIL_QUERY);
+// the remaining 5 tabs (Letters, membership, intake questionnaire, documents,
+// communication log/allergy-diagnosis, related-account linking) are still
+// local-state-only mock content pending a real product decision
+// (context/open-questions.md #13).
 const GET_PATIENT_INSURANCE = gql`
   query GetPatientInsurance($patient_id: ID!) {
     payers(is_active: true) {
@@ -179,392 +177,6 @@ const PURCHASE_PACKAGE = gql`
   }
 `
 
-// ─── Mock patients (BUG-004 fix: keyed by id so URL param resolves correctly) ─
-// Supports both 'pt-1'..'pt-5' (clinician patients list) and '1'..'5' (admin list)
-const MOCK_PATIENTS_DETAIL = {
-  'pt-1': {
-    id: 'pt-1',
-    full_name: 'Alice Thompson',
-    email: 'alice.thompson@gmail.com',
-    phone: '+1 555-1001',
-    date_of_birth: '1985-03-12',
-    gender: 'female',
-    blood_type: 'A+',
-    allergies: ['None'],
-    address: '12 Oak Avenue, Boston, MA 02101',
-    emergency_contact: 'Bob Thompson — +1 555-2001',
-    primary_clinician: 'Dr. Sarah Mitchell',
-    status: 'active',
-    total_visits: 6,
-    last_visit: '2026-03-05',
-    outstanding_balance: 0,
-    notes: 'Patient has controlled hypertension on medication.',
-  },
-  'pt-2': {
-    id: 'pt-2',
-    full_name: 'Marcus Chen',
-    email: 'marcus.chen@outlook.com',
-    phone: '+1 555-1002',
-    date_of_birth: '1990-07-25',
-    gender: 'male',
-    blood_type: 'B+',
-    allergies: ['Dust'],
-    address: '45 Pine Street, San Francisco, CA 94101',
-    emergency_contact: 'Lin Chen — +1 555-2002',
-    primary_clinician: 'Dr. Sarah Mitchell',
-    status: 'active',
-    total_visits: 3,
-    last_visit: '2026-02-18',
-    outstanding_balance: 50,
-    notes: 'Patient uses inhaler for asthma management.',
-  },
-  'pt-3': {
-    id: 'pt-3',
-    full_name: 'Fatima Al-Hassan',
-    email: 'fatima.alhassan@email.com',
-    phone: '+1 555-1003',
-    date_of_birth: '1978-11-04',
-    gender: 'female',
-    blood_type: 'O+',
-    allergies: ['Insulin'],
-    address: '78 Birch Road, Chicago, IL 60601',
-    emergency_contact: 'Omar Al-Hassan — +1 555-2003',
-    primary_clinician: 'Dr. Sarah Mitchell',
-    status: 'new',
-    total_visits: 1,
-    last_visit: '2026-03-01',
-    outstanding_balance: 200,
-    notes: 'Newly diagnosed with Type 2 Diabetes. Lifestyle changes recommended.',
-  },
-  'pt-4': {
-    id: 'pt-4',
-    full_name: 'George Williams',
-    email: 'george.williams@btinternet.com',
-    phone: '+1 555-1004',
-    date_of_birth: '1962-05-18',
-    gender: 'male',
-    blood_type: 'AB-',
-    allergies: ['Aspirin'],
-    address: '22 Elm Drive, New York, NY 10001',
-    emergency_contact: 'Mary Williams — +1 555-2004',
-    primary_clinician: 'Dr. Sarah Mitchell',
-    status: 'active',
-    total_visits: 8,
-    last_visit: '2026-01-14',
-    outstanding_balance: 75,
-    notes: 'On statin therapy for high cholesterol. Regular follow-ups needed.',
-  },
-  'pt-5': {
-    id: 'pt-5',
-    full_name: 'Sophie Turner',
-    email: 'sophie.turner@gmail.com',
-    phone: '+1 555-1005',
-    date_of_birth: '1995-09-30',
-    gender: 'female',
-    blood_type: 'O-',
-    allergies: ['None'],
-    address: '9 Maple Lane, Austin, TX 73301',
-    emergency_contact: 'James Turner — +1 555-2005',
-    primary_clinician: 'Dr. Sarah Mitchell',
-    status: 'inactive',
-    total_visits: 2,
-    last_visit: '2025-12-10',
-    outstanding_balance: 0,
-    notes: 'Patient has not attended in 3+ months. Outreach recommended.',
-  },
-  // Aliases for numeric IDs used by admin patients list (all 15 — BUG-PAT-001 fix)
-  1: {
-    id: '1',
-    full_name: 'Alice Johnson',
-    email: 'alice@email.com',
-    phone: '+1 555-1001',
-    date_of_birth: '1992-05-12',
-    gender: 'female',
-    blood_type: 'A+',
-    allergies: ['Penicillin', 'Pollen'],
-    address: '142 Maple Street, Springfield, IL 62701',
-    emergency_contact: 'Jane Johnson — +1 555-9876',
-    primary_clinician: 'Dr. Jane Smith',
-    status: 'active',
-    total_visits: 14,
-    last_visit: '2026-02-28',
-    outstanding_balance: 120,
-    notes: 'Patient prefers morning appointments. Has mild anxiety.',
-  },
-  2: {
-    id: '2',
-    full_name: 'Bob Smith',
-    email: 'bob@email.com',
-    phone: '+1 555-1002',
-    date_of_birth: '1979-11-30',
-    gender: 'male',
-    blood_type: 'B+',
-    allergies: [],
-    address: '88 River Road, Austin, TX 78701',
-    emergency_contact: 'Alice Smith — +1 555-8765',
-    primary_clinician: 'Dr. Carlos Vega',
-    status: 'active',
-    total_visits: 7,
-    last_visit: '2026-01-15',
-    outstanding_balance: 0,
-    notes: '',
-  },
-  3: {
-    id: '3',
-    full_name: 'Carlos Reyes',
-    email: 'carlos@email.com',
-    phone: '+1 555-1003',
-    date_of_birth: '1985-03-22',
-    gender: 'male',
-    blood_type: 'O+',
-    allergies: ['Dust'],
-    address: '55 Oak Lane, Chicago, IL 60601',
-    emergency_contact: 'Maria Reyes — +1 555-3003',
-    primary_clinician: 'Dr. Jane Smith',
-    status: 'active',
-    total_visits: 5,
-    last_visit: '2026-01-20',
-    outstanding_balance: 0,
-    notes: '',
-  },
-  4: {
-    id: '4',
-    full_name: 'Diana Prince',
-    email: 'diana@email.com',
-    phone: '+1 555-1004',
-    date_of_birth: '1990-07-18',
-    gender: 'female',
-    blood_type: 'AB+',
-    allergies: ['Aspirin'],
-    address: '12 Queen St, New York, NY 10001',
-    emergency_contact: 'Steve Prince — +1 555-4004',
-    primary_clinician: 'Dr. Amara Patel',
-    status: 'active',
-    total_visits: 3,
-    last_visit: '2026-02-10',
-    outstanding_balance: 50,
-    notes: 'Allergic to aspirin — document carefully.',
-  },
-  5: {
-    id: '5',
-    full_name: 'Ethan Hunt',
-    email: 'ethan@email.com',
-    phone: '+1 555-1005',
-    date_of_birth: '1987-09-01',
-    gender: 'male',
-    blood_type: 'O-',
-    allergies: ['None'],
-    address: '7 Mission Road, Los Angeles, CA 90001',
-    emergency_contact: 'Claire Hunt — +1 555-5005',
-    primary_clinician: 'Dr. Carlos Vega',
-    status: 'active',
-    total_visits: 9,
-    last_visit: '2026-03-01',
-    outstanding_balance: 0,
-    notes: '',
-  },
-  6: {
-    id: '6',
-    full_name: 'Fiona Green',
-    email: 'fiona@email.com',
-    phone: '+1 555-1006',
-    date_of_birth: '1995-01-14',
-    gender: 'female',
-    blood_type: 'A-',
-    allergies: ['Pollen'],
-    address: '14 Elm Drive, Seattle, WA 98101',
-    emergency_contact: 'Tom Green — +1 555-6006',
-    primary_clinician: 'Dr. Jane Smith',
-    status: 'new',
-    total_visits: 1,
-    last_visit: '2026-03-10',
-    outstanding_balance: 0,
-    notes: 'New patient — first visit.',
-  },
-  7: {
-    id: '7',
-    full_name: 'George Miller',
-    email: 'george@email.com',
-    phone: '+1 555-1007',
-    date_of_birth: '1968-04-09',
-    gender: 'male',
-    blood_type: 'B-',
-    allergies: ['Penicillin'],
-    address: '9 High Street, Boston, MA 02101',
-    emergency_contact: 'Helen Miller — +1 555-7007',
-    primary_clinician: 'Dr. Amara Patel',
-    status: 'active',
-    total_visits: 22,
-    last_visit: '2026-01-08',
-    outstanding_balance: 200,
-    notes: 'Long-term patient. On statins for cholesterol.',
-  },
-  8: {
-    id: '8',
-    full_name: 'Hannah Brown',
-    email: 'hannah@email.com',
-    phone: '+1 555-1008',
-    date_of_birth: '2001-12-25',
-    gender: 'female',
-    blood_type: 'O+',
-    allergies: ['Latex'],
-    address: '3 Park Crescent, Miami, FL 33101',
-    emergency_contact: 'David Brown — +1 555-8008',
-    primary_clinician: 'Dr. Carlos Vega',
-    status: 'active',
-    total_visits: 4,
-    last_visit: '2026-02-20',
-    outstanding_balance: 0,
-    notes: '',
-  },
-  9: {
-    id: '9',
-    full_name: 'Ivan Petrov',
-    email: 'ivan@email.com',
-    phone: '+1 555-1009',
-    date_of_birth: '1983-06-30',
-    gender: 'male',
-    blood_type: 'AB-',
-    allergies: ['None'],
-    address: '21 Pine Ave, Denver, CO 80201',
-    emergency_contact: 'Olga Petrov — +1 555-9009',
-    primary_clinician: 'Dr. Jane Smith',
-    status: 'inactive',
-    total_visits: 6,
-    last_visit: '2025-11-15',
-    outstanding_balance: 0,
-    notes: 'No recent visits.',
-  },
-  10: {
-    id: '10',
-    full_name: 'Julia Roberts',
-    email: 'julia@email.com',
-    phone: '+1 555-1010',
-    date_of_birth: '1993-02-17',
-    gender: 'female',
-    blood_type: 'A+',
-    allergies: ['Nuts'],
-    address: '67 Cedar Road, Phoenix, AZ 85001',
-    emergency_contact: 'Mark Roberts — +1 555-1010',
-    primary_clinician: 'Dr. Amara Patel',
-    status: 'active',
-    total_visits: 11,
-    last_visit: '2026-03-05',
-    outstanding_balance: 75,
-    notes: 'Nut allergy — epipen prescribed.',
-  },
-  11: {
-    id: '11',
-    full_name: 'Kevin Chen',
-    email: 'kevin@email.com',
-    phone: '+1 555-1011',
-    date_of_birth: '1977-08-05',
-    gender: 'male',
-    blood_type: 'B+',
-    allergies: ['None'],
-    address: '34 Birch Blvd, Portland, OR 97201',
-    emergency_contact: 'Mei Chen — +1 555-1011',
-    primary_clinician: 'Dr. Carlos Vega',
-    status: 'active',
-    total_visits: 8,
-    last_visit: '2026-02-14',
-    outstanding_balance: 0,
-    notes: '',
-  },
-  12: {
-    id: '12',
-    full_name: 'Laura Martinez',
-    email: 'laura@email.com',
-    phone: '+1 555-1012',
-    date_of_birth: '1998-10-20',
-    gender: 'female',
-    blood_type: 'O+',
-    allergies: ['Penicillin'],
-    address: '56 Walnut Way, San Diego, CA 92101',
-    emergency_contact: 'Jose Martinez — +1 555-1012',
-    primary_clinician: 'Dr. Jane Smith',
-    status: 'active',
-    total_visits: 2,
-    last_visit: '2026-01-29',
-    outstanding_balance: 0,
-    notes: '',
-  },
-  13: {
-    id: '13',
-    full_name: 'Michael Wang',
-    email: 'michael@email.com',
-    phone: '+1 555-1013',
-    date_of_birth: '1972-03-15',
-    gender: 'male',
-    blood_type: 'A-',
-    allergies: ['Shellfish'],
-    address: '88 Sycamore St, Dallas, TX 75201',
-    emergency_contact: 'Linda Wang — +1 555-1013',
-    primary_clinician: 'Dr. Amara Patel',
-    status: 'active',
-    total_visits: 17,
-    last_visit: '2026-02-05',
-    outstanding_balance: 100,
-    notes: 'Shellfish allergy. Regular checkups for hypertension.',
-  },
-  14: {
-    id: '14',
-    full_name: 'Nina Patel',
-    email: 'nina@email.com',
-    phone: '+1 555-1014',
-    date_of_birth: '1989-07-28',
-    gender: 'female',
-    blood_type: 'B+',
-    allergies: ['None'],
-    address: '11 Rosewood Ct, Atlanta, GA 30301',
-    emergency_contact: 'Raj Patel — +1 555-1014',
-    primary_clinician: 'Dr. Carlos Vega',
-    status: 'active',
-    total_visits: 5,
-    last_visit: '2026-03-08',
-    outstanding_balance: 0,
-    notes: '',
-  },
-  15: {
-    id: '15',
-    full_name: 'Oscar Kim',
-    email: 'oscar@email.com',
-    phone: '+1 555-1015',
-    date_of_birth: '1994-11-11',
-    gender: 'male',
-    blood_type: 'O+',
-    allergies: ['Pollen'],
-    address: '77 Magnolia Ave, San Jose, CA 95101',
-    emergency_contact: 'Sarah Kim — +1 555-1015',
-    primary_clinician: 'Dr. Jane Smith',
-    status: 'active',
-    total_visits: 3,
-    last_visit: '2026-02-25',
-    outstanding_balance: 0,
-    notes: '',
-  },
-}
-
-// Default fallback for IDs not matched
-const MOCK_PATIENT_DEFAULT = {
-  id: 'demo',
-  full_name: 'John Michael Doe',
-  email: 'john.doe@email.com',
-  phone: '+1 (555) 234-5678',
-  date_of_birth: '1989-04-15',
-  gender: 'male',
-  blood_type: 'O+',
-  allergies: ['Penicillin', 'Pollen'],
-  address: '142 Maple Street, Springfield, IL 62701, USA',
-  emergency_contact: 'Jane Doe — +1 (555) 987-6543',
-  primary_clinician: 'Dr. Jane Smith',
-  status: 'active',
-  total_visits: 14,
-  last_visit: '2026-02-28',
-  outstanding_balance: 120,
-  notes: 'Patient prefers morning appointments. Has mild anxiety — handle with care.',
-}
-
 const MOCK_HISTORY = [
   {
     date: '2026-02-28',
@@ -594,13 +206,6 @@ const MOCK_HISTORY = [
     diagnosis: 'No abnormalities detected',
     notes: 'Chest X-ray was clear.',
   },
-]
-
-const MOCK_APPOINTMENTS = [
-  { id: 'A1', date: '2026-03-18 10:00', clinician: 'Dr. Jane Smith', service: 'Consultation', status: 'confirmed' },
-  { id: 'A2', date: '2026-02-28 09:00', clinician: 'Dr. Jane Smith', service: 'Follow-up', status: 'completed' },
-  { id: 'A3', date: '2026-01-10 14:00', clinician: 'Dr. Carlos Vega', service: 'Blood Test', status: 'completed' },
-  { id: 'A4', date: '2025-12-05 11:00', clinician: 'Dr. Jane Smith', service: 'Consultation', status: 'cancelled' },
 ]
 
 const MOCK_TESTS = [
@@ -729,7 +334,31 @@ export default function PatientDetailPage() {
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
   const [tab, setTab] = useState(0)
-  const p = MOCK_PATIENTS_DETAIL[id] ?? MOCK_PATIENT_DEFAULT // BUG-004 fix: look up by URL id
+
+  // BUG055 -- this used to be `MOCK_PATIENTS_DETAIL[id] ?? MOCK_PATIENT_DEFAULT`,
+  // which never matches a real UUID, so every real patient silently rendered
+  // the same fabricated "John Michael Doe" identity + appointment history.
+  // PATIENT_DETAIL_QUERY already exists and is already used correctly by
+  // PatientDetailDrawer.jsx/EditPatientPage.jsx -- adopting the same proven
+  // query/pattern here rather than inventing a new one (Hard Rule 7).
+  const {
+    data: patientData,
+    loading: patientLoading,
+    error: patientError,
+    refetch: refetchPatient,
+  } = useQuery(PATIENT_DETAIL_QUERY, { variables: { id }, skip: !id, fetchPolicy: 'cache-and-network' })
+  const patient = patientData?.patient
+  // `p` stays a defined object even while loading/erroring so every existing
+  // `p.<field>` reference below keeps working unmodified (resolves to
+  // `undefined`, not a crash) -- the loading/error/not-found early returns
+  // near the bottom of this component are what actually gate the user ever
+  // seeing that intermediate state.
+  const p = patient ?? {}
+  const realAppointments = [...(patient?.appointments?.data ?? [])].sort(
+    (a, b) => new Date(b.start_datetime) - new Date(a.start_datetime),
+  )
+  const totalVisits = patient?.appointments?.paginatorInfo?.total ?? 0
+  const lastVisit = realAppointments[0]?.start_datetime ?? null
 
   // A-7 — Insurance tab (real data, see the import-block comment above).
   const {
@@ -914,7 +543,7 @@ export default function PatientDetailPage() {
         allergen,
         severity: 'Moderate',
         reaction: '',
-        recorded_at: p.last_visit ?? null,
+        recorded_at: lastVisit,
       })),
   )
   const [addAllergyOpen, setAddAllergyOpen] = useState(false)
@@ -1004,7 +633,7 @@ export default function PatientDetailPage() {
     setConsultations((prev) => [
       {
         date: new Date().toISOString(),
-        clinician: p.primary_clinician,
+        clinician: '',
         service: newConsultation.encounter_type,
         diagnosis: newConsultation.diagnosis,
         notes: newConsultation.notes,
@@ -1016,18 +645,42 @@ export default function PatientDetailPage() {
     enqueueSnackbar('Consultation record added', { variant: 'success' })
   }
 
-  // SUG-PT-006 / SUG-PAT-012: Derive clinician initials instead of hardcoded "JS"
-  const clinicianInitials = p.primary_clinician
-    ? p.primary_clinician
-        .replace(/^Dr\.?\s*/i, '')
-        .split(' ')
-        .map((n) => n[0])
-        .join('')
-        .slice(0, 2)
-        .toUpperCase()
-    : '—'
-
   const age = Math.floor((new Date() - new Date(p.date_of_birth)) / (365.25 * 24 * 3600 * 1000))
+
+  // BUG055 -- loading/error/not-found states for the real PATIENT_DETAIL_QUERY
+  // above, placed after every hook in this component (Rules of Hooks) and
+  // before the real render below, matching appointments/detail.jsx's own
+  // established pattern for this exact page shape.
+  if (patientLoading && !patient) {
+    return (
+      <Box className="page-enter">
+        <Skeleton variant="rectangular" height={56} sx={{ borderRadius: 2, mb: 3 }} />
+        <Skeleton variant="rectangular" height={220} sx={{ borderRadius: 3 }} />
+      </Box>
+    )
+  }
+  if (patientError) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+          Couldn't load this patient's record.
+        </Typography>
+        <Button variant="outlined" onClick={() => refetchPatient()}>
+          Retry
+        </Button>
+      </Box>
+    )
+  }
+  if (!patient) {
+    return (
+      <Box sx={{ textAlign: 'center', py: 10 }}>
+        <Typography variant="h6" color="text.secondary" sx={{ mb: 2 }}>
+          Patient not found.
+        </Typography>
+        <Button onClick={() => navigate('/patients')}>← Back to Patients</Button>
+      </Box>
+    )
+  }
 
   return (
     <Box className="page-enter" sx={{ pb: 4 }}>
@@ -1049,65 +702,84 @@ export default function PatientDetailPage() {
         <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
           <Grid container spacing={3} alignItems="center">
             <Grid item xs={12} sm="auto">
-              <Badge
-                overlap="circular"
-                anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
-                badgeContent={
-                  <Box
-                    sx={{
-                      width: 14,
-                      height: 14,
-                      borderRadius: '50%',
-                      bgcolor: p.status === 'active' ? 'success.main' : 'grey.500',
-                      border: '2px solid',
-                      borderColor: 'background.paper',
-                    }}
-                  />
-                }
-              >
-                <Avatar sx={{ width: 90, height: 90, bgcolor: 'primary.main', fontSize: '2rem', fontWeight: 800 }}>
-                  {p.full_name
-                    .split(' ')
-                    .map((n) => n[0])
-                    .join('')
-                    .slice(0, 2)}
-                </Avatar>
-              </Badge>
+              {/* BUG055 -- the online-dot status badge read a `p.status` field
+                  that has no real backing anywhere in this schema (already an
+                  open, unresolved product question -- context/open-questions.md
+                  #11(b) -- the identical field was already dropped from
+                  clinician/Patients.jsx for the same reason). Dropped rather
+                  than faked, not replaced with a guessed default. */}
+              <Avatar sx={{ width: 90, height: 90, bgcolor: 'primary.main', fontSize: '2rem', fontWeight: 800 }}>
+                {p.full_name
+                  .split(' ')
+                  .map((n) => n[0])
+                  .join('')
+                  .slice(0, 2)}
+              </Avatar>
             </Grid>
             <Grid item xs={12} sm>
               <Stack direction="row" alignItems="center" spacing={1.5} flexWrap="wrap" mb={0.5}>
                 <Typography variant="h5" fontWeight={800} sx={{ color: 'text.primary' }}>
                   {p.full_name}
                 </Typography>
-                <Chip
-                  label={p.status}
-                  color={p.status === 'active' ? 'success' : 'default'}
-                  size="small"
-                  sx={{ fontWeight: 700, textTransform: 'capitalize' }}
-                />
               </Stack>
               <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
-                {age} years · {p.gender} · Blood type: <strong>{p.blood_type}</strong> · ID: #{p.id}
+                {age} years · {p.gender} · ID: #{p.id?.slice(-6)}
               </Typography>
-              <Stack direction="row" spacing={1} flexWrap="wrap">
-                <Chip icon={<CalendarMonthRoundedIcon />} label={`${p.total_visits} Visits`} size="small" variant="outlined" />
+              {/* Soft, theme-token tinted "stat pill" treatment (matches
+                  statusChipSx's own alpha-tint convention) instead of MUI's
+                  flat default outlined chip -- gives each stat a distinct,
+                  intentional colour rather than three identical grey pills. */}
+              <Stack direction="row" spacing={1.25} flexWrap="wrap" useFlexGap>
                 <Chip
-                  icon={<AccessTimeRoundedIcon />}
-                  label={`Last: ${dayjs(p.last_visit).format('DD/MM/YYYY')}`}
+                  icon={<CalendarMonthRoundedIcon sx={{ fontSize: '1rem !important', color: 'inherit !important' }} />}
+                  label={`${totalVisits} Visit${totalVisits === 1 ? '' : 's'}`}
                   size="small"
-                  variant="outlined"
+                  sx={{
+                    fontWeight: 600,
+                    height: 30,
+                    bgcolor: (t) => alpha(t.palette.primary.main, t.palette.mode === 'dark' ? 0.18 : 0.1),
+                    color: (t) => (t.palette.mode === 'dark' ? t.palette.primary.light : t.palette.primary.dark),
+                    border: (t) => `1px solid ${alpha(t.palette.primary.main, 0.25)}`,
+                  }}
                 />
-                {p.outstanding_balance > 0 && (
-                  <Chip label={`${formatCurrency(p.outstanding_balance)} Balance`} size="small" color="warning" />
+                {lastVisit && (
+                  <Chip
+                    icon={<AccessTimeRoundedIcon sx={{ fontSize: '1rem !important', color: 'inherit !important' }} />}
+                    label={`Last visit: ${dayjs(lastVisit).format('DD MMM YYYY')}`}
+                    size="small"
+                    sx={{
+                      fontWeight: 600,
+                      height: 30,
+                      bgcolor: (t) => alpha(t.palette.info.main, t.palette.mode === 'dark' ? 0.18 : 0.1),
+                      color: (t) => (t.palette.mode === 'dark' ? t.palette.info.light : t.palette.info.dark),
+                      border: (t) => `1px solid ${alpha(t.palette.info.main, 0.25)}`,
+                    }}
+                  />
                 )}
                 <Chip
-                  icon={<CardMembershipRoundedIcon />}
+                  icon={<CardMembershipRoundedIcon sx={{ fontSize: '1rem !important', color: 'inherit !important' }} />}
                   label={membership.id === 'none' ? 'No membership' : `${membership.name} · ${formatInr(membership.price_monthly)}/mo`}
                   size="small"
-                  variant={membership.id === 'none' ? 'outlined' : 'filled'}
-                  color={membership.id === 'none' ? 'default' : 'primary'}
                   onClick={() => setMembershipDialogOpen(true)}
-                  sx={{ cursor: 'pointer', fontWeight: 700 }}
+                  sx={{
+                    fontWeight: 600,
+                    height: 30,
+                    cursor: 'pointer',
+                    transition: 'transform 0.12s, box-shadow 0.12s',
+                    '&:hover': { boxShadow: 1, transform: 'translateY(-1px)' },
+                    ...(membership.id === 'none'
+                      ? {
+                          bgcolor: 'action.hover',
+                          color: 'text.secondary',
+                          border: '1px solid',
+                          borderColor: 'divider',
+                        }
+                      : {
+                          bgcolor: 'secondary.main',
+                          color: 'secondary.contrastText',
+                          border: '1px solid transparent',
+                        }),
+                  }}
                 />
               </Stack>
             </Grid>
@@ -1169,7 +841,7 @@ export default function PatientDetailPage() {
           <Tab
             icon={<CalendarMonthRoundedIcon sx={{ fontSize: '1rem' }} />}
             iconPosition="start"
-            label={`Appointments (${MOCK_APPOINTMENTS.length})`}
+            label={`Appointments (${realAppointments.length})`}
           />
           <Tab icon={<ScienceRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Test Results" />
           <Tab icon={<FolderRoundedIcon sx={{ fontSize: '1rem' }} />} iconPosition="start" label="Documents" />
@@ -1206,7 +878,8 @@ export default function PatientDetailPage() {
                   icon={AccessTimeRoundedIcon}
                 />
                 <InfoRow label="Gender" value={p.gender} icon={PersonRoundedIcon} />
-                <InfoRow label="Blood Type" value={p.blood_type} icon={MedicalServicesRoundedIcon} />
+                {/* BUG055 -- Blood Type has no real backing on Patients; dropped
+                    rather than left showing a permanent "—". */}
                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1, mb: 0.75 }}>
                   <Typography
                     variant="caption"
@@ -1438,25 +1111,9 @@ export default function PatientDetailPage() {
                     ))}
                   </Stack>
                 )}
-                <Divider sx={{ my: 2 }} />
-                <Typography
-                  variant="subtitle2"
-                  fontWeight={800}
-                  sx={{ color: 'text.secondary', textTransform: 'uppercase', letterSpacing: '0.08em', fontSize: '0.72rem', mb: 1.5 }}
-                >
-                  Primary Clinician
-                </Typography>
-                <Stack direction="row" spacing={1.5} alignItems="center">
-                  <Avatar sx={{ width: 40, height: 40, bgcolor: 'success.main', fontSize: '1rem', fontWeight: 700 }}>{clinicianInitials}</Avatar>
-                  <Box>
-                    <Typography variant="body2" fontWeight={700}>
-                      {p.primary_clinician}
-                    </Typography>
-                    <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                      General Practitioner
-                    </Typography>
-                  </Box>
-                </Stack>
+                {/* BUG055 -- "Primary Clinician" had no real backing on
+                    Patients (no designated-clinician concept exists at all);
+                    dropped rather than approximated from appointment history. */}
               </Grid>
             </Grid>
           </TabPanel>
@@ -1498,53 +1155,74 @@ export default function PatientDetailPage() {
 
           {/* ── Appointments ─────────────────────────────────────────────── */}
           <TabPanel value={tab} index={2}>
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow
-                    sx={{
-                      '& th': {
-                        fontWeight: 700,
-                        color: 'text.secondary',
-                        fontSize: '0.75rem',
-                        textTransform: 'uppercase',
-                        letterSpacing: '0.06em',
-                        bgcolor: 'action.hover',
-                      },
-                    }}
-                  >
-                    <TableCell>Date & Time</TableCell>
-                    <TableCell>Clinician</TableCell>
-                    <TableCell>Service</TableCell>
-                    <TableCell>Status</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {MOCK_APPOINTMENTS.map((a) => {
-                    const Icon = STATUS_ICONS[a.status] || CheckCircleRoundedIcon
-                    return (
-                      <TableRow key={a.id} hover sx={{ '&:last-child td': { border: 0 } }}>
-                        <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>{dayjs(a.date).format('DD/MM/YYYY, h:mm A')}</TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.clinician}</TableCell>
-                        <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.service}</TableCell>
-                        <TableCell>
-                          <Chip
-                            icon={<Icon sx={{ fontSize: '0.85rem !important' }} />}
-                            label={a.status}
-                            size="small"
-                            sx={{ fontWeight: 700, textTransform: 'capitalize', fontSize: '0.72rem', ...statusChipSx(theme, a.status) }}
-                          />
-                        </TableCell>
-                      </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            {/* BUG055 -- real data (patient.appointments, PATIENT_DETAIL_QUERY),
+                replacing MOCK_APPOINTMENTS, which had zero relation to the
+                route's own :id. */}
+            {realAppointments.length === 0 ? (
+              <Typography variant="body2" color="text.secondary" sx={{ py: 4, textAlign: 'center' }}>
+                No appointments on record.
+              </Typography>
+            ) : (
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow
+                      sx={{
+                        '& th': {
+                          fontWeight: 700,
+                          color: 'text.secondary',
+                          fontSize: '0.75rem',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.06em',
+                          bgcolor: 'action.hover',
+                        },
+                      }}
+                    >
+                      <TableCell>Date & Time</TableCell>
+                      <TableCell>Clinician</TableCell>
+                      <TableCell>Service</TableCell>
+                      <TableCell>Status</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {realAppointments.map((a) => {
+                      const Icon = STATUS_ICONS[a.status] || CheckCircleRoundedIcon
+                      return (
+                        <TableRow key={a.id} hover sx={{ '&:last-child td': { border: 0 } }}>
+                          <TableCell sx={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                            {dayjs(a.start_datetime).format('DD/MM/YYYY, h:mm A')}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.clinician?.full_name ?? '—'}</TableCell>
+                          <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{a.service?.name ?? '—'}</TableCell>
+                          <TableCell>
+                            <Chip
+                              icon={<Icon sx={{ fontSize: '0.85rem !important' }} />}
+                              label={a.status}
+                              size="small"
+                              sx={{ fontWeight: 700, textTransform: 'capitalize', fontSize: '0.72rem', ...statusChipSx(theme, a.status) }}
+                            />
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </TabPanel>
 
           {/* ── Test Results ────────────────────────────────────────────── */}
           <TabPanel value={tab} index={3}>
+            {/* BUG055 -- unlike Appointments, there is no real per-patient Test
+                Results query today: TestResultType.patient is free text, no
+                patient_id FK or resolver filter exists to join on (confirmed
+                by direct code read). A name-matching join would be a silent-
+                failure risk, not a fix -- left honestly disclosed instead of
+                silently faked. See context/open-questions.md for the tracked
+                backend gap. */}
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
+              Showing sample data — real per-patient test results aren't available yet.
+            </Typography>
             <Stack spacing={2}>
               {MOCK_TESTS.map((t) => (
                 <Card key={t.id} variant="outlined" sx={{ borderRadius: 2, border: '1px solid #E2E8F0' }}>
