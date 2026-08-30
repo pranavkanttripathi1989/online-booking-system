@@ -1141,14 +1141,6 @@ function App() {
                 }
               />
               <Route
-                path="/admin/plans"
-                element={
-                  <Suspense fallback={<ShellPageLoader />}>
-                    <AdminPlans />
-                  </Suspense>
-                }
-              />
-              <Route
                 path="/admin/languages"
                 element={
                   <Suspense fallback={<ShellPageLoader />}>
@@ -1161,6 +1153,25 @@ function App() {
                 element={
                   <Suspense fallback={<ShellPageLoader />}>
                     <AdminEmailTemplates />
+                  </Suspense>
+                }
+              />
+            </Route>
+          </Route>
+
+          {/* ── super_admin only — plans.resolver.ts gates every query/
+               mutation to @Auth('super_admin') exclusively (platform
+               SaaS-subscription plan definitions, not org-scoped like
+               everything else in the admin-only block above). A plain
+               'admin' role previously reached this route and got a real
+               403 on every GraphQL call, matching SEC-18. ── */}
+          <Route element={<RoleGuard roles={['super_admin']} />}>
+            <Route element={<AdminLayout />}>
+              <Route
+                path="/admin/plans"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminPlans />
                   </Suspense>
                 }
               />

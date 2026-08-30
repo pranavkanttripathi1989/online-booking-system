@@ -5,11 +5,21 @@ import { gql } from '@apollo/client'
 import { SnackbarProvider } from 'notistack'
 import PatientAppointments from './Appointments'
 import { expectNoA11yViolations } from '../../test/a11y'
+import { APPOINTMENT_FIELDS } from '../../graphql/queries'
 
 // P1-06 — the "Leave a Review" / "Review submitted" flow this slice added.
 // Re-declares the page's own query/mutation documents verbatim (this file's
-// own established convention, see booking/index.test.jsx's identical note)
-// since importing the page's internal, unexported consts isn't possible.
+// own established convention, see appointments/index.test.jsx's identical
+// note) since importing the page's internal, unexported consts isn't
+// possible. APPOINTMENT_FIELDS itself, though, is imported from the real
+// shared graphql/queries.js rather than hand-copied -- a hand-copied
+// fragment silently drifted out of sync with the real one once series_id/
+// series_occurrence_no were added there (P2-10), producing a different
+// query document than the real component sends and making MockedProvider
+// reject every request in this file with "no more mocked responses" (all
+// 5 tests failed with an empty appointments list, not a crash). Importing
+// the real fragment, matching appointments/index.test.jsx's own established
+// pattern, makes this drift impossible to reintroduce.
 
 const MY_WAITLIST_ENTRIES_QUERY = gql`
   query MyWaitlistEntries {
@@ -19,67 +29,6 @@ const MY_WAITLIST_ENTRIES_QUERY = gql`
       status
       position
       claim_expires_at
-    }
-  }
-`
-
-const APPOINTMENT_FIELDS = gql`
-  fragment AppointmentFields on Appointment {
-    id
-    tenant_id
-    start_datetime
-    end_datetime
-    duration_minutes
-    status
-    type
-    booking_mode
-    token_no
-    notes
-    cancellation_reason
-    reminder_sent_at
-    created_at
-    updated_at
-    patient {
-      id
-      first_name
-      last_name
-      full_name
-      email
-      phone
-      date_of_birth
-      gender
-    }
-    clinician {
-      id
-      first_name
-      last_name
-      full_name
-      avatar_url
-      clinician_type {
-        id
-        name
-      }
-    }
-    clinic {
-      id
-      name
-      address
-      city
-      timezone
-    }
-    room {
-      id
-      name
-    }
-    service {
-      id
-      name
-      duration_minutes
-      price
-    }
-    booked_by_user {
-      id
-      name
     }
   }
 `
@@ -130,6 +79,8 @@ const baseAppointment = (overrides) => ({
   type: 'in_person',
   booking_mode: 'slot',
   token_no: null,
+  series_id: null,
+  series_occurrence_no: null,
   notes: '',
   cancellation_reason: null,
   reminder_sent_at: null,
