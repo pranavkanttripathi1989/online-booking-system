@@ -86,6 +86,7 @@ Accurate when written; several have drifted and say so in their own headers.
 | [`07-prd-gap-analysis-and-roadmap.md`](./analysis/07-prd-gap-analysis-and-roadmap.md) | PRD v1 → code mapping. **Header admits it drifted twice** — superseded by `phase-plans/00` |
 | [`08-integration-gap-analysis.md`](./analysis/08-integration-gap-analysis.md) | 2026-08-25 sweep, incl. the S1 fabricated clinician dashboard. All findings closed |
 | [`09`–`13`](./analysis/13-next-10-slice-batch.md) | Slice-batch history (`REQ100`–`REQ143`). Useful for "has this been tried" |
+| [`14-mocdoc-competitive-analysis-and-roadmap.md`](./analysis/14-mocdoc-competitive-analysis-and-roadmap.md) | MocDoc-specific competitive analysis (not covered by `05`) + a gap-derived roadmap. Honest headline: mostly reinforces already-sequenced work (`P2-13`'s lab loop, Phase 3 native apps, the Phase 1 ABDM gate); one genuinely new item (billing-report granularity by service category) |
 | [`_audit-dashboard.html`](./analysis/_audit-dashboard.html) | Rendered audit view |
 
 ---
