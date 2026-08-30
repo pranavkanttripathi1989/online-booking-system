@@ -12,6 +12,7 @@ _none yet_
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| BUG054 | bug | `patients/detail.jsx` used a literal "$" and a flat off-brand blue status chip | done | 2026-08-30 | 2026-08-30 | — | [BUG054-patients-2026-08-30-detail-hardcoded-dollar-and-off-brand-status-chip.md](./bug/BUG054-patients-2026-08-30-detail-hardcoded-dollar-and-off-brand-status-chip.md) |
 | BUG049 | bug | Patient detail tabs overflow with no scroll affordance | done | 2026-08-29 | 2026-08-29 | — | [BUG049-patients-2026-08-29-detail-tabs-overflow-not-scrollable.md](./bug/BUG049-patients-2026-08-29-detail-tabs-overflow-not-scrollable.md) |
 | BUG041 | bug | `/patients` falls back to hardcoded mock patients on any genuine empty result | done | 2026-08-28 | 2026-08-28 | — | [BUG041-patients-2026-08-28-patients-index-mock-fallback-on-empty-result.md](./bug/BUG041-patients-2026-08-28-patients-index-mock-fallback-on-empty-result.md) |
 | BUG040 | bug | e2e seed's ~200 bulk patients never set `client_org_id`, invisible to org-scoped accounts | done | 2026-08-28 | 2026-08-28 | — | [BUG040-patients-2026-08-28-e2e-seed-patients-missing-client-org-id.md](./bug/BUG040-patients-2026-08-28-e2e-seed-patients-missing-client-org-id.md) |
