@@ -41,6 +41,24 @@ import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
 
 // ─── GraphQL ────────────────────────────────────────────────────────────────
 
+// LOGIN_MUTATION never selects user.clinician, so a freshly-logged-in
+// session's cached copy is undefined -- same AuthContext gap worked
+// around in clinician/Dashboard.jsx (BUG021) and patient/Profile.jsx. A
+// dedicated network-only re-fetch resolves the real link instead of
+// silently falling through to the 'clin-1' dev/demo fallback, which
+// previously made a real clinician's first-login save/delete of their
+// own schedule get rejected outright by the backend's own self-scope
+// check (availability.service.ts's assertClinicianAccess).
+const GET_MY_CLINICIAN_LINK = gql`
+  query GetMyClinicianLinkForAvailability {
+    me {
+      clinician {
+        id
+      }
+    }
+  }
+`
+
 const GET_AVAILABILITY_DATA = gql`
   query GetAvailabilityData($clinicianId: ID!) {
     getClinicianAvailability(clinicianId: $clinicianId) {
@@ -271,8 +289,10 @@ export default function ClinicianAvailability() {
   // configured availability, live-confirmed via a real login (Sarah Mitchell,
   // 2 real slots) -- user.id got 0 rows, user.clinician.id got both. The
   // 'clin-1' dev/demo fallback (for a non-clinician role, e.g. an admin
-  // visiting this route) is kept as-is.
-  const clinicianId = user?.clinician?.id ?? 'clin-1'
+  // visiting this route) is kept as the final fallback only, after a real
+  // network re-fetch has had a chance to resolve the caller's own link.
+  const { data: myLinkData } = useQuery(GET_MY_CLINICIAN_LINK, { fetchPolicy: 'network-only', skip: !!user?.clinician?.id })
+  const clinicianId = user?.clinician?.id ?? myLinkData?.me?.clinician?.id ?? 'clin-1'
   const {
     data: avData,
     loading: avLoading,

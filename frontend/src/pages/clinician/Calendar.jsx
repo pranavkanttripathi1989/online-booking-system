@@ -65,6 +65,23 @@ const GET_LUNCH_BREAKS = gql`
     }
   }
 `
+// LOGIN_MUTATION never selects user.clinician, so a freshly-logged-in
+// session's cached copy is undefined -- same AuthContext gap worked
+// around in clinician/Dashboard.jsx (BUG021), patient/Profile.jsx and
+// clinician/Availability.jsx. Without this, a real, freshly-logged-in
+// clinician's own lunch breaks never render on first login (the query
+// stays permanently skipped) and their own name falls through to a
+// hardcoded placeholder.
+const GET_MY_CLINICIAN_LINK = gql`
+  query GetMyClinicianLinkForCalendar {
+    me {
+      clinician {
+        id
+        full_name
+      }
+    }
+  }
+`
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 const DAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
@@ -598,7 +615,13 @@ export default function ClinicianCalendar() {
   const weekDates = DAYS.map((_, i) => monday.add(i, 'day'))
   const weekLabel = getWeekLabel(weekOffset)
 
-  const clinicianName = user?.clinician?.full_name || user?.name || 'Dr. Sarah Mitchell'
+  // Worked around the same way clinician/Dashboard.jsx (BUG021),
+  // patient/Profile.jsx and clinician/Availability.jsx do: LOGIN_MUTATION
+  // never selects user.clinician, so a fresh login's cached copy is
+  // undefined until a dedicated network-only re-fetch resolves it.
+  const { data: myLinkData } = useQuery(GET_MY_CLINICIAN_LINK, { fetchPolicy: 'network-only', skip: !!user?.clinician?.id })
+  const myClinicianId = user?.clinician?.id ?? myLinkData?.me?.clinician?.id
+  const clinicianName = user?.clinician?.full_name || myLinkData?.me?.clinician?.full_name || user?.name || 'Dr. Sarah Mitchell'
   const clinicName = user?.organisation?.name || user?.clinic?.name || 'Clinic'
 
   // Real query first; fall back to MOCK_EVENTS only on a genuine query error
@@ -617,8 +640,8 @@ export default function ClinicianCalendar() {
     fetchPolicy: 'cache-and-network',
   })
   const { data: lunchData } = useQuery(GET_LUNCH_BREAKS, {
-    variables: { clinicianId: user?.clinician?.id },
-    skip: !user?.clinician?.id,
+    variables: { clinicianId: myClinicianId },
+    skip: !myClinicianId,
     fetchPolicy: 'cache-and-network',
   })
 

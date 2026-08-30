@@ -66,6 +66,21 @@ const UPDATE_PATIENT_PROFILE = gql`
     }
   }
 `
+// LOGIN_MUTATION never selects user.patient, so a freshly-logged-in
+// session's cached copy is undefined -- same AuthContext gap worked
+// around elsewhere (clinician/Dashboard.jsx, settings/index.jsx's
+// Privacy tab). A dedicated network-only re-fetch resolves the real
+// link instead of showing every real, correctly-linked patient a false
+// "not linked" message on their first login.
+const GET_MY_PATIENT_LINK = gql`
+  query GetMyPatientLinkForProfile {
+    me {
+      patient {
+        id
+      }
+    }
+  }
+`
 // Same real contract settings/index.jsx already uses for account-wide
 // notification preferences (REQ008) -- wired here too since this page is a
 // separate, patient-specific surface, not a redirect to Settings.
@@ -99,7 +114,8 @@ const EMPTY_DRAFT = { first_name: '', last_name: '', email: '', phone: '', date_
 
 export default function PatientProfile() {
   const { user } = useAuth()
-  const patientId = user?.patient?.id
+  const { data: linkData, loading: linkLoading } = useQuery(GET_MY_PATIENT_LINK, { fetchPolicy: 'network-only' })
+  const patientId = user?.patient?.id ?? linkData?.me?.patient?.id
 
   const { data, loading, error, refetch } = useQuery(PATIENT_PROFILE_QUERY, {
     variables: { id: patientId },
@@ -238,6 +254,12 @@ export default function PatientProfile() {
     </Box>
   )
 
+  if (!patientId && linkLoading)
+    return (
+      <Box sx={{ p: 5, display: 'flex', justifyContent: 'center' }}>
+        <CircularProgress />
+      </Box>
+    )
   if (!patientId) {
     return (
       <Box sx={{ p: 4 }}>
