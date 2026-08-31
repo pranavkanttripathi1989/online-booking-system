@@ -62,6 +62,7 @@ import { BranchOverridesModule } from './branch-overrides/branch-overrides.modul
 import { DocumentsModule } from './documents/documents.module';
 import { AiClinicalModule } from './ai-clinical/ai-clinical.module';
 import { ImportsModule } from './imports/imports.module';
+import { TasksModule } from './tasks/tasks.module';
 import { RevenueShareModule } from './revenue-share/revenue-share.module';
 import { AppointmentSeriesModule } from './appointment-series/appointment-series.module';
 import { MembershipsModule } from './memberships/memberships.module';
@@ -191,6 +192,7 @@ import { PubSubModule } from './common/pubsub.module';
     DocumentsModule,
     AiClinicalModule,
     ImportsModule,
+    TasksModule,
     RevenueShareModule,
     AppointmentSeriesModule,
     MembershipsModule,
