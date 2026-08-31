@@ -110,6 +110,8 @@ export const CLINICIAN_FIELDS = gql`
     medical_council
     verification_status
     verified_at
+    qualifications
+    specialty_highlights
   }
 `
 

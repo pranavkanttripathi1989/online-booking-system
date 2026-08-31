@@ -80,13 +80,20 @@ const GET_OR_CREATE_ENCOUNTER = gql`
   }
 `
 
-const ENCOUNTER_QUERY = gql`
+// Exported so EncounterWorkspace.test.jsx can import this verbatim instead
+// of hand-copying it -- a hand-copied duplicate of a page's own print
+// query already drifted out of sync once (BUG062, patient/
+// Appointments.test.jsx) when the real query gained fields the test's own
+// copy never did, breaking every test in that file with an opaque
+// "Unable to find" error and no hint of the real cause.
+export const ENCOUNTER_QUERY = gql`
   query Encounter($id: ID!) {
     encounter(id: $id) {
       id
       patient_id
       status
       locked
+      lmp_date
       signed_at
       notes {
         id
@@ -374,6 +381,18 @@ const RECORD_VITALS = gql`
     }
   }
 `
+// REQ172 -- obstetric-specific, a single date field rather than a numeric
+// vitals reading (recordVitals' own {code, value: Number} shape doesn't
+// fit a date). EDD/gestational age are always computed server-side at
+// print time, never sent or stored from here.
+export const SET_ENCOUNTER_LMP_DATE = gql`
+  mutation SetEncounterLmpDate($encounter_id: ID!, $lmp_date: String!) {
+    setEncounterLmpDate(encounter_id: $encounter_id, lmp_date: $lmp_date) {
+      id
+      lmp_date
+    }
+  }
+`
 const PATIENT_VITALS = gql`
   query PatientVitals($patient_id: ID!, $code: String!) {
     patientVitals(patient_id: $patient_id, code: $code) {
@@ -619,6 +638,7 @@ function NotesPane({
   onAddReferral,
   onUpdateReferralStatus,
   onRecordVitals,
+  onSetLmpDate,
 }) {
   const [drafts, setDrafts] = useState({})
   const [addendumOpen, setAddendumOpen] = useState(false)
@@ -911,6 +931,24 @@ function NotesPane({
               ))}
             </Stack>
           )}
+          {/* REQ172 -- obstetric-specific, left blank by default; nothing
+              renders on the prescription printout for a specialty that
+              never touches this. A date, not a numeric reading, so it's
+              its own field rather than folded into the Record Vitals
+              dialog above (recordVitals' {code, value: Number} shape
+              doesn't fit a date). EDD/Gestational Age are always computed
+              server-side at print time from this one date -- never
+              entered or stored here. */}
+          <TextField
+            type="date"
+            size="small"
+            label="LMP Date (obstetric)"
+            InputLabelProps={{ shrink: true }}
+            defaultValue={encounter?.lmp_date ? encounter.lmp_date.slice(0, 10) : ''}
+            onChange={(e) => e.target.value && onSetLmpDate(e.target.value)}
+            disabled={locked}
+            sx={{ mt: 1, width: 220 }}
+          />
         </Box>
 
         {encounter?.addenda?.length > 0 && (
@@ -1792,6 +1830,7 @@ function EncounterWorkspace() {
   const [createReferralMutation] = useMutation(CREATE_REFERRAL)
   const [updateReferralStatusMutation] = useMutation(UPDATE_REFERRAL_STATUS)
   const [recordVitalsMutation] = useMutation(RECORD_VITALS)
+  const [setEncounterLmpDateMutation] = useMutation(SET_ENCOUNTER_LMP_DATE)
   const [createEncounterTemplate] = useMutation(CREATE_ENCOUNTER_TEMPLATE)
 
   const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, {
@@ -1924,6 +1963,22 @@ function EncounterWorkspace() {
     [recordVitalsMutation, encounterId, refetch, reportError],
   )
 
+  // REQ172 -- obstetric-specific. `date` is a plain 'YYYY-MM-DD' string
+  // from the picker; the backend parses it, so this stays a raw string
+  // all the way through, matching patients.resolver.ts's own
+  // date_of_birth argument convention.
+  const handleSetLmpDate = useCallback(
+    async (date) => {
+      try {
+        await setEncounterLmpDateMutation({ variables: { encounter_id: encounterId, lmp_date: date } })
+        refetch()
+      } catch (err) {
+        reportError(err, 'Failed to save LMP date')
+      }
+    },
+    [setEncounterLmpDateMutation, encounterId, refetch, reportError],
+  )
+
   const handleSaveAsTemplate = useCallback(
     async ({ name, specialty }) => {
       try {
@@ -2043,6 +2098,7 @@ function EncounterWorkspace() {
                 onAddReferral={handleAddReferral}
                 onUpdateReferralStatus={handleUpdateReferralStatus}
                 onRecordVitals={handleRecordVitals}
+                onSetLmpDate={handleSetLmpDate}
               />
             </Grid>
             <Grid item xs={12} md={3}>

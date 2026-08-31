@@ -4,7 +4,7 @@ import { MemoryRouter, Routes, Route, useLocation } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
 import { gql } from '@apollo/client'
-import EncounterWorkspace from './EncounterWorkspace'
+import EncounterWorkspace, { ENCOUNTER_QUERY, SET_ENCOUNTER_LMP_DATE } from './EncounterWorkspace'
 import { useAuth } from '../../hooks/useAuth'
 
 jest.mock('../../hooks/useAuth', () => ({
@@ -34,72 +34,10 @@ const GET_OR_CREATE_ENCOUNTER = gql`
     }
   }
 `
-const ENCOUNTER_QUERY = gql`
-  query Encounter($id: ID!) {
-    encounter(id: $id) {
-      id
-      patient_id
-      status
-      locked
-      signed_at
-      notes {
-        id
-        section
-        content
-        version
-        ai_generated
-      }
-      addenda {
-        id
-        author_id
-        content
-        reason
-        created_at
-      }
-      diagnoses {
-        id
-        type
-        icd10_code
-        procedure_code
-        text
-        status
-        created_at
-      }
-      attachments {
-        id
-        file_ref
-        mime_type
-        original_filename
-        created_at
-      }
-      investigation_orders {
-        id
-        test_name
-        test_type
-        urgency
-        status
-        date_ordered
-      }
-      referrals {
-        id
-        referred_to_specialty
-        referred_to_clinician_id
-        reason
-        urgency
-        status
-        created_at
-      }
-      vitals {
-        id
-        code
-        value
-        unit
-        recorded_at
-        ai_generated
-      }
-    }
-  }
-`
+// ENCOUNTER_QUERY is imported verbatim from the real component above (see
+// that import's own comment) -- BUG062's own lesson: a hand-copied
+// duplicate of this exact query already drifted once when the real query
+// gained a field (lmp_date, REQ172) the test's own copy never did.
 
 // P1-11/P1-12 — re-declared to match EncounterWorkspace.jsx's own gql
 // documents exactly (query AST equality).
@@ -336,6 +274,7 @@ function encounter(overrides = {}) {
     status: 'in_progress',
     locked: false,
     signed_at: null,
+    lmp_date: null,
     notes: [],
     addenda: [],
     diagnoses: [],
@@ -1040,6 +979,34 @@ describe('EncounterWorkspace — vitals + growth chart (REQ130)', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Growth Chart' }))
     await waitFor(() => expect(screen.getByText('No height readings recorded yet.')).toBeInTheDocument())
     expect(screen.queryByText('No weight readings recorded yet.')).not.toBeInTheDocument()
+    // recharts' ResponsiveContainer render is genuinely slow under jsdom's
+    // mocked ResizeObserver (see this file's own header comment) -- this
+    // test sat right at Jest's bare 5000ms default under host load, the
+    // same class of flakiness already confirmed and fixed for its sibling
+    // tests in this file. Extended to match, not a sign of a slower test
+    // introduced by this change.
+  }, 20000)
+
+  it('sets the obstetric LMP date via the real setEncounterLmpDate mutation and refetches (REQ172)', async () => {
+    const enc = encounter()
+    const withLmp = encounter({ lmp_date: '2025-12-21T00:00:00.000Z' })
+    renderPage([
+      ...baseMocks(enc),
+      {
+        request: {
+          query: SET_ENCOUNTER_LMP_DATE,
+          variables: { encounter_id: ENCOUNTER_ID, lmp_date: '2025-12-21' },
+        },
+        result: { data: { setEncounterLmpDate: { __typename: 'Encounter', id: ENCOUNTER_ID, lmp_date: '2025-12-21T00:00:00.000Z' } } },
+      },
+      { request: { query: ENCOUNTER_QUERY, variables: { id: ENCOUNTER_ID } }, result: { data: { encounter: withLmp } } },
+    ])
+
+    const field = await screen.findByLabelText('LMP Date (obstetric)')
+    expect(field).toHaveValue('')
+    fireEvent.change(field, { target: { value: '2025-12-21' } })
+
+    await waitFor(() => expect(screen.getByLabelText('LMP Date (obstetric)')).toHaveValue('2025-12-21'))
   })
 })
 

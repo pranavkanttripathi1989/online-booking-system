@@ -53,6 +53,7 @@ const clinicianSchema = z
     specialties: z.array(z.string()).default([]),
     qualifications: z.string().optional(),
     registration_number: z.string().optional(),
+    specialty_highlights: z.string().optional(),
     clinic_ids: z.array(z.string()).default([]),
     service_ids: z.array(z.string()).default([]),
     languages: z.array(z.string()).default([]),
@@ -109,6 +110,7 @@ function CreateClinicianPageContent() {
       specialties: [],
       qualifications: '',
       registration_number: '',
+      specialty_highlights: '',
       clinic_ids: [],
       service_ids: [],
       languages: [],
@@ -149,6 +151,14 @@ function CreateClinicianPageContent() {
           service_ids: form.service_ids.length > 0 ? form.service_ids : undefined,
           languages: form.languages.length > 0 ? form.languages : undefined,
           is_active: form.is_active,
+          // REQ021 added qualifications/registration_number to the schema
+          // for the printed-prescription letterhead but this real
+          // mutation call never actually sent either -- the identical gap
+          // as EditClinicianPage.jsx's own update path, fixed the same
+          // way as part of REQ170.
+          qualifications: form.qualifications || undefined,
+          registration_number: form.registration_number || undefined,
+          specialty_highlights: form.specialty_highlights || undefined,
         },
       },
     })
@@ -368,6 +378,24 @@ function CreateClinicianPageContent() {
                         fullWidth
                         label="Medical Registration Number"
                         helperText="Required for India Telemedicine Practice Guidelines compliance"
+                        sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                      />
+                    )}
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <Controller
+                    name="specialty_highlights"
+                    control={control}
+                    render={({ field }) => (
+                      <TextField
+                        {...field}
+                        fullWidth
+                        multiline
+                        rows={2}
+                        label="Specialty Highlights (letterhead)"
+                        placeholder={'One per line, e.g.\nDiploma in IVF & Reproductive Medicine\nFellowship in Laparoscopy (Gynaecology)'}
+                        helperText="Shown as bullet points under Qualifications on the printed prescription letterhead"
                         sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                       />
                     )}

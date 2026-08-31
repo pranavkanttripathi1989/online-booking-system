@@ -20,13 +20,32 @@
     "footer": {
       "tagline": "Connecting patients with the right clinicians, faster and simpler.",
       "patients": "Patients",
-      "patientsLinks": ["Find a Doctor", "Book Appointment", "Video Consultation", "Medical Records"],
+      "patientsLinks": [
+        "Find a Doctor",
+        "Book Appointment",
+        "Video Consultation",
+        "Medical Records"
+      ],
       "clinicians": "Clinicians",
-      "cliniciansLinks": ["Join HealthSync", "Clinician Portal", "Availability Manager", "Billing"],
+      "cliniciansLinks": [
+        "Join HealthSync",
+        "Clinician Portal",
+        "Availability Manager",
+        "Billing"
+      ],
       "company": "Company",
-      "companyLinks": ["About Us", "Blog", "Careers", "Contact"],
+      "companyLinks": [
+        "About Us",
+        "Blog",
+        "Careers",
+        "Contact"
+      ],
       "copyright": "© 2026 HealthSync Ltd. All rights reserved. Registered in England & Wales.",
-      "legalLinks": ["Privacy Policy", "Terms of Service", "Cookie Policy"]
+      "legalLinks": [
+        "Privacy Policy",
+        "Terms of Service",
+        "Cookie Policy"
+      ]
     }
   },
   "booking": {
@@ -63,6 +82,23 @@
     "days": "days",
     "signature": "Signature",
     "verificationCode": "Verification code",
+    "complaints": "Complaints",
+    "exam": "Physical Examination",
+    "diagnosis": "Diagnosis",
+    "advice": "Advice",
+    "followUp": "Next Visit",
+    "investigations": "Investigations",
+    "vitals": "Vitals",
+    "bmi": "BMI",
+    "bp": "BP",
+    "height": "Height",
+    "weight": "Weight",
+    "lmp": "LMP",
+    "edd": "EDD",
+    "gestationalAge": "Gestational Age",
+    "weeks": "weeks",
+    "composition": "Composition",
+    "forAppointment": "For Appointment",
     "print": "Print",
     "preparingPdf": "Preparing PDF…",
     "downloadPdf": "Download PDF",

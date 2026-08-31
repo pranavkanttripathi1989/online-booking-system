@@ -269,13 +269,24 @@ const UPDATE_MY_NOTIFICATION_PREFERENCES = gql`
 // REQ002/PLAN022 — Clinic tab -> Branding. myOrgBranding has no role gate
 // (any authenticated user) and returns null for an org-less caller, so this
 // page never needs to pre-guess who has an organisation client-side.
-const GET_ORG_BRANDING = gql`
+//
+// This query (and GET_CLINICS_FOR_SETTINGS/UPDATE_CLINIC_FOR_SETTINGS/
+// GET_CLINICIANS_FOR_LETTERHEAD/UPDATE_ORG_BRANDING below) is exported so
+// index.test.jsx can import them verbatim instead of hand-copying them --
+// BUG062's own lesson: a hand-copied duplicate of a query already drifted
+// out of sync once (patient/Appointments.test.jsx) when the real query
+// gained fields the test's own copy never did, breaking every test in
+// that file with an opaque "Unable to find" error and no hint of the real
+// cause. This file's OTHER hand-copied queries are left as-is -- fixing
+// those is a separate, larger change outside this slice's own scope.
+export const GET_ORG_BRANDING = gql`
   query MyOrgBranding {
     myOrgBranding {
       name
       logo_url
       primary_color
       secondary_color
+      tagline
     }
   }
 `
@@ -288,7 +299,7 @@ const GET_ORG_BRANDING = gql`
 // matching REQ041's own established "head office" convention -- a
 // multi-branch org manages its other locations at /manager/clinics, the
 // existing full clinic-management page this was never meant to duplicate.
-const GET_CLINICS_FOR_SETTINGS = gql`
+export const GET_CLINICS_FOR_SETTINGS = gql`
   query ClinicsForSettings {
     clinics {
       id
@@ -300,10 +311,14 @@ const GET_CLINICS_FOR_SETTINGS = gql`
       phone
       email
       is_primary
+      website
+      alternate_phone
+      appointment_note
+      letterhead_clinician_ids
     }
   }
 `
-const UPDATE_CLINIC_FOR_SETTINGS = gql`
+export const UPDATE_CLINIC_FOR_SETTINGS = gql`
   mutation UpdateClinicForSettings($id: ID!, $input: ClinicInput!) {
     updateClinic(id: $id, input: $input) {
       id
@@ -314,10 +329,28 @@ const UPDATE_CLINIC_FOR_SETTINGS = gql`
       timezone
       phone
       email
+      website
+      alternate_phone
+      appointment_note
+      letterhead_clinician_ids
     }
   }
 `
-const UPDATE_ORG_BRANDING = gql`
+// REQ170 -- the clinic's real clinician roster, for the "Letterhead
+// Doctors" multi-select below. Deliberately its own small query rather
+// than reusing CLINICIANS_QUERY's paginated shape, which this picker has
+// no use for.
+export const GET_CLINICIANS_FOR_LETTERHEAD = gql`
+  query CliniciansForLetterhead {
+    clinicians(first: 200) {
+      data {
+        id
+        full_name
+      }
+    }
+  }
+`
+export const UPDATE_ORG_BRANDING = gql`
   mutation UpdateMyOrgBranding($input: UpdateOrgBrandingInput!) {
     updateMyOrgBranding(input: $input) {
       success
@@ -328,6 +361,7 @@ const UPDATE_ORG_BRANDING = gql`
         logo_url
         primary_color
         secondary_color
+        tagline
       }
     }
   }
@@ -655,6 +689,8 @@ export default function SettingsPage() {
   // (ThemeContext.jsx) -- see that context for the propagation.
   const [primaryColor, setPrimaryColor] = useState('#006D77')
   const [secondaryColor, setSecondaryColor] = useState('#007680')
+  // REQ170 -- the letterhead subtitle shown under the clinic/org name.
+  const [tagline, setTagline] = useState('')
   const [hasOrgForBranding, setHasOrgForBranding] = useState(false)
   const [brandingLoaded, setBrandingLoaded] = useState(false)
   const [brandingError, setBrandingError] = useState(null)
@@ -671,6 +707,7 @@ export default function SettingsPage() {
         setLogoUrl(b.logo_url ?? null)
         setPrimaryColor(b.primary_color ?? '#006D77')
         setSecondaryColor(b.secondary_color ?? '#007680')
+        setTagline(b.tagline ?? '')
       }
     } catch (err) {
       setBrandingError(err.message)
@@ -685,7 +722,21 @@ export default function SettingsPage() {
   // BUG044 — Clinic Information section (see GET_CLINICS_FOR_SETTINGS above)
   const canManageClinic = hasRole('manager') || hasRole('admin') || hasRole('super_admin')
   const [clinicId, setClinicId] = useState(null)
-  const [clinicForm, setClinicForm] = useState({ name: '', phone: '', email: '', address: '', city: '', postcode: '', timezone: 'Asia/Kolkata' })
+  const [clinicForm, setClinicForm] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    city: '',
+    postcode: '',
+    timezone: 'Asia/Kolkata',
+    website: '',
+    alternate_phone: '',
+    appointment_note: '',
+    letterhead_clinician_ids: [],
+  })
+  // REQ170 -- clinician roster for the Letterhead Doctors multi-select.
+  const [letterheadClinicians, setLetterheadClinicians] = useState([])
   const [clinicLoaded, setClinicLoaded] = useState(false)
   const [hasClinicToManage, setHasClinicToManage] = useState(false)
   const [clinicError, setClinicError] = useState(null)
@@ -712,7 +763,11 @@ export default function SettingsPage() {
       return
     }
     try {
-      const { data } = await client.query({ query: GET_CLINICS_FOR_SETTINGS, fetchPolicy: 'network-only' })
+      const [{ data }, { data: cliniciansData }] = await Promise.all([
+        client.query({ query: GET_CLINICS_FOR_SETTINGS, fetchPolicy: 'network-only' }),
+        client.query({ query: GET_CLINICIANS_FOR_LETTERHEAD, fetchPolicy: 'network-only' }),
+      ])
+      setLetterheadClinicians(cliniciansData?.clinicians?.data ?? [])
       const primary = (data?.clinics ?? []).find((c) => c.is_primary) ?? data?.clinics?.[0]
       setHasClinicToManage(!!primary)
       if (primary) {
@@ -725,6 +780,10 @@ export default function SettingsPage() {
           city: primary.city ?? '',
           postcode: primary.postcode ?? '',
           timezone: primary.timezone ?? 'Asia/Kolkata',
+          website: primary.website ?? '',
+          alternate_phone: primary.alternate_phone ?? '',
+          appointment_note: primary.appointment_note ?? '',
+          letterhead_clinician_ids: primary.letterhead_clinician_ids ?? [],
         })
       }
     } catch (err) {
@@ -1068,7 +1127,7 @@ export default function SettingsPage() {
     try {
       const { data } = await client.mutate({
         mutation: UPDATE_ORG_BRANDING,
-        variables: { input: { logo_url: logoUrl, primary_color: primaryColor, secondary_color: secondaryColor } },
+        variables: { input: { logo_url: logoUrl, primary_color: primaryColor, secondary_color: secondaryColor, tagline: tagline || undefined } },
       })
       if (!data?.updateMyOrgBranding?.success) {
         throw new Error(data?.updateMyOrgBranding?.userErrors?.[0]?.message ?? 'Failed to save branding')
@@ -2385,6 +2444,66 @@ export default function SettingsPage() {
                       sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
                     />
                   </Grid>
+                  {/* REQ170 -- prescription-letterhead footer fields. All
+                      optional; a clinic that never sets these renders the
+                      printout exactly as before this feature. */}
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Website"
+                      placeholder="https://yourclinic.com"
+                      value={clinicForm.website}
+                      onChange={setClinicField('website')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <TextField
+                      fullWidth
+                      label="Alternate Phone (for prescriptions)"
+                      value={clinicForm.alternate_phone}
+                      onChange={setClinicField('alternate_phone')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      label="Appointment Note"
+                      placeholder="e.g. Sunday by appointment"
+                      value={clinicForm.appointment_note}
+                      onChange={setClinicField('appointment_note')}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    />
+                  </Grid>
+                  <Grid item xs={12}>
+                    <TextField
+                      fullWidth
+                      select
+                      label="Letterhead Doctors"
+                      helperText="Always shown on this clinic's printed prescriptions, regardless of who issues a given one. Leave empty to show only the issuing clinician (default)."
+                      value={clinicForm.letterhead_clinician_ids}
+                      onChange={(e) => {
+                        const { value } = e.target
+                        setClinicForm((prev) => ({ ...prev, letterhead_clinician_ids: typeof value === 'string' ? value.split(',') : value }))
+                      }}
+                      SelectProps={{
+                        multiple: true,
+                        renderValue: (selected) =>
+                          letterheadClinicians
+                            .filter((c) => selected.includes(c.id))
+                            .map((c) => c.full_name)
+                            .join(', '),
+                      }}
+                      sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                    >
+                      {letterheadClinicians.map((c) => (
+                        <MenuItem key={c.id} value={c.id}>
+                          {c.full_name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Grid>
                   <Grid item xs={12}>
                     <Button
                       variant="contained"
@@ -2431,6 +2550,20 @@ export default function SettingsPage() {
                   </Alert>
                 </Grid>
               )}
+              {/* REQ170 -- the letterhead subtitle shown under the clinic/
+                  org name on the printed prescription (e.g. "ORTHO &
+                  GYNAE CARE"). */}
+              <Grid item xs={12} sx={{ opacity: hasOrgForBranding ? 1 : 0.5, pointerEvents: hasOrgForBranding ? 'auto' : 'none' }}>
+                <TextField
+                  fullWidth
+                  label="Tagline"
+                  placeholder="e.g. ORTHO & GYNAE CARE"
+                  value={tagline}
+                  onChange={(e) => setTagline(e.target.value)}
+                  helperText="Shown under your clinic name on the printed prescription letterhead"
+                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+              </Grid>
               <Grid item xs={12} sm={6} sx={{ opacity: hasOrgForBranding ? 1 : 0.5, pointerEvents: hasOrgForBranding ? 'auto' : 'none' }}>
                 <Stack direction="row" spacing={2} alignItems="center">
                   <Avatar variant="rounded" src={logoSrc} sx={{ width: 64, height: 64, bgcolor: 'action.hover', border: '1px solid', borderColor: 'divider' }}>

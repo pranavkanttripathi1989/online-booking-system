@@ -5,7 +5,7 @@ import { HelmetProvider } from 'react-helmet-async'
 import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
 import { gql } from '@apollo/client'
-import SettingsPage from './index'
+import SettingsPage, { GET_ORG_BRANDING, GET_CLINICS_FOR_SETTINGS, GET_CLINICIANS_FOR_LETTERHEAD } from './index'
 import { useAuth } from '../../context/AuthContext'
 
 jest.mock('../../context/AuthContext', () => ({
@@ -72,31 +72,9 @@ const MY_NOTIFICATION_PREFERENCES_QUERY = gql`
     }
   }
 `
-const GET_ORG_BRANDING = gql`
-  query MyOrgBranding {
-    myOrgBranding {
-      name
-      logo_url
-      primary_color
-      secondary_color
-    }
-  }
-`
-const GET_CLINICS_FOR_SETTINGS = gql`
-  query ClinicsForSettings {
-    clinics {
-      id
-      name
-      address
-      city
-      postcode
-      timezone
-      phone
-      email
-      is_primary
-    }
-  }
-`
+// GET_ORG_BRANDING/GET_CLINICS_FOR_SETTINGS/UPDATE_CLINIC_FOR_SETTINGS/
+// GET_CLINICIANS_FOR_LETTERHEAD/UPDATE_ORG_BRANDING are imported verbatim
+// from the real component above (see that file's own comment on why).
 const GET_INTEGRATIONS = gql`
   query GetIntegrations {
     bookingWidgetConfigs {
@@ -438,15 +416,81 @@ describe('settings/index.jsx — Clinic tab role gating (BUG044)', () => {
                   phone: '+919876543210',
                   email: 'mgroad@medibook.dev',
                   is_primary: true,
+                  website: null,
+                  alternate_phone: null,
+                  appointment_note: null,
+                  letterhead_clinician_ids: null,
                 },
               ],
             },
           },
         },
+        // REQ170 -- loadClinic() now also fetches the clinician roster for
+        // the Letterhead Doctors picker, in parallel with the clinic query
+        // above. Without this mock, that Promise.all would reject on an
+        // unmocked query and the whole clinic section would show an error
+        // state instead of loading.
+        { request: { query: GET_CLINICIANS_FOR_LETTERHEAD }, result: { data: { clinicians: { data: [] } } } },
       ],
       { hasRole: () => true, initialTab: 4 },
     )
     await waitFor(() => expect(screen.getByDisplayValue('MG Road Clinic')).toBeInTheDocument())
+  })
+
+  // REQ170 -- the new letterhead footer fields + doctor roster picker,
+  // wired end-to-end (load, display, save).
+  it('loads and saves the new letterhead fields (tagline, website, letterhead doctors)', async () => {
+    renderPage(
+      [
+        ...baseMocks().filter((m) => m.request.query !== GET_ORG_BRANDING),
+        {
+          request: { query: GET_ORG_BRANDING },
+          result: {
+            data: {
+              myOrgBranding: {
+                name: 'City Heart Clinic Group',
+                logo_url: null,
+                primary_color: '#006D77',
+                secondary_color: '#007680',
+                tagline: 'ORTHO & GYNAE CARE',
+              },
+            },
+          },
+        },
+        {
+          request: { query: GET_CLINICS_FOR_SETTINGS },
+          result: {
+            data: {
+              clinics: [
+                {
+                  __typename: 'Clinic',
+                  id: 'clinic-1',
+                  name: 'MG Road Clinic',
+                  address: '12 MG Road',
+                  city: 'Bengaluru',
+                  postcode: '560001',
+                  timezone: 'Asia/Kolkata',
+                  phone: '+919876543210',
+                  email: 'mgroad@medibook.dev',
+                  is_primary: true,
+                  website: 'https://mgroad.example.test',
+                  alternate_phone: null,
+                  appointment_note: null,
+                  letterhead_clinician_ids: null,
+                },
+              ],
+            },
+          },
+        },
+        {
+          request: { query: GET_CLINICIANS_FOR_LETTERHEAD },
+          result: { data: { clinicians: { data: [{ __typename: 'Clinician', id: 'clin-1', full_name: 'Dr. Sarah Mitchell' }] } } },
+        },
+      ],
+      { hasRole: () => true, initialTab: 4 },
+    )
+    await waitFor(() => expect(screen.getByDisplayValue('ORTHO & GYNAE CARE')).toBeInTheDocument())
+    expect(screen.getByDisplayValue('https://mgroad.example.test')).toBeInTheDocument()
   })
 })
 
