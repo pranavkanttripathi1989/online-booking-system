@@ -16,6 +16,9 @@
 | TR186 | improvement | Pending-dispense queue results | pass | 2026-08-26 | 2026-08-26 | TP186 | [TR186-prescriptions-2026-08-26-pending-dispense-queue.md](./improvement/TR186-prescriptions-2026-08-26-pending-dispense-queue.md) |
 | TR173 | improvement | OTP-gated WhatsApp sharing results | pass | 2026-08-26 | 2026-08-26 | TP173 | [TR173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/TR173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
 | TR233 | improvement | Regional-language Rx print results | pass | 2026-08-29 | 2026-08-29 | TP233 | [TR233-prescriptions-2026-08-29-regional-language-print.md](./improvement/TR233-prescriptions-2026-08-29-regional-language-print.md) |
+| TR259 | improvement | Branded clinic letterhead core results | pass | 2026-08-31 | 2026-08-31 | TP259 | [TR259-prescriptions-2026-08-31-branded-letterhead-core.md](./improvement/TR259-prescriptions-2026-08-31-branded-letterhead-core.md) |
+| TR260 | improvement | Encounter clinical content on the printed Rx results | pass | 2026-08-31 | 2026-08-31 | TP260 | [TR260-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md](./improvement/TR260-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md) |
+| TR261 | improvement | Obstetric LMP / EDD / Gestational Age results | pass | 2026-08-31 | 2026-08-31 | TP261 | [TR261-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md](./improvement/TR261-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md) |
 
 ## bug
 

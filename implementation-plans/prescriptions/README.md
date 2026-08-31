@@ -16,6 +16,9 @@
 | PLAN166 | improvement | Pending-dispense queue across the whole pharmacy | done | 2026-08-26 | 2026-08-26 | REQ126 | [PLAN166-prescriptions-2026-08-26-pending-dispense-queue.md](./improvement/PLAN166-prescriptions-2026-08-26-pending-dispense-queue.md) |
 | PLAN149 | improvement | OTP-gated WhatsApp sharing of a prescription PDF | done | 2026-08-26 | 2026-08-26 | REQ109 | [PLAN149-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/PLAN149-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
 | PLAN213 | improvement | Regional-language Rx print (P2-08) | done | 2026-08-29 | 2026-08-29 | REQ160 | [PLAN213-prescriptions-2026-08-29-regional-language-print.md](./improvement/PLAN213-prescriptions-2026-08-29-regional-language-print.md) |
+| PLAN239 | improvement | Branded clinic letterhead core (competitor-driven) | done | 2026-08-31 | 2026-08-31 | REQ170 | [PLAN239-prescriptions-2026-08-31-branded-letterhead-core.md](./improvement/PLAN239-prescriptions-2026-08-31-branded-letterhead-core.md) |
+| PLAN240 | improvement | Encounter clinical content on the printed Rx | done | 2026-08-31 | 2026-08-31 | REQ171 | [PLAN240-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md](./improvement/PLAN240-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md) |
+| PLAN241 | improvement | Obstetric LMP / EDD / Gestational Age on the printed Rx | done | 2026-08-31 | 2026-08-31 | REQ172 | [PLAN241-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md](./improvement/PLAN241-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md) |
 
 ## bug
 

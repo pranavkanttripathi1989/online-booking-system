@@ -16,6 +16,9 @@
 | TP186 | improvement | Pending-dispense queue verification | approved | 2026-08-26 | 2026-08-26 | PLAN166 | [TP186-prescriptions-2026-08-26-pending-dispense-queue.md](./improvement/TP186-prescriptions-2026-08-26-pending-dispense-queue.md) |
 | TP173 | improvement | OTP-gated WhatsApp sharing verification | approved | 2026-08-26 | 2026-08-26 | PLAN149 | [TP173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/TP173-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
 | TP233 | improvement | Regional-language Rx print verification | done | 2026-08-29 | 2026-08-29 | PLAN213 | [TP233-prescriptions-2026-08-29-regional-language-print.md](./improvement/TP233-prescriptions-2026-08-29-regional-language-print.md) |
+| TP259 | improvement | Branded clinic letterhead core verification | done | 2026-08-31 | 2026-08-31 | PLAN239 | [TP259-prescriptions-2026-08-31-branded-letterhead-core.md](./improvement/TP259-prescriptions-2026-08-31-branded-letterhead-core.md) |
+| TP260 | improvement | Encounter clinical content on the printed Rx verification | done | 2026-08-31 | 2026-08-31 | PLAN240 | [TP260-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md](./improvement/TP260-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md) |
+| TP261 | improvement | Obstetric LMP / EDD / Gestational Age verification | done | 2026-08-31 | 2026-08-31 | PLAN241 | [TP261-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md](./improvement/TP261-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md) |
 
 ## bug
 

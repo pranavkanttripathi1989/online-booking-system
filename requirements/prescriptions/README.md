@@ -16,6 +16,9 @@
 | REQ159 | improvement | Allergy hard-stop on prescribing (P2-07, scoped) | done | 2026-08-27 | 2026-08-27 | REQ021 | [REQ159-prescriptions-2026-08-27-allergy-hard-stop.md](./improvement/REQ159-prescriptions-2026-08-27-allergy-hard-stop.md) |
 | REQ109 | improvement | OTP-gated WhatsApp sharing of a prescription PDF | done | 2026-08-26 | 2026-08-26 | REQ021 | [REQ109-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md](./improvement/REQ109-prescriptions-2026-08-26-otp-gated-whatsapp-sharing.md) |
 | REQ160 | improvement | Regional-language Rx print (P2-08) | done | 2026-08-29 | 2026-08-29 | REQ021 | [REQ160-prescriptions-2026-08-29-regional-language-print.md](./improvement/REQ160-prescriptions-2026-08-29-regional-language-print.md) |
+| REQ170 | improvement | Branded clinic letterhead core (competitor-driven) | done | 2026-08-31 | 2026-08-31 | REQ021 | [REQ170-prescriptions-2026-08-31-branded-letterhead-core.md](./improvement/REQ170-prescriptions-2026-08-31-branded-letterhead-core.md) |
+| REQ171 | improvement | Encounter clinical content on the printed Rx | done | 2026-08-31 | 2026-08-31 | REQ170 | [REQ171-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md](./improvement/REQ171-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md) |
+| REQ172 | improvement | Obstetric LMP / EDD / Gestational Age on the printed Rx | done | 2026-08-31 | 2026-08-31 | REQ171 | [REQ172-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md](./improvement/REQ172-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md) |
 
 ## bug
 
