@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { ClinicInput } from './dto/clinic.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -51,6 +51,20 @@ export class ClinicsService {
 
   async update(id: string, input: ClinicInput, user: JwtPayload) {
     const existing = await this.findOne(id, user); // enforces tenant scoping before any write
+    // REQ170 -- Hard Rule 6: a manager naming an arbitrary clinician id on
+    // their own clinic's letterhead must not be able to reference another
+    // org's clinician. Validated against the clinic's own client_org_id
+    // (not the caller's), matching this file's own findOne()-first pattern
+    // above -- a platform operator managing an org-less clinic naming an
+    // org-less clinician is still allowed, mirroring existing() itself.
+    if (input.letterhead_clinician_ids?.length) {
+      const validCount = await this.prisma.clinicians.count({
+        where: { id: { in: input.letterhead_clinician_ids }, clinic: { client_org_id: existing.client_org_id } },
+      });
+      if (validCount !== input.letterhead_clinician_ids.length) {
+        throw new BadRequestException('One or more letterhead doctors do not belong to this organisation');
+      }
+    }
     return this.prisma.clinics.update({ where: { id: existing.id }, data: input });
   }
 

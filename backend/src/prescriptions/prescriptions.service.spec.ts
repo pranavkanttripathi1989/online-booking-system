@@ -48,10 +48,19 @@ describe('PrescriptionsService', () => {
     prisma = {
       prescriptions: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), update: jest.fn() },
       encounters: { findUnique: jest.fn(), count: jest.fn().mockResolvedValue(0) },
-      diagnoses: { count: jest.fn().mockResolvedValue(1) },
-      appointments: { findFirst: jest.fn() },
+      diagnoses: { count: jest.fn().mockResolvedValue(1), findMany: jest.fn().mockResolvedValue([]) },
+      // REQ170/REQ171 -- assemblePrintPayload() now joins the real clinic
+      // (not just the org) via Appointments, and assembleEncounterContext()
+      // reads EncounterNotes/Vitals. Defaults matching "no clinic/no
+      // clinical content configured" so every pre-existing test (written
+      // before REQ170/171/172) keeps passing unchanged with a plain,
+      // undecorated letterhead/no encounter context -- only the new tests
+      // below override these.
+      appointments: { findFirst: jest.fn(), findUnique: jest.fn() },
+      encounterNotes: { findMany: jest.fn().mockResolvedValue([]) },
+      vitals: { findMany: jest.fn().mockResolvedValue([]) },
       drugs: { findMany: jest.fn().mockResolvedValue([{ id: 'drug-1', name: 'Amoxicillin', tpg_list: 'O' }]) },
-      clinicians: { findUnique: jest.fn() },
+      clinicians: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       patients: { findUnique: jest.fn() },
       clientOrganizations: { findUnique: jest.fn() },
       prescriptionSets: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), findUnique: jest.fn() },
@@ -480,6 +489,140 @@ describe('PrescriptionsService', () => {
     it('rejects printing a cross-tenant prescription', async () => {
       prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);
       await expect(service.printPrescription('rx-1', managerB)).rejects.toThrow(NotFoundException);
+    });
+  });
+
+  // REQ170 -- letterhead reads the specific clinic (branch) the
+  // appointment happened at, not just org-wide branding, plus the
+  // clinic's own configured doctor roster.
+  describe('printPrescription — letterhead (REQ170)', () => {
+    const clinicRow = {
+      id: 'clinic-1', name: 'Sunshine Clinic', address: '2nd floor, Pune', phone: '+911111111111', email: 'clinic@example.test',
+      website: 'https://sunshine.example.test', alternate_phone: '+912222222222', appointment_note: 'Sunday by appointment',
+      letterhead_clinician_ids: null,
+      client_organization: { name: 'Sunshine Hospital', logo_url: '/uploads/branding/logo.png', primary_color: '#AA0000', secondary_color: '#00AA00', tagline: 'ORTHO & GYNAE CARE' },
+    };
+
+    beforeEach(() => {
+      prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);
+      prisma.patients.findUnique.mockResolvedValue({ first_name: 'Anita', last_name: 'Sharma', date_of_birth: new Date('1990-01-01'), gender: 'female' });
+    });
+
+    it('reads the specific clinic branch (not just the org) for the letterhead footer, and the org for branding', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue({ first_name: 'Sarah', last_name: 'Mitchell', registration_number: 'REG123', qualifications: 'MBBS' });
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: clinicRow });
+      const result = await service.printPrescription('rx-1', clinicianA);
+      expect(result.clinic.name).toBe('Sunshine Hospital'); // org name wins when present
+      expect(result.clinic.address).toBe('2nd floor, Pune'); // from the clinic, not the org
+      expect(result.clinic.website).toBe('https://sunshine.example.test');
+      expect(result.clinic.alternate_phone).toBe('+912222222222');
+      expect(result.clinic.appointment_note).toBe('Sunday by appointment');
+      expect(result.clinic.tagline).toBe('ORTHO & GYNAE CARE');
+      expect(result.clinic.primary_color).toBe('#AA0000');
+    });
+
+    it('falls back to [the issuing clinician] when the clinic has no configured letterhead_clinician_ids', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue({ first_name: 'Sarah', last_name: 'Mitchell', registration_number: 'REG123', qualifications: 'MBBS', specialty_highlights: null });
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: clinicRow });
+      const result = await service.printPrescription('rx-1', clinicianA);
+      expect(result.doctors).toEqual([
+        { full_name: 'Sarah Mitchell', qualifications: 'MBBS', specialty_highlights: undefined, registration_number: 'REG123' },
+      ]);
+    });
+
+    it('resolves the configured letterhead doctor roster, in the admin-configured order, when set', async () => {
+      prisma.clinicians.findUnique.mockResolvedValue({ first_name: 'Sarah', last_name: 'Mitchell' });
+      prisma.appointments.findUnique.mockResolvedValue({
+        clinic: { ...clinicRow, letterhead_clinician_ids: ['clin-b', 'clin-a'] },
+      });
+      // findMany doesn't guarantee input order -- returned deliberately reversed
+      // from the requested id order to prove the service re-orders, not Prisma.
+      prisma.clinicians.findMany.mockResolvedValue([
+        { id: 'clin-a', first_name: 'Vijendra', last_name: 'Ambatkar', qualifications: 'MBBS D ORTHO', specialty_highlights: null, registration_number: null },
+        { id: 'clin-b', first_name: 'Vidya', last_name: 'Ambatkar', qualifications: 'MBBS, DGO', specialty_highlights: 'Diploma in IVF\nFellowship in Laparoscopy', registration_number: 'REG456' },
+      ]);
+      const result = await service.printPrescription('rx-1', clinicianA);
+      expect(result.doctors.map((d: any) => d.full_name)).toEqual(['Vidya Ambatkar', 'Vijendra Ambatkar']);
+      expect(result.doctors[0].specialty_highlights).toBe('Diploma in IVF\nFellowship in Laparoscopy');
+    });
+  });
+
+  // REQ171/REQ172 -- the same encounter's own clinical narrative
+  // (complaints/vitals/BMI/diagnosis/advice/follow-up/investigations),
+  // plus obstetric LMP/EDD/gestational age, joined into the print payload.
+  describe('printPrescription — encounter clinical context (REQ171/REQ172)', () => {
+    beforeEach(() => {
+      prisma.patients.findUnique.mockResolvedValue({ first_name: 'Anita', last_name: 'Sharma', date_of_birth: new Date('1990-01-01') });
+      prisma.clinicians.findUnique.mockResolvedValue({ first_name: 'Sarah', last_name: 'Mitchell' });
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: null });
+    });
+
+    it('joins complaints/exam/advice/follow_up/investigations from EncounterNotes and a joined diagnosis list', async () => {
+      prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);
+      prisma.encounterNotes.findMany.mockResolvedValue([
+        { section: 'complaints', content: 'Fever' },
+        { section: 'exam', content: 'Throat congested' },
+        { section: 'advice', content: 'Rest' },
+        { section: 'follow_up', content: '5 days' },
+      ]);
+      prisma.diagnoses.findMany.mockResolvedValue([{ text: 'Acute pharyngitis' }, { text: 'Dehydration' }]);
+      const result = await service.printPrescription('rx-1', clinicianA);
+      expect(result.encounter_context.complaints).toBe('Fever');
+      expect(result.encounter_context.exam).toBe('Throat congested');
+      expect(result.encounter_context.advice).toBe('Rest');
+      expect(result.encounter_context.follow_up).toBe('5 days');
+      expect(result.encounter_context.diagnosis).toBe('Acute pharyngitis, Dehydration');
+      expect(result.encounter_context.investigations).toBeUndefined();
+    });
+
+    it('computes BMI from the latest height/weight vitals', async () => {
+      prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);
+      prisma.vitals.findMany.mockResolvedValue([
+        { code: 'height_cm', value: 165, recorded_at: new Date('2026-01-01') },
+        { code: 'weight_kg', value: 60, recorded_at: new Date('2026-01-02') },
+        { code: 'bp_systolic', value: 118, recorded_at: new Date('2026-01-02') },
+        { code: 'bp_diastolic', value: 76, recorded_at: new Date('2026-01-02') },
+      ]);
+      const result = await service.printPrescription('rx-1', clinicianA);
+      // 60 / (1.65^2) = 22.03856... rounded to 2dp
+      expect(result.encounter_context.bmi).toBe(22.04);
+      expect(result.encounter_context.bp_systolic).toBe(118);
+      expect(result.encounter_context.bp_diastolic).toBe(76);
+    });
+
+    it('computes EDD and gestational age from Encounters.lmp_date, matching a real reference prescription', async () => {
+      // Same LMP/EDD/gestational-age triple already independently verified
+      // by hand in obstetric-dates.spec.ts.
+      prisma.prescriptions.findUnique.mockResolvedValue({
+        ...prescriptionOpen,
+        encounter: { ...encounterOpen, lmp_date: new Date('2025-12-21T00:00:00.000Z') },
+      });
+      const result = await service.printPrescription('rx-1', clinicianA);
+      expect(result.encounter_context.edd).toBeDefined();
+      expect((result.encounter_context.edd as Date).toISOString().slice(0, 10)).toBe('2026-09-27');
+      expect(result.encounter_context.gestational_age_weeks).toBeGreaterThanOrEqual(0);
+    });
+
+    it('leaves every encounter_context field undefined when nothing was recorded (regression -- no crash, no fabricated content)', async () => {
+      prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);
+      const result = await service.printPrescription('rx-1', clinicianA);
+      expect(result.encounter_context.complaints).toBeUndefined();
+      expect(result.encounter_context.diagnosis).toBeUndefined();
+      expect(result.encounter_context.bmi).toBeUndefined();
+      expect(result.encounter_context.edd).toBeUndefined();
+    });
+  });
+
+  // REQ171 -- Drugs.composition, already modelled, joined into every
+  // prescription item for the first time.
+  describe('itemsToGraphQL — composition join (REQ171)', () => {
+    it('includes each item drug\'s own composition, undefined when the drug has none', async () => {
+      prisma.prescriptions.findUnique.mockResolvedValue(prescriptionOpen);
+      prisma.clinicians.findUnique.mockResolvedValue({ first_name: 'Sarah', last_name: 'Mitchell' });
+      prisma.appointments.findUnique.mockResolvedValue({ clinic: null });
+      prisma.drugs.findMany.mockResolvedValue([{ id: 'drug-1', name: 'Doxinate', composition: 'Doxylamine succinate 10 MG + Vitamin B6 10 MG' }]);
+      const result = await service.printPrescription('rx-1', clinicianA);
+      expect(result.prescription.items[0].composition).toBe('Doxylamine succinate 10 MG + Vitamin B6 10 MG');
     });
   });
 

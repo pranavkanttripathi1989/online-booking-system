@@ -47,6 +47,7 @@ export class OrgSettingsService {
       logo_url: row.logo_url ?? undefined,
       primary_color: row.primary_color,
       secondary_color: row.secondary_color,
+      tagline: row.tagline ?? undefined,
     };
   }
 
@@ -226,6 +227,7 @@ export class OrgSettingsService {
           logo_url: input.logo_url,
           primary_color: input.primary_color,
           secondary_color: input.secondary_color,
+          tagline: input.tagline,
         },
       });
       return { success: true, userErrors: [], branding: this.toBranding(row) };

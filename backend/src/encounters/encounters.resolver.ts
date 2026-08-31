@@ -61,6 +61,21 @@ export class EncountersResolver {
     return this.encountersService.saveEncounterNote(input, user);
   }
 
+  // REQ172 -- obstetric-specific. `lmp_date` is a plain ISO date string
+  // (matching patients.resolver.ts's own date_of_birth argument
+  // convention), parsed to a Date in the resolver so the service layer
+  // works with real Date objects throughout, same as every other
+  // Date-accepting service method in this codebase.
+  @Auth('clinician')
+  @Mutation(() => EncounterType)
+  setEncounterLmpDate(
+    @Args('encounter_id', { type: () => ID }) encounterId: string,
+    @Args('lmp_date') lmpDate: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.encountersService.setEncounterLmpDate(encounterId, new Date(lmpDate), user);
+  }
+
   @Auth('clinician')
   @Mutation(() => EncounterType)
   signEncounter(@Args('encounter_id', { type: () => ID }) encounterId: string, @CurrentUser() user: JwtPayload) {

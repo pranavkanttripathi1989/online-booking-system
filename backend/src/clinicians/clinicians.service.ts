@@ -176,6 +176,9 @@ export class CliniciansService {
           clinic_id: clinicId,
           department_id: input.department_id,
           is_active: input.is_active ?? true,
+          qualifications: input.qualifications,
+          registration_number: input.registration_number,
+          specialty_highlights: input.specialty_highlights,
         },
       });
       if (languageIds.length) {
@@ -230,6 +233,9 @@ export class CliniciansService {
           clinic_id: input.clinic_ids?.[0],
           department_id: input.department_id,
           is_active: input.is_active,
+          qualifications: input.qualifications,
+          registration_number: input.registration_number,
+          specialty_highlights: input.specialty_highlights,
         },
       });
       if (languageIds) {

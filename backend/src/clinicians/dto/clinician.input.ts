@@ -22,4 +22,16 @@ export class ClinicianInput {
   @Field(() => ID, { nullable: true }) @IsOptional() department_id?: string;
   @Field(() => [String], { nullable: true }) @IsOptional() languages?: string[];
   @Field({ nullable: true }) @IsOptional() @IsBoolean() is_active?: boolean;
+  // REQ021 added these columns for the printed-prescription letterhead but
+  // never exposed them here -- EditClinicianPage.jsx's own form has
+  // collected and submitted both since that slice, silently rejected by
+  // the global ValidationPipe's forbidNonWhitelisted:true the whole time
+  // (a real clinician's qualifications/registration number could never
+  // actually be saved through the UI). Fixed as part of REQ170, which
+  // needed this same input for its own new specialty_highlights field.
+  @Field({ nullable: true }) @IsOptional() qualifications?: string;
+  @Field({ nullable: true }) @IsOptional() registration_number?: string;
+  // REQ170 -- newline-separated bullet list of sub-specialty/fellowship
+  // lines shown under `qualifications` on the letterhead.
+  @Field({ nullable: true }) @IsOptional() specialty_highlights?: string;
 }

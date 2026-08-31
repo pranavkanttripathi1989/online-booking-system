@@ -212,6 +212,37 @@ describe('EncountersService', () => {
     });
   });
 
+  // REQ172 -- obstetric-specific. Same self-scope + locked-encounter
+  // rejection as saveEncounterNote above, a dedicated single-purpose
+  // mutation rather than a generic "update encounter" endpoint.
+  describe('setEncounterLmpDate (REQ172)', () => {
+    it('rejects setting the LMP date on a locked encounter', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterSigned);
+      await expect(service.setEncounterLmpDate('enc-2', new Date('2025-12-21'), clinicianA)).rejects.toThrow(BadRequestException);
+      expect(prisma.encounters.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a cross-org caller', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      await expect(service.setEncounterLmpDate('enc-1', new Date('2025-12-21'), managerB)).rejects.toThrow(NotFoundException);
+      expect(prisma.encounters.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects a clinician who is not the treating clinician for this encounter', async () => {
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      await expect(service.setEncounterLmpDate('enc-1', new Date('2025-12-21'), clinicianB)).rejects.toThrow(NotFoundException);
+      expect(prisma.encounters.update).not.toHaveBeenCalled();
+    });
+
+    it('sets lmp_date on an open encounter for the treating clinician', async () => {
+      const lmp = new Date('2025-12-21T00:00:00.000Z');
+      prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+      prisma.encounters.update.mockResolvedValue({ ...encounterOpen, lmp_date: lmp });
+      await service.setEncounterLmpDate('enc-1', lmp, clinicianA);
+      expect(prisma.encounters.update).toHaveBeenCalledWith({ where: { id: 'enc-1' }, data: { lmp_date: lmp } });
+    });
+  });
+
   describe('signEncounter — one-way sign-off', () => {
     it('rejects signing an already-signed encounter', async () => {
       prisma.encounters.findUnique.mockResolvedValue(encounterSigned);

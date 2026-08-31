@@ -7,6 +7,7 @@
 import PDFDocument = require('pdfkit');
 import * as fs from 'fs';
 import * as path from 'path';
+import { pdfLabel, PdfLanguage } from './i18n-labels';
 
 // REQ057 (US-PAT-02) — the one place a Buffer is assembled from a pdfkit
 // document. pdfkit is a stream, not a promise-returning renderer; every
@@ -82,13 +83,61 @@ function resolveLogoPath(logoUrl?: string): string | undefined {
   return fs.existsSync(resolved) ? resolved : undefined;
 }
 
-// Shared letterhead — clinic logo/name/phone at the top, matching the
-// same real org-branding fields (REQ002: name/logo_url) printPrescription()
-// already reads. A missing/unresolvable logo_url (org never uploaded one,
-// or the stored path is stale) silently falls back to the clinic name as
-// text only, matching PrescriptionPrint.jsx's own graceful fallback when
-// no logo exists -- never a broken document over a missing image.
-export function drawLetterhead(doc: PDFKit.PDFDocument, clinicName: string, contactPhone?: string, logoUrl?: string) {
+export interface LetterheadDoctor {
+  full_name: string;
+  qualifications?: string;
+  specialty_highlights?: string;
+  registration_number?: string;
+}
+
+// REQ170 -- the fuller letterhead used only by the prescription PDF today
+// (invoice/visit-summary/reimbursement/appeal keep calling drawLetterhead
+// with just the first 4 args, unaffected by this addition).
+export interface LetterheadExtra {
+  tagline?: string;
+  doctors?: LetterheadDoctor[];
+  language?: PdfLanguage;
+}
+
+function drawDoctorBlock(doc: PDFKit.PDFDocument, x: number, width: number, y: number, doctor: LetterheadDoctor, language: PdfLanguage) {
+  const font = (bold = false) => doc.font(pdfFontName(doc, language, bold));
+  let cursorY = y;
+  font(true).fontSize(10);
+  doc.text(doctor.full_name, x, cursorY, { width });
+  cursorY = doc.y;
+  if (doctor.qualifications) {
+    font().fontSize(8);
+    doc.text(doctor.qualifications, x, cursorY, { width });
+    cursorY = doc.y;
+  }
+  if (doctor.specialty_highlights) {
+    font().fontSize(7.5).fillColor('#555555');
+    for (const line of doctor.specialty_highlights.split('\n').filter(Boolean)) {
+      doc.text(`- ${line}`, x, cursorY, { width });
+      cursorY = doc.y;
+    }
+    doc.fillColor('black');
+  }
+  if (doctor.registration_number) {
+    font().fontSize(7.5);
+    doc.text(`${pdfLabel('regNo', language)}: ${doctor.registration_number}`, x, cursorY, { width });
+    cursorY = doc.y;
+  }
+  return cursorY;
+}
+
+// Shared letterhead — clinic logo/name/(tagline)/(doctor roster)/phone at
+// the top, matching the real org-branding fields (REQ002: name/logo_url)
+// printPrescription() already reads, plus REQ170's own letterhead fields
+// when `extra` is supplied. A missing/unresolvable logo_url (org never
+// uploaded one, or the stored path is stale) silently falls back to the
+// clinic name as text only, matching PrescriptionPrint.jsx's own graceful
+// fallback when no logo exists -- never a broken document over a missing
+// image.
+export function drawLetterhead(doc: PDFKit.PDFDocument, clinicName: string, contactPhone?: string, logoUrl?: string, extra?: LetterheadExtra) {
+  const language: PdfLanguage = extra?.language ?? 'en';
+  const font = (bold = false) => doc.font(pdfFontName(doc, language, bold));
+
   const logoPath = resolveLogoPath(logoUrl);
   if (logoPath) {
     try {
@@ -101,15 +150,83 @@ export function drawLetterhead(doc: PDFKit.PDFDocument, clinicName: string, cont
       // through to text-only rather than crash the whole document.
     }
   }
-  doc.fontSize(18).font('Helvetica-Bold').text(clinicName, { align: 'left' });
-  if (contactPhone) {
-    doc.fontSize(10).font('Helvetica').text(contactPhone);
+  font(true).fontSize(18).text(clinicName, { align: 'left' });
+  if (extra?.tagline) {
+    font(true).fontSize(10).fillColor('#555555').text(extra.tagline);
+    doc.fillColor('black');
+  }
+  if (!extra?.doctors?.length && contactPhone) {
+    font().fontSize(10).text(contactPhone);
   }
   doc.moveDown(0.5);
+
+  // REQ170 -- an admin-configured multi-doctor letterhead roster, laid out
+  // as a 2-column grid (matching the reference prescription's own
+  // side-by-side partner-doctor header). A single doctor renders as one
+  // left-aligned block, same visual position the pre-REQ170 code always
+  // used.
+  const doctors = extra?.doctors ?? [];
+  if (doctors.length > 0) {
+    const contentWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+    const colWidth = doctors.length > 1 ? contentWidth / 2 - 8 : contentWidth;
+    const startY = doc.y;
+    let maxY = startY;
+    doctors.forEach((doctor, i) => {
+      const col = i % 2;
+      const row = Math.floor(i / 2);
+      const x = doc.page.margins.left + col * (colWidth + 16);
+      const y = startY + row * 70; // fixed row height -- doctor blocks are short and bounded (name + 3-4 short lines)
+      const endY = drawDoctorBlock(doc, x, colWidth, y, doctor, language);
+      maxY = Math.max(maxY, endY);
+    });
+    doc.y = maxY;
+    doc.moveDown(0.3);
+  }
+
   doc
     .moveTo(doc.page.margins.left, doc.y)
     .lineTo(doc.page.width - doc.page.margins.right, doc.y)
     .strokeColor('#cccccc')
     .stroke();
   doc.moveDown(1);
+}
+
+export interface LetterheadFooter {
+  address?: string;
+  email?: string;
+  website?: string;
+  phone?: string;
+  alternatePhone?: string;
+  appointmentNote?: string;
+}
+
+// REQ170 -- a shaded footer band at the bottom of the page (address/
+// phones/email/website), matching the reference prescription's own
+// coloured footer bar. Only drawn for the prescription PDF -- invoice/
+// visit-summary/reimbursement/appeal don't call this, unaffected.
+// `accentColor` is this org's own real primary_color (falls back to the
+// platform default teal) -- deliberately never the literal reference
+// image's own blue/red, since copying another clinic's brand colours onto
+// a different org's document would be wrong, not just cosmetically off.
+export function drawLetterheadFooter(doc: PDFKit.PDFDocument, footer: LetterheadFooter, language: PdfLanguage, accentColor = '#006D77') {
+  const lines = [footer.address, [footer.email, footer.website].filter(Boolean).join('   ·   ')].filter(Boolean) as string[];
+  const phoneParts = [footer.phone, footer.alternatePhone].filter(Boolean).join(' / ');
+  if (phoneParts) lines.push(`${pdfLabel('forAppointment', language)}: ${phoneParts}${footer.appointmentNote ? `   ·   ${footer.appointmentNote}` : ''}`);
+  if (lines.length === 0) return;
+
+  const font = (bold = false) => doc.font(pdfFontName(doc, language, bold));
+  const bandHeight = 14 + lines.length * 11;
+  const y = doc.page.height - doc.page.margins.bottom - bandHeight;
+  const x = doc.page.margins.left;
+  const width = doc.page.width - doc.page.margins.left - doc.page.margins.right;
+
+  doc.rect(x, y, width, bandHeight).fill(accentColor);
+  doc.fillColor('white');
+  font().fontSize(8);
+  let cursorY = y + 6;
+  for (const line of lines) {
+    doc.text(line, x + 10, cursorY, { width: width - 20, align: 'center' });
+    cursorY = doc.y + 1;
+  }
+  doc.fillColor('black');
 }

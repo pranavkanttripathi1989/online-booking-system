@@ -9,6 +9,7 @@ import { PatientsService } from '../patients/patients.service';
 import { NotificationProviderConfigService } from '../notifications/notification-provider-config.service';
 import { EncountersService } from '../encounters/encounters.service';
 import { findAllergyConflict } from './allergy-check';
+import { computeObstetricDates } from './obstetric-dates';
 
 // REQ109 — same 6-digit-numeric-OTP shape auth.service.ts's own
 // requestOtp()/verifyOtp() use, and the same lockout threshold
@@ -85,8 +86,14 @@ export class PrescriptionsService {
   private async itemsToGraphQL(items: any[]) {
     const drugIds = [...new Set(items.map((i) => i.drug_id))];
     const drugs = await this.prisma.drugs.findMany({ where: { id: { in: drugIds } } });
-    const nameById = new Map(drugs.map((d) => [d.id, d.name]));
-    return items.map((i) => ({ ...i, drug_name: nameById.get(i.drug_id) ?? 'Unknown drug' }));
+    const drugById = new Map(drugs.map((d) => [d.id, d]));
+    // REQ171 -- Drugs.composition already existed and was never selected
+    // here; a combination drug's composition line on the printout.
+    return items.map((i) => ({
+      ...i,
+      drug_name: drugById.get(i.drug_id)?.name ?? 'Unknown drug',
+      composition: drugById.get(i.drug_id)?.composition ?? undefined,
+    }));
   }
 
   // REQ137 (US-INS-06) — used by InsuranceService to auto-attach an
@@ -354,6 +361,80 @@ export class PrescriptionsService {
     };
   }
 
+  // REQ170 -- resolves a clinic's own configured letterhead doctor roster
+  // (Clinics.letterhead_clinician_ids, an ordered array of Clinicians.id)
+  // into full doctor blocks. Falls back to [the issuing clinician] when
+  // unset/empty -- an org that never configures this renders exactly as
+  // before REQ170, per that slice's own stated regression contract.
+  private async resolveLetterheadDoctors(clinicLetterheadIds: unknown, issuingClinician: any) {
+    const ids = Array.isArray(clinicLetterheadIds) ? (clinicLetterheadIds as string[]) : [];
+    if (ids.length === 0) {
+      return issuingClinician
+        ? [
+            {
+              full_name: `${issuingClinician.first_name} ${issuingClinician.last_name}`,
+              qualifications: issuingClinician.qualifications ?? undefined,
+              specialty_highlights: issuingClinician.specialty_highlights ?? undefined,
+              registration_number: issuingClinician.registration_number ?? undefined,
+            },
+          ]
+        : [];
+    }
+    const rows = await this.prisma.clinicians.findMany({ where: { id: { in: ids } } });
+    const byId = new Map(rows.map((c) => [c.id, c]));
+    // Preserves the admin-configured display order -- Prisma's findMany
+    // with `in` does not guarantee input order.
+    return ids
+      .map((id) => byId.get(id))
+      .filter((c): c is (typeof rows)[number] => !!c)
+      .map((c) => ({
+        full_name: `${c.first_name} ${c.last_name}`,
+        qualifications: c.qualifications ?? undefined,
+        specialty_highlights: c.specialty_highlights ?? undefined,
+        registration_number: c.registration_number ?? undefined,
+      }));
+  }
+
+  // REQ171 -- the same encounter's own clinical narrative, already fully
+  // modelled (EncounterNotes/Diagnoses/Vitals) and already read verbatim
+  // by documents.service.ts#visitSummaryPdf -- reused here rather than
+  // re-deriving a second query shape for the same three tables. Every
+  // field is optional; a specialty/clinician that never records one keeps
+  // today's clean printout, nothing rendered.
+  private async assembleEncounterContext(encounterId: string, lmpDate: Date | null | undefined) {
+    const [notes, diagnoses, vitals] = await Promise.all([
+      this.prisma.encounterNotes.findMany({ where: { encounter_id: encounterId } }),
+      this.prisma.diagnoses.findMany({ where: { encounter_id: encounterId, type: 'diagnosis', status: 'active' } }),
+      this.prisma.vitals.findMany({ where: { encounter_id: encounterId }, orderBy: { recorded_at: 'desc' } }),
+    ]);
+
+    const noteBySection = new Map(notes.map((n) => [n.section, n.content]));
+    const latestVital = (code: string) => vitals.find((v) => v.code === code)?.value;
+    const heightCm = latestVital('height_cm');
+    const weightKg = latestVital('weight_kg');
+    const bmi = heightCm && weightKg ? weightKg / (heightCm / 100) ** 2 : undefined;
+
+    const obstetric = lmpDate ? computeObstetricDates(lmpDate, new Date()) : undefined;
+
+    return {
+      complaints: noteBySection.get('complaints') || undefined,
+      exam: noteBySection.get('exam') || undefined,
+      diagnosis: diagnoses.length ? diagnoses.map((d) => d.text).join(', ') : undefined,
+      advice: noteBySection.get('advice') || undefined,
+      follow_up: noteBySection.get('follow_up') || undefined,
+      investigations: noteBySection.get('investigations') || undefined,
+      bp_systolic: latestVital('bp_systolic'),
+      bp_diastolic: latestVital('bp_diastolic'),
+      height_cm: heightCm,
+      weight_kg: weightKg,
+      bmi: bmi ? Math.round(bmi * 100) / 100 : undefined,
+      lmp_date: lmpDate ?? undefined,
+      edd: obstetric?.edd,
+      gestational_age_weeks: obstetric?.gestational_age_weeks,
+      gestational_age_days: obstetric?.gestational_age_days,
+    };
+  }
+
   // REQ109 — shared by printPrescription() (bumps reprint_count) and
   // assembleForShare() (does not — see that method's own comment on why
   // those are different concepts). Extracted verbatim from printPrescription's
@@ -361,34 +442,54 @@ export class PrescriptionsService {
   private async assemblePrintPayload(prescription: any, isReprint: boolean) {
     const items = await this.itemsToGraphQL(prescription.items as any[]);
 
-    // Letterhead reuses the real org branding (REQ002: name/logo_url) plus
-    // ClientOrganizations' own contact/address fields -- no dedicated
-    // "letterhead" concept exists, and building one is out of this slice's
-    // scope (see PLAN057).
-    const [clinician, patient, org] = await Promise.all([
+    // REQ170 -- letterhead now reads the SPECIFIC clinic (branch) the
+    // appointment actually happened at, not just the org-wide branding --
+    // the pre-REQ170 version hardcoded `address: undefined` and always
+    // used the org's own contact_phone, which is wrong for any multi-
+    // branch org (every branch would print the same phone/address).
+    const [clinician, patient, appointment] = await Promise.all([
       this.prisma.clinicians.findUnique({ where: { id: prescription.clinician_id } }),
       this.prisma.patients.findUnique({ where: { id: prescription.patient_id } }),
-      this.prisma.clientOrganizations.findUnique({ where: { id: prescription.encounter.client_org_id } }),
+      this.prisma.appointments.findUnique({
+        where: { id: prescription.encounter.appointment_id },
+        include: { clinic: { include: { client_organization: true } } },
+      }),
+    ]);
+    const clinic = appointment?.clinic;
+    const org = clinic?.client_organization;
+
+    const [doctors, encounterContext] = await Promise.all([
+      this.resolveLetterheadDoctors(clinic?.letterhead_clinician_ids, clinician),
+      this.assembleEncounterContext(prescription.encounter_id, prescription.encounter.lmp_date),
     ]);
 
     return {
       prescription: { ...prescription, items },
       clinic: {
-        name: org?.name ?? 'Clinic',
+        name: org?.name ?? clinic?.name ?? 'Clinic',
         logo_url: org?.logo_url ?? undefined,
-        contact_phone: org?.contact_phone ?? undefined,
-        address: undefined,
+        contact_phone: clinic?.phone ?? org?.contact_phone ?? undefined,
+        address: clinic?.address ?? undefined,
+        email: clinic?.email ?? undefined,
+        website: clinic?.website ?? undefined,
+        alternate_phone: clinic?.alternate_phone ?? undefined,
+        appointment_note: clinic?.appointment_note ?? undefined,
+        tagline: org?.tagline ?? undefined,
+        primary_color: org?.primary_color ?? undefined,
+        secondary_color: org?.secondary_color ?? undefined,
       },
       clinician: {
         full_name: clinician ? `${clinician.first_name} ${clinician.last_name}` : 'Unknown',
         registration_number: clinician?.registration_number ?? undefined,
         qualifications: clinician?.qualifications ?? undefined,
       },
+      doctors,
       patient: {
         full_name: patient ? `${patient.first_name} ${patient.last_name}` : 'Unknown',
         date_of_birth: patient?.date_of_birth,
         gender: patient?.gender ?? undefined,
       },
+      encounter_context: encounterContext,
       is_reprint: isReprint,
     };
   }

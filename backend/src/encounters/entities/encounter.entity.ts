@@ -116,6 +116,10 @@ export class EncounterType {
   @Field(() => [InvestigationOrderType]) investigation_orders: InvestigationOrderType[];
   @Field(() => [ReferralType]) referrals: ReferralType[];
   @Field(() => [VitalType]) vitals: VitalType[];
+  // REQ172 -- obstetric-specific, set via setEncounterLmpDate(). EDD and
+  // Gestational Age are never stored -- always computed at render time
+  // from this one field (see prescriptions/obstetric-dates.ts).
+  @Field({ nullable: true }) lmp_date?: Date;
 }
 
 @ObjectType('EncounterTemplate')

@@ -37,6 +37,10 @@ export class ClinicianType {
   // REQ015 (US-SEC-07) — only 'verified' renders the public-profile badge.
   @Field({ nullable: true }) registration_number?: string;
   @Field({ nullable: true }) medical_council?: string;
+  // REQ021/REQ170 -- the printed-prescription letterhead's degree line and
+  // (new) bulleted sub-specialty/fellowship lines.
+  @Field({ nullable: true }) qualifications?: string;
+  @Field({ nullable: true }) specialty_highlights?: string;
   @Field() verification_status: string;
   @Field({ nullable: true }) verified_at?: Date;
 }

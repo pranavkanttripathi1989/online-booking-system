@@ -1,5 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { NotFoundException } from '@nestjs/common';
+import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { ClinicsService } from './clinics.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -13,6 +13,10 @@ describe('ClinicsService', () => {
       create: jest.Mock;
       update: jest.Mock;
       updateMany: jest.Mock;
+    };
+    // REQ170 -- update() validates letterhead_clinician_ids against this.
+    clinicians: {
+      count: jest.Mock;
     };
     $transaction: jest.Mock;
   };
@@ -56,6 +60,7 @@ describe('ClinicsService', () => {
         update: jest.fn(),
         updateMany: jest.fn(),
       },
+      clinicians: { count: jest.fn() },
       $transaction: jest.fn((fn: any) => fn(prisma)),
     };
     const module: TestingModule = await Test.createTestingModule({
@@ -189,6 +194,37 @@ describe('ClinicsService', () => {
         NotFoundException,
       );
       expect(prisma.clinics.update).not.toHaveBeenCalled();
+    });
+
+    // REQ170 -- Hard Rule 6: letterhead_clinician_ids must belong to the
+    // same org as the clinic being updated, not an arbitrary id.
+    describe('letterhead_clinician_ids validation (REQ170)', () => {
+      it('accepts letterhead_clinician_ids that all belong to the clinic\'s own org', async () => {
+        prisma.clinics.findUnique.mockResolvedValue(orgAClinic);
+        prisma.clinicians.count.mockResolvedValue(2);
+        prisma.clinics.update.mockResolvedValue({ ...orgAClinic, letterhead_clinician_ids: ['clin-a', 'clin-b'] });
+        await service.update('clinic-a1', { letterhead_clinician_ids: ['clin-a', 'clin-b'] } as any, orgAUser);
+        expect(prisma.clinicians.count).toHaveBeenCalledWith({
+          where: { id: { in: ['clin-a', 'clin-b'] }, clinic: { client_org_id: 'org-a' } },
+        });
+        expect(prisma.clinics.update).toHaveBeenCalled();
+      });
+
+      it('rejects a letterhead_clinician_ids entry that belongs to a different org, without ever calling prisma.update', async () => {
+        prisma.clinics.findUnique.mockResolvedValue(orgAClinic);
+        prisma.clinicians.count.mockResolvedValue(1); // only 1 of 2 requested ids actually matched org-a
+        await expect(
+          service.update('clinic-a1', { letterhead_clinician_ids: ['clin-a', 'clin-from-org-b'] } as any, orgAUser),
+        ).rejects.toThrow(BadRequestException);
+        expect(prisma.clinics.update).not.toHaveBeenCalled();
+      });
+
+      it('skips the validation query entirely when letterhead_clinician_ids is not provided', async () => {
+        prisma.clinics.findUnique.mockResolvedValue(orgAClinic);
+        prisma.clinics.update.mockResolvedValue(orgAClinic);
+        await service.update('clinic-a1', { name: 'Renamed' } as any, orgAUser);
+        expect(prisma.clinicians.count).not.toHaveBeenCalled();
+      });
     });
   });
 

@@ -238,6 +238,20 @@ export class EncountersService {
     });
   }
 
+  // REQ172 -- obstetric-specific, a dedicated single-purpose mutation
+  // (matching this codebase's established one-mutation-per-concern
+  // convention, e.g. markRegistryReviewed/completeChecklistItem, rather
+  // than a generic "update encounter" endpoint) rather than folding a date
+  // into saveEncounterNote()'s free-text content shape. Same self-scope +
+  // locked-encounter rejection as saveEncounterNote above.
+  async setEncounterLmpDate(encounterId: string, lmpDate: Date, user: JwtPayload) {
+    const encounter = await this.loadEncounterForUser(encounterId, user);
+    if (encounter.locked) {
+      throw new BadRequestException('This encounter has been signed and can no longer be edited. Add an addendum instead.');
+    }
+    return this.prisma.encounters.update({ where: { id: encounterId }, data: { lmp_date: lmpDate } });
+  }
+
   // One-way -- no unsign mutation exists, matching the immutability intent.
   // Only the treating clinician may sign (not front-desk staff/admin).
   async signEncounter(encounterId: string, user: JwtPayload) {

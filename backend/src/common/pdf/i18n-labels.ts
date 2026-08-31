@@ -22,6 +22,24 @@ const LABELS: Record<string, Record<PdfLanguage, string>> = {
   days: { en: 'days', hi: 'दिन' },
   signature: { en: 'Signature', hi: 'हस्ताक्षर' },
   verificationCode: { en: 'Verification code', hi: 'सत्यापन कोड' },
+  // REQ171/REQ172 -- clinical-content section + footer labels.
+  complaints: { en: 'Complaints', hi: 'शिकायत' },
+  exam: { en: 'Physical Examination', hi: 'शारीरिक परीक्षण' },
+  diagnosis: { en: 'Diagnosis', hi: 'निदान' },
+  advice: { en: 'Advice', hi: 'सलाह' },
+  followUp: { en: 'Next Visit', hi: 'अगली तारीख' },
+  investigations: { en: 'Investigations', hi: 'निर्धारित परीक्षण' },
+  vitals: { en: 'Vitals', hi: 'महत्वपूर्ण संकेत' },
+  bmi: { en: 'BMI', hi: 'बीएमआई' },
+  bp: { en: 'BP', hi: 'बीपी' },
+  height: { en: 'Height', hi: 'ऊंचाई' },
+  weight: { en: 'Weight', hi: 'वजन' },
+  lmp: { en: 'LMP', hi: 'एलएमपी' },
+  edd: { en: 'EDD', hi: 'ईडीडी' },
+  gestationalAge: { en: 'Gestational Age', hi: 'गर्भावधि आयु' },
+  weeks: { en: 'weeks', hi: 'सप्ताह' },
+  composition: { en: 'Composition', hi: 'संरचना' },
+  forAppointment: { en: 'For Appointment', hi: 'अपॉइंटमेंट के लिए' },
 };
 
 export function pdfLabel(key: keyof typeof LABELS, language: PdfLanguage): string {

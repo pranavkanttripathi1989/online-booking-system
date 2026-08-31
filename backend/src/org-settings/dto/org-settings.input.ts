@@ -1,5 +1,5 @@
 import { InputType, Field, Float, Int } from '@nestjs/graphql';
-import { IsOptional, IsEmail, IsBoolean, IsInt, Min, IsNotEmpty, Matches } from 'class-validator';
+import { IsOptional, IsEmail, IsBoolean, IsInt, Min, IsNotEmpty, IsString, Matches } from 'class-validator';
 
 const HEX_COLOR = /^#[0-9A-Fa-f]{6}$/;
 
@@ -55,4 +55,9 @@ export class UpdateOrgBrandingInput {
   @Field({ nullable: true }) @IsOptional() logo_url?: string;
   @Field({ nullable: true }) @IsOptional() @Matches(HEX_COLOR, { message: 'primary_color must be a 6-digit hex color, e.g. #006D77' }) primary_color?: string;
   @Field({ nullable: true }) @IsOptional() @Matches(HEX_COLOR, { message: 'secondary_color must be a 6-digit hex color, e.g. #00858F' }) secondary_color?: string;
+  // REQ170 -- the letterhead subtitle shown under the clinic/org name on
+  // the printed prescription (e.g. "ORTHO & GYNAE CARE"). Explicit null
+  // clears it; omitted leaves it untouched, matching every other field
+  // here.
+  @Field({ nullable: true }) @IsOptional() @IsString() tagline?: string;
 }

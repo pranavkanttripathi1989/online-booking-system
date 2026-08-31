@@ -775,30 +775,38 @@ input ClaimCodeInput {
 
 type Clinic {
   address: String!
+  alternate_phone: String
+  appointment_note: String
   city: String
   email: String!
   gstin: String
   id: ID!
   is_active: Boolean!
   is_primary: Boolean!
+  letterhead_clinician_ids: [ID!]
   name: String!
   phone: String!
   postcode: String
   state: String
   timezone: String
+  website: String
 }
 
 input ClinicInput {
   address: String!
+  alternate_phone: String
+  appointment_note: String
   city: String
   email: String!
   gstin: String
   is_active: Boolean
+  letterhead_clinician_ids: [ID!]
   name: String!
   phone: String!
   postcode: String
   state: String
   timezone: String
+  website: String
 }
 
 type Clinician {
@@ -820,8 +828,10 @@ type Clinician {
   last_name: String!
   medical_council: String
   phone: String
+  qualifications: String
   registration_number: String
   services: [ClinicianServiceItem!]!
+  specialty_highlights: String
   verification_status: String!
   verified_at: DateTime
 }
@@ -886,7 +896,10 @@ input ClinicianInput {
   languages: [String!]
   last_name: String!
   phone: String
+  qualifications: String
+  registration_number: String
   service_ids: [ID!]
+  specialty_highlights: String
 }
 
 type ClinicianPaginated {
@@ -1505,6 +1518,7 @@ type Encounter {
   diagnoses: [Diagnosis!]!
   id: ID!
   investigation_orders: [InvestigationOrder!]!
+  lmp_date: DateTime
   locked: Boolean!
   notes: [EncounterNote!]!
   patient_id: ID!
@@ -2034,6 +2048,7 @@ type Mutation {
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
   selectOnboardingPlan(orgId: String!, planId: String!): OrganizationOnboarding!
   sendMessage(body: String!, threadId: ID!): MessageThread!
+  setEncounterLmpDate(encounter_id: ID!, lmp_date: String!): Encounter!
   setHeadOfficeClinic(id: ID!): Clinic!
   setPayerTariff(input: PayerTariffInput!): PayerTariff!
   setPlanActive(id: ID!, is_active: Boolean!): Plan!
@@ -2276,6 +2291,7 @@ type OrgBranding {
   name: String!
   primary_color: String!
   secondary_color: String!
+  tagline: String
 }
 
 type OrgBrandingMutationResult {
@@ -2780,6 +2796,24 @@ type PrescriptionDraft {
   repeated_from_id: ID!
 }
 
+type PrescriptionEncounterContext {
+  advice: String
+  bmi: Float
+  bp_diastolic: Float
+  bp_systolic: Float
+  complaints: String
+  diagnosis: String
+  edd: DateTime
+  exam: String
+  follow_up: String
+  gestational_age_days: Int
+  gestational_age_weeks: Int
+  height_cm: Float
+  investigations: String
+  lmp_date: DateTime
+  weight_kg: Float
+}
+
 type PrescriptionIntegrity {
   computed_hash: String!
   prescription_id: ID!
@@ -2788,6 +2822,7 @@ type PrescriptionIntegrity {
 }
 
 type PrescriptionItem {
+  composition: String
   dose: String!
   drug_id: ID!
   drug_name: String!
@@ -2810,11 +2845,25 @@ input PrescriptionItemInput {
   substitutable: Boolean
 }
 
+type PrescriptionLetterheadDoctor {
+  full_name: String!
+  qualifications: String
+  registration_number: String
+  specialty_highlights: String
+}
+
 type PrescriptionPrintClinic {
   address: String
+  alternate_phone: String
+  appointment_note: String
   contact_phone: String
+  email: String
   logo_url: String
   name: String!
+  primary_color: String
+  secondary_color: String
+  tagline: String
+  website: String
 }
 
 type PrescriptionPrintClinician {
@@ -2832,6 +2881,8 @@ type PrescriptionPrintPatient {
 type PrescriptionPrintPayload {
   clinic: PrescriptionPrintClinic!
   clinician: PrescriptionPrintClinician!
+  doctors: [PrescriptionLetterheadDoctor!]!
+  encounter_context: PrescriptionEncounterContext
   is_reprint: Boolean!
   patient: PrescriptionPrintPatient!
   prescription: Prescription!
@@ -4108,6 +4159,7 @@ input UpdateOrgBrandingInput {
   logo_url: String
   primary_color: String
   secondary_color: String
+  tagline: String
 }
 
 input UpdateOrgClinicalHoursInput {

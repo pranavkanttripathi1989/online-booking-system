@@ -109,6 +109,7 @@ export class OrgBrandingType {
   @Field({ nullable: true }) logo_url?: string;
   @Field() primary_color: string;
   @Field() secondary_color: string;
+  @Field({ nullable: true }) tagline?: string;
 }
 
 @ObjectType('OrgBrandingUserError')

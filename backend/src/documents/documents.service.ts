@@ -10,7 +10,7 @@ import { EncountersService } from '../encounters/encounters.service';
 import { InsuranceService } from '../insurance/insurance.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
-import { renderPdfToBuffer, drawLetterhead, pdfFontName } from '../common/pdf/render-pdf';
+import { renderPdfToBuffer, drawLetterhead, drawLetterheadFooter, pdfFontName } from '../common/pdf/render-pdf';
 import { pdfLabel, frequencyLabel, PdfLanguage } from '../common/pdf/i18n-labels';
 import { htmlToPlainText } from '../common/utils/html-to-plain-text';
 
@@ -46,8 +46,6 @@ export class DocumentsService {
   // acceptance criteria ("the exact same bytes printPrescription() already
   // produces").
   private drawPrescriptionPdf(doc: PDFKit.PDFDocument, data: any) {
-    drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone, data.clinic.logo_url);
-
     // P2-08 (US-RX-07) — a prescription issued in Hindi renders its whole
     // body (including free-text drug/route/instructions, which may
     // themselves be typed in Hindi by the clinician) through the bundled
@@ -59,11 +57,16 @@ export class DocumentsService {
     const language: PdfLanguage = data.prescription.language === 'hi' ? 'hi' : 'en';
     const font = (bold = false) => doc.font(pdfFontName(doc, language, bold));
 
-    font(true).fontSize(11).text(data.clinician.full_name);
-    font().fontSize(9);
-    if (data.clinician.qualifications) doc.text(data.clinician.qualifications);
-    if (data.clinician.registration_number) doc.text(`${pdfLabel('regNo', language)}: ${data.clinician.registration_number}`);
-    doc.moveDown(0.75);
+    // REQ170 -- the letterhead now renders the clinic's own configured
+    // doctor roster (tagline + N doctor blocks) instead of a bare
+    // name+phone; falls back to [issuing clinician] when the clinic never
+    // configured letterhead_clinician_ids, so an org that hasn't touched
+    // this feature yet still gets a real doctor block, not a blank header.
+    drawLetterhead(doc, data.clinic.name, data.clinic.contact_phone, data.clinic.logo_url, {
+      tagline: data.clinic.tagline,
+      doctors: data.doctors,
+      language,
+    });
 
     font(true).fontSize(11).text(`${pdfLabel('patient', language)}: ${data.patient.full_name}`);
     font().fontSize(9);
@@ -75,7 +78,36 @@ export class DocumentsService {
       .join('   ');
     if (patientLine) doc.text(patientLine);
     doc.text(`${pdfLabel('date', language)}: ${formatDate(data.prescription.issued_at)}`);
-    doc.moveDown(1);
+    doc.moveDown(0.75);
+
+    // REQ171/REQ172 -- the same encounter's own clinical narrative
+    // (complaints/vitals/BMI/diagnosis/advice/follow-up), plus obstetric
+    // LMP/EDD/gestational age when set. Every line only renders when its
+    // value is non-null -- a specialty/clinician that never records these
+    // keeps the pre-REQ171 layout exactly.
+    const ctx = data.encounter_context;
+    if (ctx) {
+      font().fontSize(9);
+      if (ctx.complaints) doc.text(`${pdfLabel('complaints', language)}: ${ctx.complaints}`);
+      const vitalsLine = [
+        ctx.bp_systolic != null && ctx.bp_diastolic != null ? `${pdfLabel('bp', language)} ${ctx.bp_systolic}/${ctx.bp_diastolic}` : undefined,
+        ctx.height_cm != null ? `${pdfLabel('height', language)} ${ctx.height_cm}cm` : undefined,
+        ctx.weight_kg != null ? `${pdfLabel('weight', language)} ${ctx.weight_kg}kg` : undefined,
+        ctx.bmi != null ? `${pdfLabel('bmi', language)} ${ctx.bmi}` : undefined,
+        ctx.lmp_date ? `${pdfLabel('lmp', language)} ${formatDate(ctx.lmp_date)}` : undefined,
+        ctx.edd ? `${pdfLabel('edd', language)} ${formatDate(ctx.edd)}` : undefined,
+        ctx.gestational_age_weeks != null
+          ? `${pdfLabel('gestationalAge', language)} ${ctx.gestational_age_weeks} ${pdfLabel('weeks', language)}${ctx.gestational_age_days ? ` ${ctx.gestational_age_days}${language === 'hi' ? '' : 'd'}` : ''}`
+          : undefined,
+      ]
+        .filter(Boolean)
+        .join('  |  ');
+      if (vitalsLine) doc.text(vitalsLine);
+      if (ctx.exam) doc.text(`${pdfLabel('exam', language)}: ${ctx.exam}`);
+      if (ctx.diagnosis) font(true).text(`${pdfLabel('diagnosis', language)}: ${ctx.diagnosis}`);
+      font().fontSize(9);
+      doc.moveDown(0.5);
+    }
 
     if (data.is_reprint) {
       doc.save();
@@ -102,6 +134,13 @@ export class DocumentsService {
         .filter(Boolean)
         .join('  ·  ');
       font().fontSize(9).text(details);
+      // REQ171 -- Drugs.composition, a combination drug's own ingredient
+      // breakdown, matching a real reference prescription's own per-item
+      // "Composition:" line.
+      if (item.composition) {
+        font().fontSize(8).fillColor('#555555').text(`${pdfLabel('composition', language)}: ${item.composition}`);
+        doc.fillColor('black');
+      }
       if (item.instructions) {
         font().fontSize(9).fillColor('#555555').text(item.instructions);
         doc.fillColor('black');
@@ -109,9 +148,21 @@ export class DocumentsService {
       doc.moveDown(0.5);
     }
 
+    if (ctx?.advice) {
+      doc.moveDown(0.5);
+      font(true).fontSize(9).text(`${pdfLabel('advice', language)}:`, { continued: true }).font(pdfFontName(doc, language)).text(` ${ctx.advice}`);
+    }
+    if (ctx?.follow_up) {
+      font(true).fontSize(9).text(`${pdfLabel('followUp', language)}:`, { continued: true }).font(pdfFontName(doc, language)).text(` ${ctx.follow_up}`);
+    }
+    if (ctx?.investigations) {
+      font(true).fontSize(9).text(`${pdfLabel('investigations', language)}:`, { continued: true }).font(pdfFontName(doc, language)).text(` ${ctx.investigations}`);
+    }
+
     doc.moveDown(2);
     font().fontSize(9).text('_______________________');
-    doc.text(pdfLabel('signature', language));
+    font(true).text(data.clinician.full_name);
+    font().text(pdfLabel('signature', language));
     // REQ129 (US-RX-08) — a short, human-checkable code derived from the
     // prescription's own tamper-evident content hash. A pharmacist/patient
     // can compare this against verifyPrescriptionIntegrity()'s own
@@ -122,6 +173,23 @@ export class DocumentsService {
       font().fontSize(8).fillColor('#555555').text(`${pdfLabel('verificationCode', language)}: ${formatVerificationCode(data.prescription.pdf_hash)}`);
       doc.fillColor('black');
     }
+
+    // REQ170 -- the letterhead footer band (address/phones/email/website),
+    // drawn last so it doesn't interfere with the page-flow layout above;
+    // absent entirely when the clinic has none of these fields set.
+    drawLetterheadFooter(
+      doc,
+      {
+        address: data.clinic.address,
+        email: data.clinic.email,
+        website: data.clinic.website,
+        phone: data.clinic.contact_phone,
+        alternatePhone: data.clinic.alternate_phone,
+        appointmentNote: data.clinic.appointment_note,
+      },
+      language,
+      data.clinic.primary_color,
+    );
   }
 
   async prescriptionPdf(id: string, user: JwtPayload): Promise<Buffer> {

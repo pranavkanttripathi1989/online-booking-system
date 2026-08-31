@@ -86,6 +86,35 @@ describe('CliniciansService — create-path org scoping', () => {
     expect(prisma.$transaction).not.toHaveBeenCalled();
   });
 
+  // REQ021 added qualifications/registration_number to the schema for the
+  // printed-prescription letterhead but this real create() call never
+  // actually wrote either to Prisma -- fixed as part of REQ170, which
+  // needed the same input for its own new specialty_highlights field.
+  it('persists qualifications/registration_number/specialty_highlights (REQ170)', async () => {
+    prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-1', client_org_id: 'org-1' });
+    const createSpy = jest.fn().mockResolvedValue({ id: 'cln-new' });
+    prisma.$transaction = jest.fn(async (fn) =>
+      fn({
+        clinicians: { create: createSpy },
+        clinicianLanguages: { createMany: jest.fn() },
+        clinicianServices: { createMany: jest.fn() },
+      }),
+    );
+    await service.create(
+      { ...baseInput, qualifications: 'MBBS, DGO', registration_number: 'REG456', specialty_highlights: 'Diploma in IVF' } as any,
+      managerSameOrg,
+    );
+    expect(createSpy).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          qualifications: 'MBBS, DGO',
+          registration_number: 'REG456',
+          specialty_highlights: 'Diploma in IVF',
+        }),
+      }),
+    );
+  });
+
   // P1-04 — the entitlement quota proof-of-concept, matching the exact
   // example the schema's own PlanVersions.quotas_json comment already
   // names ({ "max_clinician_seats": 10 }).

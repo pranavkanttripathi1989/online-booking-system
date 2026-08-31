@@ -42,4 +42,21 @@ export class ClinicType {
   // unique index (migration 20260823040000), not just app-level convention.
   @Field()
   is_primary: boolean;
+
+  // REQ170 -- prescription-letterhead footer fields.
+  @Field({ nullable: true })
+  website?: string;
+
+  @Field({ nullable: true })
+  alternate_phone?: string;
+
+  @Field({ nullable: true })
+  appointment_note?: string;
+
+  // Stored as JSONB (Clinics.letterhead_clinician_ids); the underlying
+  // Prisma value is already a plain string array or null, so no separate
+  // JSON scalar type is needed here -- exposed as the same [ID] shape the
+  // input side accepts.
+  @Field(() => [ID], { nullable: true })
+  letterhead_clinician_ids?: string[];
 }

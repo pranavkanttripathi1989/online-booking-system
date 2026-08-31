@@ -405,6 +405,14 @@ model Encounters {
   // rather than inferring it, per that requirement's own acceptance
   // criterion.
   consultation_mode String @default("in_person") // in_person|video|audio|text
+  // REQ172 — obstetric-specific, set only by an OB/GYN clinician via
+  // setEncounterLmpDate(); every other specialty leaves this null forever.
+  // Estimated Due Date and Gestational Age are deliberately NOT stored
+  // columns -- both are always computed at render time from this one
+  // date (lmp_date + 280 days / today - lmp_date), matching this schema's
+  // own "store the minimum, derive at read time" convention already used
+  // for chronic-registry recall status and immunisation due-status.
+  lmp_date       DateTime?
   created_at     DateTime  @default(now())
   updated_at     DateTime  @updatedAt
 
@@ -918,6 +926,12 @@ model ClientOrganizations {
   // PLAN022) -- purely a stored value a manager must be able to re-save
   // without hitting a rejection on a default they never touched.
   secondary_color String  @default("#007680")
+  // REQ170 — the letterhead subtitle shown under the clinic/org name on
+  // both the printed prescription and its PDF (e.g. "ORTHO & GYNAE CARE"),
+  // matching a real competitor prescription's own header structure. Null
+  // means no tagline renders -- purely additive, no change for an org that
+  // never sets one.
+  tagline String?
   // REQ024 (US-MSG-04) — org-configurable clinical hours for the
   // patient<->clinic messaging auto-responder. "HH:MM" strings, same shape
   // and IST-implicit convention as NotificationPreferences' own
@@ -1056,6 +1070,13 @@ model Clinicians {
   // one set yet, matching bio/avatar_url's own nullability.
   registration_number String?
   qualifications       String?
+  // REQ170 — newline-separated bullet list of sub-specialty/fellowship
+  // lines shown under `qualifications` on the letterhead (e.g. "Diploma
+  // in IVF & Reproductive Medicine\nFellowship in Laparoscopy
+  // (Gynaecology)"), matching a real competitor prescription's own
+  // two-line-per-doctor header. `qualifications` itself is untouched --
+  // still the short degree string only.
+  specialty_highlights String?
   // REQ015 (US-SEC-07) — the council registration_number was captured for
   // (e.g. "Delhi Medical Council"); free text, no council master table yet.
   medical_council      String?
@@ -1145,6 +1166,23 @@ model Clinics {
   timezone     String?  @default("Asia/Kolkata")
   phone        String
   email        String
+  // REQ170 — prescription-letterhead footer fields, matching a real
+  // competitor prescription's own footer (full address already covered by
+  // address/city/postcode/state above; these three fill the remaining
+  // gap). All null-default, purely additive.
+  website           String?
+  alternate_phone   String?
+  appointment_note  String? // e.g. "Sunday by appointment"
+  // REQ170 — an ordered list of Clinicians.id always shown on this
+  // clinic's own prescription letterhead, regardless of which clinician
+  // actually issued a given prescription (the reference's two-doctor
+  // co-branding pattern -- common for partner-run clinics). Null/empty
+  // falls back to showing only the issuing clinician, matching today's
+  // behaviour exactly. A short admin-curated list, not a first-class
+  // many-to-many domain -- same Json-for-small-ordered-config convention
+  // as address_structured/ClientOrganizations.settings elsewhere in this
+  // schema, deliberately not a new join table.
+  letterhead_clinician_ids Json?
   is_primary   Boolean  @default(false)
   is_active    Boolean  @default(true)
   is_deleted   Boolean  @default(false)
