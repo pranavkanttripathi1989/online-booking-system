@@ -1,10 +1,16 @@
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { MemoryRouter, Routes, Route } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
 import { SnackbarProvider } from 'notistack'
 import { gql } from '@apollo/client'
-import PrescriptionBuilder from './PrescriptionBuilder'
+import PrescriptionBuilder, {
+  DRUGS_QUERY,
+  MY_FAVOURITE_DRUGS_QUERY,
+  ADD_FAVOURITE_DRUG,
+  REMOVE_FAVOURITE_DRUG,
+  CREATE_DRUG,
+} from './PrescriptionBuilder'
 
 // P1-12 (FR-AI-04, "Voice-to-Rx") — re-declared to match
 // PrescriptionBuilder.jsx's own gql documents exactly (query AST equality).
@@ -36,6 +42,13 @@ function allergyMock(allergies) {
   return { request: { query: PATIENT_ALLERGY_BANNER, variables: { patient_id: PATIENT_ID } }, result: { data: { patientAllergyBanner: allergies } } }
 }
 
+// REQ173 — every render fires MY_FAVOURITE_DRUGS_QUERY unconditionally (no
+// search-string gating, unlike DRUGS_QUERY), so it needs a default mock
+// the same way PRESCRIPTION_SETS_QUERY already gets one below.
+function favouriteDrugsMock(drugs = []) {
+  return { request: { query: MY_FAVOURITE_DRUGS_QUERY }, result: { data: { myFavouriteDrugs: drugs } } }
+}
+
 // P2-08 — a marker route so a successful Issue can be asserted by real
 // navigation (proving the mutation's exact variables matched a mock),
 // without mounting the real (much heavier) PrescriptionPrint page.
@@ -48,7 +61,11 @@ function renderAt(search, state, mocks = []) {
     <MemoryRouter initialEntries={[{ pathname: '/clinician/prescriptions/new', search, state }]}>
       <SnackbarProvider>
         <MockedProvider
-          mocks={[{ request: { query: PRESCRIPTION_SETS_QUERY }, result: { data: { prescriptionSets: [] } } }, ...mocks]}
+          mocks={[
+            ...mocks,
+            { request: { query: PRESCRIPTION_SETS_QUERY }, result: { data: { prescriptionSets: [] } } },
+            favouriteDrugsMock(),
+          ]}
         >
           <Routes>
             <Route path="/clinician/prescriptions/new" element={<PrescriptionBuilder />} />
@@ -196,5 +213,94 @@ describe('PrescriptionBuilder — print language (P2-08)', () => {
     await userEvent.click(await screen.findByRole('option', { name: 'Hindi' }))
     await userEvent.click(screen.getByRole('button', { name: /issue/i }))
     await waitFor(() => expect(screen.getByTestId('print-marker')).toBeInTheDocument())
+  })
+})
+
+// REQ173 — clinician drug self-add + personal single-drug favourites.
+describe('PrescriptionBuilder — drug self-add + favourites (REQ173)', () => {
+  const search = `?encounterId=${ENCOUNTER_ID}&patientId=${PATIENT_ID}`
+
+  it('shows the clinician\'s own favourite drugs before any search is typed', async () => {
+    renderAt(search, undefined, [
+      favouriteDrugsMock([{ __typename: 'Drug', id: 'drug-fav', name: 'Amoxicillin 500mg', strength: '500mg', form: null, composition: null }]),
+    ])
+    await waitFor(() => expect(screen.getByText('New Prescription')).toBeInTheDocument())
+
+    const input = screen.getByPlaceholderText('Search drug… (empty = your favourites)')
+    const popupIndicator = input.closest('.MuiAutocomplete-root').querySelector('.MuiAutocomplete-popupIndicator')
+    await userEvent.click(popupIndicator)
+    expect(await screen.findByRole('option', { name: /Amoxicillin 500mg/ })).toBeInTheDocument()
+  })
+
+  it('stars a drug via the real addFavouriteDrug mutation, without selecting it into the line', async () => {
+    renderAt(search, undefined, [
+      {
+        request: { query: DRUGS_QUERY, variables: { search: 'Amox' } },
+        result: { data: { drugs: [{ __typename: 'Drug', id: 'drug-1', name: 'Amoxicillin', strength: '500mg', form: null, composition: null }] } },
+      },
+      {
+        request: { query: ADD_FAVOURITE_DRUG, variables: { drug_id: 'drug-1' } },
+        result: { data: { addFavouriteDrug: true } },
+      },
+    ])
+    await waitFor(() => expect(screen.getByText('New Prescription')).toBeInTheDocument())
+
+    const input = screen.getByPlaceholderText('Search drug… (empty = your favourites)')
+    await userEvent.click(input)
+    fireEvent.change(input, { target: { value: 'Amox' } })
+    const option = await screen.findByRole('option', { name: /Amoxicillin/ })
+
+    await userEvent.click(within(option).getByRole('button', { name: 'Add to favourites' }))
+    // The star toggle must not also select the drug into the line.
+    expect(screen.queryByDisplayValue(/Amoxicillin/)).not.toBeInTheDocument()
+  })
+
+  it('unstars an already-favourited drug via the real removeFavouriteDrug mutation', async () => {
+    renderAt(search, undefined, [
+      favouriteDrugsMock([{ __typename: 'Drug', id: 'drug-fav', name: 'Amoxicillin 500mg', strength: '500mg', form: null, composition: null }]),
+      {
+        request: { query: REMOVE_FAVOURITE_DRUG, variables: { drug_id: 'drug-fav' } },
+        result: { data: { removeFavouriteDrug: true } },
+      },
+    ])
+    await waitFor(() => expect(screen.getByText('New Prescription')).toBeInTheDocument())
+
+    const input = screen.getByPlaceholderText('Search drug… (empty = your favourites)')
+    const popupIndicator = input.closest('.MuiAutocomplete-root').querySelector('.MuiAutocomplete-popupIndicator')
+    await userEvent.click(popupIndicator)
+    const option = await screen.findByRole('option', { name: /Amoxicillin 500mg/ })
+
+    await userEvent.click(within(option).getByRole('button', { name: 'Remove from favourites' }))
+    expect(screen.queryByDisplayValue(/Amoxicillin/)).not.toBeInTheDocument()
+  })
+
+  it('creates a real drug via the quick-add dialog and selects it into the line', async () => {
+    renderAt(search, undefined, [
+      {
+        request: { query: DRUGS_QUERY, variables: { search: 'Zolpid' } },
+        result: { data: { drugs: [] } },
+      },
+      {
+        request: {
+          query: CREATE_DRUG,
+          variables: { input: { name: 'Zolpidem 10mg', composition: undefined, strength: undefined, form: undefined, schedule_class: undefined } },
+        },
+        result: { data: { createDrug: { __typename: 'Drug', id: 'drug-new', name: 'Zolpidem 10mg', strength: null, form: null, composition: null } } },
+      },
+    ])
+    await waitFor(() => expect(screen.getByText('New Prescription')).toBeInTheDocument())
+
+    const input = screen.getByPlaceholderText('Search drug… (empty = your favourites)')
+    await userEvent.click(input)
+    fireEvent.change(input, { target: { value: 'Zolpid' } })
+    const addButton = await screen.findByRole('button', { name: /Can't find "Zolpid"\? Add new drug/ })
+    await userEvent.click(addButton)
+
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByLabelText('Drug name *')).toHaveValue('Zolpid')
+    fireEvent.change(within(dialog).getByLabelText('Drug name *'), { target: { value: 'Zolpidem 10mg' } })
+    await userEvent.click(within(dialog).getByRole('button', { name: /Add to my clinic's drug list/ }))
+
+    await waitFor(() => expect(screen.getByDisplayValue('Zolpidem 10mg')).toBeInTheDocument())
   })
 })

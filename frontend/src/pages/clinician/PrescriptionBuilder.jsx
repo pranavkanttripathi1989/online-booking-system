@@ -31,6 +31,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import ArrowBackRoundedIcon from '@mui/icons-material/ArrowBackRounded'
@@ -38,12 +39,55 @@ import DeleteRoundedIcon from '@mui/icons-material/DeleteRounded'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import HistoryRoundedIcon from '@mui/icons-material/HistoryRounded'
 import BookmarkRoundedIcon from '@mui/icons-material/BookmarkRounded'
+import StarRoundedIcon from '@mui/icons-material/StarRounded'
+import StarBorderRoundedIcon from '@mui/icons-material/StarBorderRounded'
 
 // ─── GraphQL (REQ021 P0) ────────────────────────────────────────────────────
 
-const DRUGS_QUERY = gql`
+export const DRUGS_QUERY = gql`
   query SearchDrugs($search: String) {
     drugs(search: $search) {
+      id
+      name
+      strength
+      form
+      composition
+    }
+  }
+`
+// REQ173 — a clinician's own single-drug quick-pick list, distinct from
+// PRESCRIPTION_SETS_QUERY's multi-drug bundles below. Fetched once on
+// load (no search-string gating, unlike DRUGS_QUERY) so it can be shown
+// before the clinician types anything.
+export const MY_FAVOURITE_DRUGS_QUERY = gql`
+  query MyFavouriteDrugs {
+    myFavouriteDrugs {
+      id
+      name
+      strength
+      form
+      composition
+    }
+  }
+`
+export const ADD_FAVOURITE_DRUG = gql`
+  mutation AddFavouriteDrug($drug_id: ID!) {
+    addFavouriteDrug(drug_id: $drug_id)
+  }
+`
+export const REMOVE_FAVOURITE_DRUG = gql`
+  mutation RemoveFavouriteDrug($drug_id: ID!) {
+    removeFavouriteDrug(drug_id: $drug_id)
+  }
+`
+// REQ173 — a clinician who can't find a drug in the seeded/admin-curated
+// list can add one directly to their own org's catalog. Only the
+// clinically relevant subset of DrugInput is collected here (FORM-1) —
+// hsn/gst_rate/manufacturer/reorder_level are pharmacy/finance concerns
+// an admin can fill in later from the existing catalog settings page.
+export const CREATE_DRUG = gql`
+  mutation CreateDrugFromRxBuilder($input: DrugInput!) {
+    createDrug(input: $input) {
       id
       name
       strength
@@ -215,8 +259,14 @@ function PrescriptionBuilder() {
   const [historyOpen, setHistoryOpen] = useState(false)
   const [saveSetOpen, setSaveSetOpen] = useState(false)
   const [setName, setSetName] = useState('')
+  // REQ173 — quick-add dialog state. quickAddLineIdx tracks which Rx line
+  // triggered it, so the newly created drug is selected straight into
+  // that line rather than left for the clinician to re-find and re-pick.
+  const [quickAddLineIdx, setQuickAddLineIdx] = useState(null)
+  const [quickAddDraft, setQuickAddDraft] = useState({ name: '', composition: '', strength: '', form: '', schedule_class: '' })
 
   const { data: drugsData } = useQuery(DRUGS_QUERY, { variables: { search: drugSearch }, skip: drugSearch.length < 2 })
+  const { data: favouriteDrugsData } = useQuery(MY_FAVOURITE_DRUGS_QUERY)
   const { data: allergyData } = useQuery(PATIENT_ALLERGY_BANNER, { variables: { patient_id: patientId }, skip: !patientId })
   const allergies = useMemo(() => allergyData?.patientAllergyBanner ?? [], [allergyData])
   const { data: historyData } = useQuery(PATIENT_PRESCRIPTIONS_QUERY, {
@@ -228,8 +278,17 @@ function PrescriptionBuilder() {
   const [fetchApplySet] = useLazyQuery(APPLY_SET_QUERY)
   const [createPrescription, { loading: issuing }] = useMutation(CREATE_PRESCRIPTION)
   const [createPrescriptionSet] = useMutation(CREATE_PRESCRIPTION_SET)
+  const [addFavouriteDrug] = useMutation(ADD_FAVOURITE_DRUG, { refetchQueries: [MY_FAVOURITE_DRUGS_QUERY] })
+  const [removeFavouriteDrug] = useMutation(REMOVE_FAVOURITE_DRUG, { refetchQueries: [MY_FAVOURITE_DRUGS_QUERY] })
+  const [createDrug, { loading: quickAdding }] = useMutation(CREATE_DRUG)
 
   const drugOptions = drugsData?.drugs ?? []
+  const favouriteDrugs = favouriteDrugsData?.myFavouriteDrugs ?? []
+  const favouriteDrugIds = new Set(favouriteDrugs.map((d) => d.id))
+  // REQ173 — an empty/short search shows the clinician's own favourites
+  // first instead of nothing; typing 2+ characters searches the full
+  // catalog exactly as before this slice.
+  const searchedDrugOptions = drugSearch.length >= 2 ? drugOptions : favouriteDrugs
   const sets = setsData?.prescriptionSets ?? []
 
   const updateLine = (idx, patch) => {
@@ -306,6 +365,49 @@ function PrescriptionBuilder() {
       if (id) navigate(`/prescriptions/${id}/print`)
     } catch (err) {
       enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to issue prescription', { variant: 'error' })
+    }
+  }
+
+  // REQ173 — optimistic-feeling but backed by a real mutation each time;
+  // stopPropagation is set by the caller (renderOption) so toggling the
+  // star doesn't also select the drug into whichever line is open.
+  const handleToggleFavourite = async (drug) => {
+    try {
+      if (favouriteDrugIds.has(drug.id)) {
+        await removeFavouriteDrug({ variables: { drug_id: drug.id } })
+      } else {
+        await addFavouriteDrug({ variables: { drug_id: drug.id } })
+      }
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to update favourites', { variant: 'error' })
+    }
+  }
+
+  const openQuickAdd = (idx) => {
+    setQuickAddDraft({ name: drugSearch, composition: '', strength: '', form: '', schedule_class: '' })
+    setQuickAddLineIdx(idx)
+  }
+
+  const handleQuickAddDrug = async () => {
+    if (!quickAddDraft.name.trim()) return
+    try {
+      const { data } = await createDrug({
+        variables: {
+          input: {
+            name: quickAddDraft.name.trim(),
+            composition: quickAddDraft.composition.trim() || undefined,
+            strength: quickAddDraft.strength.trim() || undefined,
+            form: quickAddDraft.form.trim() || undefined,
+            schedule_class: quickAddDraft.schedule_class.trim() || undefined,
+          },
+        },
+      })
+      const newDrug = data?.createDrug
+      if (newDrug && quickAddLineIdx != null) updateLine(quickAddLineIdx, { drug: newDrug })
+      enqueueSnackbar(`Added "${newDrug?.name}" to your clinic's drug list`, { variant: 'success' })
+      setQuickAddLineIdx(null)
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to add drug', { variant: 'error' })
     }
   }
 
@@ -395,7 +497,7 @@ function PrescriptionBuilder() {
                       <TableCell sx={{ minWidth: 200 }}>
                         <Autocomplete
                           size="small"
-                          options={drugOptions}
+                          options={searchedDrugOptions}
                           getOptionLabel={(opt) => (opt.name ? `${opt.name}${opt.strength ? ` (${opt.strength})` : ''}` : '')}
                           value={line.drug}
                           onChange={(_, v) => updateLine(idx, { drug: v })}
@@ -403,13 +505,57 @@ function PrescriptionBuilder() {
                           renderInput={(params) => (
                             <TextField
                               {...params}
-                              placeholder="Search drug…"
+                              placeholder="Search drug… (empty = your favourites)"
                               error={Boolean(lineConflicts[idx])}
                               helperText={lineConflicts[idx] ? `Allergy: ${lineConflicts[idx].text}` : undefined}
                             />
                           )}
+                          // REQ173 — every option row carries a star toggle
+                          // (favourite this drug for next time) alongside its
+                          // name; stopPropagation keeps the star click from
+                          // also selecting the drug into this line.
+                          renderOption={(props, opt) => {
+                            const { key, ...rest } = props
+                            const isFavourite = favouriteDrugIds.has(opt.id)
+                            return (
+                              <li key={key} {...rest}>
+                                <Tooltip title={isFavourite ? 'Remove from favourites' : 'Add to favourites'}>
+                                  <IconButton
+                                    size="small"
+                                    aria-label={isFavourite ? 'Remove from favourites' : 'Add to favourites'}
+                                    onClick={(e) => {
+                                      e.stopPropagation()
+                                      handleToggleFavourite(opt)
+                                    }}
+                                  >
+                                    {isFavourite ? (
+                                      <StarRoundedIcon fontSize="small" color="warning" />
+                                    ) : (
+                                      <StarBorderRoundedIcon fontSize="small" />
+                                    )}
+                                  </IconButton>
+                                </Tooltip>
+                                {opt.name}
+                                {opt.strength ? ` (${opt.strength})` : ''}
+                              </li>
+                            )
+                          }}
+                          noOptionsText={
+                            drugSearch.length >= 2 ? (
+                              <Button size="small" onClick={() => openQuickAdd(idx)}>
+                                Can't find "{drugSearch}"? Add new drug
+                              </Button>
+                            ) : (
+                              'Type to search, or star a drug to save it here'
+                            )
+                          }
                           isOptionEqualToValue={(opt, val) => opt.id === val.id}
                         />
+                        {drugSearch.length >= 2 && searchedDrugOptions.length > 0 && (
+                          <Button size="small" onClick={() => openQuickAdd(idx)} sx={{ mt: 0.5 }}>
+                            Can't find it? Add new drug
+                          </Button>
+                        )}
                       </TableCell>
                       <TableCell>
                         <TextField
@@ -568,6 +714,59 @@ function PrescriptionBuilder() {
           <Button onClick={() => setSaveSetOpen(false)}>Cancel</Button>
           <Button variant="contained" onClick={handleSaveSet} disabled={!setName.trim()}>
             Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* REQ173 — only the clinically relevant subset of DrugInput is
+          collected (FORM-1, "ask for the minimum"); hsn/gst_rate/
+          manufacturer/reorder_level are left for an admin to fill in
+          later from the existing catalog settings page. */}
+      <Dialog open={quickAddLineIdx != null} onClose={() => setQuickAddLineIdx(null)} fullWidth maxWidth="sm">
+        <DialogTitle>Add a new drug</DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <TextField
+              label="Drug name"
+              required
+              value={quickAddDraft.name}
+              onChange={(e) => setQuickAddDraft((d) => ({ ...d, name: e.target.value }))}
+              placeholder="Amoxicillin 500mg"
+            />
+            <TextField
+              label="Composition"
+              value={quickAddDraft.composition}
+              onChange={(e) => setQuickAddDraft((d) => ({ ...d, composition: e.target.value }))}
+              placeholder="Amoxicillin Trihydrate"
+            />
+            <Stack direction="row" spacing={2}>
+              <TextField
+                label="Strength"
+                value={quickAddDraft.strength}
+                onChange={(e) => setQuickAddDraft((d) => ({ ...d, strength: e.target.value }))}
+                placeholder="500mg"
+                sx={{ flex: 1 }}
+              />
+              <TextField
+                label="Form"
+                value={quickAddDraft.form}
+                onChange={(e) => setQuickAddDraft((d) => ({ ...d, form: e.target.value }))}
+                placeholder="Tablet"
+                sx={{ flex: 1 }}
+              />
+            </Stack>
+            <TextField
+              label="Schedule class"
+              value={quickAddDraft.schedule_class}
+              onChange={(e) => setQuickAddDraft((d) => ({ ...d, schedule_class: e.target.value }))}
+              placeholder="H / H1 / OTC"
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setQuickAddLineIdx(null)}>Cancel</Button>
+          <Button variant="contained" onClick={handleQuickAddDrug} disabled={!quickAddDraft.name.trim() || quickAdding}>
+            Add to my clinic's drug list
           </Button>
         </DialogActions>
       </Dialog>
