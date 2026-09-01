@@ -802,6 +802,91 @@ async function main() {
     console.log(`  created: ${plan.name}`);
   }
 
+  // REQ178 — the REAL, billable plan catalog (Plans/PlanVersions),
+  // distinct from the legacy SubscriptionPlans block just above (that one
+  // only feeds the self-serve onboarding wizard's trial-selection step and
+  // is never billed against). platform-billing's createPlatformSubscription
+  // reads THIS table. Feature-flag/quota keys match admin/Plans.jsx's own
+  // FEATURE_FLAG_KEYS/QUOTA_KEYS exactly (pharmacy/telemedicine/insurance/
+  // whatsapp, max_clinician_seats/max_clinics) -- the admin UI has no
+  // per-plan way to add a key outside this fixed set, so seed data must
+  // stay in sync with it.
+  //
+  // Monthly and annual are separate Plan rows, not one Plan with a chosen
+  // cycle -- PlanVersions has exactly one *current* version per Plan
+  // (createPlanVersion closes the prior one), so there's no "pick your
+  // cycle at subscribe time" concept on a single row (see PLAN247's own
+  // documented design decision).
+  console.log('Seeding the real billable plan catalog (Plans/PlanVersions)...');
+  const REAL_PLANS: {
+    name: string;
+    tier: string;
+    billing_period: 'monthly' | 'annual';
+    price_rupees: number;
+    feature_flags: Record<string, boolean>;
+    quotas: Record<string, number>;
+  }[] = [
+    {
+      name: 'Starter Monthly', tier: 'starter', billing_period: 'monthly', price_rupees: 2999,
+      feature_flags: { pharmacy: false, telemedicine: false, insurance: false, whatsapp: false },
+      quotas: { max_clinician_seats: 5, max_clinics: 1 },
+    },
+    {
+      name: 'Starter Annual', tier: 'starter', billing_period: 'annual', price_rupees: 29999,
+      feature_flags: { pharmacy: false, telemedicine: false, insurance: false, whatsapp: false },
+      quotas: { max_clinician_seats: 5, max_clinics: 1 },
+    },
+    {
+      name: 'Pro Monthly', tier: 'pro', billing_period: 'monthly', price_rupees: 7999,
+      feature_flags: { pharmacy: true, telemedicine: true, insurance: false, whatsapp: true },
+      quotas: { max_clinician_seats: 25, max_clinics: 5 },
+    },
+    {
+      name: 'Pro Annual', tier: 'pro', billing_period: 'annual', price_rupees: 79999,
+      feature_flags: { pharmacy: true, telemedicine: true, insurance: false, whatsapp: true },
+      quotas: { max_clinician_seats: 25, max_clinics: 5 },
+    },
+    {
+      // A real, high (not zero) price -- unlike the legacy SubscriptionPlans'
+      // "0 signals contact sales" convention above, this table is billed
+      // against for real, so a genuine ₹0 row would create a real free
+      // subscription. 999999 remains this schema's documented "unlimited"
+      // sentinel (no nullable "unlimited" representation exists on quotas).
+      name: 'Enterprise Monthly', tier: 'enterprise', billing_period: 'monthly', price_rupees: 19999,
+      feature_flags: { pharmacy: true, telemedicine: true, insurance: true, whatsapp: true },
+      quotas: { max_clinician_seats: 999999, max_clinics: 999999 },
+    },
+    {
+      name: 'Enterprise Annual', tier: 'enterprise', billing_period: 'annual', price_rupees: 199999,
+      feature_flags: { pharmacy: true, telemedicine: true, insurance: true, whatsapp: true },
+      quotas: { max_clinician_seats: 999999, max_clinics: 999999 },
+    },
+  ];
+  for (const p of REAL_PLANS) {
+    // Plans.name has no @unique constraint (a real admin could legitimately
+    // create two plans with the same name over time), so this checks by
+    // name AND tier together -- close enough to "this seed row already
+    // exists" without a schema change, and re-running the seed never
+    // duplicates these six rows.
+    const existingPlan = await prisma.plans.findFirst({ where: { name: p.name, tier: p.tier } });
+    if (existingPlan) {
+      console.log(`  skip (exists): ${p.name}`);
+      continue;
+    }
+    const plan = await prisma.plans.create({ data: { name: p.name, tier: p.tier, is_active: true } });
+    await prisma.planVersions.create({
+      data: {
+        plan_id: plan.id,
+        version: 1,
+        billing_period: p.billing_period,
+        price_paise: p.price_rupees * 100,
+        feature_flags_json: p.feature_flags,
+        quotas_json: p.quotas,
+      },
+    });
+    console.log(`  created: ${p.name} (₹${p.price_rupees}/${p.billing_period === 'annual' ? 'yr' : 'mo'})`);
+  }
+
   console.log('Seed complete.');
 }
 
