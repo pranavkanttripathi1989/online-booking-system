@@ -4,6 +4,44 @@ Unresolved ambiguities logged per CLAUDE.md Hard Rule 10. Each entry: the questi
 
 ---
 
+## 20. Real licensed Indian drug database: build vs. license — never actually logged here despite two requirement docs saying it would be
+
+**Status:** Open, raised 2026-09-01 while building `REQ173` (clinician
+drug self-add + personal favourites).
+
+`Drugs` has shipped since `REQ016`/`REQ044` (2026-08-23/24) as a hybrid-
+scoped catalog: `client_org_id: null` = a small platform-seeded reference
+set (~6 manually-curated drugs), non-null = a tenant's own custom
+addition. The schema's own comment and both requirement docs are
+explicit that this was always meant to be an interim shim, not the real
+thing: *"No real licensed drug database is wired up yet — PRD §19 Open
+Question 4 (sourcing) is unresolved."* `REQ016`'s own text goes further:
+*"Carried from PRD §19.4: drug database build-vs-license decision, with
+cost and update-cadence implications. Log in `context/open-questions.md`
+once this requirement enters planning."* That log entry never happened —
+confirmed by grep, zero prior "drug" mentions anywhere in this file
+before this entry.
+
+`REQ173` closed the immediate pain point a different way (clinician
+self-add, growing each org's own catalog organically) — a real,
+deliberate choice, not a stopgap avoiding this question, made via an
+explicit `AskUserQuestion` this session. But the underlying strategic
+question the PRD itself raised is still open and now has real product
+history behind it: is a small platform-seeded set plus organic
+per-org self-add sufficient long-term, or does this product eventually
+need a real licensed national drug database (a CIMS/MIMS-class
+commercial provider, cost and update-cadence implications, a genuine
+procurement/vendor decision)? Not a technical ambiguity this session can
+resolve — it's a commercial/product decision requiring a real vendor
+evaluation, same category as `SEC-13`/`SEC-14`'s counsel-sign-off gates
+above.
+
+**Decision needed from the user:** whether/when to commission a real
+build-vs-license evaluation for a national Indian drug database, or
+confirm the self-add-and-grow model is the deliberate long-term answer
+for this product's launch posture. Not blocking further engineering
+work — logged so it isn't silently dropped a third time.
+
 ## 19. Patient reviews for named doctors are now live end-to-end — `SEC-13`'s counsel sign-off has not happened
 
 **Status:** Open, raised 2026-08-27 while building `P1-06` (server-side

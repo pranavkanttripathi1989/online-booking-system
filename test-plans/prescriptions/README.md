@@ -19,6 +19,7 @@
 | TP259 | improvement | Branded clinic letterhead core verification | done | 2026-08-31 | 2026-08-31 | PLAN239 | [TP259-prescriptions-2026-08-31-branded-letterhead-core.md](./improvement/TP259-prescriptions-2026-08-31-branded-letterhead-core.md) |
 | TP260 | improvement | Encounter clinical content on the printed Rx verification | done | 2026-08-31 | 2026-08-31 | PLAN240 | [TP260-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md](./improvement/TP260-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md) |
 | TP261 | improvement | Obstetric LMP / EDD / Gestational Age verification | done | 2026-08-31 | 2026-08-31 | PLAN241 | [TP261-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md](./improvement/TP261-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md) |
+| TP262 | improvement | Clinician drug self-add + personal favourites verification | done | 2026-09-01 | 2026-09-01 | PLAN242 | [TP262-prescriptions-2026-09-01-clinician-drug-self-add-and-favourites.md](./improvement/TP262-prescriptions-2026-09-01-clinician-drug-self-add-and-favourites.md) |
 
 ## bug
 

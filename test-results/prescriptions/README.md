@@ -19,6 +19,7 @@
 | TR259 | improvement | Branded clinic letterhead core results | pass | 2026-08-31 | 2026-08-31 | TP259 | [TR259-prescriptions-2026-08-31-branded-letterhead-core.md](./improvement/TR259-prescriptions-2026-08-31-branded-letterhead-core.md) |
 | TR260 | improvement | Encounter clinical content on the printed Rx results | pass | 2026-08-31 | 2026-08-31 | TP260 | [TR260-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md](./improvement/TR260-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md) |
 | TR261 | improvement | Obstetric LMP / EDD / Gestational Age results | pass | 2026-08-31 | 2026-08-31 | TP261 | [TR261-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md](./improvement/TR261-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md) |
+| TR262 | improvement | Clinician drug self-add + personal favourites results | pass | 2026-09-01 | 2026-09-01 | TP262 | [TR262-prescriptions-2026-09-01-clinician-drug-self-add-and-favourites.md](./improvement/TR262-prescriptions-2026-09-01-clinician-drug-self-add-and-favourites.md) |
 
 ## bug
 

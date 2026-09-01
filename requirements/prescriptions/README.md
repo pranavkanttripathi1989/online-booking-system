@@ -19,6 +19,7 @@
 | REQ170 | improvement | Branded clinic letterhead core (competitor-driven) | done | 2026-08-31 | 2026-08-31 | REQ021 | [REQ170-prescriptions-2026-08-31-branded-letterhead-core.md](./improvement/REQ170-prescriptions-2026-08-31-branded-letterhead-core.md) |
 | REQ171 | improvement | Encounter clinical content on the printed Rx | done | 2026-08-31 | 2026-08-31 | REQ170 | [REQ171-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md](./improvement/REQ171-prescriptions-2026-08-31-encounter-clinical-content-on-rx.md) |
 | REQ172 | improvement | Obstetric LMP / EDD / Gestational Age on the printed Rx | done | 2026-08-31 | 2026-08-31 | REQ171 | [REQ172-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md](./improvement/REQ172-prescriptions-2026-08-31-obstetric-lmp-edd-gestational-age.md) |
+| REQ173 | improvement | Clinician drug self-add + personal single-drug favourites | done | 2026-09-01 | 2026-09-01 | REQ021 | [REQ173-prescriptions-2026-09-01-clinician-drug-self-add-and-favourites.md](./improvement/REQ173-prescriptions-2026-09-01-clinician-drug-self-add-and-favourites.md) |
 
 ## bug
 
