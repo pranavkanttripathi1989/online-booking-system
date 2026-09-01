@@ -3,11 +3,24 @@ id: REQ033
 type: requirement
 feature: platform-billing
 created: 2026-08-22
-updated: 2026-08-22
-status: draft
+updated: 2026-09-02
+status: done
 parent: REQ032
-related: [REQ032]
+related: [REQ032, REQ178]
 ---
+
+> **Fulfilled by `REQ178`** (2026-09-02), with one material deviation from
+> this document's own gap-classification/data-model sketch: `REQ178`
+> shipped the full super-admin subscription-management surface this
+> requirement scoped (create/cancel, invoicing, Razorpay Subscriptions
+> UPI AutoPay/eNACH collection, the RBI 24h pre-debit-notice/AFA/mandate-
+> pause rights below), but as one direct user request rather than a
+> `REQ032`-dependent follow-on, and folded the `PaymentMandates`/
+> `PreDebitNotifications` tables sketched below into `PlatformSubscriptions`/
+> `PlatformInvoices` fields instead of standalone tables — see `REQ178`'s
+> own "Deliberately NOT built" section for the one acceptance criterion
+> (US-BILL-04, automatic fallback above ₹15,000) not built. Kept here for
+> provenance; read `REQ178` for current state.
 
 # Tenant subscription collection: UPI AutoPay / e-mandate compliance
 
