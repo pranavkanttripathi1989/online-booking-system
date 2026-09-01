@@ -71,6 +71,8 @@ import { MembershipsModule } from './memberships/memberships.module';
 import { ImmunizationsModule } from './immunizations/immunizations.module';
 import { ChronicRegistriesModule } from './chronic-registries/chronic-registries.module';
 import { PlatformBillingModule } from './platform-billing/platform-billing.module';
+import { WardsModule } from './wards/wards.module';
+import { AdmissionsModule } from './admissions/admissions.module';
 import { RolesGuard } from './common/guards/roles.guard';
 import { PermissionsGuard } from './common/guards/permissions.guard';
 import { GqlThrottlerGuard } from './common/guards/gql-throttler.guard';
@@ -204,6 +206,8 @@ import { PubSubModule } from './common/pubsub.module';
     ImmunizationsModule,
     ChronicRegistriesModule,
     PlatformBillingModule,
+    WardsModule,
+    AdmissionsModule,
   ],
   providers: [
     // Order matters — NestJS runs APP_GUARD providers in this array order,

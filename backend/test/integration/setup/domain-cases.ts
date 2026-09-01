@@ -39,6 +39,29 @@ export interface DomainCase {
 
 export const CASES: DomainCase[] = [
   {
+    // REQ179 (IPD slice 1). Wards owns client_org_id directly (the
+    // Departments/Resources precedent, not Rooms' via-clinic one), so this
+    // exercises orgScope() against the table's own column.
+    domain: 'wards',
+    what: 'wards',
+    query: `{ wards { id } }`,
+    ids: (d) => (d.wards ?? []).map((x: any) => x.id),
+    aId: IDS.wardA,
+    bId: IDS.wardB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
+  },
+  {
+    // The stay itself -- the IPD aggregate root. A cross-org leak here would
+    // expose another org's patients, diagnoses and bed placements at once.
+    domain: 'admissions',
+    what: 'admissions',
+    query: `{ admissions { id } }`,
+    ids: (d) => (d.admissions ?? []).map((x: any) => x.id),
+    aId: IDS.admissionA,
+    bId: IDS.admissionB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
+  },
+  {
     // REQ163 (P2-10). Org-scoped via clinic.client_org_id, same shape as
     // packages' own row above -- clinic_id omitted, matching that
     // precedent.

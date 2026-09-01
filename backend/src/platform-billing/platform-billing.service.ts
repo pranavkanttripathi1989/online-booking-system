@@ -5,6 +5,7 @@ import { NotificationTriggerService } from '../notifications/notification-trigge
 import { CreatePlatformSubscriptionInput, CancelPlatformSubscriptionInput } from './dto/platform-billing.input';
 import { getProvider, listProviders } from './providers/registry';
 import { NormalizedBillingEvent } from './providers/provider.interface';
+import { financialYearFor } from '../common/billing/document-numbering';
 
 const PAISE_TO_RUPEES = (paise: number) => paise / 100;
 // RBI's AFA threshold for a UPI AutoPay debit -- above this, the tenant
@@ -13,11 +14,9 @@ const PAISE_TO_RUPEES = (paise: number) => paise / 100;
 // display; Razorpay itself is what actually enforces this at charge time.
 const AFA_THRESHOLD_PAISE = 15000 * 100;
 
-function financialYearFor(date: Date): string {
-  const month = date.getMonth() + 1; // 1-12
-  const startYear = month >= 4 ? date.getFullYear() : date.getFullYear() - 1;
-  return `${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`;
-}
+// REQ179 — was a verbatim duplicate of appointment-payments.service.ts's own
+// copy; both now delegate to the shared common/billing helper, extracted when
+// IPD needed a third caller.
 
 function addPeriod(from: Date, billingPeriod: string): Date {
   const next = new Date(from);

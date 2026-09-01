@@ -172,10 +172,27 @@ export const IDS = {
   // REQ176 -- refund-requests domain.
   refundRequestA: u('j01'),
   refundRequestB: u('j02'),
+
+  // REQ179 (IPD slice 1) -- wards / admissions domains.
+  wardA: u('k01'),
+  wardB: u('k02'),
+  bedA: u('k03'),
+  bedB: u('k04'),
+  admissionA: u('k05'),
+  admissionB: u('k06'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
 const TABLES = [
+  // REQ179 (IPD slice 1) -- children first: occupancies and events both FK to
+  // Admissions, which FKs to Beds' ward and the clinic.
+  'MlcAmendments',
+  'MlcRegisters',
+  'AdmissionEvents',
+  'BedOccupancies',
+  'Admissions',
+  'Beds',
+  'Wards',
   'ScheduledReports',
   'ApiKeys',
   'PatientInsurancePolicies',
@@ -377,6 +394,36 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
       // real-time-drift reason as `when` itself above.
       { id: IDS.analyticsApptA, clinic_id: IDS.clinicA, room_id: IDS.roomA, clinician_id: IDS.clinicianA, patient_id: IDS.patientA, appointment_date: when, appointment_time: new Date(when.getTime() + 4 * 60 * 60 * 1000), reason: 'Analytics A', product_id: IDS.productA, status: 'completed' },
       { id: IDS.analyticsApptB, clinic_id: IDS.clinicB, room_id: IDS.roomB, clinician_id: IDS.clinicianB, patient_id: IDS.patientB, appointment_date: when, appointment_time: new Date(when.getTime() + 4 * 60 * 60 * 1000), reason: 'Analytics B', product_id: IDS.productB, status: 'completed' },
+    ],
+  });
+
+  // REQ179 (IPD slice 1) -- one ward, one bed and one live admission per org.
+  // The bed occupancy row is what the exclusion constraint judges, so it is
+  // created here too: without it, the bed board would show a bed marked
+  // 'occupied' with no patient behind it, which is exactly the cache
+  // divergence bed-status-reconcile.service.ts exists to catch.
+  await prisma.wards.createMany({
+    data: [
+      { id: IDS.wardA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: 'Fixture Ward A', ward_type: 'general' },
+      { id: IDS.wardB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: 'Fixture Ward B', ward_type: 'general' },
+    ],
+  });
+  await prisma.beds.createMany({
+    data: [
+      { id: IDS.bedA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, ward_id: IDS.wardA, bed_number: 'A-01', status: 'occupied' },
+      { id: IDS.bedB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, ward_id: IDS.wardB, bed_number: 'B-01', status: 'occupied' },
+    ],
+  });
+  await prisma.admissions.createMany({
+    data: [
+      { id: IDS.admissionA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, patient_id: IDS.patientA, admission_number: 'ADM/FIXTURE/A/00001', status: 'admitted', admitted_at: when, admitting_clinician_id: IDS.clinicianA, attending_clinician_id: IDS.clinicianA, created_by_user_id: IDS.userManagerA },
+      { id: IDS.admissionB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, patient_id: IDS.patientB, admission_number: 'ADM/FIXTURE/B/00001', status: 'admitted', admitted_at: when, admitting_clinician_id: IDS.clinicianB, attending_clinician_id: IDS.clinicianB, created_by_user_id: IDS.userManagerB },
+    ],
+  });
+  await prisma.bedOccupancies.createMany({
+    data: [
+      { client_org_id: IDS.orgA, clinic_id: IDS.clinicA, bed_id: IDS.bedA, ward_id: IDS.wardA, admission_id: IDS.admissionA, occupancy_kind: 'occupied', start_at: when, created_by_user_id: IDS.userManagerA },
+      { client_org_id: IDS.orgB, clinic_id: IDS.clinicB, bed_id: IDS.bedB, ward_id: IDS.wardB, admission_id: IDS.admissionB, occupancy_kind: 'occupied', start_at: when, created_by_user_id: IDS.userManagerB },
     ],
   });
 

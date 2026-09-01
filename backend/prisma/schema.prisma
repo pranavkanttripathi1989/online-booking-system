@@ -107,6 +107,16 @@ enum NotificationEventType {
   // Notifies org staff, not the patient (the reverse of immunization_due).
   // Added in its own separate migration, same precedent as above.
   chronic_registry_recall_due
+  // REQ179 (IPD slice 1) — in-patient ADT events. All four added in their own
+  // migration (20260902100000_notification_events_ipd_core), applied before
+  // any code referenced them, same precedent as every value above.
+  patient_admitted
+  patient_discharged
+  bed_transfer_recorded
+  // Statutory: a medico-legal case has been registered and the 24h police
+  // intimation has not yet been recorded. Belongs in QUIET_HOURS_BYPASS_EVENTS
+  // — a legal clock does not respect an org's quiet hours.
+  mlc_police_intimation_due
 }
 
 enum NotificationPriority {
@@ -303,6 +313,9 @@ model Appointments {
   @@index([booked_by_user_id])
   @@index([escalated_from_encounter_id])
   @@index([series_id])
+
+  // REQ179 (IPD slice 1) — a planned admission converted from this visit.
+  sourcedAdmissions Admissions[]
 }
 
 // REQ163 (P2-10) — a named, eagerly-materialized group of linked
@@ -440,6 +453,9 @@ model Encounters {
   @@index([client_org_id, patient_id])
   @@index([clinician_id])
   @@index([patient_id, created_at])
+
+  // REQ179 (IPD slice 1) — a planned admission converted from this encounter.
+  sourcedAdmissions Admissions[]
 }
 
 // One row per structured section per encounter (US-EMR-02) -- "vitals" is
@@ -1021,6 +1037,15 @@ model ClientOrganizations {
   paymentGatewayConfigs  PaymentGatewayConfig[]
   refundRequests         RefundRequests[]
   pharmacyPayments       PharmacyPayments[]
+
+  // REQ179 (IPD slice 1)
+  wards              Wards[]
+  beds               Beds[]
+  bedOccupancies     BedOccupancies[]
+  admissions         Admissions[]
+  admissionEvents    AdmissionEvents[]
+  mlcRegisters       MlcRegisters[]
+  ipdBillingSettings IpdBillingSettings[]
 }
 
 model ClinicianAvailability {
@@ -1136,6 +1161,11 @@ model Clinicians {
 
   @@index([clinic_id, is_deleted, is_active])
   @@index([department_id])
+
+  // REQ179 (IPD slice 1)
+  admissionsAsAdmitting Admissions[]   @relation("AdmittingClinician")
+  admissionsAsAttending Admissions[]   @relation("AttendingClinician")
+  mlcRegistersExamined  MlcRegisters[] @relation("MlcExaminedBy")
 }
 
 // CLINICIAN_FIELDS wants `services{id name duration_minutes price}` per clinician
@@ -1248,6 +1278,14 @@ model Clinics {
   pharmacyPayments     PharmacyPayments[]
 
   @@index([client_org_id, is_deleted])
+
+  // REQ179 (IPD slice 1)
+  wards              Wards[]
+  beds               Beds[]
+  bedOccupancies     BedOccupancies[]
+  admissions         Admissions[]
+  mlcRegisters       MlcRegisters[]
+  ipdBillingSettings IpdBillingSettings[]
 }
 
 model EmailTemplates {
@@ -1525,6 +1563,9 @@ model Patients {
   @@index([email])
   @@index([phone])
   @@index([client_org_id])
+
+  // REQ179 (IPD slice 1)
+  admissions Admissions[]
 }
 
 // REQ018 (Phase 1, slice 5) P0 -- US-BOOK-02: one phone-verified login
@@ -2413,6 +2454,12 @@ model Products {
   @@index([subcategory_id])
   @@index([clinic_id])
   @@index([department_id])
+
+  // REQ179 (IPD slice 1) — a ward/bed room-day tariff is a Products row,
+  // so it inherits resolveServicePrice()/PayerTariffs/GST for free.
+  wardsBedCharge     Wards[] @relation("WardBedChargeProduct")
+  wardsNursingCharge Wards[] @relation("WardNursingChargeProduct")
+  bedsBedCharge      Beds[]  @relation("BedChargeProduct")
 }
 
 // REQ016 (US-CAT-05) — every price change logged with who/when/old/new. A
@@ -2579,6 +2626,9 @@ model Departments {
   staffMembers        UserProfiles[]
 
   @@index([client_org_id, clinic_id])
+
+  // REQ179 (IPD slice 1)
+  admissions Admissions[]
 }
 
 // Join table for multi-resource intersection booking (REQ017 US-CAL-05).
@@ -2931,6 +2981,15 @@ model UserProfiles {
   @@index([patient_id])
   @@index([clinician_id])
   @@index([department_id_ref])
+
+  // REQ179 (IPD slice 1)
+  bedOccupanciesCreated BedOccupancies[]  @relation("OccupancyCreatedBy")
+  bedOccupanciesEnded   BedOccupancies[]  @relation("OccupancyEndedBy")
+  admissionsCreated     Admissions[]      @relation("AdmissionCreatedBy")
+  admissionEventsActed  AdmissionEvents[] @relation("AdmissionEventActor")
+  mlcRegistersRecorded  MlcRegisters[]    @relation("MlcRecordedBy")
+  mlcPoliceIntimated    MlcRegisters[]    @relation("MlcPoliceIntimatedBy")
+  mlcAmendmentsMade     MlcAmendments[]   @relation("MlcAmendedBy")
 }
 
 model UserRoles {
@@ -3405,6 +3464,9 @@ model Payers {
   policies     PatientInsurancePolicies[]
   tariffs      PayerTariffs[]
   claims       Claims[]
+
+  // REQ179 (IPD slice 1)
+  admissions Admissions[]
 }
 
 // REQ031 (US-INS-02) — a payer-specific contracted rate for a service/
@@ -3474,6 +3536,9 @@ model PatientInsurancePolicies {
 
   @@index([patient_id])
   @@index([client_org_id])
+
+  // REQ179 (IPD slice 1)
+  admissions Admissions[]
 }
 
 // REQ131 (REQ031's own explicit P2 follow-on) -- a basic OPD cashless
@@ -3992,4 +4057,366 @@ model Payouts {
   @@index([client_org_id, period_start])
   @@index([clinic_id, period_start])
   @@index([clinician_id])
+}
+
+// ============================================================
+// REQ179 (IPD slice 1) — in-patient ADT core: wards, beds, bed
+// occupancy, admissions, the ADT event log, and the statutory MLC
+// register.
+//
+// WHY THESE ARE NET-NEW RATHER THAN EXTENSIONS. Every clinical,
+// scheduling and billing model in this schema is anchored to a single
+// `appointment_id` representing one bounded visit:
+//   - `Rooms` is one consultation room, referenced by Appointments.room_id
+//     as a single required FK, with no bed/occupancy concept. A ward room
+//     holds many beds, each occupied and vacated on its own timeline.
+//   - `Resources`/`AppointmentResources` model "borrow this asset for one
+//     appointment's window", with no standalone lifecycle.
+//   - `Encounters` is `appointment_id @unique`, 1:1, trigger-locked on sign.
+//     A stay is multi-day and multi-author (nurses + doctors on rounds).
+//   - `Claims`/`AppointmentPayments` both require an appointment that, for
+//     an emergency admission, never exists.
+// The stay — `Admissions` — is the IPD aggregate root, exactly as
+// `appointment_id` is the OPD one.
+// ============================================================
+
+model Wards {
+  id                        String   @id @default(uuid())
+  client_org_id             String
+  clinic_id                 String
+  name                      String
+  // Free text, matching Rooms.room_type / Clinicians.clinician_type /
+  // Resources.type — this schema's established "lookup value as text"
+  // convention. Deliberately NOT a Prisma enum: every new hospital invents
+  // a ward class nobody enumerated.
+  // general | semi_private | private | deluxe | suite | icu | hdu | nicu
+  // | picu | maternity | isolation | day_care
+  ward_type                 String   @default("general")
+  floor                     String?
+  gender_policy             String   @default("mixed") // male | female | mixed
+  // The room-day tariff is a Products row, NOT a price column here. That one
+  // FK buys resolveServicePrice()'s whole resolution chain (payer tariff >
+  // branch override > patient category > channel > base), PayerTariffs, GST
+  // classification via Products.hsn/gst_rate, and product-revenue reporting —
+  // all for free. A `bed_charge_paise Int` column would mean rebuilding every
+  // one of those for beds alone.
+  bed_charge_product_id     String?
+  // Nursing/RMO charge auto-posted per day alongside the bed charge.
+  // Null = bundled into the bed rate (the common case for general wards).
+  nursing_charge_product_id String?
+  is_active                 Boolean  @default(true)
+  is_deleted                Boolean  @default(false)
+  created_at                DateTime @default(now())
+  updated_at                DateTime @updatedAt
+
+  client_organization    ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic                 Clinics             @relation(fields: [clinic_id], references: [id])
+  bed_charge_product     Products?           @relation("WardBedChargeProduct", fields: [bed_charge_product_id], references: [id])
+  nursing_charge_product Products?           @relation("WardNursingChargeProduct", fields: [nursing_charge_product_id], references: [id])
+  beds                   Beds[]
+  occupancies            BedOccupancies[]
+
+  @@index([client_org_id, clinic_id, is_deleted])
+  @@index([clinic_id, ward_type, is_active])
+}
+
+model Beds {
+  id                    String   @id @default(uuid())
+  // client_org_id and clinic_id are denormalised from the ward: the bed board
+  // ("every bed in this clinic with live status") is the hottest IPD query and
+  // orgScope() must not have to join two levels to answer it.
+  client_org_id         String
+  clinic_id             String
+  ward_id               String
+  bed_number            String
+  bed_type              String?  // optional per-bed override of ward_type
+  bed_charge_product_id String?  // per-bed tariff override; null falls back to the ward
+  // DENORMALISED CACHE, not the source of truth — BedOccupancies is. Maintained
+  // in the same transaction as every occupancy write, exactly the
+  // DrugBatches.quantity_remaining / StockMovements relationship. A nightly
+  // reconcile sweep re-derives it and logs divergence: this cache is allowed
+  // to be wrong, never allowed to be *silently* wrong.
+  // available | occupied | reserved | cleaning | blocked
+  status                String   @default("available")
+  is_active             Boolean  @default(true)
+  is_deleted            Boolean  @default(false)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  ward                Wards               @relation(fields: [ward_id], references: [id])
+  bed_charge_product  Products?           @relation("BedChargeProduct", fields: [bed_charge_product_id], references: [id])
+  occupancies         BedOccupancies[]
+
+  @@unique([ward_id, bed_number])
+  @@index([client_org_id, clinic_id, status])
+  @@index([ward_id, status, is_deleted])
+}
+
+// THE load-bearing table of the IPD design.
+//
+// One table covers occupied / reserved / cleaning / blocked, because a
+// Postgres EXCLUDE constraint protects exactly ONE table. Split the timeline
+// across BedOccupancies/BedReservations/BedBlocks and the database physically
+// cannot stop a reservation colliding with an admission — you are back to
+// check-then-insert across two statements, which is precisely the race
+// 20260823030000_appointments_no_overlap_exclusion_constraint was written to
+// kill ("N concurrent requests for the same slot could all pass the check
+// before any of them wrote"). A double-booked bed is discovered by a patient
+// standing in a corridor, so that mistake is worse here than on appointments.
+//
+// The cost, stated: admission_id is nullable, so this models "bed timeline
+// entry" rather than "patient occupancy". A CHECK constraint ties
+// occupancy_kind='occupied' to admission_id being present.
+model BedOccupancies {
+  id                 String    @id @default(uuid())
+  client_org_id      String
+  clinic_id          String
+  bed_id             String
+  ward_id            String    // denormalised from bed, for ward-level day-charge rating
+  admission_id       String?   // NULL for a hold/cleaning/blocked row
+  occupancy_kind     String    @default("occupied") // occupied | reserved | cleaning | blocked
+  start_at           DateTime
+  // NULL = open-ended / currently occupied. tsrange(start, NULL) is an
+  // unbounded-upper range and works correctly inside a GiST EXCLUDE.
+  end_at             DateTime?
+  end_reason         String?   // transfer | discharge | ot_transfer | upgrade | downgrade | cancelled
+  reason             String?   // free text: "ICU step-down", "AC not working"
+  // Set instead of deleting a mistaken row — the EXCLUDE predicate filters on
+  // this, so voiding a hold genuinely frees the bed without losing history.
+  is_cancelled       Boolean   @default(false)
+  created_by_user_id String
+  ended_by_user_id   String?
+  created_at         DateTime  @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic     Clinics       @relation(fields: [clinic_id], references: [id])
+  bed        Beds          @relation(fields: [bed_id], references: [id])
+  ward       Wards         @relation(fields: [ward_id], references: [id])
+  admission  Admissions?   @relation(fields: [admission_id], references: [id])
+  created_by UserProfiles  @relation("OccupancyCreatedBy", fields: [created_by_user_id], references: [id])
+  ended_by   UserProfiles? @relation("OccupancyEndedBy", fields: [ended_by_user_id], references: [id])
+
+  @@index([bed_id, start_at])
+  @@index([admission_id, start_at])
+  @@index([client_org_id, clinic_id, end_at])
+  @@index([ward_id, start_at])
+}
+
+model Admissions {
+  id               String @id @default(uuid())
+  client_org_id    String
+  clinic_id        String
+  patient_id       String
+  // Gapless per clinic per financial year, via InvoiceSequences series 'ADM'.
+  // Globally @unique rather than @@unique([clinic_id, ...]) because the number
+  // already embeds a clinic prefix — a global unique is strictly stronger.
+  admission_number String @unique
+
+  // pending | admitted | discharge_initiated | discharged | cancelled
+  // | lama (left against medical advice) | absconded | expired
+  status                 String    @default("pending")
+  // Drives the billing mode default and whether a pre-auth is required.
+  // general | insurance | corporate | emergency | day_care | maternity
+  admission_type         String    @default("general")
+  admitted_at            DateTime
+  expected_discharge_at  DateTime?
+  discharge_initiated_at DateTime?
+  discharged_at          DateTime?
+  discharge_type         String?   // routine | dama | transfer_out | expired | absconded
+
+  admitting_clinician_id String
+  // Changes on handover; the history lives in AdmissionEvents, not a separate
+  // assignment table.
+  attending_clinician_id String
+  department_id          String?
+
+  // Provenance for a planned admission converted from an OPD consult. Both
+  // NULLABLE — an emergency/direct admission has neither, which is exactly why
+  // Encounters (appointment_id @unique) and Claims (appointment_id required)
+  // cannot be reused for a stay.
+  source_appointment_id String?
+  source_encounter_id   String?
+
+  provisional_diagnosis String  @default("")
+  final_diagnosis       String?
+  admission_notes       String  @default("")
+
+  // Billing intent, decided at admission, overridable until the bill finalises.
+  // Consumed by slice 4; carried here from slice 1 so admission never needs a
+  // second migration to become billable.
+  billing_mode   String  @default("itemized") // itemized | package
+  ipd_package_id String?
+
+  payer_id  String?
+  policy_id String?
+
+  // Denormalised board flags so the bed board and the MLC register never need
+  // a subquery.
+  is_mlc      Boolean @default(false)
+  is_critical Boolean @default(false)
+
+  created_by_user_id String
+  is_deleted         Boolean  @default(false)
+  created_at         DateTime @default(now())
+  updated_at         DateTime @updatedAt
+
+  client_organization ClientOrganizations       @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics                   @relation(fields: [clinic_id], references: [id])
+  patient             Patients                  @relation(fields: [patient_id], references: [id])
+  admitting_clinician Clinicians                @relation("AdmittingClinician", fields: [admitting_clinician_id], references: [id])
+  attending_clinician Clinicians                @relation("AttendingClinician", fields: [attending_clinician_id], references: [id])
+  department          Departments?              @relation(fields: [department_id], references: [id])
+  source_appointment  Appointments?             @relation(fields: [source_appointment_id], references: [id])
+  source_encounter    Encounters?               @relation(fields: [source_encounter_id], references: [id])
+  payer               Payers?                   @relation(fields: [payer_id], references: [id])
+  policy              PatientInsurancePolicies? @relation(fields: [policy_id], references: [id])
+  created_by          UserProfiles              @relation("AdmissionCreatedBy", fields: [created_by_user_id], references: [id])
+
+  occupancies BedOccupancies[]
+  events      AdmissionEvents[]
+  mlc         MlcRegisters?
+
+  @@index([client_org_id, clinic_id, status])
+  @@index([patient_id, admitted_at])
+  @@index([attending_clinician_id, status])
+  @@index([clinic_id, admitted_at])
+}
+
+// The clinically-visible stay timeline the ADT board and (slice 2) the
+// discharge summary render from. NOT the compliance log — the global
+// AuditLogInterceptor already records every mutation automatically.
+model AdmissionEvents {
+  id            String   @id @default(uuid())
+  admission_id  String
+  client_org_id String
+  // admitted | transferred | ward_class_changed | attending_changed
+  // | leave_of_absence | returned | discharge_initiated | discharged
+  // | cancelled | mlc_flagged | reactivated
+  event_type    String
+  occurred_at   DateTime @default(now())
+  // {from_bed_id, to_bed_id, from_ward_id, to_ward_id, reason, ...} — the
+  // diagnosis_codes_json / recipients_json convention for structured-but-not-
+  // independently-queried side data.
+  payload_json  Json?
+  notes         String?
+  actor_user_id String
+  created_at    DateTime @default(now())
+
+  admission           Admissions          @relation(fields: [admission_id], references: [id], onDelete: Cascade)
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  actor               UserProfiles        @relation("AdmissionEventActor", fields: [actor_user_id], references: [id])
+
+  @@index([admission_id, occurred_at])
+  @@index([client_org_id, event_type, occurred_at])
+}
+
+// Statutory medico-legal case register. Ships in slice 1, not later, because
+// it is an *admission-register* obligation: the register must exist the moment
+// a road-accident case is admitted, not when nursing charting ships.
+//
+// Legally: recorded in duplicate, no abbreviations, no unexplained
+// overwriting, police notified within 24h, no patient consent required.
+// Enforced by a DB trigger (reject_mlc_mutation) modelled on
+// reject_write_if_encounter_locked() — corrections are appended, attributed
+// MlcAmendments rows, never in-place edits.
+model MlcRegisters {
+  id            String @id @default(uuid())
+  client_org_id String
+  clinic_id     String
+  admission_id  String @unique
+  mlc_number    String @unique // InvoiceSequences series 'MLC'
+  // road_accident | poisoning | assault | burns | sexual_assault | child_abuse
+  // | unnatural_death | industrial_accident | attempted_suicide | other
+  mlc_category  String
+
+  incident_datetime   DateTime?
+  incident_place      String?
+  brought_by_name     String?
+  brought_by_relation String?
+  brought_by_contact  String?
+  brought_by_id_proof String?
+
+  // Two identification marks are the statutory minimum, hence non-null.
+  identification_mark_1 String
+  identification_mark_2 String
+  injury_details        String @default("")
+
+  // The 24h police-intimation obligation. These are the ONLY columns the
+  // immutability trigger allows to be filled in after creation, and only once
+  // (from NULL) — everything else is frozen.
+  police_station              String?
+  police_intimated_at         DateTime?
+  police_intimated_by_user_id String?
+  receiving_officer_name      String?
+  receiving_officer_buckle_no String?
+  intimation_mode             String? // in_person | phone | written | email
+
+  examined_by_clinician_id String
+  recorded_by_user_id      String
+  recorded_at              DateTime @default(now())
+  // Deliberately NO is_deleted and NO updated_at: this row is immutable and
+  // must be preserved for life.
+  created_at               DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  admission           Admissions          @relation(fields: [admission_id], references: [id])
+  examined_by         Clinicians          @relation("MlcExaminedBy", fields: [examined_by_clinician_id], references: [id])
+  recorded_by         UserProfiles        @relation("MlcRecordedBy", fields: [recorded_by_user_id], references: [id])
+  police_intimated_by UserProfiles?       @relation("MlcPoliceIntimatedBy", fields: [police_intimated_by_user_id], references: [id])
+  amendments          MlcAmendments[]
+
+  @@index([client_org_id, clinic_id, recorded_at])
+  @@index([police_intimated_at])
+  @@index([mlc_category])
+}
+
+// "Recorded in duplicate, no unexplained overwriting" — a correction is an
+// appended, attributed amendment. Same shape and same reasoning as an
+// addendum against a signed encounter.
+model MlcAmendments {
+  id                 String   @id @default(uuid())
+  mlc_register_id    String
+  field_name         String
+  previous_value     String
+  corrected_value    String
+  reason             String
+  amended_by_user_id String
+  amended_at         DateTime @default(now())
+
+  mlc_register MlcRegisters @relation(fields: [mlc_register_id], references: [id], onDelete: Cascade)
+  amended_by   UserProfiles @relation("MlcAmendedBy", fields: [amended_by_user_id], references: [id])
+
+  @@index([mlc_register_id, amended_at])
+}
+
+// Per-clinic IPD billing policy. Created in slice 1 (table only, unwired) so
+// slice 4 needs no second migration. Every column here is a real conversation
+// a hospital has with its software: making them columns means the conversation
+// ends in a settings screen, not a code change.
+model IpdBillingSettings {
+  id            String @id @default(uuid())
+  client_org_id String
+  clinic_id     String @unique
+  // calendar_day: the day rolls at discharge_cutoff_hour (the Indian norm).
+  // rolling_24h:  the day rolls 24h after admitted_at.
+  day_boundary_mode        String   @default("calendar_day")
+  discharge_cutoff_hour    Int      @default(12)
+  charge_admission_day     Boolean  @default(true)
+  charge_discharge_day     Boolean  @default(false)
+  minimum_billable_days    Int      @default(1)
+  // Which ward's rate applies on a transfer day.
+  transfer_day_rate_policy String   @default("higher_of") // higher_of | new_ward | old_ward
+  package_excess_policy    String   @default("bill_extra") // bill_extra | absorb
+  default_deposit_paise    Int      @default(0)
+  auto_post_room_charges   Boolean  @default(true)
+  created_at               DateTime @default(now())
+  updated_at               DateTime @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+
+  @@index([client_org_id])
 }

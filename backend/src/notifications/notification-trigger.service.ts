@@ -58,6 +58,17 @@ const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; a
   // REQ168 (P2-12) — an internal ops/outreach alert to clinic staff, same
   // profile as low_stock_alert/break_glass_requested.
   chronic_registry_recall_due: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  // REQ179 (IPD slice 1) — internal staff ops alerts about a specific stay.
+  // App-only for the routine three: an attending clinician doing rounds does
+  // not need an email every time a patient moves bed, and admissions happen
+  // all day in a real ward.
+  patient_admitted: { email_enabled: false, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  patient_discharged: { email_enabled: false, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  bed_transfer_recorded: { email_enabled: false, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  // The statutory one is the exception — email as well as app, because
+  // missing the 24h police-intimation window has legal consequences and an
+  // in-app badge alone is too easy to not notice.
+  mlc_police_intimation_due: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
 };
 
 // US-NOT-04's own acceptance criterion names "an imminent appointment
@@ -66,7 +77,11 @@ const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; a
 // event type; a generic high-priority payload is the other explicit
 // carve-out, without needing to thread appointment-timing data through
 // every call site's payload just to compute "is this imminent".
-const QUIET_HOURS_BYPASS_EVENTS = ['appointment_reminder'];
+// REQ179 — mlc_police_intimation_due bypasses quiet hours deliberately: the
+// 24h police-intimation window is a statutory clock and does not pause for an
+// org's configured quiet hours. The other three IPD events are ordinary ops
+// notifications and are NOT exempt.
+const QUIET_HOURS_BYPASS_EVENTS = ['appointment_reminder', 'mlc_police_intimation_due'];
 
 // A named constant, not a magic number scattered inline — recipient-level
 // (WhatsApp+SMS combined), not per-channel, matching US-NOT-04's own
@@ -96,6 +111,12 @@ const TEMPLATE_CATEGORY: Record<string, TemplateCategory> = {
   queue_delay: 'utility',
   immunization_due: 'utility',
   chronic_registry_recall_due: 'utility',
+  // REQ179 (IPD slice 1) — all four are internal/transactional ops alerts
+  // about a specific real stay, never marketing.
+  patient_admitted: 'utility',
+  patient_discharged: 'utility',
+  bed_transfer_recorded: 'utility',
+  mlc_police_intimation_due: 'utility',
 };
 
 // Every event type here carries real transactional content (a specific

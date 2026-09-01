@@ -22,17 +22,10 @@ import { CancellationRulesService } from '../cancellation-rules/cancellation-rul
 import { selectApplicableRule, computeCancellationFee, hoursBetween } from '../common/scheduling/cancellation-fee';
 import { NormalizedWebhookEvent } from '../payment-gateways/providers/provider.interface';
 import { getProvider } from '../payment-gateways/providers/registry';
+import { nextDocumentNumber, DOCUMENT_SERIES } from '../common/billing/document-numbering';
 
 const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
 const PAISE_TO_RUPEES = (paise: number) => paise / 100;
-
-// Indian financial year: April 1 -- March 31. A payment captured in
-// Jan-Mar 2027 belongs to FY "2026-27", not "2027-28".
-function financialYearFor(date: Date): string {
-  const month = date.getMonth() + 1; // 1-12
-  const startYear = month >= 4 ? date.getFullYear() : date.getFullYear() - 1;
-  return `${startYear}-${String((startYear + 1) % 100).padStart(2, '0')}`;
-}
 
 @Injectable()
 export class AppointmentPaymentsService {
@@ -128,14 +121,12 @@ export class AppointmentPaymentsService {
   // no org-level GSTIN config table; see the schema.prisma comment on
   // PaymentTransactions). Logged as an open gap in REQ047, not silently
   // invented.
-  private async nextInvoiceNumber(clinicId: string, series = 'APPT'): Promise<string> {
-    const financialYear = financialYearFor(new Date());
-    const sequence = await this.prisma.invoiceSequences.upsert({
-      where: { clinic_id_series_financial_year: { clinic_id: clinicId, series, financial_year: financialYear } },
-      create: { clinic_id: clinicId, series, financial_year: financialYear, last_number: 1 },
-      update: { last_number: { increment: 1 } },
-    });
-    return `INV/${financialYear}/${clinicId.slice(0, 8).toUpperCase()}/${String(sequence.last_number).padStart(5, '0')}`;
+  // REQ179 — delegates to the shared common/billing/document-numbering.ts
+  // helper (extracted when IPD needed its own ADM/MLC series rather than a
+  // third copy of this logic). Behaviour is byte-identical: same 'APPT'
+  // default series, same 'INV' prefix, same format.
+  private async nextInvoiceNumber(clinicId: string, series: string = DOCUMENT_SERIES.APPOINTMENT_INVOICE): Promise<string> {
+    return nextDocumentNumber(this.prisma, clinicId, series);
   }
 
   // REQ101 — closes the gap this method's own comment above previously
