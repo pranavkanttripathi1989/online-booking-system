@@ -1,4 +1,5 @@
 import { render, screen, waitFor, fireEvent, within } from '@testing-library/react'
+import { MemoryRouter } from 'react-router-dom'
 import { MockedProvider } from '@apollo/client/testing'
 import { gql } from '@apollo/client'
 import AdminOrganizations from './Organizations'
@@ -90,9 +91,11 @@ const inactivePlan = { __typename: 'Plan', id: 'plan-old', name: 'Legacy', tier:
 
 function renderPage(mocks) {
   return render(
-    <MockedProvider mocks={mocks} addTypename={false}>
-      <AdminOrganizations />
-    </MockedProvider>,
+    <MemoryRouter>
+      <MockedProvider mocks={mocks} addTypename={false}>
+        <AdminOrganizations />
+      </MockedProvider>
+    </MemoryRouter>,
   )
 }
 

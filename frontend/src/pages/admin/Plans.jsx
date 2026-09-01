@@ -20,6 +20,8 @@ import {
 import AddIcon from '@mui/icons-material/Add'
 import HistoryIcon from '@mui/icons-material/History'
 import WorkspacePremiumIcon from '@mui/icons-material/WorkspacePremium'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
+import { Link as RouterLink } from 'react-router-dom'
 import ConfirmDialog from '../../components/ConfirmDialog/ConfirmDialog'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -92,6 +94,22 @@ const SET_PLAN_ACTIVE = gql`
     }
   }
 `
+// REQ178/179/180 — subscriber counts, reusing (not re-deriving) the real
+// platform_billing subscription list. No per-plan count field exists on
+// the resolver, so this reduces the flat list client-side into counts by
+// plan_id — acceptable at this dataset's scale, matching this page's own
+// existing unpaginated-fetch convention above.
+const GET_SUBSCRIBER_COUNTS = gql`
+  query GetPlatformSubscriberCounts {
+    platformSubscriptions {
+      id
+      plan {
+        id
+      }
+      status
+    }
+  }
+`
 
 const defaultForm = () => ({
   name: '',
@@ -111,6 +129,7 @@ export default function AdminPlans() {
   // fail on submit.
   const canManagePlans = hasRole('super_admin')
   const [plans, setPlans] = useState([])
+  const [subscriberCounts, setSubscriberCounts] = useState({})
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(null)
   const [showForm, setShowForm] = useState(false)
@@ -142,6 +161,20 @@ export default function AdminPlans() {
       setLoadError(err.message)
     } finally {
       setLoading(false)
+    }
+    // Subscriber counts are a nice-to-have alongside the plan list, not
+    // its own loading/error gate — a failure here shows plans with no
+    // count rather than blocking the whole page.
+    try {
+      const { data: countData } = await client.query({ query: GET_SUBSCRIBER_COUNTS, fetchPolicy: 'network-only' })
+      const counts = {}
+      for (const s of countData?.platformSubscriptions ?? []) {
+        if (['cancelled'].includes(s.status)) continue
+        counts[s.plan.id] = (counts[s.plan.id] || 0) + 1
+      }
+      setSubscriberCounts(counts)
+    } catch {
+      // Non-fatal — leave counts empty.
     }
   }
   useEffect(() => {
@@ -407,7 +440,7 @@ export default function AdminPlans() {
           <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
             <Box component="thead">
               <Box component="tr" sx={{ bgcolor: 'grey.50' }}>
-                {['Name', 'Tier', 'Current Version', 'Price', 'Status', 'Actions'].map((h) => (
+                {['Name', 'Tier', 'Current Version', 'Price', 'Subscribers', 'Status', 'Actions'].map((h) => (
                   <Box
                     key={h}
                     component="th"
@@ -432,7 +465,7 @@ export default function AdminPlans() {
             <Box component="tbody">
               {plans.length === 0 && (
                 <Box component="tr">
-                  <Box component="td" colSpan={6} sx={{ textAlign: 'center', py: 6 }}>
+                  <Box component="td" colSpan={7} sx={{ textAlign: 'center', py: 6 }}>
                     <WorkspacePremiumIcon sx={{ fontSize: 48, color: 'text.disabled', mb: 1, display: 'block', mx: 'auto' }} />
                     <Typography color="text.secondary">No plans yet</Typography>
                   </Box>
@@ -457,6 +490,23 @@ export default function AdminPlans() {
                     <Typography variant="body2">
                       ₹{plan.current_version?.price?.toFixed(2) ?? '—'} / {plan.current_version?.billing_period ?? '—'}
                     </Typography>
+                  </Box>
+                  <Box component="td" sx={{ px: 2, py: 1.5 }}>
+                    {subscriberCounts[plan.id] ? (
+                      <Chip
+                        size="small"
+                        icon={<ReceiptLongIcon />}
+                        label={subscriberCounts[plan.id]}
+                        component={RouterLink}
+                        to="/admin/platform-billing"
+                        clickable
+                        variant="outlined"
+                      />
+                    ) : (
+                      <Typography variant="body2" color="text.disabled">
+                        0
+                      </Typography>
+                    )}
                   </Box>
                   <Box component="td" sx={{ px: 2, py: 1.5 }}>
                     <Chip size="small" label={plan.is_active ? 'Active' : 'Inactive'} color={plan.is_active ? 'success' : 'default'} />

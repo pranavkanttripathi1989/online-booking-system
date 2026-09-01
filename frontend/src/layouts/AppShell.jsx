@@ -58,6 +58,7 @@ import AccountCircleIcon from '@mui/icons-material/AccountCircle'
 import LogoutIcon from '@mui/icons-material/Logout'
 import MessageIcon from '@mui/icons-material/Message'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -304,6 +305,7 @@ const ADMIN_CHILDREN = [
   { label: 'Languages', path: '/admin/languages', icon: <GlobeIcon /> },
   { label: 'Email Templates', path: '/admin/email-templates', icon: <EmailRulesIcon /> },
   { label: 'Plans', path: '/admin/plans', icon: <WorkspacePremiumIcon /> },
+  { label: 'Platform Billing', path: '/admin/platform-billing', icon: <ReceiptLongIcon /> },
   { label: 'Insurance Payers', path: '/admin/payers', icon: <LocalHospitalIcon /> },
   { label: 'Rights Requests', path: '/admin/rights-requests', icon: <GavelIcon /> },
 ]

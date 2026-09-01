@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useApolloClient, gql } from '@apollo/client'
 import { alpha, useTheme } from '@mui/material/styles'
 import {
@@ -79,24 +80,33 @@ const GET_ORGS = gql`
     }
   }
 `
-// Read-back for OrganizationSubscriptions/SubscriptionPlans — these tables
-// already existed (written once during self-serve onboarding) but nothing
-// ever read them back until now. Most real orgs today have none at all
-// (admin-created orgs never go through the onboarding wizard) — a null
-// result here is a real, expected state, not an error.
-const GET_ORG_SUBSCRIPTION = gql`
-  query GetOrgSubscription($orgId: ID!) {
-    organizationSubscription(orgId: $orgId) {
+// REQ178/179/180 — replaces the old read-only OrganizationSubscriptions
+// read-back (that table is written once by self-serve onboarding's trial
+// selection and was never a real billing record — most admin-created orgs
+// had none at all). This reads the real platform_billing subscription
+// instead. The resolver has no client_org_id filter arg (platform-wide by
+// design, matching Plans's own precedent) so this fetches the full list
+// and finds this org's row client-side — acceptable at this dataset's
+// scale, same convention admin/Plans.jsx already uses for its own
+// unpaginated platform-catalog fetch.
+const GET_PLATFORM_SUBSCRIPTIONS_FOR_LOOKUP = gql`
+  query GetPlatformSubscriptionsForOrgLookup {
+    platformSubscriptions {
       id
-      plan_name
+      client_org {
+        id
+      }
+      plan {
+        name
+        tier
+      }
+      billing_period
+      price
       status
-      billing_cycle
+      gateway
       current_period_start
       current_period_end
-      price_monthly
-      price_yearly
-      max_clinics
-      max_users
+      cancel_at_period_end
     }
   }
 `
@@ -204,6 +214,7 @@ const MOCK_ORGS = [
 
 export default function AdminOrganizations() {
   const theme = useTheme()
+  const navigate = useNavigate()
   const client = useApolloClient()
   const [orgs, setOrgs] = useState([])
   const [total, setTotal] = useState(0)
@@ -328,8 +339,10 @@ export default function AdminOrganizations() {
     setSubOpen(true)
     setSubLoading(true)
     try {
-      const { data } = await client.query({ query: GET_ORG_SUBSCRIPTION, variables: { orgId: org.id }, fetchPolicy: 'network-only' })
-      setSubData(data?.organizationSubscription ?? null)
+      const { data, errors } = await client.query({ query: GET_PLATFORM_SUBSCRIPTIONS_FOR_LOOKUP, fetchPolicy: 'network-only' })
+      if (errors?.length) throw new Error(errors[0].message)
+      const match = (data?.platformSubscriptions ?? []).find((s) => s.client_org.id === org.id)
+      setSubData(match ?? null)
     } catch (err) {
       setSubError(err.message)
     } finally {
@@ -692,10 +705,16 @@ export default function AdminOrganizations() {
         }}
       />
 
-      {/* Subscription view — read-only, see GET_ORG_SUBSCRIPTION above for
-          why most real orgs today will show the empty state. */}
+      {/* REQ178/179/180 — real platform_billing summary, replacing the old
+          read-only OrganizationSubscriptions dialog (see
+          GET_PLATFORM_SUBSCRIPTIONS_FOR_LOOKUP above for why it fetches
+          the full list rather than taking a client_org_id arg). A "no
+          subscription" result is real and expected for most orgs — the
+          entitlement plan assignment dialog below (assignOrgPlan) is a
+          separate, independent comp/override path that keeps working
+          with or without a real billing subscription behind it. */}
       <Dialog open={subOpen} onClose={() => setSubOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle fontWeight={700}>Subscription — {subOrgName}</DialogTitle>
+        <DialogTitle fontWeight={700}>Billing — {subOrgName}</DialogTitle>
         <DialogContent dividers>
           {subLoading && (
             <Box display="flex" justifyContent="center" py={4}>
@@ -706,17 +725,17 @@ export default function AdminOrganizations() {
           {!subLoading && !subError && subData === null && (
             <Box sx={{ textAlign: 'center', py: 3 }}>
               <ReceiptLongIcon sx={{ fontSize: 40, color: 'text.disabled', mb: 1 }} />
-              <Typography color="text.secondary">No subscription on file for this organization.</Typography>
+              <Typography color="text.secondary">No platform subscription on file for this organization.</Typography>
             </Box>
           )}
           {!subLoading && !subError && subData && (
             <Stack spacing={1.5}>
               <Stack direction="row" justifyContent="space-between" alignItems="center">
                 <Typography variant="body1" fontWeight={700}>
-                  {subData.plan_name}
+                  {subData.plan.name} ({subData.plan.tier})
                 </Typography>
                 <Chip
-                  label={subData.status}
+                  label={subData.status?.replace(/_/g, ' ')}
                   size="small"
                   sx={{
                     textTransform: 'capitalize',
@@ -724,20 +743,20 @@ export default function AdminOrganizations() {
                     bgcolor:
                       subData.status === 'active'
                         ? alpha(theme.palette.success.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)
-                        : subData.status === 'trial'
+                        : subData.status === 'trialing'
                           ? alpha(theme.palette.info.main, theme.palette.mode === 'dark' ? 0.18 : 0.12)
                           : alpha(theme.palette.error.main, theme.palette.mode === 'dark' ? 0.18 : 0.12),
-                    color: subData.status === 'active' ? 'success.main' : subData.status === 'trial' ? 'info.main' : 'error.main',
+                    color: subData.status === 'active' ? 'success.main' : subData.status === 'trialing' ? 'info.main' : 'error.main',
                   }}
                 />
               </Stack>
               <Divider />
               <Stack direction="row" justifyContent="space-between">
                 <Typography variant="body2" color="text.secondary">
-                  Billing cycle
+                  Billing period
                 </Typography>
                 <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
-                  {subData.billing_cycle}
+                  {subData.billing_period}
                 </Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between">
@@ -745,8 +764,15 @@ export default function AdminOrganizations() {
                   Price
                 </Typography>
                 <Typography variant="body2">
-                  {formatCurrency(subData.billing_cycle === 'yearly' ? subData.price_yearly : subData.price_monthly)} /{' '}
-                  {subData.billing_cycle === 'yearly' ? 'yr' : 'mo'}
+                  {formatCurrency(subData.price)} / {subData.billing_period === 'annual' ? 'yr' : 'mo'}
+                </Typography>
+              </Stack>
+              <Stack direction="row" justifyContent="space-between">
+                <Typography variant="body2" color="text.secondary">
+                  Gateway
+                </Typography>
+                <Typography variant="body2" sx={{ textTransform: 'capitalize' }}>
+                  {subData.gateway}
                 </Typography>
               </Stack>
               <Stack direction="row" justifyContent="space-between">
@@ -757,23 +783,25 @@ export default function AdminOrganizations() {
                   {formatDate(subData.current_period_start)} – {formatDate(subData.current_period_end)}
                 </Typography>
               </Stack>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">
-                  Clinic limit
-                </Typography>
-                <Typography variant="body2">{subData.max_clinics}</Typography>
-              </Stack>
-              <Stack direction="row" justifyContent="space-between">
-                <Typography variant="body2" color="text.secondary">
-                  User limit
-                </Typography>
-                <Typography variant="body2">{subData.max_users}</Typography>
-              </Stack>
+              {subData.cancel_at_period_end && (
+                <Alert severity="warning" variant="outlined">
+                  Ending at period end.
+                </Alert>
+              )}
             </Stack>
           )}
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2 }}>
           <Button onClick={() => setSubOpen(false)}>Close</Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              setSubOpen(false)
+              navigate('/admin/platform-billing')
+            }}
+          >
+            Manage in Platform Billing
+          </Button>
         </DialogActions>
       </Dialog>
 

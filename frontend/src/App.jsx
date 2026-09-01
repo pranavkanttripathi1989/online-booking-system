@@ -173,6 +173,7 @@ const AdminLanguages = lazy(() => import('./pages/admin/Languages'))
 const AdminEmailTemplates = lazy(() => import('./pages/admin/EmailTemplates'))
 // Phase G+2 frontend completion (REQ018/REQ032/REQ034/REQ022/REQ030/REQ031/REQ015/REQ029)
 const AdminPlans = lazy(() => import('./pages/admin/Plans'))
+const AdminPlatformBilling = lazy(() => import('./pages/admin/PlatformBilling'))
 const AdminPayers = lazy(() => import('./pages/admin/Payers'))
 const AdminRightsRequests = lazy(() => import('./pages/admin/RightsRequests'))
 const ManagerPharmacy = lazy(() => import('./pages/manager/pharmacy/index'))
@@ -1210,6 +1211,19 @@ function App() {
                 element={
                   <Suspense fallback={<ShellPageLoader />}>
                     <AdminPlans />
+                  </Suspense>
+                }
+              />
+              {/* REQ178/179/180 — platform_billing.resolver.ts gates every
+                  query/mutation to @Auth('super_admin') exclusively (tenant
+                  SaaS subscription billing, same platform-wide shape as
+                  Plans above), so this route stays in this super_admin-only
+                  block rather than the admin+manager one below. */}
+              <Route
+                path="/admin/platform-billing"
+                element={
+                  <Suspense fallback={<ShellPageLoader />}>
+                    <AdminPlatformBilling />
                   </Suspense>
                 }
               />
