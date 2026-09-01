@@ -11,6 +11,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TP249 | improvement | Patient Membership Plans verification | approved | 2026-08-30 | 2026-08-30 | PLAN229 | [TP249-patients-2026-08-30-real-membership-plans.md](./improvement/TP249-patients-2026-08-30-real-membership-plans.md) |
+| TP263 | improvement | Patient Documents upload + inline preview verification | done | 2026-09-01 | 2026-09-01 | PLAN243 | [TP263-patients-2026-09-01-document-upload-and-preview.md](./improvement/TP263-patients-2026-09-01-document-upload-and-preview.md) |
 
 ## bug
 

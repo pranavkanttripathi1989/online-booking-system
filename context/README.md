@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| patients-2026-09-01-req174 | patients | 2026-09-01 | REQ174, PLAN243, TP263, TR263 | done | [manifest.md](./patients-2026-09-01-req174/manifest.md) |
 | prescriptions-2026-09-01-req173 | prescriptions | 2026-09-01 | REQ173, PLAN242, TP262, TR262 | done | [manifest.md](./prescriptions-2026-09-01-req173/manifest.md) |
 | prescriptions-2026-08-31-req170-171-172 | prescriptions | 2026-08-31 | REQ170, REQ171, REQ172, PLAN239, PLAN240, PLAN241, TP259, TP260, TP261, TR259, TR260, TR261 | done | [manifest.md](./prescriptions-2026-08-31-req170-171-172/manifest.md) |
 | frontend-platform-2026-08-30-bug063 | frontend-platform | 2026-08-30 | BUG063, PLAN238, TP258, TR258 | done | [manifest.md](./frontend-platform-2026-08-30-bug063/manifest.md) |

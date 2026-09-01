@@ -9,6 +9,7 @@ _none yet_
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | PLAN229 | improvement | Patient Membership Plans, built for real | done | 2026-08-30 | 2026-08-30 | REQ166 | [PLAN229-patients-2026-08-30-real-membership-plans.md](./improvement/PLAN229-patients-2026-08-30-real-membership-plans.md) |
+| PLAN243 | improvement | Patient Documents: real upload + inline preview (PDF/image) | done | 2026-09-01 | 2026-09-01 | REQ174 | [PLAN243-patients-2026-09-01-document-upload-and-preview.md](./improvement/PLAN243-patients-2026-09-01-document-upload-and-preview.md) |
 
 ## bug
 
