@@ -84,6 +84,7 @@ const GET_CLINICIAN_AND_PRODUCTS = gql`
       description
       price
       product_type
+      prepayment_policy
       variations {
         id
         name
@@ -299,6 +300,13 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price, holdToken, onB
   const [razorpayReady, setRazorpayReady] = useState(false)
   const [acceptedPolicy, setAcceptedPolicy] = useState(false)
   const [errorMsg, setErrorMsg] = useState('')
+  // REQ177 (PAY-2) — "Pay at Clinic" must be a real, visible, equal-weight
+  // choice, not buried. Hidden entirely (see the render below) when the
+  // service requires prepayment — bookPatientAppointment rejects that
+  // combination server-side either way (public.service.ts), this just
+  // avoids showing a choice the server will refuse.
+  const [paymentPreference, setPaymentPreference] = useState('online')
+  const prepaymentRequired = bookingData.product?.prepayment_policy === 'required'
   // P1-05 (BOOK-3, BOOK-18) — stable for this mount, and reused across a
   // retry of this exact flow (e.g. Razorpay verification fails and the
   // patient hits "Pay" again) so createAppointment's own idempotency
@@ -347,10 +355,20 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price, holdToken, onB
             },
             idempotencyKey,
             holdToken: holdToken || undefined,
+            paymentPreference: prepaymentRequired ? 'online' : paymentPreference,
           },
         },
       })
       const appointmentId = apptRes.data.bookPatientAppointment.id
+
+      // REQ177 (PAY-2) — "pay at clinic" skips Razorpay entirely; the
+      // appointment already came back confirmed (public.service.ts never
+      // routes a pay-at-clinic booking through awaiting_payment).
+      if (!prepaymentRequired && paymentPreference === 'pay_at_clinic') {
+        onBookingSuccess?.()
+        navigate('/patient/appointments', { state: { bookingSuccess: true } })
+        return
+      }
 
       // 2. Create a real Razorpay order (amount is derived server-side from
       // the appointment's product price, never sent from the client).
@@ -467,10 +485,32 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price, holdToken, onB
         <Typography variant="subtitle2" gutterBottom>
           Payment
         </Typography>
-        <Alert severity="info" sx={{ mb: 2 }}>
-          You'll be prompted to pay ₹{price} via Razorpay's secure checkout (cards, UPI, wallets) — card and UPI details are entered on
-          Razorpay's own screen, never on this page.
-        </Alert>
+
+        {prepaymentRequired ? (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            This service requires prepayment. You'll be prompted to pay ₹{price} via Razorpay's secure checkout
+            (cards, UPI, wallets) — card and UPI details are entered on Razorpay's own screen, never on this page.
+          </Alert>
+        ) : (
+          <>
+            {/* REQ177 (PAY-2) — equal-weight, not a hidden fallback. */}
+            <ToggleButtonGroup
+              value={paymentPreference}
+              exclusive
+              onChange={(e, val) => val && setPaymentPreference(val)}
+              fullWidth
+              sx={{ mb: 2 }}
+            >
+              <ToggleButton value="online">Pay Online Now</ToggleButton>
+              <ToggleButton value="pay_at_clinic">Pay at Clinic</ToggleButton>
+            </ToggleButtonGroup>
+            <Alert severity="info" sx={{ mb: 2 }}>
+              {paymentPreference === 'pay_at_clinic'
+                ? `Your appointment will be confirmed now. Pay ₹${price} in cash, UPI or card when you arrive at the clinic.`
+                : `You'll be prompted to pay ₹${price} via Razorpay's secure checkout (cards, UPI, wallets) — card and UPI details are entered on Razorpay's own screen, never on this page.`}
+            </Alert>
+          </>
+        )}
 
         {errorMsg && (
           <Alert severity="error" sx={{ mb: 2 }}>
@@ -493,9 +533,15 @@ const PaymentForm = ({ bookingData, clinician, handleBack, price, holdToken, onB
           size="large"
           startIcon={<Payment />}
           onClick={handlePayAndBook}
-          disabled={!razorpayReady || !acceptedPolicy || loading}
+          disabled={(!prepaymentRequired && paymentPreference === 'online' && !razorpayReady) || !acceptedPolicy || loading}
         >
-          {loading ? <CircularProgress size={24} color="inherit" /> : `Confirm and Pay ₹${price}`}
+          {loading ? (
+            <CircularProgress size={24} color="inherit" />
+          ) : !prepaymentRequired && paymentPreference === 'pay_at_clinic' ? (
+            'Confirm Booking'
+          ) : (
+            `Confirm and Pay ₹${price}`
+          )}
         </Button>
       </Box>
     </Box>

@@ -38,6 +38,7 @@ import { alpha, useTheme } from '@mui/material/styles'
 import AddRoundedIcon from '@mui/icons-material/AddRounded'
 import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 import PaymentsRoundedIcon from '@mui/icons-material/PaymentsRounded'
+import MoneyOffRoundedIcon from '@mui/icons-material/MoneyOffRounded'
 import DownloadRoundedIcon from '@mui/icons-material/DownloadRounded'
 import CardMembershipRoundedIcon from '@mui/icons-material/CardMembershipRounded'
 import { DateTimePicker } from '@mui/x-date-pickers/DateTimePicker'
@@ -134,6 +135,29 @@ const REDEEM_PACKAGE_SITTING_MUTATION = gql`
       message
       payment_id
       sittings_remaining
+    }
+  }
+`
+
+// REQ176 — gates whether "Request Refund" is offered at all: a real
+// succeeded, not-already-refunded payment must exist for this appointment.
+const APPOINTMENT_PAYMENTS_QUERY = gql`
+  query AppointmentPaymentsForRefund($appointment_id: ID!) {
+    appointmentPayments(appointment_id: $appointment_id) {
+      id
+      status
+      amount
+      refund_status
+      created_at
+    }
+  }
+`
+const REQUEST_REFUND_MUTATION = gql`
+  mutation RequestRefundOnAppointment($input: RequestRefundInput!) {
+    requestRefund(input: $input) {
+      success
+      message
+      request_id
     }
   }
 `
@@ -468,6 +492,11 @@ export default function AppointmentDetailPage() {
   const [downloadingInvoice, setDownloadingInvoice] = useState(false)
   const [lastPaymentId, setLastPaymentId] = useState(null)
 
+  // REQ176 — "Request Refund" dialog state
+  const [refundDialogOpen, setRefundDialogOpen] = useState(false)
+  const [refundReason, setRefundReason] = useState('')
+  const [refundError, setRefundError] = useState(null)
+
   const { data, loading, refetch } = useQuery(APPOINTMENT_DETAIL_QUERY, {
     variables: { id },
     skip: !id,
@@ -483,6 +512,32 @@ export default function AppointmentDetailPage() {
 
   const statusCfg = statusCfgFor(theme, apt?.status)
   const isTerminal = ['cancelled', 'completed', 'no_show'].includes(apt?.status)
+
+  // REQ176 — only fetched for a cancelled appointment, matching the
+  // "Request Refund" affordance's own real trigger condition.
+  const { data: paymentsData, refetch: refetchPayments } = useQuery(APPOINTMENT_PAYMENTS_QUERY, {
+    variables: { appointment_id: apt?.id },
+    skip: !apt?.id || apt?.status !== 'cancelled',
+    fetchPolicy: 'network-only',
+  })
+  const refundablePayment = (paymentsData?.appointmentPayments ?? []).find(
+    (p) => p.status === 'succeeded' && (p.refund_status === 'none' || p.refund_status === 'rejected'),
+  )
+  const [requestRefund, { loading: requestingRefund }] = useMutation(REQUEST_REFUND_MUTATION, {
+    onCompleted: (d) => {
+      const result = d?.requestRefund
+      if (!result?.success) {
+        setRefundError(result?.message ?? 'Failed to request refund')
+        return
+      }
+      enqueueSnackbar('Refund requested — pending manager approval', { variant: 'success' })
+      setRefundDialogOpen(false)
+      setRefundReason('')
+      setRefundError(null)
+      refetchPayments()
+    },
+    onError: (err) => setRefundError(err?.graphQLErrors?.[0]?.message || err.message),
+  })
 
   const [completeAppointment] = useMutation(COMPLETE_APPOINTMENT_MUTATION, {
     onCompleted: () => {
@@ -1217,6 +1272,99 @@ export default function AppointmentDetailPage() {
               </Box>
             </Card>
           )}
+
+          {/* REQ176 — a cancelled appointment with a real, refundable
+              (succeeded, not already requested/refunded) payment on file. */}
+          {isTerminal &&
+            apt.status === 'cancelled' &&
+            refundablePayment &&
+            (hasRole('staff') || hasRole('manager') || hasRole('admin') || hasRole('super_admin') || hasRole('clinician')) && (
+              <Card sx={{ mb: 3 }}>
+                <Box sx={{ p: 3, bgcolor: 'action.hover' }}>
+                  <Typography variant="body2" sx={{ color: 'text.secondary', mb: 1.5 }}>
+                    ₹{refundablePayment.amount.toLocaleString()} was paid for this cancelled appointment.
+                  </Typography>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<MoneyOffRoundedIcon />}
+                    onClick={() => {
+                      setRefundReason('')
+                      setRefundError(null)
+                      setRefundDialogOpen(true)
+                    }}
+                    sx={{
+                      borderRadius: 2.5,
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      py: 1.25,
+                      borderColor: 'error.main',
+                      color: 'error.dark',
+                      '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.06), borderColor: 'error.main' },
+                    }}
+                  >
+                    Request Refund
+                  </Button>
+                </Box>
+              </Card>
+            )}
+          {isTerminal && apt.status === 'cancelled' && !refundablePayment && paymentsData?.appointmentPayments?.some((p) => p.refund_status !== 'none') && (
+            <Card sx={{ mb: 3 }}>
+              <Box sx={{ p: 3, bgcolor: 'action.hover' }}>
+                <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                  A refund has already been requested for this appointment's payment.
+                </Typography>
+              </Box>
+            </Card>
+          )}
+
+          {/* REQ176 — Request Refund dialog. The amount is always computed
+              server-side from the org's cancellation-fee policy — never
+              entered here (BOOK-14/PAY-8's own "no surprise numbers"
+              spirit, applied to a refund instead of a charge). */}
+          <Dialog open={refundDialogOpen} onClose={() => setRefundDialogOpen(false)} maxWidth="xs" fullWidth>
+            <DialogTitle>Request Refund</DialogTitle>
+            <DialogContent>
+              {refundablePayment && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  ₹{refundablePayment.amount.toLocaleString()} was paid. The actual refund amount is computed server-side
+                  from the org's cancellation-fee policy and may be less than the full amount.
+                </Alert>
+              )}
+              {refundError && (
+                <Alert severity="error" sx={{ mb: 2 }} onClose={() => setRefundError(null)}>
+                  {refundError}
+                </Alert>
+              )}
+              <TextField
+                autoFocus
+                fullWidth
+                multiline
+                minRows={2}
+                label="Reason"
+                value={refundReason}
+                onChange={(e) => setRefundReason(e.target.value)}
+                sx={{ mt: 0.5 }}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setRefundDialogOpen(false)} disabled={requestingRefund}>
+                Cancel
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                disabled={requestingRefund || !refundReason.trim()}
+                onClick={() =>
+                  requestRefund({
+                    variables: { input: { appointment_payment_id: refundablePayment.id, reason: refundReason.trim() } },
+                  })
+                }
+              >
+                {requestingRefund ? 'Requesting…' : 'Request Refund'}
+              </Button>
+            </DialogActions>
+          </Dialog>
 
           {/* REQ051 (US-QUE-06) — real, staff-facing, backend-driven
               pre-consultation checklist. Gates QueueService.callNext() on

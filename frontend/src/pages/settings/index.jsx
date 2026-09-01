@@ -25,6 +25,8 @@ import {
   RadioGroup,
   FormControl,
   FormLabel,
+  InputLabel,
+  Select,
   MenuItem,
   Alert,
   Tooltip,
@@ -333,6 +335,42 @@ export const UPDATE_CLINIC_FOR_SETTINGS = gql`
       alternate_phone
       appointment_note
       letterhead_clinician_ids
+    }
+  }
+`
+// REQ175 -- per-clinic payment gateway account (Razorpay/Cashfree/PayU/
+// PhonePe), same registry/encrypted-credential shape as the SMS provider
+// block in admin/Communications.jsx (REQ008). has_credentials only --
+// raw secrets are never returned once saved.
+export const GET_PAYMENT_GATEWAY_PROVIDERS = gql`
+  query GetPaymentGatewayProviders {
+    paymentGatewayProviders {
+      id
+      label
+      fields {
+        key
+        label
+        type
+        required
+      }
+    }
+  }
+`
+export const GET_CLINIC_PAYMENT_GATEWAY_CONFIG = gql`
+  query GetClinicPaymentGatewayConfig($clinic_id: ID!) {
+    clinicPaymentGatewayConfig(clinic_id: $clinic_id) {
+      clinic_id
+      provider
+      has_credentials
+      is_active
+    }
+  }
+`
+export const UPDATE_PAYMENT_GATEWAY_CONFIG = gql`
+  mutation UpdatePaymentGatewayConfig($input: UpdatePaymentGatewayConfigInput!) {
+    updatePaymentGatewayConfig(input: $input) {
+      success
+      message
     }
   }
 `
@@ -816,6 +854,69 @@ export default function SettingsPage() {
       setClinicError(err?.graphQLErrors?.[0]?.message || err.message)
     } finally {
       setSavingClinic(false)
+    }
+  }
+
+  // REQ175 — Payment Gateway section (see GET_PAYMENT_GATEWAY_PROVIDERS above).
+  const [gatewayProviders, setGatewayProviders] = useState([])
+  const [gatewaySelectedProvider, setGatewaySelectedProvider] = useState('')
+  const [gatewayCredentials, setGatewayCredentials] = useState({})
+  const [gatewayHasCredentials, setGatewayHasCredentials] = useState(false)
+  const [gatewayLoaded, setGatewayLoaded] = useState(false)
+  const [savingGateway, setSavingGateway] = useState(false)
+  const [gatewaySaved, setGatewaySaved] = useState(false)
+  const [gatewayError, setGatewayError] = useState(null)
+  const selectedGatewayProvider = gatewayProviders.find((p) => p.id === gatewaySelectedProvider)
+
+  const loadGatewayConfig = async () => {
+    if (!clinicId) return
+    try {
+      const [{ data: providersData }, { data: configData }] = await Promise.all([
+        client.query({ query: GET_PAYMENT_GATEWAY_PROVIDERS, fetchPolicy: 'network-only' }),
+        client.query({ query: GET_CLINIC_PAYMENT_GATEWAY_CONFIG, variables: { clinic_id: clinicId }, fetchPolicy: 'network-only' }),
+      ])
+      setGatewayProviders(providersData?.paymentGatewayProviders ?? [])
+      const cfg = configData?.clinicPaymentGatewayConfig
+      if (cfg?.provider) {
+        setGatewaySelectedProvider(cfg.provider)
+        setGatewayHasCredentials(!!cfg.has_credentials)
+      }
+    } catch (err) {
+      setGatewayError(err.message)
+    } finally {
+      setGatewayLoaded(true)
+    }
+  }
+  useEffect(() => {
+    if (clinicId) loadGatewayConfig()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clinicId])
+
+  const handleSaveGatewaySettings = async () => {
+    setGatewayError(null)
+    setGatewaySaved(false)
+    setSavingGateway(true)
+    try {
+      // Empty-payload-keeps-existing-credentials, same convention as
+      // UPDATE_NOTIFICATION_PROVIDER_CONFIG's own save handler — a blank
+      // field means "don't change this secret", not "clear it".
+      const credentials = Object.entries(gatewayCredentials)
+        .filter(([, v]) => v !== '' && v != null)
+        .map(([key, value]) => ({ key, value }))
+      const { data } = await client.mutate({
+        mutation: UPDATE_PAYMENT_GATEWAY_CONFIG,
+        variables: { input: { clinic_id: clinicId, provider: gatewaySelectedProvider, credentials } },
+      })
+      if (!data?.updatePaymentGatewayConfig?.success) {
+        throw new Error(data?.updatePaymentGatewayConfig?.message || 'Failed to save payment gateway settings')
+      }
+      setGatewaySaved(true)
+      setGatewayCredentials({})
+      loadGatewayConfig()
+    } catch (err) {
+      setGatewayError(err?.graphQLErrors?.[0]?.message || err.message)
+    } finally {
+      setSavingGateway(false)
     }
   }
 
@@ -2521,6 +2622,92 @@ export default function SettingsPage() {
                       {savingClinic ? 'Saving…' : 'Save Clinic Settings'}
                     </Button>
                   </Grid>
+
+                  {/* ── Payment Gateway (REQ175) — per-clinic account, same
+                      registry/encrypted-credential UI shape as the SMS
+                      provider block in admin/Communications.jsx (REQ008). ── */}
+                  <Grid item xs={12}>
+                    <Divider sx={{ my: 1 }} />
+                    <Typography variant="subtitle1" fontWeight={800} sx={{ mt: 2, mb: 1 }}>
+                      Payment Gateway
+                    </Typography>
+                    <Alert severity="info" sx={{ mb: 2, borderRadius: 2 }}>
+                      Choose this clinic's own payment gateway account and enter its credentials — used for online
+                      appointment payments and refunds. Credentials are encrypted at rest and never shown again once
+                      saved. If not configured, this clinic falls back to the platform's default Razorpay account.
+                    </Alert>
+                  </Grid>
+                  {gatewaySaved && (
+                    <Grid item xs={12}>
+                      <Alert severity="success" sx={{ borderRadius: 2 }} onClose={() => setGatewaySaved(false)}>
+                        Payment gateway settings saved.
+                      </Alert>
+                    </Grid>
+                  )}
+                  {gatewayError && (
+                    <Grid item xs={12}>
+                      <Alert severity="error" sx={{ borderRadius: 2 }} onClose={() => setGatewayError(null)}>
+                        {gatewayError}
+                      </Alert>
+                    </Grid>
+                  )}
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth disabled={!gatewayLoaded}>
+                      <InputLabel id="payment-gateway-provider-label">Payment Gateway</InputLabel>
+                      <Select
+                        labelId="payment-gateway-provider-label"
+                        label="Payment Gateway"
+                        value={gatewaySelectedProvider}
+                        onChange={(e) => {
+                          setGatewaySelectedProvider(e.target.value)
+                          setGatewayCredentials({})
+                        }}
+                        sx={{ borderRadius: 2 }}
+                      >
+                        {gatewayProviders.map((p) => (
+                          <MenuItem key={p.id} value={p.id}>
+                            {p.label}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  {gatewayHasCredentials && gatewaySelectedProvider && (
+                    <Grid item xs={12} sm={6} sx={{ display: 'flex', alignItems: 'center' }}>
+                      <Chip
+                        size="small"
+                        label="Credentials configured"
+                        sx={{ bgcolor: (t) => alpha(t.palette.success.main, t.palette.mode === 'dark' ? 0.18 : 0.12), color: 'success.main', fontWeight: 700 }}
+                      />
+                    </Grid>
+                  )}
+                  {selectedGatewayProvider &&
+                    selectedGatewayProvider.fields.map((f) => (
+                      <Grid item xs={12} sm={6} key={f.key}>
+                        <TextField
+                          fullWidth
+                          label={f.label + (f.required ? '' : ' (optional)')}
+                          type={f.type === 'password' ? 'password' : 'text'}
+                          value={gatewayCredentials[f.key] ?? ''}
+                          onChange={(e) => setGatewayCredentials((prev) => ({ ...prev, [f.key]: e.target.value }))}
+                          placeholder={gatewayHasCredentials ? '••••••••  (leave blank to keep current)' : ''}
+                          sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                        />
+                      </Grid>
+                    ))}
+                  {selectedGatewayProvider && (
+                    <Grid item xs={12}>
+                      <Button
+                        variant="contained"
+                        disabled={savingGateway}
+                        startIcon={<SaveRoundedIcon />}
+                        onClick={handleSaveGatewaySettings}
+                        sx={{ borderRadius: 2.5, textTransform: 'none', fontWeight: 700 }}
+                      >
+                        {savingGateway ? 'Saving…' : 'Save Payment Gateway Settings'}
+                      </Button>
+                    </Grid>
+                  )}
                 </>
               )}
 

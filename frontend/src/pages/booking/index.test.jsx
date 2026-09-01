@@ -31,6 +31,7 @@ const GET_CLINICIAN_AND_PRODUCTS_SHAPE = {
       description: '30-minute visit',
       price: 500,
       product_type: 'simple',
+      prepayment_policy: 'none',
       variations: [],
       cancellation_rules: null,
     },
@@ -40,6 +41,7 @@ const GET_CLINICIAN_AND_PRODUCTS_SHAPE = {
       description: 'Choose a duration',
       price: 800,
       product_type: 'variable',
+      prepayment_policy: 'none',
       variations: [
         { id: 'var-30', name: '30 minutes', price: 800 },
         { id: 'var-60', name: '60 minutes', price: 1400 },
@@ -83,6 +85,7 @@ function buildMocks({ availability = GET_CLINICIAN_AND_PRODUCTS_SHAPE.getClinici
         description
         price
         product_type
+        prepayment_policy
         variations {
           id
           name

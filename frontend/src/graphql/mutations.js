@@ -672,6 +672,8 @@ export const UPDATE_APPOINTMENT_MUTATION = gql`
         id
         name
       }
+      reschedule_fee_amount
+      reschedule_fee_payment_id
     }
   }
 `

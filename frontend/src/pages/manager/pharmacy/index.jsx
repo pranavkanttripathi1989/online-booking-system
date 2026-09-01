@@ -164,6 +164,18 @@ const DISPENSE_PRESCRIPTION_ITEM = gql`
     }
   }
 `
+// REQ177 — counter payment collection on this same Dispense tab, same
+// tenders shape as appointments/detail.jsx's RECORD_COUNTER_PAYMENT_MUTATION.
+const RECORD_PHARMACY_PAYMENT = gql`
+  mutation RecordPharmacyPayment($input: RecordPharmacyPaymentInput!) {
+    recordPharmacyPayment(input: $input) {
+      success
+      message
+      payment_id
+    }
+  }
+`
+
 // REQ126 (US-RX-09) — org-wide, not scoped to one patient the way the
 // Dispense tab's own patient-search flow requires searching first.
 const GET_PENDING_DISPENSE = gql`
@@ -232,6 +244,12 @@ export default function PharmacyPage() {
   const [showDrugForm, setShowDrugForm] = useState(false)
   const [editingDrugId, setEditingDrugId] = useState(null)
   const [drugForm, setDrugForm] = useState(EMPTY_DRUG_FORM)
+
+  // ── Collect Payment (REQ177) ─────────────────────────────────────────────
+  const [paymentDialogOpen, setPaymentDialogOpen] = useState(false)
+  const [paymentTenders, setPaymentTenders] = useState([{ tender_type: 'cash', amount: '', reference: '' }])
+  const [paymentSubmitting, setPaymentSubmitting] = useState(false)
+  const [paymentFormError, setPaymentFormError] = useState(null)
 
   // ── Dispense ───────────────────────────────────────────────────────────
   const [patientSearch, setPatientSearch] = useState('')
@@ -544,6 +562,37 @@ export default function PharmacyPage() {
       setFormError(err?.graphQLErrors?.[0]?.message || err.message)
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // REQ177 — same clinic the Stock/Dispense tabs already operate against
+  // (clinicId, the page-level clinic selector), not a second picker.
+  const submitPharmacyPayment = async () => {
+    setPaymentFormError(null)
+    const tenders = paymentTenders
+      .map((t) => ({ ...t, amount: parseFloat(t.amount) }))
+      .filter((t) => t.amount > 0)
+    if (tenders.length === 0) {
+      setPaymentFormError('At least one tender with a positive amount is required')
+      return
+    }
+    setPaymentSubmitting(true)
+    try {
+      const { data } = await client.mutate({
+        mutation: RECORD_PHARMACY_PAYMENT,
+        variables: { input: { clinic_id: clinicId, patient_id: selectedPatient.id, tenders } },
+      })
+      if (!data?.recordPharmacyPayment?.success) {
+        setPaymentFormError(data?.recordPharmacyPayment?.message ?? 'Failed to record payment')
+        return
+      }
+      showSuccess('Payment recorded.')
+      setPaymentDialogOpen(false)
+      setPaymentTenders([{ tender_type: 'cash', amount: '', reference: '' }])
+    } catch (err) {
+      setPaymentFormError(err?.graphQLErrors?.[0]?.message || err.message)
+    } finally {
+      setPaymentSubmitting(false)
     }
   }
 
@@ -1098,16 +1147,35 @@ export default function PharmacyPage() {
                 <Typography variant="h6" fontWeight={600}>
                   {selectedPatient.full_name}'s prescriptions
                 </Typography>
-                <Button
-                  size="small"
-                  onClick={() => {
-                    setSelectedPatient(null)
-                    setPrescriptions([])
-                  }}
-                >
-                  Change patient
-                </Button>
+                <Stack direction="row" spacing={1}>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    disabled={!clinicId}
+                    onClick={() => {
+                      setPaymentTenders([{ tender_type: 'cash', amount: '', reference: '' }])
+                      setPaymentFormError(null)
+                      setPaymentDialogOpen(true)
+                    }}
+                  >
+                    Collect Payment
+                  </Button>
+                  <Button
+                    size="small"
+                    onClick={() => {
+                      setSelectedPatient(null)
+                      setPrescriptions([])
+                    }}
+                  >
+                    Change patient
+                  </Button>
+                </Stack>
               </Stack>
+              {!clinicId && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Select a clinic (Stock tab) to collect a payment.
+                </Alert>
+              )}
 
               {prescriptionsLoading ? (
                 <Box display="flex" justifyContent="center" py={4}>
@@ -1201,6 +1269,84 @@ export default function PharmacyPage() {
           )}
         </Box>
       )}
+
+      {/* ── Collect Payment dialog (REQ177) ─────────────────────────────── */}
+      <Dialog open={paymentDialogOpen} onClose={() => setPaymentDialogOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Collect Payment{selectedPatient ? ` — ${selectedPatient.full_name}` : ''}</DialogTitle>
+        <DialogContent>
+          {paymentFormError && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setPaymentFormError(null)}>
+              {paymentFormError}
+            </Alert>
+          )}
+          <Stack spacing={1.5} sx={{ pt: 0.5 }}>
+            {paymentTenders.map((t, i) => (
+              <Stack key={i} direction="row" spacing={1} alignItems="flex-start">
+                <TextField
+                  select
+                  label="Tender"
+                  size="small"
+                  value={t.tender_type}
+                  onChange={(e) =>
+                    setPaymentTenders((prev) => prev.map((row, idx) => (idx === i ? { ...row, tender_type: e.target.value } : row)))
+                  }
+                  sx={{ width: 110 }}
+                >
+                  {['cash', 'upi', 'card', 'cheque'].map((tt) => (
+                    <MenuItem key={tt} value={tt}>
+                      {tt.toUpperCase()}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  label="Amount"
+                  type="number"
+                  size="small"
+                  value={t.amount}
+                  onChange={(e) =>
+                    setPaymentTenders((prev) => prev.map((row, idx) => (idx === i ? { ...row, amount: e.target.value } : row)))
+                  }
+                  inputProps={{ min: 0, step: 0.01 }}
+                  sx={{ width: 100 }}
+                />
+                <TextField
+                  label="Reference"
+                  size="small"
+                  value={t.reference}
+                  onChange={(e) =>
+                    setPaymentTenders((prev) => prev.map((row, idx) => (idx === i ? { ...row, reference: e.target.value } : row)))
+                  }
+                  placeholder="Optional"
+                  sx={{ flex: 1 }}
+                />
+                <IconButton
+                  size="small"
+                  disabled={paymentTenders.length === 1}
+                  onClick={() => setPaymentTenders((prev) => prev.filter((_, idx) => idx !== i))}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Stack>
+            ))}
+            <Button
+              size="small"
+              startIcon={<AddIcon />}
+              sx={{ alignSelf: 'flex-start', textTransform: 'none' }}
+              onClick={() => setPaymentTenders((prev) => [...prev, { tender_type: 'cash', amount: '', reference: '' }])}
+            >
+              Add another tender
+            </Button>
+          </Stack>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setPaymentDialogOpen(false)} disabled={paymentSubmitting}>
+            Cancel
+          </Button>
+          <Button variant="contained" disabled={paymentSubmitting} onClick={submitPharmacyPayment}>
+            {paymentSubmitting ? 'Recording…' : 'Collect Payment'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* ── Dispense dialog ─────────────────────────────────────────────── */}
       <Dialog open={!!dispensingItem} onClose={() => setDispensingItem(null)} maxWidth="xs" fullWidth>

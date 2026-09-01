@@ -46,6 +46,7 @@ import CloseRoundedIcon from '@mui/icons-material/CloseRounded'
 import PrintRoundedIcon from '@mui/icons-material/PrintRounded'
 import LocalOfferRoundedIcon from '@mui/icons-material/LocalOfferRounded'
 import PointOfSaleRoundedIcon from '@mui/icons-material/PointOfSaleRounded'
+import MoneyOffRoundedIcon from '@mui/icons-material/MoneyOffRounded'
 import CheckRoundedIcon from '@mui/icons-material/CheckRounded'
 import KeyboardArrowDownRoundedIcon from '@mui/icons-material/KeyboardArrowDownRounded'
 import KeyboardArrowRightRoundedIcon from '@mui/icons-material/KeyboardArrowRightRounded'
@@ -75,6 +76,31 @@ const DECIDE_DISCOUNT_APPROVAL_MUTATION = gql`
       success
       message
       payment_id
+    }
+  }
+`
+
+// REQ176 — Refunds tab. clinic_id is nullable (org-wide oversight, same
+// shape as DISCOUNT_APPROVAL_REQUESTS_QUERY just above).
+const CLINIC_REFUND_REQUESTS_QUERY = gql`
+  query ClinicRefundRequests($clinic_id: ID) {
+    clinicRefundRequests(clinic_id: $clinic_id) {
+      id
+      appointment_payment_id
+      requested_amount
+      reason
+      status
+      created_at
+      decided_at
+    }
+  }
+`
+
+const DECIDE_REFUND_REQUEST_MUTATION = gql`
+  mutation DecideRefundRequest($input: DecideRefundRequestInput!) {
+    decideRefundRequest(input: $input) {
+      success
+      message
     }
   }
 `
@@ -468,6 +494,28 @@ export default function FinancesPage() {
       enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to decide discount request', { variant: 'error' }),
   })
 
+  // REQ176 — Refunds tab (tab 5), same org-wide-oversight/fetch-on-open shape.
+  const {
+    data: refundData,
+    loading: refundLoading,
+    refetch: refetchRefundRequests,
+  } = useQuery(CLINIC_REFUND_REQUESTS_QUERY, {
+    skip: tab !== 5,
+    fetchPolicy: 'network-only',
+  })
+  const [decideRefundRequest, { loading: decidingRefund }] = useMutation(DECIDE_REFUND_REQUEST_MUTATION, {
+    onCompleted: (d) => {
+      if (!d?.decideRefundRequest?.success) {
+        enqueueSnackbar(d?.decideRefundRequest?.message ?? 'Failed to decide refund request', { variant: 'error' })
+        return
+      }
+      enqueueSnackbar('Refund request updated', { variant: 'success' })
+      refetchRefundRequests()
+    },
+    onError: (err) =>
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to decide refund request', { variant: 'error' }),
+  })
+
   const { data: closeoutData, loading: closeoutLoading } = useQuery(CASH_DRAWER_CLOSEOUTS_QUERY, {
     skip: tab !== 4,
     fetchPolicy: 'network-only',
@@ -658,6 +706,13 @@ export default function FinancesPage() {
           <Tab
             label="Cash Drawer"
             icon={<PointOfSaleRoundedIcon sx={{ fontSize: '1rem' }} />}
+            iconPosition="start"
+            sx={{ minHeight: 52, fontSize: '0.875rem', fontWeight: 600, gap: 0.5 }}
+          />
+          {/* REQ176 */}
+          <Tab
+            label="Refunds"
+            icon={<MoneyOffRoundedIcon sx={{ fontSize: '1rem' }} />}
             iconPosition="start"
             sx={{ minHeight: 52, fontSize: '0.875rem', fontWeight: 600, gap: 0.5 }}
           />
@@ -1157,6 +1212,122 @@ export default function FinancesPage() {
                               </TableCell>
                             </TableRow>
                           </>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </Box>
+        )}
+
+        {/* Tab 5: Refunds — REQ176 */}
+        {tab === 5 && (
+          <Box sx={{ p: { xs: 2, sm: 3 } }}>
+            <Typography fontWeight={800} sx={{ color: 'text.primary', mb: 0.5 }}>
+              Refund Approvals
+            </Typography>
+            <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2.5 }}>
+              The refund amount is computed server-side from the org's cancellation/reschedule fee policy — a decision here
+              (other than by the person who requested it) either processes a real refund through the payment's own gateway
+              or rejects the request.
+            </Typography>
+            {refundLoading ? (
+              <Skeleton variant="rectangular" height={200} sx={{ borderRadius: 2 }} />
+            ) : (
+              <TableContainer sx={{ borderRadius: 2, border: '1px solid', borderColor: 'divider', overflow: 'auto' }}>
+                <Table>
+                  <TableHead>
+                    <TableRow>
+                      {['Payment', 'Refund Amount', 'Reason', 'Status', 'Requested At', ''].map((h) => (
+                        <TableCell key={h}>{h}</TableCell>
+                      ))}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {(refundData?.clinicRefundRequests ?? []).length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} sx={{ textAlign: 'center', py: 4, color: 'text.secondary' }}>
+                          No refund requests yet.
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      refundData.clinicRefundRequests.map((req) => {
+                        const sCfg = discountStatusCfgFor(theme, req.status)
+                        return (
+                          <TableRow key={req.id} sx={{ '&:hover': { bgcolor: 'action.hover' }, transition: 'background 0.15s' }}>
+                            <TableCell>
+                              <Typography variant="caption" sx={{ color: 'text.disabled', fontWeight: 600, fontFamily: 'monospace' }}>
+                                {req.appointment_payment_id.slice(0, 8)}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography fontWeight={800} sx={{ color: 'error.dark', fontSize: '0.9rem' }}>
+                                ₹{req.requested_amount.toLocaleString()}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                {req.reason}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              <Chip
+                                label={sCfg.label}
+                                size="small"
+                                sx={{
+                                  bgcolor: sCfg.bg,
+                                  color: sCfg.color,
+                                  border: `1px solid ${sCfg.border}`,
+                                  fontWeight: 700,
+                                  borderRadius: '8px',
+                                  height: 24,
+                                }}
+                              />
+                            </TableCell>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ color: 'text.disabled' }}>
+                                {new Date(req.created_at).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </Typography>
+                            </TableCell>
+                            <TableCell>
+                              {req.status === 'pending' && (
+                                <Stack direction="row" spacing={0.5}>
+                                  <Tooltip title="Approve — processes a real refund">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        aria-label="Approve"
+                                        disabled={decidingRefund}
+                                        onClick={() =>
+                                          decideRefundRequest({ variables: { input: { request_id: req.id, decision: 'approve' } } })
+                                        }
+                                        sx={{ color: 'success.main', '&:hover': { bgcolor: (t) => alpha(t.palette.success.main, 0.12) } }}
+                                      >
+                                        <CheckRoundedIcon fontSize="small" />
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                  <Tooltip title="Reject">
+                                    <span>
+                                      <IconButton
+                                        size="small"
+                                        aria-label="Reject"
+                                        disabled={decidingRefund}
+                                        onClick={() =>
+                                          decideRefundRequest({ variables: { input: { request_id: req.id, decision: 'reject' } } })
+                                        }
+                                        sx={{ color: 'error.main', '&:hover': { bgcolor: (t) => alpha(t.palette.error.main, 0.12) } }}
+                                      >
+                                        <CloseRoundedIcon fontSize="small" />
+                                      </IconButton>
+                                    </span>
+                                  </Tooltip>
+                                </Stack>
+                              )}
+                            </TableCell>
+                          </TableRow>
                         )
                       })
                     )}

@@ -47,14 +47,24 @@ const GET_CANCELLATION_RULES = gql`
       fee_type
       fee_amount
       clinic_id
+      product_id
+      rule_type
       is_active
       priority
       clinic {
         id
         name
       }
+      product {
+        id
+        name
+      }
     }
     clinics {
+      id
+      name
+    }
+    products {
       id
       name
     }
@@ -124,6 +134,11 @@ const defaultRule = {
   fee_type: 'percentage',
   fee_amount: 0,
   clinic_id: '',
+  // REQ177 -- per-service fee, previously schema-only. '' = every service.
+  product_id: '',
+  // REQ177 -- 'cancellation' (the only kind this table could create before)
+  // or 'reschedule'; the schema's own RuleType enum already had both.
+  rule_type: 'cancellation',
   priority: 1,
   is_active: true,
 }
@@ -295,6 +310,7 @@ export default function AdminPolicies() {
   // ── Cancellation Rules state ────────────────────────────────────────────
   const [rules, setRules] = useState([])
   const [clinics, setClinics] = useState([])
+  const [ruleProducts, setRuleProducts] = useState([])
   const [showRuleForm, setShowRuleForm] = useState(false)
   const [editRule, setEditRule] = useState(null)
   const [ruleForm, setRuleForm] = useState(defaultRule)
@@ -309,6 +325,7 @@ export default function AdminPolicies() {
       const { data } = await client.query({ query: GET_CANCELLATION_RULES, fetchPolicy: 'network-only' })
       setRules(data?.cancellationRules || [])
       setClinics(data?.clinics || [])
+      setRuleProducts(data?.products || [])
     } catch (err) {
       setRuleError(err.message)
     }
@@ -339,6 +356,7 @@ export default function AdminPolicies() {
       fee_amount: parseFloat(ruleForm.fee_amount),
       priority: parseInt(ruleForm.priority),
       clinic_id: ruleForm.clinic_id || null,
+      product_id: ruleForm.product_id || null,
     }
     try {
       if (editRule) {
@@ -766,6 +784,33 @@ export default function AdminPolicies() {
                       </Select>
                     </FormControl>
                   </Grid>
+                  {/* REQ177 -- per-service fee, previously schema-only. */}
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Service (leave blank = every service)</InputLabel>
+                      <Select
+                        label="Service (leave blank = every service)"
+                        value={ruleForm.product_id}
+                        onChange={(e) => setRF('product_id', e.target.value)}
+                      >
+                        <MenuItem value="">Every service</MenuItem>
+                        {ruleProducts.map((p) => (
+                          <MenuItem key={p.id} value={p.id}>
+                            {p.name}
+                          </MenuItem>
+                        ))}
+                      </Select>
+                    </FormControl>
+                  </Grid>
+                  <Grid item xs={12} sm={6}>
+                    <FormControl fullWidth size="small">
+                      <InputLabel>Applies To</InputLabel>
+                      <Select label="Applies To" value={ruleForm.rule_type} onChange={(e) => setRF('rule_type', e.target.value)}>
+                        <MenuItem value="cancellation">Cancellation</MenuItem>
+                        <MenuItem value="reschedule">Reschedule</MenuItem>
+                      </Select>
+                    </FormControl>
+                  </Grid>
                   <Grid item xs={12}>
                     <TextField
                       fullWidth
@@ -803,6 +848,13 @@ export default function AdminPolicies() {
                         <Stack direction="row" spacing={1} alignItems="center" mb={0.5}>
                           <Typography fontWeight={700}>{rule.name}</Typography>
                           <Chip label={`Priority ${rule.priority}`} size="small" />
+                          {/* REQ177 -- was implicitly always 'cancellation'; now a real choice. */}
+                          <Chip
+                            label={rule.rule_type === 'reschedule' ? 'Reschedule' : 'Cancellation'}
+                            size="small"
+                            color={rule.rule_type === 'reschedule' ? 'info' : 'default'}
+                            variant="outlined"
+                          />
                           <Chip
                             label={rule.is_active ? 'Active' : 'Inactive'}
                             size="small"
@@ -810,9 +862,9 @@ export default function AdminPolicies() {
                           />
                         </Stack>
                         <Typography variant="body2" color="text.secondary">
-                          Cancel within {rule.hours_before}h →{' '}
+                          {rule.rule_type === 'reschedule' ? 'Reschedule' : 'Cancel'} within {rule.hours_before}h →{' '}
                           {rule.fee_type === 'percentage' ? `${rule.fee_amount}%` : `₹${rule.fee_amount}`} fee ·{' '}
-                          {rule.clinic?.name || 'All clinics'}
+                          {rule.clinic?.name || 'All clinics'} · {rule.product?.name || 'Every service'}
                         </Typography>
                         {rule.description && (
                           <Typography variant="caption" color="text.secondary">
@@ -833,6 +885,8 @@ export default function AdminPolicies() {
                                 fee_type: rule.fee_type,
                                 fee_amount: rule.fee_amount,
                                 clinic_id: rule.clinic_id || '',
+                                product_id: rule.product_id || '',
+                                rule_type: rule.rule_type || 'cancellation',
                                 priority: rule.priority,
                                 is_active: rule.is_active,
                               })
