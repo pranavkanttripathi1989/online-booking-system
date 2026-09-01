@@ -87,6 +87,16 @@ const EXEMPT: Record<string, string> = {
   // org/self-scope isolation is covered directly in
   // immunizations.service.spec.ts's own dedicated tests instead.
   immunizations: 'No list query exists on this resolver (a global reference query plus two patient_id-keyed queries reusing assertPatientAccess-style scoping) — same shape as ai-clinical/telemedicine\'s own exemptions above. Isolation covered in immunizations.service.spec.ts directly.',
+  // REQ174 — patientDocuments is keyed by patient_id, not a global
+  // org-wide list — same shape as immunizations' own exemption above.
+  // Access is delegated to (never re-derived from) PatientsService
+  // .findOne()'s own org/self/clinician-relationship scoping, so a
+  // cross-org read is rejected outright (NotFoundException) rather than
+  // filtered out of a shared list — the matrix's generic
+  // same-query-different-org-sees-a-narrower-list shape doesn't apply.
+  // Isolation is covered directly in patient-documents.service.spec.ts's
+  // own dedicated tests instead.
+  'patient-documents': "patientDocuments is keyed by patient_id, delegating access entirely to PatientsService.findOne()'s own org/self/clinician-relationship scoping (never re-derived) — same shape as immunizations' own exemption above. A cross-org read is rejected outright, not filtered from a shared list. Isolation covered in patient-documents.service.spec.ts directly.",
   imports: "No query or mutation on this resolver is keyed by any id — parseImportPreview/dryRunImport take only raw CSV content (nothing to read cross-tenant), and commitImport is a write-only bulk create scoped via orgIdForWrite(), the same helper every other domain's create path already uses. No 'org A reads org B's row by id' shape exists to build a matrix case from, same shape as ai-clinical/telemedicine's own exemptions above. Covered in imports.service.spec.ts's own dedicated test instead.",
   // REQ158 (P2-06). Unlike the exemptions above, this domain DOES have a
   // real id-keyed shape a matrix case could exercise (revenueShareRules/

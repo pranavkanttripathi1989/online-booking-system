@@ -1150,6 +1150,15 @@ input CreatePackageInput {
   validity_days: Int
 }
 
+input CreatePatientDocumentInput {
+  category: String!
+  file_ref: String!
+  file_size_bytes: Int!
+  mime_type: String!
+  original_filename: String!
+  patient_id: ID!
+}
+
 input CreatePlanVersionInput {
   billing_period: String!
   feature_flags: [FeatureFlagInput!]!
@@ -1944,6 +1953,7 @@ type Mutation {
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
   createPackage(input: CreatePackageInput!): PackageMutationResult!
   createPatient(input: PatientInput!): Patient!
+  createPatientDocument(input: CreatePatientDocumentInput!): PatientDocument!
   createPatientInsurancePolicy(input: PatientInsurancePolicyInput!): PatientInsurancePolicy!
   createPayer(input: PayerInput!): Payer!
   createPayerEmpanelment(input: PayerEmpanelmentInput!): PayerEmpanelment!
@@ -1990,6 +2000,7 @@ type Mutation {
   deleteNotification(id: ID!): NotificationMutationResult!
   deleteOrganization(id: ID!): OrganizationMutationResult!
   deletePackage(id: ID!): PackageMutationResult!
+  deletePatientDocument(id: ID!): Boolean!
   deleteProduct(id: ID!): ProductMutationResult!
   deleteProductCategory(id: ID!): ProductCategoryMutationResult!
   deleteProductSubcategory(id: ID!): ProductSubcategoryMutationResult!
@@ -2536,6 +2547,18 @@ input PatientDetailsInput {
   firstName: String!
   lastName: String!
   phone: String!
+}
+
+type PatientDocument {
+  category: String!
+  created_at: DateTime!
+  file_ref: String!
+  file_size_bytes: Int!
+  id: ID!
+  mime_type: String!
+  original_filename: String!
+  patient_id: ID!
+  uploaded_by_id: ID!
 }
 
 type PatientInfo {
@@ -3226,6 +3249,7 @@ type Query {
   patient(id: ID!): Patient
   patientAllergyBanner(patient_id: ID!): [Diagnosis!]!
   patientConsents(patient_id: ID!): [Consent!]!
+  patientDocuments(patient_id: ID!): [PatientDocument!]!
   patientImmunizationStatus(patient_id: ID!): [ImmunizationStatusItem!]!
   patientImmunizations(patient_id: ID!): [ImmunizationRecord!]!
   patientInsurancePolicies(patient_id: ID!): [PatientInsurancePolicy!]!

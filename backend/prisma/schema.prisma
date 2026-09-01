@@ -1500,6 +1500,8 @@ model Patients {
   immunizationRecords      ImmunizationRecords[]
   // REQ168 (P2-12)
   chronicRegistryEnrollments ChronicRegistryEnrollments[]
+  // REQ174
+  documents                  PatientDocuments[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1582,6 +1584,36 @@ model TestResults {
   @@index([ordered_by_user_id])
   @@index([is_deleted, date_ordered])
   @@index([encounter_id])
+}
+
+// REQ174 — makes patients/detail.jsx's own pre-existing Documents tab
+// real (it previously pushed to local React state only, "demo mode",
+// nothing ever persisted). client_org_id is stamped from the uploader via
+// orgIdForWrite() at write time, not inherited from Patients.client_org_id
+// (which can itself be null for a patient with no appointment history
+// yet — see that column's own F-04 note) — a document must always be
+// attributable to a real org regardless of the patient row's own state.
+// category is a plain validated string (DrugInput.tpg_list's own
+// @IsIn() precedent), not a Prisma enum: it mirrors the frontend's
+// existing small, UI-owned DOCUMENT_FOLDERS taxonomy, which does not
+// warrant a migration if a label is ever renamed.
+model PatientDocuments {
+  id                String   @id @default(uuid())
+  patient_id        String
+  client_org_id     String?
+  category          String
+  file_ref          String
+  mime_type         String
+  original_filename String
+  file_size_bytes   Int
+  uploaded_by_id    String
+  is_deleted        Boolean  @default(false)
+  created_at        DateTime @default(now())
+
+  patient     Patients     @relation(fields: [patient_id], references: [id], onDelete: Cascade)
+  uploaded_by UserProfiles @relation("PatientDocumentUploadedBy", fields: [uploaded_by_id], references: [id])
+
+  @@index([patient_id, is_deleted])
 }
 
 // REQ167 (P2-11) — India's National Immunization Schedule. Platform-global
@@ -2757,6 +2789,8 @@ model UserProfiles {
   administeredImmunizations ImmunizationRecords[]
   // REQ168 (P2-12)
   enrolledChronicRegistrations ChronicRegistryEnrollments[]
+  // REQ174
+  uploadedPatientDocuments PatientDocuments[] @relation("PatientDocumentUploadedBy")
 
   @@index([client_org_id, is_deleted])
   @@index([role_id])
