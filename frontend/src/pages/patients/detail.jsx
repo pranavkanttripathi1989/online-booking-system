@@ -4,7 +4,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { Helmet } from 'react-helmet-async'
 import { useSnackbar } from 'notistack'
 import { useQuery, useMutation, gql } from '@apollo/client'
+import { useAuth } from '../../hooks/useAuth'
+import DocumentPreviewDialog from '../../components/Patients/DocumentPreviewDialog'
 import {
+  Alert,
   Box,
   Button,
   Avatar,
@@ -73,6 +76,7 @@ import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
 import CancelRoundedIcon from '@mui/icons-material/CancelRounded'
 import InsertDriveFileRoundedIcon from '@mui/icons-material/InsertDriveFileRounded'
 import CloudUploadRoundedIcon from '@mui/icons-material/CloudUploadRounded'
+import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
 import ForumRoundedIcon from '@mui/icons-material/ForumRounded'
 import MarkEmailReadRoundedIcon from '@mui/icons-material/MarkEmailReadRounded'
 import SmsRoundedIcon from '@mui/icons-material/SmsRounded'
@@ -115,6 +119,34 @@ const CREATE_PATIENT_INSURANCE_POLICY = gql`
     createPatientInsurancePolicy(input: $input) {
       id
     }
+  }
+`
+
+// REQ174 — makes the Documents tab below real. Was previously local
+// React state only ("demo mode"); nothing persisted past a page reload.
+export const GET_PATIENT_DOCUMENTS = gql`
+  query GetPatientDocuments($patient_id: ID!) {
+    patientDocuments(patient_id: $patient_id) {
+      id
+      category
+      file_ref
+      mime_type
+      original_filename
+      file_size_bytes
+      created_at
+    }
+  }
+`
+export const CREATE_PATIENT_DOCUMENT = gql`
+  mutation CreatePatientDocument($input: CreatePatientDocumentInput!) {
+    createPatientDocument(input: $input) {
+      id
+    }
+  }
+`
+export const DELETE_PATIENT_DOCUMENT = gql`
+  mutation DeletePatientDocument($id: ID!) {
+    deletePatientDocument(id: $id)
   }
 `
 
@@ -453,6 +485,8 @@ export default function PatientDetailPage() {
   const { id } = useParams()
   const navigate = useNavigate()
   const { enqueueSnackbar } = useSnackbar()
+  const { hasRole } = useAuth()
+  const canUploadDocuments = hasRole('admin') || hasRole('manager') || hasRole('clinician')
   const [tab, setTab] = useState(0)
 
   // BUG055 -- this used to be `MOCK_PATIENTS_DETAIL[id] ?? MOCK_PATIENT_DEFAULT`,
@@ -605,23 +639,67 @@ export default function PatientDetailPage() {
   // SUG-PT-003 / SUG-PAT-013: "View Result" dialog state
   const [viewResult, setViewResult] = useState(null)
 
-  // SUG-PT-004 / SUG-PAT-014: Upload Document — hidden file input + local doc list
+  // REQ174 — real patient documents (was local-state-only "demo mode"
+  // before this slice; nothing ever persisted past a page reload).
+  const apiBase = (import.meta.env.VITE_GRAPHQL_URL || 'http://localhost:4000/graphql').replace(/\/graphql$/, '')
   const fileInputRef = useRef(null)
-  const [uploadedDocs, setUploadedDocs] = useState([])
   const [uploadFolder, setUploadFolder] = useState(DOCUMENT_FOLDERS[0])
   const [docFolderFilter, setDocFolderFilter] = useState('All')
-  const handleFileSelected = (e) => {
+  const [uploading, setUploading] = useState(false)
+  const [previewDoc, setPreviewDoc] = useState(null)
+  const {
+    data: documentsData,
+    loading: documentsLoading,
+    error: documentsError,
+    refetch: refetchDocuments,
+  } = useQuery(GET_PATIENT_DOCUMENTS, { variables: { patient_id: id }, skip: !id })
+  const [createPatientDocument] = useMutation(CREATE_PATIENT_DOCUMENT)
+  const [deletePatientDocument] = useMutation(DELETE_PATIENT_DOCUMENT)
+  const uploadedDocs = documentsData?.patientDocuments ?? []
+  const handleFileSelected = async (e) => {
     const file = e.target.files?.[0]
-    if (file) {
-      setUploadedDocs((prev) => [
-        ...prev,
-        { id: `doc-${Date.now()}`, name: file.name, size: file.size, uploadedAt: new Date().toISOString(), folder: uploadFolder },
-      ])
-      enqueueSnackbar(`"${file.name}" uploaded to ${uploadFolder} (demo mode)`, { variant: 'success' })
-    }
     e.target.value = '' // allow re-selecting the same file
+    if (!file) return
+    setUploading(true)
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const res = await fetch(`${apiBase}/patient-documents/upload`, { method: 'POST', credentials: 'include', body: formData })
+      const body = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        enqueueSnackbar(body?.message || 'Failed to upload file', { variant: 'error' })
+        return
+      }
+      await createPatientDocument({
+        variables: {
+          input: {
+            patient_id: id,
+            category: uploadFolder,
+            file_ref: body.file_ref,
+            mime_type: body.mime_type,
+            original_filename: file.name,
+            file_size_bytes: file.size,
+          },
+        },
+      })
+      await refetchDocuments()
+      enqueueSnackbar(`"${file.name}" uploaded to ${uploadFolder}`, { variant: 'success' })
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to upload file', { variant: 'error' })
+    } finally {
+      setUploading(false)
+    }
   }
-  const visibleDocs = docFolderFilter === 'All' ? uploadedDocs : uploadedDocs.filter((d) => d.folder === docFolderFilter)
+  const handleDeleteDocument = async (docId) => {
+    try {
+      await deletePatientDocument({ variables: { id: docId } })
+      await refetchDocuments()
+      enqueueSnackbar('Document removed', { variant: 'success' })
+    } catch (err) {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to remove document', { variant: 'error' })
+    }
+  }
+  const visibleDocs = docFolderFilter === 'All' ? uploadedDocs : uploadedDocs.filter((d) => d.category === docFolderFilter)
 
   // Communication preferences (email/SMS/WhatsApp consent — also a DPDP Act
   // consent-tracking requirement, not just UX; requirements/semble-competitive-gap-analysis-requirements.md Phase 1)
@@ -1525,33 +1603,46 @@ export default function PatientDetailPage() {
                   </MenuItem>
                 ))}
               </TextField>
-              <Stack direction="row" spacing={1} alignItems="center">
-                <TextField
-                  select
-                  size="small"
-                  label="Upload to"
-                  value={uploadFolder}
-                  onChange={(e) => setUploadFolder(e.target.value)}
-                  sx={{ minWidth: 160 }}
-                >
-                  {DOCUMENT_FOLDERS.map((f) => (
-                    <MenuItem key={f} value={f}>
-                      {f}
-                    </MenuItem>
-                  ))}
-                </TextField>
-                <Button
-                  variant="outlined"
-                  startIcon={<CloudUploadRoundedIcon />}
-                  onClick={() => fileInputRef.current?.click()}
-                  sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
-                >
-                  Upload Document
-                </Button>
-              </Stack>
+              {/* SEC-18/SURF-20 — absent, not disabled, for a role outside
+                  createPatientDocument's own backend gate (admin/manager/
+                  clinician; 'staff' can view this tab but not upload). */}
+              {canUploadDocuments && (
+                <Stack direction="row" spacing={1} alignItems="center">
+                  <TextField
+                    select
+                    size="small"
+                    label="Upload to"
+                    value={uploadFolder}
+                    onChange={(e) => setUploadFolder(e.target.value)}
+                    sx={{ minWidth: 160 }}
+                  >
+                    {DOCUMENT_FOLDERS.map((f) => (
+                      <MenuItem key={f} value={f}>
+                        {f}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                  <Button
+                    variant="outlined"
+                    startIcon={uploading ? <CircularProgress size={16} /> : <CloudUploadRoundedIcon />}
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={uploading}
+                    sx={{ borderRadius: 2, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
+                  >
+                    {uploading ? 'Uploading…' : 'Upload Document'}
+                  </Button>
+                </Stack>
+              )}
             </Stack>
 
-            {visibleDocs.length === 0 ? (
+            {documentsError ? (
+              <Alert severity="error">Couldn't load documents — try refreshing the page.</Alert>
+            ) : documentsLoading ? (
+              <Stack spacing={1}>
+                <Skeleton variant="rounded" height={56} />
+                <Skeleton variant="rounded" height={56} />
+              </Stack>
+            ) : visibleDocs.length === 0 ? (
               <Box sx={{ textAlign: 'center', py: 8, color: 'text.secondary' }}>
                 <FolderRoundedIcon sx={{ fontSize: '3rem', mb: 1.5, opacity: 0.3 }} />
                 <Typography variant="body1" fontWeight={600} sx={{ mb: 0.5 }}>
@@ -1560,20 +1651,40 @@ export default function PatientDetailPage() {
                 <Typography variant="body2">Upload patient documents, prescriptions, and reports</Typography>
               </Box>
             ) : (
-              <List sx={{ border: '1px solid #E2E8F0', borderRadius: 2, p: 0 }}>
+              <List sx={{ border: '1px solid', borderColor: 'divider', borderRadius: 2, p: 0 }}>
                 {visibleDocs.map((d, i) => (
-                  <ListItem key={d.id} divider={i !== visibleDocs.length - 1}>
+                  <ListItem
+                    key={d.id}
+                    divider={i !== visibleDocs.length - 1}
+                    secondaryAction={
+                      <Stack direction="row" spacing={0.5}>
+                        <Tooltip title="Preview">
+                          <IconButton aria-label="Preview document" size="small" onClick={() => setPreviewDoc(d)}>
+                            <VisibilityRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                        {(hasRole('admin') || hasRole('manager')) && (
+                          <Tooltip title="Delete">
+                            <IconButton aria-label="Delete document" size="small" onClick={() => handleDeleteDocument(d.id)}>
+                              <DeleteRoundedIcon fontSize="small" />
+                            </IconButton>
+                          </Tooltip>
+                        )}
+                      </Stack>
+                    }
+                  >
                     <ListItemIcon>
                       <InsertDriveFileRoundedIcon sx={{ color: 'primary.main' }} />
                     </ListItemIcon>
                     <ListItemText
-                      primary={d.name}
-                      secondary={`${d.folder ?? 'General'} · ${(d.size / 1024).toFixed(1)} KB · Uploaded ${dayjs(d.uploadedAt).format('DD/MM/YYYY HH:mm')}`}
+                      primary={d.original_filename}
+                      secondary={`${d.category} · ${(d.file_size_bytes / 1024).toFixed(1)} KB · Uploaded ${dayjs(d.created_at).format('DD/MM/YYYY HH:mm')}`}
                     />
                   </ListItem>
                 ))}
               </List>
             )}
+            <DocumentPreviewDialog document={previewDoc} onClose={() => setPreviewDoc(null)} apiBase={apiBase} />
           </TabPanel>
 
           {/* ── Intake Form ─────────────────────────────────────────────── */}

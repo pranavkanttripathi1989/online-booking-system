@@ -8,8 +8,16 @@ import { ThemeProvider } from '@mui/material/styles'
 import { gql } from '@apollo/client'
 import dayjs from 'dayjs'
 import { PATIENTS_QUERY, PATIENT_DETAIL_QUERY } from '../../graphql/queries'
-import PatientDetailPage from './detail'
+import PatientDetailPage, { GET_PATIENT_DOCUMENTS, CREATE_PATIENT_DOCUMENT, DELETE_PATIENT_DOCUMENT } from './detail'
 import { createAppTheme } from '../../theme'
+import { useAuth } from '../../hooks/useAuth'
+
+// REQ174 — detail.jsx now reads useAuth().hasRole() to gate the Documents
+// tab's Upload/Delete controls; every test needs a real mock, not just the
+// ones that exercise that tab directly.
+jest.mock('../../hooks/useAuth', () => ({
+  useAuth: jest.fn(),
+}))
 
 // Patient Membership -- local re-declarations matching detail.jsx's own
 // inline gql exactly (query-AST equality, not import identity — these
@@ -261,6 +269,13 @@ function AppointmentDetailMarker() {
   return <div data-testid="appointment-detail-marker">{location.pathname}</div>
 }
 
+// REQ174 -- default to "can do everything" so every pre-existing test in
+// this file (none of which exercise role-gating) keeps working unchanged;
+// the Documents-tab-specific tests below override this per case.
+beforeEach(() => {
+  useAuth.mockReturnValue({ hasRole: () => true })
+})
+
 function renderPage(mocks, { patientMock } = {}) {
   return render(
     // UI-8 -- this page reads theme.palette.appointmentStatus (statusChipSx,
@@ -300,6 +315,10 @@ async function openImmunizationsTab() {
 
 async function openTestResultsTab() {
   await userEvent.click(await screen.findByRole('tab', { name: /Test Results/ }))
+}
+
+async function openDocumentsTab() {
+  await userEvent.click(await screen.findByRole('tab', { name: /Documents/ }))
 }
 
 describe('patients/detail.jsx — Insurance tab (A-7)', () => {
@@ -805,5 +824,159 @@ describe('patients/detail.jsx — Test Results tab (context/open-questions.md #2
     const dialog = await screen.findByRole('dialog')
     expect(within(dialog).getByText('Haemoglobin')).toBeInTheDocument()
     expect(within(dialog).getByText('13.5 g/dL')).toBeInTheDocument()
+  })
+})
+
+// REQ174 — the Documents tab was previously local-state-only ("demo
+// mode"): nothing ever persisted past a page reload. These tests confirm
+// it's real now.
+describe('patients/detail.jsx — Documents tab (REQ174)', () => {
+  function documentsMock(documents = []) {
+    return {
+      request: { query: GET_PATIENT_DOCUMENTS, variables: { patient_id: PATIENT_ID } },
+      result: { data: { patientDocuments: documents } },
+    }
+  }
+
+  const realFetch = global.fetch
+  afterEach(() => {
+    global.fetch = realFetch
+  })
+
+  it('shows a real empty state when no documents have been uploaded', async () => {
+    renderPage([insuranceMock(), packagesMock(), documentsMock([])])
+    await openDocumentsTab()
+    await waitFor(() => expect(screen.getByText('No documents yet')).toBeInTheDocument())
+  })
+
+  it('renders a real uploaded document, not the old "demo mode" fabricated entry', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      documentsMock([
+        {
+          id: 'doc-1', category: 'Lab Reports', file_ref: '/uploads/patient-documents/x.pdf', mime_type: 'application/pdf',
+          original_filename: 'blood-test.pdf', file_size_bytes: 20480, created_at: '2026-08-01T10:00:00.000Z',
+        },
+      ]),
+    ])
+    await openDocumentsTab()
+    await waitFor(() => expect(screen.getByText('blood-test.pdf')).toBeInTheDocument())
+    expect(screen.getByText(/Lab Reports/)).toBeInTheDocument()
+    expect(screen.queryByText(/demo mode/)).not.toBeInTheDocument()
+  })
+
+  it('uploads a real file via the REST endpoint + createPatientDocument mutation, then refetches (DATA-9)', async () => {
+    global.fetch = jest.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ file_ref: '/uploads/patient-documents/new.pdf', mime_type: 'application/pdf' }),
+    })
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      documentsMock([]),
+      {
+        request: {
+          query: CREATE_PATIENT_DOCUMENT,
+          variables: {
+            input: {
+              patient_id: PATIENT_ID,
+              category: 'General',
+              file_ref: '/uploads/patient-documents/new.pdf',
+              mime_type: 'application/pdf',
+              original_filename: 'report.pdf',
+              file_size_bytes: 4,
+            },
+          },
+        },
+        result: { data: { createPatientDocument: { id: 'doc-new' } } },
+      },
+      documentsMock([
+        {
+          id: 'doc-new', category: 'General', file_ref: '/uploads/patient-documents/new.pdf', mime_type: 'application/pdf',
+          original_filename: 'report.pdf', file_size_bytes: 4, created_at: '2026-09-01T00:00:00.000Z',
+        },
+      ]),
+    ])
+    await openDocumentsTab()
+    await waitFor(() => expect(screen.getByText('No documents yet')).toBeInTheDocument())
+
+    const file = new File(['%PDF'], 'report.pdf', { type: 'application/pdf' })
+    await userEvent.upload(screen.getByTestId('document-upload-input'), file)
+
+    await waitFor(() => expect(screen.getByText('report.pdf')).toBeInTheDocument())
+    expect(global.fetch).toHaveBeenCalledWith(
+      expect.stringContaining('/patient-documents/upload'),
+      expect.objectContaining({ method: 'POST', credentials: 'include' }),
+    )
+  }, 15000)
+
+  it('opens the preview dialog with an iframe for a PDF', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      documentsMock([
+        {
+          id: 'doc-1', category: 'Lab Reports', file_ref: '/uploads/patient-documents/x.pdf', mime_type: 'application/pdf',
+          original_filename: 'blood-test.pdf', file_size_bytes: 20480, created_at: '2026-08-01T10:00:00.000Z',
+        },
+      ]),
+    ])
+    await openDocumentsTab()
+    await waitFor(() => expect(screen.getByText('blood-test.pdf')).toBeInTheDocument())
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Preview document' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByTitle('blood-test.pdf').tagName).toBe('IFRAME')
+  }, 15000)
+
+  it('opens the preview dialog with an img for an image', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      documentsMock([
+        {
+          id: 'doc-2', category: 'Imaging', file_ref: '/uploads/patient-documents/y.jpg', mime_type: 'image/jpeg',
+          original_filename: 'xray.jpg', file_size_bytes: 51200, created_at: '2026-08-01T10:00:00.000Z',
+        },
+      ]),
+    ])
+    await openDocumentsTab()
+    await waitFor(() => expect(screen.getByText('xray.jpg')).toBeInTheDocument())
+
+    await userEvent.click(await screen.findByRole('button', { name: 'Preview document' }))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByAltText('xray.jpg').tagName).toBe('IMG')
+  }, 15000)
+
+  it('hides the Upload Document control for a role outside admin/manager/clinician', async () => {
+    useAuth.mockReturnValue({ hasRole: (r) => r === 'staff' })
+    renderPage([insuranceMock(), packagesMock(), documentsMock([])])
+    await openDocumentsTab()
+    await waitFor(() => expect(screen.getByText('No documents yet')).toBeInTheDocument())
+    expect(screen.queryByRole('button', { name: /Upload Document/ })).not.toBeInTheDocument()
+  })
+
+  it('removes a document via the real deletePatientDocument mutation, then refetches', async () => {
+    renderPage([
+      insuranceMock(),
+      packagesMock(),
+      documentsMock([
+        {
+          id: 'doc-1', category: 'Lab Reports', file_ref: '/uploads/patient-documents/x.pdf', mime_type: 'application/pdf',
+          original_filename: 'blood-test.pdf', file_size_bytes: 20480, created_at: '2026-08-01T10:00:00.000Z',
+        },
+      ]),
+      {
+        request: { query: DELETE_PATIENT_DOCUMENT, variables: { id: 'doc-1' } },
+        result: { data: { deletePatientDocument: true } },
+      },
+      documentsMock([]),
+    ])
+    await openDocumentsTab()
+    await waitFor(() => expect(screen.getByText('blood-test.pdf')).toBeInTheDocument())
+
+    await userEvent.click(screen.getByRole('button', { name: 'Delete document' }))
+    await waitFor(() => expect(screen.getByText('No documents yet')).toBeInTheDocument())
   })
 })
