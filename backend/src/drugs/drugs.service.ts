@@ -65,4 +65,43 @@ export class DrugsService {
     await this.prisma.drugs.update({ where: { id: existing.id }, data: { is_deleted: true } });
     return true;
   }
+
+  // REQ173 — self-scoped via the sentinel-on-null pattern this codebase
+  // uses everywhere a clinician-facing query reads from the JWT's own
+  // clinician_id (appointments/encounters/patients/immunizations
+  // services all use the identical idiom): an unlinked clinician account
+  // gets an empty list, never every clinician's favourites.
+  async findFavourites(user: JwtPayload) {
+    const clinicianId = user.clinician_id ?? '__no_clinician_link__';
+    const rows = await this.prisma.clinicianFavouriteDrugs.findMany({
+      where: { clinician_id: clinicianId, drug: { is_deleted: false } },
+      include: { drug: true },
+      orderBy: { created_at: 'desc' },
+    });
+    return rows.map((r) => this.toGraphQL(r.drug));
+  }
+
+  // Re-validates visibility via findOne() (own org or platform-seeded)
+  // before creating the join row — Hard Rule 6 — so a clinician can't use
+  // id-guessing to infer the existence of another org's private drug.
+  // upsert on the unique [clinician_id, drug_id] key makes a repeat
+  // favourite a harmless no-op, not an error.
+  async addFavourite(drugId: string, user: JwtPayload) {
+    await this.findOne(drugId, user);
+    const clinicianId = user.clinician_id ?? '__no_clinician_link__';
+    await this.prisma.clinicianFavouriteDrugs.upsert({
+      where: { clinician_id_drug_id: { clinician_id: clinicianId, drug_id: drugId } },
+      create: { clinician_id: clinicianId, drug_id: drugId },
+      update: {},
+    });
+    return true;
+  }
+
+  async removeFavourite(drugId: string, user: JwtPayload) {
+    const clinicianId = user.clinician_id ?? '__no_clinician_link__';
+    await this.prisma.clinicianFavouriteDrugs.deleteMany({
+      where: { clinician_id: clinicianId, drug_id: drugId },
+    });
+    return true;
+  }
 }

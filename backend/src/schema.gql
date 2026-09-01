@@ -1894,6 +1894,7 @@ type MessageableContact {
 type Mutation {
   addDependant(input: AddDependantInput!): Dependant!
   addEncounterAddendum(input: AddAddendumInput!): EncounterAddendum!
+  addFavouriteDrug(drug_id: ID!): Boolean!
   addOnboardingFirstClinic(input: AddOnboardingClinicInput!, orgId: String!): Clinic!
   adjustStock(input: AdjustStockInput!): DrugBatch!
   applyEncounterTemplate(input: ApplyTemplateInput!): Encounter!
@@ -2032,6 +2033,7 @@ type Mutation {
   register(input: RegisterInput!): AuthPayload!
   releaseAppointmentSlot(clinician_id: String!, hold_token: String!, start_datetime: String!): Boolean!
   releasePublicSlot(clinicianId: ID!, date: String!, holdToken: String!, startTime: String!): Boolean!
+  removeFavouriteDrug(drug_id: ID!): Boolean!
   requestBreakGlassAccess(input: RequestBreakGlassAccessInput!): BreakGlassGrantMutationResult!
   requestDataRights(input: RequestDataRightsInput!): RightsRequest!
   requestOtp(input: RequestOtpInput!): GenericResult!
@@ -3200,6 +3202,7 @@ type Query {
   myDataExport: String
   myDependants: [Dependant!]!
   myEntitlements: OrgEntitlements!
+  myFavouriteDrugs: [Drug!]!
   myFinanceSummary(endDate: String!, startDate: String!): FinanceSummary!
   myFinanceTransactions(endDate: String!, startDate: String!): [FinanceTransaction!]!
   myNotificationPreferences: [NotificationPreference!]!

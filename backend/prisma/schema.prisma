@@ -1112,6 +1112,9 @@ model Clinicians {
   encounterTemplates  EncounterTemplates[]
   prescriptions       Prescriptions[]
   prescriptionSets    PrescriptionSets[]
+  // REQ173 -- a personal single-drug quick-pick list, distinct from
+  // prescriptionSets' own multi-drug bundles above.
+  favouriteDrugs      ClinicianFavouriteDrugs[]
   queueEntries        QueueEntries[]
   waitlistEntries     WaitlistEntries[]
   // REQ128 -- referrals naming this clinician as the target, not one they authored.
@@ -2155,8 +2158,28 @@ model Drugs {
   prescriptionItems    PrescriptionItems[]
   prescriptionSetItems PrescriptionSetItems[]
   batches              DrugBatches[]
+  // REQ173 -- clinicians who have starred this drug for quick re-selection.
+  favouritedBy         ClinicianFavouriteDrugs[]
 
   @@index([client_org_id, is_deleted])
+}
+
+// REQ173 -- a clinician's own single-drug quick-pick list ("don't make me
+// re-search this every time"), distinct from PrescriptionSets above (a
+// named multi-drug bundle/preset). The unique constraint makes favouriting
+// an already-favourited drug a harmless no-op at the DB level, not just an
+// application-level check.
+model ClinicianFavouriteDrugs {
+  id           String   @id @default(uuid())
+  clinician_id String
+  drug_id      String
+  created_at   DateTime @default(now())
+
+  clinician Clinicians @relation(fields: [clinician_id], references: [id])
+  drug      Drugs      @relation(fields: [drug_id], references: [id])
+
+  @@unique([clinician_id, drug_id])
+  @@index([clinician_id])
 }
 
 model Products {
