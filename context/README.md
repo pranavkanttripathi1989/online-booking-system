@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| patient-payments-2026-09-01-req175-176-177 | patient-payments | 2026-09-01 | REQ175, REQ176, REQ177, PLAN244, PLAN245, PLAN246, TP264, TP265, TP266, TR264, TR265, TR266 | done | [manifest.md](./patient-payments-2026-09-01-req175-176-177/manifest.md) |
 | patients-2026-09-01-req174 | patients | 2026-09-01 | REQ174, PLAN243, TP263, TR263 | done | [manifest.md](./patients-2026-09-01-req174/manifest.md) |
 | prescriptions-2026-09-01-req173 | prescriptions | 2026-09-01 | REQ173, PLAN242, TP262, TR262 | done | [manifest.md](./prescriptions-2026-09-01-req173/manifest.md) |
 | prescriptions-2026-08-31-req170-171-172 | prescriptions | 2026-08-31 | REQ170, REQ171, REQ172, PLAN239, PLAN240, PLAN241, TP259, TP260, TP261, TR259, TR260, TR261 | done | [manifest.md](./prescriptions-2026-08-31-req170-171-172/manifest.md) |
