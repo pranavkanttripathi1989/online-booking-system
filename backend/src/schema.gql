@@ -595,6 +595,12 @@ input CancelPatientMembershipInput {
   patient_id: ID!
 }
 
+input CancelPlatformSubscriptionInput {
+  immediately: Boolean
+  reason: String!
+  subscription_id: ID!
+}
+
 type CancellationRule {
   clinic: CancellationRuleClinic
   clinic_id: ID
@@ -1186,6 +1192,18 @@ input CreatePlanVersionInput {
   plan_id: ID!
   price: Float!
   quotas: [PlanQuotaInput!]!
+}
+
+input CreatePlatformSubscriptionInput {
+  client_org_id: ID!
+  gateway: String!
+  plan_id: ID!
+}
+
+type CreatePlatformSubscriptionResult {
+  message: String
+  subscription: PlatformSubscription
+  success: Boolean!
 }
 
 input CreatePrescriptionInput {
@@ -1944,6 +1962,7 @@ type Mutation {
   cancelAppointment(id: ID!, reason: String): Appointment!
   cancelAppointmentSeries(input: CancelAppointmentSeriesInput!): CancelAppointmentSeriesResult!
   cancelPatientMembership(input: CancelPatientMembershipInput!): EnrollMembershipResult!
+  cancelPlatformSubscription(input: CancelPlatformSubscriptionInput!): PlatformBillingMutationResult!
   cancelWaitlistEntry(id: ID!): WaitlistMutationResult!
   changeMyPassword(input: ChangeMyPasswordInput!): GenericResult!
   checkInAppointment(id: ID!): Appointment!
@@ -1985,6 +2004,7 @@ type Mutation {
   createPayerEmpanelment(input: PayerEmpanelmentInput!): PayerEmpanelment!
   createPlan(input: PlanInput!): Plan!
   createPlanVersion(input: CreatePlanVersionInput!): Plan!
+  createPlatformSubscription(input: CreatePlatformSubscriptionInput!): CreatePlatformSubscriptionResult!
   createPrescription(input: CreatePrescriptionInput!): Prescription!
   createPrescriptionSet(input: CreatePrescriptionSetInput!): PrescriptionSet!
   createProduct(input: CreateProductInput!): ProductMutationResult!
@@ -2082,6 +2102,7 @@ type Mutation {
   resolveRegistryEnrollment(input: ResolveRegistryEnrollmentInput!): ChronicRegistryEnrollment!
   resolveRightsRequest(id: ID!, input: ResolveRightsRequestInput!): RightsRequest!
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
+  retryPlatformInvoice(invoice_id: ID!): PlatformBillingMutationResult!
   revokeApiKey(id: ID!): ApiKey!
   revokeBreakGlassAccess(id: ID!): BreakGlassGrantMutationResult!
   revokeMySession(id: String!): GenericResult!
@@ -2867,6 +2888,67 @@ type PlanVersion {
   version: Int!
 }
 
+type PlatformBillingMutationResult {
+  message: String
+  success: Boolean!
+}
+
+type PlatformBillingProviderOption {
+  id: String!
+  label: String!
+}
+
+type PlatformInvoice {
+  afa_required: Boolean!
+  amount: Float!
+  cgst_amount: Float
+  client_org: PlatformSubscriptionOrg!
+  client_org_gstin: String
+  created_at: DateTime!
+  due_date: DateTime!
+  gateway: String!
+  gst_rate: Float
+  hsn_sac_code: String
+  id: ID!
+  igst_amount: Float
+  invoice_number: String!
+  paid_at: DateTime
+  platform_gstin: String
+  pre_debit_notice_sent_at: DateTime
+  sgst_amount: Float
+  status: String!
+  subscription_id: ID!
+}
+
+type PlatformSubscription {
+  authentication_url: String
+  billing_period: String!
+  cancel_at_period_end: Boolean!
+  cancellation_reason: String
+  cancelled_at: DateTime
+  client_org: PlatformSubscriptionOrg!
+  created_at: DateTime!
+  current_period_end: DateTime!
+  current_period_start: DateTime!
+  gateway: String!
+  id: ID!
+  mandate_status: String
+  plan: PlatformSubscriptionPlan!
+  price: Float!
+  status: String!
+}
+
+type PlatformSubscriptionOrg {
+  id: ID!
+  name: String!
+}
+
+type PlatformSubscriptionPlan {
+  id: ID!
+  name: String!
+  tier: String!
+}
+
 type PotentialDuplicatePatient {
   date_of_birth: DateTime!
   full_name: String!
@@ -3342,6 +3424,11 @@ type Query {
   pendingDispenseItems: [PendingDispenseItem!]!
   plan(id: ID!): Plan
   plans: [Plan!]!
+  platformBillingProviders: [PlatformBillingProviderOption!]!
+  platformInvoices(client_org_id: ID, status: String, subscription_id: ID): [PlatformInvoice!]!
+  platformSubscription(id: ID!): PlatformSubscription
+  platformSubscriptions(status: String): [PlatformSubscription!]!
+  platformTransactions(status: String): [PlatformInvoice!]!
   potentialDuplicatePatients(date_of_birth: String, first_name: String, last_name: String, phone: String!): [PotentialDuplicatePatient!]!
   preConsultSummary(patient_id: ID!): [String!]!
   prescription(id: ID!): Prescription

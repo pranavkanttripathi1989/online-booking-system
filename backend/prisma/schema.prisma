@@ -957,6 +957,10 @@ model ClientOrganizations {
   // versioned Plans/PlanVersions catalog (REQ032) that actually carries
   // feature_flags_json/quotas_json, the real entitlement source.
   plan_id       String?
+  // REQ179 — the tenant's own business GSTIN, for their B2B input-tax-
+  // credit claim on the platform invoices they receive. Distinct from
+  // Clinics.gstin, which is about the clinic billing ITS OWN patients.
+  gstin         String?
   created_at    DateTime @default(now())
   updated_at    DateTime @default(now())
 
@@ -973,6 +977,8 @@ model ClientOrganizations {
   appointmentPayments    AppointmentPayments[]
   discountApprovalRequests DiscountApprovalRequests[]
   cashDrawerCloseouts    CashDrawerCloseouts[]
+  platformSubscriptions  PlatformSubscriptions[]
+  platformInvoices       PlatformInvoices[]
   products               Products[]
   patients               Patients[]
   productCategories      ProductCategories[]
@@ -3060,6 +3066,7 @@ model Plans {
 
   versions      PlanVersions[]
   organizations ClientOrganizations[]
+  subscriptions PlatformSubscriptions[]
 }
 
 model PlanVersions {
@@ -3080,9 +3087,124 @@ model PlanVersions {
   created_at        DateTime  @default(now())
 
   plan Plans @relation(fields: [plan_id], references: [id])
+  subscriptions PlatformSubscriptions[]
 
   @@unique([plan_id, version])
   @@index([plan_id])
+}
+
+// ============================================================
+// REQ178/179/180 — platform (tenant SaaS) billing. Genuinely separate
+// from the OLDER, still-live-but-onboarding-only SubscriptionPlans/
+// OrganizationSubscriptions/PaymentTransactions trio below (self-serve
+// signup's own trial-selection record, never billed against for real) —
+// this references Plans/PlanVersions (the real, versioned entitlement
+// catalog, REQ032/REQ147) directly, since a tenant billed for real must
+// be billed against the exact plan that actually gates their features.
+// See CLAUDE.md's own "platform-billing" section for the full account.
+// ============================================================
+model PlatformSubscriptions {
+  id                       String    @id @default(uuid())
+  client_org_id            String
+  plan_id                  String
+  // The specific PlanVersion's price/cycle locked in at subscribe time --
+  // a later plan-catalog edit (createPlanVersion) never retroactively
+  // changes an existing subscriber's committed price.
+  plan_version_id          String
+  status                   String    @default("active") // trialing | active | past_due | grace | suspended | cancelled | non_renewing
+  gateway                  String    // razorpay | stripe
+  gateway_customer_id      String?
+  gateway_subscription_id  String?   // Razorpay subscription_id / Stripe subscription id
+  mandate_status           String?   // pending | confirmed | paused | revoked -- Razorpay UPI/eNACH only, null for Stripe
+  mandate_max_amount_paise Int?
+  current_period_start     DateTime
+  current_period_end       DateTime
+  cancel_at_period_end     Boolean   @default(false)
+  cancelled_at             DateTime?
+  cancelled_by_user_id     String?
+  cancellation_reason      String?
+  created_by_user_id       String
+  created_at               DateTime  @default(now())
+  updated_at               DateTime  @default(now())
+
+  client_org    ClientOrganizations     @relation(fields: [client_org_id], references: [id])
+  plan          Plans                   @relation(fields: [plan_id], references: [id])
+  plan_version  PlanVersions            @relation(fields: [plan_version_id], references: [id])
+  invoices      PlatformInvoices[]
+  dunningEvents PlatformDunningEvents[]
+
+  @@index([client_org_id])
+  @@index([status])
+  @@index([gateway_subscription_id])
+}
+
+model PlatformInvoices {
+  id                             String    @id @default(uuid())
+  subscription_id                String
+  client_org_id                  String
+  invoice_number                 String    @unique
+  amount_paise                   Int
+  currency                       String    @default("INR")
+  status                         String    @default("pending") // pending | paid | failed | void | refunded
+  due_date                       DateTime
+  paid_at                        DateTime?
+  gateway                        String
+  gateway_invoice_id             String?
+  gateway_payment_id             String?
+  // RBI 24h pre-debit-notice audit trail -- one notice per charge cycle,
+  // inlined here rather than a separate join table (matches
+  // AppointmentPayments' own precedent of inlining GST fields).
+  pre_debit_notice_sent_at       DateTime?
+  pre_debit_notice_amount_paise  Int?
+  afa_required                   Boolean   @default(false) // amount > ₹15,000
+  // GST here is NOT the AppointmentPayments/PaymentTransactions shape
+  // (one gstin = the seller's) -- platform billing has a genuinely
+  // different GST direction: CareOS is the seller, the tenant org is the
+  // buyer, and a B2B tenant needs the SELLER's GSTIN on the invoice to
+  // claim input tax credit, while the platform separately records the
+  // BUYER's GSTIN for its own filings. Both sides explicit, never one
+  // ambiguous "gstin" field.
+  platform_gstin                 String?   // CareOS's own GSTIN (seller) -- from PLATFORM_GSTIN env var, not per-org
+  client_org_gstin               String?   // the tenant's own GSTIN (buyer), if supplied -- ClientOrganizations.gstin
+  hsn_sac_code                   String?
+  gst_rate                       Float?
+  cgst_amount_paise              Int?
+  sgst_amount_paise              Int?
+  igst_amount_paise              Int?
+  metadata                       Json      @default("{}")
+  created_at                     DateTime  @default(now())
+
+  subscription PlatformSubscriptions @relation(fields: [subscription_id], references: [id])
+  client_org   ClientOrganizations   @relation(fields: [client_org_id], references: [id])
+
+  @@index([subscription_id])
+  @@index([client_org_id, created_at])
+  @@index([status])
+}
+
+// Same atomic-upsert-increment shape as InvoiceSequences, minus the
+// clinic_id dimension -- platform billing has no clinic to key by (the
+// platform itself is the single "seller"), just a global sequence per
+// financial year.
+model PlatformInvoiceSequences {
+  id             String   @id @default(uuid())
+  financial_year String   @unique
+  last_number    Int      @default(0)
+  updated_at     DateTime @updatedAt
+}
+
+model PlatformDunningEvents {
+  id              String    @id @default(uuid())
+  subscription_id String
+  invoice_id      String?
+  event_type      String    // payment_failed | retry_scheduled | retry_attempted | grace_started | suspended | reactivated | mandate_paused | mandate_revoked
+  attempt_number  Int?
+  occurred_at     DateTime  @default(now())
+  metadata        Json      @default("{}")
+
+  subscription PlatformSubscriptions @relation(fields: [subscription_id], references: [id])
+
+  @@index([subscription_id])
 }
 
 // ============================================================

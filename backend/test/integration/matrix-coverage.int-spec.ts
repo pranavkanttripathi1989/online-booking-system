@@ -126,6 +126,16 @@ const EXEMPT: Record<string, string> = {
   // directly in payment-gateway-config.service.spec.ts's own dedicated
   // tests instead.
   'payment-gateways': 'No list query exists on this resolver — paymentGatewayProviders is a global registry catalog, clinicPaymentGatewayConfig is a single-record query keyed by a required clinic_id. Same shape as ai-clinical/telemedicine\'s own exemptions above. Cross-org rejection is real and covered directly in payment-gateway-config.service.spec.ts instead.',
+  // REQ178/180 — platform-level tenant-subscription billing, @Auth('super_admin')
+  // throughout, cross-org by design: a super_admin views/creates/cancels
+  // subscriptions FOR every org, not just their own — same "no org A caller"
+  // shape as organizations/plans's own exemptions above (this domain's very
+  // purpose is a platform operator acting across every tenant). Cross-tenant
+  // input validation is real (createSubscription/cancelSubscription both
+  // resolve the target org/subscription and reject an unknown or
+  // already-non-billable one) and covered directly in
+  // platform-billing.service.spec.ts's own dedicated tests instead.
+  'platform-billing': "Platform-level tenant-subscription billing, @Auth('super_admin') throughout — cross-org by design (a super_admin acts across every tenant's subscription, there is no 'org A caller' for this domain), same shape as organizations/plans's own exemptions above. Isolation/validation covered directly in platform-billing.service.spec.ts instead.",
 };
 
 /**
