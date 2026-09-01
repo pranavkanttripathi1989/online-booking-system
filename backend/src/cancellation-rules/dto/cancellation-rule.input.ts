@@ -43,4 +43,13 @@ export class UpdateCancellationRuleInput {
   @Field(() => ID, { nullable: true }) @IsOptional() product_id?: string;
   @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() priority?: number;
   @Field({ nullable: true }) @IsOptional() @IsBoolean() is_active?: boolean;
+  // Real bug found on re-review: admin/Policies.jsx's edit form always
+  // sends rule_type as part of its own full-form spread (it's a real field
+  // on ruleForm, populated on every Edit click) -- with no matching field
+  // on this input type, the global ValidationPipe's forbidNonWhitelisted
+  // rejected EVERY edit of an existing rule outright, not just ones
+  // touching this field. The exact bug class this codebase has hit
+  // repeatedly: an @InputType field the frontend sends but the DTO never
+  // declared.
+  @Field({ nullable: true }) @IsOptional() @IsIn(['cancellation', 'reschedule']) rule_type?: string;
 }

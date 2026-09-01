@@ -213,6 +213,33 @@ describe('CancellationRulesService', () => {
         expect.objectContaining({ data: expect.objectContaining({ clinic_id: null, client_org_id: undefined }) }),
       );
     });
+
+    // REQ177 -- real bug found on re-review: admin/Policies.jsx's edit form
+    // always sends rule_type as part of its own full-form spread (a real
+    // field on ruleForm, populated on every Edit click), but
+    // UpdateCancellationRuleInput never declared the field at all -- the
+    // global ValidationPipe's forbidNonWhitelisted would have rejected
+    // EVERY edit of an existing rule outright, not just ones touching
+    // rule_type. This test would have failed with a TS/runtime whitelist
+    // error against the pre-fix DTO.
+    it('accepts and applies rule_type on update', async () => {
+      prisma.productCancellationRules.findUnique.mockResolvedValue(ruleA);
+      prisma.productCancellationRules.update.mockResolvedValue({ ...ruleA, rule_type: 'reschedule' });
+      const result = await service.update('rule-a1', { rule_type: 'reschedule' } as any, orgAUser);
+      expect(result.success).toBe(true);
+      expect(prisma.productCancellationRules.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ rule_type: 'reschedule' }) }),
+      );
+    });
+
+    it('leaves rule_type untouched when omitted from the update', async () => {
+      prisma.productCancellationRules.findUnique.mockResolvedValue(ruleA);
+      prisma.productCancellationRules.update.mockResolvedValue(ruleA);
+      await service.update('rule-a1', { name: 'Renamed only' } as any, orgAUser);
+      expect(prisma.productCancellationRules.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ rule_type: undefined }) }),
+      );
+    });
   });
 
   describe('remove — tenant isolation', () => {

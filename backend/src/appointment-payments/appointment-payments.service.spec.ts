@@ -778,11 +778,20 @@ describe('AppointmentPaymentsService', () => {
       process.env = { ...process.env, RAZORPAY_WEBHOOK_SECRET: webhookSecret };
     });
 
-    it('rejects when RAZORPAY_WEBHOOK_SECRET is not configured, without touching the database', async () => {
+    // REQ175 -- signature verification now resolves the SPECIFIC payment's
+    // own clinic before checking (real bug fix, see the service's own
+    // comment: this used to check the platform env var unconditionally,
+    // rejecting every real webhook for any clinic that configured its own
+    // distinct Razorpay account). A garbage/empty body with no real event
+    // type is now acknowledged-and-ignored before ever reaching credential
+    // resolution at all -- this test needs a real event shape to reach the
+    // "not configured" branch, matching the new, more correct ordering.
+    it('rejects when the resolved clinic has no webhook_secret configured (platform default, unset)', async () => {
       process.env.RAZORPAY_WEBHOOK_SECRET = '';
-      const body = Buffer.from('{}');
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', clinic_id: 'clinic-1', status: 'pending' });
+      const body = Buffer.from(JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_1', order_id: 'order_1' } } } }));
       await expect(service.handleRazorpayWebhook(body, 'anything')).rejects.toThrow(/not configured/i);
-      expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
+      expect(prisma.appointmentPayments.update).not.toHaveBeenCalled();
       expect(prisma.auditLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ outcome: 'not_configured' }) }));
     });
 
@@ -793,10 +802,40 @@ describe('AppointmentPaymentsService', () => {
     });
 
     it('rejects a tampered/incorrect signature, without touching the payment row', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', clinic_id: 'clinic-1', status: 'pending' });
       const body = Buffer.from(JSON.stringify({ event: 'payment.captured', payload: { payment: { entity: { id: 'pay_1', order_id: 'order_1' } } } }));
       await expect(service.handleRazorpayWebhook(body, sign('a different body'))).rejects.toThrow(/invalid.*signature/i);
-      expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
+      expect(prisma.appointmentPayments.update).not.toHaveBeenCalled();
       expect(prisma.auditLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ outcome: 'invalid_signature' }) }));
+    });
+
+    // REQ175 -- the real bug this refactor fixes: a clinic with its own
+    // configured Razorpay account (a distinct webhook_secret) must have
+    // its own real webhooks verified against ITS OWN secret, not the
+    // platform's env-var one.
+    it('verifies against the payment\'s own clinic-configured webhook_secret, not the platform default', async () => {
+      const clinicSecret = 'whsec_clinic_own';
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', clinic_id: 'clinic-1', status: 'pending' });
+      prisma.paymentGatewayConfig.findUnique.mockResolvedValue({
+        provider: 'razorpay',
+        is_active: true,
+        credentials_encrypted: encryptJson({ key_id: 'k', key_secret: 's', webhook_secret: clinicSecret }),
+      });
+      // payment.failed, not .captured -- avoids re-exercising the full
+      // invoice-generation path, already covered by its own dedicated
+      // tests below; this test's only concern is signature routing.
+      const body = Buffer.from(JSON.stringify({ event: 'payment.failed', payload: { payment: { entity: { id: 'pay_1', order_id: 'order_1' } } } }));
+
+      // Signed with the PLATFORM secret ('whsec_fake') -- must be rejected,
+      // since this clinic has its own distinct one configured.
+      await expect(service.handleRazorpayWebhook(body, sign(body.toString()))).rejects.toThrow(/invalid.*signature/i);
+      expect(prisma.appointmentPayments.update).not.toHaveBeenCalled();
+
+      // Signed with the CLINIC's own secret -- must succeed.
+      const clinicSignature = crypto.createHmac('sha256', clinicSecret).update(body).digest('hex');
+      const result = await service.handleRazorpayWebhook(body, clinicSignature);
+      expect(result).toEqual({ acknowledged: true });
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({ where: { id: 'pay-row-1' }, data: { status: 'failed' } });
     });
 
     it('rejects an unparseable body even with a signature that matches its own (garbage) bytes', async () => {
@@ -1491,6 +1530,24 @@ describe('AppointmentPaymentsService', () => {
       expect(result.success).toBe(false);
     });
 
+    // Real bug found on re-review: this mutation had no check on the
+    // appointment's own status at all -- a succeeded payment on a
+    // completed/no_show/still-confirmed appointment could be "refunded"
+    // through the identical path, and the fee computation would silently
+    // fall through to reschedule-fee rules for an appointment that was
+    // never rescheduled. REQ176's own acceptance criteria scope this to a
+    // cancelled appointment; now enforced server-side, not just in the UI.
+    it('rejects a payment whose appointment is not cancelled (e.g. completed)', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue({
+        ...succeededPayment,
+        appointment: { ...succeededPayment.appointment, status: 'completed' },
+      });
+      const result = await service.requestRefund({ appointment_payment_id: 'pay-1', reason: 'x' } as any, orgUser);
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/cancelled appointment/);
+      expect(prisma.refundRequests.create).not.toHaveBeenCalled();
+    });
+
     it('computes the refund amount server-side from the cancellation-fee policy, never from client input', async () => {
       prisma.appointmentPayments.findUnique.mockResolvedValue(succeededPayment);
       // Cancelled with only ~24h notice against a rule requiring 48h -> fee applies.
@@ -1563,7 +1620,7 @@ describe('AppointmentPaymentsService', () => {
       requested_amount: 50000,
       reason: 'x',
       appointment_payment_id: 'pay-1',
-      appointment_payment: { id: 'pay-1', clinic_id: 'clinic-a', gateway_payment_id: 'pay_gw_1', gateway_order_id: 'gw_order_1', razorpay_payment_id: null, razorpay_order_id: null },
+      appointment_payment: { id: 'pay-1', clinic_id: 'clinic-a', gateway: 'cashfree', gateway_payment_id: 'pay_gw_1', gateway_order_id: 'gw_order_1', razorpay_payment_id: null, razorpay_order_id: null },
     };
 
     it('rejects a nonexistent request', async () => {
@@ -1611,12 +1668,34 @@ describe('AppointmentPaymentsService', () => {
     it('rejects approval when the payment has no gateway reference (a counter payment)', async () => {
       prisma.refundRequests.findUnique.mockResolvedValue({
         ...pendingRequest,
-        appointment_payment: { id: 'pay-1', clinic_id: 'clinic-a', gateway_payment_id: null, razorpay_payment_id: null },
+        appointment_payment: { id: 'pay-1', clinic_id: 'clinic-a', gateway: 'razorpay', gateway_payment_id: null, razorpay_payment_id: null },
       });
       const result = await service.decideRefundRequest({ request_id: 'req-1', decision: 'approve' } as any, orgUser);
       expect(result.success).toBe(false);
       expect(result.message).toMatch(/no gateway reference/);
       expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    // Real bug found on re-review: a clinic has exactly ONE active gateway
+    // config at a time (PaymentGatewayConfig.clinic_id is unique) --
+    // getActiveConfigForClinic always resolves whatever is CURRENTLY
+    // configured, not necessarily the gateway that captured this specific
+    // payment. If the clinic switched providers since, calling the now-active
+    // provider's .refund() with an id it never issued would misroute the
+    // request to the wrong vendor entirely.
+    it('rejects approval when the clinic has since switched gateways, without calling any gateway or leaving the payment stuck processing', async () => {
+      prisma.refundRequests.findUnique.mockResolvedValue(pendingRequest); // captured via cashfree
+      prisma.paymentGatewayConfig.findUnique.mockResolvedValue({
+        provider: 'razorpay', // now configured to razorpay instead
+        is_active: true,
+        credentials_encrypted: encryptJson({ key_id: 'k', key_secret: 's', webhook_secret: 'w' }),
+      });
+      const result = await service.decideRefundRequest({ request_id: 'req-1', decision: 'approve' } as any, orgUser);
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/captured via cashfree.*active gateway is now razorpay/);
+      expect(fetchMock).not.toHaveBeenCalled();
+      expect(prisma.appointmentPayments.update).not.toHaveBeenCalled();
+      expect(prisma.refundRequests.update).not.toHaveBeenCalled();
     });
   });
 });

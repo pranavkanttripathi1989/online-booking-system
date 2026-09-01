@@ -354,7 +354,17 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     })),
   });
 
-  const when = new Date('2026-09-01T10:00:00.000Z');
+  // Anchored to real time (~24h out), not a fixed calendar literal --
+  // dashboard.upcoming_appointments' own domain-case filters
+  // `appointment_time: { gte: now }`, and a fixed-in-the-future-when-
+  // written date silently becomes past-tense the moment real wall-clock
+  // time catches up to it, dropping this fixture out of "upcoming" with
+  // no error anywhere (confirmed live: this fixture was pinned to
+  // 2026-09-01T10:00 and started failing the same calendar day, once
+  // real time passed 10:00 UTC). Same class of bug this codebase has
+  // documented before for a "today" fixture pinned to a fixed clock hour
+  // -- applied here to the mirror-image "must stay in the future" case.
+  const when = new Date(Date.now() + 24 * 60 * 60 * 1000);
   await prisma.appointments.createMany({
     data: [
       { id: IDS.appointmentA, clinic_id: IDS.clinicA, room_id: IDS.roomA, clinician_id: IDS.clinicianA, patient_id: IDS.patientA, appointment_date: when, appointment_time: when, reason: 'Checkup A', product_id: IDS.productA },
@@ -363,8 +373,10 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
       // A different time slot from appointmentA/B above -- same clinician,
       // same day would collide with the real Postgres no-overlap EXCLUDE
       // constraint (appointments_no_overlapping_booking), confirmed live.
-      { id: IDS.analyticsApptA, clinic_id: IDS.clinicA, room_id: IDS.roomA, clinician_id: IDS.clinicianA, patient_id: IDS.patientA, appointment_date: when, appointment_time: new Date('2026-09-01T14:00:00.000Z'), reason: 'Analytics A', product_id: IDS.productA, status: 'completed' },
-      { id: IDS.analyticsApptB, clinic_id: IDS.clinicB, room_id: IDS.roomB, clinician_id: IDS.clinicianB, patient_id: IDS.patientB, appointment_date: when, appointment_time: new Date('2026-09-01T14:00:00.000Z'), reason: 'Analytics B', product_id: IDS.productB, status: 'completed' },
+      // Offset from `when` (not a second fixed literal), for the same
+      // real-time-drift reason as `when` itself above.
+      { id: IDS.analyticsApptA, clinic_id: IDS.clinicA, room_id: IDS.roomA, clinician_id: IDS.clinicianA, patient_id: IDS.patientA, appointment_date: when, appointment_time: new Date(when.getTime() + 4 * 60 * 60 * 1000), reason: 'Analytics A', product_id: IDS.productA, status: 'completed' },
+      { id: IDS.analyticsApptB, clinic_id: IDS.clinicB, room_id: IDS.roomB, clinician_id: IDS.clinicianB, patient_id: IDS.patientB, appointment_date: when, appointment_time: new Date(when.getTime() + 4 * 60 * 60 * 1000), reason: 'Analytics B', product_id: IDS.productB, status: 'completed' },
     ],
   });
 

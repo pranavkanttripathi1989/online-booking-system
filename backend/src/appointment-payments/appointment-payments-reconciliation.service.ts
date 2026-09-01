@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { Prisma } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
+import { PaymentGatewayConfigService } from '../payment-gateways/payment-gateway-config.service';
 
 const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
 // A live Razorpay Checkout session is good for far less than this -- 20
@@ -25,7 +26,10 @@ interface RazorpayPaymentEntity {
 export class AppointmentPaymentsReconciliationService {
   private readonly logger = new Logger(AppointmentPaymentsReconciliationService.name);
 
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly paymentGatewayConfig: PaymentGatewayConfigService,
+  ) {}
 
   @Cron('*/15 * * * *')
   async reconcilePendingPayments() {
@@ -35,20 +39,39 @@ export class AppointmentPaymentsReconciliationService {
     });
     if (pendingRows.length === 0) return;
 
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keyId || !keySecret) {
-      this.logger.warn('Razorpay is not configured; skipping pending-payment reconciliation sweep');
-      return;
-    }
-    const authHeader = `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
-
+    // Real bug found on re-review: this used to compute ONE shared auth
+    // header from the platform's own env-var RAZORPAY_KEY_ID/SECRET for the
+    // WHOLE batch, unconditionally -- any clinic with its own configured
+    // Razorpay account (REQ175) would have its pending payments queried
+    // against Razorpay using the wrong account's credentials entirely
+    // (a real cross-tenant auth mismatch, not just a missing feature),
+    // silently returning nothing captured and marking a genuinely-paid
+    // booking 'failed'. Resolved per-payment now, same
+    // getActiveConfigForClinic() call every other gateway-aware path in
+    // this codebase already uses.
     for (const payment of pendingRows) {
-      await this.reconcileOne(payment, authHeader);
+      await this.reconcileOne(payment);
     }
   }
 
-  private async reconcileOne(payment: { id: string; razorpay_order_id: string | null }, authHeader: string) {
+  private async reconcileOne(payment: { id: string; clinic_id: string; razorpay_order_id: string | null }) {
+    const { provider, credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(payment.clinic_id);
+    // This sweep only ever queries Razorpay's own Orders API -- a payment
+    // whose clinic has since switched to a different gateway has no valid
+    // credentials to reconcile against here (the ones that captured it
+    // were overwritten by the switch); skip it rather than call Razorpay
+    // with a different vendor's credential shape (e.g. Cashfree's
+    // client_id/client_secret, which has no key_id/key_secret at all).
+    if (provider.id !== 'razorpay') {
+      await this.logReconciliationAudit(payment.id, 'gateway_reconfigured', {});
+      return;
+    }
+    if (!credentials.key_id || !credentials.key_secret) {
+      this.logger.warn(`Razorpay is not configured for clinic ${payment.clinic_id}; skipping reconciliation for payment ${payment.id}`);
+      return;
+    }
+    const authHeader = `Basic ${Buffer.from(`${credentials.key_id}:${credentials.key_secret}`).toString('base64')}`;
+
     try {
       const res = await fetch(`${RAZORPAY_ORDERS_URL}/${payment.razorpay_order_id}/payments`, {
         headers: { Authorization: authHeader },

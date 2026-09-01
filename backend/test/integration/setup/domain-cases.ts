@@ -1,5 +1,17 @@
 import { IDS } from './fixture';
 
+// The analytics domain-case below needs a date range that reliably
+// brackets fixture.ts's own analyticsApptA/B rows, which are themselves
+// anchored to real time (~28h out from whenever the suite runs), not a
+// fixed calendar date -- a hardcoded "2026-08-25".."2026-09-05" range
+// here would have gone stale the exact same way that fixture's own prior
+// fixed literal did (confirmed live: both were pinned to the same
+// 2026-09-01 day this bug was found on). +/-3 days from "now" comfortably
+// covers the ~28h-out fixture regardless of which day the suite runs.
+const dateOffset = (days: number) => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const ANALYTICS_STATS_START = dateOffset(-3);
+const ANALYTICS_STATS_END = dateOffset(3);
+
 /**
  * The domain table the tenancy matrix iterates.
  *
@@ -221,7 +233,7 @@ export const CASES: DomainCase[] = [
     // rather than trying to id the whole aggregate.
     domain: 'analytics',
     what: 'getAppointmentStats.topClinicians',
-    query: `{ getAppointmentStats(startDate: "2026-08-25", endDate: "2026-09-05") { topClinicians { id } } }`,
+    query: `{ getAppointmentStats(startDate: "${ANALYTICS_STATS_START}", endDate: "${ANALYTICS_STATS_END}") { topClinicians { id } } }`,
     ids: (d) => (d.getAppointmentStats?.topClinicians ?? []).map((x: any) => x.id),
     aId: IDS.clinicianA,
     bId: IDS.clinicianB,

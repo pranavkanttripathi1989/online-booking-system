@@ -168,6 +168,7 @@ export class CancellationRulesService {
           client_org_id: clientOrgId,
           priority: input.priority,
           is_active: input.is_active,
+          rule_type: input.rule_type as any,
         },
         include: { clinic: true, product: true },
       });

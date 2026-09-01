@@ -660,23 +660,9 @@ export class AppointmentPaymentsService {
   // event this codebase *understands and chooses not to act on* still gets
   // a real 200 (see below) -- only genuine failures get a non-2xx.
   async handleRazorpayWebhook(rawBody: Buffer, signatureHeader: string | undefined) {
-    const webhookSecret = process.env.RAZORPAY_WEBHOOK_SECRET;
-    if (!webhookSecret) {
-      await this.logWebhookAudit(null, 'razorpay_webhook', 'not_configured', {});
-      throw new BadRequestException('Razorpay webhooks are not configured');
-    }
     if (!signatureHeader) {
       await this.logWebhookAudit(null, 'razorpay_webhook', 'missing_signature', {});
       throw new BadRequestException('Missing webhook signature');
-    }
-
-    const expectedSignature = crypto.createHmac('sha256', webhookSecret).update(rawBody).digest('hex');
-    const expected = Buffer.from(expectedSignature, 'hex');
-    const actual = Buffer.from(signatureHeader, 'hex');
-    const matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
-    if (!matches) {
-      await this.logWebhookAudit(null, 'razorpay_webhook', 'invalid_signature', {});
-      throw new BadRequestException('Invalid webhook signature');
     }
 
     let event: {
@@ -696,50 +682,81 @@ export class AppointmentPaymentsService {
     const eventType = event.event;
     const orderId = event.payload?.payment?.entity?.order_id;
     const paymentId = event.payload?.payment?.entity?.id;
+    const refundPaymentId = event.payload?.refund?.entity?.payment_id;
+    const refundId = event.payload?.refund?.entity?.id;
+    const isRefundEvent = eventType === 'refund.processed' || eventType === 'refund.failed';
 
     // REQ176 -- refund.processed/refund.failed closes the gap this webhook
     // used to acknowledge-and-drop entirely (see this method's own prior
     // comment history): a refund's own gateway_payment_id, not order_id,
     // is what identifies the row, since a refund event carries no order_id
     // of its own.
-    if (eventType === 'refund.processed' || eventType === 'refund.failed') {
-      const refundPaymentId = event.payload?.refund?.entity?.payment_id;
-      const refundId = event.payload?.refund?.entity?.id;
-      if (!refundPaymentId) {
-        await this.logWebhookAudit(null, 'razorpay_webhook', 'no_payment_id', { event: eventType });
-        return { acknowledged: true };
-      }
-      const refundPayment = await this.prisma.appointmentPayments.findFirst({ where: { razorpay_payment_id: refundPaymentId } });
-      if (!refundPayment) {
-        await this.logWebhookAudit(null, 'razorpay_webhook', 'payment_not_found', { event: eventType, refundPaymentId });
-        return { acknowledged: true };
-      }
-      await this.prisma.appointmentPayments.update({
-        where: { id: refundPayment.id },
-        data: {
-          refund_status: eventType === 'refund.processed' ? 'refunded' : 'failed',
-          refunded_at: eventType === 'refund.processed' ? new Date() : refundPayment.refunded_at,
-          gateway_refund_id: refundId ?? refundPayment.gateway_refund_id,
-        },
-      });
-      await this.logWebhookAudit(refundPayment.id, 'razorpay_webhook', 'success', { event: eventType, refundPaymentId, refundId });
+    if (isRefundEvent && !refundPaymentId) {
+      await this.logWebhookAudit(null, 'razorpay_webhook', 'no_payment_id', { event: eventType });
       return { acknowledged: true };
     }
-
     // Every other unrecognised event type is still acknowledged (200 --
     // Razorpay stops retrying) rather than mishandled.
-    if (eventType !== 'payment.captured' && eventType !== 'payment.failed') {
+    if (!isRefundEvent && eventType !== 'payment.captured' && eventType !== 'payment.failed') {
       await this.logWebhookAudit(null, 'razorpay_webhook', 'ignored', { event: eventType });
       return { acknowledged: true };
     }
-    if (!orderId) {
+    if (!isRefundEvent && !orderId) {
       await this.logWebhookAudit(null, 'razorpay_webhook', 'no_order_id', { event: eventType });
       return { acknowledged: true };
     }
 
-    const payment = await this.prisma.appointmentPayments.findFirst({ where: { razorpay_order_id: orderId } });
+    // Real bug found on re-review: this used to verify against the
+    // platform's own env-var RAZORPAY_WEBHOOK_SECRET unconditionally,
+    // before REQ175 gave clinics the ability to configure their own
+    // distinct Razorpay account (its own webhook_secret). Any clinic that
+    // actually did this would have every one of their real webhooks
+    // rejected outright (wrong secret), leaving payments stuck 'pending'
+    // forever -- the reconciliation sweep
+    // (appointment-payments-reconciliation.service.ts) has the identical
+    // platform-only-credentials gap, tracked separately. Fixed the same
+    // way verifyAndApplyGatewayEvent() below already handles the other
+    // three gateways: parse first (safe -- it grants no capability by
+    // itself), resolve the specific payment's own clinic, THEN verify
+    // against that clinic's own credentials, falling back to the
+    // platform's env-var Razorpay config when the clinic has none
+    // configured (getActiveConfigForClinic's own established default).
+    const payment = isRefundEvent
+      ? await this.prisma.appointmentPayments.findFirst({ where: { razorpay_payment_id: refundPaymentId } })
+      : await this.prisma.appointmentPayments.findFirst({ where: { razorpay_order_id: orderId } });
     if (!payment) {
-      await this.logWebhookAudit(null, 'razorpay_webhook', 'order_not_found', { event: eventType, orderId });
+      await this.logWebhookAudit(null, 'razorpay_webhook', isRefundEvent ? 'payment_not_found' : 'order_not_found', {
+        event: eventType,
+        orderId,
+        refundPaymentId,
+      });
+      return { acknowledged: true };
+    }
+
+    const { credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(payment.clinic_id);
+    if (!credentials.webhook_secret) {
+      await this.logWebhookAudit(payment.id, 'razorpay_webhook', 'not_configured', {});
+      throw new BadRequestException('Razorpay webhooks are not configured');
+    }
+    const expectedSignature = crypto.createHmac('sha256', credentials.webhook_secret).update(rawBody).digest('hex');
+    const expected = Buffer.from(expectedSignature, 'hex');
+    const actual = Buffer.from(signatureHeader, 'hex');
+    const matches = expected.length === actual.length && crypto.timingSafeEqual(expected, actual);
+    if (!matches) {
+      await this.logWebhookAudit(payment.id, 'razorpay_webhook', 'invalid_signature', {});
+      throw new BadRequestException('Invalid webhook signature');
+    }
+
+    if (isRefundEvent) {
+      await this.prisma.appointmentPayments.update({
+        where: { id: payment.id },
+        data: {
+          refund_status: eventType === 'refund.processed' ? 'refunded' : 'failed',
+          refunded_at: eventType === 'refund.processed' ? new Date() : payment.refunded_at,
+          gateway_refund_id: refundId ?? payment.gateway_refund_id,
+        },
+      });
+      await this.logWebhookAudit(payment.id, 'razorpay_webhook', 'success', { event: eventType, refundPaymentId, refundId });
       return { acknowledged: true };
     }
 
@@ -997,16 +1014,30 @@ export class AppointmentPaymentsService {
     if (payment.refund_status !== 'none' && payment.refund_status !== 'rejected') {
       return { success: false, message: 'A refund has already been requested for this payment' };
     }
+    // REQ176's own acceptance criteria (US-PAY-03) scope this mutation to a
+    // cancelled appointment's payment -- the frontend already only offers
+    // "Request Refund" in that state (appointments/detail.jsx). Enforced
+    // here too, not just in the UI: without this check, a payment on an
+    // appointment that's merely 'completed'/'no_show'/still 'confirmed'
+    // could be refunded through the exact same path, and the ruleType
+    // derivation below would silently fall through to 'reschedule' fee
+    // rules for an appointment that was never rescheduled at all -- a real
+    // bug found on re-review, not a defended design choice. A genuine
+    // reschedule's own fee is charged proactively at reschedule time
+    // (AppointmentsService#update(), REQ177), never recovered via this
+    // refund-request path.
+    if (payment.appointment.status !== 'cancelled') {
+      return { success: false, message: 'Only a cancelled appointment\'s payment can be refunded through this action' };
+    }
 
     // The appointment's own updated_at is the best available approximation
-    // of "when the cancellation/reschedule actually happened" -- this
-    // schema doesn't carry a dedicated cancelled_at timestamp (only
-    // cancellation_reason, a free-text field), and updated_at is the last
-    // time the row's status genuinely changed.
+    // of "when the cancellation actually happened" -- this schema doesn't
+    // carry a dedicated cancelled_at timestamp (only cancellation_reason, a
+    // free-text field), and updated_at is the last time the row's status
+    // genuinely changed.
     const cancelledAt = payment.appointment.updated_at;
     const hoursBefore = hoursBetween(cancelledAt, payment.appointment.appointment_time);
-    const ruleType = payment.appointment.status === 'cancelled' ? 'cancellation' : 'reschedule';
-    const rules = await this.cancellationRules.findActiveRulesForOrg(payment.client_org_id, ruleType);
+    const rules = await this.cancellationRules.findActiveRulesForOrg(payment.client_org_id, 'cancellation');
     const rule = selectApplicableRule(rules, payment.appointment.product_id, payment.clinic_id);
     const { refundAmount } = computeCancellationFee(rule, payment.amount, hoursBefore);
 
@@ -1073,10 +1104,29 @@ export class AppointmentPaymentsService {
     }
 
     const payment = request.appointment_payment;
-    const { provider, credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(payment.clinic_id);
     const gatewayPaymentId = payment.gateway_payment_id ?? payment.razorpay_payment_id;
     if (!gatewayPaymentId) {
       return { success: false, message: 'This payment has no gateway reference to refund against (was it a counter payment?)' };
+    }
+
+    // REQ175/176 -- a clinic has exactly ONE active gateway configured at a
+    // time (PaymentGatewayConfig.clinic_id is unique) -- getActiveConfigForClinic
+    // always resolves whatever is CURRENTLY configured, which is not
+    // necessarily the gateway that actually captured this payment
+    // (payment.gateway, stamped at capture time). If the clinic has since
+    // switched providers, the credentials that captured this payment were
+    // overwritten in place by updateConfig()'s own upsert -- calling the
+    // now-active provider's .refund() with an id it never issued would
+    // misroute the request to the wrong vendor's API entirely. Checked and
+    // rejected here, BEFORE the state transition below, so a mismatch never
+    // strands the payment in 'processing' with no way to retry (requestRefund's
+    // own guard only allows a fresh request from 'none'/'rejected').
+    const { provider, credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(payment.clinic_id);
+    if (provider.id !== payment.gateway) {
+      return {
+        success: false,
+        message: `This payment was captured via ${payment.gateway}, but the clinic's active gateway is now ${provider.id} -- reconfigure ${payment.gateway} temporarily to process this refund.`,
+      };
     }
 
     await this.prisma.$transaction(async (tx) => {
@@ -1143,8 +1193,29 @@ export class AppointmentPaymentsService {
       return { acknowledged: true };
     }
 
-    const { credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(payment.clinic_id);
-    const valid = provider.verifyWebhookSignature(credentials, rawBody, headers);
+    // Real bug found on re-review: getActiveConfigForClinic() always
+    // resolves whatever gateway is CURRENTLY configured for this clinic --
+    // not necessarily `gateway` (this webhook's own route, which the
+    // `where: { gateway, ... }` lookup above already guarantees matches
+    // payment.gateway). If the clinic has since switched providers, this
+    // would hand a Cashfree-shaped credentials object into (say) Razorpay's
+    // own verifyWebhookSignature(), which reads fields that simply don't
+    // exist on it (e.g. credentials.webhook_secret undefined) -- Node's
+    // crypto.createHmac throws a TypeError on an undefined key, an
+    // unhandled crash for what's often just a legitimate, late-arriving
+    // webhook from a gateway the clinic switched away from, not an attack.
+    const { provider: configuredProvider, credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(payment.clinic_id);
+    if (configuredProvider.id !== gateway) {
+      await this.logWebhookAudit(payment.id, `${gateway}_webhook`, 'gateway_reconfigured', { event: event.raw });
+      return { acknowledged: true };
+    }
+    let valid: boolean;
+    try {
+      valid = provider.verifyWebhookSignature(credentials, rawBody, headers);
+    } catch {
+      await this.logWebhookAudit(payment.id, `${gateway}_webhook`, 'signature_check_threw', {});
+      throw new BadRequestException('Invalid webhook signature');
+    }
     if (!valid) {
       await this.logWebhookAudit(payment.id, `${gateway}_webhook`, 'invalid_signature', {});
       throw new BadRequestException('Invalid webhook signature');

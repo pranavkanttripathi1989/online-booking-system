@@ -4215,6 +4215,7 @@ input UpdateCancellationRuleInput {
   name: String
   priority: Int
   product_id: ID
+  rule_type: String
 }
 
 input UpdateCannedReplyInput {
