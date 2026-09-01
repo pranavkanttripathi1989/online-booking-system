@@ -42,6 +42,16 @@ export class StockMovementType {
 // REQ126 (US-RX-09) — one row per not-yet-fully-dispensed prescription
 // item, across the whole pharmacy, not scoped to one patient the way the
 // existing per-patient search flow requires searching first.
+// REQ177 -- counter-payment collection for dispensed medicines (previously
+// nothing was ever charged; mrp_paise on a batch was a reference price
+// only). Same shape/conventions as RecordCounterPaymentResultType.
+@ObjectType('RecordPharmacyPaymentResult')
+export class RecordPharmacyPaymentResultType {
+  @Field() success: boolean;
+  @Field({ nullable: true }) message?: string;
+  @Field(() => ID, { nullable: true }) payment_id?: string;
+}
+
 @ObjectType('PendingDispenseItem')
 export class PendingDispenseItemType {
   @Field(() => ID) prescription_item_id: string;

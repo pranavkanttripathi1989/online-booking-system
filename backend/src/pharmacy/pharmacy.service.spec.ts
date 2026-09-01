@@ -15,6 +15,8 @@ describe('PharmacyService', () => {
     clinics: { findUnique: jest.Mock };
     drugs: { findUnique: jest.Mock; findMany: jest.Mock };
     prescriptionItems: { findUnique: jest.Mock; findMany: jest.Mock };
+    patients: { findUnique: jest.Mock };
+    pharmacyPayments: { create: jest.Mock };
     $transaction: jest.Mock;
   };
 
@@ -31,6 +33,8 @@ describe('PharmacyService', () => {
       clinics: { findUnique: jest.fn() },
       drugs: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
       prescriptionItems: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
+      patients: { findUnique: jest.fn() },
+      pharmacyPayments: { create: jest.fn() },
       $transaction: jest.fn((cb) => cb(prisma)),
     };
     (prisma as any).drugBatches.create = jest.fn();
@@ -228,6 +232,71 @@ describe('PharmacyService', () => {
       const result = await service.pendingDispenseItems(orgAUser);
       expect(result).toEqual([]);
       expect(prisma.stockMovements.groupBy).not.toHaveBeenCalled();
+    });
+  });
+
+  // REQ177 — counter payment collection on the Dispense tab, mirroring
+  // appointment-payments.service.ts's recordCounterPayment shape exactly.
+  describe('recordPharmacyPayment', () => {
+    const patientA = { id: 'patient-a', is_deleted: false };
+
+    it('rejects a clinic outside the caller org', async () => {
+      prisma.clinics.findUnique.mockResolvedValue({ id: 'clinic-b', client_org_id: 'org-b', is_deleted: false });
+      await expect(
+        service.recordPharmacyPayment({ clinic_id: 'clinic-b', patient_id: 'patient-a', tenders: [{ tender_type: 'cash', amount: 100 }] } as any, orgAUser),
+      ).rejects.toThrow(BadRequestException);
+      expect(prisma.pharmacyPayments.create).not.toHaveBeenCalled();
+    });
+
+    it('rejects a nonexistent patient', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicA);
+      prisma.patients.findUnique.mockResolvedValue(null);
+      await expect(
+        service.recordPharmacyPayment({ clinic_id: 'clinic-a', patient_id: 'nope', tenders: [{ tender_type: 'cash', amount: 100 }] } as any, orgAUser),
+      ).rejects.toThrow('Patient not found');
+    });
+
+    it('rejects a zero-total payment (every tender amount validated positive already, but the sum could still be zero-or-less)', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicA);
+      prisma.patients.findUnique.mockResolvedValue(patientA);
+      await expect(
+        service.recordPharmacyPayment({ clinic_id: 'clinic-a', patient_id: 'patient-a', tenders: [] } as any, orgAUser),
+      ).rejects.toThrow('At least one tender');
+    });
+
+    it('sums tenders to paise, stores a tenders_json snapshot, and leaves GST fields null (no per-line breakdown to allocate against)', async () => {
+      prisma.clinics.findUnique.mockResolvedValue(clinicA);
+      prisma.patients.findUnique.mockResolvedValue(patientA);
+      prisma.pharmacyPayments.create.mockResolvedValue({ id: 'pharm-pay-1' });
+
+      const result = await service.recordPharmacyPayment(
+        {
+          clinic_id: 'clinic-a',
+          patient_id: 'patient-a',
+          prescription_id: 'rx-1',
+          tenders: [
+            { tender_type: 'cash', amount: 150.5 },
+            { tender_type: 'upi', amount: 49.5, reference: 'upi-ref-1' },
+          ],
+        } as any,
+        orgAUser,
+      );
+
+      expect(result).toEqual({ success: true, payment_id: 'pharm-pay-1' });
+      expect(prisma.pharmacyPayments.create).toHaveBeenCalledWith({
+        data: {
+          clinic_id: 'clinic-a',
+          client_org_id: 'org-a',
+          patient_id: 'patient-a',
+          prescription_id: 'rx-1',
+          amount: 20000, // 150.50 + 49.50 = 200.00 rupees -> paise
+          tenders_json: [
+            { tender_type: 'cash', amount: 15050, reference: undefined },
+            { tender_type: 'upi', amount: 4950, reference: 'upi-ref-1' },
+          ],
+          recorded_by_user_id: orgAUser.sub,
+        },
+      });
     });
   });
 });

@@ -1,8 +1,8 @@
 import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { PharmacyService } from './pharmacy.service';
-import { DrugBatchType, StockMovementType, LowStockDrugType, PendingDispenseItemType } from './entities/pharmacy.entity';
-import { ReceiveStockInput, AdjustStockInput, DispensePrescriptionItemInput } from './dto/pharmacy.input';
+import { DrugBatchType, StockMovementType, LowStockDrugType, PendingDispenseItemType, RecordPharmacyPaymentResultType } from './entities/pharmacy.entity';
+import { ReceiveStockInput, AdjustStockInput, DispensePrescriptionItemInput, RecordPharmacyPaymentInput } from './dto/pharmacy.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -79,5 +79,12 @@ export class PharmacyResolver {
   @Mutation(() => DrugBatchType)
   dispensePrescriptionItem(@Args('input') input: DispensePrescriptionItemInput, @CurrentUser() user: JwtPayload) {
     return this.pharmacyService.dispensePrescriptionItem(input, user);
+  }
+
+  // REQ177 -- counter-payment collection for dispensed medicines.
+  @Auth('staff', 'manager', 'admin', 'super_admin')
+  @Mutation(() => RecordPharmacyPaymentResultType)
+  recordPharmacyPayment(@Args('input') input: RecordPharmacyPaymentInput, @CurrentUser() user: JwtPayload) {
+    return this.pharmacyService.recordPharmacyPayment(input, user);
   }
 }

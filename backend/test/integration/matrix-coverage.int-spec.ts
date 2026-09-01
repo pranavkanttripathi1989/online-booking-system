@@ -113,6 +113,19 @@ const EXEMPT: Record<string, string> = {
   // different-org clinic/clinician, approvePayout rejecting a
   // different-org payout).
   'revenue-share': "Has a real id-keyed shape (revenueShareRules/payouts by clinic_id, approvePayout by id) a matrix case could exercise, but is deferred to setup/domain-cases.ts for a future slice — that file was concurrently owned by other in-flight work in this session when this domain shipped. Cross-org rejection is real (orgScope/isSameOrg/assertSameOrg throughout, never a client-supplied org id) and covered directly in revenue-share.service.spec.ts's own dedicated tests instead.",
+  // REQ175 — no list query exists on this resolver: paymentGatewayProviders
+  // is a global registry catalog (no client_org_id at all, same shape as
+  // notificationProviders/aiTranscriptionProviders above), and
+  // clinicPaymentGatewayConfig is a single-record query keyed by a
+  // *required* clinic_id, not a list — same "no cross-org-list shape to
+  // build a matrix case from" reasoning as ai-clinical/telemedicine's own
+  // exemptions above (refund-requests, the domain REQ175 shares a resolver
+  // file with, DOES have a real list shape and is a real CASES entry
+  // instead — see domain-cases.ts). Cross-org rejection is real
+  // (findScopedClinic never confirms cross-tenant existence) and covered
+  // directly in payment-gateway-config.service.spec.ts's own dedicated
+  // tests instead.
+  'payment-gateways': 'No list query exists on this resolver — paymentGatewayProviders is a global registry catalog, clinicPaymentGatewayConfig is a single-record query keyed by a required clinic_id. Same shape as ai-clinical/telemedicine\'s own exemptions above. Cross-org rejection is real and covered directly in payment-gateway-config.service.spec.ts instead.',
 };
 
 /**

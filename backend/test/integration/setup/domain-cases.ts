@@ -469,6 +469,19 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager'],
   },
   {
+    // REQ176. A third CASES row on the same appointment-payments resolver
+    // -- clinicRefundRequests' own clinic_id arg is nullable (matching
+    // discountApprovalRequests' own dual-mode shape just above), so an
+    // omitted arg here scopes across the caller's whole org.
+    domain: 'appointment-payments',
+    what: 'clinicRefundRequests',
+    query: `{ clinicRefundRequests { id } }`,
+    ids: (d) => (d.clinicRefundRequests ?? []).map((x: any) => x.id),
+    aId: IDS.refundRequestA,
+    bId: IDS.refundRequestB,
+    allowedRoles: ['super_admin', 'admin', 'manager'],
+  },
+  {
     // REQ029 (US-RPT-03). Own client_org_id.
     domain: 'scheduled-reports',
     what: 'scheduledReports',

@@ -1,5 +1,29 @@
 import { InputType, Field, ID, Int, Float } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsInt, Min, IsDateString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsInt, Min, IsDateString, IsIn, ValidateNested, ArrayMinSize } from 'class-validator';
+import { Type } from 'class-transformer';
+
+// REQ177 -- mirrors appointment-payments' own PaymentTenderInput exactly
+// (RecordCounterPaymentInput), same cash|upi|card|cheque tender shape.
+const PHARMACY_TENDER_TYPES = ['cash', 'upi', 'card', 'cheque'] as const;
+
+@InputType('PharmacyPaymentTenderInput')
+export class PharmacyPaymentTenderInput {
+  @Field() @IsIn(PHARMACY_TENDER_TYPES) tender_type: string;
+  @Field(() => Float) @Min(0.01) amount: number; // rupees
+  @Field({ nullable: true }) @IsOptional() reference?: string;
+}
+
+@InputType('RecordPharmacyPaymentInput')
+export class RecordPharmacyPaymentInput {
+  @Field(() => ID) @IsNotEmpty() clinic_id: string;
+  @Field(() => ID) @IsNotEmpty() patient_id: string;
+  @Field(() => ID, { nullable: true }) @IsOptional() prescription_id?: string;
+  @Field(() => [PharmacyPaymentTenderInput])
+  @ValidateNested({ each: true })
+  @Type(() => PharmacyPaymentTenderInput)
+  @ArrayMinSize(1)
+  tenders: PharmacyPaymentTenderInput[];
+}
 
 // REQ022 (pharmacy P0) — receiving a batch of stock for one drug at one clinic.
 @InputType('ReceiveStockInput')

@@ -130,6 +130,18 @@ export class AppointmentType {
   // is persisted (the same password-reset-token pattern auth.service.ts
   // already uses), so this field is null on every normal appointment query.
   @Field({ nullable: true }) checkin_token?: string;
+  // REQ177 -- populated ONLY by this specific updateAppointment() call when
+  // it just triggered a real reschedule fee (a new pending AppointmentPayments
+  // row was created) -- null on every other read of this same appointment.
+  // A one-off "what just happened" signal, not a persisted appointment
+  // attribute, so the frontend can prompt for payment immediately without a
+  // second round-trip.
+  // Float, not Int -- rupees post PAISE_TO_RUPEES division can be
+  // fractional (e.g. a percentage-type fee), matching AppointmentServiceType
+  // .price's own convention just above. An Int field here would throw a
+  // GraphQL serialization error on the first non-round-hundred fee.
+  @Field(() => Float, { nullable: true }) reschedule_fee_amount?: number;
+  @Field(() => ID, { nullable: true }) reschedule_fee_payment_id?: string;
 }
 
 @ObjectType('AppointmentPaginatorInfo')

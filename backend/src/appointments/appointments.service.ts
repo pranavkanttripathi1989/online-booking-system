@@ -18,6 +18,8 @@ import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { SlotHoldsService } from '../slot-holds/slot-holds.service';
 import { computeNoShowRisk } from './no-show-risk';
+import { CancellationRulesService } from '../cancellation-rules/cancellation-rules.service';
+import { selectApplicableRule, computeCancellationFee, hoursBetween } from '../common/scheduling/cancellation-fee';
 
 export const APPOINTMENT_UPDATED_EVENT = 'appointmentUpdated';
 
@@ -67,6 +69,7 @@ export class AppointmentsService {
     private readonly waitlistService: WaitlistService,
     private readonly branchOverridesService: BranchOverridesService,
     private readonly slotHoldsService: SlotHoldsService,
+    private readonly cancellationRulesService: CancellationRulesService,
   ) {}
 
   // P1-05 (BOOK-2) — thin passthroughs so the resolver (and this module's
@@ -117,11 +120,23 @@ export class AppointmentsService {
   // caller of toGraphQL() omits it, so a normal read never has it to leak
   // — the raw token was never persisted anywhere to leak from in the
   // first place, only its hash was.
-  private toGraphQL(a: any, statusLogs: any[] = [], rawCheckinToken?: string, branchOverride?: BranchPriceOverride | null) {
+  private toGraphQL(
+    a: any,
+    statusLogs: any[] = [],
+    rawCheckinToken?: string,
+    branchOverride?: BranchPriceOverride | null,
+    rescheduleFee?: { amount: number; paymentId: string },
+  ) {
     const start = a.appointment_time as Date;
     const end = new Date(start.getTime() + a.duration_minutes * 60000);
     return {
       checkin_token: rawCheckinToken,
+      // REQ177 -- rescheduleFee.amount arrives in paise (see the fee-engine
+      // call site below); every other money field on this entity converts
+      // to rupees at this same boundary (Hard Rule 9) and this one must too,
+      // or the frontend renders a fee 100x too small.
+      reschedule_fee_amount: PAISE_TO_RUPEES(rescheduleFee?.amount),
+      reschedule_fee_payment_id: rescheduleFee?.paymentId,
       id: a.id,
       tenant_id: a.clinic?.client_org_id ?? undefined,
       start_datetime: start,
@@ -966,7 +981,44 @@ export class AppointmentsService {
       }
       return row;
     });
-    const result = this.toGraphQL(updated);
+
+    // REQ177 -- a reschedule fee is based on how much notice was given
+    // before the ORIGINAL slot (the risk the fee compensates for), not the
+    // new one. Only applies to a genuine reschedule (timeChanged, not a
+    // cancellation -- those go through requestRefund's own cancellation-fee
+    // computation instead) on an appointment that actually had a real
+    // succeeded payment; an appointment with nothing paid has nothing to
+    // charge a fee against.
+    let rescheduleFee: { amount: number; paymentId: string } | undefined;
+    if (timeChanged && input.status !== 'cancelled') {
+      const priorPayment = await this.prisma.appointmentPayments.findFirst({
+        where: { appointment_id: id, status: 'succeeded' },
+        orderBy: { created_at: 'desc' },
+      });
+      if (priorPayment) {
+        const hoursBefore = hoursBetween(new Date(), existing.appointment_time);
+        const rules = await this.cancellationRulesService.findActiveRulesForOrg(existing.clinic.client_org_id, 'reschedule');
+        const rule = selectApplicableRule(rules, existing.product_id, existing.clinic_id);
+        const { feeAmount } = computeCancellationFee(rule, priorPayment.amount, hoursBefore);
+        if (feeAmount > 0) {
+          const feePayment = await this.prisma.appointmentPayments.create({
+            data: {
+              appointment_id: id,
+              patient_id: existing.patient_id,
+              clinic_id: existing.clinic_id,
+              client_org_id: existing.clinic.client_org_id,
+              amount: feeAmount,
+              currency: 'INR',
+              status: 'pending',
+              metadata: { reason: 'reschedule_fee' },
+            },
+          });
+          rescheduleFee = { amount: feeAmount, paymentId: feePayment.id };
+        }
+      }
+    }
+
+    const result = this.toGraphQL(updated, [], undefined, undefined, rescheduleFee);
     await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
     if (input.status === 'cancelled' && existing.status !== 'cancelled') {
       await this.notifyCancellation(result);

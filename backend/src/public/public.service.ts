@@ -150,6 +150,7 @@ export class PublicService {
       description: cs.product.description,
       price: PAISE_TO_RUPEES(cs.product.price),
       product_type: cs.product.product_type,
+      prepayment_policy: cs.product.prepayment_policy,
       variations: cs.product.variations.map((v) => ({ id: v.id, name: v.variation_name, price: PAISE_TO_RUPEES(v.price) })),
       cancellation_rules: cs.product.cancellationRules.map((r) => ({ id: r.id, hoursNoticeRequired: r.hours_before_appointment })),
     }));
@@ -232,6 +233,13 @@ export class PublicService {
     const product = await this.prisma.products.findUnique({ where: { id: input.productId } });
     if (!product) throw new BadRequestException('Product not found');
     const durationMinutes = variation?.duration_minutes ?? product.duration_minutes ?? 30;
+
+    // REQ177 (PAY-2) -- a service that requires prepayment was never
+    // eligible for "pay at clinic"; rejected outright, never silently
+    // downgraded to 'online' behind the caller's back.
+    if (input.paymentPreference === 'pay_at_clinic' && product.prepayment_policy === 'required') {
+      throw new BadRequestException('This service requires payment at the time of booking and cannot be paid at the clinic');
+    }
 
     const start = new Date(`${input.date}T${input.startTime}:00.000Z`);
 

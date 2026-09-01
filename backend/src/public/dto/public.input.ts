@@ -41,6 +41,12 @@ export class BookPatientAppointmentInput {
   // this pair's existing "two dialects, deliberately separate" precedent.
   @Field({ nullable: true }) @IsOptional() @IsString() @Length(8, 128) idempotencyKey?: string;
   @Field({ nullable: true }) @IsOptional() @IsString() @Length(8, 128) holdToken?: string;
+  // REQ177 (PAY-2) -- "Pay at clinic" as a real, first-class booking-time
+  // choice. Defaults to 'online' (today's only behaviour) so every
+  // existing caller of this mutation is unaffected. Rejected server-side
+  // (never a silent downgrade to 'online') when the product requires
+  // prepayment -- see bookPatientAppointment's own validation.
+  @Field({ nullable: true }) @IsOptional() @IsIn(['online', 'pay_at_clinic']) paymentPreference?: string;
 }
 
 // PaymentTransactionInput removed (REQ004) — see public.service.ts.

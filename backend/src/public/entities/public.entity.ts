@@ -40,6 +40,12 @@ export class PublicProductType {
   @Field({ nullable: true }) description?: string;
   @Field(() => Float, { nullable: true }) price?: number;
   @Field({ nullable: true }) product_type?: string;
+  // REQ177 — booking/index.jsx's payment step needs this to decide whether
+  // "Pay at Clinic" is offered at all; bookPatientAppointment's own
+  // rejection of that preference for a 'required' service (public.service.ts)
+  // is the real enforcement, this is just so the UI doesn't show a choice
+  // the server will reject.
+  @Field({ nullable: true }) prepayment_policy?: string;
   @Field(() => [PublicProductVariationType]) variations: PublicProductVariationType[];
   @Field(() => [PublicCancellationRuleType]) cancellation_rules: PublicCancellationRuleType[];
 }

@@ -13,6 +13,9 @@ import {
   DecideDiscountApprovalResultType,
   CashDrawerCloseoutType,
   CloseCashDrawerResultType,
+  RefundRequestType,
+  RefundRequestResultType,
+  AppointmentPaymentSummaryType,
 } from './entities/appointment-payment.entity';
 import {
   VerifyRazorpayPaymentInput,
@@ -20,6 +23,8 @@ import {
   RedeemPackageSittingInput,
   DecideDiscountApprovalInput,
   CloseCashDrawerInput,
+  RequestRefundInput,
+  DecideRefundRequestInput,
 } from './dto/appointment-payment.input';
 import { Public } from '../common/decorators/public.decorator';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -123,6 +128,42 @@ export class AppointmentPaymentsResolver {
   @Mutation(() => DecideDiscountApprovalResultType)
   decideDiscountApproval(@Args('input') input: DecideDiscountApprovalInput, @CurrentUser() user: JwtPayload) {
     return this.appointmentPaymentsService.decideDiscountApproval(input, user);
+  }
+
+  // REQ176 -- appointments/detail.jsx's own gate for whether to offer the
+  // "Request Refund" button at all -- same role set as requestRefund below.
+  @Auth('staff', 'manager', 'admin', 'super_admin', 'clinician')
+  @Query(() => [AppointmentPaymentSummaryType])
+  appointmentPayments(@Args('appointment_id', { type: () => ID }) appointmentId: string, @CurrentUser() user: JwtPayload) {
+    return this.appointmentPaymentsService.paymentsForAppointment(appointmentId, user);
+  }
+
+  // REQ176 -- computes the refund amount entirely server-side via the
+  // cancellation-fee policy engine; staff/clinician can request, matching
+  // who already handles cancellations/counter payments day to day.
+  @Auth('staff', 'manager', 'admin', 'super_admin', 'clinician')
+  @Mutation(() => RefundRequestResultType)
+  requestRefund(@Args('input') input: RequestRefundInput, @CurrentUser() user: JwtPayload) {
+    return this.appointmentPaymentsService.requestRefund(input, user);
+  }
+
+  // Nullable clinic_id, matching discountApprovalRequests' own dual-mode
+  // shape above (an omitted clinic_id scopes the caller's whole org).
+  @Auth('manager', 'admin', 'super_admin')
+  @Query(() => [RefundRequestType])
+  clinicRefundRequests(@Args('clinic_id', { type: () => ID, nullable: true }) clinicId: string, @CurrentUser() user: JwtPayload) {
+    return this.appointmentPaymentsService.myClinicRefundRequests(clinicId, user);
+  }
+
+  // REQ176 -- deliberately NOT the same @Auth() set as requestRefund, same
+  // reasoning as decideDiscountApproval's own comment above: the
+  // requester's own service-layer "can't approve your own request" check
+  // only has teeth because this gate already excludes the requester's role
+  // from a path that could self-serve past it.
+  @Auth('manager', 'admin', 'super_admin')
+  @Mutation(() => RefundRequestResultType)
+  decideRefundRequest(@Args('input') input: DecideRefundRequestInput, @CurrentUser() user: JwtPayload) {
+    return this.appointmentPaymentsService.decideRefundRequest(input, user);
   }
 
   // REQ056 (US-BIL-04, scoped subset) — any front-desk staff can close

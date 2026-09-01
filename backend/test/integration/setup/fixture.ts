@@ -168,6 +168,10 @@ export const IDS = {
   // REQ168 (P2-12) -- chronic-registries domain.
   chronicRegistryEnrollmentA: u('i01'),
   chronicRegistryEnrollmentB: u('i02'),
+
+  // REQ176 -- refund-requests domain.
+  refundRequestA: u('j01'),
+  refundRequestB: u('j02'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -559,6 +563,21 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
         id: IDS.discountRequestB, appointment_id: IDS.appointmentB, clinic_id: IDS.clinicB, client_org_id: IDS.orgB,
         requested_by_user_id: IDS.userManagerB, discount_amount: 150000, discount_reason: 'fixture', expected_amount_paise: 500000,
         tenders_json: [{ tender_type: 'cash', amountPaise: 350000, reference: null }],
+      },
+    ],
+  });
+
+  // REQ176 -- one pending refund request per org, on the existing
+  // paymentA/B fixtures (both already status: 'succeeded').
+  await prisma.refundRequests.createMany({
+    data: [
+      {
+        id: IDS.refundRequestA, appointment_payment_id: IDS.paymentA, clinic_id: IDS.clinicA, client_org_id: IDS.orgA,
+        requested_by_user_id: IDS.userStaffA, requested_amount: 50000, reason: 'fixture',
+      },
+      {
+        id: IDS.refundRequestB, appointment_payment_id: IDS.paymentB, clinic_id: IDS.clinicB, client_org_id: IDS.orgB,
+        requested_by_user_id: IDS.userManagerB, requested_amount: 60000, reason: 'fixture',
       },
     ],
   });

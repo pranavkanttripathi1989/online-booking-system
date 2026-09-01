@@ -657,6 +657,8 @@ model Prescriptions {
   repeats        Prescriptions[] @relation("PrescriptionRepeat")
   items          PrescriptionItems[]
   shareOtps      PrescriptionShareOtps[]
+  // REQ177
+  pharmacyPayments PharmacyPayments[]
 
   @@index([patient_id, issued_at])
   @@index([encounter_id])
@@ -1009,6 +1011,10 @@ model ClientOrganizations {
   revenueShareRules      RevenueShareRules[]
   payouts                Payouts[]
   appointmentSeries      AppointmentSeries[]
+  // REQ175/176/177
+  paymentGatewayConfigs  PaymentGatewayConfig[]
+  refundRequests         RefundRequests[]
+  pharmacyPayments       PharmacyPayments[]
 }
 
 model ClinicianAvailability {
@@ -1230,6 +1236,10 @@ model Clinics {
   waitlistEntries    WaitlistEntries[]
   revenueShareRules  RevenueShareRules[]
   payouts            Payouts[]
+  // REQ175/176/177
+  paymentGatewayConfig PaymentGatewayConfig?
+  refundRequests       RefundRequests[]
+  pharmacyPayments     PharmacyPayments[]
 
   @@index([client_org_id, is_deleted])
 }
@@ -1502,6 +1512,8 @@ model Patients {
   chronicRegistryEnrollments ChronicRegistryEnrollments[]
   // REQ174
   documents                  PatientDocuments[]
+  // REQ177
+  pharmacyPayments           PharmacyPayments[]
 
   @@index([is_deleted, created_at])
   @@index([email])
@@ -1774,6 +1786,25 @@ model AppointmentPayments {
   discount_amount     Int      @default(0) // paise
   discount_reason     String?
   approved_by_user_id String?
+  // REQ175 -- generic equivalents of razorpay_order_id/payment_id above,
+  // written by every gateway adapter (Razorpay's own adapter dual-writes
+  // both the legacy razorpay_* columns, for zero regression on any
+  // existing code/report that reads them directly, and these). `gateway`
+  // defaults to 'razorpay' so every pre-existing row is correctly
+  // attributed with no backfill needed.
+  gateway             String   @default("razorpay")
+  gateway_order_id    String?
+  gateway_payment_id  String?
+  gateway_reference   String?
+  // REQ176 -- refund state. none is the overwhelming default; a real
+  // refund always passes through requested -> approved -> processing ->
+  // refunded (or rejected/failed) via RefundRequests below, never set
+  // directly by a mutation with no approval step.
+  refund_status       String   @default("none") // none | requested | approved | rejected | processing | refunded | failed
+  refund_amount       Int?
+  refund_reason       String?
+  refunded_at         DateTime?
+  gateway_refund_id   String?
   created_at          DateTime @default(now())
   updated_at          DateTime @default(now())
 
@@ -1783,10 +1814,12 @@ model AppointmentPayments {
   client_org  ClientOrganizations? @relation(fields: [client_org_id], references: [id])
   approved_by Users?              @relation("AppointmentPaymentApprovedBy", fields: [approved_by_user_id], references: [id])
   tenders     PaymentTenders[]
+  refundRequests RefundRequests[]
 
   @@index([client_org_id, created_at])
   @@index([status, created_at])
   @@index([razorpay_order_id])
+  @@index([gateway_order_id])
   @@index([appointment_id])
   @@index([patient_id])
   @@index([clinic_id])
@@ -1812,6 +1845,96 @@ model PaymentTenders {
   recorded_by         Users               @relation(fields: [recorded_by_user_id], references: [id])
 
   @@index([appointment_payment_id])
+}
+
+// REQ175 -- mirrors NotificationProviderConfig's own shape exactly (REQ008):
+// `provider` a plain registry-key string (not an enum -- adding a 5th
+// gateway is a code change only), credentials as one AES-256-GCM-encrypted
+// JSON blob (backend/src/common/crypto/secrets.ts, reused verbatim -- shape
+// varies per gateway, doesn't belong flattened into columns). Clinic-scoped
+// (not org-scoped like the notification registry) per the requirement's
+// own explicit choice: a multi-branch org settles each branch to a
+// different bank account. A clinic with no row here falls back to the
+// platform's own env-var Razorpay credentials -- zero regression for every
+// org that never configures this.
+model PaymentGatewayConfig {
+  id                    String   @id @default(uuid())
+  clinic_id             String   @unique
+  client_org_id         String?
+  provider              String
+  credentials_encrypted String
+  is_active             Boolean  @default(true)
+  created_at            DateTime @default(now())
+  updated_at            DateTime @default(now())
+
+  clinic     Clinics              @relation(fields: [clinic_id], references: [id])
+  client_org ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+}
+
+// REQ176 -- mirrors DiscountApprovalRequests' own shape field-for-field
+// (REQ056): requested_amount is always computed server-side by the
+// cancellation/reschedule fee-policy engine (common/scheduling/
+// cancellation-fee.ts), never client-supplied; decideRefundRequest rejects
+// a decider who is also the requester, even a manager+ caller, the exact
+// same rule DiscountApprovalRequests already enforces.
+model RefundRequests {
+  id                      String    @id @default(uuid())
+  appointment_payment_id  String
+  clinic_id               String
+  client_org_id           String?
+  requested_by_user_id    String
+  requested_amount        Int       // paise
+  reason                  String
+  status                  String    @default("pending") // pending | approved | rejected
+  decided_by_user_id      String?
+  decided_at              DateTime?
+  created_at              DateTime  @default(now())
+
+  appointment_payment AppointmentPayments  @relation(fields: [appointment_payment_id], references: [id])
+  clinic              Clinics              @relation(fields: [clinic_id], references: [id])
+  client_org          ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  requested_by        Users                @relation("RefundRequestRequestedBy", fields: [requested_by_user_id], references: [id])
+  decided_by          Users?               @relation("RefundRequestDecidedBy", fields: [decided_by_user_id], references: [id])
+
+  @@index([client_org_id, status])
+  @@index([clinic_id])
+  @@index([appointment_payment_id])
+}
+
+// REQ177 -- a new, separate, minimal table rather than widening
+// AppointmentPayments (whose appointment_id is NOT NULL) or making it
+// polymorphic -- matches this schema's own established single-purpose-FK
+// convention (Attachments vs. MessageAttachments were kept separate for
+// the identical reason). Counter-payment only this pass (same
+// cash/UPI/card/cheque tenders shape as RecordCounterPaymentInput) --
+// pharmacy purchases are overwhelmingly in-person; an online-gateway path
+// is deferred.
+model PharmacyPayments {
+  id                  String   @id @default(uuid())
+  clinic_id           String
+  client_org_id       String?
+  patient_id          String
+  prescription_id     String?
+  amount              Int      // paise
+  tenders_json        Json     // [{tender_type, amount, reference?}]
+  gstin               String?
+  hsn_sac_code        String?
+  gst_rate            Float?
+  cgst_amount         Int?
+  sgst_amount         Int?
+  igst_amount         Int?
+  recorded_by_user_id String
+  created_at          DateTime @default(now())
+
+  clinic       Clinics              @relation(fields: [clinic_id], references: [id])
+  client_org   ClientOrganizations? @relation(fields: [client_org_id], references: [id])
+  patient      Patients             @relation(fields: [patient_id], references: [id])
+  prescription Prescriptions?       @relation(fields: [prescription_id], references: [id])
+  recorded_by  Users                @relation(fields: [recorded_by_user_id], references: [id])
+
+  @@index([clinic_id])
+  @@index([patient_id])
+  @@index([client_org_id, created_at])
 }
 
 // REQ056 (US-BIL-03) -- a discount above the org's configured threshold
@@ -2602,6 +2725,10 @@ model Users {
   priceChangesRecorded        PriceHistory[]
   tasksAssigned               Tasks[] @relation("TaskAssignee")
   tasksCreated                Tasks[] @relation("TaskCreatedBy")
+  // REQ176/177
+  refundRequestsMade    RefundRequests[] @relation("RefundRequestRequestedBy")
+  refundRequestsDecided RefundRequests[] @relation("RefundRequestDecidedBy")
+  pharmacyPaymentsRecorded PharmacyPayments[]
 }
 
 // REQ005 Notifications tab. No code path in this codebase currently reads

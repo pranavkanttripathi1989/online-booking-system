@@ -1,14 +1,30 @@
 import { ObjectType, Field, ID, Int, Float } from '@nestjs/graphql';
 
-// booking/index.jsx's PaymentForm — the client's public half of the Razorpay
-// order, safe to expose. razorpay_key_id is the PUBLIC key (key_id), never
-// the secret — the frontend needs it to open the Razorpay Checkout widget.
+// booking/index.jsx's PaymentForm — the client's public half of the order,
+// safe to expose. razorpay_key_id is the PUBLIC key (key_id), never the
+// secret. REQ175 widened this beyond Razorpay-only: `gateway`/
+// `checkout_type` tell the frontend which of the three real checkout flows
+// to use (razorpay_widget/redirect/form_post) — the razorpay_* fields stay
+// exactly as they were (still always populated for the razorpay path, the
+// overwhelming default) so this is an additive, not a breaking, change to
+// this type.
+@ObjectType('PaymentFormField')
+export class PaymentFormFieldType {
+  @Field() key: string;
+  @Field() value: string;
+}
+
 @ObjectType('RazorpayOrderResult')
 export class RazorpayOrderResultType {
   @Field() razorpay_order_id: string;
   @Field(() => Int) amount: number; // paise, matches what Razorpay's own order object uses
   @Field() currency: string;
-  @Field() razorpay_key_id: string;
+  @Field({ nullable: true }) razorpay_key_id?: string;
+  @Field() gateway: string;
+  @Field() checkout_type: string; // razorpay_widget | redirect | form_post
+  @Field({ nullable: true }) redirect_url?: string;
+  @Field({ nullable: true }) form_post_url?: string;
+  @Field(() => [PaymentFormFieldType], { nullable: true }) form_fields?: PaymentFormFieldType[];
 }
 
 @ObjectType('PaymentVerificationResult')
@@ -168,4 +184,49 @@ export class FinanceSummaryType {
   @Field(() => Int) succeeded_count: number;
   @Field(() => Int) failed_count: number;
   @Field(() => [FinanceMonthlyPointType]) monthly: FinanceMonthlyPointType[];
+}
+
+// REQ176 -- appointments/detail.jsx's "Request Refund" action needs to know
+// whether a real succeeded, not-already-refunded payment exists for this
+// appointment before offering the button at all. A minimal row shape, not
+// the full AppointmentPayments record (invoice/GST fields have no reader
+// here yet).
+@ObjectType('AppointmentPaymentSummary')
+export class AppointmentPaymentSummaryType {
+  @Field(() => ID) id: string;
+  @Field() status: string; // pending | succeeded | failed
+  @Field(() => Float) amount: number; // rupees
+  @Field() refund_status: string; // none | requested | approved | rejected | processing | refunded | failed
+  @Field() created_at: Date;
+}
+
+// REQ176 -- mirrors DiscountApprovalRequests' own read shape exactly,
+// including returning raw user ids rather than a resolved display name
+// (discountRequestToGraphQL's own established precedent — Users has no
+// name fields of its own; those live on UserProfiles, a separate lookup
+// the frontend already knows how to do for the identical discount-queue
+// UI this mirrors).
+@ObjectType('RefundRequest')
+export class RefundRequestType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) appointment_payment_id: string;
+  // Float rupees at the resolver boundary, matching every other money
+  // field on this file's entities (Hard Rule 9) — discountRequestToGraphQL's
+  // own expected_amount/discount_amount fields just above do the identical
+  // PAISE_TO_RUPEES conversion; this one is stored as raw paise internally
+  // (RefundRequests.requested_amount) but must convert here too.
+  @Field(() => Float) requested_amount: number;
+  @Field() reason: string;
+  @Field() status: string; // pending | approved | rejected
+  @Field() created_at: Date;
+  @Field({ nullable: true }) decided_at?: Date;
+  @Field(() => ID) requested_by_user_id: string;
+  @Field(() => ID, { nullable: true }) decided_by_user_id?: string;
+}
+
+@ObjectType('RefundRequestResult')
+export class RefundRequestResultType {
+  @Field() success: boolean;
+  @Field({ nullable: true }) message?: string;
+  @Field(() => ID, { nullable: true }) request_id?: string;
 }

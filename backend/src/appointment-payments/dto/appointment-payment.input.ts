@@ -73,3 +73,22 @@ export class RedeemPackageSittingInput {
   @Field(() => ID) @IsNotEmpty() appointment_id: string;
   @Field(() => ID) @IsNotEmpty() patient_package_id: string;
 }
+
+// REQ176 -- requested_amount is deliberately NOT an input field here: it is
+// always computed server-side by the cancellation-fee policy engine
+// (common/scheduling/cancellation-fee.ts) against the appointment's real
+// cancellation timestamp, mirroring createRazorpayOrder's own "amount is
+// never a client-supplied argument" rule.
+@InputType('RequestRefundInput')
+export class RequestRefundInput {
+  @Field(() => ID) @IsNotEmpty() appointment_payment_id: string;
+  @Field() @IsNotEmpty() reason: string;
+}
+
+export const REFUND_DECISIONS = ['approve', 'reject'] as const;
+
+@InputType('DecideRefundRequestInput')
+export class DecideRefundRequestInput {
+  @Field(() => ID) @IsNotEmpty() request_id: string;
+  @Field() @IsIn(REFUND_DECISIONS) decision: string;
+}

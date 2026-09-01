@@ -1,6 +1,6 @@
 import { Injectable, BadRequestException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { ReceiveStockInput, AdjustStockInput, DispensePrescriptionItemInput } from './dto/pharmacy.input';
+import { ReceiveStockInput, AdjustStockInput, DispensePrescriptionItemInput, RecordPharmacyPaymentInput } from './dto/pharmacy.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, orgScopeVia, isSameOrg } from '../common/scoping/tenant-scope';
 
@@ -241,5 +241,38 @@ export class PharmacyService {
     return drugs
       .map((d) => ({ drug_id: d.id, drug_name: d.name, reorder_level: d.reorder_level as number, quantity_on_hand: totalByDrug.get(d.id) ?? 0 }))
       .filter((d) => d.quantity_on_hand <= d.reorder_level);
+  }
+
+  // REQ177 -- counter-payment collection for dispensed medicines, the
+  // pharmacy counterpart to appointment-payments' own recordCounterPayment.
+  // Counter-payment only this pass (cash/UPI/card/cheque) -- an
+  // online-gateway path for pharmacy purchases is deferred; pharmacy
+  // purchases are overwhelmingly in-person. GST fields are deliberately
+  // left null here: a mixed dispense can span drugs with different GST
+  // rates, and this table's single flat amount/tenders shape (matching
+  // recordCounterPayment's own established shape) has no per-line-item
+  // breakdown to allocate GST across correctly -- guessed tax figures are
+  // worse than none, matching invoiceDetailsForSuccess's own "never guess"
+  // rule elsewhere in this codebase.
+  async recordPharmacyPayment(input: RecordPharmacyPaymentInput, user: JwtPayload) {
+    const clinic = await this.assertClinicInScope(input.clinic_id, user);
+    const patient = await this.prisma.patients.findUnique({ where: { id: input.patient_id } });
+    if (!patient || patient.is_deleted) throw new BadRequestException('Patient not found');
+
+    const totalPaise = input.tenders.reduce((sum, t) => sum + (RUPEES_TO_PAISE(t.amount) ?? 0), 0);
+    if (totalPaise <= 0) throw new BadRequestException('At least one tender with a positive amount is required');
+
+    const payment = await this.prisma.pharmacyPayments.create({
+      data: {
+        clinic_id: input.clinic_id,
+        client_org_id: clinic.client_org_id,
+        patient_id: input.patient_id,
+        prescription_id: input.prescription_id,
+        amount: totalPaise,
+        tenders_json: input.tenders.map((t) => ({ tender_type: t.tender_type, amount: RUPEES_TO_PAISE(t.amount), reference: t.reference })),
+        recorded_by_user_id: user.sub,
+      },
+    });
+    return { success: true, payment_id: payment.id };
   }
 }

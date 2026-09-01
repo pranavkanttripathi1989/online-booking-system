@@ -64,6 +64,7 @@ import { AiClinicalModule } from './ai-clinical/ai-clinical.module';
 import { ImportsModule } from './imports/imports.module';
 import { TasksModule } from './tasks/tasks.module';
 import { PatientDocumentsModule } from './patient-documents/patient-documents.module';
+import { PaymentGatewaysModule } from './payment-gateways/payment-gateways.module';
 import { RevenueShareModule } from './revenue-share/revenue-share.module';
 import { AppointmentSeriesModule } from './appointment-series/appointment-series.module';
 import { MembershipsModule } from './memberships/memberships.module';
@@ -195,6 +196,7 @@ import { PubSubModule } from './common/pubsub.module';
     ImportsModule,
     TasksModule,
     PatientDocumentsModule,
+    PaymentGatewaysModule,
     RevenueShareModule,
     AppointmentSeriesModule,
     MembershipsModule,

@@ -13,6 +13,7 @@ import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { WaitlistService } from '../waitlist/waitlist.service';
 import { BranchOverridesService } from '../branch-overrides/branch-overrides.service';
 import { SlotHoldsService } from '../slot-holds/slot-holds.service';
+import { CancellationRulesService } from '../cancellation-rules/cancellation-rules.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // Security regression coverage: appointments() previously only org-scoped,
@@ -34,6 +35,7 @@ describe('AppointmentsService — access scoping', () => {
     resources: { count: jest.Mock };
     appointmentResources: { findFirst: jest.Mock; createMany: jest.Mock; deleteMany: jest.Mock; updateMany: jest.Mock };
     appointmentIdempotencyKeys: { findUnique: jest.Mock; create: jest.Mock };
+    appointmentPayments: { findFirst: jest.Mock; create: jest.Mock };
     $executeRawUnsafe: jest.Mock;
     $transaction: jest.Mock;
   };
@@ -45,6 +47,7 @@ describe('AppointmentsService — access scoping', () => {
   let queueService: { syncFromAppointmentStatus: jest.Mock; publish: jest.Mock };
   let branchOverridesService: { getManyForPricing: jest.Mock };
   let slotHoldsService: { holdSlot: jest.Mock; releaseSlot: jest.Mock; consumeIfOwned: jest.Mock };
+  let cancellationRulesService: { findActiveRulesForOrg: jest.Mock };
 
   const staffUser: JwtPayload = { sub: 'staff-1', roles: ['manager'], client_org_id: 'org-1' } as JwtPayload;
   const patientUser: JwtPayload = { sub: 'user-1', roles: ['patient'], client_org_id: 'org-1', patient_id: 'pat-1' } as JwtPayload;
@@ -92,6 +95,10 @@ describe('AppointmentsService — access scoping', () => {
       // key on file" so every pre-existing create() test in this file (none
       // of which pass idempotency_key) is unaffected.
       appointmentIdempotencyKeys: { findUnique: jest.fn().mockResolvedValue(null), create: jest.fn() },
+      // REQ177: update()'s reschedule-fee lookup -- defaults to "no prior
+      // succeeded payment" so every pre-existing update() test in this file
+      // (none of which exercise the reschedule-fee path) skips it unchanged.
+      appointmentPayments: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn() },
       $executeRawUnsafe: jest.fn(),
       $transaction: jest.fn((ops) => (typeof ops === 'function' ? ops(prisma) : Promise.all(ops))),
     };
@@ -136,6 +143,15 @@ describe('AppointmentsService — access scoping', () => {
         {
           provide: SlotHoldsService,
           useValue: (slotHoldsService = { holdSlot: jest.fn(), releaseSlot: jest.fn(), consumeIfOwned: jest.fn() }),
+        },
+        // REQ177: update() now computes a reschedule fee via this service's
+        // rule lookup -- mocked to "no rules configured" so every
+        // pre-existing test in this file (none of which exercise the
+        // reschedule-fee path) is unaffected; exercised for real in the
+        // dedicated describe block below and cancellation-rules.service.spec.ts.
+        {
+          provide: CancellationRulesService,
+          useValue: (cancellationRulesService = { findActiveRulesForOrg: jest.fn().mockResolvedValue([]) }),
         },
       ],
     }).compile();
@@ -1127,6 +1143,83 @@ describe('AppointmentsService — access scoping', () => {
       prisma.appointments.findMany.mockResolvedValue([apptA]);
       await service.bulkReschedule({ clinician_id: 'cln-1', date: '2026-08-26', shift_minutes: 60 } as any, staffUser);
       expect(prisma.appointments.findFirst).not.toHaveBeenCalled();
+    });
+  });
+
+  // REQ177 — update()'s reschedule-fee hook. A near-term (2h from now) time
+  // change against a rule requiring 48h notice.
+  describe('update — reschedule fee', () => {
+    const nearAppointmentTime = new Date(Date.now() + 2 * 60 * 60 * 1000);
+    const existingRow = {
+      ...baseAppointmentRow,
+      product_id: 'prod-1',
+      clinic_id: 'clinic-1',
+      booking_mode: 'session', // skips assertSlotFree's own DB lookups entirely
+      appointment_time: nearAppointmentTime,
+      clinic: { client_org_id: 'org-1' },
+    };
+    const succeededPriorPayment = { id: 'pay-prior-1', status: 'succeeded', amount: 100000 };
+
+    beforeEach(() => {
+      prisma.appointments.findUnique.mockResolvedValue(existingRow);
+      prisma.appointmentPayments.create.mockResolvedValue({ id: 'fee-payment-1' });
+    });
+
+    it('creates a new pending fee payment and surfaces it when notice is short and a rule applies', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(succeededPriorPayment);
+      cancellationRulesService.findActiveRulesForOrg.mockResolvedValue([
+        { hours_before_appointment: 48, fee_type: 'fixed', fee_amount: 20000, product_id: null, clinic_id: null, priority: 1 },
+      ]);
+
+      const result = await service.update('appt-1', { start_datetime: new Date().toISOString() } as any, staffUser);
+
+      expect(cancellationRulesService.findActiveRulesForOrg).toHaveBeenCalledWith('org-1', 'reschedule');
+      expect(prisma.appointmentPayments.create).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ appointment_id: 'appt-1', amount: 20000, status: 'pending', metadata: { reason: 'reschedule_fee' } }),
+      }));
+      expect(result.reschedule_fee_amount).toBe(200); // 20000 paise -> rupees
+      expect(result.reschedule_fee_payment_id).toBe('fee-payment-1');
+    });
+
+    it('creates no fee payment when enough notice is given', async () => {
+      const farAppointmentTime = new Date(Date.now() + 72 * 60 * 60 * 1000);
+      prisma.appointments.findUnique.mockResolvedValue({ ...existingRow, appointment_time: farAppointmentTime });
+      prisma.appointmentPayments.findFirst.mockResolvedValue(succeededPriorPayment);
+      cancellationRulesService.findActiveRulesForOrg.mockResolvedValue([
+        { hours_before_appointment: 48, fee_type: 'fixed', fee_amount: 20000, product_id: null, clinic_id: null, priority: 1 },
+      ]);
+
+      const result = await service.update('appt-1', { start_datetime: new Date().toISOString() } as any, staffUser);
+
+      expect(prisma.appointmentPayments.create).not.toHaveBeenCalled();
+      expect(result.reschedule_fee_amount).toBeUndefined();
+    });
+
+    it('skips the fee engine entirely when there is no prior succeeded payment', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(null);
+
+      const result = await service.update('appt-1', { start_datetime: new Date().toISOString() } as any, staffUser);
+
+      expect(cancellationRulesService.findActiveRulesForOrg).not.toHaveBeenCalled();
+      expect(result.reschedule_fee_amount).toBeUndefined();
+    });
+
+    it('never computes a fee for a cancellation, even if start_datetime happens to be present', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(succeededPriorPayment);
+
+      const result = await service.update('appt-1', { status: 'cancelled', start_datetime: new Date().toISOString() } as any, staffUser);
+
+      expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
+      expect(result.reschedule_fee_amount).toBeUndefined();
+    });
+
+    it('does not compute a fee when start_datetime is unchanged', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue(succeededPriorPayment);
+
+      const result = await service.update('appt-1', { notes: 'just a note update' } as any, staffUser);
+
+      expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
+      expect(result.reschedule_fee_amount).toBeUndefined();
     });
   });
 });

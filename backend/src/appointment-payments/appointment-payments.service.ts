@@ -8,6 +8,8 @@ import {
   RedeemPackageSittingInput,
   DecideDiscountApprovalInput,
   CloseCashDrawerInput,
+  RequestRefundInput,
+  DecideRefundRequestInput,
 } from './dto/appointment-payment.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { orgScope, isSameOrg } from '../common/scoping/tenant-scope';
@@ -15,8 +17,12 @@ import { NotificationTriggerService } from '../notifications/notification-trigge
 import { resolveServicePrice } from '../common/pricing/resolve-price';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { BranchOverridesService } from '../branch-overrides/branch-overrides.service';
+import { PaymentGatewayConfigService } from '../payment-gateways/payment-gateway-config.service';
+import { CancellationRulesService } from '../cancellation-rules/cancellation-rules.service';
+import { selectApplicableRule, computeCancellationFee, hoursBetween } from '../common/scheduling/cancellation-fee';
+import { NormalizedWebhookEvent } from '../payment-gateways/providers/provider.interface';
+import { getProvider } from '../payment-gateways/providers/registry';
 
-const RAZORPAY_ORDERS_URL = 'https://api.razorpay.com/v1/orders';
 const RUPEES_TO_PAISE = (rupees: number) => Math.round(rupees * 100);
 const PAISE_TO_RUPEES = (paise: number) => paise / 100;
 
@@ -35,20 +41,23 @@ export class AppointmentPaymentsService {
     private readonly notificationTrigger: NotificationTriggerService,
     private readonly webhookDispatch: WebhookDispatchService,
     private readonly branchOverrides: BranchOverridesService,
+    private readonly paymentGatewayConfig: PaymentGatewayConfigService,
+    private readonly cancellationRules: CancellationRulesService,
   ) {}
-
-  private razorpayAuthHeader() {
-    const keyId = process.env.RAZORPAY_KEY_ID;
-    const keySecret = process.env.RAZORPAY_KEY_SECRET;
-    if (!keyId || !keySecret) throw new BadRequestException('Razorpay is not configured');
-    return `Basic ${Buffer.from(`${keyId}:${keySecret}`).toString('base64')}`;
-  }
 
   // Amount is derived server-side from the appointment's linked product
   // price -- never accepted as a client-supplied argument. A patient-facing
   // mutation that took an amount straight from the request would let anyone
   // pay any price for any appointment (the payment-flow analog of Hard
   // Rule 6's "never trust a client-supplied id/amount").
+  //
+  // REQ175 -- resolves the clinic's own configured gateway via the
+  // registry (falling back to the platform's env-var Razorpay when
+  // unconfigured, PaymentGatewayConfigService's own zero-regression path).
+  // This is a behaviour-preserving refactor for the overwhelming default
+  // case: razorpayProvider.createOrder() is the exact extracted logic this
+  // method used to run inline, so an org that never touches the new
+  // per-clinic gateway settings sees no difference at all.
   async createRazorpayOrder(appointmentId: string) {
     const appointment = await this.prisma.appointments.findUnique({
       where: { id: appointmentId },
@@ -66,21 +75,12 @@ export class AppointmentPaymentsService {
     const amount = resolveServicePrice(appointment.product, appointment.patient, 'online', branchOverride);
     if (amount == null) throw new BadRequestException('This appointment has no priced product to pay for');
 
-    const res = await fetch(RAZORPAY_ORDERS_URL, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: this.razorpayAuthHeader(),
-      },
-      body: JSON.stringify({
-        amount,
-        currency: 'INR',
-        receipt: appointment.id,
-      }),
-    });
-    const order = (await res.json()) as { id?: string; error?: { description?: string } };
-    if (!res.ok || !order.id) {
-      throw new BadRequestException(order.error?.description ?? 'Failed to create Razorpay order');
+    const { provider, credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(appointment.clinic_id);
+    let order;
+    try {
+      order = await provider.createOrder(credentials, { amountPaise: amount, receipt: appointment.id });
+    } catch (e: any) {
+      throw new BadRequestException(e.message ?? 'Failed to create payment order');
     }
 
     await this.prisma.appointmentPayments.create({
@@ -92,15 +92,27 @@ export class AppointmentPaymentsService {
         amount,
         currency: 'INR',
         status: 'pending',
-        razorpay_order_id: order.id,
+        gateway: provider.id,
+        gateway_order_id: order.gatewayOrderId,
+        // Dual-write the legacy column only for the razorpay path -- zero
+        // regression for any existing code/report reading it directly.
+        razorpay_order_id: provider.id === 'razorpay' ? order.gatewayOrderId : undefined,
       },
     });
 
     return {
-      razorpay_order_id: order.id,
+      // razorpay_order_id kept populated for the razorpay path so the
+      // existing booking/index.jsx contract (pre-dating this registry)
+      // keeps working with zero frontend change.
+      razorpay_order_id: order.gatewayOrderId,
       amount,
       currency: 'INR',
-      razorpay_key_id: process.env.RAZORPAY_KEY_ID,
+      razorpay_key_id: order.razorpayKeyId,
+      gateway: provider.id,
+      checkout_type: order.checkoutType,
+      redirect_url: order.redirectUrl,
+      form_post_url: order.formPostUrl,
+      form_fields: order.formFields ? Object.entries(order.formFields).map(([key, value]) => ({ key, value })) : undefined,
     };
   }
 
@@ -607,6 +619,7 @@ export class AppointmentPaymentsService {
         status: 'succeeded',
         razorpay_payment_id: input.razorpay_payment_id,
         razorpay_signature: input.razorpay_signature,
+        gateway_payment_id: input.razorpay_payment_id,
         ...invoiceDetails,
       },
     });
@@ -666,7 +679,13 @@ export class AppointmentPaymentsService {
       throw new BadRequestException('Invalid webhook signature');
     }
 
-    let event: { event?: string; payload?: { payment?: { entity?: { id?: string; order_id?: string } } } };
+    let event: {
+      event?: string;
+      payload?: {
+        payment?: { entity?: { id?: string; order_id?: string } };
+        refund?: { entity?: { id?: string; payment_id?: string } };
+      };
+    };
     try {
       event = JSON.parse(rawBody.toString('utf8'));
     } catch {
@@ -678,10 +697,37 @@ export class AppointmentPaymentsService {
     const orderId = event.payload?.payment?.entity?.order_id;
     const paymentId = event.payload?.payment?.entity?.id;
 
-    // Every event type is acknowledged (200 -- Razorpay stops retrying) even
-    // when unhandled: refunds/disputes have no schema anywhere in this
-    // codebase yet (REQ040), so silently accepting and ignoring them is the
-    // honest behavior, not a mishandled event.
+    // REQ176 -- refund.processed/refund.failed closes the gap this webhook
+    // used to acknowledge-and-drop entirely (see this method's own prior
+    // comment history): a refund's own gateway_payment_id, not order_id,
+    // is what identifies the row, since a refund event carries no order_id
+    // of its own.
+    if (eventType === 'refund.processed' || eventType === 'refund.failed') {
+      const refundPaymentId = event.payload?.refund?.entity?.payment_id;
+      const refundId = event.payload?.refund?.entity?.id;
+      if (!refundPaymentId) {
+        await this.logWebhookAudit(null, 'razorpay_webhook', 'no_payment_id', { event: eventType });
+        return { acknowledged: true };
+      }
+      const refundPayment = await this.prisma.appointmentPayments.findFirst({ where: { razorpay_payment_id: refundPaymentId } });
+      if (!refundPayment) {
+        await this.logWebhookAudit(null, 'razorpay_webhook', 'payment_not_found', { event: eventType, refundPaymentId });
+        return { acknowledged: true };
+      }
+      await this.prisma.appointmentPayments.update({
+        where: { id: refundPayment.id },
+        data: {
+          refund_status: eventType === 'refund.processed' ? 'refunded' : 'failed',
+          refunded_at: eventType === 'refund.processed' ? new Date() : refundPayment.refunded_at,
+          gateway_refund_id: refundId ?? refundPayment.gateway_refund_id,
+        },
+      });
+      await this.logWebhookAudit(refundPayment.id, 'razorpay_webhook', 'success', { event: eventType, refundPaymentId, refundId });
+      return { acknowledged: true };
+    }
+
+    // Every other unrecognised event type is still acknowledged (200 --
+    // Razorpay stops retrying) rather than mishandled.
     if (eventType !== 'payment.captured' && eventType !== 'payment.failed') {
       await this.logWebhookAudit(null, 'razorpay_webhook', 'ignored', { event: eventType });
       return { acknowledged: true };
@@ -705,7 +751,7 @@ export class AppointmentPaymentsService {
       const invoiceDetails = await this.invoiceDetailsForSuccess(payment.clinic_id, payment.appointment_id, payment.amount);
       await this.prisma.appointmentPayments.update({
         where: { id: payment.id },
-        data: { status: 'succeeded', razorpay_payment_id: paymentId ?? payment.razorpay_payment_id, ...invoiceDetails },
+        data: { status: 'succeeded', razorpay_payment_id: paymentId ?? payment.razorpay_payment_id, gateway_payment_id: paymentId ?? payment.gateway_payment_id, ...invoiceDetails },
       });
       await this.confirmAppointmentIfAwaitingPayment(payment.appointment_id);
       if (payment.client_org_id) {
@@ -914,5 +960,245 @@ export class AppointmentPaymentsService {
       failed_count: failed,
       monthly,
     };
+  }
+
+  // REQ176 -- appointments/detail.jsx's own "Request Refund" affordance:
+  // does a real succeeded, not-already-refunded payment exist for this
+  // appointment at all? Delegated to loadScoped-style org checking via the
+  // appointment's own clinic, not re-derived.
+  async paymentsForAppointment(appointmentId: string, user: JwtPayload) {
+    const appointment = await this.prisma.appointments.findUnique({ where: { id: appointmentId }, include: { clinic: true } });
+    if (!appointment || !isSameOrg(user, appointment.clinic.client_org_id)) return [];
+    const rows = await this.prisma.appointmentPayments.findMany({
+      where: { appointment_id: appointmentId },
+      orderBy: { created_at: 'desc' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      status: r.status,
+      amount: PAISE_TO_RUPEES(r.amount),
+      refund_status: r.refund_status,
+      created_at: r.created_at,
+    }));
+  }
+
+  // REQ176 -- requested_amount is always computed here, server-side, via
+  // the cancellation-fee policy engine against the appointment's real
+  // cancellation timestamp -- never a client-supplied argument, mirroring
+  // createRazorpayOrder's own "amount is never client-supplied" rule.
+  async requestRefund(input: RequestRefundInput, user: JwtPayload) {
+    const payment = await this.prisma.appointmentPayments.findUnique({
+      where: { id: input.appointment_payment_id },
+      include: { clinic: true, appointment: true },
+    });
+    if (!payment) return { success: false, message: 'Payment not found' };
+    if (!isSameOrg(user, payment.client_org_id)) return { success: false, message: 'Payment not found' };
+    if (payment.status !== 'succeeded') return { success: false, message: 'Only a succeeded payment can be refunded' };
+    if (payment.refund_status !== 'none' && payment.refund_status !== 'rejected') {
+      return { success: false, message: 'A refund has already been requested for this payment' };
+    }
+
+    // The appointment's own updated_at is the best available approximation
+    // of "when the cancellation/reschedule actually happened" -- this
+    // schema doesn't carry a dedicated cancelled_at timestamp (only
+    // cancellation_reason, a free-text field), and updated_at is the last
+    // time the row's status genuinely changed.
+    const cancelledAt = payment.appointment.updated_at;
+    const hoursBefore = hoursBetween(cancelledAt, payment.appointment.appointment_time);
+    const ruleType = payment.appointment.status === 'cancelled' ? 'cancellation' : 'reschedule';
+    const rules = await this.cancellationRules.findActiveRulesForOrg(payment.client_org_id, ruleType);
+    const rule = selectApplicableRule(rules, payment.appointment.product_id, payment.clinic_id);
+    const { refundAmount } = computeCancellationFee(rule, payment.amount, hoursBefore);
+
+    const request = await this.prisma.refundRequests.create({
+      data: {
+        appointment_payment_id: payment.id,
+        clinic_id: payment.clinic_id,
+        client_org_id: payment.client_org_id,
+        requested_by_user_id: user.sub,
+        requested_amount: refundAmount,
+        reason: input.reason,
+      },
+    });
+    await this.prisma.appointmentPayments.update({ where: { id: payment.id }, data: { refund_status: 'requested' } });
+    return { success: true, request_id: request.id };
+  }
+
+  // Optional clinicId, same dual-mode shape as discountApprovalRequests()
+  // just above (an omitted clinicId scopes across the caller's whole org
+  // via orgScope() directly, never a separate per-clinic existence check)
+  // -- matches the tenancy matrix's generic no-required-args CASES shape.
+  async myClinicRefundRequests(clinicId: string | undefined, user: JwtPayload) {
+    const rows = await this.prisma.refundRequests.findMany({
+      where: { ...(clinicId ? { clinic_id: clinicId } : {}), ...orgScope(user) },
+      orderBy: { created_at: 'desc' },
+    });
+    return rows.map((r) => ({
+      id: r.id,
+      appointment_payment_id: r.appointment_payment_id,
+      requested_amount: PAISE_TO_RUPEES(r.requested_amount),
+      reason: r.reason,
+      status: r.status,
+      created_at: r.created_at,
+      decided_at: r.decided_at ?? undefined,
+      requested_by_user_id: r.requested_by_user_id,
+      decided_by_user_id: r.decided_by_user_id ?? undefined,
+    }));
+  }
+
+  // REQ176 -- mirrors decideDiscountApproval() exactly, including its
+  // "the requester can never approve their own request, even if they also
+  // hold a manager+ role" rule -- the whole point of the control is a
+  // genuinely second party reviewing it.
+  async decideRefundRequest(input: DecideRefundRequestInput, user: JwtPayload) {
+    const request = await this.prisma.refundRequests.findUnique({
+      where: { id: input.request_id },
+      include: { appointment_payment: true },
+    });
+    if (!request) return { success: false, message: 'Refund request not found' };
+    if (!isSameOrg(user, request.client_org_id)) return { success: false, message: 'Refund request not found' };
+    if (request.status !== 'pending') return { success: false, message: 'This refund request has already been decided' };
+    if (request.requested_by_user_id === user.sub) return { success: false, message: 'Cannot approve your own refund request' };
+
+    if (input.decision === 'reject') {
+      // Callback form, matching every other $transaction call in this
+      // service (createRazorpayOrder/recordCounterPayment above) -- the
+      // array form works against real Prisma too, but this file's own
+      // mocked-prisma test convention only stubs the callback shape.
+      await this.prisma.$transaction(async (tx) => {
+        await tx.refundRequests.update({ where: { id: request.id }, data: { status: 'rejected', decided_by_user_id: user.sub, decided_at: new Date() } });
+        await tx.appointmentPayments.update({ where: { id: request.appointment_payment_id }, data: { refund_status: 'rejected' } });
+      });
+      return { success: true, request_id: request.id };
+    }
+
+    const payment = request.appointment_payment;
+    const { provider, credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(payment.clinic_id);
+    const gatewayPaymentId = payment.gateway_payment_id ?? payment.razorpay_payment_id;
+    if (!gatewayPaymentId) {
+      return { success: false, message: 'This payment has no gateway reference to refund against (was it a counter payment?)' };
+    }
+
+    await this.prisma.$transaction(async (tx) => {
+      await tx.refundRequests.update({ where: { id: request.id }, data: { status: 'approved', decided_by_user_id: user.sub, decided_at: new Date() } });
+      await tx.appointmentPayments.update({ where: { id: payment.id }, data: { refund_status: 'processing', refund_amount: request.requested_amount, refund_reason: request.reason } });
+    });
+
+    const result = await provider.refund(credentials, {
+      gatewayPaymentId,
+      gatewayOrderId: payment.gateway_order_id ?? payment.razorpay_order_id ?? undefined,
+      amountPaise: request.requested_amount,
+    });
+    if (!result.success) {
+      await this.prisma.appointmentPayments.update({ where: { id: payment.id }, data: { refund_status: 'failed' } });
+      return { success: false, message: result.error ?? 'Refund failed at the gateway', request_id: request.id };
+    }
+    // Razorpay's own refund.processed webhook is what actually marks a row
+    // 'refunded' (matching payment.captured's own webhook-is-authoritative
+    // pattern) -- the other three gateways' refund APIs are synchronous, so
+    // marking it here for those is correct; Razorpay's own eventual webhook
+    // re-writing the same 'refunded' state on top is a harmless no-op.
+    await this.prisma.appointmentPayments.update({
+      where: { id: payment.id },
+      data: provider.id === 'razorpay'
+        ? { gateway_refund_id: result.gatewayRefundId }
+        : { refund_status: 'refunded', refunded_at: new Date(), gateway_refund_id: result.gatewayRefundId },
+    });
+    return { success: true, request_id: request.id };
+  }
+
+  // REQ175 -- unlike Razorpay's single platform-wide webhook secret (env
+  // var), each clinic now has its own gateway credentials, so the correct
+  // secret to verify against can't be known before the event is at least
+  // PARSED. Parsing untrusted data to route a lookup is safe -- it grants
+  // no capability by itself; only after the signature is verified against
+  // the SPECIFIC clinic's own credentials (resolved from that lookup) is
+  // the event actually applied. A gatewayOrderId that doesn't resolve to a
+  // real payment row is rejected before any credential lookup at all.
+  async verifyAndApplyGatewayEvent(gateway: string, rawBody: Buffer, headers: Record<string, string | string[] | undefined>) {
+    const provider = getProvider(gateway);
+    if (!provider) {
+      await this.logWebhookAudit(null, `${gateway}_webhook`, 'unknown_gateway', {});
+      throw new BadRequestException(`Unknown gateway "${gateway}"`);
+    }
+
+    let event: NormalizedWebhookEvent;
+    try {
+      event = provider.parseWebhookEvent(rawBody);
+    } catch {
+      await this.logWebhookAudit(null, `${gateway}_webhook`, 'unparseable_body', {});
+      throw new BadRequestException('Unparseable webhook body');
+    }
+
+    const routingId = event.gatewayOrderId ?? event.gatewayPaymentId;
+    if (!routingId) {
+      await this.logWebhookAudit(null, `${gateway}_webhook`, 'no_routing_id', { event: event.raw });
+      return { acknowledged: true };
+    }
+    const payment = await this.prisma.appointmentPayments.findFirst({
+      where: { gateway, OR: [{ gateway_order_id: routingId }, { gateway_payment_id: routingId }] },
+    });
+    if (!payment) {
+      await this.logWebhookAudit(null, `${gateway}_webhook`, 'payment_not_found', { event: event.raw, routingId });
+      return { acknowledged: true };
+    }
+
+    const { credentials } = await this.paymentGatewayConfig.getActiveConfigForClinic(payment.clinic_id);
+    const valid = provider.verifyWebhookSignature(credentials, rawBody, headers);
+    if (!valid) {
+      await this.logWebhookAudit(payment.id, `${gateway}_webhook`, 'invalid_signature', {});
+      throw new BadRequestException('Invalid webhook signature');
+    }
+
+    return this.applyGatewayEvent(gateway, event);
+  }
+
+  // REQ175 -- shared by the Cashfree/PayU/PhonePe webhook controllers
+  // (gateway-webhooks.controller.ts) so the captured/failed/refunded
+  // state-transition logic lives in exactly one place regardless of which
+  // gateway sent the event -- Razorpay keeps its own dedicated
+  // handleRazorpayWebhook() above (a real, pre-existing, live-verified
+  // path this refactor deliberately does not disturb), but a payment row
+  // is a payment row regardless of which gateway captured it.
+  async applyGatewayEvent(gateway: string, event: NormalizedWebhookEvent) {
+    await this.logWebhookAudit(null, `${gateway}_webhook`, event.type, { event: event.raw });
+
+    if (event.type === 'ignored') return { acknowledged: true };
+
+    if (event.type === 'payment_captured' || event.type === 'payment_failed') {
+      if (!event.gatewayOrderId) return { acknowledged: true };
+      const payment = await this.prisma.appointmentPayments.findFirst({ where: { gateway_order_id: event.gatewayOrderId, gateway } });
+      if (!payment) return { acknowledged: true };
+
+      if (event.type === 'payment_captured' && payment.status !== 'succeeded') {
+        const invoiceDetails = await this.invoiceDetailsForSuccess(payment.clinic_id, payment.appointment_id, payment.amount);
+        await this.prisma.appointmentPayments.update({
+          where: { id: payment.id },
+          data: { status: 'succeeded', gateway_payment_id: event.gatewayPaymentId ?? payment.gateway_payment_id, ...invoiceDetails },
+        });
+        await this.confirmAppointmentIfAwaitingPayment(payment.appointment_id);
+        if (payment.client_org_id) {
+          await this.webhookDispatch.fireEvent(payment.client_org_id, 'payment.succeeded', { appointment_id: payment.appointment_id, amount: payment.amount });
+        }
+      } else if (event.type === 'payment_failed' && payment.status === 'pending') {
+        await this.prisma.appointmentPayments.update({ where: { id: payment.id }, data: { status: 'failed' } });
+      }
+      return { acknowledged: true };
+    }
+
+    if (event.type === 'refund_processed' || event.type === 'refund_failed') {
+      if (!event.gatewayPaymentId) return { acknowledged: true };
+      const payment = await this.prisma.appointmentPayments.findFirst({ where: { gateway_payment_id: event.gatewayPaymentId, gateway } });
+      if (!payment) return { acknowledged: true };
+      await this.prisma.appointmentPayments.update({
+        where: { id: payment.id },
+        data: {
+          refund_status: event.type === 'refund_processed' ? 'refunded' : 'failed',
+          refunded_at: event.type === 'refund_processed' ? new Date() : payment.refunded_at,
+          gateway_refund_id: event.gatewayRefundId ?? payment.gateway_refund_id,
+        },
+      });
+    }
+    return { acknowledged: true };
   }
 }

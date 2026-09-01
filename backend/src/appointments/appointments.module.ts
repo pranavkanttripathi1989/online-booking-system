@@ -12,6 +12,7 @@ import { WaitlistModule } from '../waitlist/waitlist.module';
 import { BranchOverridesModule } from '../branch-overrides/branch-overrides.module';
 import { SlotHoldsModule } from '../slot-holds/slot-holds.module';
 import { ReviewsModule } from '../reviews/reviews.module';
+import { CancellationRulesModule } from '../cancellation-rules/cancellation-rules.module';
 
 @Module({
   // ScheduleModule.forRoot() is idempotent -- appointment-payments.module.ts
@@ -26,6 +27,7 @@ import { ReviewsModule } from '../reviews/reviews.module';
     BranchOverridesModule,
     SlotHoldsModule,
     ReviewsModule,
+    CancellationRulesModule,
   ],
   providers: [AppointmentsService, AppointmentsResolver, NoShowSweepService, AppointmentReminderSweepService],
   exports: [AppointmentsService],

@@ -5,6 +5,9 @@ import { PrismaService } from '../prisma/prisma.service';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { WebhookDispatchService } from '../webhooks/webhook-dispatch.service';
 import { BranchOverridesService } from '../branch-overrides/branch-overrides.service';
+import { PaymentGatewayConfigService } from '../payment-gateways/payment-gateway-config.service';
+import { CancellationRulesService } from '../cancellation-rules/cancellation-rules.service';
+import { encryptJson } from '../common/crypto/secrets';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 const ORIGINAL_ENV = process.env;
@@ -31,6 +34,12 @@ describe('AppointmentPaymentsService', () => {
     clinics: { findUnique: jest.Mock };
     discountApprovalRequests: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     cashDrawerCloseouts: { create: jest.Mock; findMany: jest.Mock };
+    // REQ175/176 — real PaymentGatewayConfigService/CancellationRulesService
+    // instances run against this same mocked prisma (see below), rather than
+    // hand-mocking each service's own method surface.
+    paymentGatewayConfig: { findUnique: jest.Mock; upsert: jest.Mock };
+    productCancellationRules: { findMany: jest.Mock };
+    refundRequests: { create: jest.Mock; findMany: jest.Mock; findUnique: jest.Mock; update: jest.Mock };
     $transaction: jest.Mock;
   };
   let fetchMock: jest.Mock;
@@ -65,6 +74,15 @@ describe('AppointmentPaymentsService', () => {
       clinics: { findUnique: jest.fn() },
       discountApprovalRequests: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       cashDrawerCloseouts: { create: jest.fn(), findMany: jest.fn() },
+      // REQ175 — no row found -> PaymentGatewayConfigService falls back to
+      // env-var Razorpay credentials, matching every pre-existing test's
+      // expectation (the old hardcoded behavior) unchanged.
+      paymentGatewayConfig: { findUnique: jest.fn().mockResolvedValue(null), upsert: jest.fn() },
+      // REQ176 — no rules configured -> selectApplicableRule() returns null
+      // -> zero fee/full refund, matching every pre-existing test in this
+      // file (none of which exercise the refund-request path) unchanged.
+      productCancellationRules: { findMany: jest.fn().mockResolvedValue([]) },
+      refundRequests: { create: jest.fn(), findMany: jest.fn(), findUnique: jest.fn(), update: jest.fn() },
       // REQ023 — recordCounterPayment()'s own transaction. Runs the callback
       // against the same top-level `prisma` mock (tx === prisma here), which
       // is fine since every model this transaction touches is already
@@ -87,6 +105,8 @@ describe('AppointmentPaymentsService', () => {
         { provide: NotificationTriggerService, useValue: notificationTrigger },
         { provide: WebhookDispatchService, useValue: webhookDispatch },
         { provide: BranchOverridesService, useValue: branchOverrides },
+        PaymentGatewayConfigService,
+        CancellationRulesService,
       ],
     }).compile();
     service = module.get(AppointmentPaymentsService);
@@ -784,12 +804,50 @@ describe('AppointmentPaymentsService', () => {
       await expect(service.handleRazorpayWebhook(body, sign('not json'))).rejects.toThrow(/unparseable/i);
     });
 
-    it('acknowledges but ignores an event type this codebase does not act on (e.g. refund.processed)', async () => {
-      const body = Buffer.from(JSON.stringify({ event: 'refund.processed', payload: {} }));
+    it('acknowledges but ignores a genuinely unrecognised event type', async () => {
+      const body = Buffer.from(JSON.stringify({ event: 'order.paid', payload: {} }));
       const result = await service.handleRazorpayWebhook(body, sign(body.toString()));
       expect(result).toEqual({ acknowledged: true });
       expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
       expect(prisma.auditLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ outcome: 'ignored' }) }));
+    });
+
+    // REQ176 -- refund.processed/refund.failed used to be acknowledged and
+    // silently dropped entirely (this test previously asserted that as the
+    // correct behavior); now closed for real, so a malformed refund payload
+    // gets its own distinct outcome rather than the old blanket "ignored".
+    it('acknowledges a refund.processed event with no payment_id in its payload', async () => {
+      const body = Buffer.from(JSON.stringify({ event: 'refund.processed', payload: {} }));
+      const result = await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(result).toEqual({ acknowledged: true });
+      expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
+      expect(prisma.auditLogs.create).toHaveBeenCalledWith(expect.objectContaining({ data: expect.objectContaining({ outcome: 'no_payment_id' }) }));
+    });
+
+    it('marks refund_status refunded on a real refund.processed event', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', razorpay_payment_id: 'pay_1', gateway_refund_id: null, refunded_at: null });
+      const body = Buffer.from(
+        JSON.stringify({ event: 'refund.processed', payload: { refund: { entity: { id: 'rfnd_1', payment_id: 'pay_1' } } } }),
+      );
+      const result = await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(result).toEqual({ acknowledged: true });
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({
+        where: { id: 'pay-row-1' },
+        data: expect.objectContaining({ refund_status: 'refunded', gateway_refund_id: 'rfnd_1' }),
+      });
+    });
+
+    it('marks refund_status failed on a refund.failed event, without touching refunded_at', async () => {
+      prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-row-1', razorpay_payment_id: 'pay_1', gateway_refund_id: null, refunded_at: null });
+      const body = Buffer.from(
+        JSON.stringify({ event: 'refund.failed', payload: { refund: { entity: { id: 'rfnd_1', payment_id: 'pay_1' } } } }),
+      );
+      const result = await service.handleRazorpayWebhook(body, sign(body.toString()));
+      expect(result).toEqual({ acknowledged: true });
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({
+        where: { id: 'pay-row-1' },
+        data: { refund_status: 'failed', refunded_at: null, gateway_refund_id: 'rfnd_1' },
+      });
     });
 
     it('acknowledges a payment.captured event for an order this system has no record of', async () => {
@@ -1360,6 +1418,205 @@ describe('AppointmentPaymentsService', () => {
         }),
       }));
       expect(result).toEqual({ success: true, payment_id: 'pay-redeem', sittings_remaining: 2 });
+    });
+  });
+
+  // REQ176 — appointmentPayments (the button-gating query).
+  describe('paymentsForAppointment', () => {
+    it('returns nothing for a cross-org appointment (never confirms cross-tenant existence)', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ id: 'appt-1', clinic: { client_org_id: 'org-b' } });
+      const rows = await service.paymentsForAppointment('appt-1', orgUser);
+      expect(rows).toEqual([]);
+      expect(prisma.appointmentPayments.findMany).not.toHaveBeenCalled();
+    });
+
+    it('returns nothing for a nonexistent appointment', async () => {
+      prisma.appointments.findUnique.mockResolvedValue(null);
+      const rows = await service.paymentsForAppointment('nope', orgUser);
+      expect(rows).toEqual([]);
+    });
+
+    it('returns the appointment\'s own payments, amounts converted to rupees', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ id: 'appt-1', clinic: { client_org_id: 'org-a' } });
+      prisma.appointmentPayments.findMany.mockResolvedValue([
+        { id: 'pay-1', status: 'succeeded', amount: 100000, refund_status: 'none', created_at: new Date() },
+      ]);
+      const rows = await service.paymentsForAppointment('appt-1', orgUser);
+      expect(rows).toEqual([expect.objectContaining({ id: 'pay-1', amount: 1000, refund_status: 'none' })]);
+    });
+  });
+
+  // REQ176 — requestRefund/myClinicRefundRequests/decideRefundRequest.
+  describe('requestRefund', () => {
+    const succeededPayment = {
+      id: 'pay-1',
+      status: 'succeeded',
+      refund_status: 'none',
+      amount: 100000, // paise
+      clinic_id: 'clinic-a',
+      client_org_id: 'org-a',
+      clinic: { id: 'clinic-a', client_org_id: 'org-a' },
+      appointment: {
+        id: 'appt-1',
+        product_id: 'prod-1',
+        status: 'cancelled',
+        updated_at: new Date('2026-08-25T10:00:00Z'),
+        appointment_time: new Date('2026-08-26T10:00:00Z'), // 24h notice
+      },
+    };
+
+    it('rejects a nonexistent payment', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue(null);
+      const result = await service.requestRefund({ appointment_payment_id: 'nope', reason: 'x' } as any, orgUser);
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects a cross-org payment (never confirms cross-tenant existence)', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue({ ...succeededPayment, client_org_id: 'org-b' });
+      const result = await service.requestRefund({ appointment_payment_id: 'pay-1', reason: 'x' } as any, orgUser);
+      expect(result.success).toBe(false);
+      expect(result.message).toBe('Payment not found');
+    });
+
+    it('rejects a payment that never succeeded', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue({ ...succeededPayment, status: 'pending' });
+      const result = await service.requestRefund({ appointment_payment_id: 'pay-1', reason: 'x' } as any, orgUser);
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/succeeded payment/);
+    });
+
+    it('rejects a payment that already has a pending/approved refund', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue({ ...succeededPayment, refund_status: 'requested' });
+      const result = await service.requestRefund({ appointment_payment_id: 'pay-1', reason: 'x' } as any, orgUser);
+      expect(result.success).toBe(false);
+    });
+
+    it('computes the refund amount server-side from the cancellation-fee policy, never from client input', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue(succeededPayment);
+      // Cancelled with only ~24h notice against a rule requiring 48h -> fee applies.
+      prisma.productCancellationRules.findMany.mockResolvedValue([
+        { hours_before_appointment: 48, fee_type: 'percentage', fee_amount: 20, product_id: null, clinic_id: null, priority: 1 },
+      ]);
+      prisma.refundRequests.create.mockResolvedValue({ id: 'req-1' });
+      const result = await service.requestRefund({ appointment_payment_id: 'pay-1', reason: 'patient request' } as any, orgUser);
+      expect(result).toEqual({ success: true, request_id: 'req-1' });
+      expect(prisma.refundRequests.create).toHaveBeenCalledWith({
+        data: expect.objectContaining({
+          appointment_payment_id: 'pay-1',
+          requested_by_user_id: orgUser.sub,
+          requested_amount: 80000, // 100000 - 20% fee
+          reason: 'patient request',
+        }),
+      });
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({ where: { id: 'pay-1' }, data: { refund_status: 'requested' } });
+    });
+
+    it('requests a full refund when no matching rule is configured', async () => {
+      prisma.appointmentPayments.findUnique.mockResolvedValue(succeededPayment);
+      prisma.productCancellationRules.findMany.mockResolvedValue([]);
+      prisma.refundRequests.create.mockResolvedValue({ id: 'req-2' });
+      const result = await service.requestRefund({ appointment_payment_id: 'pay-1', reason: 'x' } as any, orgUser);
+      expect(result.success).toBe(true);
+      expect(prisma.refundRequests.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ requested_amount: 100000 }) }),
+      );
+    });
+  });
+
+  describe('myClinicRefundRequests', () => {
+    it('scopes to the caller org via orgScope and returns raw ids, not resolved names', async () => {
+      prisma.refundRequests.findMany.mockResolvedValue([
+        { id: 'req-1', appointment_payment_id: 'pay-1', requested_amount: 5000, reason: 'x', status: 'pending', created_at: new Date(), decided_at: null, requested_by_user_id: 'u1', decided_by_user_id: null },
+      ]);
+      const rows = await service.myClinicRefundRequests('clinic-a', orgUser);
+      // requested_amount converts paise -> rupees at this boundary, matching
+      // discountRequestToGraphQL's own expected_amount/discount_amount
+      // fields (Hard Rule 9) -- a real gap this test itself found and fixed.
+      expect(rows).toEqual([expect.objectContaining({ id: 'req-1', requested_amount: 50, requested_by_user_id: 'u1', decided_by_user_id: undefined })]);
+      expect(prisma.refundRequests.findMany).toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ clinic_id: 'clinic-a', client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('scopes across the whole org when no clinic_id is given', async () => {
+      prisma.refundRequests.findMany.mockResolvedValue([]);
+      await service.myClinicRefundRequests(undefined, orgUser);
+      const where = prisma.refundRequests.findMany.mock.calls[0][0].where;
+      expect(where.clinic_id).toBeUndefined();
+      expect(where.client_org_id).toBe('org-a');
+    });
+
+    it('does not scope by org for a platform-wide caller', async () => {
+      prisma.refundRequests.findMany.mockResolvedValue([]);
+      await service.myClinicRefundRequests(undefined, platformUser);
+      const where = prisma.refundRequests.findMany.mock.calls[0][0].where;
+      expect(where.client_org_id).toBeUndefined();
+    });
+  });
+
+  describe('decideRefundRequest', () => {
+    const pendingRequest = {
+      id: 'req-1',
+      status: 'pending',
+      client_org_id: 'org-a',
+      requested_by_user_id: 'requester-1',
+      requested_amount: 50000,
+      reason: 'x',
+      appointment_payment_id: 'pay-1',
+      appointment_payment: { id: 'pay-1', clinic_id: 'clinic-a', gateway_payment_id: 'pay_gw_1', gateway_order_id: 'gw_order_1', razorpay_payment_id: null, razorpay_order_id: null },
+    };
+
+    it('rejects a nonexistent request', async () => {
+      prisma.refundRequests.findUnique.mockResolvedValue(null);
+      const result = await service.decideRefundRequest({ request_id: 'nope', decision: 'approve' } as any, orgUser);
+      expect(result.success).toBe(false);
+    });
+
+    it('rejects the requester deciding their own request, even if they hold a manager+ role', async () => {
+      prisma.refundRequests.findUnique.mockResolvedValue({ ...pendingRequest, requested_by_user_id: orgUser.sub });
+      const result = await service.decideRefundRequest({ request_id: 'req-1', decision: 'approve' } as any, orgUser);
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/own refund request/);
+    });
+
+    it('rejects a request that has already been decided', async () => {
+      prisma.refundRequests.findUnique.mockResolvedValue({ ...pendingRequest, status: 'approved' });
+      const result = await service.decideRefundRequest({ request_id: 'req-1', decision: 'approve' } as any, orgUser);
+      expect(result.success).toBe(false);
+    });
+
+    it('rejecting a request marks both the request and the payment rejected, calling no gateway', async () => {
+      prisma.refundRequests.findUnique.mockResolvedValue(pendingRequest);
+      const result = await service.decideRefundRequest({ request_id: 'req-1', decision: 'reject' } as any, orgUser);
+      expect(result).toEqual({ success: true, request_id: 'req-1' });
+      expect(fetchMock).not.toHaveBeenCalled();
+    });
+
+    it('approving calls the resolved gateway provider and marks refunded on success (non-Razorpay-webhook path)', async () => {
+      prisma.refundRequests.findUnique.mockResolvedValue(pendingRequest);
+      prisma.paymentGatewayConfig.findUnique.mockResolvedValue({
+        provider: 'cashfree',
+        is_active: true,
+        credentials_encrypted: encryptJson({ client_id: 'cid', client_secret: 'csecret' }),
+      });
+      fetchMock.mockResolvedValue({ ok: true, json: async () => ({ cf_refund_id: 'cf_rfnd_1' }) });
+      const result = await service.decideRefundRequest({ request_id: 'req-1', decision: 'approve' } as any, orgUser);
+      expect(result).toEqual({ success: true, request_id: 'req-1' });
+      expect(prisma.appointmentPayments.update).toHaveBeenCalledWith({
+        where: { id: 'pay-1' },
+        data: { refund_status: 'refunded', refunded_at: expect.any(Date), gateway_refund_id: 'cf_rfnd_1' },
+      });
+    });
+
+    it('rejects approval when the payment has no gateway reference (a counter payment)', async () => {
+      prisma.refundRequests.findUnique.mockResolvedValue({
+        ...pendingRequest,
+        appointment_payment: { id: 'pay-1', clinic_id: 'clinic-a', gateway_payment_id: null, razorpay_payment_id: null },
+      });
+      const result = await service.decideRefundRequest({ request_id: 'req-1', decision: 'approve' } as any, orgUser);
+      expect(result.success).toBe(false);
+      expect(result.message).toMatch(/no gateway reference/);
+      expect(fetchMock).not.toHaveBeenCalled();
     });
   });
 });

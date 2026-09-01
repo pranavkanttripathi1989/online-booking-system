@@ -13,6 +13,7 @@ describe('CancellationRulesService', () => {
       update: jest.Mock;
     };
     clinics: { findUnique: jest.Mock };
+    products: { findUnique: jest.Mock };
   };
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
@@ -43,6 +44,7 @@ describe('CancellationRulesService', () => {
     prisma = {
       productCancellationRules: { findMany: jest.fn(), findUnique: jest.fn(), create: jest.fn(), update: jest.fn() },
       clinics: { findUnique: jest.fn() },
+      products: { findUnique: jest.fn() },
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [CancellationRulesService, { provide: PrismaService, useValue: prisma }],
@@ -124,6 +126,54 @@ describe('CancellationRulesService', () => {
       const result = await service.create({ ...baseInput } as any, orgAUser);
       expect(result.success).toBe(false);
       expect(result.userErrors[0].message).toBe('db exploded');
+    });
+
+    // REQ177 -- product_id (per-service fee) was previously schema-only.
+    it('rejects a service (product) outside the caller org (cross-tenant create)', async () => {
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-b', client_org_id: 'org-b', is_deleted: false });
+      const result = await service.create({ ...baseInput, product_id: 'prod-b' } as any, orgAUser);
+      expect(result.success).toBe(false);
+      expect(result.userErrors[0].message).toBe('Service not found');
+      expect(prisma.productCancellationRules.create).not.toHaveBeenCalled();
+    });
+
+    it('creates a service-scoped rule and stamps client_org_id from the service when no clinic is given', async () => {
+      prisma.products.findUnique.mockResolvedValue({ id: 'prod-a', client_org_id: 'org-a', is_deleted: false });
+      prisma.productCancellationRules.create.mockResolvedValue({ ...ruleA, product_id: 'prod-a', clinic_id: null });
+      const result = await service.create({ ...baseInput, clinic_id: undefined, product_id: 'prod-a' } as any, orgAUser);
+      expect(result.success).toBe(true);
+      expect(prisma.productCancellationRules.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ product_id: 'prod-a', client_org_id: 'org-a' }) }),
+      );
+    });
+
+    it('defaults rule_type to cancellation when not supplied (existing callers unaffected)', async () => {
+      prisma.productCancellationRules.create.mockResolvedValue(ruleA);
+      await service.create({ ...baseInput } as any, orgAUser);
+      expect(prisma.productCancellationRules.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ rule_type: 'cancellation' }) }),
+      );
+    });
+
+    it('creates a reschedule-type rule when explicitly requested', async () => {
+      prisma.productCancellationRules.create.mockResolvedValue({ ...ruleA, rule_type: 'reschedule' });
+      await service.create({ ...baseInput, rule_type: 'reschedule' } as any, orgAUser);
+      expect(prisma.productCancellationRules.create).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ rule_type: 'reschedule' }) }),
+      );
+    });
+  });
+
+  describe('findActiveRulesForOrg (REQ176/REQ177 — internal, used by the refund/reschedule-fee engine)', () => {
+    it('queries by client_org_id and rule_type, and maps rows to the pure-function shape', async () => {
+      prisma.productCancellationRules.findMany.mockResolvedValue([
+        { hours_before_appointment: 24, fee_type: 'fixed', fee_amount: 20000, product_id: 'prod-a', clinic_id: 'clinic-a', priority: 1 },
+      ]);
+      const rules = await service.findActiveRulesForOrg('org-a', 'reschedule');
+      expect(prisma.productCancellationRules.findMany).toHaveBeenCalledWith({
+        where: { is_deleted: false, is_active: true, rule_type: 'reschedule', client_org_id: 'org-a' },
+      });
+      expect(rules).toEqual([{ hours_before_appointment: 24, fee_type: 'fixed', fee_amount: 20000, product_id: 'prod-a', clinic_id: 'clinic-a', priority: 1 }]);
     });
   });
 

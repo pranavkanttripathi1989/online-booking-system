@@ -11,6 +11,14 @@ export class CancellationRuleClinicType {
   @Field() name: string;
 }
 
+// REQ177 -- was schema-only, deliberately unexposed ("a not-yet-built
+// per-service-rule feature"). Now real.
+@ObjectType('CancellationRuleProduct')
+export class CancellationRuleProductType {
+  @Field(() => ID) id: string;
+  @Field() name: string;
+}
+
 @ObjectType('CancellationRule')
 export class CancellationRuleType {
   @Field(() => ID) id: string;
@@ -20,9 +28,14 @@ export class CancellationRuleType {
   @Field() fee_type: string;
   @Field(() => Int) fee_amount: number;
   @Field(() => ID, { nullable: true }) clinic_id?: string;
+  @Field(() => ID, { nullable: true }) product_id?: string;
   @Field() is_active: boolean;
   @Field(() => Int) priority: number;
+  // REQ177 -- 'cancellation' | 'reschedule'; the schema's own RuleType
+  // enum already anticipated both, only the read/write path was missing.
+  @Field() rule_type: string;
   @Field(() => CancellationRuleClinicType, { nullable: true }) clinic?: CancellationRuleClinicType;
+  @Field(() => CancellationRuleProductType, { nullable: true }) product?: CancellationRuleProductType;
 }
 
 @ObjectType('CancellationRuleUserError')

@@ -184,6 +184,8 @@ type Appointment {
   notes: String
   patient: AppointmentPatient!
   reminder_sent_at: DateTime
+  reschedule_fee_amount: Float
+  reschedule_fee_payment_id: ID
   room: AppointmentRoom
   series_id: ID
   series_occurrence_no: Int
@@ -269,6 +271,14 @@ type AppointmentPatient {
   id: ID!
   last_name: String!
   phone: String!
+}
+
+type AppointmentPaymentSummary {
+  amount: Float!
+  created_at: DateTime!
+  id: ID!
+  refund_status: String!
+  status: String!
 }
 
 type AppointmentRoom {
@@ -497,6 +507,7 @@ input BookPatientAppointmentInput {
   idempotencyKey: String
   patientDetails: PatientDetailsInput
   patientId: String
+  paymentPreference: String
   productId: String!
   startTime: String!
   type: String
@@ -595,6 +606,9 @@ type CancellationRule {
   is_active: Boolean!
   name: String!
   priority: Int!
+  product: CancellationRuleProduct
+  product_id: ID
+  rule_type: String!
 }
 
 type CancellationRuleClinic {
@@ -606,6 +620,11 @@ type CancellationRuleMutationResult {
   cancellationRule: CancellationRule
   success: Boolean!
   userErrors: [CancellationRuleUserError!]!
+}
+
+type CancellationRuleProduct {
+  id: ID!
+  name: String!
 }
 
 type CancellationRuleUserError {
@@ -1072,6 +1091,8 @@ input CreateCancellationRuleInput {
   is_active: Boolean
   name: String!
   priority: Int
+  product_id: ID
+  rule_type: String
 }
 
 input CreateCannedReplyInput {
@@ -1386,6 +1407,11 @@ type DecideDiscountApprovalResult {
   message: String
   payment_id: ID
   success: Boolean!
+}
+
+input DecideRefundRequestInput {
+  decision: String!
+  request_id: ID!
 }
 
 type DenialCategoryPoint {
@@ -1985,6 +2011,7 @@ type Mutation {
   deactivateStaff(id: ID!): Staff!
   deactivateWebhookEndpoint(id: ID!): WebhookEndpoint!
   decideDiscountApproval(input: DecideDiscountApprovalInput!): DecideDiscountApprovalResult!
+  decideRefundRequest(input: DecideRefundRequestInput!): RefundRequestResult!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteCancellationRule(id: ID!): CancellationRuleMutationResult!
   deleteCannedReply(id: ID!): CannedReplyMutationResult!
@@ -2038,6 +2065,7 @@ type Mutation {
   receiveStock(input: ReceiveStockInput!): DrugBatch!
   recordCounterPayment(input: RecordCounterPaymentInput!): RecordCounterPaymentResult!
   recordImmunization(input: RecordImmunizationInput!): ImmunizationRecord!
+  recordPharmacyPayment(input: RecordPharmacyPaymentInput!): RecordPharmacyPaymentResult!
   recordVitals(input: RecordVitalsInput!): [Vital!]!
   redeemPackageSitting(input: RedeemPackageSittingInput!): RedeemPackageSittingResult!
   refresh(input: RefreshInput!): AuthPayload!
@@ -2048,6 +2076,7 @@ type Mutation {
   requestBreakGlassAccess(input: RequestBreakGlassAccessInput!): BreakGlassGrantMutationResult!
   requestDataRights(input: RequestDataRightsInput!): RightsRequest!
   requestOtp(input: RequestOtpInput!): GenericResult!
+  requestRefund(input: RequestRefundInput!): RefundRequestResult!
   resetAppointmentJourney(id: ID!): Appointment!
   resetPassword(input: ResetPasswordInput!): GenericResult!
   resolveRegistryEnrollment(input: ResolveRegistryEnrollmentInput!): ChronicRegistryEnrollment!
@@ -2114,6 +2143,7 @@ type Mutation {
   updatePackage(id: ID!, input: UpdatePackageInput!): PackageMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
   updatePayerEmpanelmentStatus(id: ID!, input: UpdatePayerEmpanelmentStatusInput!): PayerEmpanelment!
+  updatePaymentGatewayConfig(input: UpdatePaymentGatewayConfigInput!): PaymentGatewayConfigResult!
   updateProduct(id: ID!, input: UpdateProductInput!): ProductMutationResult!
   updateProductCategory(id: ID!, input: UpdateProductCategoryInput!): ProductCategoryMutationResult!
   updateProductSubcategory(id: ID!, input: UpdateProductSubcategoryInput!): ProductSubcategoryMutationResult!
@@ -2709,6 +2739,41 @@ input PayerTariffInput {
   tariff_price: Float!
 }
 
+type PaymentFormField {
+  key: String!
+  value: String!
+}
+
+type PaymentGatewayConfig {
+  clinic_id: String!
+  has_credentials: Boolean!
+  is_active: Boolean!
+  provider: String
+}
+
+type PaymentGatewayConfigResult {
+  message: String
+  success: Boolean!
+}
+
+input PaymentGatewayCredentialFieldInput {
+  key: String!
+  value: String!
+}
+
+type PaymentGatewayField {
+  key: String!
+  label: String!
+  required: Boolean!
+  type: String!
+}
+
+type PaymentGatewayOption {
+  fields: [PaymentGatewayField!]!
+  id: String!
+  label: String!
+}
+
 input PaymentTenderInput {
   amount: Float!
   reference: String
@@ -2755,6 +2820,12 @@ type Permission {
   description: String
   id: ID!
   resource: String!
+}
+
+input PharmacyPaymentTenderInput {
+  amount: Float!
+  reference: String
+  tender_type: String!
 }
 
 type Plan {
@@ -3116,6 +3187,7 @@ type PublicProduct {
   description: String
   id: ID!
   name: String!
+  prepayment_policy: String
   price: Float
   product_type: String
   variations: [PublicProductVariation!]!
@@ -3151,6 +3223,7 @@ type Query {
   apiKeys: [ApiKey!]!
   applyPrescriptionSet(set_id: ID!): [PrescriptionItem!]!
   appointment(id: ID!): Appointment
+  appointmentPayments(appointment_id: ID!): [AppointmentPaymentSummary!]!
   appointmentSeries(id: ID!): AppointmentSeries!
   appointmentSeriesList(clinic_id: ID): [AppointmentSeries!]!
   appointments(filters: AppointmentFilters, first: Int! = 20, page: Int! = 1): AppointmentPaginated!
@@ -3169,7 +3242,9 @@ type Query {
   claimEvidencePrescriptions(claim_id: ID!): [Prescription!]!
   claims(status: String): [Claim!]!
   clinic(id: ID!): Clinic
+  clinicPaymentGatewayConfig(clinic_id: ID!): PaymentGatewayConfig
   clinicQueue(clinic_id: ID!): [QueueEntry!]!
+  clinicRefundRequests(clinic_id: ID): [RefundRequest!]!
   clinicWaitlist(clinic_id: ID): [WaitlistEntry!]!
   clinician(id: ID!): Clinician
   clinicianTypes: [ClinicianType!]!
@@ -3262,6 +3337,7 @@ type Query {
   payerEmpanelments(clinic_id: ID): [PayerEmpanelment!]!
   payerTariffs(payer_id: ID, product_id: ID): [PayerTariff!]!
   payers(is_active: Boolean): [Payer!]!
+  paymentGatewayProviders: [PaymentGatewayOption!]!
   payouts(clinicId: ID, month: Int, year: Int): [PayoutType!]!
   pendingDispenseItems: [PendingDispenseItem!]!
   plan(id: ID!): Plan
@@ -3356,9 +3432,14 @@ type QueueEvent {
 
 type RazorpayOrderResult {
   amount: Int!
+  checkout_type: String!
   currency: String!
-  razorpay_key_id: String!
+  form_fields: [PaymentFormField!]
+  form_post_url: String
+  gateway: String!
+  razorpay_key_id: String
   razorpay_order_id: String!
+  redirect_url: String
 }
 
 input ReceiveStockInput {
@@ -3397,6 +3478,19 @@ input RecordImmunizationInput {
   vaccine_name: String!
 }
 
+input RecordPharmacyPaymentInput {
+  clinic_id: ID!
+  patient_id: ID!
+  prescription_id: ID
+  tenders: [PharmacyPaymentTenderInput!]!
+}
+
+type RecordPharmacyPaymentResult {
+  message: String
+  payment_id: ID
+  success: Boolean!
+}
+
 input RecordVitalsInput {
   encounter_id: ID!
   readings: [VitalReadingInput!]!
@@ -3429,6 +3523,24 @@ input RefreshInput {
   refresh_token: String
 }
 
+type RefundRequest {
+  appointment_payment_id: ID!
+  created_at: DateTime!
+  decided_at: DateTime
+  decided_by_user_id: ID
+  id: ID!
+  reason: String!
+  requested_amount: Float!
+  requested_by_user_id: ID!
+  status: String!
+}
+
+type RefundRequestResult {
+  message: String
+  request_id: ID
+  success: Boolean!
+}
+
 input RegisterInput {
   email: String!
   first_name: String!
@@ -3449,6 +3561,11 @@ input RequestDataRightsInput {
 
 input RequestOtpInput {
   phone: String!
+}
+
+input RequestRefundInput {
+  appointment_payment_id: ID!
+  reason: String!
 }
 
 input ResetPasswordInput {
@@ -4097,6 +4214,7 @@ input UpdateCancellationRuleInput {
   is_active: Boolean
   name: String
   priority: Int
+  product_id: ID
 }
 
 input UpdateCannedReplyInput {
@@ -4223,6 +4341,13 @@ input UpdatePackageInput {
 
 input UpdatePayerEmpanelmentStatusInput {
   status: String!
+}
+
+input UpdatePaymentGatewayConfigInput {
+  clinic_id: String!
+  credentials: [PaymentGatewayCredentialFieldInput!]!
+  is_active: Boolean
+  provider: String!
 }
 
 input UpdateProductCategoryInput {
