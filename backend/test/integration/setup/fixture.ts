@@ -188,6 +188,10 @@ export const IDS = {
   // REQ179 (IPD slice 4) -- ipd-billing domain.
   ipdBillA: u('k09'),
   ipdBillB: u('k10'),
+
+  // REQ179 (IPD slice 5) -- ipd-insurance domain.
+  preAuthA: u('k11'),
+  preAuthB: u('k12'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -202,6 +206,13 @@ const TABLES = [
   'IpdCharges',
   'IpdPayments',
   'IpdBills',
+  // REQ179 (IPD slice 5) -- PreAuthorizations FKs to Admissions (nullable).
+  // No PreAuthEnhancements/IpdClaims/IpdInsuranceDocuments rows are seeded
+  // (the fixture only needs PreAuthorizations itself for the
+  // preAuthorizations matrix case), but CASCADE handles the FK order
+  // regardless -- listed here purely for readability, matching IpdBills'
+  // own precedent above.
+  'PreAuthorizations',
   'BedOccupancies',
   'Admissions',
   'Beds',
@@ -735,6 +746,18 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.patientPolicyA, patient_id: IDS.patientA, client_org_id: IDS.orgA, payer_id: IDS.payer1, policy_number: 'POL-A-1', policy_holder_name: 'Patient A', valid_from: new Date('2026-01-01') },
       { id: IDS.patientPolicyB, patient_id: IDS.patientB, client_org_id: IDS.orgB, payer_id: IDS.payer1, policy_number: 'POL-B-1', policy_holder_name: 'Patient B', valid_from: new Date('2026-01-01') },
+    ],
+  });
+
+  // REQ179 (IPD slice 5) -- one PreAuthorizations row per org, bound to the
+  // same admission its org's IpdBills row above uses (preAuthorizations is
+  // a real org-wide list query, the wards/operationTheatres/ipdBills
+  // precedent). Reuses the payer1/patientA/B/userManagerA/B fixture rows
+  // just created above rather than seeding new ones.
+  await prisma.preAuthorizations.createMany({
+    data: [
+      { id: IDS.preAuthA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, patient_id: IDS.patientA, payer_id: IDS.payer1, admission_id: IDS.admissionA, status: 'approved', requested_amount_paise: 500000, approved_amount_paise: 400000, requested_by_user_id: IDS.userManagerA },
+      { id: IDS.preAuthB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, patient_id: IDS.patientB, payer_id: IDS.payer1, admission_id: IDS.admissionB, status: 'approved', requested_amount_paise: 500000, approved_amount_paise: 400000, requested_by_user_id: IDS.userManagerB },
     ],
   });
 

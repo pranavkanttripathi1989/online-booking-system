@@ -86,6 +86,18 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
   },
   {
+    // REQ179 (IPD slice 5). Own client_org_id (the Wards/OperationTheatres/
+    // IpdBills precedent), so preAuthorizations exercises orgScope()
+    // against the table's own column.
+    domain: 'ipd-insurance',
+    what: 'preAuthorizations',
+    query: `{ preAuthorizations { id } }`,
+    ids: (d) => (d.preAuthorizations ?? []).map((x: any) => x.id),
+    aId: IDS.preAuthA,
+    bId: IDS.preAuthB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
+  },
+  {
     // REQ163 (P2-10). Org-scoped via clinic.client_org_id, same shape as
     // packages' own row above -- clinic_id omitted, matching that
     // precedent.
