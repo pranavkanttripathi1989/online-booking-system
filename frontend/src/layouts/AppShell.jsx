@@ -59,6 +59,7 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import MessageIcon from '@mui/icons-material/Message'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
+import VerifiedUserIcon from '@mui/icons-material/VerifiedUser'
 import HotelIcon from '@mui/icons-material/Hotel'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
@@ -255,6 +256,10 @@ const NAV_CONFIG = [
   // inside the page are further gated FRONT_DESK_ROLES/MANAGER_ROLES
   // server-side, matching Operation Theatre's own nav-vs-resolver pattern.
   { label: 'IPD Billing', path: '/ipd/billing', icon: <ReceiptLongIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
+  // REQ179 (IPD slice 5) — ipd-insurance.resolver.ts's own read gate
+  // (staff/clinician/manager/admin/super_admin, READ_ROLES), matching the
+  // IPD Billing nav entry's own precedent immediately above.
+  { label: 'IPD Insurance', path: '/ipd/insurance', icon: <VerifiedUserIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
   // REQ042 — appointments.resolver.ts's checkInAppointment/startConsultation/
   // completeAppointment/markNoShow/resetAppointmentJourney (waiting-room/
   // index.jsx's own mutations) are all @Auth(...,'staff','receptionist'),

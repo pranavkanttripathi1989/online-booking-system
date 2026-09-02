@@ -125,6 +125,7 @@ const IpdAdmissionsPage = lazy(() => import('./pages/ipd/Admissions'))
 const IpdNursingChartPage = lazy(() => import('./pages/ipd/NursingChart'))
 const IpdOperationTheatrePage = lazy(() => import('./pages/ipd/OperationTheatre'))
 const IpdBillingPage = lazy(() => import('./pages/ipd/IpdBilling'))
+const IpdInsurancePage = lazy(() => import('./pages/ipd/IpdInsurance'))
 const QueueDisplay = lazy(() => import('./pages/queue/display'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
@@ -1163,6 +1164,19 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <IpdBillingPage />
+                </Suspense>
+              }
+            />
+            {/* REQ179 (IPD slice 5) — TPA cashless insurance console. Top-
+                level nav entry, also reachable via
+                /ipd/insurance?admission=<id> from the admissions detail
+                dialog's own "Insurance" action, matching the billing
+                deep-link precedent above. */}
+            <Route
+              path="/ipd/insurance"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <IpdInsurancePage />
                 </Suspense>
               }
             />
