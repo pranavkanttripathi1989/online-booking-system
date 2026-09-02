@@ -250,6 +250,11 @@ const NAV_CONFIG = [
   { label: 'IPD Bed Board', path: '/ipd/beds', icon: <HotelIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
   { label: 'Admissions', path: '/ipd/admissions', icon: <LocalHospitalIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
   { label: 'Operation Theatre', path: '/ipd/ot', icon: <MeetingRoomIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
+  // REQ179 (IPD slice 4) — ipd-billing.resolver.ts's own read gate
+  // (staff/clinician/manager/admin/super_admin, READ_ROLES); write actions
+  // inside the page are further gated FRONT_DESK_ROLES/MANAGER_ROLES
+  // server-side, matching Operation Theatre's own nav-vs-resolver pattern.
+  { label: 'IPD Billing', path: '/ipd/billing', icon: <ReceiptLongIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
   // REQ042 — appointments.resolver.ts's checkInAppointment/startConsultation/
   // completeAppointment/markNoShow/resetAppointmentJourney (waiting-room/
   // index.jsx's own mutations) are all @Auth(...,'staff','receptionist'),

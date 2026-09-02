@@ -124,6 +124,7 @@ const IpdBedBoardPage = lazy(() => import('./pages/ipd/BedBoard'))
 const IpdAdmissionsPage = lazy(() => import('./pages/ipd/Admissions'))
 const IpdNursingChartPage = lazy(() => import('./pages/ipd/NursingChart'))
 const IpdOperationTheatrePage = lazy(() => import('./pages/ipd/OperationTheatre'))
+const IpdBillingPage = lazy(() => import('./pages/ipd/IpdBilling'))
 const QueueDisplay = lazy(() => import('./pages/queue/display'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
@@ -1149,6 +1150,19 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <IpdOperationTheatrePage />
+                </Suspense>
+              }
+            />
+            {/* REQ179 (IPD slice 4) — billing console. Top-level nav entry
+                (front-desk/finance surface), also reachable via
+                /ipd/billing?admission=<id> from the admissions detail
+                dialog's own "Billing" action, matching the chart deep-link
+                precedent above. */}
+            <Route
+              path="/ipd/billing"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <IpdBillingPage />
                 </Suspense>
               }
             />

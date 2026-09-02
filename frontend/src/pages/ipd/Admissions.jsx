@@ -30,6 +30,7 @@ import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import GavelIcon from '@mui/icons-material/Gavel'
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
 import AssignmentIcon from '@mui/icons-material/Assignment'
+import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
 import { CLINICS_QUERY } from '../../graphql/queries'
 import { formatDate, formatDateTime } from '../../utils/dateTime'
 
@@ -854,6 +855,14 @@ export default function IpdAdmissions() {
           {['admitted', 'discharge_initiated'].includes(detailAdmission?.status) && (
             <Button startIcon={<AssignmentIcon />} onClick={() => navigate(`/ipd/chart/${detailAdmission.id}`)}>
               Chart
+            </Button>
+          )}
+          {detailAdmission && !['pending', 'cancelled'].includes(detailAdmission.status) && (
+            <Button
+              startIcon={<ReceiptLongIcon />}
+              onClick={() => navigate(`/ipd/billing?admission=${detailAdmission.id}`)}
+            >
+              Billing
             </Button>
           )}
           {detailAdmission?.status === 'admitted' && (
