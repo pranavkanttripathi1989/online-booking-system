@@ -180,6 +180,10 @@ export const IDS = {
   bedB: u('k04'),
   admissionA: u('k05'),
   admissionB: u('k06'),
+
+  // REQ179 (IPD slice 3) -- operation-theatre domain.
+  theatreA: u('k07'),
+  theatreB: u('k08'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -193,6 +197,10 @@ const TABLES = [
   'Admissions',
   'Beds',
   'Wards',
+  // REQ179 (IPD slice 3) -- no OtBookings rows are seeded (the fixture only
+  // needs the theatres themselves for the operationTheatres matrix case),
+  // but OperationTheatres itself must still be truncated between runs.
+  'OperationTheatres',
   'ScheduledReports',
   'ApiKeys',
   'PatientInsurancePolicies',
@@ -424,6 +432,15 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { client_org_id: IDS.orgA, clinic_id: IDS.clinicA, bed_id: IDS.bedA, ward_id: IDS.wardA, admission_id: IDS.admissionA, occupancy_kind: 'occupied', start_at: when, created_by_user_id: IDS.userManagerA },
       { client_org_id: IDS.orgB, clinic_id: IDS.clinicB, bed_id: IDS.bedB, ward_id: IDS.wardB, admission_id: IDS.admissionB, occupancy_kind: 'occupied', start_at: when, created_by_user_id: IDS.userManagerB },
+    ],
+  });
+
+  // REQ179 (IPD slice 3) -- one operation theatre per org (operationTheatres
+  // is a real org-wide list query, the wards precedent).
+  await prisma.operationTheatres.createMany({
+    data: [
+      { id: IDS.theatreA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: 'Fixture OT-A' },
+      { id: IDS.theatreB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: 'Fixture OT-B' },
     ],
   });
 

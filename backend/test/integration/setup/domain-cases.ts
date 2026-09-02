@@ -62,6 +62,18 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
   },
   {
+    // REQ179 (IPD slice 3). Own client_org_id (the Wards precedent this
+    // domain directly copies), so operationTheatres exercises orgScope()
+    // against the table's own column, not a via-clinic join.
+    domain: 'operation-theatre',
+    what: 'operationTheatres',
+    query: `{ operationTheatres { id } }`,
+    ids: (d) => (d.operationTheatres ?? []).map((x: any) => x.id),
+    aId: IDS.theatreA,
+    bId: IDS.theatreB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
+  },
+  {
     // REQ163 (P2-10). Org-scoped via clinic.client_org_id, same shape as
     // packages' own row above -- clinic_id omitted, matching that
     // precedent.

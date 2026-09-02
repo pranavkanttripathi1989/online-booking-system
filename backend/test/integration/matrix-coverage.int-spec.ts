@@ -136,6 +136,23 @@ const EXEMPT: Record<string, string> = {
   // already-non-billable one) and covered directly in
   // platform-billing.service.spec.ts's own dedicated tests instead.
   'platform-billing': "Platform-level tenant-subscription billing, @Auth('super_admin') throughout — cross-org by design (a super_admin acts across every tenant's subscription, there is no 'org A caller' for this domain), same shape as organizations/plans's own exemptions above. Isolation/validation covered directly in platform-billing.service.spec.ts instead.",
+  // REQ179 (IPD slice 2) -- every query on this resolver (admissionVitals,
+  // intakeOutputRecords/Balance, admissionNotes, admissionHandovers,
+  // wardHandovers, admissionMedicationOrders, ipdMedicationOrder,
+  // admissionMar) is keyed by a caller-supplied admission_id/ward_id/id,
+  // not a global org-wide list -- same shape as immunizations/
+  // patient-documents's own exemptions above. Access is delegated to (never
+  // re-derived from) each service's own assertAdmissionInScope()/ward
+  // lookup, which rejects a cross-org read outright (NotFoundException/
+  // BadRequestException) rather than filtering it from a shared list, so
+  // the matrix's generic same-query-different-org-sees-a-narrower-list
+  // shape doesn't apply. Found missing from this file while adding
+  // 'operation-theatre' below (a pre-existing gap from the slice that
+  // shipped nursing/, not introduced by this one) -- isolation is real and
+  // covered directly in nursing.service.spec.ts / medication-orders
+  // .service.spec.ts / mar.service.spec.ts's own dedicated
+  // "rejects a cross-org X" tests instead.
+  nursing: "Every query is keyed by a caller-supplied admission_id/ward_id/id, not a global org-wide list -- same shape as immunizations/patient-documents's own exemptions above. Access is delegated to each service's own assertAdmissionInScope()/ward lookup, which rejects a cross-org read outright rather than filtering a shared list. Isolation covered directly in nursing.service.spec.ts / medication-orders.service.spec.ts / mar.service.spec.ts instead.",
 };
 
 /**

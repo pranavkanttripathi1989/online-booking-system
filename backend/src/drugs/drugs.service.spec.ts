@@ -45,6 +45,22 @@ describe('DrugsService (REQ044)', () => {
       expect(where.OR).toBeUndefined();
     });
 
+    // REQ179 (IPD slice 3) — every pre-existing call site (prescription
+    // builder, MAR order search) omits item_type entirely; this default is
+    // what keeps gauze/implants out of their autocomplete once the column
+    // exists, with zero change required at any of those call sites.
+    it('defaults item_type to "drug" when the caller omits it', async () => {
+      await service.findAll(orgAUser);
+      const where = prisma.drugs.findMany.mock.calls[0][0].where;
+      expect(where.item_type).toBe('drug');
+    });
+
+    it('scopes to the caller-supplied item_type when explicitly requested', async () => {
+      await service.findAll(orgAUser, undefined, 'consumable');
+      const where = prisma.drugs.findMany.mock.calls[0][0].where;
+      expect(where.item_type).toBe('consumable');
+    });
+
     it('marks a null-org row as platform-seeded and an org row as not', async () => {
       prisma.drugs.findMany.mockResolvedValue([platformDrug, orgADrug]);
       const result: any[] = await service.findAll(orgAUser);
