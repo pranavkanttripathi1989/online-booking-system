@@ -3,16 +3,25 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
 import { RecordOtConsumableInput } from './dto/operation-theatre.input';
+import { IpdBillingService } from '../ipd-billing/ipd-billing.service';
 
 // REQ179 (IPD slice 3) — real stock consumption for OT consumables/
 // implants, mirroring mar.service.ts#consumeStock's exact transaction
 // shape (itself replicating pharmacy.service.ts#dispensePrescriptionItem):
 // decrement DrugBatches.quantity_remaining, write an append-only
-// StockMovements row. charge_id stays null -- nothing bills for OT
-// consumption until slice 4 backfills it, a stated gap, not an oversight.
+// StockMovements row.
+//
+// REQ179 (IPD slice 4) — when a real batch is used, also posts an
+// ot_consumable IpdCharges row priced off that batch's own mrp_paise, the
+// exact mar.service.ts#postPharmacyCharge precedent. A consumable recorded
+// with no batch is genuinely unpriced and deliberately NOT charged — a
+// stated gap, not a silent guess.
 @Injectable()
 export class OtConsumablesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly billingService: IpdBillingService,
+  ) {}
 
   private async assertBookingInScope(bookingId: string, user: JwtPayload) {
     const booking = await this.prisma.otBookings.findUnique({ where: { id: bookingId } });
@@ -57,10 +66,27 @@ export class OtConsumablesService {
           created_by_user_id: user.sub,
         },
       });
-      return tx.otConsumables.update({
+      const updated = await tx.otConsumables.update({
         where: { id: created.id },
         data: { batch_id: input.batch_id, stock_movement_id: movement.id },
       });
+      if (batch.mrp_paise != null) {
+        await this.billingService.postCharge(
+          {
+            admissionId: booking.admission_id,
+            chargeType: 'ot_consumable',
+            description: `${drug.name} — OT consumable`,
+            serviceDate: new Date(),
+            quantity: input.quantity,
+            unitPricePaise: batch.mrp_paise,
+            sourceReferenceType: 'ot_consumable',
+            sourceReferenceId: created.id,
+            postedByUserId: user.sub,
+          },
+          tx,
+        );
+      }
+      return updated;
     });
     return consumable.id;
   }

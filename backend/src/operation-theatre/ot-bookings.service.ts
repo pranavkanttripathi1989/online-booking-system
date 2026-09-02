@@ -6,6 +6,7 @@ import { OperationTheatresService } from './operation-theatres.service';
 import { CreateOtBookingInput, CancelOtBookingInput, AssignOtBookingStaffInput } from './dto/operation-theatre.input';
 import { isTheatreOverlapViolation, isSurgeonOverlapViolation } from './ot-overlap';
 import { OT_CHECKLIST_PHASES } from './dto/operation-theatre.input';
+import { IpdBillingService } from '../ipd-billing/ipd-billing.service';
 
 const LIVE_BOOKING_STATUSES = ['scheduled', 'in_progress'];
 
@@ -21,6 +22,7 @@ export class OtBookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly theatresService: OperationTheatresService,
+    private readonly billingService: IpdBillingService,
   ) {}
 
   // ── Scope guards ─────────────────────────────────────────────────────
@@ -233,7 +235,36 @@ export class OtBookingsService {
     }
 
     await this.prisma.otBookings.update({ where: { id }, data: { status: 'completed' } });
+    await this.postUsageCharge(booking, user.sub);
     return this.findOne(id, user);
+  }
+
+  // REQ179 (IPD slice 4) — a flat per-booking theatre-usage charge, posted
+  // once on completion, only when the theatre has a configured usage
+  // charge item (OperationTheatres.usage_charge_product_id — null means
+  // "not configured", the same fail-safe convention as every other
+  // optional charge trigger in this slice). service_date is the booking's
+  // own start_at, so the charge lands on the day the procedure actually
+  // happened, not whenever completeOtBooking happens to be called.
+  private async postUsageCharge(booking: { id: string; admission_id: string; theatre_id: string; start_at: Date }, postedByUserId: string) {
+    const theatre = await this.prisma.operationTheatres.findUnique({ where: { id: booking.theatre_id } });
+    if (!theatre?.usage_charge_product_id) return;
+    const admission = await this.prisma.admissions.findUnique({ where: { id: booking.admission_id }, include: { patient: true } });
+    if (!admission) return;
+    const unitPricePaise = await this.billingService.priceProductForAdmission(theatre.usage_charge_product_id, admission);
+    if (unitPricePaise == null) return;
+    await this.billingService.postCharge({
+      admissionId: admission.id,
+      chargeType: 'ot_usage',
+      description: `Theatre usage — ${theatre.name}`,
+      serviceDate: booking.start_at,
+      productId: theatre.usage_charge_product_id,
+      quantity: 1,
+      unitPricePaise,
+      sourceReferenceType: 'ot_booking',
+      sourceReferenceId: booking.id,
+      postedByUserId,
+    });
   }
 
   async cancel(input: CancelOtBookingInput, user: JwtPayload) {

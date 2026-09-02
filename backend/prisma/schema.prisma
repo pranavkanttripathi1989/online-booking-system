@@ -1078,6 +1078,12 @@ model ClientOrganizations {
   otBookings        OtBookings[]
   otNotes           OtNotes[]
   otConsumables     OtConsumables[]
+
+  // REQ179 (IPD slice 4)
+  ipdBills          IpdBills[]
+  ipdCharges        IpdCharges[]
+  ipdPayments       IpdPayments[]
+  ipdPackages       IpdPackages[]
 }
 
 model ClinicianAvailability {
@@ -1335,6 +1341,12 @@ model Clinics {
   // REQ179 (IPD slice 3)
   operationTheatres OperationTheatres[]
   otBookings        OtBookings[]
+
+  // REQ179 (IPD slice 4)
+  ipdBills    IpdBills[]
+  ipdCharges  IpdCharges[]
+  ipdPayments IpdPayments[]
+  ipdPackages IpdPackages[]
 }
 
 model EmailTemplates {
@@ -2524,6 +2536,12 @@ model Products {
   wardsBedCharge     Wards[] @relation("WardBedChargeProduct")
   wardsNursingCharge Wards[] @relation("WardNursingChargeProduct")
   bedsBedCharge      Beds[]  @relation("BedChargeProduct")
+
+  // REQ179 (IPD slice 4)
+  ipdBillingSettingsDoctorVisit IpdBillingSettings[]
+  ipdCharges                    IpdCharges[]
+  operationTheatresUsageCharge  OperationTheatres[] @relation("OtUsageChargeProduct")
+  ipdPackageInclusions          IpdPackageInclusions[]
 }
 
 // REQ016 (US-CAT-05) — every price change logged with who/when/old/new. A
@@ -3072,6 +3090,11 @@ model UserProfiles {
   otBookingStaffAssignments OtBookingStaff[]
   otChecklistsCompleted     OtChecklists[]
   otConsumablesRecorded     OtConsumables[]
+
+  // REQ179 (IPD slice 4)
+  ipdBillsFinalized IpdBills[]
+  ipdChargesPosted  IpdCharges[]
+  ipdPaymentsRecorded IpdPayments[]
 }
 
 model UserRoles {
@@ -4288,6 +4311,9 @@ model BedOccupancies {
   created_by UserProfiles  @relation("OccupancyCreatedBy", fields: [created_by_user_id], references: [id])
   ended_by   UserProfiles? @relation("OccupancyEndedBy", fields: [ended_by_user_id], references: [id])
 
+  // REQ179 (IPD slice 4)
+  ipdCharges IpdCharges[]
+
   @@index([bed_id, start_at])
   @@index([admission_id, start_at])
   @@index([client_org_id, clinic_id, end_at])
@@ -4377,6 +4403,10 @@ model Admissions {
   dischargeSummary      DischargeSummaries?
   // REQ179 (IPD slice 3)
   otBookings            OtBookings[]
+  // REQ179 (IPD slice 4)
+  bill                  IpdBills?
+  charges               IpdCharges[]
+  payments              IpdPayments[]
 
   @@index([client_org_id, clinic_id, status])
   @@index([patient_id, admitted_at])
@@ -4512,11 +4542,19 @@ model IpdBillingSettings {
   package_excess_policy    String   @default("bill_extra") // bill_extra | absorb
   default_deposit_paise    Int      @default(0)
   auto_post_room_charges   Boolean  @default(true)
+  // REQ179 (IPD slice 4) -- the Products row charged once per clinician per
+  // day a doctor_round AdmissionNote is created (nursing.service.ts). Null
+  // means doctor-visit charges are not auto-posted for this clinic -- the
+  // same fail-safe "an admin must explicitly configure this before it
+  // fires" convention as reorder_level/tpg_list nullability elsewhere in
+  // this schema.
+  doctor_visit_charge_product_id String?
   created_at               DateTime @default(now())
   updated_at               DateTime @updatedAt
 
   client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
   clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  doctor_visit_charge_product Products?   @relation(fields: [doctor_visit_charge_product_id], references: [id])
 
   @@index([client_org_id])
 }
@@ -4835,10 +4873,16 @@ model OperationTheatres {
   default_turnaround_minutes  Int      @default(30)
   is_active                   Boolean  @default(true)
   is_deleted                  Boolean  @default(false)
+  // REQ179 (IPD slice 4) -- the flat per-booking theatre-usage Products row,
+  // posted once when a booking completes. Null = no usage charge auto-posted
+  // for this theatre (same fail-safe convention as IpdBillingSettings.
+  // doctor_visit_charge_product_id above).
+  usage_charge_product_id    String?
   created_at                  DateTime @default(now())
 
   client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
   clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  usage_charge_product Products?          @relation("OtUsageChargeProduct", fields: [usage_charge_product_id], references: [id])
   bookings            OtBookings[]
 
   @@index([client_org_id, clinic_id, is_active])
@@ -4971,4 +5015,166 @@ model OtConsumables {
   recorded_by UserProfiles @relation(fields: [recorded_by_user_id], references: [id])
 
   @@index([booking_id])
+}
+
+// ============================================================
+// REQ179 (IPD slice 4) — the billing ledger. `IpdBills.gross_paise` is a
+// MAINTAINED running total, not a view — every posting/reversal path funnels
+// through IpdBillingService.postCharge() inside one transaction that updates
+// both the IpdCharges row and the bill's own gross_paise together, so the
+// invariant `bill.gross_paise = SUM(charges.total_paise WHERE NOT
+// is_reversed)` never has a window where it can be read half-updated.
+// Reversal, never deletion or in-place edit — a wrong charge gets a signed
+// negative reversal row, exactly the StockMovements/AdmissionEvents
+// append-only precedent already established across this schema.
+// ============================================================
+
+model IpdBills {
+  id                    String    @id @default(uuid())
+  client_org_id         String
+  clinic_id             String
+  admission_id          String    @unique
+  // Null until the first finalizeIpdBill() call — an open bill has no
+  // number yet, matching Admissions/MlcRegisters' own "assign at the
+  // moment it becomes a real document" convention.
+  bill_number           String?
+  status                String    @default("open") // open | finalized
+  package_id            String?
+  // Maintained, not derived-at-read -- see the file header above.
+  gross_paise           Int       @default(0)
+  paid_paise            Int       @default(0)
+  finalized_at          DateTime?
+  finalized_by_user_id  String?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic       Clinics      @relation(fields: [clinic_id], references: [id])
+  admission    Admissions   @relation(fields: [admission_id], references: [id])
+  package      IpdPackages? @relation(fields: [package_id], references: [id])
+  finalized_by UserProfiles? @relation(fields: [finalized_by_user_id], references: [id])
+  charges      IpdCharges[]
+  payments     IpdPayments[]
+
+  @@index([client_org_id, clinic_id, status])
+}
+
+model IpdCharges {
+  id                     String   @id @default(uuid())
+  client_org_id          String
+  clinic_id              String
+  admission_id           String
+  bill_id                String
+  // room_day | nursing | doctor_visit | pharmacy | ot_usage | ot_consumable
+  // | investigation | package_adjustment | manual
+  charge_type            String
+  description            String
+  // The calendar date this charge is FOR, not its created_at -- a room-day
+  // charge posted late by the catch-up sweep is still dated the day it
+  // covers.
+  service_date           DateTime
+  product_id             String?
+  quantity                Int      @default(1)
+  unit_price_paise        Int
+  // Signed -- negative for a reversal row or a package-adjustment discount.
+  total_paise             Int
+  gst_rate                Float?
+  gst_amount_paise        Int?
+  is_reversed             Boolean  @default(false)
+  is_package_inclusive    Boolean  @default(false)
+  // The room-day/nursing partial-unique idempotency key (see the migration
+  // for the real WHERE-scoped unique indexes Prisma's schema DSL cannot
+  // express).
+  bed_occupancy_id        String?
+  // Generic provenance, e.g. ('clinician', clinicianId) for doctor_visit's
+  // own per-clinician-per-day uniqueness, ('ot_booking', bookingId) for
+  // ot_usage, ('ot_consumable', consumableId) for ot_consumable,
+  // ('medication_administration', marId) for pharmacy.
+  source_reference_type   String?
+  source_reference_id     String?
+  // Null for a system-posted charge (the room-day/nursing accrual sweep has
+  // no human actor) -- the MedicationAdministrations.administered_by_user_id
+  // precedent for the identical "a row can legitimately have no human yet"
+  // shape.
+  posted_by_user_id       String?
+  created_at              DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic        Clinics          @relation(fields: [clinic_id], references: [id])
+  admission     Admissions       @relation(fields: [admission_id], references: [id])
+  bill          IpdBills         @relation(fields: [bill_id], references: [id])
+  product       Products?        @relation(fields: [product_id], references: [id])
+  bed_occupancy BedOccupancies?  @relation(fields: [bed_occupancy_id], references: [id])
+  posted_by     UserProfiles?    @relation(fields: [posted_by_user_id], references: [id])
+
+  @@index([bill_id])
+  @@index([admission_id, service_date])
+  @@index([client_org_id, charge_type])
+}
+
+model IpdPayments {
+  id                  String   @id @default(uuid())
+  client_org_id       String
+  clinic_id           String
+  admission_id        String
+  bill_id             String
+  // deposit | interim | final | refund | payer_settlement
+  payment_type        String
+  // Signed -- negative for a refund.
+  amount_paise        Int
+  // [{tender_type, amountPaise, reference}] -- the DiscountApprovalRequests
+  // .tenders_json precedent (appointment-payments), not a new child table.
+  tenders_json        Json
+  receipt_number      String
+  notes               String?
+  recorded_by_user_id String
+  created_at          DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic      Clinics      @relation(fields: [clinic_id], references: [id])
+  admission   Admissions   @relation(fields: [admission_id], references: [id])
+  bill        IpdBills     @relation(fields: [bill_id], references: [id])
+  recorded_by UserProfiles @relation(fields: [recorded_by_user_id], references: [id])
+
+  @@index([bill_id])
+  @@index([admission_id])
+}
+
+// A hospital-defined package (not a government scheme catalog -- REQ179's
+// own confirmed scope decision). Settlement is one signed adjustment
+// charge line at finalize time, never a mode switch on the bill itself --
+// see IpdBillingService#finalizeBill.
+model IpdPackages {
+  id            String   @id @default(uuid())
+  client_org_id String
+  clinic_id     String
+  name          String
+  specialty     String?
+  price_paise   Int
+  is_active     Boolean  @default(true)
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic     Clinics                 @relation(fields: [clinic_id], references: [id])
+  inclusions IpdPackageInclusions[]
+  bills      IpdBills[]
+
+  @@index([client_org_id, clinic_id, is_active])
+}
+
+// Inclusions only -- anything a package doesn't name is billable extra,
+// which is how a real hospital package sheet is written (REQ179's own
+// confirmed scope decision, not a government-scheme benefit table).
+model IpdPackageInclusions {
+  id           String   @id @default(uuid())
+  package_id   String
+  product_id   String
+  max_quantity Int?
+  created_at   DateTime @default(now())
+
+  package IpdPackages @relation(fields: [package_id], references: [id], onDelete: Cascade)
+  product Products    @relation(fields: [product_id], references: [id])
+
+  @@unique([package_id, product_id])
 }

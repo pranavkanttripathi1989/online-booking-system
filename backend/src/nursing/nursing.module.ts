@@ -6,14 +6,17 @@ import { MarService } from './mar.service';
 import { MarScheduleSweepService } from './mar-schedule-sweep.service';
 import { NursingResolver } from './nursing.resolver';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
+import { IpdBillingModule } from '../ipd-billing/ipd-billing.module';
 
 // REQ179 (IPD slice 2). EntitlementsModule for EntitlementGuard's own
 // dependency, applied per-handler in the resolver (the wards.module.ts /
 // admissions.module.ts precedent), not registered globally. ScheduleModule
 // .forRoot() is idempotent and each sweep-owning module registers its own
-// (the admissions.module.ts / pharmacy.module.ts convention).
+// (the admissions.module.ts / pharmacy.module.ts convention). IpdBillingModule
+// (REQ179 slice 4) for MarService's/NursingService's own pharmacy/doctor-
+// visit charge posting.
 @Module({
-  imports: [ScheduleModule.forRoot(), EntitlementsModule],
+  imports: [ScheduleModule.forRoot(), EntitlementsModule, IpdBillingModule],
   providers: [NursingService, MedicationOrdersService, MarService, MarScheduleSweepService, NursingResolver],
   exports: [NursingService, MedicationOrdersService, MarService],
 })

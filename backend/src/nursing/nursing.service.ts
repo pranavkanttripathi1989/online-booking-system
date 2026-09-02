@@ -3,6 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { assertSameOrg, isSameOrg } from '../common/scoping/tenant-scope';
 import { VITAL_UNITS } from '../encounters/dto/encounter.input';
+import { IpdBillingService } from '../ipd-billing/ipd-billing.service';
 import {
   RecordAdmissionVitalsInput,
   RecordIntakeOutputInput,
@@ -24,7 +25,10 @@ import {
 // real-stock-consumption transaction shape is a different concern.
 @Injectable()
 export class NursingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly billingService: IpdBillingService,
+  ) {}
 
   // ── Scope guard, replicated per-service per this codebase's own
   // established convention (admissions.service.ts, wards.service.ts,
@@ -181,7 +185,46 @@ export class NursingService {
       },
       include: this.NOTE_INCLUDE,
     });
+    if (input.note_kind === 'doctor_round' && user.clinician_id) {
+      await this.postDoctorVisitCharge(admission.id, admission.clinic_id, user.clinician_id, note.note_datetime, user.sub);
+    }
     return this.noteToGraphQL(note);
+  }
+
+  // REQ179 (IPD slice 4) — one doctor_visit charge per clinician per
+  // calendar day (UTC), posted only when the clinic has configured a
+  // charge item for it (IpdBillingSettings.doctor_visit_charge_product_id
+  // — null means "not configured", the same fail-safe convention as every
+  // other optional charge trigger in this slice). Idempotency comes from
+  // the ipd_charges_doctor_visit_once_per_clinician_day partial unique
+  // index, not a pre-check — a caught violation means "already posted
+  // today", swallowed silently.
+  private async postDoctorVisitCharge(admissionId: string, clinicId: string, clinicianId: string, noteDatetime: Date, postedByUserId: string) {
+    const settings = await this.billingService.getSettingsRowOrDefault(clinicId);
+    if (!settings.doctor_visit_charge_product_id) return;
+    const admissionWithPatient = await this.prisma.admissions.findUnique({ where: { id: admissionId }, include: { patient: true } });
+    if (!admissionWithPatient) return;
+    const unitPricePaise = await this.billingService.priceProductForAdmission(settings.doctor_visit_charge_product_id, admissionWithPatient);
+    if (unitPricePaise == null) return;
+    const serviceDate = new Date(Date.UTC(noteDatetime.getUTCFullYear(), noteDatetime.getUTCMonth(), noteDatetime.getUTCDate()));
+    try {
+      await this.billingService.postCharge({
+        admissionId,
+        chargeType: 'doctor_visit',
+        description: 'Doctor visit charge',
+        serviceDate,
+        productId: settings.doctor_visit_charge_product_id,
+        quantity: 1,
+        unitPricePaise,
+        sourceReferenceType: 'clinician',
+        sourceReferenceId: clinicianId,
+        postedByUserId,
+      });
+    } catch (err: any) {
+      const message = (err as { message?: unknown })?.message;
+      if (typeof message === 'string' && message.includes('ipd_charges_doctor_visit_once_per_clinician_day')) return;
+      throw err;
+    }
   }
 
   async signAdmissionNote(input: SignAdmissionNoteInput, user: JwtPayload) {

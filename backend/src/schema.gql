@@ -1446,6 +1446,14 @@ input CreateIpdMedicationOrderInput {
   stop_at: DateTime
 }
 
+input CreateIpdPackageInput {
+  clinic_id: ID!
+  inclusions: [IpdPackageInclusionInput!]!
+  name: String!
+  price: Float!
+  specialty: String
+}
+
 input CreateLanguageInput {
   code: String!
   is_active: Boolean
@@ -2258,6 +2266,63 @@ type InvestigationOrder {
   urgency: String!
 }
 
+type IpdBill {
+  admission_id: ID!
+  admission_number: String
+  balance: Float!
+  bill_number: String
+  charges: [IpdCharge!]!
+  created_at: DateTime!
+  finalized_at: DateTime
+  finalized_by_name: String
+  gross: Float!
+  id: ID!
+  package_id: ID
+  package_name: String
+  paid: Float!
+  patient_name: String
+  payments: [IpdPayment!]!
+  status: String!
+}
+
+type IpdBillingMutationResult {
+  success: Boolean!
+  userErrors: [IpdBillingUserError!]!
+}
+
+type IpdBillingSettings {
+  auto_post_room_charges: Boolean!
+  charge_admission_day: Boolean!
+  charge_discharge_day: Boolean!
+  day_boundary_mode: String!
+  default_deposit: Float!
+  discharge_cutoff_hour: Int!
+  doctor_visit_charge_product_id: ID
+  package_excess_policy: String!
+  transfer_day_rate_policy: String!
+}
+
+type IpdBillingUserError {
+  message: String!
+}
+
+type IpdCharge {
+  charge_type: String!
+  created_at: DateTime!
+  description: String!
+  gst_amount: Float
+  gst_rate: Float
+  id: ID!
+  is_package_inclusive: Boolean!
+  is_reversed: Boolean!
+  posted_by_name: String
+  product_id: ID
+  quantity: Int!
+  service_date: DateTime!
+  total: Float!
+  unit_price: Float!
+}
+
 type IpdMedicationOrder {
   created_at: DateTime!
   dose: String!
@@ -2278,6 +2343,51 @@ type IpdMedicationOrder {
   start_at: DateTime!
   status: String!
   stop_at: DateTime
+}
+
+type IpdPackage {
+  clinic_id: ID!
+  id: ID!
+  inclusions: [IpdPackageInclusion!]!
+  is_active: Boolean!
+  name: String!
+  price: Float!
+  specialty: String
+}
+
+type IpdPackageInclusion {
+  id: ID!
+  max_quantity: Int
+  product_id: ID!
+  product_name: String
+}
+
+input IpdPackageInclusionInput {
+  max_quantity: Int
+  product_id: ID!
+}
+
+type IpdPayment {
+  amount: Float!
+  created_at: DateTime!
+  id: ID!
+  notes: String
+  payment_type: String!
+  receipt_number: String!
+  recorded_by_name: String
+  tenders: [IpdPaymentTender!]!
+}
+
+type IpdPaymentTender {
+  amount: Float!
+  reference: String
+  tender_type: String!
+}
+
+input IpdPaymentTenderInput {
+  amount: Float!
+  reference: String
+  tender_type: String!
 }
 
 input JoinWaitlistInput {
@@ -2511,6 +2621,7 @@ type Mutation {
   createEncounterTemplate(input: CreateEncounterTemplateInput!): EncounterTemplate!
   createIntakeFieldConfig(input: CreateIntakeFieldInput!): IntakeFieldConfigMutationResult!
   createIpdMedicationOrder(input: CreateIpdMedicationOrderInput!): IpdMedicationOrder!
+  createIpdPackage(input: CreateIpdPackageInput!): IpdPackage!
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createMembershipPlan(input: CreateMembershipPlanInput!): MembershipPlanMutationResult!
   createMessageAttachment(input: CreateMessageAttachmentInput!): MessageAttachment!
@@ -2566,6 +2677,7 @@ type Mutation {
   deleteDepartment(id: ID!): DepartmentMutationResult!
   deleteDrug(id: ID!): Boolean!
   deleteIntakeFieldConfig(id: ID!): IntakeFieldConfigMutationResult!
+  deleteIpdPackage(id: ID!): IpdBillingMutationResult!
   deleteLanguage(id: ID!): LookupMutationResult!
   deleteLunchBreak(id: ID!): Boolean!
   deleteMembershipPlan(id: ID!): MembershipPlanMutationResult!
@@ -2592,6 +2704,7 @@ type Mutation {
   endImpersonation: EndImpersonationResult!
   enrollInRegistry(input: EnrollInRegistryInput!): ChronicRegistryEnrollment!
   enrollPatientMembership(input: EnrollPatientMembershipInput!): EnrollMembershipResult!
+  finalizeIpdBill(id: ID!): IpdBill!
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   getOrCreateEncounter(appointment_id: ID!): Encounter!
   holdAppointmentSlot(clinician_id: String!, start_datetime: String!): SlotHoldType!
@@ -2609,6 +2722,7 @@ type Mutation {
   mergePatients(input: MergePatientsInput!): Patient!
   orderInvestigation(input: OrderInvestigationInput!): InvestigationOrder!
   orderTest(input: OrderTestInput!): TestResult!
+  postManualIpdCharge(input: PostManualIpdChargeInput!): IpdCharge!
   purchasePackage(input: PurchasePackageInput!): PurchasePackageResult!
   recallQueueEntry(id: ID!): QueueEntry!
   receiveStock(input: ReceiveStockInput!): DrugBatch!
@@ -2616,6 +2730,7 @@ type Mutation {
   recordCounterPayment(input: RecordCounterPaymentInput!): RecordCounterPaymentResult!
   recordImmunization(input: RecordImmunizationInput!): ImmunizationRecord!
   recordIntakeOutput(input: RecordIntakeOutputInput!): IntakeOutputRecord!
+  recordIpdPayment(input: RecordIpdPaymentInput!): IpdPayment!
   recordMlcPoliceIntimation(input: RecordPoliceIntimationInput!): MlcRegister!
   recordMlcRegister(input: RecordMlcRegisterInput!): MlcRegister!
   recordOtConsumable(input: RecordOtConsumableInput!): OtBooking!
@@ -2642,12 +2757,14 @@ type Mutation {
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
   resumeIpdMedicationOrder(order_id: ID!): IpdMedicationOrder!
   retryPlatformInvoice(invoice_id: ID!): PlatformBillingMutationResult!
+  reverseIpdCharge(input: ReverseIpdChargeInput!): IpdCharge!
   revokeApiKey(id: ID!): ApiKey!
   revokeBreakGlassAccess(id: ID!): BreakGlassGrantMutationResult!
   revokeMySession(id: String!): GenericResult!
   saveClinicianAvailability(input: ClinicianAvailabilityInput!): SavedIdResult!
   saveEncounterNote(input: SaveEncounterNoteInput!): EncounterNote!
   saveLunchBreak(input: LunchBreakInput!): SavedIdResult!
+  selectIpdPackage(input: SelectIpdPackageInput!): IpdBill!
   selectOnboardingPlan(orgId: String!, planId: String!): OrganizationOnboarding!
   sendMessage(body: String!, threadId: ID!): MessageThread!
   setEncounterLmpDate(encounter_id: ID!, lmp_date: String!): Encounter!
@@ -2678,6 +2795,7 @@ type Mutation {
   transferAdmissionBed(input: TransferAdmissionBedInput!): Admission!
   transferPackage(input: TransferPackageInput!): PurchasePackageResult!
   transferQueueEntry(input: TransferQueueEntryInput!): QueueEntry!
+  unfinalizeIpdBill(id: ID!): IpdBill!
   updateAdmission(id: ID!, input: UpdateAdmissionInput!): Admission!
   updateAppointment(id: ID!, input: AppointmentUpdateInput!): Appointment!
   updateAvailability(id: ID!, input: UpdateAvailabilityInput!): AvailabilityMutationResult!
@@ -2697,6 +2815,8 @@ type Mutation {
   updateDrug(id: ID!, input: DrugInput!): Drug!
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
   updateIntakeFieldConfig(id: ID!, input: UpdateIntakeFieldInput!): IntakeFieldConfigMutationResult!
+  updateIpdBillingSettings(clinic_id: ID!, input: UpdateIpdBillingSettingsInput!): IpdBillingSettings!
+  updateIpdPackage(id: ID!, input: UpdateIpdPackageInput!): IpdPackage!
   updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
   updateMembershipPlan(id: ID!, input: UpdateMembershipPlanInput!): MembershipPlanMutationResult!
   updateMyAiProviderConfig(input: UpdateAiProviderConfigInput!): AiProviderConfigResult!
@@ -3597,6 +3717,15 @@ type PlatformSubscriptionPlan {
   tier: String!
 }
 
+input PostManualIpdChargeInput {
+  admission_id: ID!
+  description: String!
+  product_id: ID
+  quantity: Int
+  service_date: DateTime
+  unit_price: Float
+}
+
 type PotentialDuplicatePatient {
   date_of_birth: DateTime!
   full_name: String!
@@ -3951,6 +4080,7 @@ type Query {
   admission(id: ID!): Admission
   admissionEvents(admission_id: ID!): [AdmissionEvent!]!
   admissionHandovers(admission_id: ID!): [ShiftHandover!]!
+  admissionIpdBill(admission_id: ID!): IpdBill!
   admissionMar(admission_id: ID!, from: String, to: String): [MedicationAdministration!]!
   admissionMedicationOrders(active_only: Boolean, admission_id: ID!): [IpdMedicationOrder!]!
   admissionNotes(admission_id: ID!, note_kind: String): [AdmissionNote!]!
@@ -4034,7 +4164,11 @@ type Query {
   intakeFieldConfigs(clinic_id: ID, product_id: ID): [IntakeFieldConfig!]!
   intakeOutputBalance(admission_id: ID!, window_hours: Int): IntakeOutputBalance!
   intakeOutputRecords(admission_id: ID!): [IntakeOutputRecord!]!
+  ipdBill(id: ID!): IpdBill
+  ipdBillingSettings(clinic_id: ID!): IpdBillingSettings!
+  ipdBills(clinic_id: ID, status: String): [IpdBill!]!
   ipdMedicationOrder(id: ID!): IpdMedicationOrder
+  ipdPackages(clinic_id: ID): [IpdPackage!]!
   languages: [Language!]!
   lowStockDrugs(clinic_id: ID): [LowStockDrug!]!
   me: User!
@@ -4255,6 +4389,13 @@ input RecordIntakeOutputInput {
   volume_ml: Int!
 }
 
+input RecordIpdPaymentInput {
+  admission_id: ID!
+  notes: String
+  payment_type: String!
+  tenders: [IpdPaymentTenderInput!]!
+}
+
 input RecordMlcRegisterInput {
   admission_id: ID!
   brought_by_contact: String
@@ -4469,6 +4610,11 @@ type RevenueShareRuleType {
   share_percentage: Float!
 }
 
+input ReverseIpdChargeInput {
+  charge_id: ID!
+  reason: String!
+}
+
 type Review {
   clinician_name: String
   comment: String!
@@ -4618,6 +4764,11 @@ input SearchInput {
   limit: Int
   offset: Int
   search: String
+}
+
+input SelectIpdPackageInput {
+  admission_id: ID!
+  package_id: ID!
 }
 
 type Service {
@@ -5147,6 +5298,26 @@ input UpdateIntakeFieldInput {
   is_required: Boolean
   label: String
   sort_order: Int
+}
+
+input UpdateIpdBillingSettingsInput {
+  auto_post_room_charges: Boolean
+  charge_admission_day: Boolean
+  charge_discharge_day: Boolean
+  day_boundary_mode: String
+  default_deposit: Float
+  discharge_cutoff_hour: Int
+  doctor_visit_charge_product_id: ID
+  package_excess_policy: String
+  transfer_day_rate_policy: String
+}
+
+input UpdateIpdPackageInput {
+  inclusions: [IpdPackageInclusionInput!]
+  is_active: Boolean
+  name: String
+  price: Float
+  specialty: String
 }
 
 input UpdateLanguageInput {
