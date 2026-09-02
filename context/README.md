@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| ipd-2026-09-02-req183-tpa-cashless-insurance | ipd | 2026-09-02 | REQ183, PLAN252, TP272, TR272 | done | [manifest.md](./ipd-2026-09-02-req183-tpa-cashless-insurance/manifest.md) |
 | ipd-2026-09-02-req182-billing-ledger | ipd | 2026-09-02 | REQ182, PLAN251, TP271, TR271 | done | [manifest.md](./ipd-2026-09-02-req182-billing-ledger/manifest.md) |
 | ipd-2026-09-02-req181-operation-theatre | ipd | 2026-09-02 | REQ181, PLAN250, TP270, TR270 | done | [manifest.md](./ipd-2026-09-02-req181-operation-theatre/manifest.md) |
 | ipd-2026-09-02-req180-nursing-charting | ipd | 2026-09-02 | REQ180, PLAN249, TP269, TR269 | done | [manifest.md](./ipd-2026-09-02-req180-nursing-charting/manifest.md) |

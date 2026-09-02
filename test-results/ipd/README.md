@@ -8,6 +8,7 @@
 | TR269 | requirement | IPD slice 2 (nursing charting, MAR, discharge summary) | done | 2026-09-02 | 2026-09-02 | TP269 | [TR269-ipd-2026-09-02-nursing-charting-mar-discharge-summary.md](./requirement/TR269-ipd-2026-09-02-nursing-charting-mar-discharge-summary.md) |
 | TR270 | requirement | IPD slice 3 (operation theatre scheduling) | done | 2026-09-02 | 2026-09-02 | TP270 | [TR270-ipd-2026-09-02-operation-theatre-scheduling.md](./requirement/TR270-ipd-2026-09-02-operation-theatre-scheduling.md) |
 | TR271 | requirement | IPD slice 4 (billing ledger, room-day accrual, package settlement) | done | 2026-09-02 | 2026-09-02 | TP271 | [TR271-ipd-2026-09-02-billing-ledger-package-settlement.md](./requirement/TR271-ipd-2026-09-02-billing-ledger-package-settlement.md) |
+| TR272 | requirement | IPD slice 5 (TPA cashless insurance) | done | 2026-09-02 | 2026-09-02 | TP272 | [TR272-ipd-2026-09-02-tpa-cashless-insurance.md](./requirement/TR272-ipd-2026-09-02-tpa-cashless-insurance.md) |
 
 ## improvement
 

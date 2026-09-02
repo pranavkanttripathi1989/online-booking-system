@@ -8,6 +8,7 @@
 | REQ180 | requirement | In-patient department (IPD) slice 2: nursing charting, medication orders, MAR, discharge summary | done | 2026-09-02 | 2026-09-02 | REQ179 | [REQ180-ipd-2026-09-02-nursing-charting-mar-discharge-summary.md](./requirement/REQ180-ipd-2026-09-02-nursing-charting-mar-discharge-summary.md) |
 | REQ181 | requirement | In-patient department (IPD) slice 3: operation theatre scheduling | done | 2026-09-02 | 2026-09-02 | REQ179 | [REQ181-ipd-2026-09-02-operation-theatre-scheduling.md](./requirement/REQ181-ipd-2026-09-02-operation-theatre-scheduling.md) |
 | REQ182 | requirement | In-patient department (IPD) slice 4: billing ledger, room-day accrual, package settlement | done | 2026-09-02 | 2026-09-02 | REQ179 | [REQ182-ipd-2026-09-02-billing-ledger-package-settlement.md](./requirement/REQ182-ipd-2026-09-02-billing-ledger-package-settlement.md) |
+| REQ183 | requirement | In-patient department (IPD) slice 5: TPA cashless insurance | done | 2026-09-02 | 2026-09-02 | REQ179 | [REQ183-ipd-2026-09-02-tpa-cashless-insurance.md](./requirement/REQ183-ipd-2026-09-02-tpa-cashless-insurance.md) |
 
 ## improvement
 

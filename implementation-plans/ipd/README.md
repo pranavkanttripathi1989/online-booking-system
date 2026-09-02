@@ -8,6 +8,7 @@
 | PLAN249 | requirement | IPD slice 2 (nursing charting, MAR, discharge summary) | done | 2026-09-02 | 2026-09-02 | REQ180 | [PLAN249-ipd-2026-09-02-nursing-charting-mar-discharge-summary.md](./requirement/PLAN249-ipd-2026-09-02-nursing-charting-mar-discharge-summary.md) |
 | PLAN250 | requirement | IPD slice 3 (operation theatre scheduling) | done | 2026-09-02 | 2026-09-02 | REQ181 | [PLAN250-ipd-2026-09-02-operation-theatre-scheduling.md](./requirement/PLAN250-ipd-2026-09-02-operation-theatre-scheduling.md) |
 | PLAN251 | requirement | IPD slice 4 (billing ledger, room-day accrual, package settlement) | done | 2026-09-02 | 2026-09-02 | REQ182 | [PLAN251-ipd-2026-09-02-billing-ledger-package-settlement.md](./requirement/PLAN251-ipd-2026-09-02-billing-ledger-package-settlement.md) |
+| PLAN252 | requirement | IPD slice 5 (TPA cashless insurance) | done | 2026-09-02 | 2026-09-02 | REQ183 | [PLAN252-ipd-2026-09-02-tpa-cashless-insurance.md](./requirement/PLAN252-ipd-2026-09-02-tpa-cashless-insurance.md) |
 
 ## improvement
 
