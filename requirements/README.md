@@ -40,7 +40,7 @@
 | staff | 0 | 1 | 0 | 0 | 1 | 2026-08-21 | [staff](./staff/README.md) |
 | semble-competitive-gap | 1 | 0 | 0 | 1 | 0 | 2026-08-17 | [semble-competitive-gap](./semble-competitive-gap/README.md) |
 | patients | 0 | 2 | 9 | 0 | 11 | 2026-09-01 | [patients](./patients/README.md) |
-| test-results | 0 | 1 | 1 | 0 | 2 | 2026-08-30 | [test-results](./test-results/README.md) |
+| test-results | 0 | 2 | 1 | 0 | 3 | 2026-09-03 | [test-results](./test-results/README.md) |
 | repo-hygiene | 0 | 3 | 0 | 0 | 3 | 2026-08-26 | [repo-hygiene](./repo-hygiene/README.md) |
 | frontend-platform | 0 | 7 | 10 | 0 | 17 | 2026-08-30 | [frontend-platform](./frontend-platform/README.md) |
 

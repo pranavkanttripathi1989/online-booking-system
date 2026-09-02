@@ -9,6 +9,7 @@ _none yet_
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | REQ169 | improvement | Expose `patient_id` on `TestResultType` + a `patient_id` filter argument | done | 2026-08-30 | 2026-08-30 | BUG027 | [REQ169-test-results-2026-08-30-expose-patient-id-filter.md](./improvement/REQ169-test-results-2026-08-30-expose-patient-id-filter.md) |
+| REQ184 | improvement | `recordTestResult`: the previously-missing test-result completion path | done | 2026-09-03 | 2026-09-03 | — | [REQ184-test-results-2026-09-03-record-test-result-completion.md](./improvement/REQ184-test-results-2026-09-03-record-test-result-completion.md) |
 
 ## bug
 

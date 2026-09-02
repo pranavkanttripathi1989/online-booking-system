@@ -9,6 +9,7 @@ _none yet_
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TR252 | improvement | Results for exposing `patient_id` on `TestResultType` + filter argument | pass | 2026-08-30 | 2026-08-30 | TP252 | [TR252-test-results-2026-08-30-expose-patient-id-filter-verification.md](./improvement/TR252-test-results-2026-08-30-expose-patient-id-filter-verification.md) |
+| TR273 | improvement | `recordTestResult` completion path (P2-13) | pass | 2026-09-03 | 2026-09-03 | TP273 | [TR273-test-results-2026-09-03-record-test-result-completion.md](./improvement/TR273-test-results-2026-09-03-record-test-result-completion.md) |
 
 ## bug
 
