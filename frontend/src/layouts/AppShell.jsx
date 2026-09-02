@@ -249,6 +249,7 @@ const NAV_CONFIG = [
   // real empty board/list here, not a 403 -- reads stay ungated by design.
   { label: 'IPD Bed Board', path: '/ipd/beds', icon: <HotelIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
   { label: 'Admissions', path: '/ipd/admissions', icon: <LocalHospitalIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
+  { label: 'Operation Theatre', path: '/ipd/ot', icon: <MeetingRoomIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
   // REQ042 — appointments.resolver.ts's checkInAppointment/startConsultation/
   // completeAppointment/markNoShow/resetAppointmentJourney (waiting-room/
   // index.jsx's own mutations) are all @Auth(...,'staff','receptionist'),

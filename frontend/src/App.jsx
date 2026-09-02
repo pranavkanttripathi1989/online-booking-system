@@ -123,6 +123,7 @@ const QueueBoardPage = lazy(() => import('./pages/queue/index'))
 const IpdBedBoardPage = lazy(() => import('./pages/ipd/BedBoard'))
 const IpdAdmissionsPage = lazy(() => import('./pages/ipd/Admissions'))
 const IpdNursingChartPage = lazy(() => import('./pages/ipd/NursingChart'))
+const IpdOperationTheatrePage = lazy(() => import('./pages/ipd/OperationTheatre'))
 const QueueDisplay = lazy(() => import('./pages/queue/display'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
@@ -1137,6 +1138,17 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <IpdNursingChartPage />
+                </Suspense>
+              }
+            />
+            {/* REQ179 (IPD slice 3) — OT scheduling. Top-level nav entry,
+                matching /ipd/beds and /ipd/admissions' own precedent (this
+                is a schedule board, not a drill-down like the chart above). */}
+            <Route
+              path="/ipd/ot"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <IpdOperationTheatrePage />
                 </Suspense>
               }
             />
