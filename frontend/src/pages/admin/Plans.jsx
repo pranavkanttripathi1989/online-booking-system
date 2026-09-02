@@ -36,6 +36,11 @@ const FEATURE_FLAG_KEYS = [
   { key: 'telemedicine', label: 'Telemedicine' },
   { key: 'insurance', label: 'Insurance desk' },
   { key: 'whatsapp', label: 'WhatsApp notifications' },
+  // REQ179 (IPD slice 1) — gates every IPD mutation via
+  // @UseGuards(EntitlementGuard) @RequiresFeature('ipd') per-resolver
+  // (wards/admissions.resolver.ts), never the global guard chain. Reads stay
+  // ungated so an org mid-upgrade sees an empty board, not a 403.
+  { key: 'ipd', label: 'In-patient (IPD) — wards, admissions, MLC register' },
 ]
 const QUOTA_KEYS = [
   { key: 'max_clinician_seats', label: 'Max clinician seats' },

@@ -59,6 +59,7 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import MessageIcon from '@mui/icons-material/Message'
 import AttachMoneyIcon from '@mui/icons-material/AttachMoney'
 import ReceiptLongIcon from '@mui/icons-material/ReceiptLong'
+import HotelIcon from '@mui/icons-material/Hotel'
 import AccountBalanceWalletIcon from '@mui/icons-material/AccountBalanceWallet'
 import AdminPanelSettingsIcon from '@mui/icons-material/AdminPanelSettings'
 import ExpandLessIcon from '@mui/icons-material/ExpandLess'
@@ -241,6 +242,13 @@ const NAV_CONFIG = [
     icon: <FormatListNumberedIcon />,
     roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'],
   },
+  // REQ179 (IPD slice 1) — wards.resolver.ts/admissions.resolver.ts's own
+  // read gate (staff/clinician/manager/admin/super_admin), same top-level
+  // placement as Live Queue above. Every mutation is additionally gated by
+  // the 'ipd' plan feature flag server-side, so an org without it sees a
+  // real empty board/list here, not a 403 -- reads stay ungated by design.
+  { label: 'IPD Bed Board', path: '/ipd/beds', icon: <HotelIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
+  { label: 'Admissions', path: '/ipd/admissions', icon: <LocalHospitalIcon />, roles: ['admin', 'super_admin', 'manager', 'receptionist', 'staff', 'clinician'] },
   // REQ042 — appointments.resolver.ts's checkInAppointment/startConsultation/
   // completeAppointment/markNoShow/resetAppointmentJourney (waiting-room/
   // index.jsx's own mutations) are all @Auth(...,'staff','receptionist'),

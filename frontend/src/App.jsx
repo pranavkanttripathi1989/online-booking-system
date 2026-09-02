@@ -120,6 +120,8 @@ const PrescriptionBuilder = lazy(() => import('./pages/clinician/PrescriptionBui
 const PrescriptionPrint = lazy(() => import('./pages/prescriptions/PrescriptionPrint'))
 const VerifyPrescription = lazy(() => import('./pages/prescriptions/Verify'))
 const QueueBoardPage = lazy(() => import('./pages/queue/index'))
+const IpdBedBoardPage = lazy(() => import('./pages/ipd/BedBoard'))
+const IpdAdmissionsPage = lazy(() => import('./pages/ipd/Admissions'))
 const QueueDisplay = lazy(() => import('./pages/queue/display'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
@@ -1097,6 +1099,33 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <QueueBoardPage />
+                </Suspense>
+              }
+            />
+          </Route>
+
+          {/* REQ179 (IPD slice 1) — wards.resolver.ts/admissions.resolver.ts's
+              own read gate is @Auth('staff','clinician','manager','admin',
+              'super_admin'), matching /queue's own dedicated RoleGuard
+              precedent above rather than the narrower admin/manager-only
+              block elsewhere. Every mutation is additionally gated
+              server-side by the 'ipd' plan feature flag. */}
+          <Route
+            element={<RoleGuard roles={['admin', 'super_admin', 'manager', 'clinician', 'staff', 'receptionist']} />}
+          >
+            <Route
+              path="/ipd/beds"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <IpdBedBoardPage />
+                </Suspense>
+              }
+            />
+            <Route
+              path="/ipd/admissions"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <IpdAdmissionsPage />
                 </Suspense>
               }
             />
