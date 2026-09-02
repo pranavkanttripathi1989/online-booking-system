@@ -535,14 +535,19 @@ describe('EncountersService', () => {
       await expect(service.patientVitals('pat-a', 'weight_kg', clinicianB)).rejects.toThrow(NotFoundException);
     });
 
-    it('returns readings for exactly one code, chronological, across every encounter', async () => {
+    it('returns readings for exactly one code, chronological, across every encounter AND every admission (REQ179)', async () => {
       prisma.vitals.findMany.mockResolvedValue([
         { id: 'v-1', code: 'weight_kg', value: 20, unit: 'kg', recorded_at: new Date('2026-01-01') },
         { id: 'v-2', code: 'weight_kg', value: 25, unit: 'kg', recorded_at: new Date('2026-08-01') },
       ]);
       const result = await service.patientVitals('pat-a', 'weight_kg', patientA);
+      // REQ179 -- widened to an OR across both parents so an IPD-stay
+      // reading contributes to the same growth-chart trend as an OPD one.
       expect(prisma.vitals.findMany).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { code: 'weight_kg', encounter: { patient_id: 'pat-a' } }, orderBy: { recorded_at: 'asc' } }),
+        expect.objectContaining({
+          where: { code: 'weight_kg', OR: [{ encounter: { patient_id: 'pat-a' } }, { admission: { patient_id: 'pat-a' } }] },
+          orderBy: { recorded_at: 'asc' },
+        }),
       );
       expect(result).toHaveLength(2);
     });
