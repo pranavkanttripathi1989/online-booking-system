@@ -526,6 +526,12 @@ input ApproveClaimAppealInput {
   content: String
 }
 
+input AssignOtBookingStaffInput {
+  booking_id: ID!
+  role: String!
+  user_id: ID!
+}
+
 type AuditLog {
   action: String!
   createdAt: DateTime!
@@ -812,6 +818,11 @@ type CancelAppointmentSeriesResult {
   failed_count: Int!
   success: Boolean!
   userErrors: [AppointmentSeriesUserError!]!
+}
+
+input CancelOtBookingInput {
+  booking_id: ID!
+  reason: String!
 }
 
 input CancelPatientMembershipInput {
@@ -1218,6 +1229,12 @@ input CommitImportInput {
   mapping: [ImportColumnMappingInput!]!
 }
 
+input CompleteOtChecklistInput {
+  booking_id: ID!
+  items: [OtChecklistItemInput!]!
+  phase: String!
+}
+
 input ComputeMonthlyPayoutsInput {
   clinic_id: ID!
   month: Int!
@@ -1448,6 +1465,34 @@ input CreateMessageAttachmentInput {
   message_id: ID!
   mime_type: String!
   original_filename: String!
+}
+
+input CreateOperationTheatreInput {
+  clinic_id: ID!
+  default_turnaround_minutes: Int
+  name: String!
+}
+
+input CreateOtBookingInput {
+  admission_id: ID!
+  anesthetist_clinician_id: ID
+  end_at: DateTime!
+  notes: String
+  primary_surgeon_clinician_id: ID!
+  procedure_name: String!
+  start_at: DateTime!
+  theatre_id: ID!
+  turnaround_minutes: Int
+}
+
+input CreateOtNoteInput {
+  booking_id: ID!
+  complications: String
+  findings: String
+  post_op_diagnosis: String
+  post_op_instructions: String
+  pre_op_diagnosis: String
+  procedure_performed: String
 }
 
 input CreatePackageInput {
@@ -1859,6 +1904,7 @@ type Drug {
   hsn: String
   id: ID!
   is_platform_seeded: Boolean!
+  item_type: String!
   manufacturer: String
   name: String!
   reorder_level: Int
@@ -1885,6 +1931,7 @@ input DrugInput {
   form: String
   gst_rate: Float
   hsn: String
+  item_type: String
   manufacturer: String
   name: String!
   reorder_level: Int
@@ -2414,6 +2461,7 @@ type Mutation {
   approveClaimAppeal(id: ID!, input: ApproveClaimAppealInput!): ClaimAppeal!
   approvePayout(id: ID!): PayoutType!
   assignOrgPlan(orgId: ID!, planId: ID): OrganizationMutationResult!
+  assignOtBookingStaff(input: AssignOtBookingStaffInput!): OtBooking!
   assignThread(assigneeUserId: ID!, threadId: ID!): MessageThread!
   blockBed(input: BlockBedInput!): Bed!
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
@@ -2423,6 +2471,7 @@ type Mutation {
   cancelAdmission(id: ID!, reason: String!): AdmissionMutationResult!
   cancelAppointment(id: ID!, reason: String): Appointment!
   cancelAppointmentSeries(input: CancelAppointmentSeriesInput!): CancelAppointmentSeriesResult!
+  cancelOtBooking(input: CancelOtBookingInput!): OtMutationResult!
   cancelPatientMembership(input: CancelPatientMembershipInput!): EnrollMembershipResult!
   cancelPlatformSubscription(input: CancelPlatformSubscriptionInput!): PlatformBillingMutationResult!
   cancelWaitlistEntry(id: ID!): WaitlistMutationResult!
@@ -2434,6 +2483,8 @@ type Mutation {
   completeAppointment(id: ID!): Appointment!
   completeChecklistItem(appointment_id: ID!, checklist_item_id: ID!): ChecklistItemMutationResult!
   completeOrganizationOnboarding(orgId: String!): OrganizationOnboarding!
+  completeOtBooking(id: ID!): OtBooking!
+  completeOtChecklist(input: CompleteOtChecklistInput!): OtBooking!
   computeMonthlyPayouts(input: ComputeMonthlyPayoutsInput!): ComputePayoutsResultType!
   confirmTotpEnrollment(input: ConfirmTotpEnrollmentInput!): TotpConfirmResult!
   consentToTelemedicineRecording(encounter_id: ID!): ConsentToRecordingResult!
@@ -2463,7 +2514,10 @@ type Mutation {
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createMembershipPlan(input: CreateMembershipPlanInput!): MembershipPlanMutationResult!
   createMessageAttachment(input: CreateMessageAttachmentInput!): MessageAttachment!
+  createOperationTheatre(input: CreateOperationTheatreInput!): OperationTheatre!
   createOrganization(input: OrganizationInput!): OrganizationMutationResult!
+  createOtBooking(input: CreateOtBookingInput!): OtBooking!
+  createOtNote(input: CreateOtNoteInput!): OtNote!
   createPackage(input: CreatePackageInput!): PackageMutationResult!
   createPatient(input: PatientInput!): Patient!
   createPatientDocument(input: CreatePatientDocumentInput!): PatientDocument!
@@ -2516,6 +2570,7 @@ type Mutation {
   deleteLunchBreak(id: ID!): Boolean!
   deleteMembershipPlan(id: ID!): MembershipPlanMutationResult!
   deleteNotification(id: ID!): NotificationMutationResult!
+  deleteOperationTheatre(id: ID!): OtMutationResult!
   deleteOrganization(id: ID!): OrganizationMutationResult!
   deletePackage(id: ID!): PackageMutationResult!
   deletePatientDocument(id: ID!): Boolean!
@@ -2563,6 +2618,7 @@ type Mutation {
   recordIntakeOutput(input: RecordIntakeOutputInput!): IntakeOutputRecord!
   recordMlcPoliceIntimation(input: RecordPoliceIntimationInput!): MlcRegister!
   recordMlcRegister(input: RecordMlcRegisterInput!): MlcRegister!
+  recordOtConsumable(input: RecordOtConsumableInput!): OtBooking!
   recordPharmacyPayment(input: RecordPharmacyPaymentInput!): RecordPharmacyPaymentResult!
   recordPrnAdministration(input: RecordPrnAdministrationInput!): MedicationAdministration!
   recordVitals(input: RecordVitalsInput!): [Vital!]!
@@ -2573,6 +2629,8 @@ type Mutation {
   releaseBed(bed_id: ID!): Bed!
   releasePublicSlot(clinicianId: ID!, date: String!, holdToken: String!, startTime: String!): Boolean!
   removeFavouriteDrug(drug_id: ID!): Boolean!
+  removeOtBookingStaff(id: ID!): OtBooking!
+  removeOtConsumable(id: ID!): OtMutationResult!
   requestBreakGlassAccess(input: RequestBreakGlassAccessInput!): BreakGlassGrantMutationResult!
   requestDataRights(input: RequestDataRightsInput!): RightsRequest!
   requestOtp(input: RequestOtpInput!): GenericResult!
@@ -2603,10 +2661,12 @@ type Mutation {
   signAdmissionNote(input: SignAdmissionNoteInput!): AdmissionNote!
   signDischargeSummary(input: SignDischargeSummaryInput!): DischargeSummary!
   signEncounter(encounter_id: ID!): Encounter!
+  signOtNote(input: SignOtNoteInput!): OtNote!
   skipQueueEntry(input: SkipQueueEntryInput!): QueueEntry!
   startConsultation(id: ID!): Appointment!
   startImpersonation(reason: String!, target_user_id: String!): ImpersonationResult!
   startOrganizationOnboarding(input: StartOnboardingInput!): OrganizationOnboarding!
+  startOtBooking(id: ID!): OtBooking!
   startTotpEnrollment: TotpEnrollment!
   startTranscriptionSession(input: StartTranscriptionSessionInput!): AiTranscriptionSession!
   stopIpdMedicationOrder(input: StopIpdMedicationOrderInput!): IpdMedicationOrder!
@@ -2648,7 +2708,9 @@ type Mutation {
   updateMyOrgCommunicationSettings(input: UpdateOrgCommunicationSettingsInput!): OrgCommunicationSettingsMutationResult!
   updateMyOrgSecuritySettings(input: UpdateOrgSecuritySettingsInput!): OrgSecuritySettingsMutationResult!
   updateMyProfile(input: UpdateMyProfileInput!): MyProfileMutationResult!
+  updateOperationTheatre(id: ID!, input: UpdateOperationTheatreInput!): OperationTheatre!
   updateOrganization(id: ID!, input: OrganizationInput!): OrganizationMutationResult!
+  updateOtNote(booking_id: ID!, input: UpdateOtNoteInput!): OtNote!
   updatePackage(id: ID!, input: UpdatePackageInput!): PackageMutationResult!
   updatePatient(id: ID!, input: PatientInput!): Patient!
   updatePayerEmpanelmentStatus(id: ID!, input: UpdatePayerEmpanelmentStatusInput!): PayerEmpanelment!
@@ -2809,6 +2871,15 @@ type NotificationProviderOption {
 
 type NursingUserError {
   message: String!
+}
+
+type OperationTheatre {
+  clinic_id: ID!
+  created_at: DateTime!
+  default_turnaround_minutes: Int!
+  id: ID!
+  is_active: Boolean!
+  name: String!
 }
 
 input OrderInvestigationInput {
@@ -3002,6 +3073,90 @@ type OrganizationSubscription {
 type OrganizationsPaginated {
   data: [Organization!]!
   pageInfo: OrganizationPageInfo!
+}
+
+type OtBooking {
+  admission_id: ID!
+  admission_number: String
+  anesthetist_clinician_id: ID
+  anesthetist_name: String
+  cancel_reason: String
+  checklists: [OtChecklist!]!
+  consumables: [OtConsumable!]!
+  created_at: DateTime!
+  end_at: DateTime!
+  id: ID!
+  notes: String
+  patient_name: String
+  primary_surgeon_clinician_id: ID!
+  primary_surgeon_name: String
+  procedure_name: String!
+  staff: [OtBookingStaff!]!
+  start_at: DateTime!
+  status: String!
+  theatre_id: ID!
+  theatre_name: String
+  turnaround_minutes: Int!
+}
+
+type OtBookingStaff {
+  id: ID!
+  role: String!
+  user_id: ID!
+  user_name: String
+}
+
+type OtChecklist {
+  completed_at: DateTime
+  completed_by_name: String
+  id: ID!
+  items: [OtChecklistItem!]!
+  phase: String!
+}
+
+type OtChecklistItem {
+  checked: Boolean!
+  key: String!
+  label: String!
+}
+
+input OtChecklistItemInput {
+  checked: Boolean!
+  key: String!
+  label: String!
+}
+
+type OtConsumable {
+  created_at: DateTime!
+  drug_id: ID!
+  drug_name: String
+  id: ID!
+  implant_serial_no: String
+  quantity: Int!
+  recorded_by_name: String
+}
+
+type OtMutationResult {
+  success: Boolean!
+  userErrors: [OtUserError!]!
+}
+
+type OtNote {
+  author_name: String
+  booking_id: ID!
+  complications: String!
+  findings: String!
+  id: ID!
+  locked: Boolean!
+  post_op_diagnosis: String!
+  post_op_instructions: String!
+  pre_op_diagnosis: String!
+  procedure_performed: String!
+  signed_at: DateTime
+}
+
+type OtUserError {
+  message: String!
 }
 
 type Package {
@@ -3799,6 +3954,7 @@ type Query {
   admissionMar(admission_id: ID!, from: String, to: String): [MedicationAdministration!]!
   admissionMedicationOrders(active_only: Boolean, admission_id: ID!): [IpdMedicationOrder!]!
   admissionNotes(admission_id: ID!, note_kind: String): [AdmissionNote!]!
+  admissionOtBookings(admission_id: ID!): [OtBooking!]!
   admissionVitals(admission_id: ID!): [Vital!]!
   admissions(filter: AdmissionFilterInput): [Admission!]!
   aiExtractedPrescriptionDraft(session_id: ID!): [AiExtractedPrescriptionItem!]!
@@ -3844,7 +4000,7 @@ type Query {
   discountApprovalRequests(clinic_id: ID): [DiscountApprovalRequest!]!
   drug(id: ID!): Drug
   drugBatches(clinic_id: ID, drug_id: ID): [DrugBatch!]!
-  drugs(search: String): [Drug!]!
+  drugs(item_type: String, search: String): [Drug!]!
   dryRunImport(input: DryRunImportInput!): ImportDryRunResult!
   emailTemplates: [EmailTemplate!]!
   encounter(id: ID!): Encounter
@@ -3909,8 +4065,13 @@ type Query {
   notificationDeliveryAnalytics: [NotificationDeliveryStat!]!
   notificationProviders: [NotificationProviderOption!]!
   notifications(filter: String, first: Int! = 200, page: Int! = 1): NotificationPaginated!
+  operationTheatre(id: ID!): OperationTheatre
+  operationTheatres(clinic_id: ID): [OperationTheatre!]!
   organizationSubscription(orgId: ID!): OrganizationSubscription
   organizationsPaginated(search: OrganizationSearchInput): OrganizationsPaginated!
+  otBooking(id: ID!): OtBooking
+  otNote(booking_id: ID!): OtNote
+  otSchedule(clinic_id: ID, from: String!, theatre_id: ID, to: String!): [OtBooking!]!
   packages(clinic_id: ID): [Package!]!
   parseImportPreview(input: ParseImportPreviewInput!): ImportPreview!
   patient(id: ID!): Patient
@@ -4108,6 +4269,14 @@ input RecordMlcRegisterInput {
   injury_details: String
   mlc_category: String!
   police_station: String
+}
+
+input RecordOtConsumableInput {
+  batch_id: ID
+  booking_id: ID!
+  drug_id: ID!
+  implant_serial_no: String
+  quantity: Int!
 }
 
 input RecordPharmacyPaymentInput {
@@ -4565,6 +4734,10 @@ input SignDischargeSummaryInput {
   discharge_summary_id: ID!
 }
 
+input SignOtNoteInput {
+  booking_id: ID!
+}
+
 input SkipQueueEntryInput {
   queue_entry_id: ID!
   reason: String
@@ -5008,6 +5181,12 @@ input UpdateNotificationProviderConfigInput {
   sender_id: String
 }
 
+input UpdateOperationTheatreInput {
+  default_turnaround_minutes: Int
+  is_active: Boolean
+  name: String
+}
+
 input UpdateOrgBookingPoliciesInput {
   data_retention_years: Int
   max_reschedules_per_month: Int
@@ -5045,6 +5224,15 @@ input UpdateOrgSecuritySettingsInput {
   mfa_required: Boolean
   patient_data_export_enabled: Boolean
   session_timeout_minutes: Int
+}
+
+input UpdateOtNoteInput {
+  complications: String
+  findings: String
+  post_op_diagnosis: String
+  post_op_instructions: String
+  pre_op_diagnosis: String
+  procedure_performed: String
 }
 
 input UpdatePackageInput {

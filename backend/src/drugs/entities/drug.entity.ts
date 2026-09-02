@@ -19,6 +19,8 @@ export class DrugType {
   @Field({ nullable: true }) manufacturer?: string;
   // REQ022 (US-PHR-09, scoped) — null means no low-stock alert configured.
   @Field(() => Int, { nullable: true }) reorder_level?: number;
+  // REQ179 (IPD slice 3) — drug | consumable | implant | surgical_item | oxygen.
+  @Field() item_type: string;
   // true when this row has no client_org_id — a platform-seeded reference
   // entry every tenant sees, as distinct from a tenant's own custom
   // addition. Derived, not a raw column: the resolver boundary should never

@@ -1072,6 +1072,12 @@ model ClientOrganizations {
   shiftHandovers ShiftHandovers[]
   dischargeSummaryTemplates DischargeSummaryTemplates[]
   dischargeSummaries DischargeSummaries[]
+
+  // REQ179 (IPD slice 3)
+  operationTheatres OperationTheatres[]
+  otBookings        OtBookings[]
+  otNotes           OtNotes[]
+  otConsumables     OtConsumables[]
 }
 
 model ClinicianAvailability {
@@ -1197,6 +1203,11 @@ model Clinicians {
   ipdMedicationOrdersOrdered IpdMedicationOrders[] @relation("IpdOrderOrderedBy")
   admissionNotesAuthored     AdmissionNotes[]      @relation("AdmissionNoteAuthorClinician")
   dischargeSummariesSigned   DischargeSummaries[]  @relation("DsSignedBy")
+
+  // REQ179 (IPD slice 3)
+  otBookingsAsPrimarySurgeon OtBookings[] @relation("OtPrimarySurgeon")
+  otBookingsAsAnesthetist    OtBookings[] @relation("OtAnesthetist")
+  otNotesAuthored            OtNotes[]    @relation("OtNoteAuthor")
 }
 
 // CLINICIAN_FIELDS wants `services{id name duration_minutes price}` per clinician
@@ -1320,6 +1331,10 @@ model Clinics {
 
   // REQ179 (IPD slice 2)
   dischargeSummaryTemplates DischargeSummaryTemplates[]
+
+  // REQ179 (IPD slice 3)
+  operationTheatres OperationTheatres[]
+  otBookings        OtBookings[]
 }
 
 model EmailTemplates {
@@ -2386,6 +2401,13 @@ model Drugs {
   // can be added later without a breaking change if that assumption proves
   // wrong.
   reorder_level  Int?
+  // REQ179 (IPD slice 3) -- drug | consumable | implant | surgical_item |
+  // oxygen. Defaults to 'drug' so every existing drug picker (prescription
+  // builder, MAR order search) keeps working unchanged: none of them pass
+  // this filter explicitly, and the resolver defaults it to 'drug' when
+  // omitted -- gauze/implants never silently appear in a prescription
+  // autocomplete just because this column now exists.
+  item_type      String   @default("drug")
   is_deleted     Boolean  @default(false)
   created_at     DateTime @default(now())
   updated_at     DateTime @default(now())
@@ -2398,10 +2420,14 @@ model Drugs {
   favouritedBy         ClinicianFavouriteDrugs[]
 
   @@index([client_org_id, is_deleted])
+  @@index([item_type])
 
   // REQ179 (IPD slice 2)
   ipdMedicationOrders IpdMedicationOrders[]
   medicationAdministrations MedicationAdministrations[]
+
+  // REQ179 (IPD slice 3)
+  otConsumables OtConsumables[]
 }
 
 // REQ173 -- a clinician's own single-drug quick-pick list ("don't make me
@@ -3041,6 +3067,11 @@ model UserProfiles {
   shiftHandoversFrom               ShiftHandovers[]             @relation("HandoverFrom")
   shiftHandoversTo                 ShiftHandovers[]             @relation("HandoverTo")
   dischargeSummariesPrepared       DischargeSummaries[]         @relation("DsPreparedBy")
+
+  // REQ179 (IPD slice 3)
+  otBookingStaffAssignments OtBookingStaff[]
+  otChecklistsCompleted     OtChecklists[]
+  otConsumablesRecorded     OtConsumables[]
 }
 
 model UserRoles {
@@ -3428,6 +3459,9 @@ model DrugBatches {
 
   // REQ179 (IPD slice 2)
   medicationAdministrations MedicationAdministrations[]
+
+  // REQ179 (IPD slice 3)
+  otConsumables OtConsumables[]
 }
 
 model StockMovements {
@@ -4341,6 +4375,8 @@ model Admissions {
   notes                 AdmissionNotes[]
   handovers             ShiftHandovers[]
   dischargeSummary      DischargeSummaries?
+  // REQ179 (IPD slice 3)
+  otBookings            OtBookings[]
 
   @@index([client_org_id, clinic_id, status])
   @@index([patient_id, admitted_at])
@@ -4777,4 +4813,162 @@ model DischargeSummaries {
   signed_by   Clinicians?  @relation("DsSignedBy", fields: [signed_by_clinician_id], references: [id])
 
   @@index([client_org_id, signed_at])
+}
+
+// ============================================================
+// REQ179 (IPD slice 3) — operation theatre scheduling. Two GiST EXCLUDE
+// constraints (theatre-overlap including turnaround, surgeon-overlap) are
+// the real guarantee, same design axiom as slice 1's bed-occupancy
+// constraint: the database enforces mutual exclusion, never application
+// code. turnaround_minutes is snapshotted onto the OtBookings row itself
+// at create time (from OperationTheatres.default_turnaround_minutes,
+// overridable) because a GiST EXCLUDE constraint cannot join to another
+// table -- it must be able to compute the "physically occupied" range
+// from columns on the one row it protects.
+// ============================================================
+
+model OperationTheatres {
+  id                          String   @id @default(uuid())
+  client_org_id               String
+  clinic_id                   String
+  name                        String
+  default_turnaround_minutes  Int      @default(30)
+  is_active                   Boolean  @default(true)
+  is_deleted                  Boolean  @default(false)
+  created_at                  DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  bookings            OtBookings[]
+
+  @@index([client_org_id, clinic_id, is_active])
+}
+
+model OtBookings {
+  id                            String    @id @default(uuid())
+  client_org_id                 String
+  clinic_id                     String
+  theatre_id                    String
+  admission_id                  String
+  procedure_name                 String
+  primary_surgeon_clinician_id  String
+  anesthetist_clinician_id      String?
+  start_at                      DateTime
+  end_at                        DateTime
+  // Snapshotted from the theatre's own default at booking time -- see the
+  // file-header comment on why this must live on this row, not a join.
+  turnaround_minutes            Int
+  status                        String    @default("scheduled") // scheduled | in_progress | completed | cancelled
+  is_cancelled                  Boolean   @default(false)
+  cancel_reason                  String?
+  notes                         String?
+  created_by_user_id            String
+  created_at                    DateTime  @default(now())
+  updated_at                    DateTime  @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics             @relation(fields: [clinic_id], references: [id])
+  theatre             OperationTheatres   @relation(fields: [theatre_id], references: [id])
+  admission           Admissions          @relation(fields: [admission_id], references: [id])
+  primary_surgeon     Clinicians          @relation("OtPrimarySurgeon", fields: [primary_surgeon_clinician_id], references: [id])
+  anesthetist         Clinicians?         @relation("OtAnesthetist", fields: [anesthetist_clinician_id], references: [id])
+
+  staff       OtBookingStaff[]
+  checklists  OtChecklists[]
+  note        OtNotes?
+  consumables OtConsumables[]
+
+  @@index([theatre_id, start_at])
+  @@index([admission_id])
+  @@index([client_org_id, status, start_at])
+  @@index([primary_surgeon_clinician_id, start_at])
+}
+
+// Team members beyond the primary surgeon/anesthetist (both denormalised
+// onto OtBookings itself -- see the file header on why). A user, not a
+// clinician: scrub/circulating nurses are staff accounts, not necessarily
+// Clinicians rows.
+model OtBookingStaff {
+  id         String   @id @default(uuid())
+  booking_id String
+  user_id    String
+  role       String // assistant_surgeon | scrub_nurse | circulating_nurse | anesthesia_tech | other
+  created_at DateTime @default(now())
+
+  booking OtBookings   @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  user    UserProfiles @relation(fields: [user_id], references: [id])
+
+  @@index([booking_id])
+}
+
+// The WHO Surgical Safety Checklist -- exactly 3 phases, each completed
+// once. @@unique makes completing an already-completed phase a clean
+// application-level conflict, not a silent duplicate.
+model OtChecklists {
+  id                    String    @id @default(uuid())
+  booking_id            String
+  phase                 String // sign_in | time_out | sign_out
+  items_json            Json // [{key, label, checked}]
+  completed_by_user_id  String?
+  completed_at          DateTime?
+  created_at            DateTime  @default(now())
+
+  booking      OtBookings    @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  completed_by UserProfiles? @relation(fields: [completed_by_user_id], references: [id])
+
+  @@unique([booking_id, phase])
+}
+
+// Operative note. Locked + SHA-256-able via the same reject_write_if_locked()
+// trigger AdmissionNotes/DischargeSummaries already use (REQ179 slice 2) --
+// one booking, one note, @@unique via the FK itself (booking_id is @unique).
+model OtNotes {
+  id                    String    @id @default(uuid())
+  client_org_id         String
+  booking_id            String    @unique
+  pre_op_diagnosis      String    @default("")
+  procedure_performed   String    @default("")
+  findings              String    @default("")
+  complications         String    @default("")
+  post_op_diagnosis     String    @default("")
+  post_op_instructions  String    @default("")
+  author_clinician_id   String
+  signed_at             DateTime?
+  locked                Boolean   @default(false)
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  booking OtBookings @relation(fields: [booking_id], references: [id])
+  author  Clinicians @relation("OtNoteAuthor", fields: [author_clinician_id], references: [id])
+}
+
+// Consumables/implants/surgical items used during a procedure. Real stock
+// consumption -- mirrors mar.service.ts's own consumeStock() transaction
+// shape (decrement DrugBatches.quantity_remaining, write an append-only
+// StockMovements row), not a notional count. implant_serial_no is
+// traceability for implants specifically (nullable -- irrelevant for a
+// consumable like gauze). charge_id stays null this slice -- nothing
+// bills for OT consumption until slice 4 backfills it, a stated gap, not
+// an oversight.
+model OtConsumables {
+  id                   String   @id @default(uuid())
+  client_org_id        String
+  booking_id           String
+  drug_id              String
+  batch_id             String?
+  quantity             Int
+  implant_serial_no    String?
+  charge_id            String?
+  stock_movement_id    String?
+  recorded_by_user_id  String
+  created_at           DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  booking OtBookings   @relation(fields: [booking_id], references: [id], onDelete: Cascade)
+  drug    Drugs        @relation(fields: [drug_id], references: [id])
+  batch   DrugBatches? @relation(fields: [batch_id], references: [id])
+  recorded_by UserProfiles @relation(fields: [recorded_by_user_id], references: [id])
+
+  @@index([booking_id])
 }

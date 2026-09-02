@@ -2,6 +2,8 @@ import { InputType, Field, Float, Int } from '@nestjs/graphql';
 import { IsNotEmpty, IsOptional, IsString, IsIn, IsNumber, IsInt, Min, Max } from 'class-validator';
 
 const TPG_LISTS = ['O', 'A', 'B', 'prohibited'] as const;
+// REQ179 (IPD slice 3).
+export const DRUG_ITEM_TYPES = ['drug', 'consumable', 'implant', 'surgical_item', 'oxygen'] as const;
 
 @InputType('DrugInput')
 export class DrugInput {
@@ -18,4 +20,5 @@ export class DrugInput {
   // REQ022 (US-PHR-09, scoped) — omitted/null means no low-stock alert is
   // configured for this drug.
   @Field(() => Int, { nullable: true }) @IsOptional() @IsInt() @Min(0) reorder_level?: number;
+  @Field({ nullable: true }) @IsOptional() @IsIn(DRUG_ITEM_TYPES) item_type?: string;
 }

@@ -13,8 +13,12 @@ export class DrugsResolver {
   // Read access: any authenticated role (matches products()'s own
   // no-@Auth()-needed convention — the global guard already requires auth).
   @Query(() => [DrugType])
-  drugs(@CurrentUser() user: JwtPayload, @Args('search', { nullable: true }) search?: string) {
-    return this.drugsService.findAll(user, search);
+  drugs(
+    @CurrentUser() user: JwtPayload,
+    @Args('search', { nullable: true }) search?: string,
+    @Args('item_type', { type: () => String, nullable: true }) itemType?: string,
+  ) {
+    return this.drugsService.findAll(user, search, itemType);
   }
 
   @Query(() => DrugType, { nullable: true })

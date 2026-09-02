@@ -17,9 +17,15 @@ export class DrugsService {
   // a tenant sees BOTH the shared platform-seeded rows (client_org_id null)
   // AND their own custom additions, but never another tenant's. A platform
   // operator sees everything, matching every other domain's convention.
-  async findAll(user: JwtPayload, search?: string) {
+  // REQ179 (IPD slice 3) — item_type defaults to 'drug' when the caller
+  // omits it, which is every pre-existing call site (prescription builder,
+  // MAR order search) — none of them pass this argument, so they keep
+  // seeing exactly what they always saw. Only a caller that explicitly asks
+  // for 'consumable'/'implant'/etc. (the OT consumables picker) sees those.
+  async findAll(user: JwtPayload, search?: string, itemType?: string) {
     const where: any = {
       is_deleted: false,
+      item_type: itemType ?? 'drug',
       ...(isPlatformOperator(user) ? {} : { OR: [{ client_org_id: null }, { client_org_id: user.client_org_id }] }),
       ...(search ? { name: { contains: search, mode: 'insensitive' } } : {}),
     };
