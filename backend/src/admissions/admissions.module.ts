@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { AdmissionsService } from './admissions.service';
 import { MlcService } from './mlc.service';
+import { DischargeSummaryService } from './discharge-summary.service';
 import { AdmissionsResolver } from './admissions.resolver';
 import { MlcPoliceIntimationSweepService } from './mlc-police-intimation-sweep.service';
 import { BedStatusReconcileService } from './bed-status-reconcile.service';
@@ -16,10 +17,11 @@ import { EntitlementsModule } from '../entitlements/entitlements.module';
   providers: [
     AdmissionsService,
     MlcService,
+    DischargeSummaryService,
     AdmissionsResolver,
     MlcPoliceIntimationSweepService,
     BedStatusReconcileService,
   ],
-  exports: [AdmissionsService, MlcService],
+  exports: [AdmissionsService, MlcService, DischargeSummaryService],
 })
 export class AdmissionsModule {}

@@ -145,6 +145,51 @@ export class MlcRegisterType {
   @Field(() => [MlcAmendmentType]) amendments: MlcAmendmentType[];
 }
 
+@ObjectType('DischargeSummaryTemplateSection')
+export class DischargeSummaryTemplateSectionType {
+  @Field() key: string;
+  @Field() label: string;
+  @Field({ nullable: true }) default_text?: string;
+}
+
+@ObjectType('DischargeSummaryTemplate')
+export class DischargeSummaryTemplateType {
+  @Field(() => ID) id: string;
+  @Field(() => ID, { nullable: true }) clinic_id?: string;
+  @Field() name: string;
+  @Field({ nullable: true }) specialty?: string;
+  @Field(() => [DischargeSummaryTemplateSectionType]) sections: DischargeSummaryTemplateSectionType[];
+  @Field() is_active: boolean;
+}
+
+@ObjectType('DischargeSummary')
+export class DischargeSummaryType {
+  @Field(() => ID) id: string;
+  @Field(() => ID) admission_id: string;
+  @Field(() => ID, { nullable: true }) template_id?: string;
+  @Field() chief_complaint: string;
+  @Field() history: string;
+  @Field() examination_findings: string;
+  @Field() final_diagnosis: string;
+  @Field() course_in_hospital: string;
+  @Field() procedures_performed: string;
+  @Field() investigations_summary: string;
+  @Field() condition_at_discharge: string;
+  @Field(() => ID, { nullable: true }) discharge_prescription_id?: string;
+  @Field() discharge_medications: string;
+  @Field() diet_advice: string;
+  @Field() follow_up_advice: string;
+  @Field({ nullable: true }) follow_up_date?: Date;
+  @Field() emergency_instructions: string;
+  @Field(() => [String], { nullable: true }) icd10_codes?: string[];
+  @Field({ nullable: true }) prepared_by_name?: string;
+  @Field({ nullable: true }) signed_by_name?: string;
+  @Field({ nullable: true }) signed_at?: Date;
+  @Field() locked: boolean;
+  @Field({ nullable: true }) pdf_hash?: string;
+  @Field() created_at: Date;
+}
+
 @ObjectType('AdmissionUserError')
 export class AdmissionUserErrorType {
   @Field() message: string;

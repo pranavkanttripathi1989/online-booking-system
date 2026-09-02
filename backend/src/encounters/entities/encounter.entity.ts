@@ -76,11 +76,17 @@ export class ReferralType {
 @ObjectType('Vital')
 export class VitalType {
   @Field(() => ID) id: string;
-  @Field(() => ID) encounter_id: string;
+  // REQ179 (IPD slice 2) — exactly one of encounter_id/admission_id is ever
+  // set (enforced by the DB CHECK vitals_exactly_one_parent), so both are
+  // nullable here. An OPD (encounter-linked) row's encounter_id is
+  // unchanged from before this slice.
+  @Field(() => ID, { nullable: true }) encounter_id?: string;
+  @Field(() => ID, { nullable: true }) admission_id?: string;
   @Field() code: string;
   @Field(() => Float) value: number;
   @Field() unit: string;
   @Field() recorded_at: Date;
+  @Field({ nullable: true }) shift?: string;
   @Field() ai_generated: boolean;
 }
 

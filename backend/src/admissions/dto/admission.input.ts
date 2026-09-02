@@ -1,5 +1,6 @@
 import { InputType, Field, ID, Int } from '@nestjs/graphql';
-import { IsNotEmpty, IsOptional, IsIn, IsBoolean, IsInt, Min, IsDate } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsIn, IsBoolean, IsInt, Min, IsDate, IsArray, ValidateNested } from 'class-validator';
+import { Type } from 'class-transformer';
 
 // REQ179 (IPD slice 1). Every @Field carries at least one class-validator
 // decorator — the global ValidationPipe's whitelist+forbidNonWhitelisted pair
@@ -203,4 +204,65 @@ export class AmendMlcRegisterInput {
   @Field() @IsNotEmpty() corrected_value: string;
 
   @Field() @IsNotEmpty() reason: string;
+}
+
+// ── Discharge summary ─────────────────────────────────────────────────
+
+@InputType()
+export class DischargeSummaryTemplateSectionInput {
+  @Field() @IsNotEmpty() key: string;
+
+  @Field() @IsNotEmpty() label: string;
+
+  @Field({ nullable: true }) @IsOptional() default_text?: string;
+}
+
+@InputType()
+export class CreateDischargeSummaryTemplateInput {
+  @Field(() => ID, { nullable: true }) @IsOptional() clinic_id?: string;
+
+  @Field() @IsNotEmpty() name: string;
+
+  @Field({ nullable: true }) @IsOptional() specialty?: string;
+
+  @Field(() => ID, { nullable: true }) @IsOptional() department_id?: string;
+
+  @Field(() => [DischargeSummaryTemplateSectionInput])
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => DischargeSummaryTemplateSectionInput)
+  sections: DischargeSummaryTemplateSectionInput[];
+}
+
+// create() is deliberately narrow — every free-text field is pre-filled
+// server-side from AdmissionEvents/MAR ("template-based" is real, not a
+// blank box) and then edited via update() before signing.
+@InputType()
+export class CreateDischargeSummaryInput {
+  @Field(() => ID) @IsNotEmpty() admission_id: string;
+
+  @Field(() => ID, { nullable: true }) @IsOptional() template_id?: string;
+}
+
+@InputType()
+export class UpdateDischargeSummaryInput {
+  @Field({ nullable: true }) @IsOptional() chief_complaint?: string;
+  @Field({ nullable: true }) @IsOptional() history?: string;
+  @Field({ nullable: true }) @IsOptional() examination_findings?: string;
+  @Field({ nullable: true }) @IsOptional() final_diagnosis?: string;
+  @Field({ nullable: true }) @IsOptional() course_in_hospital?: string;
+  @Field({ nullable: true }) @IsOptional() procedures_performed?: string;
+  @Field({ nullable: true }) @IsOptional() investigations_summary?: string;
+  @Field({ nullable: true }) @IsOptional() condition_at_discharge?: string;
+  @Field({ nullable: true }) @IsOptional() discharge_medications?: string;
+  @Field({ nullable: true }) @IsOptional() diet_advice?: string;
+  @Field({ nullable: true }) @IsOptional() follow_up_advice?: string;
+  @Field({ nullable: true }) @IsOptional() @IsDate() follow_up_date?: Date;
+  @Field({ nullable: true }) @IsOptional() emergency_instructions?: string;
+  @Field(() => [String], { nullable: true }) @IsOptional() @IsArray() icd10_codes?: string[];
+}
+
+@InputType()
+export class SignDischargeSummaryInput {
+  @Field(() => ID) @IsNotEmpty() discharge_summary_id: string;
 }

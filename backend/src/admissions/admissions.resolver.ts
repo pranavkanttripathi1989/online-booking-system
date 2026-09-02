@@ -2,11 +2,14 @@ import { Resolver, Query, Mutation, Args, ID } from '@nestjs/graphql';
 import { UseGuards } from '@nestjs/common';
 import { AdmissionsService } from './admissions.service';
 import { MlcService } from './mlc.service';
+import { DischargeSummaryService } from './discharge-summary.service';
 import {
   AdmissionType,
   AdmissionEventType,
   MlcRegisterType,
   AdmissionMutationResultType,
+  DischargeSummaryType,
+  DischargeSummaryTemplateType,
 } from './entities/admission.entity';
 import {
   CreateAdmissionInput,
@@ -17,6 +20,10 @@ import {
   RecordMlcRegisterInput,
   RecordPoliceIntimationInput,
   AmendMlcRegisterInput,
+  CreateDischargeSummaryTemplateInput,
+  CreateDischargeSummaryInput,
+  UpdateDischargeSummaryInput,
+  SignDischargeSummaryInput,
 } from './dto/admission.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
@@ -39,6 +46,7 @@ export class AdmissionsResolver {
   constructor(
     private readonly admissionsService: AdmissionsService,
     private readonly mlcService: MlcService,
+    private readonly dischargeSummaryService: DischargeSummaryService,
   ) {}
 
   // ── Queries ───────────────────────────────────────────────────────────
@@ -160,5 +168,58 @@ export class AdmissionsResolver {
   @Mutation(() => MlcRegisterType)
   amendMlcRegister(@Args('input') input: AmendMlcRegisterInput, @CurrentUser() user: JwtPayload) {
     return this.mlcService.amend(input, user);
+  }
+
+  // ── Discharge summary ─────────────────────────────────────────────────
+
+  @Auth('staff', 'clinician', 'manager', 'admin', 'super_admin')
+  @Query(() => [DischargeSummaryTemplateType])
+  dischargeSummaryTemplates(
+    @Args('clinic_id', { type: () => ID, nullable: true }) clinicId: string,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.dischargeSummaryService.dischargeSummaryTemplates(clinicId, user);
+  }
+
+  @Auth('staff', 'clinician', 'manager', 'admin', 'super_admin')
+  @Query(() => DischargeSummaryType, { nullable: true })
+  dischargeSummary(@Args('admission_id', { type: () => ID }) admissionId: string, @CurrentUser() user: JwtPayload) {
+    return this.dischargeSummaryService.findByAdmission(admissionId, user);
+  }
+
+  @Auth('manager', 'admin', 'super_admin')
+  @UseGuards(EntitlementGuard)
+  @RequiresFeature(IPD_FEATURE_KEY)
+  @Mutation(() => DischargeSummaryTemplateType)
+  createDischargeSummaryTemplate(@Args('input') input: CreateDischargeSummaryTemplateInput, @CurrentUser() user: JwtPayload) {
+    return this.dischargeSummaryService.createDischargeSummaryTemplate(input, user);
+  }
+
+  @Auth('clinician', 'manager', 'admin', 'super_admin')
+  @UseGuards(EntitlementGuard)
+  @RequiresFeature(IPD_FEATURE_KEY)
+  @Mutation(() => DischargeSummaryType)
+  createDischargeSummary(@Args('input') input: CreateDischargeSummaryInput, @CurrentUser() user: JwtPayload) {
+    return this.dischargeSummaryService.create(input, user);
+  }
+
+  @Auth('clinician', 'manager', 'admin', 'super_admin')
+  @UseGuards(EntitlementGuard)
+  @RequiresFeature(IPD_FEATURE_KEY)
+  @Mutation(() => DischargeSummaryType)
+  updateDischargeSummary(
+    @Args('id', { type: () => ID }) id: string,
+    @Args('input') input: UpdateDischargeSummaryInput,
+    @CurrentUser() user: JwtPayload,
+  ) {
+    return this.dischargeSummaryService.update(id, input, user);
+  }
+
+  @Auth('clinician', 'manager', 'admin', 'super_admin')
+  @UseGuards(EntitlementGuard)
+  @RequiresFeature(IPD_FEATURE_KEY)
+  @Mutation(() => DischargeSummaryType)
+  signDischargeSummary(@Args('input') input: SignDischargeSummaryInput, @CurrentUser() user: JwtPayload) {
+    return this.dischargeSummaryService.sign(input, user);
   }
 }

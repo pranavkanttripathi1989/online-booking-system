@@ -2,6 +2,10 @@
 # THIS FILE WAS AUTOMATICALLY GENERATED (DO NOT MODIFY)
 # ------------------------------------------------------
 
+input AcknowledgeShiftHandoverInput {
+  handover_id: ID!
+}
+
 type AcquisitionSourcePoint {
   count: Int!
   source: String!
@@ -10,6 +14,12 @@ type AcquisitionSourcePoint {
 input AddAddendumInput {
   content: String!
   encounter_id: ID!
+  reason: String
+}
+
+input AddAdmissionNoteAddendumInput {
+  content: String!
+  note_id: ID!
   reason: String
 }
 
@@ -67,6 +77,18 @@ type AdminUserRole {
 type AdminUsersStats {
   active: Int!
   total: Int!
+}
+
+input AdministerMedicationInput {
+  batch_id: ID
+  dose_given: String
+  hold_reason: String
+  mar_id: ID!
+  notes: String
+  route: String
+  site: String
+  status: String!
+  witness_user_id: ID
 }
 
 type Admission {
@@ -149,6 +171,31 @@ type AdmissionMutationResult {
   userErrors: [AdmissionUserError!]!
 }
 
+type AdmissionNote {
+  addenda: [AdmissionNoteAddendum!]!
+  assessment: String
+  author_name: String
+  content: String!
+  created_at: DateTime!
+  id: ID!
+  locked: Boolean!
+  note_datetime: DateTime!
+  note_kind: String!
+  objective: String
+  plan: String
+  shift: String
+  signed_at: DateTime
+  subjective: String
+}
+
+type AdmissionNoteAddendum {
+  author_name: String
+  content: String!
+  created_at: DateTime!
+  id: ID!
+  reason: String
+}
+
 type AdmissionPatient {
   date_of_birth: DateTime
   full_name: String!
@@ -159,6 +206,11 @@ type AdmissionPatient {
 
 type AdmissionUserError {
   message: String!
+}
+
+input AdmissionVitalReadingInput {
+  code: String!
+  value: Float!
 }
 
 type AiExtractedPrescriptionItem {
@@ -1222,6 +1274,18 @@ input CreateAdmissionInput {
   source_encounter_id: ID
 }
 
+input CreateAdmissionNoteInput {
+  admission_id: ID!
+  assessment: String
+  content: String
+  note_datetime: DateTime
+  note_kind: String!
+  objective: String
+  plan: String
+  shift: String
+  subjective: String
+}
+
 type CreateApiKeyResult {
   created_at: DateTime!
   id: ID!
@@ -1319,6 +1383,19 @@ input CreateDiagnosisInput {
   type: String
 }
 
+input CreateDischargeSummaryInput {
+  admission_id: ID!
+  template_id: ID
+}
+
+input CreateDischargeSummaryTemplateInput {
+  clinic_id: ID
+  department_id: ID
+  name: String!
+  sections: [DischargeSummaryTemplateSectionInput!]!
+  specialty: String
+}
+
 input CreateEncounterTemplateInput {
   name: String!
   org_shared: Boolean
@@ -1334,6 +1411,22 @@ input CreateIntakeFieldInput {
   label: String!
   product_id: ID
   sort_order: Int
+}
+
+input CreateIpdMedicationOrderInput {
+  admission_id: ID!
+  dose: String!
+  dose_unit: String
+  drug_id: ID!
+  frequency: String!
+  instructions: String
+  is_high_alert: Boolean
+  is_prn: Boolean
+  prn_indication: String
+  route: String!
+  schedule_times: [String!]
+  start_at: DateTime
+  stop_at: DateTime
 }
 
 input CreateLanguageInput {
@@ -1465,6 +1558,20 @@ input CreateRoomTypeInput {
   description: String
   is_active: Boolean
   name: String!
+}
+
+input CreateShiftHandoverInput {
+  admission_id: ID!
+  assessment: String
+  background: String
+  from_shift: String!
+  handover_at: DateTime
+  pending_tasks: String
+  recommendation: String
+  situation: String
+  to_shift: String!
+  to_user_id: ID
+  ward_id: ID!
 }
 
 input CreateSpacerBlockInput {
@@ -1675,6 +1782,54 @@ input DischargeAdmissionInput {
   discharged_at: DateTime
   final_diagnosis: String
   notes: String
+}
+
+type DischargeSummary {
+  admission_id: ID!
+  chief_complaint: String!
+  condition_at_discharge: String!
+  course_in_hospital: String!
+  created_at: DateTime!
+  diet_advice: String!
+  discharge_medications: String!
+  discharge_prescription_id: ID
+  emergency_instructions: String!
+  examination_findings: String!
+  final_diagnosis: String!
+  follow_up_advice: String!
+  follow_up_date: DateTime
+  history: String!
+  icd10_codes: [String!]
+  id: ID!
+  investigations_summary: String!
+  locked: Boolean!
+  pdf_hash: String
+  prepared_by_name: String
+  procedures_performed: String!
+  signed_at: DateTime
+  signed_by_name: String
+  template_id: ID
+}
+
+type DischargeSummaryTemplate {
+  clinic_id: ID
+  id: ID!
+  is_active: Boolean!
+  name: String!
+  sections: [DischargeSummaryTemplateSection!]!
+  specialty: String
+}
+
+type DischargeSummaryTemplateSection {
+  default_text: String
+  key: String!
+  label: String!
+}
+
+input DischargeSummaryTemplateSectionInput {
+  default_text: String
+  key: String!
+  label: String!
 }
 
 type DiscountApprovalRequest {
@@ -1896,6 +2051,11 @@ type GenericResult {
   success: Boolean!
 }
 
+input HoldIpdMedicationOrderInput {
+  order_id: ID!
+  reason: String!
+}
+
 type Icd10Code {
   category: String!
   code: String!
@@ -2022,6 +2182,25 @@ type IntakeFieldUserError {
   message: String!
 }
 
+type IntakeOutputBalance {
+  balance_ml: Int!
+  total_intake_ml: Int!
+  total_output_ml: Int!
+  window_end: DateTime!
+  window_start: DateTime!
+}
+
+type IntakeOutputRecord {
+  category: String!
+  direction: String!
+  id: ID!
+  notes: String
+  recorded_at: DateTime!
+  recorded_by_name: String
+  shift: String!
+  volume_ml: Int!
+}
+
 type InvestigationOrder {
   date_ordered: DateTime!
   encounter_id: ID!
@@ -2030,6 +2209,28 @@ type InvestigationOrder {
   test_name: String!
   test_type: String!
   urgency: String!
+}
+
+type IpdMedicationOrder {
+  created_at: DateTime!
+  dose: String!
+  dose_unit: String
+  drug_id: ID!
+  drug_name: String
+  frequency: String!
+  hold_reason: String
+  id: ID!
+  instructions: String
+  is_high_alert: Boolean!
+  is_prn: Boolean!
+  ordered_by_clinician_id: ID!
+  ordered_by_name: String
+  prn_indication: String
+  route: String!
+  schedule_times: [String!]
+  start_at: DateTime!
+  status: String!
+  stop_at: DateTime
 }
 
 input JoinWaitlistInput {
@@ -2087,6 +2288,25 @@ type LunchBreakSlot {
 
 input MarkRegistryReviewedInput {
   enrollment_id: ID!
+}
+
+type MedicationAdministration {
+  administered_at: DateTime
+  administered_by_name: String
+  dose: String
+  dose_given: String
+  drug_id: ID!
+  drug_name: String
+  hold_reason: String
+  id: ID!
+  is_high_alert: Boolean!
+  notes: String
+  order_id: ID!
+  route: String
+  scheduled_at: DateTime!
+  site: String
+  status: String!
+  witness_name: String
 }
 
 type MembershipPlan {
@@ -2181,11 +2401,14 @@ type MlcRegister {
 }
 
 type Mutation {
+  acknowledgeShiftHandover(input: AcknowledgeShiftHandoverInput!): ShiftHandover!
+  addAdmissionNoteAddendum(input: AddAdmissionNoteAddendumInput!): AdmissionNote!
   addDependant(input: AddDependantInput!): Dependant!
   addEncounterAddendum(input: AddAddendumInput!): EncounterAddendum!
   addFavouriteDrug(drug_id: ID!): Boolean!
   addOnboardingFirstClinic(input: AddOnboardingClinicInput!, orgId: String!): Clinic!
   adjustStock(input: AdjustStockInput!): DrugBatch!
+  administerMedication(input: AdministerMedicationInput!): MedicationAdministration!
   amendMlcRegister(input: AmendMlcRegisterInput!): MlcRegister!
   applyEncounterTemplate(input: ApplyTemplateInput!): Encounter!
   approveClaimAppeal(id: ID!, input: ApproveClaimAppealInput!): ClaimAppeal!
@@ -2215,6 +2438,7 @@ type Mutation {
   confirmTotpEnrollment(input: ConfirmTotpEnrollmentInput!): TotpConfirmResult!
   consentToTelemedicineRecording(encounter_id: ID!): ConsentToRecordingResult!
   createAdmission(input: CreateAdmissionInput!): Admission!
+  createAdmissionNote(input: CreateAdmissionNoteInput!): AdmissionNote!
   createApiKey(input: ApiKeyInput!): CreateApiKeyResult!
   createAppointment(input: AppointmentInput!): Appointment!
   createAppointmentSeries(input: CreateAppointmentSeriesInput!): CreateAppointmentSeriesResult!
@@ -2229,10 +2453,13 @@ type Mutation {
   createClinicianType(input: CreateClinicianTypeInput!): LookupMutationResult!
   createDepartment(input: DepartmentInput!): Department!
   createDiagnosis(input: CreateDiagnosisInput!): Diagnosis!
+  createDischargeSummary(input: CreateDischargeSummaryInput!): DischargeSummary!
+  createDischargeSummaryTemplate(input: CreateDischargeSummaryTemplateInput!): DischargeSummaryTemplate!
   createDrug(input: DrugInput!): Drug!
   createEncounterAttachment(input: CreateAttachmentInput!): EncounterAttachment!
   createEncounterTemplate(input: CreateEncounterTemplateInput!): EncounterTemplate!
   createIntakeFieldConfig(input: CreateIntakeFieldInput!): IntakeFieldConfigMutationResult!
+  createIpdMedicationOrder(input: CreateIpdMedicationOrderInput!): IpdMedicationOrder!
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
   createMembershipPlan(input: CreateMembershipPlanInput!): MembershipPlanMutationResult!
   createMessageAttachment(input: CreateMessageAttachmentInput!): MessageAttachment!
@@ -2260,6 +2487,7 @@ type Mutation {
   createRoomType(input: CreateRoomTypeInput!): LookupMutationResult!
   createScheduledReport(input: ScheduledReportInput!): ScheduledReport!
   createService(input: ServiceInput!): Service!
+  createShiftHandover(input: CreateShiftHandoverInput!): ShiftHandover!
   createSpacerBlock(input: CreateSpacerBlockInput!): SpacerBlockMutationResult!
   createStaff(input: CreateStaffInput!): Staff!
   createTask(input: CreateTaskInput!): Task!
@@ -2312,6 +2540,7 @@ type Mutation {
   forgotPassword(input: ForgotPasswordInput!): GenericResult!
   getOrCreateEncounter(appointment_id: ID!): Encounter!
   holdAppointmentSlot(clinician_id: String!, start_datetime: String!): SlotHoldType!
+  holdIpdMedicationOrder(input: HoldIpdMedicationOrderInput!): IpdMedicationOrder!
   holdPublicSlot(clinicianId: ID!, date: String!, startTime: String!): PublicSlotHoldType!
   joinTelemedicineSession(encounter_id: ID!): TelemedicineSession!
   joinWaitlist(input: JoinWaitlistInput!): WaitlistMutationResult!
@@ -2328,11 +2557,14 @@ type Mutation {
   purchasePackage(input: PurchasePackageInput!): PurchasePackageResult!
   recallQueueEntry(id: ID!): QueueEntry!
   receiveStock(input: ReceiveStockInput!): DrugBatch!
+  recordAdmissionVitals(input: RecordAdmissionVitalsInput!): [Vital!]!
   recordCounterPayment(input: RecordCounterPaymentInput!): RecordCounterPaymentResult!
   recordImmunization(input: RecordImmunizationInput!): ImmunizationRecord!
+  recordIntakeOutput(input: RecordIntakeOutputInput!): IntakeOutputRecord!
   recordMlcPoliceIntimation(input: RecordPoliceIntimationInput!): MlcRegister!
   recordMlcRegister(input: RecordMlcRegisterInput!): MlcRegister!
   recordPharmacyPayment(input: RecordPharmacyPaymentInput!): RecordPharmacyPaymentResult!
+  recordPrnAdministration(input: RecordPrnAdministrationInput!): MedicationAdministration!
   recordVitals(input: RecordVitalsInput!): [Vital!]!
   redeemPackageSitting(input: RedeemPackageSittingInput!): RedeemPackageSittingResult!
   refresh(input: RefreshInput!): AuthPayload!
@@ -2350,6 +2582,7 @@ type Mutation {
   resolveRegistryEnrollment(input: ResolveRegistryEnrollmentInput!): ChronicRegistryEnrollment!
   resolveRightsRequest(id: ID!, input: ResolveRightsRequestInput!): RightsRequest!
   respondToReview(id: ID!, response: String!): ReviewMutationResult!
+  resumeIpdMedicationOrder(order_id: ID!): IpdMedicationOrder!
   retryPlatformInvoice(invoice_id: ID!): PlatformBillingMutationResult!
   revokeApiKey(id: ID!): ApiKey!
   revokeBreakGlassAccess(id: ID!): BreakGlassGrantMutationResult!
@@ -2367,6 +2600,8 @@ type Mutation {
   setRetentionPolicy(input: RetentionPolicyInput!): RetentionPolicy!
   setRevenueShareRule(input: RevenueShareRuleInput!): RevenueShareMutationResultType!
   sharePrescriptionViaWhatsapp(id: ID!): SharePrescriptionResult!
+  signAdmissionNote(input: SignAdmissionNoteInput!): AdmissionNote!
+  signDischargeSummary(input: SignDischargeSummaryInput!): DischargeSummary!
   signEncounter(encounter_id: ID!): Encounter!
   skipQueueEntry(input: SkipQueueEntryInput!): QueueEntry!
   startConsultation(id: ID!): Appointment!
@@ -2374,6 +2609,7 @@ type Mutation {
   startOrganizationOnboarding(input: StartOnboardingInput!): OrganizationOnboarding!
   startTotpEnrollment: TotpEnrollment!
   startTranscriptionSession(input: StartTranscriptionSessionInput!): AiTranscriptionSession!
+  stopIpdMedicationOrder(input: StopIpdMedicationOrderInput!): IpdMedicationOrder!
   structureTranscriptSession(session_id: ID!): StructureTranscriptResult!
   submitClaim(input: SubmitClaimInput!): Claim!
   submitReview(input: CreateReviewInput!): ReviewMutationResult!
@@ -2397,6 +2633,7 @@ type Mutation {
   updateClinicianVerification(id: ID!, status: String!): Clinician!
   updateConsent(input: UpdateConsentInput!): Consent!
   updateDepartment(id: ID!, input: DepartmentInput!): Department!
+  updateDischargeSummary(id: ID!, input: UpdateDischargeSummaryInput!): DischargeSummary!
   updateDrug(id: ID!, input: DrugInput!): Drug!
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
   updateIntakeFieldConfig(id: ID!, input: UpdateIntakeFieldInput!): IntakeFieldConfigMutationResult!
@@ -2568,6 +2805,10 @@ type NotificationProviderOption {
   fields: [NotificationProviderField!]!
   id: String!
   label: String!
+}
+
+type NursingUserError {
+  message: String!
 }
 
 input OrderInvestigationInput {
@@ -3554,6 +3795,11 @@ type PurchasePackageResult {
 type Query {
   admission(id: ID!): Admission
   admissionEvents(admission_id: ID!): [AdmissionEvent!]!
+  admissionHandovers(admission_id: ID!): [ShiftHandover!]!
+  admissionMar(admission_id: ID!, from: String, to: String): [MedicationAdministration!]!
+  admissionMedicationOrders(active_only: Boolean, admission_id: ID!): [IpdMedicationOrder!]!
+  admissionNotes(admission_id: ID!, note_kind: String): [AdmissionNote!]!
+  admissionVitals(admission_id: ID!): [Vital!]!
   admissions(filter: AdmissionFilterInput): [Admission!]!
   aiExtractedPrescriptionDraft(session_id: ID!): [AiExtractedPrescriptionItem!]!
   aiTranscriptionProviders: [AiProviderOption!]!
@@ -3593,6 +3839,8 @@ type Query {
   department(id: ID!): Department
   departmentThreads(departmentId: ID!): [MessageThread!]!
   departments(clinic_id: ID): [Department!]!
+  dischargeSummary(admission_id: ID!): DischargeSummary
+  dischargeSummaryTemplates(clinic_id: ID): [DischargeSummaryTemplate!]!
   discountApprovalRequests(clinic_id: ID): [DiscountApprovalRequest!]!
   drug(id: ID!): Drug
   drugBatches(clinic_id: ID, drug_id: ID): [DrugBatch!]!
@@ -3628,6 +3876,9 @@ type Query {
   icd10Codes(search: String): [Icd10Code!]!
   immunizationSchedule: [ImmunizationScheduleItem!]!
   intakeFieldConfigs(clinic_id: ID, product_id: ID): [IntakeFieldConfig!]!
+  intakeOutputBalance(admission_id: ID!, window_hours: Int): IntakeOutputBalance!
+  intakeOutputRecords(admission_id: ID!): [IntakeOutputRecord!]!
+  ipdMedicationOrder(id: ID!): IpdMedicationOrder
   languages: [Language!]!
   lowStockDrugs(clinic_id: ID): [LowStockDrug!]!
   me: User!
@@ -3738,6 +3989,7 @@ type Query {
   validateBookingWidgetEmbed(origin: String!, slug: String!): Boolean!
   verifyPrescriptionIntegrity(id: ID!): PrescriptionIntegrity!
   ward(id: ID!): Ward
+  wardHandovers(ward_id: ID!): [ShiftHandover!]!
   wards(clinic_id: ID): [Ward!]!
   webhookDeliveryLog(endpoint_id: ID!): [WebhookDeliveryLogEntry!]!
   webhookEndpoints: [WebhookEndpoint!]!
@@ -3799,6 +4051,12 @@ input ReceiveStockInput {
   quantity: Int!
 }
 
+input RecordAdmissionVitalsInput {
+  admission_id: ID!
+  readings: [AdmissionVitalReadingInput!]!
+  shift: String
+}
+
 input RecordCounterPaymentInput {
   appointment_id: ID!
   discount_amount: Float
@@ -3824,6 +4082,16 @@ input RecordImmunizationInput {
   schedule_item_id: ID
   site: String
   vaccine_name: String!
+}
+
+input RecordIntakeOutputInput {
+  admission_id: ID!
+  category: String!
+  direction: String!
+  notes: String
+  recorded_at: DateTime
+  shift: String!
+  volume_ml: Int!
 }
 
 input RecordMlcRegisterInput {
@@ -3862,6 +4130,17 @@ input RecordPoliceIntimationInput {
   police_station: String!
   receiving_officer_buckle_no: String
   receiving_officer_name: String!
+}
+
+input RecordPrnAdministrationInput {
+  batch_id: ID
+  dose_given: String
+  notes: String
+  order_id: ID!
+  route: String
+  site: String
+  status: String!
+  witness_user_id: ID
 }
 
 input RecordVitalsInput {
@@ -4261,6 +4540,31 @@ type SharePrescriptionUserError {
   message: String!
 }
 
+type ShiftHandover {
+  acknowledged_at: DateTime
+  assessment: String!
+  background: String!
+  from_shift: String!
+  from_user_name: String
+  handover_at: DateTime!
+  id: ID!
+  pending_tasks: String
+  recommendation: String!
+  situation: String!
+  to_shift: String!
+  to_user_name: String
+  ward_id: ID!
+  ward_name: String
+}
+
+input SignAdmissionNoteInput {
+  note_id: ID!
+}
+
+input SignDischargeSummaryInput {
+  discharge_summary_id: ID!
+}
+
 input SkipQueueEntryInput {
   queue_entry_id: ID!
   reason: String
@@ -4331,6 +4635,11 @@ type StockMovement {
   quantity_delta: Int!
   reference_id: String
   reference_type: String
+}
+
+input StopIpdMedicationOrderInput {
+  order_id: ID!
+  reason: String
 }
 
 type StructureTranscriptResult {
@@ -4637,6 +4946,23 @@ input UpdateConsentInput {
   purpose: String!
 }
 
+input UpdateDischargeSummaryInput {
+  chief_complaint: String
+  condition_at_discharge: String
+  course_in_hospital: String
+  diet_advice: String
+  discharge_medications: String
+  emergency_instructions: String
+  examination_findings: String
+  final_diagnosis: String
+  follow_up_advice: String
+  follow_up_date: DateTime
+  history: String
+  icd10_codes: [String!]
+  investigations_summary: String
+  procedures_performed: String
+}
+
 input UpdateEmailTemplateInput {
   body: String!
   is_active: Boolean
@@ -4839,11 +5165,13 @@ input VerifyTotpLoginInput {
 }
 
 type Vital {
+  admission_id: ID
   ai_generated: Boolean!
   code: String!
-  encounter_id: ID!
+  encounter_id: ID
   id: ID!
   recorded_at: DateTime!
+  shift: String
   unit: String!
   value: Float!
 }

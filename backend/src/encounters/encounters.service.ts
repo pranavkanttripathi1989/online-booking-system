@@ -411,10 +411,20 @@ export class EncountersService {
   // REQ130 (FR-EMR-05) -- the growth-chart query: every reading of one
   // code across every encounter for a patient, chronological. Same access
   // control as patientAllergyBanner()/patientTimeline() (assertPatientAccess).
+  //
+  // REQ179 (IPD slice 2) -- widened to an OR across both parents. A BP trend
+  // must be one series across a patient's OPD follow-ups AND their IPD stay
+  // (the whole clinical point of a trend, per this codebase's own reasoning
+  // for extending Vitals rather than forking a parallel table) -- an
+  // encounter-only filter would silently exclude every admission-linked
+  // reading from the growth chart the moment IPD nursing charting shipped.
   async patientVitals(patientId: string, code: string, user: JwtPayload) {
     await this.assertPatientAccess(patientId, user);
     return this.prisma.vitals.findMany({
-      where: { code, encounter: { patient_id: patientId } },
+      where: {
+        code,
+        OR: [{ encounter: { patient_id: patientId } }, { admission: { patient_id: patientId } }],
+      },
       orderBy: { recorded_at: 'asc' },
     });
   }

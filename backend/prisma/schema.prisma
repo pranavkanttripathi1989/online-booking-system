@@ -572,12 +572,24 @@ model Referrals {
 // encounter.patient_id (see EncountersService#patientVitals).
 model Vitals {
   id           String   @id @default(uuid())
-  encounter_id String
+  // REQ179 (IPD slice 2) — made nullable, admission_id added alongside, so a
+  // BP trend is one series across a patient's OPD follow-ups AND their IPD
+  // stay (the whole clinical point of a trend). Exactly one of the two is
+  // ever set, enforced by a DB CHECK (vitals_exactly_one_parent, see the
+  // migration) — never both, never neither. Audited before this change:
+  // no resolver dereferences .encounter_id directly, and the frontend's own
+  // GraphQL selections never request it, so widening to nullable is additive
+  // for every existing caller (encounters.service.ts's audit, REQ179).
+  encounter_id String?
+  admission_id String?
   code         String   // height_cm | weight_kg | temperature_c | pulse_bpm | bp_systolic | bp_diastolic | spo2_percent
   value        Float
   unit         String
   recorded_by_user_id String
   recorded_at  DateTime @default(now())
+  // Which nursing shift recorded this — IPD ward charting only; null for
+  // every OPD (encounter-linked) row, which has no shift concept.
+  shift        String?
   // P1-11 (FR-AI-05, FR-AI-06) — same flagging convention as
   // EncounterNotes.ai_generated; recorded_by_user_id is still always the
   // clinician (never a service account), extracted readings are pending
@@ -585,10 +597,12 @@ model Vitals {
   ai_generated Boolean  @default(false)
   ai_source_session_id String?
 
-  encounter   Encounters   @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
+  encounter   Encounters?  @relation(fields: [encounter_id], references: [id], onDelete: Cascade)
+  admission   Admissions?  @relation(fields: [admission_id], references: [id], onDelete: Cascade)
   recorded_by UserProfiles @relation(fields: [recorded_by_user_id], references: [id])
 
   @@index([encounter_id])
+  @@index([admission_id, recorded_at])
   @@index([code])
 }
 
@@ -678,6 +692,9 @@ model Prescriptions {
 
   @@index([patient_id, issued_at])
   @@index([encounter_id])
+
+  // REQ179 (IPD slice 2)
+  dischargeSummaries DischargeSummaries[]
 }
 
 model PrescriptionItems {
@@ -1046,6 +1063,15 @@ model ClientOrganizations {
   admissionEvents    AdmissionEvents[]
   mlcRegisters       MlcRegisters[]
   ipdBillingSettings IpdBillingSettings[]
+
+  // REQ179 (IPD slice 2)
+  ipdMedicationOrders IpdMedicationOrders[]
+  medicationAdministrations MedicationAdministrations[]
+  intakeOutputRecords IntakeOutputRecords[]
+  admissionNotes AdmissionNotes[]
+  shiftHandovers ShiftHandovers[]
+  dischargeSummaryTemplates DischargeSummaryTemplates[]
+  dischargeSummaries DischargeSummaries[]
 }
 
 model ClinicianAvailability {
@@ -1166,6 +1192,11 @@ model Clinicians {
   admissionsAsAdmitting Admissions[]   @relation("AdmittingClinician")
   admissionsAsAttending Admissions[]   @relation("AttendingClinician")
   mlcRegistersExamined  MlcRegisters[] @relation("MlcExaminedBy")
+
+  // REQ179 (IPD slice 2)
+  ipdMedicationOrdersOrdered IpdMedicationOrders[] @relation("IpdOrderOrderedBy")
+  admissionNotesAuthored     AdmissionNotes[]      @relation("AdmissionNoteAuthorClinician")
+  dischargeSummariesSigned   DischargeSummaries[]  @relation("DsSignedBy")
 }
 
 // CLINICIAN_FIELDS wants `services{id name duration_minutes price}` per clinician
@@ -1286,6 +1317,9 @@ model Clinics {
   admissions         Admissions[]
   mlcRegisters       MlcRegisters[]
   ipdBillingSettings IpdBillingSettings[]
+
+  // REQ179 (IPD slice 2)
+  dischargeSummaryTemplates DischargeSummaryTemplates[]
 }
 
 model EmailTemplates {
@@ -2364,6 +2398,10 @@ model Drugs {
   favouritedBy         ClinicianFavouriteDrugs[]
 
   @@index([client_org_id, is_deleted])
+
+  // REQ179 (IPD slice 2)
+  ipdMedicationOrders IpdMedicationOrders[]
+  medicationAdministrations MedicationAdministrations[]
 }
 
 // REQ173 -- a clinician's own single-drug quick-pick list ("don't make me
@@ -2629,6 +2667,9 @@ model Departments {
 
   // REQ179 (IPD slice 1)
   admissions Admissions[]
+
+  // REQ179 (IPD slice 2)
+  dischargeSummaryTemplates DischargeSummaryTemplates[]
 }
 
 // Join table for multi-resource intersection booking (REQ017 US-CAL-05).
@@ -2990,6 +3031,16 @@ model UserProfiles {
   mlcRegistersRecorded  MlcRegisters[]    @relation("MlcRecordedBy")
   mlcPoliceIntimated    MlcRegisters[]    @relation("MlcPoliceIntimatedBy")
   mlcAmendmentsMade     MlcAmendments[]   @relation("MlcAmendedBy")
+
+  // REQ179 (IPD slice 2)
+  medicationAdministrationsGiven   MedicationAdministrations[] @relation("MarAdministeredBy")
+  medicationAdministrationsWitnessed MedicationAdministrations[] @relation("MarWitness")
+  intakeOutputRecordsRecorded      IntakeOutputRecords[]        @relation("IoRecordedBy")
+  admissionNotesAuthored           AdmissionNotes[]             @relation("AdmissionNoteAuthor")
+  admissionNoteAddendaAuthored     AdmissionNoteAddenda[]       @relation("AdmissionNoteAddendumAuthor")
+  shiftHandoversFrom               ShiftHandovers[]             @relation("HandoverFrom")
+  shiftHandoversTo                 ShiftHandovers[]             @relation("HandoverTo")
+  dischargeSummariesPrepared       DischargeSummaries[]         @relation("DsPreparedBy")
 }
 
 model UserRoles {
@@ -3374,6 +3425,9 @@ model DrugBatches {
   @@index([drug_id])
   @@index([clinic_id, client_org_id])
   @@index([expiry_date])
+
+  // REQ179 (IPD slice 2)
+  medicationAdministrations MedicationAdministrations[]
 }
 
 model StockMovements {
@@ -4115,6 +4169,8 @@ model Wards {
   nursing_charge_product Products?           @relation("WardNursingChargeProduct", fields: [nursing_charge_product_id], references: [id])
   beds                   Beds[]
   occupancies            BedOccupancies[]
+  // REQ179 (IPD slice 2)
+  shiftHandovers         ShiftHandovers[]
 
   @@index([client_org_id, clinic_id, is_deleted])
   @@index([clinic_id, ward_type, is_active])
@@ -4277,6 +4333,14 @@ model Admissions {
   occupancies BedOccupancies[]
   events      AdmissionEvents[]
   mlc         MlcRegisters?
+  // REQ179 (IPD slice 2)
+  vitals                Vitals[]
+  medicationOrders      IpdMedicationOrders[]
+  medicationAdministrations MedicationAdministrations[]
+  intakeOutputRecords   IntakeOutputRecords[]
+  notes                 AdmissionNotes[]
+  handovers             ShiftHandovers[]
+  dischargeSummary      DischargeSummaries?
 
   @@index([client_org_id, clinic_id, status])
   @@index([patient_id, admitted_at])
@@ -4419,4 +4483,298 @@ model IpdBillingSettings {
   clinic              Clinics             @relation(fields: [clinic_id], references: [id])
 
   @@index([client_org_id])
+}
+
+// ============================================================
+// REQ179 (IPD slice 2) — nursing charting: medication orders and the
+// medication administration record (MAR), intake/output, admission notes
+// (nursing progress + doctor rounds, one table with a discriminator),
+// shift handover, and the discharge summary.
+//
+// Vitals itself was extended above (encounter_id made nullable,
+// admission_id added, guarded by a DB CHECK) rather than forked into a
+// parallel IpdVitals table — a patient's vitals trend must be one series
+// across their OPD visits and their IPD stay, and forking the table would
+// mean every chart/export/AI-extraction path UNIONs two tables forever.
+// ============================================================
+
+// An inpatient standing order, NOT a Prescriptions row. Prescriptions
+// models a take-home script (dose/frequency/duration_days/qty); an inpatient
+// order is a standing instruction with a stop condition that GENERATES
+// MedicationAdministrations rows on a schedule, including PRN orders that
+// generate none until actually given.
+model IpdMedicationOrders {
+  id             String   @id @default(uuid())
+  client_org_id  String
+  admission_id   String
+  drug_id        String
+  dose           String
+  dose_unit      String?
+  route          String   // po | iv | im | sc | sl | topical | inhaled | pr | ng
+  frequency      String   // OD | BD | TDS | QID | Q4H | Q6H | HS | STAT | SOS
+  // Explicit administration clock-times, e.g. ["08:00","14:00","20:00"], so
+  // the MAR-generation sweep is deterministic per hospital rather than
+  // inferred from `frequency` in code. Small ordered config as JSON, this
+  // schema's own established convention (Clinics.letterhead_clinician_ids).
+  schedule_times_json Json?
+  is_prn         Boolean  @default(false) // SOS/as-needed: no scheduled MAR rows generated
+  prn_indication String?
+  start_at       DateTime
+  stop_at        DateTime?
+  status         String   @default("active") // active | held | stopped | completed
+  hold_reason    String?
+  // Requires a witness on administration — a real patient-safety control
+  // for high-alert medications (insulin, opioids, anticoagulants, etc.),
+  // not merely documentation.
+  is_high_alert  Boolean  @default(false)
+  instructions   String?
+  ordered_by_clinician_id String
+  stopped_by_user_id String?
+  stopped_at     DateTime?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  admission   Admissions @relation(fields: [admission_id], references: [id], onDelete: Cascade)
+  drug        Drugs      @relation(fields: [drug_id], references: [id])
+  ordered_by  Clinicians @relation("IpdOrderOrderedBy", fields: [ordered_by_clinician_id], references: [id])
+  administrations MedicationAdministrations[]
+
+  @@index([admission_id, status])
+  @@index([client_org_id, status, start_at])
+  @@index([drug_id])
+}
+
+// The MAR. @@unique([order_id, scheduled_at]) is the load-bearing
+// constraint: it makes the MAR-generation sweep (materialising doses due in
+// the next window) freely re-runnable with createMany({skipDuplicates:true})
+// — re-running it, a server restart mid-sweep, and a concurrent read all
+// converge on the same, non-duplicated MAR. PRN administrations insert
+// directly with scheduled_at = administered_at, which cannot collide since
+// two PRN doses at the same millisecond is not a real event.
+model MedicationAdministrations {
+  id             String   @id @default(uuid())
+  client_org_id  String
+  admission_id   String
+  order_id       String
+  drug_id        String   // denormalised from the order -- the MAR grid renders drug names directly
+  scheduled_at   DateTime
+  administered_at DateTime?
+  status         String   @default("scheduled")
+                 // scheduled | given | held | refused | missed | not_available | self_administered
+  dose_given     String?
+  route          String?
+  site           String?  // e.g. "L deltoid"
+  hold_reason    String?
+  administered_by_user_id String?
+  // Populated only when order.is_high_alert -- enforced in the service, not
+  // the schema (a schema-level requirement can't express "conditional on a
+  // sibling row's own flag").
+  witness_user_id String?
+  // Links the dose to real, decremented stock -- what makes the eventual IPD
+  // billing charge (slice 4) real rather than notional.
+  batch_id       String?
+  stock_movement_id String?
+  notes          String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  admission   Admissions          @relation(fields: [admission_id], references: [id], onDelete: Cascade)
+  order       IpdMedicationOrders @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  drug        Drugs               @relation(fields: [drug_id], references: [id])
+  batch       DrugBatches?        @relation(fields: [batch_id], references: [id])
+  administered_by UserProfiles?   @relation("MarAdministeredBy", fields: [administered_by_user_id], references: [id])
+  witness     UserProfiles?       @relation("MarWitness", fields: [witness_user_id], references: [id])
+
+  @@unique([order_id, scheduled_at])
+  @@index([admission_id, scheduled_at])
+  @@index([client_org_id, status, scheduled_at])
+}
+
+model IntakeOutputRecords {
+  id            String   @id @default(uuid())
+  client_org_id String
+  admission_id  String
+  direction     String   // intake | output
+  // oral | iv | ryles_tube | blood_product | other_intake
+  // urine | drain | vomitus | stool | ngt_aspirate | blood_loss | other_output
+  category      String
+  volume_ml     Int
+  recorded_at   DateTime
+  shift         String   // morning | evening | night
+  notes         String?
+  recorded_by_user_id String
+  created_at    DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  admission   Admissions   @relation(fields: [admission_id], references: [id], onDelete: Cascade)
+  recorded_by UserProfiles @relation("IoRecordedBy", fields: [recorded_by_user_id], references: [id])
+
+  @@index([admission_id, recorded_at])
+}
+
+// One table, note_kind discriminator. Nursing progress notes and doctor
+// round notes share every field; the codebase's own market research says a
+// centralized nursing module sits apart from the doctor's consult note in
+// the UI (competitors ship it this way) -- so the SEPARATION is in the
+// frontend surface, not the storage. Contrast deliberately with Encounters:
+// no unique-per-parent constraint, many authors, `locked` is per-NOTE not
+// per-record -- a signed note locks itself, the stay stays open, which
+// Encounters' own single-sign-locks-everything model cannot represent.
+model AdmissionNotes {
+  id             String   @id @default(uuid())
+  client_org_id  String
+  admission_id   String
+  // nursing_progress | doctor_round | nursing_assessment | incident
+  // | discharge_planning | physio | dietitian
+  note_kind      String
+  // SOAP for doctor_round; `content` alone for nursing_progress/other kinds.
+  content        String   @default("")
+  subjective     String?
+  objective      String?
+  assessment     String?
+  plan           String?
+  shift          String?  // morning | evening | night -- nursing notes only
+  note_datetime  DateTime
+  author_user_id String
+  // Set when a clinician (not just a staff user) authored this note --
+  // nullable because a nurse (staff, not necessarily a Clinicians row) can
+  // author a nursing_progress note.
+  author_clinician_id String?
+  signed_at      DateTime?
+  locked         Boolean  @default(false)
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  admission        Admissions   @relation(fields: [admission_id], references: [id], onDelete: Cascade)
+  author           UserProfiles @relation("AdmissionNoteAuthor", fields: [author_user_id], references: [id])
+  author_clinician Clinicians?  @relation("AdmissionNoteAuthorClinician", fields: [author_clinician_id], references: [id])
+  addenda          AdmissionNoteAddenda[]
+
+  @@index([admission_id, note_datetime])
+  @@index([admission_id, note_kind, note_datetime])
+  @@index([client_org_id, author_user_id])
+}
+
+// Append-only, exactly the EncounterAddenda precedent: a separate table,
+// its own FK to the parent, never updated or deleted, so no trigger is
+// needed here the way AdmissionNotes itself needs one.
+model AdmissionNoteAddenda {
+  id             String   @id @default(uuid())
+  admission_note_id String
+  author_id      String
+  content        String
+  reason         String?
+  created_at     DateTime @default(now())
+
+  admission_note AdmissionNotes @relation(fields: [admission_note_id], references: [id], onDelete: Cascade)
+  author         UserProfiles   @relation("AdmissionNoteAddendumAuthor", fields: [author_id], references: [id])
+
+  @@index([admission_note_id, created_at])
+}
+
+// Per-admission, not per-ward-shift: the handover content a nurse actually
+// writes is patient-specific, and a per-admission row makes "this patient's
+// full stay" a single query.
+model ShiftHandovers {
+  id             String   @id @default(uuid())
+  client_org_id  String
+  admission_id   String
+  ward_id        String
+  from_shift     String   // morning | evening | night
+  to_shift       String
+  handover_at    DateTime
+  // SBAR -- the standard nursing handover structure.
+  situation      String   @default("")
+  background     String   @default("")
+  assessment     String   @default("")
+  recommendation String   @default("")
+  pending_tasks  String?
+  from_user_id   String
+  to_user_id     String?
+  acknowledged_at DateTime?
+  created_at     DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  admission Admissions   @relation(fields: [admission_id], references: [id], onDelete: Cascade)
+  ward      Wards        @relation(fields: [ward_id], references: [id])
+  from_user UserProfiles @relation("HandoverFrom", fields: [from_user_id], references: [id])
+  to_user   UserProfiles? @relation("HandoverTo", fields: [to_user_id], references: [id])
+
+  @@index([admission_id, handover_at])
+  @@index([ward_id, handover_at])
+}
+
+model DischargeSummaryTemplates {
+  id            String   @id @default(uuid())
+  client_org_id String
+  clinic_id     String?  // null = org-wide
+  name          String
+  specialty     String?
+  department_id String?
+  // Ordered sections + default text, e.g.
+  // [{key:"course_in_hospital", label:"Course in Hospital", default:""}, ...]
+  sections_json Json
+  is_active     Boolean  @default(true)
+  is_deleted    Boolean  @default(false)
+  created_at    DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  clinic     Clinics?     @relation(fields: [clinic_id], references: [id])
+  department Departments? @relation(fields: [department_id], references: [id])
+  summaries  DischargeSummaries[]
+
+  @@index([client_org_id, clinic_id, is_active])
+}
+
+model DischargeSummaries {
+  id             String   @id @default(uuid())
+  client_org_id  String
+  admission_id   String   @unique
+  template_id    String?
+  chief_complaint        String @default("")
+  history                String @default("")
+  examination_findings   String @default("")
+  final_diagnosis        String @default("")
+  // Pre-filled server-side from AdmissionEvents + (slice 3) OtNotes + MAR --
+  // "template-based" is real, not a blank box the clinician starts from.
+  course_in_hospital     String @default("")
+  procedures_performed   String @default("")
+  investigations_summary String @default("")
+  condition_at_discharge String @default("")
+  // A real Prescriptions row when one was issued at discharge, else free
+  // text -- a DAMA discharge often has neither.
+  discharge_prescription_id String?
+  discharge_medications  String @default("")
+  diet_advice            String @default("")
+  follow_up_advice       String @default("")
+  follow_up_date         DateTime?
+  emergency_instructions String @default("")
+  // Array of Icd10Codes.code strings -- matches Diagnoses.icd10_code's own
+  // established single-string-reference convention (not a formal Prisma
+  // relation; not a {code,description} JSON snapshot, which has no
+  // precedent anywhere else in this schema).
+  icd10_codes    Json?
+  prepared_by_user_id    String
+  signed_by_clinician_id String?
+  signed_at      DateTime?
+  locked         Boolean  @default(false)
+  // SHA-256 over the summary's own canonical clinical content, computed at
+  // sign time -- the exact Prescriptions.pdf_hash precedent (never a hash of
+  // rendered PDF bytes; pdfkit's own embedded wall-clock CreationDate makes
+  // byte-hashing non-deterministic across identical content).
+  pdf_hash       String?
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  admission  Admissions  @relation(fields: [admission_id], references: [id])
+  template   DischargeSummaryTemplates? @relation(fields: [template_id], references: [id])
+  discharge_prescription Prescriptions? @relation(fields: [discharge_prescription_id], references: [id])
+  prepared_by UserProfiles @relation("DsPreparedBy", fields: [prepared_by_user_id], references: [id])
+  signed_by   Clinicians?  @relation("DsSignedBy", fields: [signed_by_clinician_id], references: [id])
+
+  @@index([client_org_id, signed_at])
 }
