@@ -10,7 +10,8 @@ import {
 } from '@mui/material'
 import { alpha, useTheme } from '@mui/material/styles'
 import { TEST_RESULTS_QUERY, PATIENTS_QUERY } from '../../graphql/queries'
-import { ORDER_TEST_MUTATION } from '../../graphql/mutations'
+import { ORDER_TEST_MUTATION, RECORD_TEST_RESULT_MUTATION } from '../../graphql/mutations'
+import { useSnackbar } from 'notistack'
 import SearchRoundedIcon from '@mui/icons-material/SearchRounded'
 import FilterListRoundedIcon from '@mui/icons-material/FilterListRounded'
 import VisibilityRoundedIcon from '@mui/icons-material/VisibilityRounded'
@@ -19,6 +20,9 @@ import ScienceRoundedIcon from '@mui/icons-material/ScienceRounded'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import AccessTimeRoundedIcon from '@mui/icons-material/AccessTimeRounded'
 import HourglassEmptyRoundedIcon from '@mui/icons-material/HourglassEmptyRounded'
+import EditNoteRoundedIcon from '@mui/icons-material/EditNoteRounded'
+import AddRoundedIcon from '@mui/icons-material/AddRounded'
+import DeleteOutlineRoundedIcon from '@mui/icons-material/DeleteOutlineRounded'
 
 // ─── Mock data ────────────────────────────────────────────────────────────────
 const MOCK_RESULTS = [
@@ -155,9 +159,90 @@ function ResultDialog({ result, onClose }) {
   )
 }
 
+// ─── Record Result Dialog (P2-13) ──────────────────────────────────────────
+// The previously-missing write path: mirrors manager/claims/index.jsx's own
+// status-conditional-action + dialog-for-extra-input pattern (this codebase
+// has no separate Kanban/worklist visual convention anywhere).
+const FLAG_OPTIONS = ['normal', 'high', 'low']
+const emptyValueRow = () => ({ name: '', value: '', ref: '', flag: 'normal' })
+
+function RecordResultDialog({ result, onClose, onSubmit, submitting }) {
+  const [targetStatus, setTargetStatus] = useState('completed')
+  const [rows, setRows] = useState([emptyValueRow()])
+
+  if (!result) return null
+
+  const updateRow = (i, field, val) => {
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, [field]: val } : r)))
+  }
+  const addRow = () => setRows((prev) => [...prev, emptyValueRow()])
+  const removeRow = (i) => setRows((prev) => prev.filter((_, idx) => idx !== i))
+
+  const rowsComplete = rows.every((r) => r.name.trim() && r.value.trim() && r.ref.trim())
+  const canSubmit = targetStatus === 'processing' || (rows.length > 0 && rowsComplete)
+
+  const handleClose = () => {
+    setTargetStatus('completed')
+    setRows([emptyValueRow()])
+    onClose()
+  }
+
+  return (
+    <Dialog open={!!result} onClose={handleClose} maxWidth="sm" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>
+      <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
+        Record Result — {result.test}
+        <Typography variant="caption" display="block" sx={{ color: 'text.secondary', fontWeight: 500, mt: 0.25 }}>
+          Patient: {result.patient}
+        </Typography>
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2.5} sx={{ pt: 1 }}>
+          <TextField select label="Status" size="small" value={targetStatus} onChange={(e) => setTargetStatus(e.target.value)}>
+            <MenuItem value="processing">Mark Processing (results not yet in)</MenuItem>
+            <MenuItem value="completed">Complete with Results</MenuItem>
+          </TextField>
+
+          {targetStatus === 'completed' && (
+            <Stack spacing={1.5}>
+              {rows.map((row, i) => (
+                <Stack key={i} direction="row" spacing={1} alignItems="center">
+                  <TextField size="small" label="Parameter" value={row.name} onChange={(e) => updateRow(i, 'name', e.target.value)} sx={{ flex: 1.2 }} />
+                  <TextField size="small" label="Value" value={row.value} onChange={(e) => updateRow(i, 'value', e.target.value)} sx={{ flex: 1 }} />
+                  <TextField size="small" label="Reference" value={row.ref} onChange={(e) => updateRow(i, 'ref', e.target.value)} sx={{ flex: 1 }} />
+                  <TextField select size="small" label="Flag" value={row.flag} onChange={(e) => updateRow(i, 'flag', e.target.value)} sx={{ width: 110 }}>
+                    {FLAG_OPTIONS.map((f) => <MenuItem key={f} value={f} sx={{ textTransform: 'capitalize' }}>{f}</MenuItem>)}
+                  </TextField>
+                  <IconButton size="small" aria-label="Remove parameter" onClick={() => removeRow(i)} disabled={rows.length === 1}>
+                    <DeleteOutlineRoundedIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              ))}
+              <Button size="small" startIcon={<AddRoundedIcon />} onClick={addRow} sx={{ alignSelf: 'flex-start', textTransform: 'none', fontWeight: 700 }}>
+                Add Parameter
+              </Button>
+            </Stack>
+          )}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={handleClose} sx={{ textTransform: 'none', fontWeight: 700 }}>Cancel</Button>
+        <Button
+          variant="contained"
+          disabled={!canSubmit || submitting}
+          onClick={() => onSubmit(result.id, targetStatus, targetStatus === 'completed' ? rows : [])}
+          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 2 }}
+        >
+          {submitting ? 'Saving…' : targetStatus === 'completed' ? 'Complete Result' : 'Save'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 // ─── Page ─────────────────────────────────────────────────────────────────────
 export default function TestResultsPage() {
   const theme = useTheme()
+  const { enqueueSnackbar } = useSnackbar()
   const [search, setSearch] = useState('')
   const [typeFilter, setTypeFilter] = useState('All')
   const [statusFilter, setStatusFilter] = useState('All')
@@ -220,6 +305,29 @@ export default function TestResultsPage() {
     setOrderForm({ patientId: '', patient: '', testType: 'Blood Test' })
     setSelectedPatient(null)
     setPatientSearch('')
+  }
+
+  // P2-13 — the previously-missing completion path.
+  const [recordTarget, setRecordTarget] = useState(null)
+  const [recordTestResult, { loading: recording }] = useMutation(RECORD_TEST_RESULT_MUTATION, {
+    onCompleted: () => {
+      enqueueSnackbar('Result saved.', { variant: 'success' })
+      refetch()
+    },
+    onError: (err) => {
+      enqueueSnackbar(err?.graphQLErrors?.[0]?.message || err.message || 'Failed to save the result', { variant: 'error' })
+    },
+  })
+  const handleRecordSubmit = async (id, status, values) => {
+    try {
+      await recordTestResult({
+        variables: { input: { id, status, values: values.map(({ name, value, ref, flag }) => ({ name, value, ref, flag })) } },
+      })
+      setRecordTarget(null)
+    } catch (_) {
+      // onError above already surfaced a toast; keep the dialog open so the
+      // caller doesn't lose what they typed.
+    }
   }
 
   const handleSort = (field) => {
@@ -294,13 +402,30 @@ export default function TestResultsPage() {
             </Grid>
           ))
         ) : [
-          { label: 'Total Tests', value: results.length, color: theme.palette.info.main, icon: ScienceRoundedIcon },
-          { label: 'Completed', value: counts.completed, color: theme.palette.success.main, icon: CheckCircleRoundedIcon },
-          { label: 'Processing', value: counts.processing, color: theme.palette.warning.main, icon: HourglassEmptyRoundedIcon },
-          { label: 'Pending', value: counts.pending, color: theme.palette.text.secondary, icon: AccessTimeRoundedIcon },
+          { label: 'Total Tests', value: results.length, color: theme.palette.info.main, icon: ScienceRoundedIcon, filterValue: 'All' },
+          { label: 'Completed', value: counts.completed, color: theme.palette.success.main, icon: CheckCircleRoundedIcon, filterValue: 'completed' },
+          { label: 'Processing', value: counts.processing, color: theme.palette.warning.main, icon: HourglassEmptyRoundedIcon, filterValue: 'processing' },
+          { label: 'Pending', value: counts.pending, color: theme.palette.text.secondary, icon: AccessTimeRoundedIcon, filterValue: 'pending' },
         ].map((k) => (
           <Grid item xs={6} md={3} key={k.label}>
-            <Card sx={{ borderRadius: 3, border: '1px solid', borderColor: 'divider', boxShadow: 'none' }}>
+            {/* P2-13 — clicking a status KPI filters the list to it, turning
+                this same page into the "results inbox" (pending/processing
+                work queue) rather than a separate worklist page. */}
+            <Card
+              role="button"
+              tabIndex={0}
+              aria-pressed={statusFilter === k.filterValue}
+              onClick={() => setStatusFilter(k.filterValue)}
+              onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); setStatusFilter(k.filterValue) } }}
+              sx={{
+                borderRadius: 3,
+                border: '1px solid',
+                borderColor: statusFilter === k.filterValue ? k.color : 'divider',
+                boxShadow: 'none',
+                cursor: 'pointer',
+                '&:focus-visible': { outline: `2px solid ${k.color}`, outlineOffset: 2 },
+              }}
+            >
               <CardContent sx={{ p: '16px !important' }}>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
                   <Box>
@@ -401,8 +526,20 @@ export default function TestResultsPage() {
                     <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{r.date_ordered}</TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>{r.date_completed ?? <Chip label="Pending" size="small" sx={{ fontSize: '0.68rem' }} />}</TableCell>
                     <TableCell><Chip icon={<s.icon sx={{ fontSize: '0.85rem !important' }} />} label={s.label} color={s.color} size="small" sx={{ fontWeight: 700, fontSize: '0.72rem' }} /></TableCell>
-                    <TableCell align="right" onClick={(e) => { e.stopPropagation(); setViewResult(r) }}>
-                      <Tooltip title="View Result"><IconButton size="small" sx={{ color: 'primary.main' }}><VisibilityRoundedIcon fontSize="small" /></IconButton></Tooltip>
+                    <TableCell align="right">
+                      <Tooltip title="View Result">
+                        <IconButton size="small" sx={{ color: 'primary.main' }} onClick={(e) => { e.stopPropagation(); setViewResult(r) }}>
+                          <VisibilityRoundedIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      {/* P2-13 — the previously-missing completion action. */}
+                      {r.status !== 'completed' && (
+                        <Tooltip title="Record Result">
+                          <IconButton size="small" sx={{ color: 'success.main' }} onClick={(e) => { e.stopPropagation(); setRecordTarget(r) }}>
+                            <EditNoteRoundedIcon fontSize="small" />
+                          </IconButton>
+                        </Tooltip>
+                      )}
                     </TableCell>
                   </TableRow>
                 )
@@ -417,6 +554,7 @@ export default function TestResultsPage() {
       </Paper>
 
       <ResultDialog result={viewResult} onClose={() => setViewResult(null)} />
+      <RecordResultDialog result={recordTarget} onClose={() => setRecordTarget(null)} onSubmit={handleRecordSubmit} submitting={recording} />
 
       {/* SUG-TRES-002: Order New Test Dialog */}
       <Dialog open={orderOpen} onClose={() => setOrderOpen(false)} maxWidth="xs" fullWidth PaperProps={{ sx: { borderRadius: 3 } }}>

@@ -700,3 +700,26 @@ export const ORDER_TEST_MUTATION = gql`
     }
   }
 `
+
+// P2-13 — the previously-missing completion path: nothing in this app could
+// ever move a test result past 'pending' or attach a value before this.
+export const RECORD_TEST_RESULT_MUTATION = gql`
+  mutation RecordTestResult($input: RecordTestResultInput!) {
+    recordTestResult(input: $input) {
+      id
+      patient
+      test
+      ordered_by
+      date_ordered
+      date_completed
+      status
+      type
+      values {
+        name
+        value
+        ref
+        flag
+      }
+    }
+  }
+`
