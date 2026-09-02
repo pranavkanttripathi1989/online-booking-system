@@ -5,6 +5,7 @@
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
 | TP268 | requirement | IPD slice 1 (ADT core) | approved | 2026-09-02 | 2026-09-02 | PLAN248 | [TP268-ipd-2026-09-02-adt-core-wards-beds-mlc.md](./requirement/TP268-ipd-2026-09-02-adt-core-wards-beds-mlc.md) |
+| TP269 | requirement | IPD slice 2 (nursing charting, MAR, discharge summary) | approved | 2026-09-02 | 2026-09-02 | PLAN249 | [TP269-ipd-2026-09-02-nursing-charting-mar-discharge-summary.md](./requirement/TP269-ipd-2026-09-02-nursing-charting-mar-discharge-summary.md) |
 
 ## improvement
 
