@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useApolloClient, gql } from '@apollo/client'
 import {
   Alert,
@@ -29,6 +29,7 @@ import CancelIcon from '@mui/icons-material/Cancel'
 import WarningAmberIcon from '@mui/icons-material/WarningAmber'
 import GavelIcon from '@mui/icons-material/Gavel'
 import LocalHospitalIcon from '@mui/icons-material/LocalHospital'
+import AssignmentIcon from '@mui/icons-material/Assignment'
 import { CLINICS_QUERY } from '../../graphql/queries'
 import { formatDate, formatDateTime } from '../../utils/dateTime'
 
@@ -186,6 +187,7 @@ function StatusChip({ status }) {
 
 export default function IpdAdmissions() {
   const client = useApolloClient()
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [clinics, setClinics] = useState([])
@@ -849,6 +851,11 @@ export default function IpdAdmissions() {
         </DialogContent>
         <DialogActions sx={{ px: 3, py: 2, flexWrap: 'wrap', gap: 1 }}>
           <Button onClick={() => setDetailOpen(false)}>Close</Button>
+          {['admitted', 'discharge_initiated'].includes(detailAdmission?.status) && (
+            <Button startIcon={<AssignmentIcon />} onClick={() => navigate(`/ipd/chart/${detailAdmission.id}`)}>
+              Chart
+            </Button>
+          )}
           {detailAdmission?.status === 'admitted' && (
             <>
               <Button startIcon={<SwapHorizIcon />} onClick={openTransfer}>

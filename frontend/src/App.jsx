@@ -122,6 +122,7 @@ const VerifyPrescription = lazy(() => import('./pages/prescriptions/Verify'))
 const QueueBoardPage = lazy(() => import('./pages/queue/index'))
 const IpdBedBoardPage = lazy(() => import('./pages/ipd/BedBoard'))
 const IpdAdmissionsPage = lazy(() => import('./pages/ipd/Admissions'))
+const IpdNursingChartPage = lazy(() => import('./pages/ipd/NursingChart'))
 const QueueDisplay = lazy(() => import('./pages/queue/display'))
 
 // ─── Manager: Dashboard, Availability, Blocks, Billing ───────────────────────
@@ -1126,6 +1127,16 @@ function App() {
               element={
                 <Suspense fallback={<ShellPageLoader />}>
                   <IpdAdmissionsPage />
+                </Suspense>
+              }
+            />
+            {/* REQ179 (IPD slice 2) — nursing charting. Reached from the
+                admissions detail dialog's "Chart" action, not top-level nav. */}
+            <Route
+              path="/ipd/chart/:admissionId"
+              element={
+                <Suspense fallback={<ShellPageLoader />}>
+                  <IpdNursingChartPage />
                 </Suspense>
               }
             />
