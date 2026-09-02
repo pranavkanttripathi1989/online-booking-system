@@ -117,6 +117,12 @@ enum NotificationEventType {
   // intimation has not yet been recorded. Belongs in QUIET_HOURS_BYPASS_EVENTS
   // — a legal clock does not respect an org's quiet hours.
   mlc_police_intimation_due
+  // REQ179 (IPD slice 5) — the running IPD bill has crossed 80% of the
+  // admission's own currently authorized total; the insurance desk needs
+  // to request an enhancement before authorization is exhausted. Added in
+  // its own separate migration, applied before any code references it —
+  // the exact break_glass_requested/low_stock_alert precedent above.
+  preauth_enhancement_needed
 }
 
 enum NotificationPriority {
@@ -1084,6 +1090,11 @@ model ClientOrganizations {
   ipdCharges        IpdCharges[]
   ipdPayments       IpdPayments[]
   ipdPackages       IpdPackages[]
+
+  // REQ179 (IPD slice 5)
+  preAuthorizations     PreAuthorizations[]
+  ipdClaims             IpdClaims[]
+  ipdInsuranceDocuments IpdInsuranceDocuments[]
 }
 
 model ClinicianAvailability {
@@ -1347,6 +1358,10 @@ model Clinics {
   ipdCharges  IpdCharges[]
   ipdPayments IpdPayments[]
   ipdPackages IpdPackages[]
+
+  // REQ179 (IPD slice 5)
+  preAuthorizations PreAuthorizations[]
+  ipdClaims         IpdClaims[]
 }
 
 model EmailTemplates {
@@ -1627,6 +1642,10 @@ model Patients {
 
   // REQ179 (IPD slice 1)
   admissions Admissions[]
+
+  // REQ179 (IPD slice 5)
+  preAuthorizations PreAuthorizations[]
+  ipdClaims         IpdClaims[]
 }
 
 // REQ018 (Phase 1, slice 5) P0 -- US-BOOK-02: one phone-verified login
@@ -3095,6 +3114,12 @@ model UserProfiles {
   ipdBillsFinalized IpdBills[]
   ipdChargesPosted  IpdCharges[]
   ipdPaymentsRecorded IpdPayments[]
+
+  // REQ179 (IPD slice 5)
+  preAuthorizationsRequested     PreAuthorizations[]
+  preAuthEnhancementsRequested   PreAuthEnhancements[]
+  ipdClaimsSubmitted             IpdClaims[]
+  ipdInsuranceDocumentsUploaded  IpdInsuranceDocuments[]
 }
 
 model UserRoles {
@@ -3578,6 +3603,10 @@ model Payers {
 
   // REQ179 (IPD slice 1)
   admissions Admissions[]
+
+  // REQ179 (IPD slice 5)
+  preAuthorizations PreAuthorizations[]
+  ipdClaims         IpdClaims[]
 }
 
 // REQ031 (US-INS-02) — a payer-specific contracted rate for a service/
@@ -3650,6 +3679,10 @@ model PatientInsurancePolicies {
 
   // REQ179 (IPD slice 1)
   admissions Admissions[]
+
+  // REQ179 (IPD slice 5)
+  preAuthorizations PreAuthorizations[]
+  ipdClaims         IpdClaims[]
 }
 
 // REQ131 (REQ031's own explicit P2 follow-on) -- a basic OPD cashless
@@ -4407,6 +4440,11 @@ model Admissions {
   bill                  IpdBills?
   charges               IpdCharges[]
   payments              IpdPayments[]
+  // REQ179 (IPD slice 5) -- nullable/optional since an admission with no
+  // insurance routing has neither; @unique on the FK side (PreAuthorizations
+  // .admission_id / IpdClaims.admission_id) makes each 1:1 for real.
+  preAuthorization      PreAuthorizations?
+  claim                 IpdClaims?
 
   @@index([client_org_id, clinic_id, status])
   @@index([patient_id, admitted_at])
@@ -5106,6 +5144,8 @@ model IpdCharges {
   product       Products?        @relation(fields: [product_id], references: [id])
   bed_occupancy BedOccupancies?  @relation(fields: [bed_occupancy_id], references: [id])
   posted_by     UserProfiles?    @relation(fields: [posted_by_user_id], references: [id])
+  // REQ179 (IPD slice 5)
+  claimDeductions IpdClaimDeductions[]
 
   @@index([bill_id])
   @@index([admission_id, service_date])
@@ -5177,4 +5217,204 @@ model IpdPackageInclusions {
   product Products    @relation(fields: [product_id], references: [id])
 
   @@unique([package_id, product_id])
+}
+
+// ============================================================
+// REQ179 (IPD slice 5) — TPA cashless: pre-authorization, mid-stay
+// enhancement, claim reconciliation with line-level disallowance. Payers/
+// PayerTariffs/PayerEmpanelments/PatientInsurancePolicies are reused
+// UNCHANGED (REQ031) — zero schema change to any of the four. Claims
+// (REQ131) cannot be reused: its appointment_id is required (no
+// appointment exists at pre-auth time), it has no client_org_id (an
+// insurance desk queries org-wide), a single scalar claim_amount cannot
+// hold a running authorization across N enhancements, and it has no
+// line-level disallowance at all. Every state transition here has a real
+// human decision point — no automated payer submission exists anywhere in
+// this codebase, matching Claims' own established stance verbatim.
+// ============================================================
+
+// admission_id is nullable+@unique: nullable because a pre-auth is
+// requested days before an admission exists at all; @unique because one
+// admission has exactly one live pre-auth once bound. Binding happens via
+// a dedicated bindPreAuthorizationToAdmission mutation (ipd-insurance
+// module only) rather than folding it into admissions.service.ts's own
+// createAdmission -- keeps this slice fully additive with zero change to
+// the already-shipped, already-tested admissions module, and the @unique
+// constraint itself is what makes "a second admission can't bind the same
+// pre-auth" a database guarantee, not an application-level race.
+model PreAuthorizations {
+  id            String @id @default(uuid())
+  client_org_id String
+  clinic_id     String
+  patient_id    String
+  payer_id      String
+  policy_id     String?
+  admission_id  String? @unique
+
+  // requested | approved | rejected | expired | cancelled
+  status                 String    @default("requested")
+  requested_amount_paise Int
+  approved_amount_paise  Int?
+  // The payer/TPA's own reference number, populated once approved --
+  // MlcRegisters.mlc_number's own "assign once real" precedent.
+  preauth_number         String?
+  diagnosis_codes_json   Json?
+  procedure_codes_json   Json?
+  valid_until            DateTime?
+  rejection_reason       String?
+  notes                  String?
+
+  requested_by_user_id String
+  requested_at          DateTime  @default(now())
+  decided_at            DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  client_organization ClientOrganizations       @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics                   @relation(fields: [clinic_id], references: [id])
+  patient             Patients                  @relation(fields: [patient_id], references: [id])
+  payer               Payers                    @relation(fields: [payer_id], references: [id])
+  policy              PatientInsurancePolicies? @relation(fields: [policy_id], references: [id])
+  admission           Admissions?               @relation(fields: [admission_id], references: [id])
+  requested_by        UserProfiles              @relation(fields: [requested_by_user_id], references: [id])
+
+  enhancements PreAuthEnhancements[]
+  claim        IpdClaims?
+  documents    IpdInsuranceDocuments[]
+
+  @@index([client_org_id, clinic_id, status])
+  @@index([patient_id])
+}
+
+// A mid-stay top-up request when the running bill (IpdBills.gross_paise,
+// snapshotted server-side into bill_amount_at_request_paise -- never
+// caller-supplied) exceeds the pre-auth's own currently authorized total.
+// sequence_no + @@unique makes "enhancement #3 for pre-auth X" a stable,
+// gapless-within-preauth identity the frontend and the payer correspondence
+// can both reference.
+model PreAuthEnhancements {
+  id            String @id @default(uuid())
+  preauth_id    String
+  sequence_no   Int
+
+  requested_amount_paise        Int
+  approved_amount_paise         Int?
+  // requested | approved | rejected
+  status                        String @default("requested")
+  bill_amount_at_request_paise  Int
+  reason                        String
+  rejection_reason              String?
+
+  requested_by_user_id String
+  requested_at          DateTime  @default(now())
+  decided_at            DateTime?
+  created_at            DateTime  @default(now())
+
+  preauth      PreAuthorizations @relation(fields: [preauth_id], references: [id], onDelete: Cascade)
+  requested_by UserProfiles      @relation(fields: [requested_by_user_id], references: [id])
+
+  @@unique([preauth_id, sequence_no])
+}
+
+// One claim per admission (a stay bills to a payer once, reconciled at
+// discharge against the real, finalized IPD bill) -- admission_id @unique.
+// preauth_id is nullable+@unique: most cashless claims trace back to a real
+// pre-auth, but this stays representable for a claim filed without one
+// (nullable), while still guaranteeing at most one claim per pre-auth
+// (@unique) when it is set.
+model IpdClaims {
+  id            String @id @default(uuid())
+  client_org_id String
+  clinic_id     String
+  admission_id  String  @unique
+  preauth_id    String? @unique
+  patient_id    String
+  payer_id      String
+  policy_id     String?
+
+  // draft | submitted | under_review | approved | partially_approved
+  // | rejected | settled
+  status                String  @default("draft")
+  claimed_amount_paise  Int
+  approved_amount_paise Int?
+  // Gapless, via InvoiceSequences series IPC -- assigned at submission,
+  // null while still a draft (IpdBills.bill_number's own precedent).
+  claim_number          String?
+  rejection_reason      String?
+  notes                 String?
+
+  submitted_by_user_id String?
+  submitted_at          DateTime?
+  decided_at            DateTime?
+  settled_at            DateTime?
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  client_organization ClientOrganizations       @relation(fields: [client_org_id], references: [id])
+  clinic              Clinics                   @relation(fields: [clinic_id], references: [id])
+  admission           Admissions                @relation(fields: [admission_id], references: [id])
+  preauth             PreAuthorizations?        @relation(fields: [preauth_id], references: [id])
+  patient             Patients                  @relation(fields: [patient_id], references: [id])
+  payer               Payers                    @relation(fields: [payer_id], references: [id])
+  policy              PatientInsurancePolicies? @relation(fields: [policy_id], references: [id])
+  submitted_by        UserProfiles?             @relation(fields: [submitted_by_user_id], references: [id])
+
+  deductions IpdClaimDeductions[]
+  documents  IpdInsuranceDocuments[]
+
+  @@index([client_org_id, clinic_id, status])
+  @@index([payer_id])
+  @@index([patient_id])
+}
+
+// Line-level disallowance -- the thing the pre-existing Claims model
+// structurally cannot express (one scalar claim_amount, no line items at
+// all). charge_id is optional: a deduction usually references a real
+// IpdCharges row (e.g. "room rent capping" against the actual room-day
+// charge), but a payer sometimes disallows a flat amount with no single
+// line to point at (e.g. a co-pay percentage) -- forcing a charge_id would
+// make that case unrepresentable.
+model IpdClaimDeductions {
+  id                    String @id @default(uuid())
+  claim_id              String
+  charge_id             String?
+  description           String
+  deducted_amount_paise Int
+  created_at            DateTime @default(now())
+
+  claim  IpdClaims   @relation(fields: [claim_id], references: [id], onDelete: Cascade)
+  charge IpdCharges? @relation(fields: [charge_id], references: [id])
+
+  @@index([claim_id])
+}
+
+// Pre-auth forms, discharge summaries, payer correspondence, id proof,
+// policy copies -- the REST-upload + GraphQL-metadata two-step split
+// already established by encounters/attachments.controller.ts and
+// messages/message-attachments.controller.ts. Exactly one of
+// preauth_id/claim_id is set (CHECK num_nonnulls(...) = 1 in the
+// migration -- the Vitals.encounter_id/admission_id precedent).
+model IpdInsuranceDocuments {
+  id            String @id @default(uuid())
+  client_org_id String
+  preauth_id    String?
+  claim_id      String?
+
+  // preauth_form | discharge_summary | bill | payer_correspondence
+  // | id_proof | policy_copy | other
+  document_type String
+  file_ref      String
+  mime_type     String
+  notes         String?
+
+  uploaded_by_user_id String
+  uploaded_at          DateTime @default(now())
+
+  client_organization ClientOrganizations @relation(fields: [client_org_id], references: [id])
+  preauth             PreAuthorizations?  @relation(fields: [preauth_id], references: [id])
+  claim               IpdClaims?          @relation(fields: [claim_id], references: [id])
+  uploaded_by         UserProfiles        @relation(fields: [uploaded_by_user_id], references: [id])
+
+  @@index([preauth_id])
+  @@index([claim_id])
 }

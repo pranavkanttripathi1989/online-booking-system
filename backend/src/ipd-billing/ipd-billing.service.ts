@@ -34,8 +34,10 @@ const DEFAULT_SETTINGS = {
 // REQ179 (IPD slice 4) — the billing ledger. Every posting path funnels
 // through postCharge(), which maintains bill.gross_paise inside the same
 // transaction as the IpdCharges row — the one invariant
-// (`gross_paise = SUM(charges.total_paise WHERE NOT is_reversed)`) that
-// catches every ledger bug, asserted directly in this service's own unit
+// (`gross_paise = SUM(charges.total_paise)`, unconditional — is_reversed
+// is a display flag only, never a sum filter; a reversal's own negative
+// row is what nets a reversed charge to zero) that catches every ledger
+// bug, asserted directly in this service's own unit
 // tests after every mutation including reversal and package settlement.
 @Injectable()
 export class IpdBillingService {

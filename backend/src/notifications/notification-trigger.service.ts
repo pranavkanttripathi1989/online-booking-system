@@ -69,6 +69,10 @@ const DEFAULTS: Record<string, { email_enabled: boolean; sms_enabled: boolean; a
   // missing the 24h police-intimation window has legal consequences and an
   // in-app badge alone is too easy to not notice.
   mlc_police_intimation_due: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
+  // REQ179 (IPD slice 5) -- an internal insurance-desk ops alert, not
+  // statutory (unlike mlc_police_intimation_due above): app+email, no
+  // SMS/WhatsApp, same profile as break_glass_requested/low_stock_alert.
+  preauth_enhancement_needed: { email_enabled: true, sms_enabled: false, app_enabled: true, whatsapp_enabled: false },
 };
 
 // US-NOT-04's own acceptance criterion names "an imminent appointment
@@ -117,6 +121,7 @@ const TEMPLATE_CATEGORY: Record<string, TemplateCategory> = {
   patient_discharged: 'utility',
   bed_transfer_recorded: 'utility',
   mlc_police_intimation_due: 'utility',
+  preauth_enhancement_needed: 'utility',
 };
 
 // Every event type here carries real transactional content (a specific

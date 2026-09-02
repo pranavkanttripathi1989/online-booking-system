@@ -31,6 +31,13 @@ input AddDependantInput {
   relation: String!
 }
 
+input AddIpdClaimDeductionInput {
+  charge_id: ID
+  claim_id: ID!
+  deducted_amount: Float!
+  description: String!
+}
+
 input AddOnboardingClinicInput {
   address: String
   city: String!
@@ -699,6 +706,11 @@ input BedInput {
   bed_type: String
   is_active: Boolean
   ward_id: ID!
+}
+
+input BindPreAuthorizationToAdmissionInput {
+  admission_id: ID!
+  preauth_id: ID!
 }
 
 input BlockBedInput {
@@ -1430,6 +1442,23 @@ input CreateIntakeFieldInput {
   sort_order: Int
 }
 
+input CreateIpdClaimInput {
+  admission_id: ID!
+  claimed_amount: Float!
+  notes: String
+  payer_id: ID
+  policy_id: ID
+}
+
+input CreateIpdInsuranceDocumentInput {
+  claim_id: ID
+  document_type: String!
+  file_ref: String!
+  mime_type: String!
+  notes: String
+  preauth_id: ID
+}
+
 input CreateIpdMedicationOrderInput {
   admission_id: ID!
   dose: String!
@@ -1540,6 +1569,19 @@ type CreatePlatformSubscriptionResult {
   message: String
   subscription: PlatformSubscription
   success: Boolean!
+}
+
+input CreatePreAuthorizationInput {
+  admission_id: ID
+  clinic_id: ID!
+  diagnosis_codes: [IpdCodeInput!]
+  notes: String
+  patient_id: ID!
+  payer_id: ID!
+  policy_id: ID
+  procedure_codes: [IpdCodeInput!]
+  requested_amount: Float!
+  valid_until: String
 }
 
 input CreatePrescriptionInput {
@@ -1775,6 +1817,12 @@ type DecideDiscountApprovalResult {
   message: String
   payment_id: ID
   success: Boolean!
+}
+
+input DecidePreAuthEnhancementInput {
+  approved_amount: Float
+  rejection_reason: String
+  status: String!
 }
 
 input DecideRefundRequestInput {
@@ -2323,6 +2371,71 @@ type IpdCharge {
   unit_price: Float!
 }
 
+type IpdClaim {
+  admission_id: ID!
+  admission_number: String
+  approved_amount: Float
+  claim_number: String
+  claimed_amount: Float!
+  clinic_id: ID!
+  created_at: DateTime!
+  decided_at: DateTime
+  deductions: [IpdClaimDeduction!]!
+  id: ID!
+  notes: String
+  patient_name: String
+  payer_id: ID!
+  payer_name: String
+  policy_id: ID
+  preauth_id: ID
+  rejection_reason: String
+  settled_at: DateTime
+  status: String!
+  submitted_at: DateTime
+  submitted_by_name: String
+  total_deductions: Float!
+}
+
+type IpdClaimDeduction {
+  charge_description: String
+  charge_id: ID
+  created_at: DateTime!
+  deducted_amount: Float!
+  description: String!
+  id: ID!
+}
+
+type IpdCode {
+  code: String!
+  description: String!
+}
+
+input IpdCodeInput {
+  code: String!
+  description: String!
+}
+
+type IpdInsuranceDocument {
+  claim_id: ID
+  document_type: String!
+  file_ref: String!
+  id: ID!
+  mime_type: String!
+  notes: String
+  preauth_id: ID
+  uploaded_at: DateTime!
+  uploaded_by_name: String
+}
+
+type IpdInsuranceMutationResult {
+  success: Boolean!
+  userErrors: [IpdInsuranceUserError!]!
+}
+
+type IpdInsuranceUserError {
+  message: String!
+}
+
 type IpdMedicationOrder {
   created_at: DateTime!
   dose: String!
@@ -2563,6 +2676,7 @@ type Mutation {
   addDependant(input: AddDependantInput!): Dependant!
   addEncounterAddendum(input: AddAddendumInput!): EncounterAddendum!
   addFavouriteDrug(drug_id: ID!): Boolean!
+  addIpdClaimDeduction(input: AddIpdClaimDeductionInput!): IpdClaimDeduction!
   addOnboardingFirstClinic(input: AddOnboardingClinicInput!, orgId: String!): Clinic!
   adjustStock(input: AdjustStockInput!): DrugBatch!
   administerMedication(input: AdministerMedicationInput!): MedicationAdministration!
@@ -2573,6 +2687,7 @@ type Mutation {
   assignOrgPlan(orgId: ID!, planId: ID): OrganizationMutationResult!
   assignOtBookingStaff(input: AssignOtBookingStaffInput!): OtBooking!
   assignThread(assigneeUserId: ID!, threadId: ID!): MessageThread!
+  bindPreAuthorizationToAdmission(input: BindPreAuthorizationToAdmissionInput!): PreAuthorization!
   blockBed(input: BlockBedInput!): Bed!
   bookPatientAppointment(input: BookPatientAppointmentInput!): BookedAppointmentResult!
   broadcastQueueDelay(clinician_id: ID!, delay_minutes: Int!): QueueDelayBroadcastResult!
@@ -2620,6 +2735,8 @@ type Mutation {
   createEncounterAttachment(input: CreateAttachmentInput!): EncounterAttachment!
   createEncounterTemplate(input: CreateEncounterTemplateInput!): EncounterTemplate!
   createIntakeFieldConfig(input: CreateIntakeFieldInput!): IntakeFieldConfigMutationResult!
+  createIpdClaim(input: CreateIpdClaimInput!): IpdClaim!
+  createIpdInsuranceDocument(input: CreateIpdInsuranceDocumentInput!): IpdInsuranceDocument!
   createIpdMedicationOrder(input: CreateIpdMedicationOrderInput!): IpdMedicationOrder!
   createIpdPackage(input: CreateIpdPackageInput!): IpdPackage!
   createLanguage(input: CreateLanguageInput!): LookupMutationResult!
@@ -2638,6 +2755,7 @@ type Mutation {
   createPlan(input: PlanInput!): Plan!
   createPlanVersion(input: CreatePlanVersionInput!): Plan!
   createPlatformSubscription(input: CreatePlatformSubscriptionInput!): CreatePlatformSubscriptionResult!
+  createPreAuthorization(input: CreatePreAuthorizationInput!): PreAuthorization!
   createPrescription(input: CreatePrescriptionInput!): Prescription!
   createPrescriptionSet(input: CreatePrescriptionSetInput!): PrescriptionSet!
   createProduct(input: CreateProductInput!): ProductMutationResult!
@@ -2666,6 +2784,7 @@ type Mutation {
   deactivateStaff(id: ID!): Staff!
   deactivateWebhookEndpoint(id: ID!): WebhookEndpoint!
   decideDiscountApproval(input: DecideDiscountApprovalInput!): DecideDiscountApprovalResult!
+  decidePreAuthEnhancement(id: ID!, input: DecidePreAuthEnhancementInput!): PreAuthEnhancement!
   decideRefundRequest(input: DecideRefundRequestInput!): RefundRequestResult!
   deleteAvailability(id: ID!): AvailabilityMutationResult!
   deleteBed(id: ID!): WardMutationResult!
@@ -2744,11 +2863,13 @@ type Mutation {
   releaseBed(bed_id: ID!): Bed!
   releasePublicSlot(clinicianId: ID!, date: String!, holdToken: String!, startTime: String!): Boolean!
   removeFavouriteDrug(drug_id: ID!): Boolean!
+  removeIpdClaimDeduction(id: ID!): IpdInsuranceMutationResult!
   removeOtBookingStaff(id: ID!): OtBooking!
   removeOtConsumable(id: ID!): OtMutationResult!
   requestBreakGlassAccess(input: RequestBreakGlassAccessInput!): BreakGlassGrantMutationResult!
   requestDataRights(input: RequestDataRightsInput!): RightsRequest!
   requestOtp(input: RequestOtpInput!): GenericResult!
+  requestPreAuthEnhancement(input: RequestPreAuthEnhancementInput!): PreAuthEnhancement!
   requestRefund(input: RequestRefundInput!): RefundRequestResult!
   resetAppointmentJourney(id: ID!): Appointment!
   resetPassword(input: ResetPasswordInput!): GenericResult!
@@ -2774,6 +2895,7 @@ type Mutation {
   setProductBranchOverride(input: SetProductBranchOverrideInput!): SetProductBranchOverrideResult!
   setRetentionPolicy(input: RetentionPolicyInput!): RetentionPolicy!
   setRevenueShareRule(input: RevenueShareRuleInput!): RevenueShareMutationResultType!
+  settleIpdClaim(id: ID!, input: SettleIpdClaimInput!): IpdClaim!
   sharePrescriptionViaWhatsapp(id: ID!): SharePrescriptionResult!
   signAdmissionNote(input: SignAdmissionNoteInput!): AdmissionNote!
   signDischargeSummary(input: SignDischargeSummaryInput!): DischargeSummary!
@@ -2789,6 +2911,7 @@ type Mutation {
   stopIpdMedicationOrder(input: StopIpdMedicationOrderInput!): IpdMedicationOrder!
   structureTranscriptSession(session_id: ID!): StructureTranscriptResult!
   submitClaim(input: SubmitClaimInput!): Claim!
+  submitIpdClaim(id: ID!): IpdClaim!
   submitReview(input: CreateReviewInput!): ReviewMutationResult!
   submitTranscription(input: SubmitTranscriptionInput!): AiTranscriptionSession!
   toggleClinicianActive(id: ID!): Clinician!
@@ -2816,6 +2939,7 @@ type Mutation {
   updateEmailTemplate(id: ID!, input: UpdateEmailTemplateInput!): EmailTemplateMutationResult!
   updateIntakeFieldConfig(id: ID!, input: UpdateIntakeFieldInput!): IntakeFieldConfigMutationResult!
   updateIpdBillingSettings(clinic_id: ID!, input: UpdateIpdBillingSettingsInput!): IpdBillingSettings!
+  updateIpdClaimStatus(id: ID!, input: UpdateIpdClaimStatusInput!): IpdClaim!
   updateIpdPackage(id: ID!, input: UpdateIpdPackageInput!): IpdPackage!
   updateLanguage(id: ID!, input: UpdateLanguageInput!): LookupMutationResult!
   updateMembershipPlan(id: ID!, input: UpdateMembershipPlanInput!): MembershipPlanMutationResult!
@@ -2835,6 +2959,7 @@ type Mutation {
   updatePatient(id: ID!, input: PatientInput!): Patient!
   updatePayerEmpanelmentStatus(id: ID!, input: UpdatePayerEmpanelmentStatusInput!): PayerEmpanelment!
   updatePaymentGatewayConfig(input: UpdatePaymentGatewayConfigInput!): PaymentGatewayConfigResult!
+  updatePreAuthorizationStatus(id: ID!, input: UpdatePreAuthorizationStatusInput!): PreAuthorization!
   updateProduct(id: ID!, input: UpdateProductInput!): ProductMutationResult!
   updateProductCategory(id: ID!, input: UpdateProductCategoryInput!): ProductCategoryMutationResult!
   updateProductSubcategory(id: ID!, input: UpdateProductSubcategoryInput!): ProductSubcategoryMutationResult!
@@ -3733,6 +3858,47 @@ type PotentialDuplicatePatient {
   phone: String!
 }
 
+type PreAuthEnhancement {
+  approved_amount: Float
+  bill_amount_at_request: Float!
+  decided_at: DateTime
+  id: ID!
+  reason: String!
+  rejection_reason: String
+  requested_amount: Float!
+  requested_at: DateTime!
+  requested_by_name: String
+  sequence_no: Int!
+  status: String!
+}
+
+type PreAuthorization {
+  admission_id: ID
+  admission_number: String
+  approved_amount: Float
+  authorized_total: Float!
+  clinic_id: ID!
+  created_at: DateTime!
+  decided_at: DateTime
+  diagnosis_codes: [IpdCode!]!
+  enhancements: [PreAuthEnhancement!]!
+  id: ID!
+  notes: String
+  patient_id: ID!
+  patient_name: String
+  payer_id: ID!
+  payer_name: String
+  policy_id: ID
+  preauth_number: String
+  procedure_codes: [IpdCode!]!
+  rejection_reason: String
+  requested_amount: Float!
+  requested_at: DateTime!
+  requested_by_name: String
+  status: String!
+  valid_until: DateTime
+}
+
 type Prescription {
   clinician_id: ID!
   encounter_id: ID!
@@ -4081,10 +4247,12 @@ type Query {
   admissionEvents(admission_id: ID!): [AdmissionEvent!]!
   admissionHandovers(admission_id: ID!): [ShiftHandover!]!
   admissionIpdBill(admission_id: ID!): IpdBill!
+  admissionIpdClaim(admission_id: ID!): IpdClaim
   admissionMar(admission_id: ID!, from: String, to: String): [MedicationAdministration!]!
   admissionMedicationOrders(active_only: Boolean, admission_id: ID!): [IpdMedicationOrder!]!
   admissionNotes(admission_id: ID!, note_kind: String): [AdmissionNote!]!
   admissionOtBookings(admission_id: ID!): [OtBooking!]!
+  admissionPreAuthorization(admission_id: ID!): PreAuthorization
   admissionVitals(admission_id: ID!): [Vital!]!
   admissions(filter: AdmissionFilterInput): [Admission!]!
   aiExtractedPrescriptionDraft(session_id: ID!): [AiExtractedPrescriptionItem!]!
@@ -4167,6 +4335,8 @@ type Query {
   ipdBill(id: ID!): IpdBill
   ipdBillingSettings(clinic_id: ID!): IpdBillingSettings!
   ipdBills(clinic_id: ID, status: String): [IpdBill!]!
+  ipdClaim(id: ID!): IpdClaim
+  ipdClaims(clinic_id: ID, status: String): [IpdClaim!]!
   ipdMedicationOrder(id: ID!): IpdMedicationOrder
   ipdPackages(clinic_id: ID): [IpdPackage!]!
   languages: [Language!]!
@@ -4235,6 +4405,8 @@ type Query {
   platformSubscriptions(status: String): [PlatformSubscription!]!
   platformTransactions(status: String): [PlatformInvoice!]!
   potentialDuplicatePatients(date_of_birth: String, first_name: String, last_name: String, phone: String!): [PotentialDuplicatePatient!]!
+  preAuthorization(id: ID!): PreAuthorization
+  preAuthorizations(clinic_id: ID, status: String): [PreAuthorization!]!
   preConsultSummary(patient_id: ID!): [String!]!
   prescription(id: ID!): Prescription
   prescriptionSets(specialty: String): [PrescriptionSet!]!
@@ -4523,6 +4695,12 @@ input RequestDataRightsInput {
 
 input RequestOtpInput {
   phone: String!
+}
+
+input RequestPreAuthEnhancementInput {
+  preauth_id: ID!
+  reason: String!
+  requested_amount: Float!
 }
 
 input RequestRefundInput {
@@ -4848,6 +5026,11 @@ type SetProductBranchOverrideResult {
   branchOverride: ProductBranchOverride
   success: Boolean!
   userErrors: [BranchOverrideUserError!]!
+}
+
+input SettleIpdClaimInput {
+  notes: String
+  tenders: [IpdPaymentTenderInput!]!
 }
 
 type SharePrescriptionResult {
@@ -5312,6 +5495,12 @@ input UpdateIpdBillingSettingsInput {
   transfer_day_rate_policy: String
 }
 
+input UpdateIpdClaimStatusInput {
+  approved_amount: Float
+  rejection_reason: String
+  status: String!
+}
+
 input UpdateIpdPackageInput {
   inclusions: [IpdPackageInclusionInput!]
   is_active: Boolean
@@ -5424,6 +5613,13 @@ input UpdatePaymentGatewayConfigInput {
   credentials: [PaymentGatewayCredentialFieldInput!]!
   is_active: Boolean
   provider: String!
+}
+
+input UpdatePreAuthorizationStatusInput {
+  approved_amount: Float
+  preauth_number: String
+  rejection_reason: String
+  status: String!
 }
 
 input UpdateProductCategoryInput {
