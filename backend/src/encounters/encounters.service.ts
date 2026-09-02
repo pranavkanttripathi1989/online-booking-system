@@ -16,7 +16,9 @@ import {
   CreateAttachmentInput,
 } from './dto/encounter.input';
 import { PatientsService } from '../patients/patients.service';
+import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { htmlToPlainText } from '../common/utils/html-to-plain-text';
+import { escapeHtml } from '../common/utils/escape-html';
 
 // REQ135 -- more permissive than insurance.service.ts's own CLAIM_TRANSITIONS
 // (money changing hands there warrants a stricter machine): a referral is
@@ -40,6 +42,7 @@ export class EncountersService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly patientsService: PatientsService,
+    private readonly intakeFieldsService: IntakeFieldsService,
   ) {}
 
   private toGraphQL(encounter: any) {
@@ -82,6 +85,42 @@ export class EncountersService {
       referrals,
       vitals,
     };
+  }
+
+  // P2-14 — digital intake -> auto-populate EMR. Labels are resolved from
+  // the SAME ClinicIntakeFieldConfig rows appointments.service.ts#create()
+  // already validated required fields against (IntakeFieldsService
+  // .forBooking()) — never guessed or re-derived. Every interpolated value
+  // is patient-supplied free text landing directly in EncounterNotes
+  // .content (TipTap HTML, FORM-20); escapeHtml() is not optional here —
+  // this is the first write path in this codebase to put booking-time
+  // patient input straight into a clinical HTML column. Returns null (no
+  // row written at all) when there is nothing to seed, rather than an
+  // empty section a clinician would otherwise wonder about.
+  private async buildIntakeSeedContent(appointment: {
+    reason: string;
+    intake_responses: unknown;
+    clinic_id: string;
+    product_id: string | null;
+  }): Promise<string | null> {
+    const lines: string[] = [];
+    if (appointment.reason?.trim()) {
+      lines.push(`<p><strong>Reason for visit:</strong> ${escapeHtml(appointment.reason.trim())}</p>`);
+    }
+
+    const responses = (appointment.intake_responses as Record<string, string> | null) ?? {};
+    const keys = Object.keys(responses).filter((k) => responses[k]?.toString().trim());
+    if (keys.length > 0) {
+      const configs = await this.intakeFieldsService.forBooking(appointment.clinic_id, appointment.product_id ?? undefined);
+      const labelByKey = new Map(configs.map((c) => [c.key, c.label]));
+      for (const key of keys) {
+        const label = labelByKey.get(key) ?? key;
+        lines.push(`<p><strong>${escapeHtml(label)}:</strong> ${escapeHtml(String(responses[key]).trim())}</p>`);
+      }
+    }
+
+    if (lines.length === 0) return null;
+    return `<p><em>Patient-reported at booking:</em></p>${lines.join('')}`;
   }
 
   // Org + self-scoping (a clinician sees only their own encounters, a
@@ -192,23 +231,37 @@ export class EncountersService {
     // here -- it means the encounter now exists, which is exactly what this
     // method promises its caller either way, so fetch and return it instead
     // of leaking a raw 500.
+    // P2-14 — read-only, so computed before the write transaction below
+    // rather than inside it; a real booking-time answer becomes the seed
+    // content of the new encounter's own Chief Complaints section, so the
+    // clinician isn't re-asking what the patient already answered.
+    const seedContent = await this.buildIntakeSeedContent(appointment);
+
     try {
-      const encounter = await this.prisma.encounters.create({
-        data: {
-          client_org_id: appointment.clinic.client_org_id,
-          appointment_id: appointmentId,
-          patient_id: appointment.patient_id,
-          clinician_id: appointment.clinician_id,
-          // REQ026 (US-TEL-05) — denormalized once, at creation time,
-          // matching REQ017's own booking_mode precedent. Appointments.type
-          // also carries 'home_visit' (physically present care, just not
-          // at the clinic) — that is NOT a teleconsultation mode and must
-          // not trip the TPG guard, so only 'video' maps through; anything
-          // else (including a future 'audio'/'text' appointment type) is
-          // in_person from this guard's own perspective until genuinely
-          // built and mapped here explicitly.
-          consultation_mode: appointment.type === 'video' ? 'video' : 'in_person',
-        },
+      const encounter = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.encounters.create({
+          data: {
+            client_org_id: appointment.clinic.client_org_id as string,
+            appointment_id: appointmentId,
+            patient_id: appointment.patient_id,
+            clinician_id: appointment.clinician_id,
+            // REQ026 (US-TEL-05) — denormalized once, at creation time,
+            // matching REQ017's own booking_mode precedent. Appointments.type
+            // also carries 'home_visit' (physically present care, just not
+            // at the clinic) — that is NOT a teleconsultation mode and must
+            // not trip the TPG guard, so only 'video' maps through; anything
+            // else (including a future 'audio'/'text' appointment type) is
+            // in_person from this guard's own perspective until genuinely
+            // built and mapped here explicitly.
+            consultation_mode: appointment.type === 'video' ? 'video' : 'in_person',
+          },
+        });
+        if (seedContent) {
+          await tx.encounterNotes.create({
+            data: { encounter_id: created.id, section: 'complaints', content: seedContent },
+          });
+        }
+        return created;
       });
       return this.withRelations(encounter);
     } catch (e: any) {

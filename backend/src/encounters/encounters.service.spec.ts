@@ -3,6 +3,7 @@ import { NotFoundException, BadRequestException, ForbiddenException } from '@nes
 import { EncountersService } from './encounters.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { PatientsService } from '../patients/patients.service';
+import { IntakeFieldsService } from '../intake-fields/intake-fields.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 // REQ020 P0. Encounters owns client_org_id directly (like Resources,
@@ -13,6 +14,7 @@ describe('EncountersService', () => {
   let service: EncountersService;
   let prisma: any;
   let patientsService: { ownAndDependantPatientIds: jest.Mock };
+  let intakeFieldsService: { forBooking: jest.Mock };
 
   const clinicianA: JwtPayload = { sub: 'clin-a', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-a' } as JwtPayload;
   const clinicianB: JwtPayload = { sub: 'clin-b', roles: ['clinician'], client_org_id: 'org-a', patient_id: null, clinician_id: 'clin-b' } as JwtPayload;
@@ -32,7 +34,7 @@ describe('EncountersService', () => {
   beforeEach(async () => {
     prisma = {
       encounters: { findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]), create: jest.fn(), update: jest.fn() },
-      encounterNotes: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), upsert: jest.fn() },
+      encounterNotes: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), upsert: jest.fn(), create: jest.fn() },
       encounterAddenda: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
       diagnoses: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
       attachments: { findMany: jest.fn().mockResolvedValue([]), create: jest.fn() },
@@ -54,7 +56,14 @@ describe('EncountersService', () => {
       messageThreads: { findMany: jest.fn().mockResolvedValue([]) },
       // REQ167 (P2-11): findMany() backs patientTimeline()'s new immunization branch.
       immunizationRecords: { findMany: jest.fn().mockResolvedValue([]) },
-      $transaction: jest.fn((ops: any[]) => Promise.all(ops)),
+      // P2-14 -- applyTemplate() already used the array form
+      // ($transaction([...])); getOrCreateEncounter()'s own new intake-seed
+      // write needs the interactive/callback form instead (the seed note's
+      // encounter_id depends on the just-created encounter's own id, a
+      // real data dependency the array form can't express) -- the
+      // admissions.service.spec.ts precedent for that shape ($transaction:
+      // jest.fn((cb) => cb(prisma))). This mock supports both.
+      $transaction: jest.fn((arg: any) => (typeof arg === 'function' ? arg(prisma) : Promise.all(arg))),
     };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -69,6 +78,13 @@ describe('EncountersService', () => {
           useValue: (patientsService = {
             ownAndDependantPatientIds: jest.fn().mockImplementation(async (user: JwtPayload) => [user.patient_id ?? '__no_patient_link__']),
           }),
+        },
+        {
+          provide: IntakeFieldsService,
+          // P2-14 -- defaults to "no configured fields", matching the vast
+          // majority of real clinics that haven't set any up yet; tests
+          // below override this to assert label resolution specifically.
+          useValue: (intakeFieldsService = { forBooking: jest.fn().mockResolvedValue([]) }),
         },
       ],
     }).compile();
@@ -189,6 +205,87 @@ describe('EncountersService', () => {
       prisma.encounters.findUnique.mockResolvedValueOnce(null);
       prisma.encounters.create.mockRejectedValue(new Error('connection reset'));
       await expect(service.getOrCreateEncounter('appt-1', clinicianA)).rejects.toThrow('connection reset');
+    });
+
+    // P2-14 -- digital intake -> auto-populate EMR. Before this slice,
+    // nothing ever read Appointments.reason/intake_responses when an
+    // encounter was created; a clinician always re-asked what the patient
+    // had already answered at booking.
+    describe('intake auto-population (P2-14)', () => {
+      it('does not seed a note, and does not query intake field configs at all, when the appointment has no reason and no intake responses', async () => {
+        prisma.appointments.findUnique.mockResolvedValue({ ...appointment, reason: '', intake_responses: null });
+        prisma.encounters.findUnique.mockResolvedValue(null);
+        prisma.encounters.create.mockResolvedValue(encounterOpen);
+        await service.getOrCreateEncounter('appt-1', clinicianA);
+        expect(prisma.encounterNotes.create).not.toHaveBeenCalled();
+        expect(intakeFieldsService.forBooking).not.toHaveBeenCalled();
+      });
+
+      it('does not re-seed (or even re-check) an already-existing encounter', async () => {
+        prisma.appointments.findUnique.mockResolvedValue({ ...appointment, reason: 'Fever', intake_responses: { symptoms: 'Cough' } });
+        prisma.encounters.findUnique.mockResolvedValue(encounterOpen);
+        await service.getOrCreateEncounter('appt-1', clinicianA);
+        expect(prisma.encounters.create).not.toHaveBeenCalled();
+        expect(prisma.encounterNotes.create).not.toHaveBeenCalled();
+      });
+
+      it('seeds the complaints section from the appointment\'s own reason alone', async () => {
+        prisma.appointments.findUnique.mockResolvedValue({ ...appointment, reason: 'Annual checkup', intake_responses: null });
+        prisma.encounters.findUnique.mockResolvedValue(null);
+        prisma.encounters.create.mockResolvedValue(encounterOpen);
+        await service.getOrCreateEncounter('appt-1', clinicianA);
+        expect(prisma.encounterNotes.create).toHaveBeenCalledWith({
+          data: expect.objectContaining({
+            encounter_id: 'enc-1',
+            section: 'complaints',
+            content: expect.stringContaining('Annual checkup'),
+          }),
+        });
+      });
+
+      it('resolves intake response keys to their real configured labels, never the raw key, when a config exists', async () => {
+        prisma.appointments.findUnique.mockResolvedValue({
+          ...appointment, reason: '', clinic_id: 'clinic-a', product_id: 'prod-1',
+          intake_responses: { known_allergies: 'Penicillin' },
+        });
+        prisma.encounters.findUnique.mockResolvedValue(null);
+        prisma.encounters.create.mockResolvedValue(encounterOpen);
+        intakeFieldsService.forBooking.mockResolvedValue([{ key: 'known_allergies', label: 'Known Allergies' }]);
+        await service.getOrCreateEncounter('appt-1', clinicianA);
+        expect(intakeFieldsService.forBooking).toHaveBeenCalledWith('clinic-a', 'prod-1');
+        const content = prisma.encounterNotes.create.mock.calls[0][0].data.content;
+        expect(content).toContain('Known Allergies');
+        expect(content).toContain('Penicillin');
+        expect(content).not.toContain('known_allergies');
+      });
+
+      it('falls back to the raw key when no matching intake field config is found', async () => {
+        prisma.appointments.findUnique.mockResolvedValue({ ...appointment, reason: '', intake_responses: { some_key: 'A value' } });
+        prisma.encounters.findUnique.mockResolvedValue(null);
+        prisma.encounters.create.mockResolvedValue(encounterOpen);
+        intakeFieldsService.forBooking.mockResolvedValue([]);
+        await service.getOrCreateEncounter('appt-1', clinicianA);
+        const content = prisma.encounterNotes.create.mock.calls[0][0].data.content;
+        expect(content).toContain('some_key');
+      });
+
+      it('skips a blank/whitespace-only intake response entirely', async () => {
+        prisma.appointments.findUnique.mockResolvedValue({ ...appointment, reason: '', intake_responses: { symptoms: '   ' } });
+        prisma.encounters.findUnique.mockResolvedValue(null);
+        prisma.encounters.create.mockResolvedValue(encounterOpen);
+        await service.getOrCreateEncounter('appt-1', clinicianA);
+        expect(prisma.encounterNotes.create).not.toHaveBeenCalled();
+      });
+
+      it('HTML-escapes a stored-XSS-shaped reason before it ever reaches EncounterNotes.content', async () => {
+        prisma.appointments.findUnique.mockResolvedValue({ ...appointment, reason: '<script>alert(1)</script>', intake_responses: null });
+        prisma.encounters.findUnique.mockResolvedValue(null);
+        prisma.encounters.create.mockResolvedValue(encounterOpen);
+        await service.getOrCreateEncounter('appt-1', clinicianA);
+        const content = prisma.encounterNotes.create.mock.calls[0][0].data.content;
+        expect(content).not.toContain('<script>');
+        expect(content).toContain('&lt;script&gt;');
+      });
     });
   });
 
