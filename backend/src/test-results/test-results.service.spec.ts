@@ -11,7 +11,7 @@ import { JwtPayload } from '../auth/strategies/jwt.strategy';
 describe('TestResultsService — access scoping', () => {
   let service: TestResultsService;
   let prisma: {
-    testResults: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; count: jest.Mock };
+    testResults: { findMany: jest.Mock; findUnique: jest.Mock; create: jest.Mock; count: jest.Mock; update: jest.Mock };
     patients: { findUnique: jest.Mock };
     userProfiles: { findUnique: jest.Mock };
     $transaction: jest.Mock;
@@ -26,7 +26,7 @@ describe('TestResultsService — access scoping', () => {
 
   beforeEach(async () => {
     prisma = {
-      testResults: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), create: jest.fn(), count: jest.fn().mockResolvedValue(0) },
+      testResults: { findMany: jest.fn().mockResolvedValue([]), findUnique: jest.fn(), create: jest.fn(), count: jest.fn().mockResolvedValue(0), update: jest.fn() },
       patients: { findUnique: jest.fn() },
       userProfiles: { findUnique: jest.fn().mockResolvedValue({ first_name: 'Ada', last_name: 'Ordering' }) },
       // REQ133 — findAll() now runs count()/findMany() inside a
@@ -252,6 +252,84 @@ describe('TestResultsService — access scoping', () => {
       });
       const platformAdmin: JwtPayload = { sub: 'admin-1', roles: ['admin'], client_org_id: null } as JwtPayload;
       await expect(service.orderTest(validInput as any, platformAdmin)).resolves.toBeDefined();
+    });
+  });
+
+  // P2-13 — the previously-missing write path. Before this slice, no code
+  // anywhere could ever move a TestResults row past 'pending' or attach a
+  // value; toGraphQL()'s own "withheld until completed" logic had never
+  // once been exercised against a real completed row until these tests.
+  describe('recordResult', () => {
+    const pendingRow = {
+      id: 'tr-1', is_deleted: false, status: 'pending', values: [], date_completed: null,
+      patient_name: 'Anita Sharma', test_name: 'CBC', ordered_by_name: 'Dr. A', date_ordered: new Date(),
+      test_type: 'Blood Test', ordered_by: { client_org_id: 'org-1' },
+    };
+    const processingRow = { ...pendingRow, status: 'processing' };
+    const completedRow = { ...pendingRow, status: 'completed', values: [{ name: 'Hb', value: '14', ref: '13-17', flag: 'normal' }] };
+    const oneValue = [{ name: 'Hb', value: '14', ref: '13-17', flag: 'normal' }];
+
+    it('rejects a missing test result', async () => {
+      prisma.testResults.findUnique.mockResolvedValue(null);
+      await expect(service.recordResult({ id: 'tr-x', status: 'processing' } as any, staffUser)).rejects.toThrow(NotFoundException);
+    });
+
+    it('rejects a cross-org test result', async () => {
+      prisma.testResults.findUnique.mockResolvedValue(pendingRow);
+      const otherOrgUser: JwtPayload = { sub: 'u2', roles: ['clinician'], client_org_id: 'org-2' } as JwtPayload;
+      await expect(service.recordResult({ id: 'tr-1', status: 'processing' } as any, otherOrgUser)).rejects.toThrow(NotFoundException);
+      expect(prisma.testResults.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects moving an already-completed result to any other status (immutable once completed)', async () => {
+      prisma.testResults.findUnique.mockResolvedValue(completedRow);
+      await expect(service.recordResult({ id: 'tr-1', status: 'processing' } as any, staffUser)).rejects.toThrow(/cannot move/i);
+      expect(prisma.testResults.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects processing -> pending as an illegal backward transition', async () => {
+      prisma.testResults.findUnique.mockResolvedValue(processingRow);
+      await expect(service.recordResult({ id: 'tr-1', status: 'pending' } as any, staffUser)).rejects.toThrow(/cannot move/i);
+    });
+
+    it('rejects completing with no values', async () => {
+      prisma.testResults.findUnique.mockResolvedValue(pendingRow);
+      await expect(service.recordResult({ id: 'tr-1', status: 'completed', values: [] } as any, staffUser)).rejects.toThrow(/at least one result value/i);
+      expect(prisma.testResults.update).not.toHaveBeenCalled();
+    });
+
+    it('allows pending -> processing with no values', async () => {
+      prisma.testResults.findUnique.mockResolvedValue(pendingRow);
+      prisma.testResults.update.mockResolvedValue(processingRow);
+      await service.recordResult({ id: 'tr-1', status: 'processing' } as any, staffUser);
+      expect(prisma.testResults.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'processing', values: [], date_completed: null }) }),
+      );
+    });
+
+    it('allows pending -> completed directly, skipping processing', async () => {
+      prisma.testResults.findUnique.mockResolvedValue(pendingRow);
+      prisma.testResults.update.mockResolvedValue(completedRow);
+      await service.recordResult({ id: 'tr-1', status: 'completed', values: oneValue } as any, staffUser);
+      expect(prisma.testResults.update).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ status: 'completed', values: oneValue }) }),
+      );
+    });
+
+    it('sets date_completed only on the transition into completed, never on processing', async () => {
+      prisma.testResults.findUnique.mockResolvedValue(processingRow);
+      prisma.testResults.update.mockResolvedValue(completedRow);
+      await service.recordResult({ id: 'tr-1', status: 'completed', values: oneValue } as any, staffUser);
+      const data = prisma.testResults.update.mock.calls[0][0].data;
+      expect(data.date_completed).toBeInstanceOf(Date);
+    });
+
+    it("toGraphQL's withholding logic now returns real values for a genuinely completed row", async () => {
+      prisma.testResults.findUnique.mockResolvedValue(pendingRow);
+      prisma.testResults.update.mockResolvedValue(completedRow);
+      const result = await service.recordResult({ id: 'tr-1', status: 'completed', values: oneValue } as any, staffUser);
+      expect(result.status).toBe('completed');
+      expect(result.values).toEqual(oneValue);
     });
   });
 });

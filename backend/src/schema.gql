@@ -2855,6 +2855,7 @@ type Mutation {
   recordOtConsumable(input: RecordOtConsumableInput!): OtBooking!
   recordPharmacyPayment(input: RecordPharmacyPaymentInput!): RecordPharmacyPaymentResult!
   recordPrnAdministration(input: RecordPrnAdministrationInput!): MedicationAdministration!
+  recordTestResult(input: RecordTestResultInput!): TestResult!
   recordVitals(input: RecordVitalsInput!): [Vital!]!
   redeemPackageSitting(input: RedeemPackageSittingInput!): RedeemPackageSittingResult!
   refresh(input: RefreshInput!): AuthPayload!
@@ -4625,6 +4626,12 @@ input RecordPrnAdministrationInput {
   witness_user_id: ID
 }
 
+input RecordTestResultInput {
+  id: ID!
+  status: String!
+  values: [TestResultValueInput!]
+}
+
 input RecordVitalsInput {
   encounter_id: ID!
   readings: [VitalReadingInput!]!
@@ -5268,6 +5275,13 @@ type TestResultPaginatorInfo {
 }
 
 type TestResultValue {
+  flag: String!
+  name: String!
+  ref: String!
+  value: String!
+}
+
+input TestResultValueInput {
   flag: String!
   name: String!
   ref: String!

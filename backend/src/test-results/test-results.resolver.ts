@@ -1,7 +1,7 @@
 import { Resolver, Query, Mutation, Args, ID, Int } from '@nestjs/graphql';
 import { TestResultsService } from './test-results.service';
 import { TestResultType, TestResultPaginatedType } from './entities/test-result.entity';
-import { OrderTestInput } from './dto/order-test.input';
+import { OrderTestInput, RecordTestResultInput } from './dto/order-test.input';
 import { Auth } from '../common/decorators/auth.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
@@ -39,5 +39,13 @@ export class TestResultsResolver {
   @Mutation(() => TestResultType)
   orderTest(@Args('input') input: OrderTestInput, @CurrentUser() user: JwtPayload) {
     return this.testResultsService.orderTest(input, user);
+  }
+
+  // P2-13 — the previously-missing completion path; same gate as orderTest
+  // (no dedicated "lab technician" role exists in this app's fixed RBAC set).
+  @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff')
+  @Mutation(() => TestResultType)
+  recordTestResult(@Args('input') input: RecordTestResultInput, @CurrentUser() user: JwtPayload) {
+    return this.testResultsService.recordResult(input, user);
   }
 }

@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { OrderTestInput } from './dto/order-test.input';
+import { OrderTestInput, RecordTestResultInput } from './dto/order-test.input';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 import { isPlatformOperator, orgScopeVia, assertSameOrg } from '../common/scoping/tenant-scope';
 import { PatientsService } from '../patients/patients.service';
@@ -174,5 +174,46 @@ export class TestResultsService {
       },
     });
     return this.toGraphQL(row);
+  }
+
+  // P2-13 — the previously-missing write path (see PLAN253 for the full
+  // account of why: neither orderTest() above nor orderInvestigation()
+  // (encounters.service.ts, REQ127) has ever had a counterpart that moves a
+  // row past its default 'pending' status). Only pending->processing,
+  // pending->completed, and processing->completed are legal; a completed
+  // result is immutable, the AdmissionNotes/DischargeSummaries/OtNotes
+  // "locked once signed" precedent applied here for the first time to lab
+  // data integrity.
+  private static readonly RESULT_TRANSITIONS: Record<string, string[]> = {
+    pending: ['processing', 'completed'],
+    processing: ['completed'],
+    completed: [],
+  };
+
+  async recordResult(input: RecordTestResultInput, user: JwtPayload) {
+    const row = await this.prisma.testResults.findUnique({ where: { id: input.id }, include: { ordered_by: true } });
+    if (!row || row.is_deleted) {
+      throw new NotFoundException('Test result not found');
+    }
+    assertSameOrg(user, row.ordered_by?.client_org_id ?? null, 'Test result');
+
+    const legalNext = TestResultsService.RESULT_TRANSITIONS[row.status] ?? [];
+    if (!legalNext.includes(input.status)) {
+      throw new BadRequestException(`Cannot move a test result from '${row.status}' to '${input.status}'`);
+    }
+    if (input.status === 'completed' && (!input.values || input.values.length === 0)) {
+      throw new BadRequestException('At least one result value is required to complete a test result');
+    }
+
+    const updated = await this.prisma.testResults.update({
+      where: { id: input.id },
+      data: {
+        status: input.status as any,
+        values: (input.values ?? []) as any,
+        date_completed: input.status === 'completed' ? new Date() : row.date_completed,
+      },
+      include: { ordered_by: true },
+    });
+    return this.toGraphQL(updated);
   }
 }
