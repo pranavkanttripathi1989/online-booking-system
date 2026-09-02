@@ -3,12 +3,14 @@ import { NotFoundException, BadRequestException, ConflictException } from '@nest
 import { OtBookingsService } from './ot-bookings.service';
 import { OperationTheatresService } from './operation-theatres.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { IpdBillingService } from '../ipd-billing/ipd-billing.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 describe('OtBookingsService', () => {
   let service: OtBookingsService;
   let prisma: any;
   let theatresService: any;
+  let billingService: any;
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['manager'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
 
@@ -20,6 +22,9 @@ describe('OtBookingsService', () => {
     id: 'booking-a',
     client_org_id: 'org-a',
     status: 'scheduled',
+    theatre_id: 'theatre-a',
+    admission_id: 'adm-a',
+    start_at: new Date('2026-09-05T09:00:00Z'),
     theatre: theatreA,
     admission: { admission_number: 'ADM-1', patient: { first_name: 'Jane', last_name: 'Doe' } },
     primary_surgeon: { first_name: 'Sam', last_name: 'Rao' },
@@ -38,13 +43,16 @@ describe('OtBookingsService', () => {
       otChecklists: { findMany: jest.fn().mockResolvedValue([]) },
       otBookingStaff: { create: jest.fn(), findUnique: jest.fn(), delete: jest.fn() },
       userProfiles: { findUnique: jest.fn() },
+      operationTheatres: { findUnique: jest.fn().mockResolvedValue({ ...theatreA, usage_charge_product_id: null }) },
     };
     theatresService = { assertTheatreInScope: jest.fn().mockResolvedValue(theatreA) };
+    billingService = { postCharge: jest.fn().mockResolvedValue({ id: 'charge-1' }), priceProductForAdmission: jest.fn() };
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         OtBookingsService,
         { provide: PrismaService, useValue: prisma },
         { provide: OperationTheatresService, useValue: theatresService },
+        { provide: IpdBillingService, useValue: billingService },
       ],
     }).compile();
     service = module.get(OtBookingsService);
@@ -152,6 +160,40 @@ describe('OtBookingsService', () => {
       ]);
       await service.complete('booking-a', orgAUser);
       expect(prisma.otBookings.update).toHaveBeenCalledWith({ where: { id: 'booking-a' }, data: { status: 'completed' } });
+    });
+
+    it('does not post a usage charge when the theatre has none configured', async () => {
+      prisma.otBookings.findUnique.mockResolvedValueOnce({ ...bookingA, status: 'in_progress' }).mockResolvedValueOnce(bookingA);
+      prisma.otChecklists.findMany.mockResolvedValue([
+        { phase: 'sign_in', completed_at: new Date() },
+        { phase: 'time_out', completed_at: new Date() },
+        { phase: 'sign_out', completed_at: new Date() },
+      ]);
+      await service.complete('booking-a', orgAUser);
+      expect(billingService.postCharge).not.toHaveBeenCalled();
+    });
+
+    it('posts a flat theatre-usage charge dated to the booking start when configured', async () => {
+      prisma.operationTheatres.findUnique.mockResolvedValue({ ...theatreA, usage_charge_product_id: 'prod-ot' });
+      billingService.priceProductForAdmission.mockResolvedValue(150000);
+      prisma.otBookings.findUnique.mockResolvedValueOnce({ ...bookingA, status: 'in_progress' }).mockResolvedValueOnce(bookingA);
+      prisma.otChecklists.findMany.mockResolvedValue([
+        { phase: 'sign_in', completed_at: new Date() },
+        { phase: 'time_out', completed_at: new Date() },
+        { phase: 'sign_out', completed_at: new Date() },
+      ]);
+      await service.complete('booking-a', orgAUser);
+      expect(billingService.postCharge).toHaveBeenCalledWith(
+        expect.objectContaining({
+          admissionId: 'adm-a',
+          chargeType: 'ot_usage',
+          productId: 'prod-ot',
+          unitPricePaise: 150000,
+          serviceDate: bookingA.start_at,
+          sourceReferenceType: 'ot_booking',
+          sourceReferenceId: 'booking-a',
+        }),
+      );
     });
 
     it('rejects a cross-org booking transition', async () => {

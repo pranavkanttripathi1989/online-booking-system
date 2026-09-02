@@ -2,11 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { NursingService } from './nursing.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { IpdBillingService } from '../ipd-billing/ipd-billing.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 describe('NursingService', () => {
   let service: NursingService;
   let prisma: any;
+  let billingService: any;
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['staff'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
   const orgBUser: JwtPayload = { sub: 'u2', roles: ['staff'], client_org_id: 'org-b', patient_id: null, clinician_id: null } as JwtPayload;
@@ -24,8 +26,13 @@ describe('NursingService', () => {
       wards: { findUnique: jest.fn() },
       shiftHandovers: { create: jest.fn(), update: jest.fn(), findUnique: jest.fn(), findMany: jest.fn().mockResolvedValue([]) },
     };
+    billingService = {
+      getSettingsRowOrDefault: jest.fn().mockResolvedValue({ doctor_visit_charge_product_id: null }),
+      priceProductForAdmission: jest.fn(),
+      postCharge: jest.fn().mockResolvedValue({ id: 'charge-1' }),
+    };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [NursingService, { provide: PrismaService, useValue: prisma }],
+      providers: [NursingService, { provide: PrismaService, useValue: prisma }, { provide: IpdBillingService, useValue: billingService }],
     }).compile();
     service = module.get(NursingService);
     prisma.admissions.findUnique.mockResolvedValue(admissionA);
@@ -94,6 +101,38 @@ describe('NursingService', () => {
       expect(prisma.admissionNotes.create).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ author_user_id: 'u3', author_clinician_id: 'clin-a', note_kind: 'doctor_round' }) }),
       );
+    });
+
+    it('does not post a doctor-visit charge when the clinic has none configured', async () => {
+      prisma.admissionNotes.create.mockResolvedValue({ id: 'note-1', addenda: [], note_datetime: new Date('2026-09-02T08:00:00Z') });
+      await service.createAdmissionNote({ admission_id: 'adm-a', note_kind: 'doctor_round' } as any, clinicianUser);
+      expect(billingService.postCharge).not.toHaveBeenCalled();
+    });
+
+    it('posts one doctor-visit charge, keyed by clinician and calendar day, when configured', async () => {
+      billingService.getSettingsRowOrDefault.mockResolvedValue({ doctor_visit_charge_product_id: 'prod-visit' });
+      billingService.priceProductForAdmission.mockResolvedValue(50000);
+      prisma.admissionNotes.create.mockResolvedValue({ id: 'note-1', addenda: [], note_datetime: new Date('2026-09-02T08:00:00Z') });
+      await service.createAdmissionNote({ admission_id: 'adm-a', note_kind: 'doctor_round' } as any, clinicianUser);
+
+      expect(billingService.postCharge).toHaveBeenCalledWith(
+        expect.objectContaining({
+          admissionId: 'adm-a',
+          chargeType: 'doctor_visit',
+          productId: 'prod-visit',
+          unitPricePaise: 50000,
+          sourceReferenceType: 'clinician',
+          sourceReferenceId: 'clin-a',
+          serviceDate: new Date('2026-09-02T00:00:00Z'),
+        }),
+      );
+    });
+
+    it('does not post a doctor-visit charge for a nursing_progress note (not a doctor round)', async () => {
+      billingService.getSettingsRowOrDefault.mockResolvedValue({ doctor_visit_charge_product_id: 'prod-visit' });
+      prisma.admissionNotes.create.mockResolvedValue({ id: 'note-1', addenda: [], note_datetime: new Date() });
+      await service.createAdmissionNote({ admission_id: 'adm-a', note_kind: 'nursing_progress', content: 'Stable' } as any, orgAUser);
+      expect(billingService.postCharge).not.toHaveBeenCalled();
     });
 
     it('rejects signing an already-signed note', async () => {

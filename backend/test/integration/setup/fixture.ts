@@ -184,6 +184,10 @@ export const IDS = {
   // REQ179 (IPD slice 3) -- operation-theatre domain.
   theatreA: u('k07'),
   theatreB: u('k08'),
+
+  // REQ179 (IPD slice 4) -- ipd-billing domain.
+  ipdBillA: u('k09'),
+  ipdBillB: u('k10'),
 } as const;
 
 /** Every table this fixture writes, in safe truncation order (children first). */
@@ -193,6 +197,11 @@ const TABLES = [
   'MlcAmendments',
   'MlcRegisters',
   'AdmissionEvents',
+  // REQ179 (IPD slice 4) -- IpdCharges/IpdPayments both FK to IpdBills,
+  // which FKs to Admissions -- all three truncated before Admissions itself.
+  'IpdCharges',
+  'IpdPayments',
+  'IpdBills',
   'BedOccupancies',
   'Admissions',
   'Beds',
@@ -441,6 +450,16 @@ export async function buildFixture(prisma: PrismaClient): Promise<void> {
     data: [
       { id: IDS.theatreA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, name: 'Fixture OT-A' },
       { id: IDS.theatreB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, name: 'Fixture OT-B' },
+    ],
+  });
+
+  // REQ179 (IPD slice 4) -- one IpdBills row per org, one per admission
+  // (ipdBills is a real org-wide list query, the wards/operationTheatres
+  // precedent).
+  await prisma.ipdBills.createMany({
+    data: [
+      { id: IDS.ipdBillA, client_org_id: IDS.orgA, clinic_id: IDS.clinicA, admission_id: IDS.admissionA },
+      { id: IDS.ipdBillB, client_org_id: IDS.orgB, clinic_id: IDS.clinicB, admission_id: IDS.admissionB },
     ],
   });
 

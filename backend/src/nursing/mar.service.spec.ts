@@ -2,11 +2,13 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { NotFoundException, BadRequestException } from '@nestjs/common';
 import { MarService } from './mar.service';
 import { PrismaService } from '../prisma/prisma.service';
+import { IpdBillingService } from '../ipd-billing/ipd-billing.service';
 import { JwtPayload } from '../auth/strategies/jwt.strategy';
 
 describe('MarService', () => {
   let service: MarService;
   let prisma: any;
+  let billingService: any;
 
   const orgAUser: JwtPayload = { sub: 'u1', roles: ['staff'], client_org_id: 'org-a', patient_id: null, clinician_id: null } as JwtPayload;
 
@@ -22,7 +24,7 @@ describe('MarService', () => {
 
   const highAlertMar = { ...marRow, order: { id: 'order-1', is_high_alert: true } };
 
-  const batchA = { id: 'batch-1', client_org_id: 'org-a', drug_id: 'drug-a', quantity_remaining: 10 };
+  const batchA = { id: 'batch-1', client_org_id: 'org-a', drug_id: 'drug-a', quantity_remaining: 10, mrp_paise: 5000 };
 
   beforeEach(async () => {
     prisma = {
@@ -38,8 +40,9 @@ describe('MarService', () => {
       stockMovements: { create: jest.fn().mockResolvedValue({ id: 'move-1' }) },
       $transaction: jest.fn((cb) => cb(prisma)),
     };
+    billingService = { postCharge: jest.fn().mockResolvedValue({ id: 'charge-1' }) };
     const module: TestingModule = await Test.createTestingModule({
-      providers: [MarService, { provide: PrismaService, useValue: prisma }],
+      providers: [MarService, { provide: PrismaService, useValue: prisma }, { provide: IpdBillingService, useValue: billingService }],
     }).compile();
     service = module.get(MarService);
   });
@@ -91,6 +94,25 @@ describe('MarService', () => {
       expect(prisma.medicationAdministrations.update).toHaveBeenCalledWith(
         expect.objectContaining({ data: expect.objectContaining({ stock_movement_id: 'move-1' }) }),
       );
+    });
+
+    it('posts a pharmacy IPD charge priced off the batch MRP when given with a batch', async () => {
+      prisma.medicationAdministrations.findUnique.mockResolvedValue(marRow);
+      prisma.drugBatches.findUnique.mockResolvedValue(batchA);
+      prisma.medicationAdministrations.update.mockResolvedValue({ ...marRow, status: 'given', batch_id: 'batch-1' });
+      await service.administer({ mar_id: 'mar-1', status: 'given', batch_id: 'batch-1' } as any, orgAUser);
+
+      expect(billingService.postCharge).toHaveBeenCalledWith(
+        expect.objectContaining({ admissionId: 'adm-a', chargeType: 'pharmacy', unitPricePaise: 5000, sourceReferenceType: 'medication_administration', sourceReferenceId: 'mar-1' }),
+        prisma,
+      );
+    });
+
+    it('does not post a charge when no batch is supplied (an unpriced dose cannot bill)', async () => {
+      prisma.medicationAdministrations.findUnique.mockResolvedValue(marRow);
+      prisma.medicationAdministrations.update.mockResolvedValue({ ...marRow, status: 'given' });
+      await service.administer({ mar_id: 'mar-1', status: 'given' } as any, orgAUser);
+      expect(billingService.postCharge).not.toHaveBeenCalled();
     });
 
     it('rejects consuming a batch belonging to a different drug', async () => {

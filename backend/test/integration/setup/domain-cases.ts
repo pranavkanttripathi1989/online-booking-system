@@ -74,6 +74,18 @@ export const CASES: DomainCase[] = [
     allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
   },
   {
+    // REQ179 (IPD slice 4). Own client_org_id (the Wards/OperationTheatres
+    // precedent), so ipdBills exercises orgScope() against the table's own
+    // column.
+    domain: 'ipd-billing',
+    what: 'ipdBills',
+    query: `{ ipdBills { id } }`,
+    ids: (d) => (d.ipdBills ?? []).map((x: any) => x.id),
+    aId: IDS.ipdBillA,
+    bId: IDS.ipdBillB,
+    allowedRoles: ['super_admin', 'admin', 'manager', 'staff', 'clinician'],
+  },
+  {
     // REQ163 (P2-10). Org-scoped via clinic.client_org_id, same shape as
     // packages' own row above -- clinic_id omitted, matching that
     // precedent.
