@@ -12,6 +12,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ185 | improvement | Digital intake auto-populates the EMR (P2-14) | done | 2026-09-03 | 2026-09-03 | — | [REQ185-clinical-records-2026-09-03-intake-auto-populate-emr.md](./improvement/REQ185-clinical-records-2026-09-03-intake-auto-populate-emr.md) |
 | REQ135 | improvement | Referral status-transition mutation | done | 2026-08-26 | 2026-08-26 | REQ128 | [REQ135-clinical-records-2026-08-26-referral-status-transition.md](./improvement/REQ135-clinical-records-2026-08-26-referral-status-transition.md) |
 | REQ130 | improvement | Discrete vitals for growth charts (FR-EMR-05) | done | 2026-08-26 | 2026-08-26 | REQ020 | [REQ130-clinical-records-2026-08-26-discrete-vitals-growth-chart.md](./improvement/REQ130-clinical-records-2026-08-26-discrete-vitals-growth-chart.md) |
 | REQ128 | improvement | Referrals (FR-EMR-10) | done | 2026-08-26 | 2026-08-26 | REQ020 | [REQ128-clinical-records-2026-08-26-referrals.md](./improvement/REQ128-clinical-records-2026-08-26-referrals.md) |
