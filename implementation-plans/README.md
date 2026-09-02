@@ -11,6 +11,7 @@
 | analytics-reporting | 2 | 1 | 1 | 0 | 4 | 2026-08-28 | [analytics-reporting](./analytics-reporting/README.md) |
 | subscription-plan-engine | 1 | 1 | 0 | 0 | 2 | 2026-08-27 | [subscription-plan-engine](./subscription-plan-engine/README.md) |
 | platform-billing | 1 | 0 | 0 | 0 | 1 | 2026-09-02 | [platform-billing](./platform-billing/README.md) |
+| ipd | 1 | 0 | 0 | 0 | 1 | 2026-09-02 | [ipd](./ipd/README.md) |
 | compliance-dpdp | 1 | 3 | 0 | 0 | 4 | 2026-08-26 | [compliance-dpdp](./compliance-dpdp/README.md) |
 | platform-integrations | 1 | 4 | 0 | 0 | 5 | 2026-08-26 | [platform-integrations](./platform-integrations/README.md) |
 | insurance-claims | 1 | 7 | 0 | 0 | 8 | 2026-08-27 | [insurance-claims](./insurance-claims/README.md) |

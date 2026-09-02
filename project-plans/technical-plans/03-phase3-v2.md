@@ -95,14 +95,23 @@ Design notes that are safe to fix now:
 
 ---
 
-## 4. IPD-lite
+## 4. IPD-lite — superseded 2026-09-02, see `requirements/ipd/`
 
-Beds, admissions, discharge summaries. Explicitly **not** full IPD/ward
-management (PRD §6.4 puts that out of scope entirely).
-
-Primary purpose in this phase is enabling the insurance module's IPD
-pre-authorisation and discharge flows — scope it to what those need, not to what
-a hospital information system would want.
+**This section is stale.** It described a deliberately reduced "beds,
+admissions, discharge summaries" scope, explicitly **not** full IPD/ward
+management, on the grounds that PRD §6.4 put that out of scope entirely.
+A specific customer engagement (2026-09-02) required the full system
+instead — nursing home/hospital/ICU/ward/OT/billing — and `PRD-v2-CareOS
+.md`'s own "what v2 explicitly does not do" section has been struck
+accordingly. The real technical design now lives in
+`requirements/ipd/requirement/REQ179-*.md` (slice 1: ADT core, shipped
+2026-09-02) and its own `PLAN248`, not here. **Do not scope future IPD
+work against this section's "not what a hospital information system
+would want" framing** — that framing was correct for the narrower
+`C23`/insurance-only scope this section originally described, and is no
+longer this codebase's actual direction. Re-verify against
+`requirements/ipd/README.md` for current slice status before planning
+further IPD work; this section is kept for historical context only.
 
 ---
 

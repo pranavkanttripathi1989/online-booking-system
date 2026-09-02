@@ -39,7 +39,7 @@ other people build on.
 | **P3-07** | Speciality pack — ayurveda (prakriti, therapy courses) | BE+FE | not started | P3-03 | |
 | **P3-08** | TPA portal-assist (form-fill automation) | BE+FE | not started | P2-03 | Pragmatic answer to risk R11: TPAs stay portal-bound |
 | **P3-09** | Lab / diagnostics module | BE+FE | not started | P2-13 | Extends the lab loop into a real domain |
-| **P3-10** | IPD-lite (beds, admissions, discharge summaries) | BE+FE | not started | — | Segment S4 requirement |
+| **P3-10** | ~~IPD-lite (beds, admissions, discharge summaries)~~ — superseded 2026-09-02 | BE+FE | in progress, out of sequence | — | A direct customer decision widened this to the FULL system (nursing home/hospital/ICU/ward/OT/billing), overriding the "not what a hospital information system would want" framing this row and its Phase-3 placement assumed. Slice 1 (ADT core) shipped 2026-09-02, ahead of this row's own P3 sequencing — see `requirements/ipd/README.md` for current status, not this table. |
 | **P3-11** | Capacitor mobile shell + `src/platform/` wrapper | FE | not started | P2-19 | **Activates the 18 🔜 `WV-*` rules.** Do not start until PWA has proven the offline model |
 | **P3-12** | Native app store presence (clinician + patient) | FE | not started | P3-11 | Only if PWA measurably falls short |
 | **P3-13** | Partner app marketplace | BE+FE | not started | — | Public API + webhooks already shipped |

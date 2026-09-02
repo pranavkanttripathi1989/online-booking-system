@@ -557,11 +557,34 @@ change.
 
 ### What v2 explicitly does **not** do
 
-Unchanged from v1 §6.4 (no IPD/ward, OT scheduling, PACS/DICOM, blood bank,
-HR/payroll, full ERP accounting, international billing; **we do not underwrite,
-broker or sell insurance**). Added: **we do not train foundation speech or
-language models** — we buy inference and own the structuring, schema and
-workflow.
+Unchanged from v1 §6.4 (no PACS/DICOM, blood bank, HR/payroll, full ERP
+accounting, international billing; **we do not underwrite, broker or sell
+insurance**). Added: **we do not train foundation speech or language
+models** — we buy inference and own the structuring, schema and workflow.
+
+**IPD/ward management and OT scheduling — struck 2026-09-02, direct
+customer decision.** This section previously read "no IPD/ward, OT
+scheduling," for a stated competitive-positioning reason: compete on cost
+and deployment speed against enterprise HIS, not on feature parity with
+one. A specific customer engagement required the full capability —
+nursing home / hospital / ICU / private and normal ward / operation
+theatre / billing — as a **complete system**, not the reduced `C23
+IPD-lite` candidate this document's own §7 table still describes below.
+The build is proceeding as a sequence of five reviewed slices (core ADT/
+bed-ward model → nursing/ICU charting → OT scheduling → IPD billing → TPA
+cashless insurance); slice 1 (admissions, wards, beds, live bed board,
+the statutory medico-legal register) shipped 2026-09-02 —
+`requirements/ipd/requirement/REQ179-*.md`. **`C23`'s own row below is now
+stale** — it describes a narrower "beds, admission, discharge summary"
+scope than what is actually being built, and its Phase-3/unscheduled
+placement no longer reflects reality. Re-verify current IPD build status
+against `requirements/ipd/README.md` before quoting either the `C23` row
+or this note as current — both will drift as the remaining four slices
+land. This is a genuine, deliberate widening of the product's own
+competitive scope, not a technical afterthought — treat any future
+"IPD-lite only" planning assumption elsewhere in this document or in
+`project-plans/` as superseded by this note until those documents are
+themselves updated.
 
 ---
 
