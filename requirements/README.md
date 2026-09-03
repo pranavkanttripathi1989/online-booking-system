@@ -13,7 +13,7 @@
 | pharmacy | 1 | 3 | 0 | 1 | 3 | 2026-08-26 | [pharmacy](./pharmacy/README.md) |
 | prescriptions | 1 | 10 | 1 | 1 | 11 | 2026-09-01 | [prescriptions](./prescriptions/README.md) |
 | queue-management | 1 | 6 | 1 | 1 | 7 | 2026-09-03 | [queue-management](./queue-management/README.md) |
-| appointments | 1 | 7 | 6 | 2 | 12 | 2026-08-28 | [appointments](./appointments/README.md) |
+| appointments | 1 | 8 | 6 | 2 | 13 | 2026-09-03 | [appointments](./appointments/README.md) |
 | organizations | 2 | 5 | 0 | 1 | 6 | 2026-08-26 | [organizations](./organizations/README.md) |
 | catalog-master-data | 2 | 5 | 2 | 1 | 8 | 2026-08-28 | [catalog-master-data](./catalog-master-data/README.md) |
 | abdm-interop | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [abdm-interop](./abdm-interop/README.md) |

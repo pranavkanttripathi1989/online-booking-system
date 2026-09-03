@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| REQ187 | improvement | Self-serve reschedule link in every reminder (P2-16) | done | 2026-09-03 | 2026-09-03 | — | [REQ187-appointments-2026-09-03-self-serve-reschedule-link.md](./improvement/REQ187-appointments-2026-09-03-self-serve-reschedule-link.md) |
 | REQ124 | improvement | Room assignment tries the next available room, not just the first | done | 2026-08-26 | 2026-08-26 | — | [REQ124-appointments-2026-08-26-room-assignment-retries-next-available.md](./improvement/REQ124-appointments-2026-08-26-room-assignment-retries-next-available.md) |
 | REQ120 | improvement | Bulk-reschedule a clinician's whole day | done | 2026-08-26 | 2026-08-26 | REQ017 | [REQ120-appointments-2026-08-26-bulk-reschedule.md](./improvement/REQ120-appointments-2026-08-26-bulk-reschedule.md) |
 | REQ065 | improvement | Dependant self-scoping for prescriptions and test results | done | 2026-08-25 | 2026-08-25 | REQ018 | [REQ065-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md](./improvement/REQ065-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md) |

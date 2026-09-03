@@ -12,6 +12,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR276 | improvement | Self-serve reschedule link in every reminder (P2-16) results | pass | 2026-09-03 | 2026-09-03 | TP276 | [TR276-appointments-2026-09-03-self-serve-reschedule-link.md](./improvement/TR276-appointments-2026-09-03-self-serve-reschedule-link.md) |
 | TR184 | improvement | Room assignment retries the next available room results | pass | 2026-08-26 | 2026-08-26 | TP184 | [TR184-appointments-2026-08-26-room-assignment-retries-next-available.md](./improvement/TR184-appointments-2026-08-26-room-assignment-retries-next-available.md) |
 | TR180 | improvement | Bulk-reschedule results | pass | 2026-08-26 | 2026-08-26 | TP180 | [TR180-appointments-2026-08-26-bulk-reschedule.md](./improvement/TR180-appointments-2026-08-26-bulk-reschedule.md) |
 | TR118 | improvement | Dependant self-scoping for prescriptions and test results results | pass | 2026-08-25 | 2026-08-25 | TP119 | [TR118-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md](./improvement/TR118-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md) |

@@ -11,6 +11,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN256 | improvement | Self-serve reschedule link in every reminder (P2-16) | done | 2026-09-03 | 2026-09-03 | REQ187 | [PLAN256-appointments-2026-09-03-self-serve-reschedule-link.md](./improvement/PLAN256-appointments-2026-09-03-self-serve-reschedule-link.md) |
 | PLAN164 | improvement | Room assignment retries the next available room | done | 2026-08-26 | 2026-08-26 | REQ124 | [PLAN164-appointments-2026-08-26-room-assignment-retries-next-available.md](./improvement/PLAN164-appointments-2026-08-26-room-assignment-retries-next-available.md) |
 | PLAN160 | improvement | Bulk-reschedule a clinician's whole day | done | 2026-08-26 | 2026-08-26 | REQ120 | [PLAN160-appointments-2026-08-26-bulk-reschedule.md](./improvement/PLAN160-appointments-2026-08-26-bulk-reschedule.md) |
 | PLAN092 | improvement | Dependant self-scoping for prescriptions and test results | done | 2026-08-25 | 2026-08-25 | REQ065 | [PLAN092-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md](./improvement/PLAN092-appointments-2026-08-25-dependant-self-scoping-for-prescriptions-and-test-results.md) |

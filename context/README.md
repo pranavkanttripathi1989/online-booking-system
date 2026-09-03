@@ -4,6 +4,7 @@ One bundle per feature, linking every doc across the five roots for that feature
 
 | Bundle | Feature | Date | IDs | Status | Link |
 |---|---|---|---|---|---|
+| appointments-2026-09-03-req187-self-serve-reschedule-link | appointments | 2026-09-03 | REQ187, PLAN256, TP276, TR276 | done | [manifest.md](./appointments-2026-09-03-req187-self-serve-reschedule-link/manifest.md) |
 | queue-management-2026-09-03-req186-kiosk-checkin-mode | queue-management | 2026-09-03 | REQ186, PLAN255, TP275, TR275 | done | [manifest.md](./queue-management-2026-09-03-req186-kiosk-checkin-mode/manifest.md) |
 | clinical-records-2026-09-03-req185-intake-auto-populate-emr | clinical-records | 2026-09-03 | REQ185, PLAN254, TP274, TR274 | done | [manifest.md](./clinical-records-2026-09-03-req185-intake-auto-populate-emr/manifest.md) |
 | test-results-2026-09-03-req184-record-test-result | test-results | 2026-09-03 | REQ184, PLAN253, TP273, TR273 | done | [manifest.md](./test-results-2026-09-03-req184-record-test-result/manifest.md) |
