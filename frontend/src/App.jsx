@@ -377,6 +377,22 @@ function App() {
         />
       </Route>
 
+      {/* ── Front-desk self-check-in kiosk — public like /checkin/:token
+          above (P2-15/REQ186), but deliberately outside PublicLayout: a
+          shared, walk-up device must not offer the marketing nav or a
+          "For Clinicians" login link out to the rest of the site, matching
+          the queue-display "no chrome" precedent right above rather than
+          the public-with-header one. Same Checkin component, mounted with
+          no :token param — see checkin.jsx's own KioskCheckin. */}
+      <Route
+        path="/checkin"
+        element={
+          <Suspense fallback={<FullPageLoader />}>
+            <Checkin />
+          </Suspense>
+        }
+      />
+
       {/* ── Protected + AppShell ─────────────────────────────────────── */}
       <Route element={<ProtectedRoute />}>
         <Route element={<AppShell />}>
