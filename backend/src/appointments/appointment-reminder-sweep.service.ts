@@ -3,6 +3,7 @@ import { Cron } from '@nestjs/schedule';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
 import { computeNoShowRisk } from './no-show-risk';
+import { AppointmentsService } from './appointments.service';
 
 // P1-17 — the "reminder intensity" lever the phase-plan named as already
 // existing was not: appointment_reminder was fully registered as an event
@@ -30,6 +31,7 @@ export class AppointmentReminderSweepService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly notificationTrigger: NotificationTriggerService,
+    private readonly appointmentsService: AppointmentsService,
   ) {}
 
   @Cron('0 * * * *')
@@ -76,9 +78,21 @@ export class AppointmentReminderSweepService {
 
     const recipientUserId = await this.resolvePatientUserId(appointment.patient_id);
     if (recipientUserId) {
+      // P2-16 — the whole reason this slice exists: the SMS/WhatsApp text
+      // sendWhatsapp()/sendSms() actually deliver never included a link of
+      // any kind before this (action_url below is in-app-notification-bell
+      // only, never passed to an external channel — notification-trigger
+      // .service.ts's own dispatch()). issueRescheduleToken() returns null
+      // (skip the line entirely, mint nothing) when this appointment
+      // already has a still-valid, unused reschedule link out from an
+      // earlier reminder in the same cycle — see its own comment for why.
+      const rescheduleToken = await this.appointmentsService.issueRescheduleToken(appointment.id, appointment.appointment_time);
+      const rescheduleLine = rescheduleToken
+        ? ` Need to reschedule? ${process.env.FRONTEND_URL ?? 'http://localhost:3000'}/reschedule/${rescheduleToken}`
+        : '';
       await this.notificationTrigger.dispatch(recipientUserId, 'appointment_reminder', {
         title: shouldSendEarly ? 'Upcoming appointment in 2 days' : 'Appointment tomorrow',
-        message: `Your appointment with ${appointment.clinician.first_name} ${appointment.clinician.last_name} is on ${appointment.appointment_time.toLocaleDateString('en-IN')}.`,
+        message: `Your appointment with ${appointment.clinician.first_name} ${appointment.clinician.last_name} is on ${appointment.appointment_time.toLocaleDateString('en-IN')}.${rescheduleLine}`,
         type: 'appointment',
         action_url: `/appointments/${appointment.id}`,
       });

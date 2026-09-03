@@ -959,6 +959,15 @@ export class AppointmentsService {
           room_id: input.room_id ?? existing.room_id,
           notes: input.notes ?? existing.notes,
           cancellation_reason: input.status === 'cancelled' ? input.cancellation_reason ?? existing.cancellation_reason : existing.cancellation_reason,
+          // P2-16 — a reschedule that lands more than a full reminder cycle
+          // in the future must be eligible for its own fresh reminder (and
+          // therefore its own fresh self-serve reschedule link). Without
+          // this reset, an appointment that already used up its one/two
+          // allotted reminders (reminder_count >= maxReminders) would
+          // silently never get another one for its NEW time — a
+          // pre-existing gap in this exact code path, closed here since
+          // it directly undermines what this same reschedule write is for.
+          ...(timeChanged ? { reminder_count: 0, reminder_sent_at: null } : {}),
           updated_at: new Date(),
         },
         include: INCLUDE,
@@ -982,47 +991,189 @@ export class AppointmentsService {
       return row;
     });
 
-    // REQ177 -- a reschedule fee is based on how much notice was given
-    // before the ORIGINAL slot (the risk the fee compensates for), not the
-    // new one. Only applies to a genuine reschedule (timeChanged, not a
-    // cancellation -- those go through requestRefund's own cancellation-fee
-    // computation instead) on an appointment that actually had a real
-    // succeeded payment; an appointment with nothing paid has nothing to
-    // charge a fee against.
-    let rescheduleFee: { amount: number; paymentId: string } | undefined;
-    if (timeChanged && input.status !== 'cancelled') {
-      const priorPayment = await this.prisma.appointmentPayments.findFirst({
-        where: { appointment_id: id, status: 'succeeded' },
-        orderBy: { created_at: 'desc' },
-      });
-      if (priorPayment) {
-        const hoursBefore = hoursBetween(new Date(), existing.appointment_time);
-        const rules = await this.cancellationRulesService.findActiveRulesForOrg(existing.clinic.client_org_id, 'reschedule');
-        const rule = selectApplicableRule(rules, existing.product_id, existing.clinic_id);
-        const { feeAmount } = computeCancellationFee(rule, priorPayment.amount, hoursBefore);
-        if (feeAmount > 0) {
-          const feePayment = await this.prisma.appointmentPayments.create({
-            data: {
-              appointment_id: id,
-              patient_id: existing.patient_id,
-              clinic_id: existing.clinic_id,
-              client_org_id: existing.clinic.client_org_id,
-              amount: feeAmount,
-              currency: 'INR',
-              status: 'pending',
-              metadata: { reason: 'reschedule_fee' },
-            },
-          });
-          rescheduleFee = { amount: feeAmount, paymentId: feePayment.id };
-        }
-      }
-    }
+    const rescheduleFee =
+      timeChanged && input.status !== 'cancelled' ? await this.maybeChargeRescheduleFee(existing, id) : undefined;
 
     const result = this.toGraphQL(updated, [], undefined, undefined, rescheduleFee);
     await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
     if (input.status === 'cancelled' && existing.status !== 'cancelled') {
       await this.notifyCancellation(result);
     }
+    return result;
+  }
+
+  // REQ177 -- extracted verbatim from update()'s own inline block so
+  // reschedulePublic() (P2-16) can reuse the identical fee logic rather
+  // than re-deriving it. The fee is based on how much notice was given
+  // before the ORIGINAL slot (the risk it compensates for), not the new
+  // one -- `existing` is always the pre-reschedule row. Only applies when
+  // the appointment actually had a real succeeded payment; nothing paid
+  // means nothing to charge a fee against.
+  private async maybeChargeRescheduleFee(existing: any, appointmentId: string): Promise<{ amount: number; paymentId: string } | undefined> {
+    const priorPayment = await this.prisma.appointmentPayments.findFirst({
+      where: { appointment_id: appointmentId, status: 'succeeded' },
+      orderBy: { created_at: 'desc' },
+    });
+    if (!priorPayment) return undefined;
+
+    const hoursBefore = hoursBetween(new Date(), existing.appointment_time);
+    const rules = await this.cancellationRulesService.findActiveRulesForOrg(existing.clinic.client_org_id, 'reschedule');
+    const rule = selectApplicableRule(rules, existing.product_id, existing.clinic_id);
+    const { feeAmount } = computeCancellationFee(rule, priorPayment.amount, hoursBefore);
+    if (feeAmount <= 0) return undefined;
+
+    const feePayment = await this.prisma.appointmentPayments.create({
+      data: {
+        appointment_id: appointmentId,
+        patient_id: existing.patient_id,
+        clinic_id: existing.clinic_id,
+        client_org_id: existing.clinic.client_org_id,
+        amount: feeAmount,
+        currency: 'INR',
+        status: 'pending',
+        metadata: { reason: 'reschedule_fee' },
+      },
+    });
+    return { amount: feeAmount, paymentId: feePayment.id };
+  }
+
+  // P2-16 -- same password-reset-token shape as generateCheckinToken()
+  // (REQ107) immediately below, minted at reminder-send time instead of
+  // booking time (AppointmentReminderSweepService is the only caller).
+  // Expiry is the appointment's own current start time -- a reschedule
+  // link stops making sense once the original slot has already passed,
+  // no invented buffer beyond that.
+  private generateRescheduleToken(appointmentTime: Date): { rawToken: string; tokenHash: string; expiresAt: Date } {
+    const rawToken = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    return { rawToken, tokenHash, expiresAt: appointmentTime };
+  }
+
+  // P2-16 -- the only caller is AppointmentReminderSweepService. Returns
+  // null (mint nothing, include no link this send) when a still-valid,
+  // unused token already exists on the row -- a high-risk appointment gets
+  // two reminders (the 47-48h early one, then the 23-24h standard one),
+  // and since only a token's HASH is ever persisted, the raw value from
+  // the first send can never be recovered to reuse verbatim in the
+  // second. Minting a fresh token on every send would silently break the
+  // FIRST reminder's own already-delivered link the moment the second one
+  // goes out -- a genuinely confusing "why doesn't my link work anymore"
+  // for the patient. Skipping the second mint instead means the earlier
+  // link just keeps working; nothing is ever silently invalidated.
+  async issueRescheduleToken(appointmentId: string, appointmentTime: Date): Promise<string | null> {
+    const current = await this.prisma.appointments.findUnique({
+      where: { id: appointmentId },
+      select: { reschedule_token_hash: true, reschedule_token_used_at: true, reschedule_token_expires_at: true },
+    });
+    const hasLiveToken =
+      !!current?.reschedule_token_hash && !current.reschedule_token_used_at && !!current.reschedule_token_expires_at && current.reschedule_token_expires_at > new Date();
+    if (hasLiveToken) return null;
+
+    const { rawToken, tokenHash, expiresAt } = this.generateRescheduleToken(appointmentTime);
+    await this.prisma.appointments.update({
+      where: { id: appointmentId },
+      data: { reschedule_token_hash: tokenHash, reschedule_token_expires_at: expiresAt, reschedule_token_used_at: null },
+    });
+    return rawToken;
+  }
+
+  // P2-16 -- read-only lookup so the public reschedule page can render a
+  // specific valid/expired/used/not-found state before the patient ever
+  // picks a new time, without a wasted round trip. Never trusts a client-
+  // supplied appointment id -- the token's own hash is the only lookup key,
+  // same non-negotiable as checkInWithQrToken.
+  async getRescheduleContext(rawToken: string) {
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const appointment = await this.prisma.appointments.findFirst({ where: { reschedule_token_hash: tokenHash }, include: INCLUDE });
+    if (!appointment) {
+      throw new NotFoundException('Invalid reschedule link');
+    }
+    if (appointment.reschedule_token_used_at) {
+      throw new BadRequestException('This reschedule link has already been used');
+    }
+    if (!appointment.reschedule_token_expires_at || appointment.reschedule_token_expires_at < new Date()) {
+      throw new BadRequestException('This reschedule link has expired — please contact the clinic');
+    }
+    if (!['scheduled', 'confirmed'].includes(appointment.status)) {
+      throw new BadRequestException(`This appointment is already ${appointment.status.replace('_', ' ')} and cannot be rescheduled this way`);
+    }
+    return {
+      clinician_id: appointment.clinician_id,
+      clinician_name: `${appointment.clinician.first_name} ${appointment.clinician.last_name}`,
+      service_name: appointment.product?.name ?? null,
+      current_start_datetime: appointment.appointment_time,
+      duration_minutes: appointment.duration_minutes,
+      booking_mode: appointment.booking_mode,
+    };
+  }
+
+  // P2-16 -- the write half of the same public, token-authenticated flow.
+  // Reuses assertSlotFree() and maybeChargeRescheduleFee() verbatim rather
+  // than re-deriving either; deliberately its own self-contained
+  // transaction rather than routing through update() itself, since update()
+  // carries considerably more surface (status changes, room reassignment,
+  // notes) this caller must never be able to reach with only a token and
+  // no JwtPayload -- the same "don't stretch an authenticated method to
+  // also serve an unauthenticated caller" reasoning checkInWithQrToken's
+  // own comment already established for transitionStatus().
+  async reschedulePublic(rawToken: string, newStartIso: string) {
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const existing = await this.prisma.appointments.findFirst({ where: { reschedule_token_hash: tokenHash }, include: INCLUDE });
+    if (!existing) {
+      throw new NotFoundException('Invalid reschedule link');
+    }
+    if (existing.reschedule_token_used_at) {
+      throw new BadRequestException('This reschedule link has already been used');
+    }
+    if (!existing.reschedule_token_expires_at || existing.reschedule_token_expires_at < new Date()) {
+      throw new BadRequestException('This reschedule link has expired — please contact the clinic');
+    }
+    if (!['scheduled', 'confirmed'].includes(existing.status)) {
+      throw new BadRequestException(`This appointment is already ${existing.status.replace('_', ' ')} and cannot be rescheduled this way`);
+    }
+
+    const newStart = new Date(newStartIso);
+    const newEnd = new Date(newStart.getTime() + existing.duration_minutes * 60000);
+    if (newStart.getTime() <= Date.now()) {
+      throw new BadRequestException('Please choose a time in the future');
+    }
+    if (existing.booking_mode === 'slot') {
+      await this.assertSlotFree(existing.clinician_id, newStart, newEnd, existing.id);
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      const row = await tx.appointments.update({
+        where: { id: existing.id },
+        data: {
+          appointment_date: new Date(newStart.toDateString()),
+          appointment_time: newStart,
+          // Single-use, enforced atomically with the reschedule write
+          // itself -- same discipline as checkInWithQrToken's own
+          // checkin_token_used_at write, so two concurrent submits of the
+          // same link can never both succeed.
+          reschedule_token_used_at: new Date(),
+          // Same reasoning as update()'s own identical reset above -- this
+          // is now a different upcoming appointment and must be eligible
+          // for its own fresh reminder and reschedule link.
+          reminder_count: 0,
+          reminder_sent_at: null,
+          updated_at: new Date(),
+        },
+        include: INCLUDE,
+      });
+      await tx.appointmentResources.updateMany({
+        where: { appointment_id: existing.id },
+        data: { start_at: newStart, end_at: newEnd },
+      });
+      await tx.appointmentStatusLogs.create({
+        data: { appointment_id: existing.id, status: existing.status, reason: 'Rescheduled by patient (self-serve link)', changed_by_user_id: null },
+      });
+      return row;
+    });
+
+    const rescheduleFee = await this.maybeChargeRescheduleFee(existing, existing.id);
+    const result = this.toGraphQL(updated, [], undefined, undefined, rescheduleFee);
+    await this.pubSub.publish(APPOINTMENT_UPDATED_EVENT, { appointmentUpdated: result });
     return result;
   }
 

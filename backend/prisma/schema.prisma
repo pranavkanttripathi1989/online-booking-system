@@ -276,6 +276,15 @@ model Appointments {
   checkin_token_hash       String?   @unique
   checkin_token_expires_at DateTime?
   checkin_token_used_at    DateTime?
+  // P2-16 — same shape as checkin_token_* immediately above, minted by
+  // AppointmentReminderSweepService in the same call that sends a reminder
+  // (not at booking time — a reschedule link's own natural trigger point
+  // is "we just told you about this appointment"). Expires at the
+  // appointment's own current appointment_time; single-use, cleared
+  // atomically with the reschedule write.
+  reschedule_token_hash       String?   @unique
+  reschedule_token_expires_at DateTime?
+  reschedule_token_used_at    DateTime?
   // REQ026 (US-TEL-07) — "advise in-person visit" escalation from a
   // teleconsultation. Nullable: set only on the new in-person appointment
   // this creates, never on the originating video appointment itself.

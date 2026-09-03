@@ -1146,6 +1146,164 @@ describe('AppointmentsService — access scoping', () => {
     });
   });
 
+  // P2-16 — self-serve reschedule link. Same token-by-hash lookup shape as
+  // checkInWithQrToken (REQ107) above, plus assertSlotFree + the
+  // maybeChargeRescheduleFee helper extracted from update() itself.
+  describe('getRescheduleContext / reschedulePublic (P2-16)', () => {
+    const rawToken = 'b'.repeat(64);
+    const tokenHash = crypto.createHash('sha256').update(rawToken).digest('hex');
+    const futureTime = new Date(Date.now() + 72 * 60 * 60 * 1000);
+    const rescheduleAppointmentRow = {
+      ...baseAppointmentRow,
+      status: 'confirmed',
+      booking_mode: 'slot',
+      product_id: 'prod-1',
+      clinic_id: 'clinic-1',
+      appointment_time: futureTime,
+      clinic: { client_org_id: 'org-1' },
+      clinician: { id: 'cln-1', first_name: 'X', last_name: 'Y' },
+      product: { id: 'prod-1', name: 'GP Consultation' },
+      reschedule_token_hash: tokenHash,
+      reschedule_token_expires_at: futureTime,
+      reschedule_token_used_at: null,
+    };
+
+    describe('getRescheduleContext', () => {
+      it('rejects a syntactically well-formed but never-issued token exactly like "not found"', async () => {
+        prisma.appointments.findFirst.mockResolvedValue(null);
+        await expect(service.getRescheduleContext(rawToken)).rejects.toThrow('Invalid reschedule link');
+      });
+
+      it('returns the read-only context for a valid token', async () => {
+        prisma.appointments.findFirst.mockResolvedValue(rescheduleAppointmentRow);
+        const result = await service.getRescheduleContext(rawToken);
+        expect(result).toEqual(expect.objectContaining({ clinician_id: 'cln-1', clinician_name: 'X Y', service_name: 'GP Consultation' }));
+      });
+
+      it('rejects an already-used token, with a distinct message from "not found"', async () => {
+        prisma.appointments.findFirst.mockResolvedValue({ ...rescheduleAppointmentRow, reschedule_token_used_at: new Date() });
+        await expect(service.getRescheduleContext(rawToken)).rejects.toThrow('already been used');
+      });
+
+      it('rejects an expired token, with a distinct message from "already used"', async () => {
+        prisma.appointments.findFirst.mockResolvedValue({ ...rescheduleAppointmentRow, reschedule_token_expires_at: new Date(Date.now() - 1000) });
+        await expect(service.getRescheduleContext(rawToken)).rejects.toThrow('expired');
+      });
+
+      it('rejects a token for an already-cancelled appointment', async () => {
+        prisma.appointments.findFirst.mockResolvedValue({ ...rescheduleAppointmentRow, status: 'cancelled' });
+        await expect(service.getRescheduleContext(rawToken)).rejects.toThrow(/cancelled/);
+      });
+    });
+
+    describe('reschedulePublic', () => {
+      const newStartIso = new Date(Date.now() + 96 * 60 * 60 * 1000).toISOString();
+
+      beforeEach(() => {
+        prisma.appointments.findFirst.mockResolvedValue(rescheduleAppointmentRow);
+        prisma.appointments.update.mockResolvedValue({ ...rescheduleAppointmentRow, appointment_time: new Date(newStartIso) });
+      });
+
+      it('never trusts a client-supplied appointment id — only the token hash resolves the row', async () => {
+        await service.reschedulePublic(rawToken, newStartIso);
+        expect(prisma.appointments.findFirst).toHaveBeenCalledWith(expect.objectContaining({ where: { reschedule_token_hash: tokenHash } }));
+      });
+
+      it('rejects an already-used token', async () => {
+        prisma.appointments.findFirst.mockResolvedValue({ ...rescheduleAppointmentRow, reschedule_token_used_at: new Date() });
+        await expect(service.reschedulePublic(rawToken, newStartIso)).rejects.toThrow('already been used');
+        expect(prisma.appointments.update).not.toHaveBeenCalled();
+      });
+
+      it('rejects an expired token', async () => {
+        prisma.appointments.findFirst.mockResolvedValue({ ...rescheduleAppointmentRow, reschedule_token_expires_at: new Date(Date.now() - 1000) });
+        await expect(service.reschedulePublic(rawToken, newStartIso)).rejects.toThrow('expired');
+      });
+
+      it('rejects a new time that is in the past', async () => {
+        await expect(service.reschedulePublic(rawToken, new Date(Date.now() - 1000).toISOString())).rejects.toThrow('future');
+        expect(prisma.appointments.update).not.toHaveBeenCalled();
+      });
+
+      it('rejects a slot that is no longer free (assertSlotFree)', async () => {
+        prisma.appointments.findFirst
+          .mockResolvedValueOnce(rescheduleAppointmentRow) // the token lookup
+          .mockResolvedValueOnce({ appointment_time: new Date(newStartIso), duration_minutes: 30 }); // assertSlotFree's own conflict lookup
+        await expect(service.reschedulePublic(rawToken, newStartIso)).rejects.toThrow('This time slot is no longer available');
+        expect(prisma.appointments.update).not.toHaveBeenCalled();
+      });
+
+      it('marks the token used atomically with the reschedule write, and resets reminder_count/reminder_sent_at', async () => {
+        await service.reschedulePublic(rawToken, newStartIso);
+        expect(prisma.appointments.update).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ reschedule_token_used_at: expect.any(Date), reminder_count: 0, reminder_sent_at: null }),
+        }));
+      });
+
+      it('syncs the AppointmentResources time range to the new slot', async () => {
+        await service.reschedulePublic(rawToken, newStartIso);
+        expect(prisma.appointmentResources.updateMany).toHaveBeenCalledWith(expect.objectContaining({
+          where: { appointment_id: 'appt-1' },
+          data: expect.objectContaining({ start_at: new Date(newStartIso) }),
+        }));
+      });
+
+      it('logs the status change with no changed_by_user_id (no authenticated caller)', async () => {
+        await service.reschedulePublic(rawToken, newStartIso);
+        expect(prisma.appointmentStatusLogs.create).toHaveBeenCalledWith(expect.objectContaining({
+          data: expect.objectContaining({ changed_by_user_id: null }),
+        }));
+      });
+
+      it('applies the same reschedule fee logic update() uses, when notice is short and a rule applies', async () => {
+        prisma.appointmentPayments.findFirst.mockResolvedValue({ id: 'pay-prior-1', status: 'succeeded', amount: 100000 });
+        prisma.appointmentPayments.create.mockResolvedValue({ id: 'fee-payment-1' });
+        cancellationRulesService.findActiveRulesForOrg.mockResolvedValue([
+          { hours_before_appointment: 9999, fee_type: 'fixed', fee_amount: 15000, product_id: null, clinic_id: null, priority: 1 },
+        ]);
+        const result = await service.reschedulePublic(rawToken, newStartIso);
+        expect(result.reschedule_fee_amount).toBe(150); // 15000 paise -> rupees
+      });
+    });
+  });
+
+  describe('issueRescheduleToken (P2-16)', () => {
+    it('mints and persists a fresh token when none exists yet', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({ reschedule_token_hash: null, reschedule_token_used_at: null, reschedule_token_expires_at: null });
+      const raw = await service.issueRescheduleToken('appt-1', new Date(Date.now() + 86400000));
+      expect(raw).toEqual(expect.any(String));
+      expect(prisma.appointments.update).toHaveBeenCalledWith(expect.objectContaining({
+        where: { id: 'appt-1' },
+        data: expect.objectContaining({ reschedule_token_hash: expect.any(String), reschedule_token_used_at: null }),
+      }));
+    });
+
+    it('returns null and mints nothing when a still-valid, unused token already exists — never silently breaks an already-delivered link', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({
+        reschedule_token_hash: 'existing-hash', reschedule_token_used_at: null, reschedule_token_expires_at: new Date(Date.now() + 86400000),
+      });
+      const raw = await service.issueRescheduleToken('appt-1', new Date(Date.now() + 86400000));
+      expect(raw).toBeNull();
+      expect(prisma.appointments.update).not.toHaveBeenCalled();
+    });
+
+    it('mints a fresh token when the existing one is already used', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({
+        reschedule_token_hash: 'existing-hash', reschedule_token_used_at: new Date(), reschedule_token_expires_at: new Date(Date.now() + 86400000),
+      });
+      const raw = await service.issueRescheduleToken('appt-1', new Date(Date.now() + 86400000));
+      expect(raw).toEqual(expect.any(String));
+    });
+
+    it('mints a fresh token when the existing one has expired', async () => {
+      prisma.appointments.findUnique.mockResolvedValue({
+        reschedule_token_hash: 'existing-hash', reschedule_token_used_at: null, reschedule_token_expires_at: new Date(Date.now() - 1000),
+      });
+      const raw = await service.issueRescheduleToken('appt-1', new Date(Date.now() + 86400000));
+      expect(raw).toEqual(expect.any(String));
+    });
+  });
+
   // REQ177 — update()'s reschedule-fee hook. A near-term (2h from now) time
   // change against a rule requiring 48h notice.
   describe('update — reschedule fee', () => {
@@ -1220,6 +1378,24 @@ describe('AppointmentsService — access scoping', () => {
 
       expect(prisma.appointmentPayments.findFirst).not.toHaveBeenCalled();
       expect(result.reschedule_fee_amount).toBeUndefined();
+    });
+
+    // P2-16 — a staff-initiated reschedule must also reset reminder
+    // eligibility, or a rescheduled appointment silently never gets a
+    // reminder (and therefore never a self-serve reschedule link) for its
+    // new time, once its old reminder_count already reached the cap.
+    it('resets reminder_count and reminder_sent_at when the time actually changes', async () => {
+      await service.update('appt-1', { start_datetime: new Date().toISOString() } as any, staffUser);
+      expect(prisma.appointments.update).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ reminder_count: 0, reminder_sent_at: null }),
+      }));
+    });
+
+    it('does not touch reminder_count/reminder_sent_at when start_datetime is unchanged', async () => {
+      await service.update('appt-1', { notes: 'just a note update' } as any, staffUser);
+      const data = prisma.appointments.update.mock.calls[0][0].data;
+      expect(data).not.toHaveProperty('reminder_count');
+      expect(data).not.toHaveProperty('reminder_sent_at');
     });
   });
 });

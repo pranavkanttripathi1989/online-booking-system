@@ -2,7 +2,7 @@ import { Resolver, Query, Mutation, Subscription, Args, ID, Int, ResolveField, P
 import { Inject } from '@nestjs/common';
 import { PubSub } from 'graphql-subscriptions';
 import { AppointmentsService, APPOINTMENT_UPDATED_EVENT } from './appointments.service';
-import { AppointmentType, AppointmentPaginatedType, BulkRescheduleResultType, SlotHoldType } from './entities/appointment.entity';
+import { AppointmentType, AppointmentPaginatedType, BulkRescheduleResultType, SlotHoldType, RescheduleContextType } from './entities/appointment.entity';
 import { AppointmentFiltersInput } from './dto/appointment-filters.input';
 import { AppointmentInput, AppointmentUpdateInput, BulkRescheduleAppointmentsInput } from './dto/appointment.input';
 import { Auth } from '../common/decorators/auth.decorator';
@@ -130,6 +130,22 @@ export class AppointmentsResolver {
   @Mutation(() => AppointmentType)
   checkInWithQrToken(@Args('token') token: string) {
     return this.appointmentsService.checkInWithQrToken(token);
+  }
+
+  // P2-16 — same "opaque token is the sole authority" shape as
+  // checkInWithQrToken immediately above, for the self-serve reschedule
+  // link a reminder now carries. Read-only lookup before the patient picks
+  // a new time, so the page can render a specific valid/expired/used state.
+  @Public()
+  @Query(() => RescheduleContextType)
+  getRescheduleContext(@Args('token') token: string) {
+    return this.appointmentsService.getRescheduleContext(token);
+  }
+
+  @Public()
+  @Mutation(() => AppointmentType)
+  reschedulePublicAppointment(@Args('token') token: string, @Args('new_start_datetime') newStartDatetime: string) {
+    return this.appointmentsService.reschedulePublic(token, newStartDatetime);
   }
 
   @Auth('manager', 'admin', 'super_admin', 'clinician', 'staff', 'receptionist')

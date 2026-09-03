@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AppointmentReminderSweepService } from './appointment-reminder-sweep.service';
 import { PrismaService } from '../prisma/prisma.service';
 import { NotificationTriggerService } from '../notifications/notification-trigger.service';
+import { AppointmentsService } from './appointments.service';
 
 // P1-17 — mirrors NoShowSweepService's own spec pattern exactly (same
 // fake-timer "now", same per-row try/catch coverage), against the
@@ -10,6 +11,7 @@ describe('AppointmentReminderSweepService', () => {
   let service: AppointmentReminderSweepService;
   let prisma: any;
   let notificationTrigger: { dispatch: jest.Mock };
+  let appointmentsService: { issueRescheduleToken: jest.Mock };
 
   const clinic = { id: 'clinic-a', client_organization: { no_show_prepayment_threshold: 3 } };
   const clinician = { first_name: 'Dr', last_name: 'Real' };
@@ -43,6 +45,10 @@ describe('AppointmentReminderSweepService', () => {
         AppointmentReminderSweepService,
         { provide: PrismaService, useValue: prisma },
         { provide: NotificationTriggerService, useValue: (notificationTrigger = { dispatch: jest.fn() }) },
+        // P2-16 — every pre-existing test in this file predates the
+        // reschedule-link feature; default to "a fresh token was minted"
+        // so they exercise the (unchecked-by-them) message text unchanged.
+        { provide: AppointmentsService, useValue: (appointmentsService = { issueRescheduleToken: jest.fn().mockResolvedValue('raw-reschedule-token') }) },
       ],
     }).compile();
     service = module.get(AppointmentReminderSweepService);
@@ -132,5 +138,40 @@ describe('AppointmentReminderSweepService', () => {
     await service.sweep();
     expect(notificationTrigger.dispatch).not.toHaveBeenCalled();
     expect(prisma.appointments.update).not.toHaveBeenCalled();
+  });
+
+  // P2-16 — this sweep is the sole place a reschedule link is ever minted;
+  // before this slice, the reminder text carried no link at all (only an
+  // action_url wired into the in-app-notification-bell payload, never the
+  // SMS/WhatsApp text sendWhatsapp()/sendSms() actually deliver).
+  describe('self-serve reschedule link (P2-16)', () => {
+    it('mints a token and includes the reschedule link in the dispatched message', async () => {
+      prisma.appointments.findMany.mockResolvedValue([appt(23.5)]);
+      await service.sweep();
+      expect(appointmentsService.issueRescheduleToken).toHaveBeenCalledWith('appt-1', expect.any(Date));
+      expect(notificationTrigger.dispatch).toHaveBeenCalledWith(
+        'user-1',
+        'appointment_reminder',
+        expect.objectContaining({ message: expect.stringContaining('/reschedule/raw-reschedule-token') }),
+      );
+    });
+
+    it('omits the reschedule line entirely when a still-valid link was already sent (issueRescheduleToken returns null)', async () => {
+      appointmentsService.issueRescheduleToken.mockResolvedValue(null);
+      prisma.appointments.findMany.mockResolvedValue([appt(23.5)]);
+      await service.sweep();
+      expect(notificationTrigger.dispatch).toHaveBeenCalledWith(
+        'user-1',
+        'appointment_reminder',
+        expect.objectContaining({ message: expect.not.stringContaining('/reschedule/') }),
+      );
+    });
+
+    it('never mints a token for a patient with no linked login account — nothing gets sent to carry it', async () => {
+      prisma.userProfiles.findFirst.mockResolvedValue(null);
+      prisma.appointments.findMany.mockResolvedValue([appt(23.5)]);
+      await service.sweep();
+      expect(appointmentsService.issueRescheduleToken).not.toHaveBeenCalled();
+    });
   });
 });

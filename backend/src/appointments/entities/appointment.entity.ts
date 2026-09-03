@@ -179,3 +179,23 @@ export class SlotHoldType {
   @Field() hold_token: string;
   @Field() expires_at: Date;
 }
+
+// P2-16 — the read-only half of the public reschedule-link flow. Lives on
+// AppointmentsResolver (canonical/snake_case dialect) alongside
+// checkInWithQrToken, not PublicResolver — the token-resolution logic is
+// in AppointmentsService, not PublicService.
+@ObjectType('RescheduleContext')
+export class RescheduleContextType {
+  @Field(() => ID) clinician_id: string;
+  @Field() clinician_name: string;
+  @Field({ nullable: true }) service_name?: string;
+  @Field() current_start_datetime: Date;
+  @Field(() => Int) duration_minutes: number;
+  // P2-16 — reschedulePublic()'s own assertSlotFree call only runs for
+  // booking_mode 'slot' (matching update()'s identical branch); a
+  // session/hybrid-mode appointment has no discrete "is this slot free"
+  // check to run against and isn't reschedulable through this page.
+  // Surfaced so the frontend can show a clear message instead of a picker
+  // that would never actually work for that appointment.
+  @Field() booking_mode: string;
+}

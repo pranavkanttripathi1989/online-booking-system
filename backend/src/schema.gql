@@ -2872,6 +2872,7 @@ type Mutation {
   requestOtp(input: RequestOtpInput!): GenericResult!
   requestPreAuthEnhancement(input: RequestPreAuthEnhancementInput!): PreAuthEnhancement!
   requestRefund(input: RequestRefundInput!): RefundRequestResult!
+  reschedulePublicAppointment(new_start_datetime: String!, token: String!): Appointment!
   resetAppointmentJourney(id: ID!): Appointment!
   resetPassword(input: ResetPasswordInput!): GenericResult!
   resolveRegistryEnrollment(input: ResolveRegistryEnrollmentInput!): ChronicRegistryEnrollment!
@@ -4320,6 +4321,7 @@ type Query {
   getPatientReportGroup(clinicId: ID, endDate: String!, lapsedLookbackDays: Int! = 90, startDate: String!): PatientReportGroup!
   getPermissions: [Permission!]!
   getProducts(clinicianId: ID!): [PublicProduct!]!
+  getRescheduleContext(token: String!): RescheduleContext!
   getRolePermissions(roleId: ID!): [RolePermission!]!
   getRooms(clinicId: ID!): [AvailabilityRoomOption!]!
   getSpacerBlocks(clinicianId: ID!, date: String!): [ClinicianSpacerBlock!]!
@@ -4713,6 +4715,15 @@ input RequestPreAuthEnhancementInput {
 input RequestRefundInput {
   appointment_payment_id: ID!
   reason: String!
+}
+
+type RescheduleContext {
+  booking_mode: String!
+  clinician_id: ID!
+  clinician_name: String!
+  current_start_datetime: DateTime!
+  duration_minutes: Int!
+  service_name: String
 }
 
 input ResetPasswordInput {
