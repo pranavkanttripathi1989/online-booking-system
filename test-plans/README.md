@@ -19,7 +19,7 @@
 | clinical-records | 3 | 7 | 0 | 3 | 7 | 2026-09-03 | [clinical-records](./clinical-records/README.md) |
 | scheduling-engine | 1 | 5 | 0 | 0 | 6 | 2026-08-30 | [scheduling-engine](./scheduling-engine/README.md) |
 | messaging | 1 | 5 | 0 | 6 | 0 | 2026-08-26 | [messaging](./messaging/README.md) |
-| queue-management | 1 | 5 | 0 | 0 | 6 | 2026-08-26 | [queue-management](./queue-management/README.md) |
+| queue-management | 1 | 6 | 0 | 0 | 7 | 2026-09-03 | [queue-management](./queue-management/README.md) |
 | platform-nfr | 0 | 9 | 13 | 21 | 1 | 2026-08-28 | [platform-nfr](./platform-nfr/README.md) |
 | appointments | 3 | 7 | 4 | 6 | 8 | 2026-08-27 | [appointments](./appointments/README.md) |
 | booking-wizard | 1 | 0 | 0 | 1 | 0 | 2026-08-22 | [booking-wizard](./booking-wizard/README.md) |

@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| PLAN255 | improvement | Front-desk self-check-in kiosk mode (P2-15) | done | 2026-09-03 | 2026-09-03 | REQ186 | [PLAN255-queue-management-2026-09-03-kiosk-checkin-mode.md](./improvement/PLAN255-queue-management-2026-09-03-kiosk-checkin-mode.md) |
 | PLAN158 | improvement | Delay broadcast to waiting patients | done | 2026-08-26 | 2026-08-26 | REQ118 | [PLAN158-queue-management-2026-08-26-delay-broadcast.md](./improvement/PLAN158-queue-management-2026-08-26-delay-broadcast.md) |
 | PLAN157 | improvement | Predictive rolling-median wait-time ETA | done | 2026-08-26 | 2026-08-26 | REQ117 | [PLAN157-queue-management-2026-08-26-predictive-eta.md](./improvement/PLAN157-queue-management-2026-08-26-predictive-eta.md) |
 | PLAN147 | improvement | QR self-check-in for booked appointments | done | 2026-08-26 | 2026-08-26 | REQ107 | [PLAN147-queue-management-2026-08-26-qr-self-checkin.md](./improvement/PLAN147-queue-management-2026-08-26-qr-self-checkin.md) |

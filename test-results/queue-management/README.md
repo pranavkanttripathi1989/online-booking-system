@@ -10,6 +10,7 @@
 
 | ID | Type | Title | Status | Created | Updated | Parent | Link |
 |---|---|---|---|---|---|---|---|
+| TR275 | improvement | Front-desk self-check-in kiosk mode (P2-15) results | pass | 2026-09-03 | 2026-09-03 | TP275 | [TR275-queue-management-2026-09-03-kiosk-checkin-mode.md](./improvement/TR275-queue-management-2026-09-03-kiosk-checkin-mode.md) |
 | TR178 | improvement | Delay broadcast results | pass | 2026-08-26 | 2026-08-26 | TP178 | [TR178-queue-management-2026-08-26-delay-broadcast.md](./improvement/TR178-queue-management-2026-08-26-delay-broadcast.md) |
 | TR177 | improvement | Predictive rolling-median ETA results | pass | 2026-08-26 | 2026-08-26 | TP177 | [TR177-queue-management-2026-08-26-predictive-eta.md](./improvement/TR177-queue-management-2026-08-26-predictive-eta.md) |
 | TR171 | improvement | QR self-check-in results | pass | 2026-08-26 | 2026-08-26 | TP171 | [TR171-queue-management-2026-08-26-qr-self-checkin.md](./improvement/TR171-queue-management-2026-08-26-qr-self-checkin.md) |
