@@ -55,6 +55,7 @@ const OnboardingWizard = lazy(() => import('./pages/onboarding/index'))
 const Landing = lazy(() => import('./pages/public/landing'))
 const DoctorProfile = lazy(() => import('./pages/public/doctor-profile'))
 const Checkin = lazy(() => import('./pages/public/checkin'))
+const Reschedule = lazy(() => import('./pages/public/reschedule'))
 const PrescriptionOtp = lazy(() => import('./pages/share/prescription-otp'))
 
 // ─── Errors ───────────────────────────────────────────────────────────────────
@@ -259,6 +260,19 @@ function App() {
           element={
             <Suspense fallback={<FullPageLoader />}>
               <Checkin />
+            </Suspense>
+          }
+        />
+        {/* P2-16 — self-serve reschedule link, opened from an SMS/WhatsApp
+            reminder on a patient's own phone (not a shared kiosk device
+            like the bare /checkin route below) — the marketing chrome here
+            is harmless, matching /checkin/:token's own precedent. No auth
+            required: the token is the sole authority. */}
+        <Route
+          path="/reschedule/:token"
+          element={
+            <Suspense fallback={<FullPageLoader />}>
+              <Reschedule />
             </Suspense>
           }
         />
